@@ -26,7 +26,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | Suite | Documents | Synthesized | Tests | Not passing |
 | --- | --- | --- | --- | --- |
 | `dom/events/` | 56 | 9 | 544 | 20 |
-| `dom/nodes/` | 159 | 0 | 4,796 | 1,439 |
+| `dom/nodes/` | 159 | 0 | 4,796 | 1,416 |
 | `dom/collections/` | 8 | 0 | 43 | 18 |
 | `dom/lists/` | 5 | 0 | 189 | 5 |
 | `dom/traversal/` | 13 | 0 | 52 | 7 |
@@ -34,11 +34,11 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `html/dom/` | 5 | 0 | 85 | 31 |
 | `html/webappapis/scripting/events/` | 12 | 0 | 37 | 5 |
 | `html/webappapis/scripting/processing-model-2/` | 25 | 0 | 44 | 14 |
-| `custom-elements/` | 16 | 0 | 510 | 257 |
+| `custom-elements/` | 16 | 0 | 510 | 247 |
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
-| `custom-elements/reactions/` | 14 | 0 | 255 | 200 |
+| `custom-elements/reactions/` | 14 | 0 | 255 | 68 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 3 |
-| **total** | **340** | **9** | **6,664** | **2,020** |
+| **total** | **340** | **9** | **6,664** | **1,855** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -127,14 +127,15 @@ What the rest found is six causes, and every exclusion in the four new suites is
    when its constructor runs, and a constructor that constructs its own name before `super()` takes the
    element being upgraded rather than making a second one. That last file cannot report at all, so it is in
    the not-vendored table with the same reason.
-2. **A namespaced attribute is not a namespace here.** `getAttributeNS(null, name)` answers `null` where a
-   browser answers the value, because the binding converts a `DOMString?` *parameter* with
-   `TypeConverter.ToString` and `null` becomes the string `"null"`; the same conversion is why
-   `createElementNS(null, …)` and `setAttributeNS` behave as they do. It is the single biggest cause here:
-   `attribute-changed-callback.html` asserts the callback's `actualValue` through `getAttributeNS`, so all
-   thirteen of its rows fail on it, and `Document-createElementNS*.html` is the same conversion from the
-   other side. Nothing about custom elements would move it; a nullable-string parameter in the generator
-   would move all of it.
+2. **A namespaced attribute was not a namespace here, and is now**
+   ([#3712](https://github.com/sebastienros/jint/issues/3712)). `getAttributeNS(null, name)` answered `null`
+   where a browser answers the value, because the binding converted a `DOMString?` *parameter* with
+   `TypeConverter.ToString` and `null` became the string `"null"`; the same conversion was why
+   `createElementNS(null, …)` and `setAttributeNS` behaved as they did. It was the single biggest cause
+   here — `attribute-changed-callback.html` asserts the callback's `actualValue` through `getAttributeNS`,
+   so every one of its rows failed on it, and the reactions helper reads its recorded values the same way.
+   The generator reads the nullability from AngleSharp's own metadata now, and `reactions/` went from 200
+   rows not passing to 68 with it.
 3. **Two attribute writes reach neither notification channel**, and both are AngleSharp's: `setAttributeNS`
    and a write through an `Attr` node. `reactions/Attr.html` and part of `reactions/Element.html` are that,
    and [`Jint.Browser/Dom/AGENTS.md`](../../Jint.Browser/Dom/AGENTS.md) records each. `classList` was the
@@ -169,8 +170,11 @@ They arrived together, 207 documents and 4,815 tests, and **2,024 of those tests
 much worse ratio than any suite already here, and it should be: `dom/events/` is one interface's dispatch,
 where these are every member of every node interface.
 
-The failures are **eighteen distinct causes**, and the table names each of them test by test. Ten of them
-were filed as [#3765](https://github.com/sebastienros/jint/issues/3765)–[#3774](https://github.com/sebastienros/jint/issues/3774), and one was already open as [#3712](https://github.com/sebastienros/jint/issues/3712); the counts move as those are fixed.
+The failures are **seventeen distinct causes**, and the table names each of them test by test. Ten of them
+were filed as [#3765](https://github.com/sebastienros/jint/issues/3765)–[#3774](https://github.com/sebastienros/jint/issues/3774); the counts move as those are fixed.
+The eighteenth was [#3712](https://github.com/sebastienros/jint/issues/3712), a nullable `DOMString` argument
+answering the string `"null"`, and it is fixed here: the 23 rows it accounted for — `createElementNS(null,
+…)`'s namespace and local name, and the six of `attributes.html` — pass, so it has no row left.
 Ordered by how many tests each accounts for:
 
 | Tests | Documents | What it is |
@@ -185,7 +189,6 @@ Ordered by how many tests each accounts for:
 | 50 | 13 | One assertion each: `Node.isEqualNode` compares data it should not, `Element.removeAttribute` removes one attribute of two, an attribute's order in `element.attributes` differs, `cloneNode` copies a `value` a browser leaves behind. |
 | 49 | 2 | [#3772](https://github.com/sebastienros/jint/issues/3772) **The XML name productions are wrong.** `createDocumentType("edi:root", …)` and 43 of its siblings are refused as "Invalid character detected" where DOM's Name production allows them, and `name-validation.html` finds five code-point ranges refused in both directions. |
 | 40 | 5 | [#3774](https://github.com/sebastienros/jint/issues/3774) **A refusal the standard requires and AngleSharp does not make.** `createElementNS(null, "a:b")` is a `NamespaceError` in DOM's validate-and-extract and no error at all here — `Dom/AGENTS.md` records it — and `createElement` refuses eight names DOM allows. |
-| 21 | 4 | [#3712](https://github.com/sebastienros/jint/issues/3712) **A nullable `DOMString` answers the string `"null"`.** `createElementNS(null, …)` gives an element whose `namespaceURI` is `"http://www.w3.org/1999/xhtml"` and `node.nodeValue = null` reads back `"null"`, because the binding converts a `DOMString?` parameter with `TypeConverter.ToString`. It is the same conversion the custom-element corpus records for `getAttributeNS`, from the other side. |
 | 20 | 5 | [#3772](https://github.com/sebastienros/jint/issues/3772) **`StaticRange` is not a name**, which is eleven rows of `StaticRange-constructor.html`, plus what is left of `Range`'s own algorithms: `comparePoint`, `extractContents` over a dynamic end, and a range whose shadow root has been removed. |
 | 18 | 1 | **An event interface this browser does not build**, which is `NeedsMoreEventInterfaces` and the alias table `dom/events/EventTarget-dispatchEvent.html` already names: `DragEvent`, `StorageEvent`, `TouchEvent` and the two device events. |
 | 11 | 4 | **A document with no browsing context still has a `location`**, `createHTMLDocument` gives it one child too few, and `characterSet` answers `"utf-8"` where the standard's encoding name is `"UTF-8"`. |

@@ -62,5 +62,8 @@ internal sealed class DomTestFixture : IDisposable
     /// <summary>Evaluates <paramref name="source"/> and reads the result as a number.</summary>
     internal double Number(string source) => Evaluate(source).AsNumber();
 
+    /// <summary>Runs <paramref name="source"/> for its effect on the document.</summary>
+    internal void Execute(string source) => Engine.Execute(source);
+
     public void Dispose() => Document.Dispose();
 }

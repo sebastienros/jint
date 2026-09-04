@@ -135,7 +135,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSColorProfileRule.setProperty", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssColorProfileRule>(thisObj, "CSSColorProfileRule.setProperty");
-                    self.Target.SetProperty(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSColorProfileRule.setProperty"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "CSSColorProfileRule.setProperty"), global::Jint.Browser.Dom.DomConvert.OptionalText(args, 2, null)!); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetProperty(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSColorProfileRule.setProperty"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "CSSColorProfileRule.setProperty"), global::Jint.Browser.Dom.DomConvert.NullableText(args, 2)); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 2)
             .Build();
@@ -403,7 +403,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSFontFaceRule.setProperty", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssFontFaceRule>(thisObj, "CSSFontFaceRule.setProperty");
-                    self.Target.SetProperty(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSFontFaceRule.setProperty"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "CSSFontFaceRule.setProperty"), global::Jint.Browser.Dom.DomConvert.OptionalText(args, 2, null)!); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetProperty(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSFontFaceRule.setProperty"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "CSSFontFaceRule.setProperty"), global::Jint.Browser.Dom.DomConvert.NullableText(args, 2)); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 2)
             .Accessor("src",
@@ -534,7 +534,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSFontPaletteValuesRule.setProperty", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssFontPaletteValuesRule>(thisObj, "CSSFontPaletteValuesRule.setProperty");
-                    self.Target.SetProperty(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSFontPaletteValuesRule.setProperty"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "CSSFontPaletteValuesRule.setProperty"), global::Jint.Browser.Dom.DomConvert.OptionalText(args, 2, null)!); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetProperty(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSFontPaletteValuesRule.setProperty"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "CSSFontPaletteValuesRule.setProperty"), global::Jint.Browser.Dom.DomConvert.NullableText(args, 2)); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 2)
             .Build();
@@ -859,7 +859,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSPropertyRule.setProperty", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssPropertyRule>(thisObj, "CSSPropertyRule.setProperty");
-                    self.Target.SetProperty(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSPropertyRule.setProperty"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "CSSPropertyRule.setProperty"), global::Jint.Browser.Dom.DomConvert.OptionalText(args, 2, null)!); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetProperty(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSPropertyRule.setProperty"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "CSSPropertyRule.setProperty"), global::Jint.Browser.Dom.DomConvert.NullableText(args, 2)); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 2)
             .Build();
@@ -3019,7 +3019,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.setProperty", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.setProperty");
-                    self.Target.SetProperty(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.setProperty"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "CSSStyleDeclaration.setProperty"), global::Jint.Browser.Dom.DomConvert.OptionalText(args, 2, null)!); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetProperty(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.setProperty"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "CSSStyleDeclaration.setProperty"), global::Jint.Browser.Dom.DomConvert.NullableText(args, 2)); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 2)
             .Accessor("stroke",
@@ -3637,7 +3637,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSViewTransitionRule.setProperty", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssViewTransitionRule>(thisObj, "CSSViewTransitionRule.setProperty");
-                    self.Target.SetProperty(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSViewTransitionRule.setProperty"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "CSSViewTransitionRule.setProperty"), global::Jint.Browser.Dom.DomConvert.OptionalText(args, 2, null)!); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetProperty(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSViewTransitionRule.setProperty"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "CSSViewTransitionRule.setProperty"), global::Jint.Browser.Dom.DomConvert.NullableText(args, 2)); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 2)
             .Build();

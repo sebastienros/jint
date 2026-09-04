@@ -8,7 +8,8 @@ namespace Jint.Browser.Dom;
 
 /// <summary>
 /// The seam for the DOM members whose behaviour depends on whether a page runtime is behind the binding:
-/// the ones that parse markup into the tree, and so have to reach the script scheduler.
+/// the ones that parse markup into the tree, and so have to reach the script scheduler, and the three whose
+/// answer is an object the host made rather than one AngleSharp did.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -167,6 +168,33 @@ internal class DomHostHooks
 
         document.WriteLine(Join(arguments));
     }
+
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#dom-document-createelement, and its namespaced and cloning siblings.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// These three <em>answer</em> rather than act, which is what the override table's value-returning hook
+    /// form is for. Their answer belongs to the host because with the synchronous custom elements flag set,
+    /// DOM's "create an element" runs the definition's <b>constructor</b> and hands back whatever it made
+    /// — an object AngleSharp never saw. Everything else about the members stays AngleSharp's call: the
+    /// name validation, the lower-casing, the namespace, the clone itself.
+    /// </para>
+    /// <para>
+    /// A document with no definition at all therefore behaves exactly as the generated member did before
+    /// there was a registry, which is what keeps the binding usable on its own.
+    /// </para>
+    /// </remarks>
+    internal virtual JsValue CreateElement(DomRealm realm, IDocument document, JsValue[] arguments)
+        => CustomElements.CustomElementCreation.CreateElement(realm, document, arguments);
+
+    /// <inheritdoc cref="CreateElement" />
+    internal virtual JsValue CreateElementNS(DomRealm realm, IDocument document, JsValue[] arguments)
+        => CustomElements.CustomElementCreation.CreateElementNS(realm, document, arguments);
+
+    /// <inheritdoc cref="CreateElement" />
+    internal virtual JsValue CloneNode(DomRealm realm, INode node, JsValue[] arguments)
+        => CustomElements.CustomElementCreation.CloneNode(realm, node, arguments);
 
     /// <summary>
     /// Whether a write to a document that has finished parsing is refused, and the page told why.

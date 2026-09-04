@@ -215,6 +215,32 @@ public sealed class DomBindingTests
     }
 
     [Test]
+    public void AHookBackedMemberAnswersTheHostsValueAndKeepsTheGeneratedMembersShape()
+    {
+        using var fixture = DomTestFixture.Create(Page);
+
+        // The three creation members are `hooks` entries with the value-returning form, so they are generated
+        // members whose body asks the host for the answer rather than skips re-implemented as additions.
+        // What a page sees is unchanged, which is the point: the shape, the arity and the answer are the
+        // member's own.
+        fixture.Text("document.createElement('div').tagName").Should().Be("DIV");
+        fixture.Bool("document.createElement('div') instanceof HTMLDivElement").Should().BeTrue();
+        fixture.Text("document.createElementNS('http://www.w3.org/2000/svg', 'svg').namespaceURI")
+            .Should().Be("http://www.w3.org/2000/svg");
+        fixture.Text("document.querySelector('#a').cloneNode(true).querySelector('b').textContent").Should().Be("world");
+
+        // https://webidl.spec.whatwg.org/#dfn-create-operation-function — an operation's length counts the
+        // arguments it requires, and a hook standing in front of a member must not change it.
+        fixture.Number("Document.prototype.createElement.length").Should().Be(1);
+        fixture.Number("Document.prototype.createElementNS.length").Should().Be(2);
+        fixture.Number("Node.prototype.cloneNode.length").Should().Be(0);
+
+        // And they are members of the prototype like any other, with an operation's WebIDL attributes.
+        fixture.Bool("Object.getOwnPropertyDescriptor(Document.prototype, 'createElement').enumerable").Should().BeTrue();
+        fixture.Bool("Object.getOwnPropertyDescriptor(Node.prototype, 'cloneNode').writable").Should().BeTrue();
+    }
+
+    [Test]
     public void AnAbsentReflectedStringAttributeReadsAsTheEmptyString()
     {
         using var fixture = DomTestFixture.Create("<div id='a'></div>");

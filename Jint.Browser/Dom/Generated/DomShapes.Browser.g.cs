@@ -90,14 +90,14 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("History.pushState", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.IHistory>(thisObj, "History.pushState");
-                    self.Target.PushState(global::Jint.Browser.Dom.DomConvert.At(args, 0), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "History.pushState"), global::Jint.Browser.Dom.DomConvert.OptionalText(args, 2, null)!); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.PushState(global::Jint.Browser.Dom.DomConvert.At(args, 0), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "History.pushState"), global::Jint.Browser.Dom.DomConvert.NullableText(args, 2)); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 2)
             .Method("replaceState",
                 global::Jint.Browser.Dom.DomFailures.Guard("History.replaceState", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.IHistory>(thisObj, "History.replaceState");
-                    self.Target.ReplaceState(global::Jint.Browser.Dom.DomConvert.At(args, 0), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "History.replaceState"), global::Jint.Browser.Dom.DomConvert.OptionalText(args, 2, null)!); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.ReplaceState(global::Jint.Browser.Dom.DomConvert.At(args, 0), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "History.replaceState"), global::Jint.Browser.Dom.DomConvert.NullableText(args, 2)); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 2)
             .Accessor("state",

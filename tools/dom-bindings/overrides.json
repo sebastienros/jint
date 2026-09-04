@@ -69,21 +69,6 @@
       "reason": "Returns an AngleSharp Event. Every script-visible event in this design is a Jint Event dispatched through the engine's own tree dispatcher (design doc §5), and letting AngleSharp's event objects reach script would create a second event bus with a second brand."
     },
     {
-      "interface": "Document",
-      "member": "createElement",
-      "reason": "For a defined custom element name the element is the CONSTRUCTOR's, not AngleSharp's: DOM's \"create an element\" runs the constructor with the synchronous custom elements flag set, and a customized built-in is upgraded before the call returns. AngleSharp knows nothing of a registry. Re-declared in `additions` over the same AngleSharp call plus the lookup, so a document with no definition behaves exactly as it did before."
-    },
-    {
-      "interface": "Document",
-      "member": "createElementNS",
-      "reason": "The namespaced half of createElement, and the same reason: only an element in the HTML namespace can be a custom element, which is a test the re-declared body makes."
-    },
-    {
-      "interface": "Node",
-      "member": "cloneNode",
-      "reason": "A clone of a custom element is a custom element: DOM clones with the synchronous custom elements flag unset and the upgrade reaction runs before the [CEReactions] operation returns, which is what `template.content.cloneNode(true)` relies on. Re-declared in `additions` over the same AngleSharp call plus that upgrade; a document with no definition behaves exactly as it did before."
-    },
-    {
       "interface": "DOMImplementation",
       "member": "createHTMLDocument",
       "reason": "AngleSharp's parameter is non-optional, so the projection would make DOM's `optional DOMString title` required and `document.implementation.createHTMLDocument()` a TypeError. Re-declared in `additions` over the same AngleSharp call with the argument optional."
@@ -381,39 +366,6 @@
         "return global::Jint.Browser.Events.LegacyEventCreation.CreateEvent(self.Realm, args);"
       ],
       "reason": "DOM §4.5's legacy creation surface, which the standard still requires and half the events corpus is written against. AngleSharp's own is skipped because it answers an AngleSharp Event; this builds the Jint event the alias names, with the empty type and the initialized flag unset that make it undispatchable until initEvent() has named it."
-    },
-    {
-      "interface": "Document",
-      "member": "createElement",
-      "kind": "operation",
-      "length": 1,
-      "body": [
-        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, \"Document.createElement\");",
-        "return global::Jint.Browser.CustomElements.CustomElementCreation.CreateElement(self.Realm, self.Target, args);"
-      ],
-      "reason": "The other half of the skip above: HTML §4.13's \"create an element\". The body is AngleSharp's own call while nothing is defined, and the custom element creation path once something is."
-    },
-    {
-      "interface": "Document",
-      "member": "createElementNS",
-      "kind": "operation",
-      "length": 2,
-      "body": [
-        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, \"Document.createElementNS\");",
-        "return global::Jint.Browser.CustomElements.CustomElementCreation.CreateElementNS(self.Realm, self.Target, args);"
-      ],
-      "reason": "The namespaced half, which answers a plain element for every namespace but HTML's."
-    },
-    {
-      "interface": "Node",
-      "member": "cloneNode",
-      "kind": "operation",
-      "length": 0,
-      "body": [
-        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INode>(thisObj, \"Node.cloneNode\");",
-        "return global::Jint.Browser.CustomElements.CustomElementCreation.CloneNode(self.Realm, self.Target, args);"
-      ],
-      "reason": "The other half of the skip above: the same AngleSharp call, and then the upgrade DOM's clone steps enqueue."
     },
     {
       "interface": "Document",
@@ -1359,6 +1311,30 @@
   ],
   "hooks": [
     {
+      "interface": "Document",
+      "member": "createElement",
+      "half": "operation",
+      "hook": "CreateElement",
+      "returns": true,
+      "reason": "DOM's create-an-element: with the synchronous custom elements flag set the element a defined name produces is the CONSTRUCTOR's and not AngleSharp's, so the answer belongs to the host. The hook's default runs the custom-element path and falls through to AngleSharp's own call when the document has no definition, which is what a binding with no registry behind it did before."
+    },
+    {
+      "interface": "Document",
+      "member": "createElementNS",
+      "half": "operation",
+      "hook": "CreateElementNS",
+      "returns": true,
+      "reason": "The namespaced half, which answers a plain element for every namespace but HTML's."
+    },
+    {
+      "interface": "Node",
+      "member": "cloneNode",
+      "half": "operation",
+      "hook": "CloneNode",
+      "returns": true,
+      "reason": "The same AngleSharp call, and then the upgrade DOM's clone steps enqueue -- so the node the page is handed is the host's answer rather than AngleSharp's."
+    },
+    {
       "interface": "Element",
       "member": "innerHTML",
       "half": "setter",
@@ -1481,6 +1457,62 @@
       "member": "insertBefore",
       "parameter": 1,
       "reason": "DOM §4.4: `Node insertBefore(Node node, Node? child)` — a null child appends, which is how every virtual DOM adds its last row. AngleSharp annotates the parameter nullable and implements it, but the emitter reads C# optionality rather than nullable-reference metadata, so the table is where WebIDL's nullability is stated."
+    }
+  ],
+  "nonNullableParameters": [
+    {
+      "interface": "Element",
+      "member": "setAttributeNS",
+      "parameter": 2,
+      "reason": "DOM 4.9: `undefined setAttributeNS(DOMString? namespace, DOMString qualifiedName, DOMString value)` -- only the namespace is nullable. AngleSharp annotates the value nullable because its own setter reads null as removing the attribute, so without this row `setAttributeNS(ns, 'x', null)` would remove where a page is owed the string \"null\"."
+    },
+    {
+      "interface": "History",
+      "member": "pushState",
+      "parameter": 1,
+      "reason": "HTML 7.4.5: `undefined pushState(any data, DOMString unused, optional USVString? url = null)` -- the url is nullable and the second argument is not, however unused it is."
+    },
+    {
+      "interface": "History",
+      "member": "replaceState",
+      "parameter": 1,
+      "reason": "The other half of pushState, and the same signature."
+    },
+    {
+      "interface": "HTMLDialogElement",
+      "member": "close",
+      "parameter": 0,
+      "reason": "HTML 4.11.4: `undefined close(optional DOMString returnValue)` -- non-nullable, so `dialog.close(null)` sets returnValue to \"null\" and the dialog's `returnValue` is a DOMString a page reads back."
+    },
+    {
+      "interface": "HTMLCanvasElement",
+      "member": "toDataURL",
+      "parameter": 0,
+      "reason": "HTML 4.12.5: `DOMString toDataURL(optional DOMString type, optional any quality)` -- non-nullable, so a null type is the unrecognized MIME type \"null\" and the answer falls back to image/png, rather than being read as no type at all."
+    },
+    {
+      "interface": "HTMLMediaElement",
+      "member": "addTextTrack",
+      "parameter": 1,
+      "reason": "HTML 4.8.11: `TextTrack addTextTrack(TextTrackKind kind, optional DOMString label = \"\", optional DOMString language = \"\")` -- both trailing arguments are non-nullable DOMStrings with an empty default."
+    },
+    {
+      "interface": "HTMLMediaElement",
+      "member": "addTextTrack",
+      "parameter": 2,
+      "reason": "The language half of addTextTrack, and the same clause."
+    },
+    {
+      "interface": "HTMLInputElement",
+      "member": "setSelectionRange",
+      "parameter": 2,
+      "reason": "HTML 4.10.19.3: `undefined setSelectionRange(unsigned long start, unsigned long end, optional DOMString direction)` -- non-nullable, and a direction the enumeration does not carry is \"none\" rather than an absent direction."
+    },
+    {
+      "interface": "HTMLTextAreaElement",
+      "member": "setSelectionRange",
+      "parameter": 2,
+      "reason": "The textarea half of setSelectionRange, and the same clause."
     }
   ],
   "stringEnums": [],

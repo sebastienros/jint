@@ -86,7 +86,12 @@ internal sealed class ModelBuilder
             }
         }
 
-        _conversions = new Conversions(_model, LookupInterface, t => _stringEnums.Contains(t.FullName!), IsNullableParameter);
+        _conversions = new Conversions(
+            _model,
+            LookupInterface,
+            t => _stringEnums.Contains(t.FullName!),
+            (member, index) => IsListedParameter(_overrides.NullableParameters, member, index),
+            (member, index) => IsListedParameter(_overrides.NonNullableParameters, member, index));
 
         foreach (var model in _byClrName.Values)
         {
@@ -605,7 +610,7 @@ internal sealed class ModelBuilder
     {
         // `nodeList.item(0)` and `collection.namedItem('x')` are operations in IDL and indexers in AngleSharp.
         var index = property.GetIndexParameters()[0];
-        if (!_conversions.TryParameter(index, 0, qualified, null, out var argument, out var argumentReason))
+        if (!_conversions.TryParameter(index, 0, qualified, null, ParameterRole.Operation, out var argument, out var argumentReason))
         {
             _model.Skipped.Add(new SkipRecord(model.DomName, domName, argumentReason));
             return;
@@ -635,12 +640,18 @@ internal sealed class ModelBuilder
     {
         if (_overrides.Hooks.FirstOrDefault(h => h.Interface == model.DomName && h.Member == domName && h.Half == "operation") is { } hook)
         {
+            // The value-returning form answers with what the hook returned; the plain one performs the
+            // operation and answers `undefined`, which is what an IDL operation returning `undefined` owes.
+            var hookCall = "self.Realm.Hooks." + hook.Hook + "(self.Realm, self.Target, args)";
+
             model.Members.Add(new MemberModel
             {
                 DomName = domName,
                 Kind = MemberKind.Operation,
-                Length = method.GetParameters().Length,
-                Body = Bind(model, qualified) + "self.Realm.Hooks." + hook.Hook + "(self.Realm, self.Target, args); return global::Jint.Native.JsValue.Undefined;",
+                Length = DeclaredLength(method),
+                Body = Bind(model, qualified) + (hook.Returns
+                    ? "return " + hookCall + ";"
+                    : hookCall + "; return global::Jint.Native.JsValue.Undefined;"),
                 Origin = declaring.Name + "." + method.Name + " (hook)",
             });
             return;
@@ -662,12 +673,11 @@ internal sealed class ModelBuilder
             return;
         }
 
-        var length = method.GetParameters().Count(p => !p.IsOptional && !IsParams(p));
         model.Members.Add(new MemberModel
         {
             DomName = domName,
             Kind = MemberKind.Operation,
-            Length = length,
+            Length = DeclaredLength(method),
             Body = Bind(model, qualified) + (method.ReturnType.FullName == "System.Void"
                 ? body + "; return global::Jint.Native.JsValue.Undefined;"
                 : "return " + body + ";"),
@@ -712,7 +722,7 @@ internal sealed class ModelBuilder
         string? setter = null;
         if (FindExtensionAccessor(declaring, domName, Accessors.Setter) is { } extensionSetter
             && !_overrides.Skip.Any(s => s.Interface == model.DomName && s.Member == domName && s.Half == "setter")
-            && _conversions.TryParameter(extensionSetter.GetParameters()[1], 0, qualified, null, out var value, out _))
+            && _conversions.TryParameter(extensionSetter.GetParameters()[1], 0, qualified, null, ParameterRole.AttributeValue, out var value, out _))
         {
             setter = ExtensionCall(extensionSetter, "self.Target", value) + "; return global::Jint.Native.JsValue.Undefined;";
         }
@@ -793,7 +803,7 @@ internal sealed class ModelBuilder
         if (extensionSetter is not null)
         {
             var parameter = extensionSetter.GetParameters()[1];
-            if (!_conversions.TryParameter(parameter, 0, qualified, null, out var value, out _))
+            if (!_conversions.TryParameter(parameter, 0, qualified, null, ParameterRole.AttributeValue, out var value, out _))
             {
                 return null;
             }
@@ -824,7 +834,7 @@ internal sealed class ModelBuilder
         }
 
         var setterParameter = property.SetMethod!.GetParameters()[0];
-        if (!_conversions.TryParameter(setterParameter, 0, qualified, null, out var assigned, out var reason))
+        if (!_conversions.TryParameter(setterParameter, 0, qualified, null, ParameterRole.AttributeValue, out var assigned, out var reason))
         {
             _model.Diagnostics.Add(model.DomName + "." + domName + " is read-only in the binding because its setter " + reason + ".");
             return null;
@@ -870,7 +880,7 @@ internal sealed class ModelBuilder
             var parameter = parameters[i];
             var dictionaryMember = dictionaryOffset >= 0 && index >= dictionaryOffset ? CamelCase(parameter.Name!) : null;
 
-            if (!_conversions.TryParameter(parameter, dictionaryMember is null ? index : dictionaryOffset, qualified, dictionaryMember, out var code, out reason))
+            if (!_conversions.TryParameter(parameter, dictionaryMember is null ? index : dictionaryOffset, qualified, dictionaryMember, ParameterRole.Operation, out var code, out reason))
             {
                 return false;
             }
@@ -884,13 +894,13 @@ internal sealed class ModelBuilder
     private bool IsNullableString(InterfaceModel model, string domName)
         => _overrides.NullableStrings.Any(n => n.Interface == model.DomName && n.Member == domName);
 
-    /// <summary>Whether the override table declares one argument of a member nullable.</summary>
+    /// <summary>Whether one of the two nullability lists names argument <paramref name="index"/> of a member.</summary>
     /// <remarks>
     /// The qualified name is what the emitted conversion already carries — <c>Node.insertBefore</c> — so the
     /// lookup needs nothing the caller does not have, and an entry naming a member of an interface that
     /// inherits it applies wherever that member is emitted.
     /// </remarks>
-    private bool IsNullableParameter(string qualified, int index)
+    private static bool IsListedParameter(List<Overrides.NullableParameterEntry> entries, string qualified, int index)
     {
         var dot = qualified.LastIndexOf('.');
         if (dot <= 0)
@@ -901,8 +911,17 @@ internal sealed class ModelBuilder
         var iface = qualified[..dot];
         var member = qualified[(dot + 1)..];
 
-        return _overrides.NullableParameters.Any(n => n.Interface == iface && n.Member == member && n.Parameter == index);
+        return entries.Any(n => n.Interface == iface && n.Member == member && n.Parameter == index);
     }
+
+    /// <summary>
+    /// https://webidl.spec.whatwg.org/#dfn-create-operation-function - an operation's <c>length</c> is the
+    /// number of arguments it requires, so an optional or variadic parameter does not count. Shared by the
+    /// generated members and the hook-backed ones, because a hook standing in front of a member must not
+    /// change the arity of the member it stands in front of.
+    /// </summary>
+    private static int DeclaredLength(MethodInfo method)
+        => method.GetParameters().Count(p => !p.IsOptional && !IsParams(p));
 
     private static bool IsParams(ParameterInfo parameter)
         => parameter.GetCustomAttributesData().Any(a => a.AttributeType.FullName == "System.ParamArrayAttribute");
@@ -1204,6 +1223,11 @@ internal sealed class ModelBuilder
         foreach (var entry in _overrides.NullableParameters)
         {
             Check("nullableParameters", entry.Interface, entry.Member, entry.Reason);
+        }
+
+        foreach (var entry in _overrides.NonNullableParameters)
+        {
+            Check("nonNullableParameters", entry.Interface, entry.Member, entry.Reason);
         }
 
         // The additions are checked the other way round: the interface has to exist, and the member has to

@@ -60,7 +60,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Node.cloneNode", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INode>(thisObj, "Node.cloneNode");
-                    return global::Jint.Browser.CustomElements.CustomElementCreation.CloneNode(self.Realm, self.Target, args);
+                    return self.Realm.Hooks.CloneNode(self.Realm, self.Target, args);
                 }),
                 length: 0)
             .Method("compareDocumentPosition",
@@ -148,7 +148,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Node.lookupPrefix", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INode>(thisObj, "Node.lookupPrefix");
-                    return global::Jint.Browser.Dom.DomConvert.NullableText(self.Target.LookupPrefix(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Node.lookupPrefix")));
+                    return global::Jint.Browser.Dom.DomConvert.NullableText(self.Target.LookupPrefix(global::Jint.Browser.Dom.DomConvert.NullableText(args, 0)));
                 }),
                 length: 1)
             .Accessor("nextSibling",
@@ -733,7 +733,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.createAttributeNS", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.createAttributeNS");
-                    return self.Realm.WrapNodeValue(self.Target.CreateAttribute(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.createAttributeNS"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Document.createAttributeNS")));
+                    return self.Realm.WrapNodeValue(self.Target.CreateAttribute(global::Jint.Browser.Dom.DomConvert.NullableText(args, 0), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Document.createAttributeNS")));
                 }),
                 length: 2)
             .Method("createCDATASection",
@@ -761,14 +761,14 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.createElement", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.createElement");
-                    return global::Jint.Browser.CustomElements.CustomElementCreation.CreateElement(self.Realm, self.Target, args);
+                    return self.Realm.Hooks.CreateElement(self.Realm, self.Target, args);
                 }),
                 length: 1)
             .Method("createElementNS",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.createElementNS", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.createElementNS");
-                    return global::Jint.Browser.CustomElements.CustomElementCreation.CreateElementNS(self.Realm, self.Target, args);
+                    return self.Realm.Hooks.CreateElementNS(self.Realm, self.Target, args);
                 }),
                 length: 2)
             .Method("createEvent",
@@ -969,7 +969,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.getElementsByTagNameNS", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.getElementsByTagNameNS");
-                    return self.Realm.WrapCollection<global::AngleSharp.Dom.IElement>(self.Target.GetElementsByTagName(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.getElementsByTagNameNS"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Document.getElementsByTagNameNS")));
+                    return self.Realm.WrapCollection<global::AngleSharp.Dom.IElement>(self.Target.GetElementsByTagName(global::Jint.Browser.Dom.DomConvert.NullableText(args, 0), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Document.getElementsByTagNameNS")));
                 }),
                 length: 2)
             .Method("getSelection",
@@ -1460,7 +1460,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.getAttributeNS", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.getAttributeNS");
-                    return global::Jint.Browser.Dom.DomConvert.NullableText(self.Target.GetAttribute(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Element.getAttributeNS"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Element.getAttributeNS")));
+                    return global::Jint.Browser.Dom.DomConvert.NullableText(self.Target.GetAttribute(global::Jint.Browser.Dom.DomConvert.NullableText(args, 0), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Element.getAttributeNS")));
                 }),
                 length: 2)
             .Method("getAttributeNames",
@@ -1516,7 +1516,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.getElementsByTagNameNS", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.getElementsByTagNameNS");
-                    return self.Realm.WrapCollection<global::AngleSharp.Dom.IElement>(self.Target.GetElementsByTagNameNS(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Element.getElementsByTagNameNS"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Element.getElementsByTagNameNS")));
+                    return self.Realm.WrapCollection<global::AngleSharp.Dom.IElement>(self.Target.GetElementsByTagNameNS(global::Jint.Browser.Dom.DomConvert.NullableText(args, 0), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Element.getElementsByTagNameNS")));
                 }),
                 length: 2)
             .Method("hasAttribute",
@@ -1530,7 +1530,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.hasAttributeNS", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.hasAttributeNS");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.HasAttribute(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Element.hasAttributeNS"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Element.hasAttributeNS")));
+                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.HasAttribute(global::Jint.Browser.Dom.DomConvert.NullableText(args, 0), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Element.hasAttributeNS")));
                 }),
                 length: 2)
             .Method("hasAttributes",
@@ -1687,7 +1687,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.removeAttributeNS", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.removeAttributeNS");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.RemoveAttribute(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Element.removeAttributeNS"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Element.removeAttributeNS")));
+                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.RemoveAttribute(global::Jint.Browser.Dom.DomConvert.NullableText(args, 0), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Element.removeAttributeNS")));
                 }),
                 length: 2)
             .Method("removeAttributeNode",
@@ -1756,7 +1756,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.setAttributeNS", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.setAttributeNS");
-                    self.Target.SetAttribute(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Element.setAttributeNS"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Element.setAttributeNS"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 2, "Element.setAttributeNS")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetAttribute(global::Jint.Browser.Dom.DomConvert.NullableText(args, 0), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Element.setAttributeNS"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 2, "Element.setAttributeNS")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 3)
             .Method("setAttributeNode",
@@ -2059,7 +2059,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("NamedNodeMap.getNamedItemNS", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INamedNodeMap>(thisObj, "NamedNodeMap.getNamedItemNS");
-                    return self.Realm.WrapNodeValue(self.Target.GetNamedItem(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "NamedNodeMap.getNamedItemNS"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "NamedNodeMap.getNamedItemNS")));
+                    return self.Realm.WrapNodeValue(self.Target.GetNamedItem(global::Jint.Browser.Dom.DomConvert.NullableText(args, 0), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "NamedNodeMap.getNamedItemNS")));
                 }),
                 length: 2)
             .Method("item",
@@ -2080,7 +2080,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("NamedNodeMap.removeNamedItemNS", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INamedNodeMap>(thisObj, "NamedNodeMap.removeNamedItemNS");
-                    return self.Realm.WrapNodeValue(self.Target.RemoveNamedItem(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "NamedNodeMap.removeNamedItemNS"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "NamedNodeMap.removeNamedItemNS")));
+                    return self.Realm.WrapNodeValue(self.Target.RemoveNamedItem(global::Jint.Browser.Dom.DomConvert.NullableText(args, 0), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "NamedNodeMap.removeNamedItemNS")));
                 }),
                 length: 2)
             .Method("setNamedItem",
