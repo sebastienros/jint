@@ -1562,6 +1562,183 @@
       "attribute": "compact",
       "type": "boolean",
       "reason": "HTML \u00a716.2: an obsolete boolean attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLAnchorElement",
+      "member": "referrerPolicy",
+      "attribute": "referrerpolicy",
+      "type": "enum",
+      "keywords": ["", "no-referrer", "no-referrer-when-downgrade", "same-origin", "origin", "strict-origin", "origin-when-cross-origin", "strict-origin-when-cross-origin", "unsafe-url"],
+      "reason": "HTML \u00a72.6.7: a referrer policy attribute is an enumerated attribute whose keywords are the Referrer Policy specification's, with an empty invalid and missing value default. AngleSharp handed back the raw value."
+    },
+    {
+      "interface": "HTMLAnchorElement",
+      "member": "ping",
+      "attribute": "ping",
+      "type": "string",
+      "reason": "HTML \u00a74.5.1: `ping` is a reflected DOMString. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLAnchorElement",
+      "member": "type",
+      "attribute": "type",
+      "type": "string",
+      "reason": "HTML \u00a74.5.1: `type` is a reflected DOMString. AngleSharp projects a getter whose setter writes nothing, so `a.type = 'x'` left the content attribute as it was."
+    },
+    {
+      "interface": "HTMLAnchorElement",
+      "member": "charset",
+      "attribute": "charset",
+      "type": "string",
+      "reason": "HTML \u00a716.2: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLAnchorElement",
+      "member": "coords",
+      "attribute": "coords",
+      "type": "string",
+      "reason": "HTML \u00a716.2: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLAnchorElement",
+      "member": "name",
+      "attribute": "name",
+      "type": "string",
+      "reason": "HTML \u00a716.2: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLAnchorElement",
+      "member": "rev",
+      "attribute": "rev",
+      "type": "string",
+      "reason": "HTML \u00a716.2: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLAnchorElement",
+      "member": "shape",
+      "attribute": "shape",
+      "type": "string",
+      "reason": "HTML \u00a716.2: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLQuoteElement",
+      "member": "cite",
+      "attribute": "cite",
+      "type": "url",
+      "reason": "HTML \u00a74.4.4: `cite` is reflected as a URL on both <q> and <blockquote>, which share this interface. AngleSharp's Citation is the raw attribute value, the same divergence script.src had."
+    },
+    {
+      "interface": "HTMLTimeElement",
+      "member": "dateTime",
+      "attribute": "datetime",
+      "type": "string",
+      "reason": "HTML \u00a74.5.14: `dateTime` is a plain reflected DOMString -- the value is a date string but the IDL attribute does not parse it. AngleSharp types it as a DateTime, so nothing could be projected."
+    },
+    {
+      "interface": "HTMLBRElement",
+      "member": "clear",
+      "attribute": "clear",
+      "type": "string",
+      "reason": "HTML \u00a716.2: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLPreElement",
+      "member": "width",
+      "attribute": "width",
+      "type": "long",
+      "reason": "HTML \u00a716.2: <pre>'s obsolete `width` is a reflected long, so HTML's rules for parsing integers decide it. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLOListElement",
+      "member": "start",
+      "attribute": "start",
+      "type": "long",
+      "default": 1,
+      "reason": "HTML \u00a74.4.5: `start` is a reflected long whose default is 1. AngleSharp parses it with .NET's own integer rules, which take U+000B as whitespace where HTML's do not, so `start=\u000B7` was 7 rather than the default."
+    },
+    {
+      "interface": "HTMLOListElement",
+      "member": "compact",
+      "attribute": "compact",
+      "type": "boolean",
+      "reason": "HTML \u00a716.2: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLUListElement",
+      "member": "compact",
+      "attribute": "compact",
+      "type": "boolean",
+      "reason": "HTML \u00a716.2: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLUListElement",
+      "member": "type",
+      "attribute": "type",
+      "type": "string",
+      "reason": "HTML \u00a716.2: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLLIElement",
+      "member": "value",
+      "attribute": "value",
+      "type": "long",
+      "reason": "HTML \u00a74.4.8: `value` is a reflected long. AngleSharp types it as a nullable Int32 with its own parse and default, so an unparseable attribute did not answer 0."
+    },
+    {
+      "interface": "HTMLLIElement",
+      "member": "type",
+      "attribute": "type",
+      "type": "string",
+      "reason": "HTML \u00a716.2: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLDivElement",
+      "member": "align",
+      "attribute": "align",
+      "type": "string",
+      "reason": "HTML \u00a716.2: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLParagraphElement",
+      "member": "align",
+      "attribute": "align",
+      "type": "string",
+      "reason": "HTML \u00a716.2: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLHRElement",
+      "member": "align",
+      "attribute": "align",
+      "type": "string",
+      "reason": "HTML \u00a716.2: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLHRElement",
+      "member": "color",
+      "attribute": "color",
+      "type": "string",
+      "reason": "HTML \u00a716.2: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLHRElement",
+      "member": "noShade",
+      "attribute": "noshade",
+      "type": "boolean",
+      "reason": "HTML \u00a716.2: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLHRElement",
+      "member": "size",
+      "attribute": "size",
+      "type": "string",
+      "reason": "HTML \u00a716.2: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLHRElement",
+      "member": "width",
+      "attribute": "width",
+      "type": "string",
+      "reason": "HTML \u00a716.2: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
     }
   ],
 
