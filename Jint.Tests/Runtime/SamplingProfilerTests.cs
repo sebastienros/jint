@@ -51,6 +51,53 @@ public class SamplingProfilerTests
         total;
         """;
 
+    /// <summary>
+    /// The same three functions and the same loop, forty times over. It exists only for
+    /// <see cref="TheHotFunctionDominatesSelfTime"/>, and the size is the assertion's whole robustness.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A share of sample <i>weight</i> is hostage to the scheduler, and the smaller the profile the more
+    /// hostage it is.</b> The sampler fires at the engine's check points, so a sample's weight is the number
+    /// of whole intervals until the next one and an uninterruptible gap is charged to the stack observed
+    /// before it — which is exactly right for reading a profile, and exactly what lets one descheduled
+    /// moment on a loaded CI runner dominate a ratio. <see cref="NestedHotLoop"/> is measured at <b>318</b>
+    /// samples and about 318 units of weight, of which four are outside the loop: about <b>75</b> units
+    /// landing on any other frame drops the share below 0.8, and at that size 75 units is a hiccup of
+    /// roughly a millisecond and a half. This one measures <b>12,625</b> samples and about 13,450 units,
+    /// fifty of them outside the loop, so the same failure needs about <b>3,300</b> units — nineteen
+    /// milliseconds of continuous descheduling landing on one non-loop sample. Thirteen times the hiccup for
+    /// about seventy milliseconds of test.
+    /// </para>
+    /// <para>
+    /// The other six users of <see cref="NestedHotLoop"/> assert provenance, naming and rooting rather than
+    /// shares, so none of them needs this and none of them pays for it.
+    /// </para>
+    /// </remarks>
+    private const string DominantHotLoop = """
+        function innermost(n) {
+            var sum = 0;
+            for (var i = 0; i < n; i++) {
+                sum += i % 7;
+            }
+            return sum;
+        }
+
+        function middle(n) {
+            return innermost(n);
+        }
+
+        function outermost(n) {
+            return middle(n);
+        }
+
+        var total = 0;
+        for (var round = 0; round < 800; round++) {
+            total += outermost(1000);
+        }
+        total;
+        """;
+
     private static Engine CreateProfilingEngine() => new(options => options.Profiling.Enabled = true);
 
     /// <summary>
@@ -101,30 +148,36 @@ public class SamplingProfilerTests
     public void TheHotFunctionDominatesSelfTime()
     {
         var engine = CreateProfilingEngine();
-        var parsed = Parse(Profile(engine, NestedHotLoop));
+        var parsed = Parse(Profile(engine, DominantHotLoop));
 
-        parsed.SampleCount.Should().BeGreaterThan(10);
+        // Not "more than ten": the sampler fires at check points, so the count is a function of the work and
+        // not of the machine, and DominantHotLoop measures 12,625 of them on every run. A floor two orders
+        // below that catches a sampler that stopped firing without pinning a number that is not a contract.
+        parsed.SampleCount.Should().BeGreaterThan(1_000);
 
         var self = parsed.SelfWeightByFunction();
         var inclusive = parsed.InclusiveWeightByFunction();
         var total = self.Values.Sum();
 
         self.Should().ContainKey("innermost");
-        // A wall-clock sampler over-attributes to whichever frame is on top when a descheduled thread is
-        // sampled, so on a loaded CI runner this share has read 0.881, 0.842, 0.895 and exactly 0.800 with no
-        // profiler change in the pull request; 0.8 still says the loop dominates, which is what the test is
-        // about. Inclusive of the floor, because the share is a ratio of a sample count in the low tens and
-        // therefore quantised - 0.800 is 8 samples of 10, a value this comment already calls acceptable, and
-        // a strict > failed it on a loaded ARM leg for a pull request that changes no engine code.
+        // Measured at 0.9963 on an idle machine, and DominantHotLoop's remarks say what it takes to move it:
+        // a descheduled moment is charged to the stack under it, so the floor is about the runner rather than
+        // about the profiler. 0.8 still says the loop dominates, which is what the test is about.
+        //
+        // Inclusive of the floor, from #3832, and it stays inclusive: at DominantHotLoop's size the share is
+        // no longer a ratio of a few dozen samples that can land on 0.800 exactly, but an inclusive bound is
+        // what the sentence above means either way and costs nothing to keep.
         (self["innermost"] / total).Should().BeGreaterThanOrEqualTo(0.8, "the loop is the only work the script does");
 
         // middle and outermost do nothing but delegate, so they own almost no self time and almost all of
         // the inclusive time - which is the shape a call tree has to show for a profile to be worth reading.
         Weight(self, "middle").Should().BeLessThan(self["innermost"]);
-        // The inclusive shares drift the same way the self share does on a loaded runner (0.885 seen on a
-        // docs-only pull request); 0.8 still says every frame above the loop carries it.
-        (inclusive["outermost"] / total).Should().BeGreaterThan(0.8);
-        (inclusive["middle"] / total).Should().BeGreaterThan(0.8);
+        // The inclusive shares drift the same way the self share does, and for the same reason; 0.8 still says
+        // every frame above the loop carries it. Inclusive of the floor for the same reason #3832 made the
+        // self share inclusive: these are the same ratio of the same weights, and a bound that is strict on
+        // one and not the others would fail on exactly the runs the other two survive.
+        (inclusive["outermost"] / total).Should().BeGreaterThanOrEqualTo(0.8);
+        (inclusive["middle"] / total).Should().BeGreaterThanOrEqualTo(0.8);
         inclusive["(program)"].Should().BeApproximately(total, 1e-9, "every sample is rooted at the program");
     }
 
