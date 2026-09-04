@@ -1191,10 +1191,8 @@ internal sealed class ModelBuilder
             builder.Append("        var names = new global::System.Collections.Generic.List<string>();\n");
             builder.Append("        foreach (var entry in (").Append(CSharpNames.Render(pair)).Append(") target)\n        {\n");
             builder.Append("            // A null value is filtered out because the projection's three hooks have to agree at the\n");
-            builder.Append("            // same instant, and TryGetNamed reads null as an authoritative miss. AngleSharp's\n");
-            builder.Append("            // StringMap.Remove leaves the attribute in place with a null value rather than removing it\n");
-            builder.Append("            // (reported upstream), so without this a deleted dataset key would still enumerate while\n");
-            builder.Append("            // reading as undefined — the exact incoherence host-contract verification catches.\n");
+            builder.Append("            // same instant, and TryGetNamed reads null as an authoritative miss. Otherwise a key could\n");
+            builder.Append("            // enumerate while reading as undefined — the exact incoherence host verification catches.\n");
             builder.Append("            if (entry.Value is not null)\n            {\n                names.Add(entry.Key);\n            }\n        }\n\n        return names;\n    }\n\n");
         }
         else

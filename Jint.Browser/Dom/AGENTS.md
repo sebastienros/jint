@@ -155,9 +155,10 @@ work around it — are the register in [`divergences.md`](divergences.md), which
 and so is not budgeted here. **Add a row there for every one you find**, and never work around a divergence
 silently; never open an issue on the AngleSharp repositories without being asked to.
 
-The `dataset` one has a visible consequence inside the binding, and the one place a workaround is legitimate:
-the generated `SupportedNames` filters out a `null` value, because the projection's three hooks must agree at
-the same instant or host-contract verification fails. That is keeping *our* contract, not mending AngleSharp's.
+The `dataset` one has a visible consequence inside the binding: AngleSharp exposes a CLR string map over raw
+attribute suffixes, while HTML and Web IDL expose a named-property object whose keys are converted. The
+`HTMLElement.dataset` getter hook therefore projects `DomStringMapAdapter` over the associated element; it owns
+the camelCase conversion, named setter validation and real attribute deletion that the CLR surface cannot state.
 
 ### DOM §7's XPath, and CSSOM's `CSS` are in the package file
 
@@ -218,4 +219,3 @@ declared — the sanctioned in-place slot replacement, and the only kind a shape
 `WebIdlPropertyAttributeTests` holds every emitted member to its kind's attributes, which are WebIDL's and not
 ECMAScript's: an operation is **enumerable**. The same rule `Jint/WebApi/AGENTS.md` states, checked the same
 way, and it is the mistake a generator makes by default.
-

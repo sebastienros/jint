@@ -170,10 +170,8 @@ internal sealed class DomAccessorDOMStringMap : DomCollectionAccessor
         foreach (var entry in (global::System.Collections.Generic.IEnumerable<global::System.Collections.Generic.KeyValuePair<global::System.String, global::System.String>>) target)
         {
             // A null value is filtered out because the projection's three hooks have to agree at the
-            // same instant, and TryGetNamed reads null as an authoritative miss. AngleSharp's
-            // StringMap.Remove leaves the attribute in place with a null value rather than removing it
-            // (reported upstream), so without this a deleted dataset key would still enumerate while
-            // reading as undefined — the exact incoherence host-contract verification catches.
+            // same instant, and TryGetNamed reads null as an authoritative miss. Otherwise a key could
+            // enumerate while reading as undefined — the exact incoherence host verification catches.
             if (entry.Value is not null)
             {
                 names.Add(entry.Key);

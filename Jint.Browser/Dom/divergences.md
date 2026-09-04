@@ -12,7 +12,7 @@ here:
 | What | The standard | AngleSharp |
 | --- | --- | --- |
 | `node.isConnected` | DOM §4.4: whether the node's shadow-including root is a document | `INode` has no member for it at all, so nothing is projected — and every client library asks a node handle this before it clicks it, so an absent member makes every element read as detached. Re-declared in `additions` |
-| `delete el.dataset.foo` | DOM §3.5's deleter removes the content attribute | `IStringMap.Remove` sets its value to `null` and leaves `data-foo` in place |
+| `el.dataset.fooBar` and `delete el.dataset.foo` | HTML §3.2.6 converts between property names and `data-*` attribute names, and the deleter removes the content attribute | `IStringMap` accepts raw attribute suffixes, rejects uppercase ASCII, and the pinned version's `Remove` sets the value to `null` without removing the attribute ([fixed upstream](https://github.com/AngleSharp/AngleSharp/issues/1303)). No longer reached directly: `DomStringMapAdapter` projects the associated element instead |
 | `el.querySelectorAll(…)` | DOM §4.2.6 returns a static `NodeList` | returns an `IHtmlCollection<IElement>`; `DomStaticNodeList` adapts it to the generated NodeList binding and omits HTMLCollection's named properties |
 | `el.style.color` | CSSOM serializes an opaque colour as `rgb(r, g, b)` | serializes every colour as `rgba(r, g, b, 1)` |
 | `el.children === el.children` | one `HTMLCollection` per element | a fresh collection per call, so the wrapper cache has nothing to key identity on |

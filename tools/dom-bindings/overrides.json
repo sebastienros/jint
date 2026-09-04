@@ -1301,6 +1301,13 @@
   ],
   "hooks": [
     {
+      "interface": "HTMLElement",
+      "member": "dataset",
+      "half": "getter",
+      "hook": "Dataset",
+      "reason": "HTML 3.2.6 maps DOMStringMap property names between camelCase and data-* attribute names and defines its own SyntaxError and InvalidCharacterError checks. AngleSharp's IStringMap instead accepts raw attribute suffixes, rejects uppercase ASCII, and leaves a removed attribute behind with a null value, so the binding supplies the standards-shaped map over the associated element."
+    },
+    {
       "interface": "Document",
       "member": "currentScript",
       "half": "getter",
