@@ -120,31 +120,39 @@ namespace Jint.Browser
         public event System.EventHandler<Jint.Browser.DialogEventArgs>? DialogOpened;
         public System.Threading.Tasks.Task<string> AccessibilitySnapshotAsync(bool mainContentOnly = false, int maxLength = 0, bool includeReferences = false) { }
         public System.Threading.Tasks.Task<bool> ClickAsync(string target, Jint.Browser.NavigationOptions? options = null) { }
+        public System.Threading.Tasks.Task<bool> ClickAsync(string target, int index, Jint.Browser.NavigationOptions? options = null) { }
         public System.Threading.Tasks.Task CloseAsync() { }
         public System.Threading.Tasks.Task<string> ContentAsync() { }
         public System.Threading.Tasks.ValueTask DisposeAsync() { }
+        public System.Threading.Tasks.Task<object?> EvaluateAndAwaitAsync(string script, System.Threading.CancellationToken cancellationToken = default) { }
+        public System.Threading.Tasks.Task<T?> EvaluateAndAwaitAsync<T>(string script, System.Threading.CancellationToken cancellationToken = default) { }
         public System.Threading.Tasks.Task<object?> EvaluateAsync(string script) { }
         public System.Threading.Tasks.Task<T?> EvaluateAsync<T>(string script) { }
         public System.Threading.Tasks.Task<bool> FillAsync(string target, string text) { }
+        public System.Threading.Tasks.Task<bool> FillAsync(string target, int index, string text) { }
         public System.Threading.Tasks.Task<bool> GoBackAsync(System.TimeSpan timeout) { }
         public System.Threading.Tasks.Task<bool> GoForwardAsync(System.TimeSpan timeout) { }
         public System.Threading.Tasks.Task<bool> HoverAsync(string target) { }
+        public System.Threading.Tasks.Task<bool> HoverAsync(string target, int index) { }
         public System.Threading.Tasks.Task<string> MarkdownAsync(bool mainContentOnly = false, int maxLength = 0) { }
         public System.Threading.Tasks.Task<Jint.Browser.PageResponse?> NavigateAsync(string url, Jint.Browser.NavigationOptions? options = null) { }
         public System.Threading.Tasks.Task<bool> PressAsync(string key, Jint.Browser.NavigationOptions? options = null) { }
         public System.Threading.Tasks.Task<Jint.Browser.PageResponse?> ReloadAsync(Jint.Browser.NavigationOptions? options = null) { }
         public System.Threading.Tasks.Task ScrollToAsync(double y) { }
         public System.Threading.Tasks.Task<bool> SelectAsync(string target, string value) { }
+        public System.Threading.Tasks.Task<bool> SelectAsync(string target, int index, string value) { }
         public System.Threading.Tasks.Task SetContentAsync(string html, string? baseUrl = null) { }
         public System.Threading.Tasks.Task<Jint.Browser.PageResponse?> SubmitFormAsync(string selector, Jint.Browser.NavigationOptions? options = null) { }
         public System.Threading.Tasks.Task<string> TextAsync(bool mainContentOnly = false, int maxLength = 0) { }
         public System.Threading.Tasks.Task<string> TitleAsync() { }
         public System.Threading.Tasks.Task<bool> TypeAsync(string target, string text) { }
+        public System.Threading.Tasks.Task<bool> TypeAsync(string target, int index, string text) { }
         public System.Threading.Tasks.Task<bool> WaitForAsync(string expression, System.TimeSpan timeout) { }
         public System.Threading.Tasks.Task<bool> WaitForIdleAsync(System.TimeSpan timeout) { }
         public System.Threading.Tasks.Task<bool> WaitForNavigationAsync(System.TimeSpan timeout) { }
         public System.Threading.Tasks.Task<bool> WaitForNetworkIdleAsync(System.TimeSpan timeout) { }
         public System.Threading.Tasks.Task<bool> WaitForSelectorAsync(string selector, System.TimeSpan timeout) { }
+        public System.Threading.Tasks.Task<bool> WaitForSelectorAsync(string selector, int index, System.TimeSpan timeout) { }
         public System.Threading.Tasks.Task<bool> WaitForTextAsync(string text, System.TimeSpan timeout) { }
     }
     public sealed class PageError

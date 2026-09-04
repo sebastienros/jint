@@ -386,7 +386,7 @@ public class PlaywrightCourseTests
             await protocol.AddBrowser(pages).ConfigureAwait(false);
             await protocol.StartAsync().ConfigureAwait(false);
 
-            var playwright = await Playwright.CreateAsync().ConfigureAwait(false);
+            var playwright = await Microsoft.Playwright.Playwright.CreateAsync().ConfigureAwait(false);
 
             // The HTTP form, which is the one Playwright's own documentation gives and the one the recording
             // was made with: it reads webSocketDebuggerUrl out of /json/version and connects to that.

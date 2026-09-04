@@ -52,7 +52,8 @@ public sealed partial class Page
     /// <param name="mainContentOnly">Whether to walk only the document's main content, when it has one.</param>
     /// <param name="maxLength">The greatest number of characters to return, or zero for no limit.</param>
     /// <param name="includeReferences">
-    /// Whether each element node carries <c>[ref=<i>n</i>]</c>, which <see cref="ClickAsync"/> and the rest
+    /// Whether each element node carries <c>[ref=<i>n</i>]</c>, which
+    /// <see cref="ClickAsync(string, NavigationOptions)"/> and the rest
     /// of the input members accept in place of a selector.
     /// </param>
     /// <returns>The snapshot, or an empty string when the page holds no document.</returns>
@@ -110,7 +111,9 @@ public sealed partial class Page
                 return true;
             }
 
-            if (_closed || Stopwatch.GetElapsedTime(started) >= timeout)
+            if (_closed
+                || (timeout != System.Threading.Timeout.InfiniteTimeSpan
+                    && Stopwatch.GetElapsedTime(started) >= timeout))
             {
                 return false;
             }

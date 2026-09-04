@@ -33,7 +33,10 @@ internal static class ElementLocator
     /// asking about an element that is not there and a caller asking wrongly both want "no", and a selector
     /// arriving from a protocol client or an agent is input rather than code.
     /// </remarks>
-    internal static IElement? Find(IDocument? document, string target)
+    internal static IElement? Find(IDocument? document, string target) => Find(document, target, 0);
+
+    /// <summary>The indexed element <paramref name="target"/> names, or <see langword="null"/>.</summary>
+    internal static IElement? Find(IDocument? document, string target, int index)
     {
         if (document is null || string.IsNullOrWhiteSpace(target))
         {
@@ -42,6 +45,11 @@ internal static class ElementLocator
 
         if (target.StartsWith(ReferencePrefix, StringComparison.Ordinal))
         {
+            if (index is not 0 and not -1)
+            {
+                return null;
+            }
+
             var text = target[ReferencePrefix.Length..].Trim();
             return int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out var id)
                 ? AccessibilityTree.ElementFor(document, id)
@@ -50,7 +58,9 @@ internal static class ElementLocator
 
         try
         {
-            return document.QuerySelector(target);
+            var elements = document.QuerySelectorAll(target);
+            var resolved = index >= 0 ? index : elements.Length + index;
+            return (uint) resolved < (uint) elements.Length ? elements[resolved] : null;
         }
         catch (DomException)
         {

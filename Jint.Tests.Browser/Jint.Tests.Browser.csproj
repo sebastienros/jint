@@ -29,6 +29,9 @@
       passes there is a test about the protocol rather than about a method call.
     -->
     <ProjectReference Include="..\Jint.Browser.Mcp\Jint.Browser.Mcp.csproj" />
+    <!-- The direct Playwright interface adapter. Tests here prove that ordinary Microsoft.Playwright
+         client code can select Jint instead of Chromium without starting Node or speaking CDP. -->
+    <ProjectReference Include="..\Jint.Browser.Playwright\Jint.Browser.Playwright.csproj" />
     <!--
       The web-platform-tests corpus, its server and its exclusion vocabulary, which Wpt/ runs the browser lane
       on. One corpus and one pin: copying WptCorpus, WptServer and WptExclusion here would give the two lanes

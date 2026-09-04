@@ -2409,7 +2409,29 @@ neither an element nor a piece of text can state — a URL a router moved, a lis
 expression that throws is *not yet true*, so a condition written against an element a framework has not
 rendered is usable; a timeout reports that failure rather than a bare `false`.
 
-**An automation client**, over the protocol. `AddBrowser` publishes every page of a browser on a
+**A direct Playwright .NET adapter.** For applications that use Playwright's public browser interfaces,
+`Jint.Browser.Playwright` removes
+the protocol and Playwright driver from that path as well. It implements `IBrowserType`, `IBrowser`,
+`IBrowserContext`, `IPage`, `IFrame` and an initial `ILocator` subset directly over `Jint.Browser`:
+
+```c#
+using Jint.Browser.Playwright;
+using Microsoft.Playwright;
+
+IBrowserType browserType = JintPlaywright.BrowserType;
+await using var client = await browserType.LaunchAsync();
+var page = await client.NewPageAsync();
+
+await page.SetContentAsync("<button id='save'>Save</button>");
+await page.Locator("#save").ClickAsync();
+```
+
+That direct adapter starts no Node process and opens no CDP or WebSocket connection. It is built against
+Playwright 1.62's public contracts; operations it has not implemented fail with `NotSupportedException`,
+and Playwright features that downcast those interfaces to its internal implementation — including its
+built-in assertions — cannot use a third-party provider.
+
+**An automation client, over the protocol.** `AddBrowser` publishes every page of a browser on a
 `Jint.DevTools` server as a Chrome DevTools Protocol `page` target, so Puppeteer, PuppeteerSharp, Playwright
 and Playwright for .NET drive it — in the same process, with no native binary and nothing to download:
 

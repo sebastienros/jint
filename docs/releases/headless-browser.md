@@ -3,7 +3,7 @@
 **This is a draft for the maintainer to lift into the v5 release announcement**, not a published changelog —
 the repository keeps no changelog, and `.github/workflows/release.yml` produces packages from a `vX.Y.Z` tag
 and nothing else. It records what the campaign tracked by
-[#3575](https://github.com/sebastienros/jint/issues/3575) shipped: four new packages, the engine seams they
+[#3575](https://github.com/sebastienros/jint/issues/3575) shipped: five new packages, the engine seams they
 were built on, the upstream contributions the work produced, and what is knowingly left.
 
 Reader-facing documentation is [`README.md`](../../README.md#chrome-devtools-protocol-opt-in-package) and
@@ -17,6 +17,7 @@ what was built against them are [`docs/design/devtools-protocol.md`](../design/d
 | --- | --- | --- |
 | `Jint.DevTools` | A Chrome DevTools Protocol server over a WebSocket, so a debugging client attaches to an engine the host is already running. `Runtime`, `Debugger`, `Profiler`, `Console`, `Log`, `Target`, `Browser`, `Schema`. Native AOT compatible, measured by a published binary a CI leg drives over a real socket. | `net8.0`, `net10.0` |
 | `Jint.Browser` | A headless browser: AngleSharp's parser, DOM and CSSOM under Jint, with a page runtime, HTML's script scheduling, custom elements, navigation, forms, cookies, storage, workers, a deterministic box model in place of a layout, and the page-level protocol domains that make a page drivable by Puppeteer, PuppeteerSharp, Playwright and Playwright for .NET. Not trim- or AOT-compatible in this version, because AngleSharp is not trim-annotated. | `net8.0`, `net10.0` |
+| `Jint.Browser.Playwright` | Playwright for .NET's public browser interfaces implemented directly over `Jint.Browser`, with no Node driver, CDP connection or WebSocket. Unsupported interfaces and options fail explicitly; rendering-dependent features remain outside the package. | `net8.0`, `net10.0` |
 | `Jint.Browser.Tool` | The `jint-browser` dotnet tool: `serve` publishes the protocol, `fetch` dumps a page as HTML, text, CommonMark or its accessibility tree, `eval` answers an expression evaluated in the page, and `mcp` serves the MCP server on stdio. It consumes only the package's published surface. | `net8.0`, `net10.0` |
 | `Jint.Browser.Mcp` | A Model Context Protocol server over the same `Page` API: eighteen tools, an accessibility snapshot carrying a `ref=` on every element that the input tools take in place of a CSS selector, and the page as a resource. A host running a server of its own composes the same tools with `AddJintBrowser()`. | `net8.0`, `net10.0` |
 

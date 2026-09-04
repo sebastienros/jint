@@ -74,6 +74,9 @@ jobs:
     - name: Pack Jint.Browser with dotnet
       run: dotnet pack Jint.Browser/Jint.Browser.csproj --output artifacts --configuration Release -p:VersionSuffix=preview-$GITHUB_RUN_NUMBER -p:ContinuousIntegrationBuild=True
 
+    - name: Pack Jint.Browser.Playwright with dotnet
+      run: dotnet pack Jint.Browser.Playwright/Jint.Browser.Playwright.csproj --output artifacts --configuration Release -p:VersionSuffix=preview-$GITHUB_RUN_NUMBER -p:ContinuousIntegrationBuild=True
+
     - name: Pack Jint.Browser.Mcp with dotnet
       run: dotnet pack Jint.Browser.Mcp/Jint.Browser.Mcp.csproj --output artifacts --configuration Release -p:VersionSuffix=preview-$GITHUB_RUN_NUMBER -p:ContinuousIntegrationBuild=True
 

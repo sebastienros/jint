@@ -57,14 +57,22 @@ public sealed partial class Page
     /// </para>
     /// </remarks>
     /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
-    public async Task<bool> ClickAsync(string target, NavigationOptions? options = null)
+    public Task<bool> ClickAsync(string target, NavigationOptions? options = null) => ClickAsync(target, 0, options);
+
+    /// <summary>Clicks the indexed element that <paramref name="target"/> names.</summary>
+    /// <param name="target">A CSS selector, or a <c>ref=</c> from an accessibility snapshot.</param>
+    /// <param name="index">The zero-based match, or a negative offset from the last match.</param>
+    /// <param name="options">How far to wait for a navigation the click causes; the defaults when omitted.</param>
+    /// <returns><see langword="true"/> when the indexed element matched and was clicked.</returns>
+    /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
+    public async Task<bool> ClickAsync(string target, int index, NavigationOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(target);
         ObjectDisposedException.ThrowIf(_closed, this);
 
         var captured = await _loop.PostAsync((bool Clicked, NavigationRequest? Navigation) (engine) =>
         {
-            if (PageRuntime.Find(engine) is not { } runtime || ElementLocator.Find(runtime.Document, target) is not { } element)
+            if (PageRuntime.Find(engine) is not { } runtime || ElementLocator.Find(runtime.Document, target, index) is not { } element)
             {
                 return (Clicked: false, Navigation: (NavigationRequest?) null);
             }
@@ -117,14 +125,21 @@ public sealed partial class Page
     /// against <c>mousemove</c> does.
     /// </remarks>
     /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
-    public Task<bool> HoverAsync(string target)
+    public Task<bool> HoverAsync(string target) => HoverAsync(target, 0);
+
+    /// <summary>Moves the pointer over the indexed element that <paramref name="target"/> names.</summary>
+    /// <param name="target">A CSS selector, or a <c>ref=</c> from an accessibility snapshot.</param>
+    /// <param name="index">The zero-based match, or a negative offset from the last match.</param>
+    /// <returns><see langword="true"/> when the indexed element matched and had a box to move to.</returns>
+    /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
+    public Task<bool> HoverAsync(string target, int index)
     {
         ArgumentNullException.ThrowIfNull(target);
         ObjectDisposedException.ThrowIf(_closed, this);
 
         return _loop.PostAsync(engine =>
         {
-            if (PageRuntime.Find(engine) is not { } runtime || ElementLocator.Find(runtime.Document, target) is not { } element)
+            if (PageRuntime.Find(engine) is not { } runtime || ElementLocator.Find(runtime.Document, target, index) is not { } element)
             {
                 return false;
             }
@@ -148,12 +163,21 @@ public sealed partial class Page
     /// <returns><see langword="true"/> when an editable element matched.</returns>
     /// <remarks>
     /// Focus, select all, then insert — which is one <c>beforeinput</c> and one <c>input</c> rather than the
-    /// one per character <see cref="TypeAsync"/> fires, and is what a client library's <c>fill</c> does. Use
-    /// it when the value is what matters; use <see cref="TypeAsync"/> when the page is listening for the
+    /// one per character <see cref="TypeAsync(string, string)"/> fires, and is what a client library's
+    /// <c>fill</c> does. Use it when the value is what matters; use <see cref="TypeAsync(string, string)"/>
+    /// when the page is listening for the
     /// keys.
     /// </remarks>
     /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
-    public Task<bool> FillAsync(string target, string text)
+    public Task<bool> FillAsync(string target, string text) => FillAsync(target, 0, text);
+
+    /// <summary>Replaces the value of the indexed control that <paramref name="target"/> names.</summary>
+    /// <param name="target">A CSS selector, or a <c>ref=</c> from an accessibility snapshot.</param>
+    /// <param name="index">The zero-based match, or a negative offset from the last match.</param>
+    /// <param name="text">The value to leave in the control.</param>
+    /// <returns><see langword="true"/> when the indexed editable element matched.</returns>
+    /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
+    public Task<bool> FillAsync(string target, int index, string text)
     {
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(text);
@@ -161,7 +185,7 @@ public sealed partial class Page
 
         return _loop.PostAsync(engine =>
         {
-            if (PageRuntime.Find(engine) is not { } runtime || ElementLocator.Find(runtime.Document, target) is not { } element)
+            if (PageRuntime.Find(engine) is not { } runtime || ElementLocator.Find(runtime.Document, target, index) is not { } element)
             {
                 return false;
             }
@@ -188,10 +212,19 @@ public sealed partial class Page
     /// The control is focused and each character becomes a <c>keydown</c>, a <c>keypress</c>, the insertion
     /// with its <c>beforeinput</c> and <c>input</c>, and a <c>keyup</c> — so a page filtering keystrokes, an
     /// autocomplete listening for <c>input</c> and a form's <c>maxlength</c> all see what they would see from
-    /// a user. It does <b>not</b> clear the control first; <see cref="FillAsync"/> is the one that does.
+    /// a user. It does <b>not</b> clear the control first; <see cref="FillAsync(string, string)"/> is the one
+    /// that does.
     /// </remarks>
     /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
-    public Task<bool> TypeAsync(string target, string text)
+    public Task<bool> TypeAsync(string target, string text) => TypeAsync(target, 0, text);
+
+    /// <summary>Types into the indexed element that <paramref name="target"/> names.</summary>
+    /// <param name="target">A CSS selector, or a <c>ref=</c> from an accessibility snapshot.</param>
+    /// <param name="index">The zero-based match, or a negative offset from the last match.</param>
+    /// <param name="text">The characters to type.</param>
+    /// <returns><see langword="true"/> when the indexed element matched and was focused.</returns>
+    /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
+    public Task<bool> TypeAsync(string target, int index, string text)
     {
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(text);
@@ -199,7 +232,7 @@ public sealed partial class Page
 
         return _loop.PostAsync(engine =>
         {
-            if (PageRuntime.Find(engine) is not { } runtime || ElementLocator.Find(runtime.Document, target) is not { } element)
+            if (PageRuntime.Find(engine) is not { } runtime || ElementLocator.Find(runtime.Document, target, index) is not { } element)
             {
                 return false;
             }
@@ -223,7 +256,8 @@ public sealed partial class Page
     /// <returns><see langword="true"/> always, because a key always reaches something — the body when nothing is focused.</returns>
     /// <remarks>
     /// <c>Enter</c> in a single-line control is HTML's implicit submission, so a form it submits is navigated
-    /// and awaited here the way <see cref="ClickAsync"/> awaits a link's. <c>Tab</c> moves focus along the
+    /// and awaited here the way <see cref="ClickAsync(string, NavigationOptions)"/> awaits a link's.
+    /// <c>Tab</c> moves focus along the
     /// sequential focus order, the editing keys edit, and everything else fires its events and does nothing.
     /// </remarks>
     /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
@@ -273,7 +307,15 @@ public sealed partial class Page
     /// <c>onChange</c> is bound to.
     /// </remarks>
     /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
-    public Task<bool> SelectAsync(string target, string value)
+    public Task<bool> SelectAsync(string target, string value) => SelectAsync(target, 0, value);
+
+    /// <summary>Selects an option in the indexed <c>&lt;select&gt;</c> that <paramref name="target"/> names.</summary>
+    /// <param name="target">A CSS selector, or a <c>ref=</c> from an accessibility snapshot.</param>
+    /// <param name="index">The zero-based match, or a negative offset from the last match.</param>
+    /// <param name="value">The option's value, or its text when no option carries that value.</param>
+    /// <returns><see langword="true"/> when the indexed select matched and had such an option.</returns>
+    /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
+    public Task<bool> SelectAsync(string target, int index, string value)
     {
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(value);
@@ -281,7 +323,7 @@ public sealed partial class Page
 
         return _loop.PostAsync(engine =>
         {
-            if (PageRuntime.Find(engine) is not { } runtime || ElementLocator.Find(runtime.Document, target) is not IHtmlSelectElement select)
+            if (PageRuntime.Find(engine) is not { } runtime || ElementLocator.Find(runtime.Document, target, index) is not IHtmlSelectElement select)
             {
                 return false;
             }
@@ -333,12 +375,20 @@ public sealed partial class Page
     /// while the wait lasts.
     /// </remarks>
     /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
-    public Task<bool> WaitForSelectorAsync(string selector, TimeSpan timeout)
+    public Task<bool> WaitForSelectorAsync(string selector, TimeSpan timeout) => WaitForSelectorAsync(selector, 0, timeout);
+
+    /// <summary>Waits until the indexed element matching <paramref name="selector"/> is in the document.</summary>
+    /// <param name="selector">A CSS selector, or a <c>ref=</c> from an accessibility snapshot.</param>
+    /// <param name="index">The zero-based match, or a negative offset from the last match.</param>
+    /// <param name="timeout">The ceiling on the wait.</param>
+    /// <returns><see langword="true"/> when it appeared, <see langword="false"/> when the timeout won.</returns>
+    /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
+    public Task<bool> WaitForSelectorAsync(string selector, int index, TimeSpan timeout)
     {
         ArgumentNullException.ThrowIfNull(selector);
         ObjectDisposedException.ThrowIf(_closed, this);
 
-        return WaitForAsync(engine => ElementLocator.Find(PageRuntime.Find(engine)?.Document, selector) is not null, timeout);
+        return WaitForAsync(engine => ElementLocator.Find(PageRuntime.Find(engine)?.Document, selector, index) is not null, timeout);
     }
 
     /// <summary>Waits until <paramref name="text"/> appears in the document's rendered text.</summary>
@@ -424,7 +474,9 @@ public sealed partial class Page
                 return true;
             }
 
-            if (_closed || System.Diagnostics.Stopwatch.GetElapsedTime(started) >= timeout)
+            if (_closed
+                || (timeout != System.Threading.Timeout.InfiniteTimeSpan
+                    && System.Diagnostics.Stopwatch.GetElapsedTime(started) >= timeout))
             {
                 return false;
             }

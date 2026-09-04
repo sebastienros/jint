@@ -48,13 +48,18 @@ public sealed class NavigationOptions
     /// whichever document it had reached: a timeout during the fetch leaves the previous document in place,
     /// and one during the parse leaves the new one part-built, exactly as the page itself would see it.
     /// </remarks>
-    /// <exception cref="ArgumentOutOfRangeException">The value is not positive.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// The value is neither positive nor <see cref="System.Threading.Timeout.InfiniteTimeSpan"/>.
+    /// </exception>
     public TimeSpan Timeout
     {
         get => _timeout;
-        set => _timeout = value > TimeSpan.Zero
+        set => _timeout = value > TimeSpan.Zero || value == System.Threading.Timeout.InfiniteTimeSpan
             ? value
-            : throw new ArgumentOutOfRangeException(nameof(value), value, "Timeout must be positive.");
+            : throw new ArgumentOutOfRangeException(
+                nameof(value),
+                value,
+                "Timeout must be positive or infinite.");
     }
 
     /// <summary>
