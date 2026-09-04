@@ -25,12 +25,12 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 
 | Suite | Documents | Synthesized | Tests | Not passing |
 | --- | --- | --- | --- | --- |
-| `dom/events/` | 56 | 9 | 544 | 20 |
-| `dom/nodes/` | 159 | 0 | 4,796 | 1,416 |
+| `dom/events/` | 56 | 9 | 544 | 15 |
+| `dom/nodes/` | 159 | 0 | 4,796 | 1,213 |
 | `dom/collections/` | 8 | 0 | 43 | 18 |
 | `dom/lists/` | 5 | 0 | 189 | 5 |
-| `dom/traversal/` | 13 | 0 | 52 | 7 |
-| `dom/ranges/` | 17 | 0 | 82 | 10 |
+| `dom/traversal/` | 13 | 0 | 52 | 0 |
+| `dom/ranges/` | 17 | 0 | 82 | 9 |
 | `html/dom/` | 5 | 0 | 85 | 31 |
 | `html/webappapis/scripting/events/` | 12 | 0 | 37 | 5 |
 | `html/webappapis/scripting/processing-model-2/` | 25 | 0 | 44 | 14 |
@@ -38,7 +38,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 68 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 3 |
-| **total** | **340** | **9** | **6,664** | **1,855** |
+| **total** | **340** | **9** | **6,664** | **1,639** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -112,11 +112,15 @@ implementation of HTML §4.13, and **the shape of what is missing from that corp
 it is written against a second global.** `resources/custom-elements-helpers.js` gives it
 `create_window_in_test`, which loads an iframe and resolves with its window, and `document_types()`, which
 makes every assertion in five documents — this one, a `new Document()`, a `createHTMLDocument()`, an
-iframe's and an XHR-fetched one. A child frame has a document here and no realm
-([#3771](https://github.com/sebastienros/jint/issues/3771)), so `create_window_in_test` resolves with
-nothing — `contentWindow` is `null` — and a file built on either reports nothing at all; thirty-seven
-documents are in the not-vendored table for that reason alone, and they are the ones about adoption,
-cross-realm constructors and the reaction queue.
+iframe's and an XHR-fetched one. A child frame has a document and a window here and **no realm**
+([#3771](https://github.com/sebastienros/jint/issues/3771)), and that changed what is missing rather than
+removing it: `create_window_in_test` resolves with a real window now — `ChildFrameTests` runs the helper's own
+shape and pins it — but the window's constructors are the page's, because the realm is shared. So a file that
+only needs a second *window* could report, and a file that compares an element against the frame's own
+`HTMLElement`, or adopts a node between realms, still cannot. Thirty-seven documents stay in the not-vendored
+table, now for the narrower reason: they are the ones about adoption, cross-realm constructors and the
+reaction queue. Re-vendoring against the window is a change of its own, because it moves the census's
+Documents and Tests columns.
 
 What the rest found is six causes, and every exclusion in the four new suites is one of them:
 
@@ -256,7 +260,7 @@ costs: half of them are one member reached at file scope.
 | a name this browser does not have | 2 | a `javascript:` URL, and one that read `window.event` before it existed |
 | a rendering | 6 | a CSS animation or transition event, a pseudo-element, and the coarse-clock assertion |
 | a focus event that does not arrive | 1 | the one row that is a finding rather than an environment; see its reason |
-| a frame that runs script | 11 | a second global with a document in it, and the helper documents of those tests |
+| a frame that runs script | 11 | a second **realm** with a document in it — a frame has a window and a document here, and nothing in it runs — and the helper documents of those tests |
 | the WebIDL conformance harness | 2 | `idl_test([…])`, which the engine lane declines for the same reason |
 | the timer's string handler | 2 | `setTimeout("{", 10)`, which `TimerFunctions` documents declining |
 | a second origin | 1 | `location.href.replace('://', '://www1.')`, and there is one origin here |
@@ -273,7 +277,7 @@ costs: half of them are one member reached at file scope.
 | HTML's reflection suite | 5 | [#3770](https://github.com/sebastienros/jint/issues/3770); ten documents and their four helpers, 22,028 of 56,660 assertions fail because reflection is not implemented, and the smallest table that names them and no passing test is over four thousand rows. **Not** a time problem: 22.5 s for the set, 7.3 s for the largest |
 | a DOM crash test or reftest | 5 | none loads `testharness.js` |
 | a helper document beside its test | 5 | three frames, a fragment and an iframe body; a document under a suite would have to be a case |
-| a DOM frame that runs script | 17 | listed when a frame had neither a document nor a realm; it has a document now ([#3771](https://github.com/sebastienros/jint/issues/3771)) and each row is owed a re-examination against the half that is left — three of them need the frame body above, which a document under a suite cannot be |
+| a DOM frame that runs script | 17 | listed when a frame had neither a document nor a realm; it has both a document and a window now ([#3771](https://github.com/sebastienros/jint/issues/3771)) and each row is owed a re-examination against the realm, which is the half that is left — three of them need the frame body above, which a document under a suite cannot be |
 | a member reached at file scope | 30 | `createCDATASection` (31 documents, 24 of them `dom/ranges/`, through `dom/common.js`), `createDocument` (5) and `setAttributeNode` (1) |
 | one DOM file each | 3 | a `SyntaxError` no `error` event carries to the harness, and two `MutationObserver` documents waiting for a record that never comes |
 | too slow to be a case | 2 | the six `NodeList-static-length-getter-tampered*` documents and their helper: a static `NodeList` re-reads its tampered `length` getter, so each spends between 5.9 s and 18.8 s and one of them crossed the driver's 30 s deadline on a loaded machine |

@@ -84,6 +84,15 @@ script runs before a module script that precedes it in the document, because the
 HTML's one; and the first import map found anywhere applies to every module, because none of them could have
 resolved before the parse ended anyway.
 
+**A frame served XML gets an XML document, and only a frame can.** `Configuration` carries AngleSharp.Xml's
+document factory, so a response whose content type is an XML MIME type is parsed by the XML parser rather
+than wrapped in an HTML skeleton — without it `<foo>x</foo>` served as `text/xml` came back with
+`documentElement.tagName === "HTML"` and every XML rule a page then asked about was the wrong document's.
+The page's own document cannot reach it: `Parse` states `text/html` for what a navigation produces, and a
+navigation to an XML content type is refused by `DocumentFetch` before a parser sees it. `application/xhtml+xml`
+is **still** routed to the HTML parser — that is AngleSharp's own content-type mapping, not this file's, and
+it is what `NeedsXmlDocuments` covers in the browser lane.
+
 **`document.readyState` is the page's shadow.** `PageRuntime.ReadyState` moves `loading` → `interactive` →
 `complete` and `ParserDriver.SetReadyState` fires the `readystatechange` that goes with each, because
 `Document.ReadyState`'s setter is protected and unreachable from outside AngleSharp's assembly. AngleSharp's
@@ -121,10 +130,12 @@ frame's own frames, comes back here. Four things follow and each is load-bearing
 - **`BrowserOptions.MaxFrameDocuments` is counted over the load and not per document**, because a page
   pointing a frame at itself would otherwise recurse until the parser thread's stack ran out. `srcdoc` is
   neither counted nor refused: there is no request to answer.
-- **`contentDocument` is `Dom/DomFrameMembers`, not the generated body**, because HTML answers `null` for a
-  document that is not same origin with the one asking. `contentWindow` is `null` rather than absent — a
-  frame has no second global object to be one, and `'contentWindow' in frame` and `if (frame.contentWindow)`
-  disagree about a member that is missing and one that is null.
+- **`contentDocument` and `contentWindow` are `Dom/DomFrameMembers`, not the generated bodies**, because
+  HTML answers `null` for a document that is not same origin with the one asking. `contentWindow` answers a
+  window built by `Runtime/FrameWindows` — one object per frame, whose `[[Prototype]]` is the page's global,
+  so the realm is shared and only what a frame answers differently is an own property. A frame with no
+  document has `contentWindow === null` rather than absent: `'contentWindow' in frame` and
+  `if (frame.contentWindow)` disagree about a member that is missing and one that is null.
 
 **`document.write` after the parse is refused.** During one it is AngleSharp's own call and it is right — its
 writable text source inserts at the parser's index and the script processor restores the index afterwards, so

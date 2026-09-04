@@ -460,8 +460,7 @@ internal static class WindowInstaller
         return value.IsUndefined() ? "" : TypeConverter.ToString(value);
     }
 
-    private static int FrameCount(PageRuntime runtime)
-        => runtime.Document is { } document ? document.QuerySelectorAll("iframe, frame").Length : 0;
+    private static int FrameCount(PageRuntime runtime) => FrameWindows.Count(runtime.Document);
 
     /// <summary>
     /// https://drafts.csswg.org/cssom-view/#dom-window-scroll — the vertical coordinate the two argument

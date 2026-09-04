@@ -1792,7 +1792,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLIFrameElement.contentWindow", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, "HTMLIFrameElement.contentWindow");
-                    return global::Jint.Browser.Dom.DomConvert.Window(self.Realm, self.Target.ContentWindow);
+                    return global::Jint.Browser.Dom.DomFrameMembers.ContentWindow(self.Realm, self.Target);
                 }))
             .Accessor("height",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLIFrameElement.height", static (thisObj, args) =>

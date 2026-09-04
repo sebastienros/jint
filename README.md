@@ -2722,8 +2722,8 @@ await using var browser = new Browser(options);
 **Absent by design.** There is no rendering, so no screenshots, no PDF, no `canvas`, no WebGL and no media —
 every box comes from the flat model above rather than from a layout, so nothing wraps and nothing is ever
 side by side, and over the protocol that means no touch or drag input and no screenshot commands. There is no
-iframe scripting: frames are parsed and listed, and an `<iframe>`'s `contentWindow` is absent and its `src`
-is not fetched. There is no `IndexedDB`, no `WebAssembly` (which the engine declines as well), no
+iframe scripting: a frame's `src` is fetched and parsed and it has a `contentWindow` on the page's realm,
+but it has no realm of its own, so nothing inside a frame ever executes. There is no `IndexedDB`, no `WebAssembly` (which the engine declines as well), no
 `SharedWorker` or `ServiceWorker`, and no CSP enforcement. Drag and drop and the clipboard are non-goals, so
 `DragEvent` and `ClipboardEvent` are absent rather than stubbed. Images are never fetched — the reference is
 recorded in `Page.Requests` with the reason instead — `integrity` is accepted and not enforced, and
