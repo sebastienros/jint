@@ -933,7 +933,6 @@ internal static class WptBrowserExclusions
         // ---------------------------------------------------------------- one [CEReactions] member per file
         new("custom-elements/reactions/Animation.html", "*", WptDivergence.NeedsTriage),
         new("custom-elements/reactions/AriaMixin-element-attributes.html", "*", WptDivergence.NeedsTriage),
-        new("custom-elements/reactions/AriaMixin-string-attributes.html", "*", WptDivergence.NeedsTriage),
         new("custom-elements/reactions/Attr.html", "value on Attr must enqueue an attributeChanged reaction when replacing an existing attribute", WptDivergence.NeedsTriage),
         new("custom-elements/reactions/CSSStyleDeclaration.html", "*", WptDivergence.NeedsTriage),
         new("custom-elements/reactions/ChildNode.html", "after on ChildNode must enqueue a disconnected reaction, an adopted reaction, and a connected reaction when the custom element was in another document", WptDivergence.NeedsTriage),
@@ -1127,9 +1126,8 @@ internal static class WptBrowserExclusions
         new("dom/nodes/getElementsByClassName-22.htm", "*", WptDivergence.NeedsTriage),
         new("dom/nodes/getElementsByClassName-25.htm", "*", WptDivergence.NeedsTriage),
 
-        // ---------------------------------------------------------------- the ARIA reflection mixin
-        // the ARIA reflection mixin
-        new("html/dom/aria-attribute-reflection.html", "*", WptDivergence.NeedsTriage),
+        // ---------------------------------------------------------------- the ARIA mixin's element-reflection half
+        // the ARIA mixin's element-reflection half
         new("html/dom/aria-element-reflection-disconnected.html", "*", WptDivergence.NeedsTriage),
         new("html/dom/aria-element-reflection.html", "*DOM.", WptDivergence.NeedsTriage),
         new("html/dom/aria-element-reflection.html", "*empty.", WptDivergence.NeedsTriage),
@@ -1237,6 +1235,7 @@ internal static class WptBrowserExclusions
 
         // ---------------------------------------------------------------- a nullable DOMString answers the string "null"
         // a DOMString? parameter or attribute answers the string "null"
+        new("custom-elements/reactions/AriaMixin-string-attributes.html", "*", WptDivergence.NeedsTriage),
         new("dom/nodes/CharacterData-data.html", "*null", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElementNS.html", "* HTML document: null,\"f1oo\",null", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElementNS.html", "* HTML document: null,\"foo\",null", WptDivergence.NeedsTriage),

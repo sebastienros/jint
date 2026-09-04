@@ -1325,6 +1325,11 @@
         "return global::Jint.Browser.Dom.DomCharacterDataMembers.ReplaceData(self.Realm, self.Target, args);"
       ],
       "reason": "The other half of the skip above; see substringData."
+    },
+    {
+      "interface": "Element",
+      "extend": "Jint.Browser.Dom.AriaReflection.ElementAria",
+      "reason": "ARIA §10.1's ARIAMixin, which the standard puts on Element: `role` and forty-four `aria-*` IDL attributes, each an identically shaped accessor pair reflecting one content attribute. AngleSharp's IElement has no ARIA member at all, so the member closure yields none, and as member entries they would be ninety near-identical rows; the extend form exists for exactly this. The element-reflection half of the mixin is not here -- see Jint.Browser/Dom/AriaReflection.cs."
     }
   ],
   "hooks": [

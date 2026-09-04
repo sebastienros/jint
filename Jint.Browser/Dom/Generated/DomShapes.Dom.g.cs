@@ -1328,7 +1328,8 @@ internal static partial class DomInterfaces
 
     /// <summary>The members of <c>Element</c>.</summary>
     private static global::Jint.Native.JsObjectShape BuildElement()
-        => new global::Jint.Native.JsObjectShape.Builder()
+    {
+        var builder = new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("Element")
             .PerRealmSlot("constructor", enumerable: false)
             .Method("after",
@@ -1813,8 +1814,11 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.webkitMatchesSelector");
                     return global::Jint.Browser.Dom.DomSelectorMembers.Matches(self.Realm, self.Target, args, "Element.webkitMatchesSelector");
                 }),
-                length: 1)
-            .Build();
+                length: 1);
+
+        global::Jint.Browser.Dom.AriaReflection.ElementAria(builder);
+        return builder.Build();
+    }
 
     /// <summary>The members of <c>HTMLAllCollection</c>.</summary>
     private static global::Jint.Native.JsObjectShape BuildHTMLAllCollection()
