@@ -26,11 +26,11 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | Suite | Documents | Synthesized | Tests | Not passing |
 | --- | --- | --- | --- | --- |
 | `dom/events/` | 56 | 9 | 544 | 20 |
-| `dom/nodes/` | 159 | 0 | 4,796 | 1,612 |
+| `dom/nodes/` | 159 | 0 | 4,796 | 1,465 |
 | `dom/collections/` | 8 | 0 | 43 | 25 |
 | `dom/lists/` | 5 | 0 | 189 | 5 |
 | `dom/traversal/` | 13 | 0 | 52 | 9 |
-| `dom/ranges/` | 17 | 0 | 78 | 52 |
+| `dom/ranges/` | 17 | 0 | 82 | 25 |
 | `html/dom/` | 5 | 0 | 85 | 72 |
 | `html/webappapis/scripting/events/` | 12 | 0 | 37 | 5 |
 | `html/webappapis/scripting/processing-model-2/` | 25 | 0 | 44 | 14 |
@@ -38,7 +38,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 200 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 3 |
-| **total** | **340** | **9** | **6,660** | **2,285** |
+| **total** | **340** | **9** | **6,664** | **2,111** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -164,12 +164,12 @@ document whose subject is that resolution is in the not-vendored table for the r
 
 `dom/nodes/`, `dom/collections/`, `dom/lists/`, `dom/traversal/`, `dom/ranges/` and `html/dom/` are the DOM
 standard's own suites and HTML's DOM half — the corpus every other suite in this lane is written on top of.
-They arrived together, 207 documents and 4,811 tests, and **2,174 of those tests do not pass**. That is a
+They arrived together, 207 documents and 4,815 tests, and **2,024 of those tests do not pass**. That is a
 much worse ratio than any suite already here, and it should be: `dom/events/` is one interface's dispatch,
 where these are every member of every node interface.
 
-The failures are **twenty-one distinct causes**, and the table names each of them test by test. Ten of them
-are filed as [#3765](https://github.com/sebastienros/jint/issues/3765)–[#3774](https://github.com/sebastienros/jint/issues/3774), and one was already open as [#3712](https://github.com/sebastienros/jint/issues/3712).
+The failures are **eighteen distinct causes**, and the table names each of them test by test. Ten of them
+were filed as [#3765](https://github.com/sebastienros/jint/issues/3765)–[#3774](https://github.com/sebastienros/jint/issues/3774), and one was already open as [#3712](https://github.com/sebastienros/jint/issues/3712); the counts move as those are fixed.
 Ordered by how many tests each accounts for:
 
 | Tests | Documents | What it is |
@@ -178,17 +178,15 @@ Ordered by how many tests each accounts for:
 | 540 | 13 | [#3771](https://github.com/sebastienros/jint/issues/3771) **A frame is never given an engine.** `iframe.contentDocument` is `null` and `iframe.onload` never arrives, so 488 of these are one line — `Document-createElement*.html` runs its whole table three times, once per document, and two of the three are frames. `NeedsIframeScripting`, the category this lane already had. |
 | 50 | 6 | [#3768](https://github.com/sebastienros/jint/issues/3768) **Members the bindings do not have.** Ten of the eleven are there now — `replaceWith`, the five `Attr`-node spellings, `insertAdjacentElement`/`insertAdjacentText`, `toggleAttribute`, `hasAttributes`, `isSameNode`, `getAttributeNames`, `webkitMatchesSelector` and `NodeList`'s iterator helpers — and what is left of the 182 rows is not the members: it is `IChildNode.Replace`'s own algorithm (six rows of `ChildNode-replaceWith.html`) and four `Attr` writes whose reaction is handed a `null` value. **`replaceChildren` is the eleventh and is deliberately still absent**, and `XMLDocument` is still not a name; `Dom/AGENTS.md` argues both. |
 | 165 | 17 | [#3766](https://github.com/sebastienros/jint/issues/3766) **An XML document, and the two members that make one.** `DOMImplementation.createDocument` is not on AngleSharp's `IImplementation` at all and `Document.createCDATASection` is not projected, so a processing instruction is not an element and `XMLDocument` is not a name. `NeedsXmlDocuments`, which is a scope decision rather than debt — and the most expensive one in this table, because `dom/common.js` calls `createCDATASection` at file scope and **31 documents therefore register no test at all**. |
-| 133 | 1 | [#3772](https://github.com/sebastienros/jint/issues/3772) **`DOMImplementation.hasFeature` is not unconditionally true.** DOM says "return true" with no qualification; AngleSharp answers true for three of the 136 pairs `hasFeature` is asked about. |
 | 107 | 28 | [#3772](https://github.com/sebastienros/jint/issues/3772) **A collection's named and indexed properties, and its liveness.** An empty name is a supported property name (`HTMLCollection-empty-name.html`, 7 rows), `getElementsByTagName` matches where the standard matches nothing (23 rows), and `namednodemap-supported-property-names.html` sees names a browser does not. The six `NodeList-static-length-getter-tampered*` documents are the same interface from a seventh angle and are not vendored, because a static `NodeList` re-reads its tampered `length` getter and each of them takes between 5.9 s and 18.8 s. |
 | 65 | 3 | [#3773](https://github.com/sebastienros/jint/issues/3773) **The ARIA reflection mixin is not there.** `element.role`, `ariaLabel`, `ariaDescribedByElements` and the rest are `undefined`, which `custom-elements/reactions/AriaMixin-*.html` already said 96 times and `html/dom/aria-*.html` now says from the reflection side. |
 | 80 | 5 | [#3769](https://github.com/sebastienros/jint/issues/3769) **A `(Node or DOMString)` union parameter takes only a `Node`.** `before`, `after`, `append`, `prepend` and `replaceWith` all accept a string in DOM §4.2.7; here a string is "parameter 1 is not of the expected type". `replaceWith` joined the row when the member arrived: eighteen of its twenty-four remaining assertions are the union and nothing else. |
 | 50 | 13 | One assertion each: `Node.isEqualNode` compares data it should not, `Element.removeAttribute` removes one attribute of two, an attribute's order in `element.attributes` differs, `cloneNode` copies a `value` a browser leaves behind. |
 | 49 | 2 | [#3772](https://github.com/sebastienros/jint/issues/3772) **The XML name productions are wrong.** `createDocumentType("edi:root", …)` and 43 of its siblings are refused as "Invalid character detected" where DOM's Name production allows them, and `name-validation.html` finds five code-point ranges refused in both directions. |
 | 40 | 5 | [#3774](https://github.com/sebastienros/jint/issues/3774) **A refusal the standard requires and AngleSharp does not make.** `createElementNS(null, "a:b")` is a `NamespaceError` in DOM's validate-and-extract and no error at all here — `Dom/AGENTS.md` records it — and `createElement` refuses eight names DOM allows. |
-| 23 | 8 | [#3772](https://github.com/sebastienros/jint/issues/3772) **`StaticRange` is not a name, and `new Range()` is an illegal constructor.** `StaticRange-constructor.html` is eleven rows of the first; `Range-attribute-nodes.html` and `Range-constructor.html` are the second. |
 | 21 | 4 | [#3712](https://github.com/sebastienros/jint/issues/3712) **A nullable `DOMString` answers the string `"null"`.** `createElementNS(null, …)` gives an element whose `namespaceURI` is `"http://www.w3.org/1999/xhtml"` and `node.nodeValue = null` reads back `"null"`, because the binding converts a `DOMString?` parameter with `TypeConverter.ToString`. It is the same conversion the custom-element corpus records for `getAttributeNS`, from the other side. |
+| 20 | 5 | [#3772](https://github.com/sebastienros/jint/issues/3772) **`StaticRange` is not a name**, which is eleven rows of `StaticRange-constructor.html`, plus what is left of `Range`'s own algorithms: `comparePoint`, `extractContents` over a dynamic end, and a range whose shadow root has been removed. |
 | 18 | 1 | **An event interface this browser does not build**, which is `NeedsMoreEventInterfaces` and the alias table `dom/events/EventTarget-dispatchEvent.html` already names: `DragEvent`, `StorageEvent`, `TouchEvent` and the two device events. |
-| 14 | 4 | [#3772](https://github.com/sebastienros/jint/issues/3772) **`CharacterData` does not clamp its offsets.** `deleteData(-1, 10)` is `IndexSizeError` in DOM §4.10 after the unsigned-long conversion; here `-1` reaches the implementation and either throws an `ArgumentOutOfRange` or deletes the wrong run. |
 | 11 | 4 | **A document with no browsing context still has a `location`**, `createHTMLDocument` gives it one child too few, and `characterSet` answers `"utf-8"` where the standard's encoding name is `"UTF-8"`. |
 | 29 | 3 | [#3774](https://github.com/sebastienros/jint/issues/3774) **A refusal carries the wrong `DOMException`.** Ten `createElementNS` rows expect `NamespaceError` and get `InvalidCharacterError`, eighteen `createDocument` rows expect one for an empty prefix or an empty local part and get a `NamespaceError` or nothing at all, and `attributes.html` expects one for `b:` and gets none. This is the half [#3732](https://github.com/sebastienros/jint/pull/3732) did not reach: the name crosses correctly now, and *which* name a refusal picks is a separate question. |
 | 10 | 2 | **The selector engine's escapes.** `#eof\` and a surrogate escape are refused as invalid selectors where CSS Syntax §4.3.7 defines them, and `:scope` inside `:has()` resolves to the wrong element. |

@@ -1049,7 +1049,6 @@ internal static class WptBrowserExclusions
         new("dom/nodes/attributes.html", "*tests", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "*toggleAttribute)", WptDivergence.NeedsTriage),
         new("dom/nodes/remove-unscopable.html", "*", WptDivergence.NeedsTriage),
-        new("dom/ranges/Range-attribute-nodes.html", "*", WptDivergence.NeedsTriage),
 
         // ---------------------------------------------------------------- an XML document, and the two members that make one
         // an XML document, and the members that make one
@@ -1072,37 +1071,12 @@ internal static class WptBrowserExclusions
         new("dom/nodes/processing-instruction-attributes.html", "Distinct attribute name (source: html*", WptDivergence.NeedsXmlDocuments),
         new("dom/nodes/processing-instruction-attributes.html", "Distinct attribute name (source: xml-dom*", WptDivergence.NeedsXmlDocuments),
         new("dom/nodes/processing-instruction-attributes.html", "Processing*", WptDivergence.NeedsXmlDocuments),
+        // Range and an Attr node: the constructor and attribute nodes reach these tests now, and two of
+        // the twenty-six still fail on which refusal an out-of-root Attr earns and on whether a point in
+        // one is in the range at all — DOM §5.5's own answers, not AngleSharp's.
+        new("dom/ranges/Range-attribute-nodes.html", "comparePoint() with an Attr node not sharing the range's root throws WrongDocumentError", WptDivergence.NeedsTriage),
+        new("dom/ranges/Range-attribute-nodes.html", "isPointInRange() with an Attr node sharing the range's root", WptDivergence.NeedsTriage),
         new("dom/ranges/Range-adopt-test.html", "*appendChild: Removing the only element in the range must collapse the range", WptDivergence.NeedsXmlDocuments),
-
-        // ---------------------------------------------------------------- DOMImplementation.hasFeature, which DOM makes unconditionally true
-        // DOMImplementation.hasFeature, which DOM makes unconditionally true
-        new("dom/nodes/DOMImplementation-hasFeature.html", "* \")", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-hasFeature.html", "* 0\")", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-hasFeature.html", "* 1.0\")", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-hasFeature.html", "* 2.0\")", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-hasFeature.html", "*\"\")", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-hasFeature.html", "*()", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-hasFeature.html", "*0a\")", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-hasFeature.html", "*1\")", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-hasFeature.html", "*1)", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-hasFeature.html", "*100\")", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-hasFeature.html", "*100)", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-hasFeature.html", "*100.0\")", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-hasFeature.html", "*2\")", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-hasFeature.html", "*2)", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-hasFeature.html", "*3\")", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-hasFeature.html", "*3)", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-hasFeature.html", "*3.0\")", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-hasFeature.html", "*Core\")", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-hasFeature.html", "*XML\")", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-hasFeature.html", "*a0\")", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-hasFeature.html", "*a1.0\")", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-hasFeature.html", "*a2.0\")", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-hasFeature.html", "*null)", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-hasFeature.html", "*undefined)", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-hasFeature.html", "hasFeature(\"Core\", \"1*", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-hasFeature.html", "hasFeature(\"http*", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-hasFeature.html", "hasFeature(\"org*", WptDivergence.NeedsTriage),
 
         // ---------------------------------------------------------------- a collection's named and indexed properties, and its liveness
         // a collection's named and indexed properties
@@ -1277,14 +1251,11 @@ internal static class WptBrowserExclusions
         new("dom/nodes/Node-nodeValue.html", "Text*", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "null*", WptDivergence.NeedsTriage),
 
-        // ---------------------------------------------------------------- Range's and StaticRange's own algorithms
-        // Range's and StaticRange's own algorithms
+        // ---------------------------------------------------------------- Range's own algorithms, and StaticRange
+        // Range's remaining algorithms, and the StaticRange interface that is not there
         new("dom/ranges/Range-comparePoint-2.html", "*2", WptDivergence.NeedsTriage),
-        new("dom/ranges/Range-constructor.html", "*", WptDivergence.NeedsTriage),
         new("dom/ranges/Range-extractContents-dynamic-end.html", "*", WptDivergence.NeedsTriage),
         new("dom/ranges/Range-in-shadow-after-the-shadow-removed.html", "*", WptDivergence.NeedsTriage),
-        new("dom/ranges/Range-intersectsNode-2.html", "*", WptDivergence.NeedsTriage),
-        new("dom/ranges/Range-stringifier.html", "*", WptDivergence.NeedsTriage),
         new("dom/ranges/StaticRange-constructor.html", "*", WptDivergence.NeedsTriage),
 
         // ---------------------------------------------------------------- an event interface this browser does not build
@@ -1297,16 +1268,6 @@ internal static class WptBrowserExclusions
         new("dom/nodes/Document-createEvent.https.html", "createEvent('TOUCHEVENT*", WptDivergence.NeedsMoreEventInterfaces),
         new("dom/nodes/Document-createEvent.https.html", "createEvent('TouchEvent*", WptDivergence.NeedsMoreEventInterfaces),
         new("dom/nodes/Document-createEvent.https.html", "createEvent('touchevent*", WptDivergence.NeedsMoreEventInterfaces),
-
-        // ---------------------------------------------------------------- CharacterData's offset and count clamping
-        // CharacterData's offset and count clamping
-        new("dom/nodes/CharacterData-deleteData.html", "*bounds", WptDivergence.NeedsTriage),
-        new("dom/nodes/CharacterData-deleteData.html", "*small negative count", WptDivergence.NeedsTriage),
-        new("dom/nodes/CharacterData-insertData.html", "*negative out of bounds", WptDivergence.NeedsTriage),
-        new("dom/nodes/CharacterData-replaceData.html", "*negative clamped count", WptDivergence.NeedsTriage),
-        new("dom/nodes/CharacterData-replaceData.html", "*offset", WptDivergence.NeedsTriage),
-        new("dom/nodes/CharacterData-substringData.html", "*invalid offset", WptDivergence.NeedsTriage),
-        new("dom/nodes/CharacterData-substringData.html", "*negative count", WptDivergence.NeedsTriage),
 
         // ---------------------------------------------------------------- a document with no browsing context
         // a document with no browsing context, and what createHTMLDocument makes

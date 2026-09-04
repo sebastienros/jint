@@ -85,7 +85,7 @@ internal sealed class DomInterfaceObject : Constructor
             return element;
         }
 
-        if (DomConstructors.TryConstruct(_domRealm, _definition, out var instance))
+        if (DomConstructors.TryConstruct(_domRealm, _definition, arguments, out var instance))
         {
             return instance;
         }
