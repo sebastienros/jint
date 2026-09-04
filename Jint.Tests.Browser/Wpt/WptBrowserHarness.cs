@@ -160,6 +160,7 @@ internal sealed class WptBrowserHarness : IDisposable
                 // asserts, and a file the theories already ran is tallied rather than run a second time.
                 var outcome = await RunAsync(page, collector, path).ConfigureAwait(false);
                 WptBrowserCensus.Record(path, outcome);
+                WptBrowserCauses.Record(path, outcome);
                 return outcome;
             }
             finally
