@@ -21,6 +21,13 @@ internal enum DomWrapperKind
     Node,
 
     /// <summary>
+    /// An <c>INode</c> that <em>also</em> carries an indexed or named getter — <c>HTMLFormElement</c>,
+    /// <c>HTMLSelectElement</c>: <c>Collections.DomIndexedNodeObject</c>, which is a node wrapper with the
+    /// interface's generated <see cref="DomCollectionAccessor"/> projected on top of it.
+    /// </summary>
+    IndexedNode,
+
+    /// <summary>
     /// An interface with an indexed getter: <c>Collections.DomCollectionObject</c> over the interface's
     /// generated <see cref="DomCollectionAccessor"/>.
     /// </summary>

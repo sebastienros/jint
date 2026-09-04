@@ -26,11 +26,11 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | Suite | Documents | Synthesized | Tests | Not passing |
 | --- | --- | --- | --- | --- |
 | `dom/events/` | 56 | 9 | 544 | 20 |
-| `dom/nodes/` | 159 | 0 | 4,796 | 1,416 |
+| `dom/nodes/` | 159 | 0 | 4,796 | 1,336 |
 | `dom/collections/` | 8 | 0 | 43 | 18 |
 | `dom/lists/` | 5 | 0 | 189 | 5 |
 | `dom/traversal/` | 13 | 0 | 52 | 7 |
-| `dom/ranges/` | 17 | 0 | 82 | 10 |
+| `dom/ranges/` | 17 | 0 | 82 | 8 |
 | `html/dom/` | 6 | 0 | 4,962 | 31 |
 | `html/webappapis/scripting/events/` | 12 | 0 | 37 | 5 |
 | `html/webappapis/scripting/processing-model-2/` | 25 | 0 | 44 | 12 |
@@ -38,7 +38,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 68 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 3 |
-| **total** | **341** | **9** | **11,541** | **1,853** |
+| **total** | **341** | **9** | **11,541** | **1,771** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -172,7 +172,7 @@ They arrived together, 207 documents and 5,247 tests, and **1,532 of those tests
 much worse ratio than any suite already here, and it should be: `dom/events/` is one interface's dispatch,
 where these are every member of every node interface.
 
-The failures are **seventeen distinct causes**, and the table names each of them test by test. Ten of them
+The failures are **sixteen distinct causes**, and the table names each of them test by test. Nine of them
 were filed as [#3765](https://github.com/sebastienros/jint/issues/3765)–[#3774](https://github.com/sebastienros/jint/issues/3774); the counts move as those are fixed.
 The eighteenth was [#3712](https://github.com/sebastienros/jint/issues/3712), a nullable `DOMString` argument
 answering the string `"null"`, and it is fixed here: the 23 rows it accounted for — `createElementNS(null,

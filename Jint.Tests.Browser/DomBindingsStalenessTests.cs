@@ -67,18 +67,17 @@ public sealed class DomBindingsStalenessTests
     }
 
     [Test]
-    public void TheGeneratorReportsOnlyTheTwoDiagnosticsWeKnowAbout()
+    public void TheGeneratorReportsNoDiagnostics()
     {
-        // Both are one WebIDL member spelled as two CLR overloads with the same [DomName] — HTML's
-        // `select.add((HTMLOptionElement or HTMLOptGroupElement) element, …)` is a union type, and AngleSharp
-        // models it as two methods. The binding takes one of them, so `select.add(optgroup)` is a TypeError
-        // where a browser accepts it. It is a limitation with a name, which is why it is pinned here: a THIRD
-        // diagnostic means the generator found something nobody has looked at.
-        Generate().Diagnostics.Should().BeEquivalentTo(
-        [
-            "HTMLOptionsCollection.add is declared more than once in the interface closure; the first declaration wins (IHtmlOptionsCollection.Add lost).",
-            "HTMLSelectElement.add is declared more than once in the interface closure; the first declaration wins (IHtmlSelectElement.AddOption lost).",
-        ]);
+        // It used to report two, and both were the same thing: one WebIDL member spelled as two CLR overloads
+        // sharing a [DomName] — HTML's `select.add((HTMLOptionElement or HTMLOptGroupElement) element, …)` is
+        // a union type and AngleSharp models it as two methods, so one half always lost and
+        // `select.add(optgroup)` was a TypeError where a browser accepts it. Both are `skip` + `additions`
+        // entries over DomUnionMembers now, which is what turns the collision into a decision.
+        //
+        // Empty is therefore the assertion, and it is a stronger one than a pinned list: ANY diagnostic means
+        // the generator found something nobody has looked at.
+        Generate().Diagnostics.Should().BeEmpty();
     }
 
     [Test]

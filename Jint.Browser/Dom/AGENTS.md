@@ -44,7 +44,7 @@ version of AngleSharp nobody references.
 | --- | --- |
 | `excludedInterfaces` | An interface the runtime owns instead. Today: `IWindow` (campaign item R1). |
 | `manual` | An interface whose shape is hand-written in `DomManualShapes`. Today: `IHtmlCollection<T>`, whose generic invariance keeps a member body from naming its receiver. A manual interface contributes no members to any closure — its children inherit them through the prototype chain. |
-| `skip` | A member whose AngleSharp implementation must not be projected: navigation (`location.assign`, `location.href`'s setter), the parser (`document.open`/`close`/`load`), `document.createEvent` whose AngleSharp `Event` must never reach script, `DOMImplementation.createHTMLDocument` whose title AngleSharp makes required, and the six the events bridge re-declares because AngleSharp's own do nothing — see the divergence table. Every one of them is re-declared in `additions`, so a skip here is a *replacement* and not an absence. `half: "setter"` skips the write half only. |
+| `skip` | A member whose AngleSharp implementation must not be projected: HTML's two union-typed operations (`select.add`, `HTMLOptionsCollection.add`, whose `(HTMLOptionElement or HTMLOptGroupElement)` AngleSharp models as two overloads sharing one `[DomName]`, so one arm always lost — `DomUnionMembers` dispatches on both, and the entry is also what turns the collision from a diagnostic into a decision), navigation (`location.assign`, `location.href`'s setter), the parser (`document.open`/`close`/`load`), `document.createEvent` whose AngleSharp `Event` must never reach script, `DOMImplementation.createHTMLDocument` whose title AngleSharp makes required, and the six the events bridge re-declares because AngleSharp's own do nothing — see the divergence table. Every one of them is re-declared in `additions`, so a skip here is a *replacement* and not an absence. `half: "setter"` skips the write half only. |
 | `hooks` | A member routed through `DomHostHooks` so the package can replace its body: the `innerHTML` and `outerHTML` setters, `insertAdjacentHTML`, `document.write`/`writeln`, and `setAttribute`/`removeAttribute` — the one write of an attribute this package can see, and therefore where a handler content attribute takes its position in the element's listener list. The default implementations *are* the AngleSharp call, so the seam costs nothing until R3 uses it. `"half": "getter"` replaces the *read* of an attribute, which is what a member whose value the host has and AngleSharp does not needs: `document.currentScript`, `readyState`, `URL`, `documentURI`, `referrer`, `cookie` and `Node.baseURI` are accessors on their prototypes because of it, where they used to be own properties written onto the document wrapper. `"returns": true` is the form for a member whose *answer* belongs to the host rather than its effect, which is `document.createElement`, `createElementNS` and `Node.cloneNode`: with the synchronous custom elements flag set the element a defined name produces is the constructor's and not AngleSharp's. **Reach for it before `skip` + `additions`** — a hook stands in front of a generated member, so the member keeps its arity and its name, and a member AngleSharp later grows under that name is still reported rather than shadowed. The same class carries `WrapperCreated`, which is the other direction — a member the generator could not emit at all, added to one wrapper; it is also where the events bridge registers an element's handler content attributes. |
 | `additions` | A member the **standard** puts on a generated interface and AngleSharp's metadata cannot express: a callback parameter, a stringifier with no `[DomName]`, a Shadow DOM v0 spelling, a missing `[DomName]`, the whole of CSSOM View's box model (`getBoundingClientRect` and its `client*`/`scroll*`/`offset*` family, answered from the flat layout — [`../Runtime/AGENTS.md`](../Runtime/AGENTS.md)), the legacy event-creation surface (`document.createEvent`), and the operations whose body is an event rather than a DOM call (`click`/`focus`/`blur`, `form.submit`/`requestSubmit`/`reset`, `document.activeElement`/`hasFocus`). Two forms, and an entry uses exactly one: **reach for the member form**, which names one member and goes through the model like any projected member, so the generated file names it and a member AngleSharp later grows under that name is reported rather than shadowed; the `"extend"` form hands the builder to a method and exists only for a *family* whose member list is computed, which today is HTML's event handler IDL attributes. `Overrides.AdditionEntry` has the whole of why, including what the extend form gives up. Either way it adds rather than replaces, so the interface stays **one** shape — the only way to add a member to a class rather than to one object without costing the prototype its shape. |
 | `reflected` | The **standard's** half of the table rather than AngleSharp's: which of [HTML §2.6.1](https://html.spec.whatwg.org/multipage/common-dom-interfaces.html#reflecting-content-attributes-in-idl-attributes)'s thirteen reflection algorithms one IDL attribute takes, plus its keywords, its invalid and missing value defaults and its range. None of that is in a CLR signature — a `long` and a `long` limited to only non-negative numbers are the same `Int32` property, and `<col span>` defaulting to 1 while `<select size>` defaults to 0 is nowhere in the metadata — which is why it is a table and not a heuristic. An entry **replaces** the member AngleSharp projects under that name, the opposite of `additions`, because most reflected attributes *are* projected already, from a property that hands back the raw attribute value or parses it with the wrong default; neither presence nor absence is an error, and the generated report says which each entry was. The bodies are one shared `ReflectedAttribute` descriptor per member in `DomReflected.g.cs`, process-shared and immutable, so HTML's rules for parsing integers, non-negative integers and floating-point number values exist once rather than once per emitted member. |
@@ -114,11 +114,6 @@ Divergences from a browser that are **ours** and deliberate:
   [WebIDL](https://webidl.spec.whatwg.org/#js-iterable), so `NodeList.prototype[Symbol.iterator] ===
   Array.prototype[Symbol.iterator]`. `DomIterator.ArrayValues` is the factory the emitter names, and it reads
   `DomRealm.PrincipalRealm` for the reason everything else here does.
-- **`(Node or DOMString)...` takes only the `Node` half**: `append('text')` is a `TypeError` where a browser
-  inserts a text node, because a static member body has no document to create one against.
-- **`select.add` and `HTMLOptionsCollection.add` take one of their two overloads**, because HTML's union type
-  is two CLR methods sharing a `[DomName]`. Two diagnostics say so and `DomBindingsStalenessTests` pins them
-  at exactly two, so a third means something new turned up.
 - **The ARIA mixin's element-reflection half is not projected.** `role` and the forty-three `aria-*`
   IDL attributes are, through `AriaReflection` and the `additions` extend form, and each is a view of
   its content attribute rather than stored state — which is what makes the two directions agree by
@@ -126,13 +121,14 @@ Divergences from a browser that are **ours** and deliberate:
   `ariaControlsElements` and their five siblings reflect an element or a frozen array of elements and
   carry an explicitly-set value that survives the target leaving the tree; that is bookkeeping, not a
   view, and it is [#3773](https://github.com/sebastienros/jint/issues/3773)'s remainder.
-- **A node's indexed and named getters are dropped** (`form[0]`, `form.username`, `select[0]`): a node wrapper
-  is a `JsEventTarget` rather than an `ArrayLikeObject`, so it carries no property projection.
-  `form.elements[0]` and `form.elements.namedItem('username')` are the same values.
 - **`el.tabIndex` answers 0 when the attribute is absent**, where HTML's default is −1 for anything not
   inherently focusable. It was AngleSharp's answer and is this binding's now, because `reflected` took the
   member over to get HTML's integer parsing (`tabindex="5%"` is 5, not 0); what is still missing is a
   focusability model rather than a parse, so `tabIndex` cannot decide focusability.
+- **A form's supported property names are computed rather than read from metadata.** HTML makes them the
+  `name` content attributes and the ids of the form's listed elements, and `name` is not an IDL member of
+  `IElement` at all, so no `[DomName]` heuristic could find it. It is the one named getter over elements in
+  the surface, so `ModelBuilder.AppendNamedHalf` writes the rule once instead of the table carrying it.
 
 ### Every member body goes through one invoker, and that is where a refusal is converted
 
@@ -189,6 +185,12 @@ The wrappers deliberately do **not** share a base class, and `IDomWrapper` is wh
 - **`Collections/DomCollectionObject : ArrayLikeObject`** — so `list[i]`, `for..of`, spread, `Array.from` and
   the `Array.prototype` generics reach the engine's one-callback-per-element lane with no `Reference`, no key
   object and no descriptor. Its interface-specific half is the generated accessor.
+- **`Collections/DomIndexedNodeObject : DomNodeObject`** — a node whose interface *also* supports indexed or
+  named properties (`form[0]`, `form.username`, `select[0]`). It is a node wrapper with the same generated
+  accessor projected on top, and it has to be: the tree-dispatch lane keys on the node wrapper and the cache
+  keeps one per node, so a form that became an `ArrayLikeObject` would stop being an `EventTarget` the
+  dispatcher can walk. Three overrides, all reading the accessor at the same instant, which is what keeps
+  `hasOwnProperty` and `Object.getOwnPropertyNames` agreeing about one object.
 - **`Collections/DomNamedMapObject : NamedPropertyObject`** — `dataset`, whose whole model is a named getter.
 - **`DomObject : ObjectInstance`** — everything else, overriding nothing, which is what keeps it on the
   engine's ordinary access lane.

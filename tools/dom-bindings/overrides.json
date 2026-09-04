@@ -24,6 +24,16 @@
   ],
   "skip": [
     {
+      "interface": "HTMLSelectElement",
+      "member": "add",
+      "reason": "HTML's `add((HTMLOptionElement or HTMLOptGroupElement) element, ...)` is a union, and AngleSharp models it as two AddOption overloads sharing one [DomName]. The generator binds one member per name, so one half would always lose; re-declared in `additions` over a body that dispatches on the argument's interface."
+    },
+    {
+      "interface": "HTMLOptionsCollection",
+      "member": "add",
+      "reason": "The same union on the collection, and the same two overloads."
+    },
+    {
       "interface": "Document",
       "member": "querySelector",
       "reason": "DOM requires a SyntaxError DOMException for a selector that cannot be parsed, and a page has to be able to catch it -- jQuery's own support detection asks for `:has(*,:jqfake)` inside a try. AngleSharp raises a CLR AngleSharp.Dom.DomException instead, which walks through a script's catch and out of the page loop, and AngleSharp.Css NREs outright on that input. Re-declared in `additions` over the same AngleSharp call, wrapped so that the failure is the DOMException the standard names."
@@ -246,6 +256,28 @@
     }
   ],
   "additions": [
+    {
+      "interface": "HTMLSelectElement",
+      "member": "add",
+      "kind": "operation",
+      "length": 1,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSelectElement>(thisObj, \"HTMLSelectElement.add\");",
+        "return global::Jint.Browser.Dom.DomUnionMembers.SelectAdd(self, args);"
+      ],
+      "reason": "The other half of the skip above: both arms of the union, dispatched on the argument's interface."
+    },
+    {
+      "interface": "HTMLOptionsCollection",
+      "member": "add",
+      "kind": "operation",
+      "length": 1,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOptionsCollection>(thisObj, \"HTMLOptionsCollection.add\");",
+        "return global::Jint.Browser.Dom.DomUnionMembers.OptionsAdd(self, args);"
+      ],
+      "reason": "The other half of the skip above, on the collection."
+    },
     {
       "interface": "Node",
       "member": "getRootNode",
@@ -1074,7 +1106,7 @@
       "length": 0,
       "body": [
         "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ICharacterData>(thisObj, \"CharacterData.replaceWith\");",
-        "self.Target.Replace(global::Jint.Browser.Dom.DomConvert.ObjectRest<global::AngleSharp.Dom.INode>(args, 0, \"CharacterData.replaceWith\")); return global::Jint.Native.JsValue.Undefined;"
+        "self.Target.Replace(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, \"CharacterData.replaceWith\")); return global::Jint.Native.JsValue.Undefined;"
       ],
       "reason": "DOM §4.2.7 names it `replaceWith` and AngleSharp's IChildNode carries [DomName(\"replace\")], so the mixin projected a member the standard does not have under a name it does not use. Re-declared in `additions` over the same call; the divergence is in Dom/AGENTS.md's table."
     },
@@ -1085,7 +1117,7 @@
       "length": 0,
       "body": [
         "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocumentType>(thisObj, \"DocumentType.replaceWith\");",
-        "self.Target.Replace(global::Jint.Browser.Dom.DomConvert.ObjectRest<global::AngleSharp.Dom.INode>(args, 0, \"DocumentType.replaceWith\")); return global::Jint.Native.JsValue.Undefined;"
+        "self.Target.Replace(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, \"DocumentType.replaceWith\")); return global::Jint.Native.JsValue.Undefined;"
       ],
       "reason": "DOM §4.2.7 names it `replaceWith` and AngleSharp's IChildNode carries [DomName(\"replace\")], so the mixin projected a member the standard does not have under a name it does not use. Re-declared in `additions` over the same call; the divergence is in Dom/AGENTS.md's table."
     },
@@ -1096,7 +1128,7 @@
       "length": 0,
       "body": [
         "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, \"Element.replaceWith\");",
-        "self.Target.Replace(global::Jint.Browser.Dom.DomConvert.ObjectRest<global::AngleSharp.Dom.INode>(args, 0, \"Element.replaceWith\")); return global::Jint.Native.JsValue.Undefined;"
+        "self.Target.Replace(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, \"Element.replaceWith\")); return global::Jint.Native.JsValue.Undefined;"
       ],
       "reason": "DOM §4.2.7 names it `replaceWith` and AngleSharp's IChildNode carries [DomName(\"replace\")], so the mixin projected a member the standard does not have under a name it does not use. Re-declared in `additions` over the same call; the divergence is in Dom/AGENTS.md's table."
     },
