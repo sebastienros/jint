@@ -76,9 +76,9 @@ public sealed class DomPrototypeTests
         fixture.Text("Object.prototype.toString.call(document.querySelector('#a').childNodes)").Should().Be("[object NodeList]");
 
         // AngleSharp types querySelectorAll as IHtmlCollection<IElement> where DOM §4.2.6 specifies a static
-        // NodeList, so the binding reports what AngleSharp declared. Reported upstream; the indexed and
-        // iterable halves are identical either way, which is why nothing else in this suite notices.
-        fixture.Text("Object.prototype.toString.call(document.querySelectorAll('div'))").Should().Be("[object HTMLCollection]");
+        // NodeList. The binding contains that return-type divergence rather than exposing HTMLCollection's
+        // prototype and named-property semantics.
+        fixture.Text("Object.prototype.toString.call(document.querySelectorAll('div'))").Should().Be("[object NodeList]");
     }
 
     [Test]
