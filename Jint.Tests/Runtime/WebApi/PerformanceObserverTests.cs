@@ -34,6 +34,37 @@ public class PerformanceObserverTests
     }
 
     /// <summary>
+    /// WebIDL's <i>invoke a callback function</i> ends in HTML's <i>clean up after running script</i>, which
+    /// performs a microtask checkpoint whenever the callback returned to an empty JavaScript execution context
+    /// stack - and the delivery task is a job, so it always has. One delivery invoking several observers
+    /// therefore has a checkpoint between them, exactly as a dispatch has one between two listeners
+    /// (sebastienros/jint#3734, following #3733).
+    /// </summary>
+    [Test]
+    public void OneDeliveryCheckpointsBetweenTwoObservers()
+    {
+        var log = new List<string>();
+        var engine = ObserverEngine();
+        engine.SetValue("record", new Action<string>(entry => log.Add(entry)));
+
+        engine.Execute("""
+            new PerformanceObserver(() => {
+                record('observer-1');
+                Promise.resolve().then(() => record('microtask'));
+            }).observe({ entryTypes: ['mark'] });
+
+            new PerformanceObserver(() => record('observer-2')).observe({ entryTypes: ['measure'] });
+
+            performance.mark('a');
+            performance.measure('m');
+            """);
+
+        Pump(engine);
+
+        log.Should().Equal("observer-1", "microtask", "observer-2");
+    }
+
+    /// <summary>
     /// The delivery is a task on the event loop, so <c>mark()</c> itself never calls the callback — which is
     /// what makes a mark taken in a tight loop cost one queued job rather than one callback per entry.
     /// </summary>

@@ -380,7 +380,7 @@ internal sealed class WebSocketOperation
             return;
         }
 
-        _engine.AddToEventLoop(() => RunTask(task), _generation);
+        _engine.AddToEventLoop(() => RunTask(task), _generation, EventLoopJobKind.Task);
     }
 
     /// <summary>

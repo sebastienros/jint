@@ -473,7 +473,7 @@ internal sealed class FetchOperation
     /// </summary>
     private void Enqueue(Action? settle)
     {
-        _engine.AddToEventLoop(() => RunSettle(settle), _registration);
+        _engine.AddToEventLoop(() => RunSettle(settle), _registration, EventLoopJobKind.Task);
     }
 
     /// <summary>

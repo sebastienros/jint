@@ -485,7 +485,10 @@ public class Host
     /// </summary>
     internal void HostEnqueuePromiseJob(Action job, Realm realm)
     {
-        Engine.AddToEventLoop(job);
+        // A microtask: HTML implements this host hook by queueing one
+        // (https://html.spec.whatwg.org/multipage/webappapis.html#hostenqueuepromisejob), which is what makes
+        // a promise job run before the next task rather than behind it.
+        Engine.AddToEventLoop(job, EventLoopJobKind.Microtask);
     }
 
     /// <summary>
@@ -507,7 +510,10 @@ public class Host
     /// </param>
     internal void HostEnqueueFinalizationRegistryCleanupJob(Action cleanupJob, int generation)
     {
-        Engine.AddToEventLoop(cleanupJob, generation);
+        // A task, unlike the promise job above: HTML queues this one on a task source
+        // (https://html.spec.whatwg.org/multipage/webappapis.html#hostenqueuefinalizationregistrycleanupjob),
+        // so a cleanup callback never runs inside a microtask checkpoint.
+        Engine.AddToEventLoop(cleanupJob, generation, EventLoopJobKind.Task);
     }
 
     internal virtual List<string> GetSupportedImportAttributes()

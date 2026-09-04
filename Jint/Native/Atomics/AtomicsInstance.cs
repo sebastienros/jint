@@ -343,11 +343,12 @@ internal sealed partial class AtomicsInstance : BuiltinShapeObject
         {
             if (Interlocked.CompareExchange(ref _resolved, 1, 0) == 0)
             {
-                // Queue microtask to resolve the promise
+                // Queue microtask to resolve the promise: ECMAScript's DoWait enqueues the resolution
+                // as a Job (https://tc39.es/ecma262/#sec-atomics.waitasync), and a Job is a microtask.
                 _engine.AddToEventLoop(() =>
                 {
                     _promiseCapability.Resolve(new JsString(result));
-                }, _registration);
+                }, _registration, EventLoopJobKind.Microtask);
             }
         }
     }
@@ -812,11 +813,11 @@ internal sealed partial class AtomicsInstance : BuiltinShapeObject
         }
         else
         {
-            // No buffer data - resolve immediately with "timed-out"
+            // No buffer data - resolve immediately with "timed-out", still as the Job the resolution is.
             _engine.AddToEventLoop(() =>
             {
                 promiseCapability.Resolve(new JsString("timed-out"));
-            });
+            }, EventLoopJobKind.Microtask);
         }
 
         // Return an object with async: true and value: promise

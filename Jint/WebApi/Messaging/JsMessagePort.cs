@@ -348,7 +348,7 @@ internal sealed class JsMessagePort : JsEventTarget
             return;
         }
 
-        engine.AddToEventLoop(_arrivalJob, _generation);
+        engine.AddToEventLoop(_arrivalJob, _generation, EventLoopJobKind.Task);
     }
 
     /// <summary>
@@ -377,7 +377,7 @@ internal sealed class JsMessagePort : JsEventTarget
         }
 
         _drainScheduled = true;
-        _engine.AddToEventLoop(_drainJob, _generation);
+        _engine.AddToEventLoop(_drainJob, _generation, EventLoopJobKind.Task);
     }
 
     /// <summary>

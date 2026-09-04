@@ -836,7 +836,7 @@ internal sealed class XhrOperation : IDisposable
     /// </summary>
     private void Post(Action action, bool evenIfSuperseded = false)
     {
-        _engine.AddToEventLoop(() => RunOnEngineThread(action, evenIfSuperseded), _registration);
+        _engine.AddToEventLoop(() => RunOnEngineThread(action, evenIfSuperseded), _registration, EventLoopJobKind.Task);
     }
 
     /// <summary>

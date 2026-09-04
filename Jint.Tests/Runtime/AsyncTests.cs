@@ -3463,7 +3463,7 @@ public class AsyncTests
         waiter1.IsCompleted.Should().BeFalse("waiter1 should be pending until Enqueue");
         waiter2.IsCompleted.Should().BeFalse("waiter2 should be pending until Enqueue");
 
-        loop.Enqueue(static () => { });
+        loop.Enqueue(static () => { }, EventLoopJobKind.Task);
 
         // A wedge ceiling: what is asserted is that both waiters were signalled, never how quickly, and the
         // completions are delivered by the thread pool.

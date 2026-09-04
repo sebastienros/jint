@@ -142,7 +142,7 @@ internal sealed class WorkerLink
     /// the worker's script has run when <c>new Worker(...)</c> returns; the first pump the host gives it is
     /// what runs this.
     /// </summary>
-    internal void QueueStartJob() => _worker.AddToEventLoop(RunStartJob, _workerGeneration);
+    internal void QueueStartJob() => _worker.AddToEventLoop(RunStartJob, _workerGeneration, EventLoopJobKind.Task);
 
     /// <summary>
     /// <c>worker.postMessage(message, transfer)</c> — the parent half. Runs on the parent's thread.
@@ -192,7 +192,7 @@ internal sealed class WorkerLink
         // and doing it uniformly here keeps this method's shape identical to the end sequence's.
         _innerPort.Endpoint?.Close();
 
-        _worker.AddToEventLoop(_closeJob, _workerGeneration);
+        _worker.AddToEventLoop(_closeJob, _workerGeneration, EventLoopJobKind.Task);
     }
 
     /// <summary>
@@ -235,7 +235,7 @@ internal sealed class WorkerLink
         // silently.
         if (reason == WorkerEndReason.StartupFailed)
         {
-            _parent.AddToEventLoop(_startupErrorJob, _parentGeneration);
+            _parent.AddToEventLoop(_startupErrorJob, _parentGeneration, EventLoopJobKind.Task);
         }
 
         if (closedByWorker)
@@ -397,7 +397,7 @@ internal sealed class WorkerLink
         }
 
         var report = new WorkerErrorReport(details.Message, details.Filename, details.Lineno, details.Colno);
-        _parent.AddToEventLoop(() => DeliverErrorToParent(report), _parentGeneration);
+        _parent.AddToEventLoop(() => DeliverErrorToParent(report), _parentGeneration, EventLoopJobKind.Task);
     }
 
     /// <summary>

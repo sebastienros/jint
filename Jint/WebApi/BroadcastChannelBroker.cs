@@ -1,5 +1,6 @@
 #if NET8_0_OR_GREATER
 using System.Threading;
+using Jint.Runtime;
 using Jint.WebApi.Messaging;
 using Jint.WebApi.StructuredClone;
 
@@ -256,7 +257,7 @@ internal sealed class BroadcastChannelSubscription
 
         var channel = Channel;
         var message = record;
-        engine.AddToEventLoop(() => channel.Receive(in message), Generation);
+        engine.AddToEventLoop(() => channel.Receive(in message), Generation, EventLoopJobKind.Task);
     }
 }
 #endif

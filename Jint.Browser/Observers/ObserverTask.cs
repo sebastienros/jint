@@ -1,5 +1,6 @@
 using Jint.Browser.Runtime;
 using Jint.Native;
+using Jint.Runtime;
 using Jint.WebApi.Timers;
 
 namespace Jint.Browser.Observers;
@@ -30,9 +31,9 @@ internal static class ObserverTask
         if (timers is null)
         {
             // The timer feature is off, which a host can do through ConfigureEngine. The job queue is then
-            // the only queue there is, so the delivery becomes a microtask: earlier than a browser's, and
-            // still after the script that asked for it.
-            engine.AddToEventLoop(work);
+            // the only queue there is, so the delivery is a task on it: earlier than a browser's, and still
+            // after the script that asked for it — and still a task, so no microtask checkpoint runs it.
+            engine.AddToEventLoop(work, EventLoopJobKind.Task);
             return;
         }
 

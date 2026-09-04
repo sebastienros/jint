@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using AngleSharp;
 using AngleSharp.Dom;
 using Jint.Browser.Runtime;
+using Jint.Runtime;
 
 namespace Jint.Browser.DevTools;
 
@@ -218,7 +219,7 @@ internal sealed class DomNodeTracker
         }
 
         _scheduled = true;
-        runtime.Engine.AddToEventLoop(_deliver);
+        runtime.Engine.AddToEventLoop(_deliver, EventLoopJobKind.Task);
     }
 
     private void Deliver()

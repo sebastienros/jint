@@ -228,7 +228,8 @@ internal sealed class FetchRequestBodyStream : ReadRequest
                 // .RestoreGlobalSnapshot from resuming a read against the restored engine.
                 self._engine.AddToEventLoop(
                     () => self.OnWriteCompleted(task.IsCompletedSuccessfully),
-                    self._registration);
+                    self._registration,
+                    EventLoopJobKind.Task);
             },
             this,
             CancellationToken.None,

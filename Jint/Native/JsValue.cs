@@ -246,7 +246,7 @@ public abstract partial class JsValue : IEquatable<JsValue>
                         // A constraint failure ends its originating generation before this Task continuation
                         // observes it. Deliver the failure itself in the new generation; using the captured
                         // registration would fence off the only notification the awaiting host can receive.
-                        engine.AddToEventLoop(dispatch.Throw, engine.EventLoopGeneration);
+                        engine.AddToEventLoop(dispatch.Throw, engine.EventLoopGeneration, EventLoopJobKind.Task);
                     }
                     else
                     {

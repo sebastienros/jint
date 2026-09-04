@@ -1,6 +1,7 @@
 #nullable enable
 
 using System.Diagnostics;
+using Jint.Runtime;
 
 namespace Jint.Tests.Runtime;
 
@@ -86,7 +87,7 @@ public class WaitForScheduledWorkTests
     public void ReturnsTrueImmediatelyWhenWorkIsAlreadyQueued()
     {
         using var engine = new Engine();
-        engine.AddToEventLoop(static () => { });
+        engine.AddToEventLoop(static () => { }, EventLoopJobKind.Task);
 
         engine.Tasks.WaitForScheduledWork(TimeSpan.Zero).Should().BeTrue();
 
@@ -114,7 +115,7 @@ public class WaitForScheduledWorkTests
             waiterAboutToPark.Wait(WedgeCeiling);
             SettleBeforeReleasingTheWait();
             elapsed.Start();
-            engine.AddToEventLoop(static () => { });
+            engine.AddToEventLoop(static () => { }, EventLoopJobKind.Task);
         });
 
         waiterAboutToPark.Set();
@@ -275,7 +276,7 @@ public class WaitForScheduledWorkTests
     public async Task ReturnsTrueImmediatelyWhenWorkIsAlreadyQueuedAsync()
     {
         using var engine = new Engine();
-        engine.AddToEventLoop(static () => { });
+        engine.AddToEventLoop(static () => { }, EventLoopJobKind.Task);
 
         (await engine.Tasks.WaitForScheduledWorkAsync(TimeSpan.Zero)).Should().BeTrue();
 
@@ -301,7 +302,7 @@ public class WaitForScheduledWorkTests
             waiterAboutToPark.Wait(WedgeCeiling);
             SettleBeforeReleasingTheWait();
             elapsed.Start();
-            engine.AddToEventLoop(static () => { });
+            engine.AddToEventLoop(static () => { }, EventLoopJobKind.Task);
         });
 
         waiterAboutToPark.Set();
