@@ -81,6 +81,43 @@ public sealed class PageTests
     }
 
     [Test]
+    public async Task EvaluateAndAwaitResolvesPromisesWithoutExposingEngineValues()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+
+        (await page.EvaluateAndAwaitAsync<int>("Promise.resolve(42)")).Should().Be(42);
+        (await page.EvaluateAndAwaitAsync<string>(
+            "new Promise(resolve => setTimeout(() => resolve('settled'), 20))")).Should().Be("settled");
+
+        await page.SetContentAsync("<title>before</title>");
+        (await page.EvaluateAndAwaitAsync<string>(
+            "new Promise(resolve => setTimeout(() => { document.title = 'after'; resolve(document.title); }, 20))"))
+            .Should().Be("after");
+        (await page.TitleAsync()).Should().Be("after");
+
+        var value = await page.EvaluateAndAwaitAsync("Promise.resolve({ name: 'jint' })");
+        value.Should().BeAssignableTo<IDictionary<string, object?>>();
+        value!.GetType().Assembly.Should().NotBeSameAs(typeof(global::Jint.Native.JsValue).Assembly);
+    }
+
+    [Test]
+    public async Task NavigationCancelsAnEvaluationOwnedByThePreviousDocument()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+
+        var pending = page.EvaluateAndAwaitAsync(
+            "new Promise(() => { globalThis.pendingEvaluationStarted = true; })");
+        (await page.EvaluateAsync<bool>("pendingEvaluationStarted")).Should().BeTrue();
+
+        await page.NavigateAsync("data:text/html,<title>replacement</title>");
+
+        var waitForPreviousDocument = async () => await pending;
+        await waitForPreviousDocument.Should().ThrowAsync<OperationCanceledException>();
+    }
+
+    [Test]
     public async Task TheDocumentUrlIsAboutBlankUntilSomethingElseIsLoaded()
     {
         await using var browser = new Browser();

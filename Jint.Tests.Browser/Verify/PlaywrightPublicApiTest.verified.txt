@@ -1,0 +1,9 @@
+﻿[assembly: System.Resources.NeutralResourcesLanguage("en-US")]
+namespace Jint.Browser.Playwright
+{
+    public static class JintPlaywright
+    {
+        public static Microsoft.Playwright.IBrowserType BrowserType { get; }
+        public static Microsoft.Playwright.IBrowserType CreateBrowserType(System.Action<Jint.Browser.BrowserOptions>? configure = null) { }
+    }
+}

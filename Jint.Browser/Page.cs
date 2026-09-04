@@ -4,6 +4,8 @@ using AngleSharp;
 using Jint.Browser.Runtime;
 using Jint.Browser.Workers;
 using Jint.Native;
+using Jint.Native.Promise;
+using Jint.Runtime.Interop;
 using Jint.WebApi;
 
 namespace Jint.Browser;
@@ -232,6 +234,92 @@ public sealed partial class Page : IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(script);
         return _loop.PostAsync(engine => Convert<T>(engine.Evaluate(script)));
+    }
+
+    /// <summary>Evaluates <paramref name="script"/> and awaits its completion value when it is a promise.</summary>
+    /// <param name="script">The script to run.</param>
+    /// <param name="cancellationToken">Cancellation to observe while a promise is pending.</param>
+    /// <returns>The resolved result converted on the page's thread — never a <c>JsValue</c>.</returns>
+    /// <remarks>
+    /// The synchronous part runs as one page turn. A pending promise then leaves the page loop free to run
+    /// its timers, microtasks and network completions; its settlement reaction converts the result on that
+    /// same loop, so no engine-owned value crosses the page-thread boundary.
+    /// </remarks>
+    /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
+    public Task<object?> EvaluateAndAwaitAsync(string script, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(script);
+        return EvaluateAndAwaitCoreAsync(script, static value => value.ToObject(), cancellationToken);
+    }
+
+    /// <summary>Evaluates <paramref name="script"/>, awaits a promise result, and converts it to <typeparamref name="T"/>.</summary>
+    /// <typeparam name="T">The type to convert the resolved result to.</typeparam>
+    /// <param name="script">The script to run.</param>
+    /// <param name="cancellationToken">Cancellation to observe while a promise is pending.</param>
+    /// <returns>The converted resolved result, or the default when it is <c>null</c> or <c>undefined</c>.</returns>
+    /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
+    public Task<T?> EvaluateAndAwaitAsync<T>(string script, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(script);
+        return EvaluateAndAwaitCoreAsync(script, Convert<T>, cancellationToken);
+    }
+
+    private async Task<T> EvaluateAndAwaitCoreAsync<T>(
+        string script,
+        Func<JsValue, T> convert,
+        CancellationToken cancellationToken)
+    {
+        ObjectDisposedException.ThrowIf(_closed, this);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var completion = new TaskCompletionSource<T>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var documentClosing = CancellationToken.None;
+
+        await _loop.PostAsync(engine =>
+        {
+            documentClosing = _loop.DocumentClosing;
+            var value = engine.Evaluate(script);
+            if (value is not JsPromise promise)
+            {
+                completion.TrySetResult(convert(value));
+                return;
+            }
+
+            var onFulfilled = new ClrFunction(engine, "", (_, arguments) =>
+            {
+                try
+                {
+                    completion.TrySetResult(convert(arguments[0]));
+                }
+                catch (Exception exception)
+                {
+                    completion.TrySetException(exception);
+                }
+
+                return JsValue.Undefined;
+            });
+
+            var onRejected = new ClrFunction(engine, "", (_, arguments) =>
+            {
+                completion.TrySetException(
+                    new InvalidOperationException($"Promise was rejected with value {arguments[0]}"));
+                return JsValue.Undefined;
+            });
+
+            PromiseOperations.PerformPromiseThen(
+                engine,
+                promise,
+                onFulfilled,
+                onRejected,
+                resultCapability: null);
+        }).ConfigureAwait(false);
+
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken,
+            _loop.Closing,
+            documentClosing);
+        return await completion.Task.WaitAsync(linked.Token).ConfigureAwait(false);
     }
 
     /// <summary>The document's serialized markup, including the doctype.</summary>

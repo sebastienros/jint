@@ -99,6 +99,16 @@ jobs:
         -p:FileVersion=${{ steps.version.outputs.numeric }}
         -p:ContinuousIntegrationBuild=True
 
+    # The direct Playwright interface adapter ships with the browser it wraps. It references
+    # Microsoft.Playwright only for its public contracts and carries no Node driver or browser binary.
+    - name: Pack Jint.Browser.Playwright with dotnet
+      run: >
+        dotnet pack Jint.Browser.Playwright/Jint.Browser.Playwright.csproj --output artifacts --configuration Release
+        -p:Version=${{ steps.version.outputs.version }}
+        -p:AssemblyVersion=${{ steps.version.outputs.numeric }}
+        -p:FileVersion=${{ steps.version.outputs.numeric }}
+        -p:ContinuousIntegrationBuild=True
+
     # The Model Context Protocol server, from the same tag and the same version, because it is a library
     # over Jint.Browser referenced by project. Packed before the tool, which references it.
     - name: Pack Jint.Browser.Mcp with dotnet

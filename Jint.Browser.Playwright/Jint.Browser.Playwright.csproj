@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <NeutralLanguage>en-US</NeutralLanguage>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+
+    <AssemblyOriginatorKeyFile>..\Jint\Jint.snk</AssemblyOriginatorKeyFile>
+    <SignAssembly>true</SignAssembly>
+
+    <IsPackable>true</IsPackable>
+    <PackageId>Jint.Browser.Playwright</PackageId>
+    <Description>A direct Microsoft.Playwright interface adapter over Jint.Browser, without a browser process or CDP.</Description>
+    <PackageTags>javascript, interpreter, jint, anglesharp, headless, browser, playwright, testing</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+
+    <Nullable>enable</Nullable>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest-Recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1591</NoWarn>
+
+    <IsAotCompatible>false</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Jint.Browser\Jint.Browser.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Only the public API contracts are used. Excluding the build assets prevents the bundled Node
+         runtime and Playwright driver from being copied into applications that use this adapter. -->
+    <PackageReference Include="Microsoft.Playwright" ExcludeAssets="build;buildTransitive;contentFiles" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Remove="Acornima" />
+    <Using Remove="Acornima.Ast" />
+  </ItemGroup>
+
+</Project>

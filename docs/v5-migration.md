@@ -5376,6 +5376,7 @@ none of it changes an engine that does not.
 | Watching and intercepting every request, response and body chunk | `options.WebApi.Fetch.Observer = …`, plus `<NoWarn>$(NoWarn);JINT0002</NoWarn>` | [§5.10](#510-fetch-can-behave-as-a-documents-fetch-3617) |
 | The Chrome DevTools Protocol over a WebSocket, so a debugging client can attach to an engine your host is already running | `dotnet add package Jint.DevTools`, then `options.UseDevTools()` | [Chrome DevTools Protocol (opt-in package)](../README.md#chrome-devtools-protocol-opt-in-package) |
 | A headless browser — AngleSharp's DOM under Jint, drivable by Puppeteer and Playwright, plus a `jint-browser` command line | `dotnet add package Jint.Browser`, or `dotnet tool install -g Jint.Browser.Tool` | [Headless browser (opt-in package)](../README.md#headless-browser-opt-in-package) |
+| Playwright for .NET's public browser interfaces over that headless browser, without Node, CDP or a WebSocket | `dotnet add package Jint.Browser.Playwright`, then use `JintPlaywright.BrowserType` | [Headless browser (opt-in package)](../README.md#headless-browser-opt-in-package) |
 | A Model Context Protocol server over that browser, so an agent reads a page as its accessibility tree and clicks its way through it | `jint-browser mcp`, or `AddMcpServer().AddJintBrowser()` in a host of your own | [Headless browser (opt-in package)](../README.md#headless-browser-opt-in-package) |
 | The names of the global `let`/`const`/`class` declarations, which `globalThis` does not carry | `engine.Advanced.GetGlobalLexicalNames()` | [§5.27](#527-a-host-can-list-the-global-lexical-bindings-3610) |
 | The program a function value was parsed in, so a tooling protocol resolves its script by identity | `function.Program`, beside `FunctionDeclaration` | [§5.28](#528-a-function-value-names-the-program-it-was-parsed-in-3666) |
@@ -6183,13 +6184,15 @@ has none.
 guard can only fire for an event a host's own `createEvent` produced — `Jint.Browser`'s — and a re-entrant
 dispatch still reports the message it always did.
 
-### 5.26 Four packages of their own, outside the engine's contract ([#3575](https://github.com/sebastienros/jint/issues/3575))
+### 5.26 Five packages of their own, outside the engine's contract ([#3575](https://github.com/sebastienros/jint/issues/3575))
 
-Four new packages ship beside `Jint`, and nothing about them reaches an engine that does not reference one.
+Five new packages ship beside `Jint`, and nothing about them reaches an engine that does not reference one.
 `Jint.DevTools` serves the Chrome DevTools Protocol for an engine your host is already running;
 `Jint.Browser` adds AngleSharp's DOM, a page runtime and the page-level protocol domains on top of it;
+`Jint.Browser.Playwright` implements Playwright for .NET's public browser interfaces directly over that
+runtime, without Playwright's Node driver or a CDP connection;
 `Jint.Browser.Mcp` is a Model Context Protocol server over that, for an agent rather than a client; and
-`Jint.Browser.Tool` is the `jint-browser` command line over both, installed rather than referenced. All four
+`Jint.Browser.Tool` is the `jint-browser` command line over both, installed rather than referenced. All five
 are `net8.0` and later.
 
 **There is nothing to migrate.** They are additive, they are separate packages, and they are outside the

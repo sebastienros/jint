@@ -38,6 +38,7 @@ internal sealed class PageLoop : IDisposable
         new UnboundedChannelOptions { SingleReader = true, AllowSynchronousContinuations = false });
 
     private readonly CancellationTokenSource _closing = new();
+    private CancellationTokenSource _documentClosing = new();
     private readonly TaskCompletionSource _started = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly TaskCompletionSource _stopped = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly Func<Engine> _engineFactory;
@@ -68,6 +69,10 @@ internal sealed class PageLoop : IDisposable
 
     /// <summary>Whether the loop has been asked to stop.</summary>
     internal bool IsClosed => _closed;
+
+    /// <summary>Cancellation for work tied to the engine and document the loop currently owns.</summary>
+    /// <remarks>Read only from a mailbox request running on the loop thread.</remarks>
+    internal CancellationToken DocumentClosing => _documentClosing.Token;
 
     /// <summary>The thread this loop runs on, which is the only thread allowed to touch the engine.</summary>
     internal Thread Thread => _thread;
@@ -175,7 +180,11 @@ internal sealed class PageLoop : IDisposable
     }
 
     /// <summary>Releases the cancellation source, after <see cref="CloseAsync"/> has completed.</summary>
-    public void Dispose() => _closing.Dispose();
+    public void Dispose()
+    {
+        _documentClosing.Dispose();
+        _closing.Dispose();
+    }
 
     private static ObjectDisposedException Disposed()
         => new(nameof(Page), "The page has been closed; its engine and its document no longer exist.");
@@ -191,6 +200,17 @@ internal sealed class PageLoop : IDisposable
     internal Engine ReplaceEngine(Func<Engine> factory)
     {
         var previous = _engine;
+        var previousDocumentClosing = _documentClosing;
+        _documentClosing = new CancellationTokenSource();
+
+        try
+        {
+            previousDocumentClosing.Cancel();
+        }
+        catch (AggregateException exception)
+        {
+            _onPumpError(exception);
+        }
 
         // Before the swap, and before the new engine is built: a constraint belongs to one engine, so the
         // turn the request opened has to be closed on the engine it was opened on. Building the replacement

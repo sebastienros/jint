@@ -117,6 +117,46 @@ public sealed class PageInputTests
     }
 
     [Test]
+    public async Task IndexedTargetsSelectOneMatchAndAcceptOffsetsFromTheEnd()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(
+            """
+            <!doctype html>
+            <button class="click">first</button><button class="click">second</button>
+            <div class="hover">first</div><div class="hover">second</div>
+            <input class="field" value="first"><input class="field" value="second">
+            <select class="pick"><option value="a">A</option><option value="b">B</option></select>
+            <select class="pick"><option value="a">A</option><option value="b">B</option></select>
+            <span class="late">first</span>
+            <script>
+              document.querySelectorAll('.click')[1].onclick = () => document.body.dataset.clicked = 'second';
+              document.querySelectorAll('.hover')[1].onmousemove = () => document.body.dataset.hovered = 'second';
+              setTimeout(() => {
+                const span = document.createElement('span');
+                span.className = 'late';
+                span.textContent = 'second';
+                document.body.appendChild(span);
+              }, 20);
+            </script>
+            """);
+
+        (await page.ClickAsync(".click", -1)).Should().BeTrue();
+        (await page.HoverAsync(".hover", 1)).Should().BeTrue();
+        (await page.FillAsync(".field", -1, "changed")).Should().BeTrue();
+        (await page.TypeAsync(".field", 0, "+typed")).Should().BeTrue();
+        (await page.SelectAsync(".pick", -1, "b")).Should().BeTrue();
+        (await page.WaitForSelectorAsync(".late", 1, Patience)).Should().BeTrue();
+
+        (await page.EvaluateAsync<string>("document.body.dataset.clicked")).Should().Be("second");
+        (await page.EvaluateAsync<string>("document.body.dataset.hovered")).Should().Be("second");
+        (await page.EvaluateAsync<string>("document.querySelectorAll('.field')[0].value")).Should().Be("+typedfirst");
+        (await page.EvaluateAsync<string>("document.querySelectorAll('.field')[1].value")).Should().Be("changed");
+        (await page.EvaluateAsync<string>("document.querySelectorAll('.pick')[1].value")).Should().Be("b");
+    }
+
+    [Test]
     public async Task TypeFiresOneInputEventPerCharacter()
     {
         await using var browser = new Browser();
