@@ -521,7 +521,10 @@ public sealed partial class Page
         }
         catch (OperationCanceledException) when (timeout.IsCancellationRequested)
         {
-            throw new NavigationFailedException(request.Target, "Navigation to '" + request.Target + "' timed out waiting for the previous one.");
+            throw new NavigationFailedException(
+                request.Target,
+                "Navigation to '" + request.Target + "' timed out waiting for the previous one.",
+                timedOut: true);
         }
 
         try
@@ -671,7 +674,10 @@ public sealed partial class Page
         }
         catch (OperationCanceledException) when (timeout.IsCancellationRequested)
         {
-            throw new NavigationFailedException(target.Serialize(), "Navigation to '" + target.Serialize() + "' timed out.");
+            throw new NavigationFailedException(
+                target.Serialize(),
+                "Navigation to '" + target.Serialize() + "' timed out.",
+                timedOut: true);
         }
     }
 

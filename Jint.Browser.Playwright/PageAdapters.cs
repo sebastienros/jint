@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Globalization;
 using System.Reflection;
 using System.Text.Json;
@@ -116,7 +116,9 @@ internal sealed class PageTarget(BrowserContextTarget context, JintPage inner) :
     {
         var timeout = Timeout(options?.Timeout, DefaultNavigationTimeout);
         var started = Stopwatch.GetTimestamp();
-        var response = await inner.NavigateAsync(url, NavigationOptions(options, timeout)).ConfigureAwait(false);
+        var response = await AsActionTimeoutAsync(
+            inner.NavigateAsync(url, NavigationOptions(options, timeout)),
+            timeout).ConfigureAwait(false);
         await WaitForNetworkIdleAsync(options?.WaitUntil, timeout, started).ConfigureAwait(false);
         return response is null ? null : ProxyFactory.Create<IResponse>(new ResponseTarget(this, response));
     }
@@ -125,11 +127,13 @@ internal sealed class PageTarget(BrowserContextTarget context, JintPage inner) :
     {
         var timeout = Timeout(options?.Timeout, DefaultNavigationTimeout);
         var started = Stopwatch.GetTimestamp();
-        var response = await inner.ReloadAsync(new Jint.Browser.NavigationOptions
-        {
-            Timeout = timeout,
-            WaitUntil = Map(options?.WaitUntil),
-        }).ConfigureAwait(false);
+        var response = await AsActionTimeoutAsync(
+            inner.ReloadAsync(new Jint.Browser.NavigationOptions
+            {
+                Timeout = timeout,
+                WaitUntil = Map(options?.WaitUntil),
+            }),
+            timeout).ConfigureAwait(false);
         await WaitForNetworkIdleAsync(options?.WaitUntil, timeout, started).ConfigureAwait(false);
         return response is null ? null : ProxyFactory.Create<IResponse>(new ResponseTarget(this, response));
     }
@@ -264,6 +268,44 @@ internal sealed class PageTarget(BrowserContextTarget context, JintPage inner) :
         Timeout = timeout,
         WaitUntil = Map(options?.WaitUntil),
     };
+
+    /// <summary>
+    /// Awaits an action that may start a navigation, reporting a navigation that ran out of time as this
+    /// API's own timeout.
+    /// </summary>
+    /// <remarks>
+    /// A Playwright action's <c>Timeout</c> covers the navigation the action starts, and the page is handed
+    /// that same deadline for the navigation itself — so the two clocks expire together and which one is
+    /// seen first is a race the caller has no way to predict. Playwright's contract is that an action which
+    /// ran out of time throws <see cref="TimeoutException"/> whatever it was waiting on, so the page's own
+    /// <see cref="Jint.Browser.NavigationFailedException"/> is translated here when, and only when, it says
+    /// it timed out. A refused URL or a network failure is a real failure of the navigation and stays what
+    /// it is.
+    /// </remarks>
+    internal static async Task<T> AsActionTimeoutAsync<T>(Task<T> action, TimeSpan timeout)
+    {
+        try
+        {
+            return await action.ConfigureAwait(false);
+        }
+        catch (Jint.Browser.NavigationFailedException failure) when (failure.TimedOut)
+        {
+            throw new TimeoutException($"Timeout {DisplayTimeout(timeout)} exceeded.", failure);
+        }
+    }
+
+    /// <inheritdoc cref="AsActionTimeoutAsync{T}(Task{T}, TimeSpan)"/>
+    internal static async Task AsActionTimeoutAsync(Task action, TimeSpan timeout)
+    {
+        try
+        {
+            await action.ConfigureAwait(false);
+        }
+        catch (Jint.Browser.NavigationFailedException failure) when (failure.TimedOut)
+        {
+            throw new TimeoutException($"Timeout {DisplayTimeout(timeout)} exceeded.", failure);
+        }
+    }
 
     internal static TimeSpan Timeout(float? milliseconds, float defaultMilliseconds)
     {
@@ -461,11 +503,14 @@ internal sealed class LocatorTarget(PageTarget page, LocatorDescriptor descripto
         var index = await descriptor.ResolveIndexAsync(page.Inner).ConfigureAwait(false);
         var remaining = RequireRemaining(timeout, started);
         var clicked = index is not null
-            && await page.Inner.ClickAsync(
-                    descriptor.Selector,
-                    index.Value,
-                    new Jint.Browser.NavigationOptions { Timeout = remaining })
-                .WaitAsync(remaining).ConfigureAwait(false);
+            && await PageTarget.AsActionTimeoutAsync(
+                    page.Inner.ClickAsync(
+                            descriptor.Selector,
+                            index.Value,
+                            new Jint.Browser.NavigationOptions { Timeout = remaining })
+                        .WaitAsync(remaining),
+                    timeout)
+                .ConfigureAwait(false);
         if (!clicked)
         {
             throw new PlaywrightException("The locator did not resolve to a clickable element.");
@@ -506,10 +551,13 @@ internal sealed class LocatorTarget(PageTarget page, LocatorDescriptor descripto
         }
 
         remaining = RequireRemaining(timeout, started);
-        await page.Inner.PressAsync(
-                key,
-                new Jint.Browser.NavigationOptions { Timeout = remaining })
-            .WaitAsync(remaining).ConfigureAwait(false);
+        await PageTarget.AsActionTimeoutAsync(
+                page.Inner.PressAsync(
+                        key,
+                        new Jint.Browser.NavigationOptions { Timeout = remaining })
+                    .WaitAsync(remaining),
+                timeout)
+            .ConfigureAwait(false);
     }
 
     private static TimeSpan RequireRemaining(TimeSpan timeout, long started)

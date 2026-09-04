@@ -1,4 +1,4 @@
-using Jint.Tests.Browser.Navigation;
+﻿using Jint.Tests.Browser.Navigation;
 using Microsoft.Playwright;
 
 namespace Jint.Tests.Browser.PlaywrightAdapter;
@@ -286,6 +286,43 @@ public sealed class DirectPlaywrightTests
         (await editor.InputValueAsync()).Should().Be("changed");
         (await page.EvaluateAsync<string>("() => document.body.dataset.entered")).Should().Be("yes");
         (await page.Locator("#log").TextContentAsync()).Should().Be("trusted");
+    }
+
+    /// <summary>A navigation that runs out of the action's time is this API's timeout, not the page's.</summary>
+    /// <remarks>
+    /// <para>
+    /// <c>GotoAsync</c> hands the page the caller's deadline and waits on nothing else, so before the
+    /// translation existed the only thing a caller could catch was <c>Jint.Browser</c>'s own
+    /// <c>NavigationFailedException</c> — a type Playwright's contract never mentions.
+    /// </para>
+    /// <para>
+    /// It is the deterministic half of <see cref="LocatorClickTimeoutIncludesNavigation"/>, which had two
+    /// clocks expiring together: the action's <c>WaitAsync</c> and the page's navigation deadline. Which one
+    /// was seen first was a race, so the click reported <see cref="TimeoutException"/> on one platform and
+    /// <c>NavigationFailedException</c> on another. Both are the timeout now.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task GotoTimeoutIsAPlaywrightTimeout()
+    {
+        using var release = new SemaphoreSlim(0, 1);
+        using var server = new LoopbackServer();
+        server.Map("/slow.html", _ =>
+        {
+            release.Wait(TimeSpan.FromSeconds(10));
+            return LoopbackResponse.Html("<title>slow</title>");
+        });
+
+        await using var browser = await global::Jint.Browser.Playwright.JintPlaywright.BrowserType.LaunchAsync();
+        var page = await browser.NewPageAsync();
+
+        var goTo = async () => await page.GotoAsync(
+            server.Url("/slow.html"),
+            new PageGotoOptions { Timeout = 50 });
+
+        await goTo.Should().ThrowAsync<System.TimeoutException>();
+
+        release.Release();
     }
 
     [Test]

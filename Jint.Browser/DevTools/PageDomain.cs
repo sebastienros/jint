@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Net.Sockets;
 using Jint.Browser.Runtime;
 using Jint.DevTools;
@@ -432,7 +432,7 @@ internal sealed partial class PageDomain : PageDomainBase, IDetachableDomain
             return "net::ERR_BLOCKED_BY_CLIENT";
         }
 
-        if (failure.Message.Contains("timed out", StringComparison.Ordinal))
+        if (failure.TimedOut)
         {
             return "net::ERR_ABORTED";
         }
