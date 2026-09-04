@@ -124,10 +124,15 @@ internal sealed partial class NetworkDomain : NetworkDomainBase, IDetachableDoma
     /// <c>Accept-Language</c> header on the same terms.
     /// </para>
     /// <para>
-    /// <b><c>platform</c> reaches the next document, not this one.</b> <c>navigator.platform</c> is installed
-    /// when a page engine is built, so a client that sets it after the document is parsed has set it for the
-    /// navigation that follows — which is what Chrome documents too. <c>userAgentMetadata</c> is accepted and
-    /// dropped: this browser publishes no client hints for it to fill in.
+    /// <b><c>platform</c> reaches the document that is already loaded</b>, like the other two.
+    /// <c>navigator.platform</c> is an accessor over the page's own <c>EmulationState</c> rather than a value
+    /// captured when the engine was built, so it answers the new string on the next read and a client needs no
+    /// navigation to see it. This paragraph used to say the opposite
+    /// (<see href="https://github.com/sebastienros/jint/issues/3701">#3701</see> item 5), which would have
+    /// cost a client a reload it never needed;
+    /// <c>NetworkDomainTests.TheNetworkCommandsPlatformReachesTheDocumentAlreadyLoaded</c> is what now holds
+    /// the claim to the code. <c>userAgentMetadata</c> is accepted and dropped: this browser publishes no
+    /// client hints for it to fill in.
     /// </para>
     /// </remarks>
     protected override ValueTask<EmptyResult> SetUserAgentOverrideAsync(SetUserAgentOverrideRequest parameters, CommandContext context)

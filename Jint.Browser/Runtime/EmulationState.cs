@@ -16,8 +16,10 @@ namespace Jint.Browser.Runtime;
 /// </para>
 /// <para>
 /// <b>Three groups, and what separates them is when they become effective.</b> The viewport, the media
-/// features, touch, focus, geolocation, the user agent and the hardware concurrency are read on every
-/// access, so setting one moves the document that is already loaded. The time zone and the locale are
+/// features, touch, focus, geolocation, the user agent, the platform, the language and the hardware
+/// concurrency are read on every access, so setting one moves the document that is already loaded - the user
+/// agent by being published to the engine showing it, and the rest because <c>NavigatorInstaller</c> and the
+/// media environment read this object per get. The time zone and the locale are
 /// <c>Options</c> the engine is <i>constructed</i> from, so they reach the next document and the command
 /// says so. Script execution is the document's, decided when its parse starts.
 /// </para>
@@ -145,6 +147,11 @@ internal sealed class EmulationState
     internal string? AcceptLanguage { get; set; }
 
     /// <summary>What <c>navigator.platform</c> answers, or <see langword="null"/> for the empty string.</summary>
+    /// <remarks>
+    /// Read per get by <c>NavigatorInstaller</c>, so it moves the document that is already loaded rather than
+    /// the next one. Unlike the user agent it needs no publish, because it is one of the page's own members
+    /// and not one the engine's <c>Navigator</c> declares.
+    /// </remarks>
     internal string? Platform { get; set; }
 
     /// <summary>Whether the client asked for the cache to be bypassed. There is no cache to bypass.</summary>

@@ -329,6 +329,53 @@ public class NetworkDomainTests
         server.Received.Should().BeEmpty("offline means no socket is opened at all");
     }
 
+    /// <summary>
+    /// <c>Network.setUserAgentOverride</c>'s three parameters all reach the document that is <b>already
+    /// loaded</b>, with no navigation in between —
+    /// https://chromedevtools.github.io/devtools-protocol/tot/Network/#method-setUserAgentOverride.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>This is the claim that was wrong rather than the code</b>
+    /// (<see href="https://github.com/sebastienros/jint/issues/3701">#3701</see> item 5). The command's own
+    /// documentation said <c>platform</c> reached the <i>next</i> document because "navigator.platform is
+    /// installed when a page engine is built" — but it is not installed as a value, it is an accessor over
+    /// the page's own <c>EmulationState</c>, so it has always answered on the next read. A client that
+    /// believed the comment would have reloaded a page for nothing.
+    /// </para>
+    /// <para>
+    /// <c>EmulationDomainTests.TheUserAgentOverrideIsWhatTheNavigatorAnswers</c> is the same assertion for
+    /// the <c>Emulation</c> spelling of the command; the two write one field, and only that one was covered.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task TheNetworkCommandsPlatformReachesTheDocumentAlreadyLoaded()
+    {
+        using var server = new LoopbackServer();
+        server.MapHtml("/page", "<html><body>ok</body></html>");
+
+        await using var fixture = await NetworkFixture.OpenAsync(server);
+        await fixture.NavigateAsync("/page");
+
+        (await fixture.Page.EvaluateAsync<string>("navigator.platform")).Should().BeEmpty();
+
+        await fixture.Session.ResultAsync(
+            "Network.setUserAgentOverride",
+            """{"userAgent":"ViaNetwork/1.0","acceptLanguage":"sv-SE","platform":"Win32"}""",
+            fixture.Attachment);
+
+        // No navigation between the command and the read: this is the document the command arrived on.
+        (await fixture.Page.EvaluateAsync<string>("navigator.platform")).Should().Be("Win32");
+        (await fixture.Page.EvaluateAsync<string>("navigator.userAgent")).Should().Be("ViaNetwork/1.0");
+        (await fixture.Page.EvaluateAsync<string>("navigator.language")).Should().Be("sv-SE");
+
+        // And it outlives the document, because the override is the page's rather than the engine's.
+        await fixture.NavigateAsync("/page");
+
+        (await fixture.Page.EvaluateAsync<string>("navigator.platform")).Should().Be("Win32");
+        (await fixture.Page.EvaluateAsync<string>("navigator.userAgent")).Should().Be("ViaNetwork/1.0");
+    }
+
     [Test]
     public async Task CookiesRoundTripThroughTheContextsJar()
     {
