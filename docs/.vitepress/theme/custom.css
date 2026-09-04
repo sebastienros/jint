@@ -21,6 +21,32 @@
   height: 220px;
 }
 
+.jint-preview-banner {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 24px;
+  padding: 14px 18px;
+  border: 1px solid var(--vp-c-warning-3);
+  border-radius: 8px;
+  background: var(--vp-c-warning-soft);
+  color: var(--vp-c-text-1);
+  line-height: 1.6;
+}
+
+.jint-preview-banner strong {
+  color: var(--vp-c-warning-1);
+  font-size: 15px;
+}
+
+.jint-preview-banner span {
+  font-size: 14px;
+}
+
+.jint-preview-banner a {
+  color: var(--vp-c-brand-1);
+  font-weight: 600;
+}
+
 .package-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));

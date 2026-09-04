@@ -8,9 +8,9 @@
 
 Pull requests target `main` unless they are explicit backports.
 
-Development packages are published to
-[Feedz.io](https://feedz.io/org/sebastienros/repository/jint/packages). Add
-`https://f.feedz.io/sebastienros/jint/nuget/index.json` as a NuGet source to consume them. NuGet releases are
-created from version tags on the branch being released.
+Development packages are published to Feedz. See
+[Using Jint 5 Preview Packages](../guide/preview-packages.md) for the feed
+configuration and installation commands. NuGet releases are created from
+version tags on the branch being released.
 
 See [Migrating to Jint 5](../guide/migrating-to-v5.md) when moving from the `4.x` line.

@@ -12,5 +12,5 @@
 `Jint.Browser.Tool` is installed as a .NET tool. The others are libraries consumed by an application.
 
 `Jint` is available on NuGet.org today. The optional package pages will become available there with the Jint 5
-release; until then, install their development builds from the
-[Feedz preview feed](https://feedz.io/org/sebastienros/repository/jint/packages).
+release; until then, follow [Using Jint 5 Preview Packages](../guide/preview-packages.md) to install their
+development builds from Feedz.

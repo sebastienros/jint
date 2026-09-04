@@ -47,6 +47,7 @@ export default defineConfig({
             { text: "Overview", link: "/guide/" },
             { text: "Getting Started", link: "/guide/getting-started" },
             { text: "Choosing a Package", link: "/guide/choosing-a-package" },
+            { text: "Using Preview Packages", link: "/guide/preview-packages" },
             { text: "Supported Platforms", link: "/guide/supported-platforms" },
             { text: "Migrating to Jint 5", link: "/guide/migrating-to-v5" }
           ]
