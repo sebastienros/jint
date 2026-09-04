@@ -26,10 +26,10 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | Suite | Documents | Synthesized | Tests | Not passing |
 | --- | --- | --- | --- | --- |
 | `dom/events/` | 56 | 9 | 544 | 20 |
-| `dom/nodes/` | 159 | 0 | 4,796 | 1,465 |
+| `dom/nodes/` | 159 | 0 | 4,796 | 1,439 |
 | `dom/collections/` | 8 | 0 | 43 | 25 |
 | `dom/lists/` | 5 | 0 | 189 | 5 |
-| `dom/traversal/` | 13 | 0 | 52 | 9 |
+| `dom/traversal/` | 13 | 0 | 52 | 7 |
 | `dom/ranges/` | 17 | 0 | 82 | 25 |
 | `html/dom/` | 5 | 0 | 85 | 31 |
 | `html/webappapis/scripting/events/` | 12 | 0 | 37 | 5 |
@@ -38,7 +38,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 200 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 3 |
-| **total** | **340** | **9** | **6,664** | **2,070** |
+| **total** | **340** | **9** | **6,664** | **2,042** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -188,11 +188,13 @@ Ordered by how many tests each accounts for:
 | 20 | 5 | [#3772](https://github.com/sebastienros/jint/issues/3772) **`StaticRange` is not a name**, which is eleven rows of `StaticRange-constructor.html`, plus what is left of `Range`'s own algorithms: `comparePoint`, `extractContents` over a dynamic end, and a range whose shadow root has been removed. |
 | 18 | 1 | **An event interface this browser does not build**, which is `NeedsMoreEventInterfaces` and the alias table `dom/events/EventTarget-dispatchEvent.html` already names: `DragEvent`, `StorageEvent`, `TouchEvent` and the two device events. |
 | 11 | 4 | **A document with no browsing context still has a `location`**, `createHTMLDocument` gives it one child too few, and `characterSet` answers `"utf-8"` where the standard's encoding name is `"UTF-8"`. |
+<<<<<<< HEAD
 | 29 | 3 | [#3774](https://github.com/sebastienros/jint/issues/3774) **A refusal carries the wrong `DOMException`.** Ten `createElementNS` rows expect `NamespaceError` and get `InvalidCharacterError`, eighteen `createDocument` rows expect one for an empty prefix or an empty local part and get a `NamespaceError` or nothing at all, and `attributes.html` expects one for `b:` and gets none. This is the half [#3732](https://github.com/sebastienros/jint/pull/3732) did not reach: the name crosses correctly now, and *which* name a refusal picks is a separate question. |
+=======
+>>>>>>> 65989aef6 (Web platform tests: the nineteen rows these two fixes retire leave the table, and the census is re-rendered over them)
 | 10 | 2 | **The selector engine's escapes.** `#eof\` and a surrogate escape are refused as invalid selectors where CSS Syntax §4.3.7 defines them, and `:scope` inside `:has()` resolves to the wrong element. |
 | 6 | 1 | **Members the standard removed are still here**, which is exactly what `html/dom/historical.html` exists to find. |
 | 4 | 2 | **A `MutationObserver` record too few, or too many.** `classList.add` of an existing token reports one record where two are due, and an observer of the document itself never fires — both already recorded as AngleSharp divergences. |
-| 2 | 1 | [#3774](https://github.com/sebastienros/jint/issues/3774) **`NodeIterator` retargets the wrong node.** `NodeIterator-removal-during-filtering.html` finds the pre-removing steps moving the reference to the removed node's sibling rather than to its predecessor. |
 
 **Four documents did not terminate at all, and that was the finding this campaign put first.**
 `TreeWalker-currentNode.html`, `TreeWalker-previousNodeLastChildReject.html`, `TreeWalker-traversal-reject.html`
