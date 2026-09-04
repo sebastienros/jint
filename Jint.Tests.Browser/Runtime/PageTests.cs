@@ -1,4 +1,4 @@
-using Jint.Browser;
+﻿using Jint.Browser;
 
 namespace Jint.Tests.Browser.Runtime;
 
@@ -99,6 +99,74 @@ public sealed class PageTests
         var value = await page.EvaluateAndAwaitAsync("Promise.resolve({ name: 'jint' })");
         value.Should().BeAssignableTo<IDictionary<string, object?>>();
         value!.GetType().Assembly.Should().NotBeSameAs(typeof(global::Jint.Native.JsValue).Assembly);
+    }
+
+    /// <summary>A rejected promise settles the task, whatever the page rejected it with.</summary>
+    /// <remarks>
+    /// The reaction runs on the page loop as a job nobody catches, so a renderer that throws inside it left
+    /// the task pending for ever rather than faulted.
+    /// </remarks>
+    [TestCase("Promise.reject(new Error('boom'))", "Error: boom")]
+    [TestCase("Promise.reject(new TypeError('bad'))", "TypeError: bad")]
+    [TestCase("Promise.reject('a string')", "a string")]
+    [TestCase("Promise.reject(Symbol('sym'))", "Symbol(sym)")]
+    [TestCase("Promise.reject(undefined)", "undefined")]
+    [TestCase("Promise.reject({ toString() { throw new TypeError('nope'); } })", "Object")]
+    [TestCase("Promise.reject({ get message() { throw new TypeError('nope'); } })", "Object")]
+    public async Task ARejectedPromiseFaultsTheTaskAndNamesTheReason(string script, string expected)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+
+        var evaluation = page.EvaluateAndAwaitAsync(script);
+        var settled = await Task.WhenAny(evaluation, Task.Delay(TimeSpan.FromSeconds(10)));
+        settled.Should().BeSameAs(evaluation, "a rejected promise settles the task rather than hanging it");
+
+        var rejection = async () => await evaluation;
+        (await rejection.Should().ThrowAsync<InvalidOperationException>())
+            .WithMessage("Promise was rejected with value " + expected);
+    }
+
+    /// <summary>Rendering the rejected value runs none of the page's script.</summary>
+    /// <remarks>
+    /// <c>toString</c>, <c>name</c> and <c>message</c> are all definable on the value a page rejects with,
+    /// so reading any of them through <c>[[Get]]</c> makes reporting a rejection a way to run script - the
+    /// hole https://github.com/sebastienros/jint/issues/3598 closed for the console.
+    /// </remarks>
+    [Test]
+    public async Task RenderingARejectionRunsNoneOfThePagesScript()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+
+        await page.EvaluateAsync("globalThis.ran = [];");
+
+        var rejection = async () => await page.EvaluateAndAwaitAsync(
+            """
+            Promise.reject({
+                toString() { globalThis.ran.push('toString'); return 'rendered'; },
+                get name() { globalThis.ran.push('name'); return 'Name'; },
+                get message() { globalThis.ran.push('message'); return 'Message'; },
+            })
+            """);
+
+        (await rejection.Should().ThrowAsync<InvalidOperationException>())
+            .WithMessage("Promise was rejected with value Object");
+        (await page.EvaluateAsync<int>("globalThis.ran.length")).Should().Be(0);
+    }
+
+    /// <summary>An own data property is read, because that is what the property is.</summary>
+    [Test]
+    public async Task ARejectionReadsAnOwnDataPropertyOverAnAccessor()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+
+        var rejection = async () => await page.EvaluateAndAwaitAsync(
+            "Promise.reject(Object.assign(new Error('ignored'), { name: 'Custom', message: 'own data' }))");
+
+        (await rejection.Should().ThrowAsync<InvalidOperationException>())
+            .WithMessage("Promise was rejected with value Custom: own data");
     }
 
     [Test]
