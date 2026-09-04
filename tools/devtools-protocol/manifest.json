@@ -142,26 +142,32 @@
   // project does not reference and no recorded client sends the command; and DOM.enable's
   // includeWhitespace is ignored, because every child node is reported either way.
   //
-  // Input is dispatchMouseEvent alone. The keyboard half - dispatchKeyEvent, insertText,
-  // imeSetComposition - is the next campaign item, and answering one of them now would be a silent
-  // success where a client feature-detecting it wants the truth.
+  // Input is the four commands a client drives a page with: dispatchMouseEvent, and the keyboard half of
+  // dispatchKeyEvent, insertText and imeSetComposition. The other nine name a touch screen, a drag, a
+  // synthesised gesture and input suppression, and answering one of those now would be a silent success
+  // where a client feature-detecting it wants the truth.
   // Storage is generated for three commands and no more. Every recorded client reads and writes a page's
   // cookies through Storage.getCookies and Storage.setCookies rather than through Network's, which is the
   // whole reason the domain is here; the other twenty commands name IndexedDB, cache storage, shared
   // storage, interest groups, attribution reporting and quota, and every one of those is a store this
   // browser does not have.
   //
-  // The Fetch response stage is absent, and with it Fetch.continueResponse, Fetch.getResponseBody,
-  // Fetch.takeResponseBodyAsStream and the whole IO domain. FetchObserver.OnResponse is a notification an
-  // observer cannot answer, so a response-stage pause could only ever continue unchanged and a client that
-  // called fulfillRequest from one would be silently ignored - which is worse than not pausing at all.
-  // Network.getResponseBody is what answers a body here. Fetch.continueWithAuth is absent for a smaller
+  // The Fetch response stage is here now, over FetchObserver.OnResponseAsync: a pattern asking for
+  // requestStage "Response" pauses, and continueResponse, fulfillRequest and failRequest answer one.
+  // Fetch.getResponseBody, Fetch.takeResponseBodyAsStream and the whole IO domain are still absent, and for
+  // a different reason than they used to be: the pause has the response's *headers* while its body is still
+  // on the socket, so there are no bytes to hand a client without buffering them first, which is a budget
+  // decision rather than a hook. Network.getResponseBody is what answers a body here.
+  // Fetch.continueWithAuth is absent for a smaller
   // reason: nothing in this browser answers a 401 with credentials, so there is no challenge to be asked
   // about and Fetch.authRequired is never sent.
   //
-  // Network's WebSocket and EventSource events are absent because the engine deliberately does not observe
-  // those two handshakes (Jint/WebApi/AGENTS.md says why), and its timing document because no phase of a
-  // request is measured. Network.requestServedFromCache is never sent: there is no cache.
+  // Network's four WebSocket events are here, over the engine's own WebSocketObserver: a socket's creation,
+  // both of its handshakes and its close. webSocketFrameSent, webSocketFrameReceived and webSocketFrameError
+  // are absent because that observer is never told about a frame, and eventSourceMessageReceived because a
+  // stream is observed as bytes rather than as the events they decode into. The timing document is absent
+  // because no phase of a request is measured. Network.requestServedFromCache is never sent: there is no
+  // cache.
   //
   // Emulation is effective rather than stored: the media type and the Level 5 preference features feed the
   // page's own media environment, so matchMedia answers them and a MediaQueryList whose answer moved fires
@@ -285,6 +291,7 @@
     "Emulation.setUserAgentOverride",
     "Emulation.setVisibleSize",
     "Fetch.continueRequest",
+    "Fetch.continueResponse",
     "Fetch.disable",
     "Fetch.enable",
     "Fetch.failRequest",
@@ -424,6 +431,10 @@
     "Network.requestWillBeSentExtraInfo",
     "Network.responseReceived",
     "Network.responseReceivedExtraInfo",
+    "Network.webSocketClosed",
+    "Network.webSocketCreated",
+    "Network.webSocketHandshakeResponseReceived",
+    "Network.webSocketWillSendHandshakeRequest",
     "Page.domContentEventFired",
     "Page.frameNavigated",
     "Page.frameRequestedNavigation",

@@ -376,6 +376,55 @@ public class NetworkDomainTests
         (await fixture.Page.EvaluateAsync<string>("navigator.userAgent")).Should().Be("ViaNetwork/1.0");
     }
 
+    /// <summary>
+    /// A <c>WebSocket</c> reaches a client as the <c>Network</c> domain's own four events rather than as a
+    /// request — https://chromedevtools.github.io/devtools-protocol/tot/Network/#event-webSocketCreated.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A socket is deliberately not in the request log.</b> It stays open for as long as the page wants
+    /// it, so an entry would leave a request outstanding for that whole time and a client waiting for the
+    /// network to go quiet would wait for ever
+    /// (<see href="https://github.com/sebastienros/jint/issues/3701">#3701</see> item 2).
+    /// </para>
+    /// <para>
+    /// The URL here is one the context's own filter refuses, which is what lets this run with no WebSocket
+    /// server: a refused socket is still created and still closes, which is the pair that proves the whole
+    /// chain — the engine's observer, the recorder, the listener, the target, the domain, the client. What
+    /// the two <i>handshake</i> events carry is pinned one level down, in
+    /// <c>Jint.Tests/Runtime/WebApi/WebSocketTests</c>, over a connection double.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task ASocketReachesAClientAsTheFourWebSocketEventsAndNotAsARequest()
+    {
+        using var server = new LoopbackServer();
+        server.MapHtml("/page", "<html><body>ok</body></html>");
+
+        // A page does not carry WebSocket by default, so the host turns it on the way an embedder would.
+        var options = new BrowserOptions().ConfigureEngine(
+            engine => engine.WebApi.Features |= WebApiFeatures.WebSocket);
+
+        await using var fixture = await NetworkFixture.OpenAsync(server, options);
+        await fixture.NavigateAsync("/page");
+
+        await fixture.Page.EvaluateAsync("new WebSocket('wss://elsewhere.invalid/socket');");
+
+        var created = await fixture.Session.EventAsync("Network.webSocketCreated", sessionId: fixture.Attachment, timeoutSeconds: 30);
+        created.GetProperty("url").GetString().Should().Be("wss://elsewhere.invalid/socket");
+
+        var socketId = created.GetProperty("requestId").GetString();
+        socketId.Should().StartWith("ws-", "a socket identifier is not a request identifier");
+
+        var closed = await fixture.Session.EventAsync("Network.webSocketClosed", sessionId: fixture.Attachment, timeoutSeconds: 30);
+        closed.GetProperty("requestId").GetString().Should().Be(socketId);
+
+        // And nothing about it is in the request log, which is what keeps the network able to go quiet.
+        fixture.Page.Requests.Should().NotContain(
+            request => request.Url.StartsWith("wss:", StringComparison.Ordinal),
+            "a socket is not a request and must not be one that never finishes");
+    }
+
     [Test]
     public async Task CookiesRoundTripThroughTheContextsJar()
     {

@@ -1,5 +1,6 @@
 using System.Globalization;
 using Jint.WebApi.Fetch;
+using Jint.WebApi.WebSockets;
 
 namespace Jint.Browser.Runtime;
 
@@ -325,6 +326,106 @@ internal sealed class PageNetworkRecorder : FetchObserver
         return Translate(entry, decision);
     }
 
+    /// <summary>
+    /// The response stage: the client is asked what to do with the response before its body is read, and
+    /// before <see cref="OnResponse"/> announces it.
+    /// </summary>
+    /// <remarks>
+    /// <b>It holds the transport thread the request is on, and that is the point.</b> A
+    /// <c>&lt;script src&gt;</c> a running script inserted is fetched with the page loop <i>blocked</i> on
+    /// the whole fetch rather than pumping through it, so a response-stage pause holds the loop exactly as a
+    /// request-stage one does — which is why the command that releases it is named in
+    /// <c>PageTarget.RunsOffThread</c> beside the three that release a request.
+    /// </remarks>
+    public override async ValueTask<FetchResponseInterception?> OnResponseAsync(
+        ObservedFetchResponse response,
+        CancellationToken cancellationToken)
+    {
+        if (response.IsRedirect || _listener is not { } listener)
+        {
+            return null;
+        }
+
+        Entry? entry;
+        PageNetworkResponse described;
+
+        lock (_gate)
+        {
+            if (!_entries.TryGetValue(response.Id.Value, out entry))
+            {
+                return null;
+            }
+
+            described = Describe(entry.RequestId, response)!;
+        }
+
+        if (entry.LastHop is not { } hop)
+        {
+            return null;
+        }
+
+        PageNetworkResponseDecision decision;
+        try
+        {
+            decision = await listener.ResponseWillBeDeliveredAsync(hop, described, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+#pragma warning disable CA1031 // a watcher that failed must not decide the response; see IPageNetworkListener
+        catch (Exception)
+#pragma warning restore CA1031
+        {
+            return null;
+        }
+
+        return Translate(decision);
+    }
+
+    /// <summary>The client's answer, as the engine's own preview type.</summary>
+    private static FetchResponseInterception? Translate(PageNetworkResponseDecision decision)
+    {
+        switch (decision.Kind)
+        {
+            case PageNetworkDecisionKind.Fail:
+                return FetchResponseInterception.Fail(decision.Error ?? "net::ERR_FAILED");
+
+            case PageNetworkDecisionKind.Fulfill:
+                return FetchResponseInterception.Fulfill(
+                    decision.Status,
+                    Headers(decision.Headers),
+                    decision.Body,
+                    decision.StatusText);
+
+            case PageNetworkDecisionKind.Continue:
+                return FetchResponseInterception.Continue(
+                    decision.Status == 0 ? null : decision.Status,
+                    decision.StatusText,
+                    Headers(decision.Headers));
+
+            default:
+                return null;
+        }
+    }
+
+    /// <summary>One header list in the engine's spelling, or <see langword="null"/> for none.</summary>
+    private static FetchHeader[]? Headers(IReadOnlyList<PageHeader>? headers)
+    {
+        if (headers is null)
+        {
+            return null;
+        }
+
+        var translated = new FetchHeader[headers.Count];
+        for (var i = 0; i < translated.Length; i++)
+        {
+            translated[i] = new FetchHeader(headers[i].Name, headers[i].Value);
+        }
+
+        return translated;
+    }
+
     /// <inheritdoc />
     public override void OnResponse(ObservedFetchResponse response)
     {
@@ -362,6 +463,89 @@ internal sealed class PageNetworkRecorder : FetchObserver
         if (_listener is { } listener && entry.LastHop is { } hop)
         {
             Safely(() => listener.ResponseReceived(hop, described));
+        }
+    }
+
+    /// <summary>
+    /// The socket half of this recorder, which is a second observer because the engine has two seams —
+    /// <c>FetchObserver</c> for requests and <c>WebSocketObserver</c> for sockets — and one class can derive
+    /// from only one of them.
+    /// </summary>
+    /// <remarks>
+    /// It writes to no log and holds no state: a socket is not a request, so it neither takes an entry nor
+    /// appears in <c>Page.Requests</c>. All it does is turn four engine callbacks into four listener calls,
+    /// on the transport thread they arrived on.
+    /// </remarks>
+    internal WebSocketObserver Sockets => _sockets ??= new SocketRecorder(this);
+
+    private WebSocketObserver? _sockets;
+
+    private sealed class SocketRecorder : WebSocketObserver
+    {
+        private readonly PageNetworkRecorder _recorder;
+
+        internal SocketRecorder(PageNetworkRecorder recorder)
+        {
+            _recorder = recorder;
+        }
+
+        public override void OnCreated(WebSocketId id, Uri url)
+        {
+            if (_recorder._listener is { } listener)
+            {
+                var socketId = Name(id);
+                var absolute = url.AbsoluteUri;
+                Safely(() => listener.WebSocketCreated(socketId, absolute));
+            }
+        }
+
+        public override void OnHandshakeRequest(ObservedWebSocketHandshake handshake)
+        {
+            if (_recorder._listener is { } listener)
+            {
+                var socketId = Name(handshake.Id);
+                var headers = Translate(handshake.Headers);
+                Safely(() => listener.WebSocketHandshakeRequest(socketId, headers));
+            }
+        }
+
+        public override void OnHandshakeResponse(ObservedWebSocketResponse response)
+        {
+            if (_recorder._listener is { } listener)
+            {
+                var socketId = Name(response.Id);
+                var headers = Translate(response.Headers);
+                var status = response.Status;
+                Safely(() => listener.WebSocketHandshakeResponse(socketId, status, string.Empty, headers));
+            }
+        }
+
+        public override void OnClosed(WebSocketId id, int code, string reason, bool wasClean)
+        {
+            if (_recorder._listener is { } listener)
+            {
+                var socketId = Name(id);
+                Safely(() => listener.WebSocketClosed(socketId));
+            }
+        }
+
+        /// <summary>
+        /// One socket's protocol identifier. A request identifier here is the bare number the engine minted,
+        /// so the prefix is what keeps the two spaces apart: a client must not be able to mistake a socket
+        /// for a request it can ask a body of, and the engine's own counters are separate already.
+        /// </summary>
+        private static string Name(WebSocketId id)
+            => "ws-" + id.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+        private static PageHeader[] Translate(IReadOnlyList<FetchHeader> headers)
+        {
+            var translated = new PageHeader[headers.Count];
+            for (var i = 0; i < translated.Length; i++)
+            {
+                translated[i] = new PageHeader(headers[i].Name, headers[i].Value);
+            }
+
+            return translated;
         }
     }
 

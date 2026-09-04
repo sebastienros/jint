@@ -177,6 +177,10 @@ internal static class BrowserEngineFactory
         fetch.CookieJar = request.Network.CookieJar;
         fetch.Observer = request.Requests;
 
+        // The socket half of the same recorder. Two engine seams, one page-side consumer: a socket is not a
+        // request, so it takes no entry in the log and only reaches the Network domain's own four events.
+        fetch.WebSocketObserver = request.Requests.Sockets;
+
         // https://fetch.spec.whatwg.org/#default-user-agent-value: what this document's fetches, its
         // XMLHttpRequests and — through the worker provider — its workers put on the wire is the same string
         // navigator.userAgent answers. An override a client sets *after* the engine was built reaches the

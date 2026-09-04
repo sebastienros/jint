@@ -113,6 +113,60 @@ internal sealed record PageNetworkResponse(
     bool FromInterception,
     FetchTiming? Timing);
 
+/// <summary>What a listener decided about one response.</summary>
+/// <remarks>
+/// The response half of <see cref="PageNetworkDecision"/>, and deliberately a separate type: what a client
+/// may do to a response is not what it may do to a request. There is no <c>Continue</c> with a rewritten URL
+/// or method — the response has already been produced — and <c>Fulfill</c> discards a body that is still on
+/// the socket rather than one that was never sent.
+/// </remarks>
+internal sealed class PageNetworkResponseDecision
+{
+    private PageNetworkResponseDecision()
+    {
+    }
+
+    /// <summary>Deliver the response as the server sent it.</summary>
+    internal static PageNetworkResponseDecision Proceed { get; } = new() { Kind = PageNetworkDecisionKind.Proceed };
+
+    internal PageNetworkDecisionKind Kind { get; private init; }
+
+    internal int Status { get; private init; }
+
+    internal string? StatusText { get; private init; }
+
+    internal IReadOnlyList<PageHeader>? Headers { get; private init; }
+
+    internal ReadOnlyMemory<byte> Body { get; private init; }
+
+    internal string? Error { get; private init; }
+
+    /// <summary>Deliver the response with its status line or headers rewritten — <c>Fetch.continueResponse</c>.</summary>
+    internal static PageNetworkResponseDecision Continue(int? status, string? statusText, IReadOnlyList<PageHeader>? headers)
+        => new()
+        {
+            Kind = PageNetworkDecisionKind.Continue,
+            Status = status ?? 0,
+            StatusText = statusText,
+            Headers = headers,
+        };
+
+    /// <summary>Answer with the client's own response — <c>Fetch.fulfillRequest</c> from a response pause.</summary>
+    internal static PageNetworkResponseDecision Fulfill(int status, IReadOnlyList<PageHeader>? headers, ReadOnlyMemory<byte> body, string? statusText)
+        => new()
+        {
+            Kind = PageNetworkDecisionKind.Fulfill,
+            Status = status,
+            StatusText = statusText,
+            Headers = headers,
+            Body = body,
+        };
+
+    /// <summary>Fail it — <c>Fetch.failRequest</c> from a response pause.</summary>
+    internal static PageNetworkResponseDecision Fail(string error)
+        => new() { Kind = PageNetworkDecisionKind.Fail, Error = error };
+}
+
 /// <summary>What a listener decided about one hop.</summary>
 /// <remarks>
 /// It is deliberately not <c>Jint.WebApi.Fetch.FetchInterception</c>: that type is the engine's preview
@@ -238,7 +292,24 @@ internal interface IPageNetworkListener
     /// </remarks>
     ValueTask<PageNetworkDecision> RequestWillBeSentAsync(PageNetworkRequest request, CancellationToken cancellationToken);
 
-    /// <summary>The final response's headers are in and its body has not been read.</summary>
+    /// <summary>
+    /// The final response's headers are in and its body has not been read; answer what should happen to it.
+    /// </summary>
+    /// <param name="request">The request, as its last hop went out.</param>
+    /// <param name="response">The response, as the server sent it.</param>
+    /// <param name="cancellationToken">Cancelled when the fetch is abandoned or times out.</param>
+    /// <remarks>
+    /// <b>The ask, and <see cref="ResponseReceived"/> is the notification.</b> They are separate calls and
+    /// both happen, in that order, exactly as the engine's own <c>OnResponseAsync</c> and <c>OnResponse</c>
+    /// are — so a client that rewrote a status sees its own value in the announcement that follows. The wait
+    /// is bounded by the page's own timeouts, and it holds the transport thread the request is on.
+    /// </remarks>
+    ValueTask<PageNetworkResponseDecision> ResponseWillBeDeliveredAsync(
+        PageNetworkRequest request,
+        PageNetworkResponse response,
+        CancellationToken cancellationToken);
+
+    /// <summary>The final response, after any answer above has been applied.</summary>
     /// <param name="request">The request, as its last hop went out.</param>
     /// <param name="response">The response.</param>
     void ResponseReceived(PageNetworkRequest request, PageNetworkResponse response);
@@ -260,6 +331,32 @@ internal interface IPageNetworkListener
     /// <param name="canceled">Whether it was abandoned rather than refused.</param>
     /// <param name="blockedReason">Why a client blocked it, or <see langword="null"/>.</param>
     void LoadingFailed(string requestId, PageRequestKind kind, string errorText, bool canceled, string? blockedReason);
+
+    /// <summary>A socket was constructed.</summary>
+    /// <param name="socketId">The socket, which is not a request identifier.</param>
+    /// <param name="url">The URL the script asked for.</param>
+    /// <remarks>
+    /// <b>The four socket calls are outside the request lifecycle</b>, and that is the point of them being
+    /// four calls rather than entries in the log: a socket stays open for as long as the page wants it, so
+    /// counting one as an outstanding request would leave a host waiting for a network that never goes quiet.
+    /// </remarks>
+    void WebSocketCreated(string socketId, string url);
+
+    /// <summary>A socket's opening handshake is going out.</summary>
+    /// <param name="socketId">The socket.</param>
+    /// <param name="headers">The headers this engine set on it; the rest are inside <c>ClientWebSocket</c>.</param>
+    void WebSocketHandshakeRequest(string socketId, IReadOnlyList<PageHeader> headers);
+
+    /// <summary>A socket's opening handshake was answered.</summary>
+    /// <param name="socketId">The socket.</param>
+    /// <param name="status">The HTTP status, which is <c>101</c> for a handshake that succeeded.</param>
+    /// <param name="statusText">The reason phrase, which may be empty.</param>
+    /// <param name="headers">The response headers.</param>
+    void WebSocketHandshakeResponse(string socketId, int status, string statusText, IReadOnlyList<PageHeader> headers);
+
+    /// <summary>A socket closed, for any reason.</summary>
+    /// <param name="socketId">The socket.</param>
+    void WebSocketClosed(string socketId);
 
     /// <summary>A reference the page saw and deliberately did not follow.</summary>
     /// <param name="request">The reference, as a request that was never sent.</param>

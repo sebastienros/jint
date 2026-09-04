@@ -4,7 +4,7 @@
 //
 //     source:   tools/devtools-protocol/browser_protocol.json
 //     protocol: version 1.3, ChromeDevTools/devtools-protocol@ea39a11d80de9a08ce2af03f52125ed2e462cf84 (devtools-protocol@0.0.1687809)
-//     manifest: tools/devtools-protocol/manifest.json, Network entries, sha256:569f79078fb3
+//     manifest: tools/devtools-protocol/manifest.json, Network entries, sha256:1644bfa99ccc
 //
 // Do not edit. Regenerate instead, and read the diff: it is the upstream change stated in the
 // vocabulary this repository compiles. tools/devtools-protocol/README.md has the command, and
