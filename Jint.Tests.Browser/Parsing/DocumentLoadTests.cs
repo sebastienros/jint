@@ -140,6 +140,7 @@ public class DocumentLoadTests
         await using var loopback = await LoopbackPage.CreateAsync(server => server
             .Map("/app.js", _ => LoopbackResponse.Script("window.ok = true;"))
             .Map("/site.css", _ => LoopbackResponse.Css("body { color: rgb(4, 5, 6); }"))
+            .MapHtml("/frame.html", "<!doctype html><html><body>framed</body></html>")
             .MapHtml("/", """
                 <!doctype html><html><head>
                 <link rel="stylesheet" href="/site.css">
@@ -166,12 +167,17 @@ public class DocumentLoadTests
 
         requests.Should().ContainSingle(r => r.Url.EndsWith("/logo.png", StringComparison.Ordinal)
             && r.NotFetchedReason != null);
-        requests.Should().ContainSingle(r => r.Url.EndsWith("/frame.html", StringComparison.Ordinal)
-            && r.NotFetchedReason != null);
 
-        // What is recorded as not fetched really was not: the server never saw either.
+        // A frame's document is fetched like any other subresource, because a frame has a document here
+        // (#3771); an image still is not, because there is no rendering to need one.
+        requests.Should().ContainSingle(r => r.Url.EndsWith("/frame.html", StringComparison.Ordinal)
+            && r.Initiator == RequestInitiator.Subresource
+            && r.NotFetchedReason == null
+            && r.Status == 200);
+
+        // What is recorded as not fetched really was not: the server never saw it.
         loopback.Server.Received.Should().NotContain(request => request.Path == "/logo.png");
-        loopback.Server.Received.Should().NotContain(request => request.Path == "/frame.html");
+        loopback.Server.Received.Should().Contain(request => request.Path == "/frame.html");
     }
 
     [Test]

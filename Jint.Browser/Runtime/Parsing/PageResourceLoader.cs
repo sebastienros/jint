@@ -25,10 +25,16 @@ namespace Jint.Browser.Runtime.Parsing;
 /// </para>
 /// <para>
 /// <b>What is refused, and why it is still recorded.</b> There is no rendering here, so an <c>&lt;img&gt;</c>,
-/// an <c>&lt;iframe&gt;</c>'s document, a media element and a non-stylesheet <c>&lt;link&gt;</c> have nothing
-/// to be for; fetching them would be traffic a page never sees the result of. The reference is written into
-/// <see cref="Page.Requests"/> with a <see cref="PageRequest.NotFetchedReason"/> instead, so a caller sees
-/// everything the document asked for rather than the subset something chose to answer.
+/// a media element and a non-stylesheet <c>&lt;link&gt;</c> have nothing to be for; fetching them would be
+/// traffic a page never sees the result of. The reference is written into <see cref="Page.Requests"/> with a
+/// <see cref="PageRequest.NotFetchedReason"/> instead, so a caller sees everything the document asked for
+/// rather than the subset something chose to answer.
+/// </para>
+/// <para>
+/// <b>An <c>&lt;iframe&gt;</c> is answered</b>, because a frame's document is something a page can reach:
+/// <see cref="ParserDriver.FetchFrame"/> fetches it and AngleSharp opens it into the nested browsing context
+/// it already made for the element. A <c>&lt;frame&gt;</c> is not, and <c>ParserDriver.IsLegacyFrame</c>
+/// says why.
 /// </para>
 /// <para>
 /// A refusal and a failure are both a download that completes with a <see langword="null"/> response, which
@@ -59,6 +65,7 @@ internal sealed class PageResourceLoader : IResourceLoader
         {
             IHtmlScriptElement script => _driver.FetchScript(script, url),
             IHtmlLinkElement link when IsStyleSheet(link) => _driver.FetchStyleSheet(link, url),
+            IHtmlInlineFrameElement frame => _driver.FetchFrame(frame, url),
             _ => _driver.RefuseSubresource(request.Source, url),
         };
 

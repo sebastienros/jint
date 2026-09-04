@@ -8,10 +8,12 @@ namespace Jint.Browser;
 /// </summary>
 /// <remarks>
 /// <para>
-/// A page has exactly one scripted frame, its main frame. Child frames are real — the parse found them, they
-/// are in the frame tree, and their attributes are readable — but nothing loads or scripts them: an
-/// <c>&lt;iframe&gt;</c>'s <c>contentWindow</c> is absent and its <c>src</c> is not fetched. One realm per
-/// frame on the same engine is what makes <c>parent.document</c> answerable, and that is a later change.
+/// A page has exactly one scripted frame, its main frame. A child frame has a <b>document</b> — its
+/// <c>src</c> is fetched over the page's own network position and parsed, so <c>contentDocument</c> answers
+/// it and <c>load</c> arrives at the element — and it has <b>no realm</b>: nothing in it runs, and
+/// <c>contentWindow</c> is <see langword="null"/>. One realm per frame on the same engine is what would make
+/// <c>parent.document</c> answerable, and that is a later change
+/// (<c>docs/design/headless-browser.md</c> §3).
 /// </para>
 /// <para>
 /// A frame is a snapshot taken when the document finished loading, not a live view: a frame added by script
@@ -41,15 +43,22 @@ public sealed class Frame
     /// <summary>The frame's <c>name</c> attribute, or the empty string.</summary>
     public string Name { get; }
 
-    /// <summary>The frames nested directly inside this one; empty for a child frame, which is not parsed.</summary>
+    /// <summary>The frames nested directly inside this one; empty for a child frame.</summary>
     /// <remarks>
     /// Every frame element in a document is a direct child browsing context of it, however deeply the element
-    /// is nested in the markup — a frame's own frames are in its own document, which is not loaded here — so
-    /// this really is one level of the tree.
+    /// is nested in the markup, so this really is one level of the tree. A child frame's own frames are in its
+    /// own document, which <i>is</i> loaded now — this list does not descend into one, because a
+    /// <see cref="Frame"/> is a snapshot of what the page's document declares rather than a walk of every
+    /// document the load produced.
     /// </remarks>
     public IReadOnlyList<Frame> Frames { get; }
 
     /// <summary>Whether this frame runs script. Only a page's main frame does.</summary>
+    /// <remarks>
+    /// A child frame has a document and no realm, so it is readable and inert: its markup is parsed, its
+    /// style sheets load and <c>contentDocument</c> answers it, while every <c>&lt;script&gt;</c> in it is
+    /// skipped rather than run somewhere it does not belong.
+    /// </remarks>
     public bool IsScripted => Parent is null;
 
     internal static Frame Detached(Page page) => new(page, parent: null, "about:blank", "", []);

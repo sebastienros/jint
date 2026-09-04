@@ -498,8 +498,8 @@ internal sealed partial class DomDomain : DOMDomainBase, IDetachableDomain, ITar
     /// </summary>
     /// <remarks>
     /// The page's own frame is owned by nothing, so the only identifier this command can be sent is the one
-    /// it refuses. A child frame is parsed and listed but never scripted (design doc §3), so it has no frame
-    /// identifier of its own for a client to ask about.
+    /// it refuses. A child frame has a document and no realm (design doc §3), so it is never scripted and has
+    /// no frame identifier of its own for a client to ask about.
     /// </remarks>
     protected override ValueTask<GetFrameOwnerResponse> GetFrameOwnerAsync(GetFrameOwnerRequest parameters, CommandContext context)
     {

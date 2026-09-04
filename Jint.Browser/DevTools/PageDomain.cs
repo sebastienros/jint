@@ -140,9 +140,10 @@ internal sealed partial class PageDomain : PageDomainBase, IDetachableDomain
     /// </summary>
     /// <remarks>
     /// <b>No child frames, and that is the runtime's shape rather than an omission here.</b> An
-    /// <c>&lt;iframe&gt;</c> is parsed and is in the page's own frame tree, but it loads nothing and runs no
-    /// script, so a client told about it would be told about a frame it could never evaluate in.
-    /// <c>childFrames</c> is therefore absent rather than empty-but-present.
+    /// <c>&lt;iframe&gt;</c> has a document now — it is fetched and parsed and <c>contentDocument</c> answers
+    /// it — and it still has no realm, so it runs no script and a client told about it would be told about a
+    /// frame it could never evaluate in. <c>childFrames</c> is therefore absent rather than
+    /// empty-but-present.
     /// </remarks>
     protected override ValueTask<GetFrameTreeResponse> GetFrameTreeAsync(EmptyParameters parameters, CommandContext context)
     {

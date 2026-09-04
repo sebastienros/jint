@@ -214,7 +214,7 @@ internal sealed partial class DomDomain
             FrameId = node is IDocument ? _target.FrameId : null,
 
             // A shadow root is a real node here and is reported as one; contentDocument is deliberately
-            // absent, because an <iframe>'s document is parsed and never scripted (design doc §3), so a
+            // absent, because an <iframe>'s document has no realm and is never scripted (design doc §3), so a
             // client told about it would be told about a tree it can never evaluate in.
             ShadowRoots = element?.ShadowRoot is { } shadow ? [Describe(shadow, depth, pushed)] : null,
         };

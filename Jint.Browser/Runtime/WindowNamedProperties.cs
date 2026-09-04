@@ -33,8 +33,8 @@ namespace Jint.Browser.Runtime;
 /// <b>Two divergences, both about a name several elements answer to.</b> HTML collects every matching element
 /// in tree order and answers with an <c>HTMLCollection</c> when there is more than one; this answers the first
 /// it finds, preferring an <c>id</c> to a <c>name</c>. And where HTML answers a nested browsing context's
-/// <c>WindowProxy</c> for an <c>&lt;iframe name=x&gt;</c>, this answers the frame element: a page here parses
-/// child frames and gives none of them an engine (campaign item C6), so there is no window to hand back.
+/// <c>WindowProxy</c> for an <c>&lt;iframe name=x&gt;</c>, this answers the frame element: a child frame has
+/// a document here and no realm of its own (campaign item C6), so there is no window to hand back.
 /// </para>
 /// </remarks>
 internal sealed class WindowNamedProperties : NamedPropertyObject

@@ -42,7 +42,7 @@ internal enum PageRequestKind
     /// <summary>An image the document referenced, which this browser records and does not fetch.</summary>
     Image,
 
-    /// <summary>A nested browsing context's document, which this browser records and does not fetch.</summary>
+    /// <summary>A nested browsing context's document — a frame's, fetched and parsed and not scripted.</summary>
     Frame,
 
     /// <summary>Anything else.</summary>
