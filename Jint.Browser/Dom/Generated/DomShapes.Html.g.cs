@@ -90,7 +90,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLElement.dataset", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.dataset");
-                    return self.Realm.Wrap(self.Target.Dataset);
+                    return self.Realm.Hooks.Dataset(self.Realm, self.Target);
                 }))
             .Accessor("dir",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLElement.dir", static (thisObj, args) =>

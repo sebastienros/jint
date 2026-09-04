@@ -23,7 +23,8 @@ here. Three consequences bind every change:
 - **Every AngleSharp behaviour that disagrees with the DOM standard is reported upstream and recorded below,
   never worked around silently.** A workaround in the binding hides a defect from the project that can fix it,
   and makes the next reader believe the standard says what AngleSharp does. The one thing a wrapper may do is
-  keep *its own* contracts coherent — the `dataset` name filter below is the worked example, and it says so.
+  implement Web IDL semantics AngleSharp's CLR surface does not represent — `DOMStringMap`'s property-name
+  conversion and named setter/deleter are the worked example, and the divergence register says so.
 - **No document or README sentence positions this as a rival DOM stack.** It is "AngleSharp + Jint".
 - **A seam that proves useful is offered, not hoarded.** The tree-aware event dispatcher the engine grew for
   this package (`Jint/WebApi/Events/EventDispatch.cs`) knows nothing about a node; it asks the target. The

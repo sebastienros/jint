@@ -1,4 +1,5 @@
 using AngleSharp.Dom;
+using AngleSharp.Html.Dom;
 using Jint.Browser.Runtime;
 using Jint.Native;
 using Jint.Native.Object;
@@ -115,6 +116,10 @@ internal class DomHostHooks
         element.RemoveAttribute(name);
         Events.EventHandlerContentAttributes.AttributeChanged(realm, element, name);
     }
+
+    /// <summary>HTML's <c>DOMStringMap</c> view over an element's <c>data-*</c> attributes.</summary>
+    internal virtual JsValue Dataset(DomRealm realm, IHtmlElement element)
+        => realm.WrapStringMap(element, element.Dataset);
 
     /// <summary>https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-insertadjacenthtml</summary>
     /// <remarks>

@@ -263,6 +263,18 @@ internal sealed class DomRealm
         return Cache(nodes, new DomCollectionObject(this, DomInterfaces.NodeList, target, DomAccessorNodeList.Instance));
     }
 
+    /// <summary>Projects an element's <c>dataset</c> through HTML's name conversion algorithms.</summary>
+    internal JsValue WrapStringMap(IElement element, IStringMap map)
+    {
+        if (_wrappers.TryGetValue(map, out var cached))
+        {
+            return cached;
+        }
+
+        var target = new DomStringMapAdapter(this, element);
+        return Cache(map, new DomNamedMapObject(this, DomInterfaces.DOMStringMap, target, DomAccessorDOMStringMap.Instance));
+    }
+
     private ObjectInstance Create(DomInterfaceDefinition definition, object value)
     {
         if (definition.WrapperKind == DomWrapperKind.Node)

@@ -105,22 +105,38 @@ public sealed class DomBindingTests
     }
 
     [Test]
-    public void DatasetProjectsDataAttributes()
+    public void DatasetConvertsCamelCaseDataAttributeNames()
     {
         using var fixture = DomTestFixture.Create(Page);
 
         fixture.Text("document.querySelector('#a').dataset.foo").Should().Be("bar");
 
-        fixture.Evaluate("document.querySelector('#a').dataset.baz = 'qux'");
-        fixture.Text("document.querySelector('#a').getAttribute('data-baz')").Should().Be("qux");
-        fixture.Text("Object.keys(document.querySelector('#a').dataset).sort().join(',')").Should().Be("baz,foo");
+        fixture.Evaluate("document.querySelector('#a').setAttribute('data-password-rule', 'length')");
+        fixture.Text("document.querySelector('#a').dataset.passwordRule").Should().Be("length");
+        fixture.Text("Object.keys(document.querySelector('#a').dataset).sort().join(',')").Should().Be("foo,passwordRule");
 
-        // The JavaScript-visible half of the deleter. The content attribute itself survives, because
-        // AngleSharp's StringMap.Remove sets its value to null instead of removing it — reported upstream and
-        // recorded in Jint.Browser/AGENTS.md rather than worked around here.
-        fixture.Evaluate("delete document.querySelector('#a').dataset.foo");
-        fixture.Evaluate("document.querySelector('#a').dataset.foo").IsUndefined().Should().BeTrue();
-        fixture.Bool("'foo' in document.querySelector('#a').dataset").Should().BeFalse();
+        fixture.Evaluate("document.querySelector('#a').dataset.passwordRule = 'required'");
+        fixture.Text("document.querySelector('#a').getAttribute('data-password-rule')").Should().Be("required");
+
+        fixture.Evaluate("delete document.querySelector('#a').dataset.passwordRule");
+        fixture.Evaluate("document.querySelector('#a').dataset.passwordRule").IsUndefined().Should().BeTrue();
+        fixture.Bool("document.querySelector('#a').hasAttribute('data-password-rule')").Should().BeFalse();
+        fixture.Bool("'passwordRule' in document.querySelector('#a').dataset").Should().BeFalse();
+    }
+
+    [TestCase("foo-bar", "SyntaxError", 12)]
+    [TestCase("bad name", "InvalidCharacterError", 5)]
+    [TestCase("bad/name", "InvalidCharacterError", 5)]
+    public void DatasetRejectsInvalidPropertyNames(string property, string name, int code)
+    {
+        using var fixture = DomTestFixture.Create(Page);
+
+        fixture.Text($$"""
+            (function () {
+              try { document.querySelector('#a').dataset['{{property}}'] = 'value'; return 'no throw'; }
+              catch (e) { return [e.name, e.code].join('/'); }
+            })()
+            """).Should().Be(name + "/" + code);
     }
 
     [Test]
