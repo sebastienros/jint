@@ -3,8 +3,8 @@ using Jint.Tests.Wpt;
 namespace Jint.Tests.Browser.Wpt;
 
 /// <summary>
-/// The browser lane's three tables: what is deliberately not vendored, how many tests each case must at least
-/// produce, and which tests do not pass and why.
+/// The browser lane's four tables: what is deliberately not vendored, what is vendored and served but is
+/// never a case, how many tests each case must at least produce, and which tests do not pass and why.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -43,6 +43,8 @@ internal static class WptBrowserExclusions
     /// </remarks>
     internal static readonly (string Pattern, string Reason)[] NotVendored =
     [
+        // The fourth table is FrameBodies, and the two are opposites: a row here is a path the corpus does
+        // not hold, and a row there is a path it holds and never runs. Nothing may be in both.
         // ------------------------------------------------------------ dom/events: the whole-directory rules
         // A suite is one directory (WptCorpus.BrowserTestFiles never descends), and these two hold nothing
         // this browser could answer anyway: `scrolling/` is a scroll offset, a scrollend event and a wheel
@@ -326,7 +328,6 @@ internal static class WptBrowserExclusions
         // A document directly under a suite is a case (WptCorpus.BrowserTestFiles), so a helper vendored there
         // would have to report and none of these can: they are frames and fragments. Their tests are in the
         // group below, for the reason a frame is never given an engine here.
-        ("dom/nodes/ParentNode-querySelector-All-content.html", "the iframe body of the three selector documents below"),
         ("dom/nodes/Node-parentNode-iframe.html", "the frame of Node-parentNode.html"),
         ("dom/nodes/getElementsByClassNameFrame.htm", "the frame of getElementsByClassName-31.htm"),
         ("dom/nodes/query-target-in-load-event.part.html", "the fragment query-target-in-load-event.html loads"),
@@ -345,9 +346,6 @@ internal static class WptBrowserExclusions
         ("dom/nodes/Document-characterSet-normalization-1.html", "builds one iframe per encoding label and waits for each"),
         ("dom/nodes/Document-characterSet-normalization-2.html", "the same, for the second half of the label table"),
         ("dom/nodes/Document-createElement-namespace.html", "an iframe per XML fixture, each of which has to run script"),
-        ("dom/nodes/Element-matches.html", "runs its whole table inside ParentNode-querySelector-All-content.html, which is a frame"),
-        ("dom/nodes/Element-webkitMatchesSelector.html", "the same table, through the prefixed alias"),
-        ("dom/nodes/ParentNode-querySelector-All.html", "the same table again, for querySelector and querySelectorAll"),
         ("dom/nodes/MutationObserver-cross-realm-callback-report-exception.html", "a callback whose realm is an iframe's"),
         ("dom/nodes/Node-parentNode.html", "its four reported tests pass and the fifth waits for a frame"),
         ("dom/nodes/Node-baseURI.html", "its four reported tests pass and the rest wait for an iframe's base URL"),
@@ -404,6 +402,35 @@ internal static class WptBrowserExclusions
         ("dom/nodes/MutationObserver-attributes.html", "thirty-four of its tests report and one waits forever for a record the observer never delivers"),
         ("dom/nodes/MutationObserver-childList.html", "the same, after thirty-eight"),
 
+    ];
+
+    /// <summary>
+    /// Documents this lane vendors and serves and never runs: the body a case loads into a frame.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A document directly under a suite is a case</b> — that is <c>WptCorpus.BrowserTestFiles</c>, which
+    /// never descends, so a helper lives under <c>resources/</c> or <c>support/</c> and a case does not.
+    /// Upstream does not always agree: <c>ParentNode-querySelector-All-content.html</c> sits beside the three
+    /// documents that load it, and it is a fixture with no <c>testharness.js</c> in it, so running it as a
+    /// case is a page that registers nothing and times out. Before this table the only two answers were
+    /// exactly those — run it and time out, or leave it out of the corpus and lose every case that loads it.
+    /// </para>
+    /// <para>
+    /// <b>So the third answer is this one, and its rule is a two-sided one like every other table here:</b> a
+    /// row must name a document the corpus really holds, under a suite this lane claims, and no row may also
+    /// be a <see cref="NotVendored"/> pattern — a path cannot both be absent and be served.
+    /// <c>WptBrowserTestRunner.EveryVendoredDocumentIsAccountedFor</c> is what holds all three.
+    /// </para>
+    /// <para>
+    /// It takes no <see cref="MinimumTests"/> entry and appears in no census column, because neither counts
+    /// anything about a document that reports nothing. What holds it to its job is the case that loads it:
+    /// the three selector documents fail loudly if the frame they wait for never arrives.
+    /// </para>
+    /// </remarks>
+    internal static readonly (string Path, string Reason)[] FrameBodies =
+    [
+        ("dom/nodes/ParentNode-querySelector-All-content.html", "the fixture Element-matches.html, Element-webkitMatchesSelector.html and ParentNode-querySelector-All.html each load into a frame and run their whole table against"),
     ];
 
     /// <summary>
@@ -602,6 +629,8 @@ internal static class WptBrowserExclusions
         ["dom/nodes/Element-insertAdjacentText.html"] = 6,
         ["dom/nodes/Element-lastElementChild.html"] = 1,
         ["dom/nodes/Element-matches-namespaced-elements.html"] = 6,
+        ["dom/nodes/Element-matches.html"] = 669,
+        ["dom/nodes/ParentNode-querySelector-All.html"] = 1975,
         ["dom/nodes/Element-nextElementSibling.html"] = 1,
         ["dom/nodes/Element-previousElementSibling.html"] = 1,
         ["dom/nodes/Element-remove.html"] = 4,
@@ -611,6 +640,7 @@ internal static class WptBrowserExclusions
         ["dom/nodes/Element-setAttribute.html"] = 2,
         ["dom/nodes/Element-siblingElement-null.html"] = 1,
         ["dom/nodes/Element-tagName.html"] = 6,
+        ["dom/nodes/Element-webkitMatchesSelector.html"] = 669,
         ["dom/nodes/MutationObserver-callback-arguments.html"] = 1,
         ["dom/nodes/MutationObserver-characterData.html"] = 23,
         ["dom/nodes/MutationObserver-disconnect.html"] = 2,
@@ -807,6 +837,12 @@ internal static class WptBrowserExclusions
     /// https://github.com/sebastienros/jint/issues/3712, so a row here that is not one of
     /// <see cref="WptDivergence.NeedsIframeScripting"/>, <see cref="WptDivergence.NeedsXmlDocuments"/> or
     /// <see cref="WptDivergence.NeedsMoreEventInterfaces"/> is a numbered debt rather than an unread one.
+    /// </para>
+    /// <para>
+    /// <b>The Selectors-API table adds one bounded group on current main.</b> Its 128 failing rows cover the
+    /// selector-error contract, link and target state, enabled links, no-namespace selectors and
+    /// <c>::slotted</c>. The patterns below group only rows with the same selector and outcome; the runner
+    /// still proves each pattern matches a failure and no passing test.
     /// </para>
     /// </remarks>
     internal static readonly WptExclusion[] All =
@@ -1280,6 +1316,41 @@ internal static class WptBrowserExclusions
         new("dom/nodes/ParentNode-querySelector-escapes.html", "\"�\"*", WptDivergence.NeedsTriage),
         new("dom/nodes/ParentNode-querySelector-escapes.html", "*\\\"", WptDivergence.NeedsTriage),
         new("dom/nodes/ParentNode-querySelector-escapes.html", "*ns\"", WptDivergence.NeedsTriage),
+
+        // ---------------------------------------------------------------- the Selectors-API table and selector-only element states
+        // Selectors-API runs the same table through matches(), its prefixed alias, and
+        // querySelector/querySelectorAll in five contexts. Most of its old syntax divergences now pass;
+        // these patterns are the remaining current-main failures, grouped only where the test names state
+        // the same selector and outcome. The runner holds every pattern against passing and failing rows.
+        new("dom/nodes/Element-matches.html", "*Undeclared namespace: ns|div*", WptDivergence.NeedsTriage),
+        new("dom/nodes/Element-matches.html", "*Undeclared namespace: :not(ns|div)*", WptDivergence.NeedsTriage),
+        new("dom/nodes/Element-matches.html", "*Relative selector: >\\*", WptDivergence.NeedsTriage),
+        new("dom/nodes/Element-matches.html", "*Attribute value selector, matching align attribute with value, unclosed bracket*", WptDivergence.NeedsTriage),
+        new("dom/nodes/Element-matches.html", "*:link and :visited pseudo-class selectors, matching a and area elements with href attributes*", WptDivergence.NeedsTriage),
+        new("dom/nodes/Element-matches.html", "*:target pseudo-class selector, matching the element referenced by the URL fragment identifier*", WptDivergence.NeedsTriage),
+        new("dom/nodes/Element-matches.html", "*:enabled pseudo-class selector, not matching link elements*", WptDivergence.NeedsTriage),
+
+        new("dom/nodes/Element-webkitMatchesSelector.html", "*Undeclared namespace: ns|div*", WptDivergence.NeedsTriage),
+        new("dom/nodes/Element-webkitMatchesSelector.html", "*Undeclared namespace: :not(ns|div)*", WptDivergence.NeedsTriage),
+        new("dom/nodes/Element-webkitMatchesSelector.html", "*Relative selector: >\\*", WptDivergence.NeedsTriage),
+        new("dom/nodes/Element-webkitMatchesSelector.html", "*Attribute value selector, matching align attribute with value, unclosed bracket*", WptDivergence.NeedsTriage),
+        new("dom/nodes/Element-webkitMatchesSelector.html", "*:link and :visited pseudo-class selectors, matching a and area elements with href attributes*", WptDivergence.NeedsTriage),
+        new("dom/nodes/Element-webkitMatchesSelector.html", "*:target pseudo-class selector, matching the element referenced by the URL fragment identifier*", WptDivergence.NeedsTriage),
+        new("dom/nodes/Element-webkitMatchesSelector.html", "*:enabled pseudo-class selector, not matching link elements*", WptDivergence.NeedsTriage),
+
+        new("dom/nodes/ParentNode-querySelector-All.html", "*Undeclared namespace: ns|div*", WptDivergence.NeedsTriage),
+        new("dom/nodes/ParentNode-querySelector-All.html", "*Undeclared namespace: :not(ns|div)*", WptDivergence.NeedsTriage),
+        new("dom/nodes/ParentNode-querySelector-All.html", "*Relative selector: >\\*", WptDivergence.NeedsTriage),
+        new("dom/nodes/ParentNode-querySelector-All.html", "*Attribute value selector, matching align attribute with value, unclosed bracket*", WptDivergence.NeedsTriage),
+        new("dom/nodes/ParentNode-querySelector-All.html", "*:link and :visited pseudo-class selectors, matching a and area elements with href attributes*", WptDivergence.NeedsTriage),
+        new("dom/nodes/ParentNode-querySelector-All.html", "*:link and :visited pseudo-class selectors, matching no elements*", WptDivergence.NeedsTriage),
+        new("dom/nodes/ParentNode-querySelector-All.html", "Document.querySelector*: :target pseudo-class selector, matching the element referenced by the URL fragment identifier*", WptDivergence.NeedsTriage),
+        new("dom/nodes/ParentNode-querySelector-All.html", "In-document Element.querySelector*: :target pseudo-class selector, matching the element referenced by the URL fragment identifier*", WptDivergence.NeedsTriage),
+        new("dom/nodes/ParentNode-querySelector-All.html", "*:enabled pseudo-class selector, not matching link elements*", WptDivergence.NeedsTriage),
+        new("dom/nodes/ParentNode-querySelector-All.html", "*Namespace selector, matching div elements in no namespace only*", WptDivergence.NeedsTriage),
+        new("dom/nodes/ParentNode-querySelector-All.html", "*Namespace selector, matching any elements in no namespace only*", WptDivergence.NeedsTriage),
+        new("dom/nodes/ParentNode-querySelector-All.html", "*Slotted selector: ::slotted(foo)*", WptDivergence.NeedsTriage),
+        new("dom/nodes/ParentNode-querySelector-All.html", "*Slotted selector (no matching closing paren): ::slotted(foo*", WptDivergence.NeedsTriage),
 
         // ---------------------------------------------------------------- a member the standard removed and this browser still has
         // a member the standard removed and this browser still has

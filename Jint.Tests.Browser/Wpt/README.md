@@ -26,7 +26,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | Suite | Documents | Synthesized | Tests | Not passing |
 | --- | --- | --- | --- | --- |
 | `dom/events/` | 56 | 9 | 544 | 15 |
-| `dom/nodes/` | 165 | 0 | 4,802 | 949 |
+| `dom/nodes/` | 168 | 0 | 8,115 | 1,077 |
 | `dom/collections/` | 8 | 0 | 43 | 1 |
 | `dom/lists/` | 5 | 0 | 189 | 5 |
 | `dom/traversal/` | 13 | 0 | 52 | 0 |
@@ -38,8 +38,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 52 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 3 |
-| **total** | **349** | **9** | **27,107** | **1,352** |
-
+| **total** | **352** | **9** | **30,420** | **1,480** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -173,7 +172,7 @@ document whose subject is that resolution is in the not-vendored table for the r
 
 `dom/nodes/`, `dom/collections/`, `dom/lists/`, `dom/traversal/`, `dom/ranges/` and `html/dom/` are the DOM
 standard's own suites and HTML's DOM half — the corpus every other suite in this lane is written on top of.
-They arrived together, 207 documents and 5,247 tests, and **1,532 of those tests do not pass**. That is a
+They arrived together, 210 documents and 8,560 tests, and **2,005 of those tests do not pass**. That is a
 much worse ratio than any suite already here, and it should be: `dom/events/` is one interface's dispatch,
 where these are every member of every node interface.
 
@@ -266,9 +265,11 @@ different from the engine lane's. **Almost every row is a document that cannot p
 — a harness `ERROR` or `TIMEOUT` — which is what puts it there rather than in the exclusion table: a harness
 error covers the whole file and no per-test exclusion can name it. The rest are the globs upstream's own
 markers and this lane's directory rule earn, and the helper files of documents nothing here runs. They fall
-into twenty-eight groups; the counts are rows rather than files, since several are globs. Ninety-four of
+into twenty-eight groups; the counts are rows rather than files, since several are globs. Ninety of
 the rows belong to the six DOM suites, which is what a corpus about every member of every node interface
-costs: half of them are one member reached at file scope.
+costs: half of them are one member reached at file scope. **A twenty-ninth answer is not in this table at
+all**: `WptBrowserExclusions.FrameBodies` names the documents that are vendored and served and never run,
+which is what a fixture sitting beside the cases that load it needs — see below.
 
 | Why | How many | What it is |
 | --- | --- | --- |
@@ -295,11 +296,49 @@ costs: half of them are one member reached at file scope.
 | the WebIDL conformance harness, again | 2 | `html/dom/idlharness.https.html`, and one that needs an `RTCPeerConnection` |
 | HTML's reflection suite, seven of ten | 9 | [#3770](https://github.com/sebastienros/jint/issues/3770); `reflection-misc.html`, `-text.html` and `-grouping.html` are cases now and the other seven need the per-element attribute table each of them tests, one `reflected` row per content attribute. **Not** a time problem: 22.5 s for the whole set, 7.3 s for the largest. The exclusion table's own comment carries the per-family measurement |
 | a DOM crash test or reftest | 5 | none loads `testharness.js` |
-| a helper document beside its test | 5 | three frames, a fragment and an iframe body; a document under a suite would have to be a case |
-| a DOM frame that runs script | 17 | listed when a frame had neither a document nor a realm; it has both a document and a window now ([#3771](https://github.com/sebastienros/jint/issues/3771)) and each row is owed a re-examination against the realm, which is the half that is left — three of them need the frame body above, which a document under a suite cannot be |
+| a helper document beside its test | 4 | three frames and a fragment; a document under a suite would have to be a case, and the fourth answer is the frame-bodies table below |
+| a DOM frame that runs script | 14 | listed when a frame had neither a document nor a realm; it has a document now ([#3771](https://github.com/sebastienros/jint/issues/3771)) and each row is owed a re-examination against the half that is left. Three have had it: the selector documents are cases |
 | a member reached at file scope | 30 | `createCDATASection` (31 documents, 24 of them `dom/ranges/`, through `dom/common.js`), `createDocument` (5) and `setAttributeNode` (1) |
 | one DOM file each | 3 | a `SyntaxError` no `error` event carries to the harness, and two `MutationObserver` documents waiting for a record that never comes |
 | too slow to be a case | 2 | the six `NodeList-static-length-getter-tampered*` documents and their helper: a static `NodeList` re-reads its tampered `length` getter, so each spends between 5.9 s and 18.8 s and one of them crossed the driver's 30 s deadline on a loaded machine |
+
+**A document can also be vendored, served and never run.** `WptBrowserExclusions.FrameBodies` is that
+third answer, and it exists because a document directly under a suite is a case — `WptCorpus.BrowserTestFiles`
+never descends, so a helper lives under `resources/` or `support/` and a case does not. Upstream does not
+always agree. `ParentNode-querySelector-All-content.html` sits beside the three documents that load it into a
+frame and is a fixture with no `testharness.js` in it, so the only two answers this lane had were to run it
+and time out or to leave it out of the corpus and lose every case that loads it. Now it is vendored, served
+and not a case, and the table is held from both ends like every other one here: a row must name a document
+the corpus really holds, directly under a suite this lane claims, and no row may also be a `NotVendored`
+pattern — a path cannot be absent and served at once. It takes no minimum-test entry and appears in no census
+column, because neither counts anything about a document that reports nothing; what holds it to its job is
+the three cases that load it, which fail loudly if the frame they wait for never arrives.
+
+**And that is what let the selector table in.** `Element-matches.html`, `Element-webkitMatchesSelector.html`
+and `ParentNode-querySelector-All.html` are the whole of wpt's Selectors-API suite, run three times over —
+through `matches()`, through its prefixed alias, and through `querySelector`/`querySelectorAll` in five
+contexts (a document, an in-document element, a detached element, an empty element and a fragment). They were not vendored for
+two reasons at once: the frame body above, and the fact that a frame had no document to be
+([#3771](https://github.com/sebastienros/jint/issues/3771)). Both are answered, and the three documents bring
+**3,313 tests, of which 3,185 pass** — and `dom/nodes/` grows from 4,802 tests to 8,115. The 128 that do
+not pass are bounded to the patterns in the exclusion table. Some are selector-error contract differences:
+an undeclared namespace and a relative selector are accepted, while an unclosed attribute selector raises
+the wrong script-visible error. The others are matching differences for `:link`/`:visited`, `:target`,
+`:enabled`, no-namespace selectors and `::slotted`. They are `NeedsTriage`, for the reason that category
+exists: the change that first runs a suite is not also the change that moves the engine. The older branch
+named 518 failures; current `main` fixed 390 of them before the corpus landed, and the two-sided exclusion
+check removed every stale row rather than preserving that historical result.
+
+**One of them was the machine's answer rather than the browser's, and that is fixed rather than excluded.**
+`:lang(en)` on an element with **no** inherited language matched on a host whose culture is English and did
+not on one whose culture is invariant — the Windows and the Linux CI leg exactly, so four rows of this
+document passed on one and failed on the other and no exclusion could name them on both. AngleSharp resolves
+such an element through the browsing context's culture, and the context had none, so it took
+`CultureInfo.CurrentCulture` off whichever thread was parsing. `ParserDriver` gives the context the
+**engine's** culture now (`Options.Culture`, which itself defaults to the current culture, so nothing moves
+for a host that sets none), and this lane pins its own to the invariant culture — a gate whose answer depends
+on the runner's locale is not a gate. All four pass everywhere now; scoping the exclusion to an operating
+system would have encoded the coincidence instead of removing it.
 
 **The `testdriver.js` group is gone, which is what recording it by name was for.** Campaign item C4 mapped
 upstream's automation API onto the same `InputDispatcher` the `Input` domain reaches, through the
