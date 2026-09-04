@@ -70,8 +70,15 @@ target/runtime split and the manifest are there and none of it is repeated here.
   protocol say the same thing about the same request and the two domains share identifiers. **The
   notifications and the interception run on the transport thread, not the page loop**, and
   [`Runtime/AGENTS.md`](../Runtime/AGENTS.md#the-request-log-is-the-protocols-seam-too) argues why moving them
-  would deadlock the one fetch a page cannot pump through. The document's request carries the `loaderId` as
-  its `requestId`, which is how every client tells a navigation apart.
+  would deadlock the one fetch a page cannot pump through. **The three commands that release a pause run
+  there too**, which is what makes "a pause never blocks the loop's answer" unconditional rather than true
+  with one exception: `PageTarget.RunsOffThread` names `Fetch.continueRequest`, `failRequest` and
+  `fulfillRequest` — they look one entry up and complete a promise, touching no engine, no `JsValue` and no
+  node, which is the bar [`Jint.DevTools/AGENTS.md`](../../Jint.DevTools/AGENTS.md#the-thread-rule) sets —
+  so a `<script src>` a running script inserted, fetched with the loop *blocked* rather than pumping, is
+  released while it blocks. `Fetch.enable` and `disable` are deliberately not named: they are the domain's
+  own state, not a request's. The document's request carries the `loaderId` as its `requestId`, which is how
+  every client tells a navigation apart.
 - **What is accepted and not effective says so, in place.** `Network.setCacheDisabled` (there is no cache)
   and `Audits.enable` are answered because a refusal fails an ordinary connection. Three whole lanes are
   absent with a reason rather than pending: the `Fetch` **response stage** and with it `IO` (an observer
