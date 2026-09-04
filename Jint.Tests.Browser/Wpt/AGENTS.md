@@ -89,7 +89,7 @@ browser lane's replacement. Nothing under `Vendor/` changes for it, which is the
   call — `Output.prototype.setup` reads the property with `this.enabled = this.enabled && …` and says in a
   comment that a test may not override a report file's decision — and it is what wpt's own runner does, since
   a driver taking results programmatically has no use for a rendering of them. It also stepped around a real
-  gap: the renderer calls `Element.insertAdjacentText`, which this package's bindings do not have, and with the
+  gap: the renderer calls `Element.insertAdjacentText`, which this package's bindings did not then have, and with the
   output on that threw out of the harness's *own* completion callback, which is registered before this file's
   — so a throw there took every result with it and every document in the lane timed out with no report at all.
   The missing member is recorded in `README.md` rather than left as something this line quietly hides.
@@ -149,7 +149,7 @@ argues each loop's termination) and why all four are cases now. **A new suite th
 failing it is that shape**, and while it is unfixed the document is a `NotVendored` row naming the defect —
 never a document deleted, and never one left in to hang the lane.
 
-* **`BrowserOptions.MaxTaskDuration` is `Timeout.InfiniteTimeSpan`.** R6 brackets every page turn with it and
+* **`BrowserOptions.MaxTaskDuration` is `Timeout.InfiniteTimeSpan`.** `PageBudget` brackets every page turn with it and
   reports a `PageErrorKind.BudgetExceeded`; a legitimately slow wpt file would be cut mid-script and the
   failure would read as an engine defect three layers from its cause. The bound here is the **driver's own**
   per-file deadline (`WptBrowserHarness.Deadline`, 30 s, and no deadline under a debugger because a breakpoint
@@ -171,9 +171,9 @@ so a fix, a rename or a corpus bump makes the run fail until the table is brough
 can never widen into a blanket. `WptBrowserExclusions` holds all three tables — what is not vendored, the
 minimum-test counts, and the exclusions — because the runner is a driver and those are an inventory.
 
-The vocabulary is `WptDivergence`, shared. Five of its members exist for this lane and say so on themselves:
-`NeedsLayout`, `NeedsIframeScripting`, `NeedsIndexedDb`, `NeedsTestDriver` and `NeedsXmlDocuments` — the last of
-which is `NeedsMoreEventInterfaces`'s shape rather than `NeedsTriage`'s: a page here parses HTML, AngleSharp builds
+The vocabulary is `WptDivergence`, shared. Six of its members exist for this lane, and the first four say so on
+themselves: `NeedsLayout`, `NeedsIframeScripting`, `NeedsIndexedDb`, `NeedsTestDriver`, `NeedsXmlDocuments` and
+`NeedsMoreEventInterfaces` — the last two being a shape rather than `NeedsTriage`'s: a page here parses HTML, AngleSharp builds
 no XML document, and the rows name what would move them rather than a fix somebody owes. **`NeedsTestDriver` has no
 entries any more**: campaign item C4 mapped `testdriver.js` onto the same `InputDispatcher` the protocol's
 `Input` domain reaches, and the seven documents that were waiting for it were re-examined one at a time —

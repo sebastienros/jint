@@ -1,6 +1,7 @@
 ---
 paths:
   - "Jint.DevTools/**"
+  - "Jint.Tests.DevTools/**"
   - "tools/devtools-protocol/**"
 ---
 

@@ -11,7 +11,7 @@
 ### The parser driver, and the baton
 
 `Runtime/Parsing/` is the parse: `ParserDriver` owns it, `ParserBaton` is the hand-off, `PageResourceLoader`
-is what AngleSharp asks for a subresource, `PageScriptingService` is what it asks to run a script, and
+is what AngleSharp asks for a subresource, `Runtime/PageScriptingService` is what it asks to run a script, and
 `PageModuleScriptLoader` plus `ImportMap` are the module half AngleSharp does not have.
 
 **Why there are two threads.** AngleSharp's parse is an asynchronous method whose every `await` carries
@@ -104,4 +104,4 @@ sentence nobody reads.
 writable text source inserts at the parser's index and the script processor restores the index afterwards, so
 the written markup is the next thing the tokenizer reads. Afterwards HTML implies `document.open()`, which
 AngleSharp implements by unloading through its own browsing context on the calling thread and rebuilding the
-document behind the page's back; `PageHostHooks.Write` answers with a page error naming it instead.
+document behind the page's back; `DomHostHooks.Write` answers with a page error naming it instead.

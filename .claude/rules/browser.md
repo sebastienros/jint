@@ -1,6 +1,7 @@
 ---
 paths:
   - "Jint.Browser/**"
+  - "Jint.Tests.Browser/**"
   - "tools/dom-bindings/**"
 ---
 

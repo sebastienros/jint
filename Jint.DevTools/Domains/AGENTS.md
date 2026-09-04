@@ -150,7 +150,7 @@ handling: it writes to whoever is attached and returns.
 ### Scripts, breakpoints, and why one pause happened
 
 `Domains/ScriptRegistry.cs` is every program one engine has parsed — the *current* engine, since the
-registry is the `TargetRuntime`'s and a navigation starts a fresh one — and three of its properties are load
+registry is the `TargetRuntime`'s and a navigation starts a fresh one — and four of its properties are load
 bearing rather than incidental:
 
 - **Keyed on the `Program` by reference**, so a cached `Prepared<Script>` run a thousand times is one script
@@ -213,7 +213,7 @@ too, and `hitBreakpoints` is what tells a breakpoint apart. The other is `except
 
 `DebugHandler.PauseOnExceptions` stops the engine **at the throw**, before anything unwinds, and raises it
 through `Break` with `PauseType.Exception`. The domain reads `DebugInformation.ThrownValue` and
-`IsUncaught` there. Four things about the mapping are decisions:
+`IsUncaught` there. Three things about the mapping are decisions:
 
 - **Each of the protocol's four states is one engine mode**, `caught` included since
   [#3631](https://github.com/sebastienros/jint/issues/3631), so this domain filters nothing: a throw that

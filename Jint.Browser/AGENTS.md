@@ -45,14 +45,23 @@ a swap to a source generator later is mechanical.
 | `DomEnums`, both directions, for the WebIDL string enumerations | `DomTypeMap.For` and its per-`Type` cache |
 | — | `DomManualInterfaces` and `DomConstructors` — the interface AngleSharp has no `[DomName]` for (`HTMLFrameSetElement`) and the one WebIDL really does give a constructor (`Document`) |
 | — | `DomSelectorMembers` and `DomNodeMembers` — the five members whose *failure* has to be WebIDL's rather than AngleSharp's, and the one (`getRootNode`) AngleSharp has no `[DomName]` for |
-| the default style sheet's `display` rules | HTML's rendering section gives `display: block` to `section`, `article`, `nav`, `aside`, `header`, `footer`, `main`, `figure`, `figcaption`, `details`, `summary`, `dialog`, `hgroup` | no rule at all, so every one of them falls through to CSS's initial value and `getComputedStyle` reads `inline` |
-| a longhand nothing declared, through `getComputedStyle` | CSSOM's *resolved value*: every supported longhand answers, and a property nothing declared answers its initial value | the empty string, which read every element of every page as hidden to an automation client (`style.visibility !== "visible"` is where Playwright's actionability check ends). `Dom/Views/ResolvedStyle` is the exception this bought — **ten** properties, and it argues which ten. Everything else is still the declared cascade, a declaration always wins, and `length`/`item(i)` stay the declared set |
-| a relative length through `getComputedStyle` | the used value in `px` for `width`/`height`, resolved against the containing block; the percentage *kept* in the computed value of `min-width`, a margin and a padding | `px` against the **viewport** for every one of them, and against its *width* whichever axis the property is on — so `height: 50%` is half the window's width. `Runtime/PageRenderDevice` is the device that makes any of it computable: with none registered AngleSharp.Css raises `ArgumentException` rather than skipping the declaration, and one `width: 100%` rule took `getComputedStyle` **and every box query** down with it ([#3730](https://github.com/sebastienros/jint/issues/3730)). `ch` and `ex` have no conversion at all and still raise, which is why `Dom/Views/CssCascade` is the one guarded door all four callers come through |
 
 **Never hand-edit a `.g.cs`.** `DomBindingsStalenessTests` runs the same emitter in memory and fails on any
 difference; `JINT_DOM_BINDINGS=update` writes the difference back, which is also the shortest regeneration
 path after an `overrides.json` edit. `tools/dom-bindings/README.md` has the command-line one and the rule that
 **a pin bump is a code change**, not a configuration edit.
+
+### Where the cascade diverges from CSSOM
+
+`AngleSharp.Css` is the other half of the DOM the bindings sit on, and its divergences are here rather than
+in [`Dom/divergences.md`](Dom/divergences.md) because each one is a `Dom/Views/` type's whole reason to
+exist. That register's `getComputedStyle` row points back at this table.
+
+| What | The standard | AngleSharp.Css |
+| --- | --- | --- |
+| the default style sheet's `display` rules | HTML's rendering section gives `display: block` to `section`, `article`, `nav`, `aside`, `header`, `footer`, `main`, `figure`, `figcaption`, `details`, `summary`, `dialog`, `hgroup` | no rule at all, so every one of them falls through to CSS's initial value and `getComputedStyle` reads `inline` |
+| a longhand nothing declared, through `getComputedStyle` | CSSOM's *resolved value*: every supported longhand answers, and a property nothing declared answers its initial value | the empty string, which read every element of every page as hidden to an automation client (`style.visibility !== "visible"` is where Playwright's actionability check ends). `Dom/Views/ResolvedStyle` is the exception this bought — **ten** properties, and it argues which ten. Everything else is still the declared cascade, a declaration always wins, and `length`/`item(i)` stay the declared set |
+| a relative length through `getComputedStyle` | the used value in `px` for `width`/`height`, resolved against the containing block; the percentage *kept* in the computed value of `min-width`, a margin and a padding | `px` against the **viewport** for every one of them, and against its *width* whichever axis the property is on — so `height: 50%` is half the window's width. `Runtime/PageRenderDevice` is the device that makes any of it computable: with none registered AngleSharp.Css raises `ArgumentException` rather than skipping the declaration, and one `width: 100%` rule took `getComputedStyle` **and every box query** down with it ([#3730](https://github.com/sebastienros/jint/issues/3730)). `ch` and `ex` have no conversion at all and still raise, which is why `Dom/Views/CssCascade` is the one guarded door all four callers come through |
 
 ### The bindings have a file of their own
 
@@ -241,7 +250,7 @@ never caches an engine, and a `JsValue` never leaves the page loop.
 `Jint.Tests.Browser/Fixtures/` is eighteen offline pages built out of vendored libraries — TodoMVC on React,
 Vue 3, Preact and Svelte, React hydrating server markup, jQuery, htmx, Alpine, a `pushState` router, custom
 elements, an import map, `fetch`, a form that redirects, a cookie login, storage across navigations, both
-observers, dialogs — served over a real socket and driven through the public `Page` API. Three of them are
+observers, dialogs — served over a real socket and driven through the public `Page` API. Four of them are
 driven again over the protocol by PuppeteerSharp and by Playwright for .NET.
 [`Fixtures/README.md`](../Jint.Tests.Browser/Fixtures/README.md) is the inventory, what each proves, and how
 one is added; `FixtureInventoryTests` holds it to the corpus so it cannot drift.
@@ -253,9 +262,9 @@ Two rules are worth carrying across without opening it:
 - **A fixture that does not pass is never deleted and never quietly ignored.** It becomes a `needs triage`
   row in that README with the failing assertion and a one-line diagnosis, and its case is marked
   `[Explicit("<fixture>: …")]` — and `FixtureInventoryTests` fails unless the two sets are exactly equal, the
-  way the web-platform-tests exclusion table is the artefact for that lane. Two rows stand today: `htmx`
-  (htmx 2 builds an `XPathEvaluator` at the top level of its bundle and this browser has no XPath at all) and
-  `custom-elements` (campaign item C6).
+  way the web-platform-tests exclusion table is the artefact for that lane. No row stands today, and the
+  README says what it took to empty it — both rows that stood were features rather than defects, and each was
+  retired by the pull request that added the feature.
 
 ### The seams promoted later
 

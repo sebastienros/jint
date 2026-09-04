@@ -8,7 +8,7 @@
 > [`AGENTS.md`](../../AGENTS.md). Read that first, and read
 > [`Jint.Browser/AGENTS.md`](../AGENTS.md) beside it — it carries the package's principle, the binding layer
 > these sections stand on, the divergence tables, and the emulation section that argues
-> `PageMediaEnvironment`, `EmulationState`, `NavigatorInstaller`, `TouchEmulation` and `JsGeolocation`.
+> `PageMediaEnvironment`, `EmulationState`, `NavigatorInstaller`, and `TouchEmulation`.
 > Nothing below is repeated in either.
 > The design this implements is [`docs/design/headless-browser.md`](../../docs/design/headless-browser.md):
 > §3 for the runtime model, §5 for events, §6 for navigation and the parse, §7 for the per-page constraints.
@@ -22,7 +22,7 @@ is that thread: it drains a mailbox of requests, calls `Tasks.ProcessTasks()`, a
 engine-owning operations, and a navigation replaces the engine from inside a mailbox request rather than from
 outside. Jint starts no thread of its own; this is what makes a page's timers fire at all.
 
-Four rules follow, and each of them is a way to break the package silently:
+Five rules follow, and each of them is a way to break the package silently:
 
 - **Every public `Page` member is a mailbox request, and the request is what holds the engine.** A new member
   is `_loop.PostAsync(engine => …)`, never a field read that reaches into the runtime. A caller is on some
@@ -135,7 +135,7 @@ installer sets `GlobalEventTarget.IsWindow`, which is also what turns on DOM's d
 reading `thisObject` has no engine to reach the runtime through and can only answer `Illegal invocation`.
 Accessors are unaffected, because a bare identifier *read* goes through the global object's `[[Get]]` with the
 global as receiver. So: **an operation that needs its page is a `PerRealmSlot` holding a `ClrFunction` bound to
-the engine** (`WindowInstaller.Operation`), and only an operation that needs nothing — `scrollTo`, `blur`,
+the engine** (`WindowInstaller.Operation`), and only an operation that needs nothing — `stop`, `blur`,
 `open` — stays a `Method`. Adding a window operation the other way compiles, passes `window.foo()`, and fails
 `foo()`. `getSelection` crossed that line the moment it had a selection to answer.
 
@@ -240,7 +240,8 @@ measures.
   the per-hop policy re-check) and reads the body itself under `BrowserOptions.MaxDocumentBytes`. It therefore
   owes the observer the final response and completion, which only `SendAsync` makes for itself; every caller
   of `SendForStreamAsync` pays that debt through the engine's own `FetchObservation.FinalResponse`, and
-  `Runtime/SubresourceFetch`, `Workers/PageModuleLoader` and the engine's `XhrOperation` are the other three.
+  `Runtime/SubresourceFetch`, `Workers/PageModuleLoader` and the engine's `XhrOperation` and
+  `EventSourceConnection` are the other four.
   The **first hop's `UrlFilter` is run by the page**, not the transport, which deliberately never runs a host
   filter twice per request.
 - **A subresource is `Runtime/SubresourceFetch`**, `DocumentFetch`'s sibling: same transport, same per-hop

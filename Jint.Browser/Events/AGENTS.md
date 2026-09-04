@@ -16,7 +16,7 @@
 **AngleSharp's event bus is neither observed nor driven by script** (design doc §5). Everything script-visible
 is a Jint `Event` dispatched through the engine's tree-aware dispatcher, at the algorithm points this package
 owns. `Events/` is that: the interfaces, the handler attributes, the activation behaviours, focus and the
-input dispatcher. Three things are worth knowing before changing any of it.
+input dispatcher. Six things are worth knowing before changing any of it.
 
 **AngleSharp has no activation behaviour at all, so none of it can be delegated.** Measured against the pinned
 1.7.2, with and without a browsing context: `IHtmlElement.DoClick()` dispatches a `click` on AngleSharp's own
@@ -24,15 +24,15 @@ bus and returns — a checkbox it clicks does not toggle, a radio group does not
 open its `<details>`, an `<a href>` does not navigate. `DoFocus()` never assigns `IDocument.ActiveElement`, so
 that property answers `null` for the life of every document where HTML says the body element. Those two are
 why `click`, `focus`, `blur`, `document.activeElement` and `document.hasFocus` are `skip`ped in the override
-table and re-declared through `additions`, and they are recorded in the divergence table in
-[`../Dom/AGENTS.md`](../Dom/AGENTS.md).
+table and re-declared through `additions`, and they are recorded in
+[`../Dom/divergences.md`](../Dom/divergences.md).
 
 **Which algorithm point raises which event.** The table is the artefact — an event fired anywhere else is a
 second bus:
 
 | Point | Fires | Where |
 | --- | --- | --- |
-| the parse ends | `readystatechange`, `DOMContentLoaded` (document), `load` (window) | `Runtime/PageDocument.FireLifecycle` |
+| the parse ends | `readystatechange`, `DOMContentLoaded` (document), `load` (window) | `Runtime/Parsing/ParserDriver` |
 | a click's activation behaviour | `input` + `change` (checkbox, radio, `<option>`), `submit`, `reset`, `toggle`, a forwarded `click` | `Events/ActivationBehaviors` |
 | a form submits or resets | `invalid` at each failing control, `submit` (cancelable, carrying the `submitter`), `reset` (cancelable) | `Events/FormSubmission` |
 | focus moves | `blur`, `focusout`, `focus`, `focusin`, and `change` for a control the user edited | `Events/FocusController` |

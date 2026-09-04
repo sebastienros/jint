@@ -7,7 +7,7 @@ those two numbers rest on, verified 2026-08-23, so the root file does not have t
 | Agent | Root file it loads | Loads a nested `AGENTS.md`? |
 | --- | --- | --- |
 | OpenAI Codex | `AGENTS.override.md`, then `AGENTS.md` | No — never below the working directory |
-| Claude Code | `CLAUDE.md`, which imports this file; it does **not** read `AGENTS.md` | No — `.claude/rules/*.md` with `paths:` does it instead |
+| Claude Code | `CLAUDE.md`, which imports this file; it does **not** read `AGENTS.md` | Yes, indirectly — it loads a directory's `CLAUDE.md` when it reads a file there, and each of those is one line importing the `AGENTS.md` beside it; `.claude/rules/*.md` with `paths:` routes to the same files |
 | Copilot cloud agent | `AGENTS.md` (since 2025-08-28) *and* `.github/copilot-instructions.md`; both are supplied | Yes, `**/AGENTS.md`, nearest in the tree wins |
 | Copilot code review | `AGENTS.md` (since 2026-06-18) | No — root only |
 | Copilot CLI | `AGENTS.md`, `CLAUDE.md`, `.github/copilot-instructions.md` | Upward only, cwd → git root |
@@ -19,6 +19,14 @@ those two numbers rest on, verified 2026-08-23, so the root file does not have t
 | Gemini CLI | `GEMINI.md`; `AGENTS.md` only if `context.fileName` names it | Upward from a touched path, just in time |
 | Jules | `AGENTS.md` at the repository root | Not documented |
 | Aider | nothing automatically; needs `read: [AGENTS.md]` in `.aider.conf.yml` | No |
+
+A one-line `CLAUDE.md` — the single import `@AGENTS.md` — sits beside every co-located `AGENTS.md`, mirroring
+the repository root. It carries no content of its own on purpose: the substance is in the `AGENTS.md`, and a
+`CLAUDE.md` that grew any would be a second copy nothing holds it to the first. What it buys is a route into
+a nested file for the ecosystems the last column says have none — Claude Code above all, which does not read
+`AGENTS.md` at any depth, and Copilot CLI, whose walk is upward from the working directory. Amp and Cursor
+already descend and simply arrive at the same file by a second path; nothing is duplicated either way,
+because the pointer is an import rather than a copy.
 
 **32 KiB is Codex's `project_doc_max_bytes` default**, and it is a running budget across the whole
 root-to-cwd chain rather than a per-file allowance, so a fat root file starves a nested one; overflow is a

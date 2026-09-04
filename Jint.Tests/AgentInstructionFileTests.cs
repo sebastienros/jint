@@ -48,7 +48,8 @@ namespace Jint.Tests;
 /// answer to it safe: a relocated file is worth nothing if no route leads to it, and only four of the fourteen
 /// agent ecosystems the root file surveys load a nested <c>AGENTS.md</c> on their own. The rest arrive through
 /// the root index, or — for Claude Code, which does not read <c>AGENTS.md</c> at all — through
-/// <c>.claude/rules/*.md</c>. Both halves are checked, in both directions.
+/// <c>.claude/rules/*.md</c> and the one-line <c>CLAUDE.md</c> beside each file, whose whole content is the
+/// import that pulls it in. Both halves are checked, in both directions.
 /// </para>
 /// </remarks>
 public class AgentInstructionFileTests
