@@ -57,7 +57,28 @@ internal static class DomFailures
     internal static Func<JsValue, JsValue[], JsValue> Guard(
         string member,
         Func<JsValue, JsValue[], JsValue> implementation)
-        => (thisObject, arguments) =>
+    {
+        // Six members validate a name before they do anything, and the two DOMExceptions DOM's
+        // validate-and-extract chooses between are not interchangeable — see DomNames. The choice of wrapper
+        // is made here, once, when the shape is built, so that the two thousand members that validate no
+        // name pay nothing for the six that do.
+        if (DomNames.ValidationOf(member) is { } validation)
+        {
+            return (thisObject, arguments) =>
+            {
+                try
+                {
+                    validation.Run(thisObject, member, arguments);
+                    return implementation(thisObject, arguments);
+                }
+                catch (Exception exception) when (Translates(thisObject, exception))
+                {
+                    return Translate((ObjectInstance) thisObject, member, exception);
+                }
+            };
+        }
+
+        return (thisObject, arguments) =>
         {
             try
             {
@@ -68,6 +89,7 @@ internal static class DomFailures
                 return Translate((ObjectInstance) thisObject, member, exception);
             }
         };
+    }
 
     /// <summary>
     /// The <a href="https://webidl.spec.whatwg.org/#idl-DOMException-error-names">error name</a> AngleSharp's

@@ -1194,8 +1194,8 @@ internal static class WptBrowserExclusions
         new("dom/nodes/DOMImplementation-createDocumentType.html", "createDocumentType(\"~*", WptDivergence.NeedsTriage),
         new("dom/nodes/name-validation.html", "*", WptDivergence.NeedsTriage),
 
-        // ---------------------------------------------------------------- a refusal the standard requires and AngleSharp does not make
-        // a refusal the standard requires and AngleSharp does not make
+        // ---------------------------------------------------------------- a name AngleSharp refuses that the standard allows
+        // a name AngleSharp refuses that the standard allows, and the two refusals it still does not make
         new("dom/nodes/Document-createElement.html", "*<oo\") in HTML document", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElement.html", "*uffff\") in HTML document", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElement.html", "*ufffffoo\") in HTML document", WptDivergence.NeedsTriage),
@@ -1204,33 +1204,20 @@ internal static class WptBrowserExclusions
         new("dom/nodes/Document-createElement.html", "*}oo\") in HTML document", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElement.html", "createElement(\"̀* HTML document", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElementNS.html", "* HTML document: null,\"\\ufffffoo\",null", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElementNS.html", "* HTML document: null,\"f:oo\",\"NAMESPACE_ERR\"", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElementNS.html", "* HTML document: null,\"f<oo\",null", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElementNS.html", "* HTML document: null,\"f\\uffffoo\",null", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElementNS.html", "* HTML document: null,\"foo\\uffff\",null", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElementNS.html", "* HTML document: null,\"foo}\",null", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElementNS.html", "* HTML document: null,\"f}oo\",null", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElementNS.html", "* HTML document: null,\"null:xml\",\"NAMESPACE_ERR\"", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElementNS.html", "* HTML document: null,\"xmlfoo:bar\",\"NAMESPACE_ERR\"", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElementNS.html", "* HTML document: null,\";foo\",null", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElementNS.html", "* HTML document: undefined,\"xmlfoo:bar\",\"NAMESPACE_ERR\"", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElementNS.html", "createElementNS test in HTML document: \"\",\":*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElementNS.html", "createElementNS test in HTML document: \"/\",\":*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElementNS.html", "createElementNS test in HTML document: \"foo:\",\":*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElementNS.html", "createElementNS test in HTML document: \"http://example.com/\",\":*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElementNS.html", "createElementNS test in HTML document: null,\":*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElementNS.html", "createElementNS test in HTML document: undefined,\":*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElementNS.html", "createElementNS test in HTML document: undefined,\"f:*", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElementNS.html", "createElementNS test in HTML*0:a\",null", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElementNS.html", "createElementNS test in HTML*<o\",null", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElementNS.html", "createElementNS test in HTML*namespace\",\":foo\",\"INVALID_CHARACTER_ERR\"", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElementNS.html", "createElementNS test in HTML*̀:a\",null", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElementNS.html", "createElementNS test in HTML*;\",null", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElementNS.html", "createElementNS test in HTML*;:a\",null", WptDivergence.NeedsTriage),
         new("dom/nodes/Node-insertBefore.html", "*, must throw TypeError.", WptDivergence.NeedsTriage),
         new("dom/nodes/Node-replaceChild.html", "*a doctype should throw a HierarchyRequestError.", WptDivergence.NeedsTriage),
         new("dom/nodes/Node-replaceChild.html", "*node should throw a HierarchyRequestError.", WptDivergence.NeedsTriage),
-        new("dom/nodes/attributes.html", "A *", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "Basic*.", WptDivergence.NeedsTriage),
 
         // ---------------------------------------------------------------- a nullable DOMString answers the string "null"
@@ -1278,13 +1265,6 @@ internal static class WptBrowserExclusions
         new("dom/nodes/Document-constructor.html", "*aliases", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-constructor.html", "*metadata", WptDivergence.NeedsTriage),
 
-        // ---------------------------------------------------------------- the DOMException a refusal carries has the wrong name or legacy code
-        // the DOMException a refusal carries has the wrong name or legacy code
-        new("dom/nodes/Document-createElementNS.html", "createElementNS test in HTML*0\",\"INVALID_CHARACTER_ERR\"", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElementNS.html", "createElementNS test in HTML*foo:\",\"INVALID_CHARACTER_ERR\"", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElementNS.html", "createElementNS test in HTML*xmlns/\",\":foo\",\"INVALID_CHARACTER_ERR\"", WptDivergence.NeedsTriage),
-        new("dom/nodes/attributes.html", "When*.", WptDivergence.NeedsTriage),
-
         // ---------------------------------------------------------------- the selector engine: escapes, :scope and :has
         // the selector engine's escapes, :scope and :has
         new("dom/nodes/Element-closest.html", "*div > :scope'", WptDivergence.NeedsTriage),
@@ -1309,13 +1289,6 @@ internal static class WptBrowserExclusions
         new("dom/nodes/MutationObserver-document.html", "*parsing", WptDivergence.NeedsTriage),
         new("dom/nodes/MutationObserver-document.html", "parser*", WptDivergence.NeedsTriage),
         new("dom/nodes/MutationObserver-inner-outer.html", "outerHTML*", WptDivergence.NeedsTriage),
-
-        // ---------------------------------------------------------------- NodeIterator's own algorithm
-        // NodeIterator's own algorithm. TreeWalker's is DOM §6.1's now — Dom/Views/DomTreeWalker — so the
-        // row that used to sit here for TreeWalker-basic.html's "Walk over nodes." is gone, and the four
-        // documents whose walk never returned are cases.
-        new("dom/traversal/NodeIterator-removal-during-filtering.html", "*node", WptDivergence.NeedsTriage),
-        new("dom/traversal/NodeIterator-removal-during-filtering.html", "*root", WptDivergence.NeedsTriage),
 
         // ---------------------------------------------------------------- one assertion each
         // one assertion each; see Wpt/README.md

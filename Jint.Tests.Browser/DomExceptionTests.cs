@@ -163,7 +163,8 @@ public sealed class DomExceptionTests
 
     /// <summary>
     /// The message names the member that refused, in the wording <c>DomBindings</c> already uses for an
-    /// illegal invocation, and carries AngleSharp's own sentence after it.
+    /// illegal invocation, and carries after it the sentence of whoever refused: AngleSharp's when the
+    /// refusal is its own, and ours when it is a step of an algorithm this package implements.
     /// </summary>
     [Test]
     public void TheMessageNamesTheMemberThatRefused()
@@ -183,7 +184,14 @@ public sealed class DomExceptionTests
               try { document.createElement('1bad'); return 'no throw'; }
               catch (e) { return e.message; }
             })()
-            """).Should().Be("Failed to execute 'Document.createElement': Invalid character detected.");
+            """).Should().Be("Failed to execute 'Document.createElement': the name '1bad' is not a valid element name.");
+
+        fixture.Text("""
+            (function () {
+              try { document.getElementById('a').removeChild(document.getElementById('b')); return 'no throw'; }
+              catch (e) { return e.message; }
+            })()
+            """).Should().Be("Failed to execute 'Node.removeChild': The object can not be found here.");
     }
 
     /// <summary>
