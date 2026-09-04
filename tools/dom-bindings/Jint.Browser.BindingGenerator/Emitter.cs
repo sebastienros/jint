@@ -159,6 +159,17 @@ internal sealed class Emitter
             // object it names belongs to one engine.
             builder.Append("            .PerRealmSlot(\"constructor\", enumerable: false)\n");
 
+            if (DeclaresIndexedProperties(model))
+            {
+                // https://webidl.spec.whatwg.org/#js-iterable — an interface that supports indexed properties
+                // has @@iterator, and its value is the realm's own %Array.prototype.values% rather than a
+                // function wrapping it, which is why the slot is per-realm rather than a method.
+                // { writable: true, enumerable: false, configurable: true }, PerRealmSlot's symbol defaults.
+                builder.Append("            .PerRealmSlot(\n")
+                    .Append("                global::Jint.Native.Symbol.GlobalSymbolRegistry.Iterator,\n")
+                    .Append("                global::Jint.Browser.Dom.Collections.DomIterator.ArrayValues)\n");
+            }
+
             foreach (var constant in model.Constants)
             {
                 // https://webidl.spec.whatwg.org/#es-constants — { writable: false, enumerable: true,
@@ -358,6 +369,17 @@ internal sealed class Emitter
 
         return builder.ToString();
     }
+
+    /// <summary>
+    /// Whether this interface is where the indexed property support is <em>declared</em>, which is what
+    /// https://webidl.spec.whatwg.org/#js-iterable hangs <c>@@iterator</c> off. An interface that merely
+    /// inherits the getter inherits the iterator with it — a browser answers <c>false</c> for
+    /// <c>HTMLFormControlsCollection.prototype.hasOwnProperty(Symbol.iterator)</c> — so the kind alone is not
+    /// the test; the parent has to be asked too.
+    /// </summary>
+    private static bool DeclaresIndexedProperties(InterfaceModel model)
+        => model.Kind is WrapperKind.Collection or WrapperKind.HtmlCollection
+           && model.Parent?.Kind is not (WrapperKind.Collection or WrapperKind.HtmlCollection);
 
     private static int Depth(InterfaceModel model)
     {

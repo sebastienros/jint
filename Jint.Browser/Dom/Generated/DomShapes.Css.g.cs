@@ -888,6 +888,9 @@ internal static partial class DomInterfaces
         => new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("CSSPseudoElementList")
             .PerRealmSlot("constructor", enumerable: false)
+            .PerRealmSlot(
+                global::Jint.Native.Symbol.GlobalSymbolRegistry.Iterator,
+                global::Jint.Browser.Dom.Collections.DomIterator.ArrayValues)
             .Method("getByType",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSPseudoElementList.getByType", static (thisObj, args) =>
                 {
@@ -909,6 +912,9 @@ internal static partial class DomInterfaces
         => new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("CSSRuleList")
             .PerRealmSlot("constructor", enumerable: false)
+            .PerRealmSlot(
+                global::Jint.Native.Symbol.GlobalSymbolRegistry.Iterator,
+                global::Jint.Browser.Dom.Collections.DomIterator.ArrayValues)
             .Method("item",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSRuleList.item", static (thisObj, args) =>
                 {
@@ -948,6 +954,9 @@ internal static partial class DomInterfaces
         => new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("CSSStyleDeclaration")
             .PerRealmSlot("constructor", enumerable: false)
+            .PerRealmSlot(
+                global::Jint.Native.Symbol.GlobalSymbolRegistry.Iterator,
+                global::Jint.Browser.Dom.Collections.DomIterator.ArrayValues)
             .Accessor("accelerator",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.accelerator", static (thisObj, args) =>
                 {
@@ -3657,6 +3666,9 @@ internal static partial class DomInterfaces
         => new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("MediaList")
             .PerRealmSlot("constructor", enumerable: false)
+            .PerRealmSlot(
+                global::Jint.Native.Symbol.GlobalSymbolRegistry.Iterator,
+                global::Jint.Browser.Dom.Collections.DomIterator.ArrayValues)
             .Method("appendMedium",
                 global::Jint.Browser.Dom.DomFailures.Guard("MediaList.appendMedium", static (thisObj, args) =>
                 {

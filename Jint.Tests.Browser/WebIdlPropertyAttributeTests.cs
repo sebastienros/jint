@@ -32,6 +32,10 @@ namespace Jint.Tests.Browser;
 ///     <term><c>Symbol.toStringTag</c></term>
 ///     <description><c>{ writable: false, enumerable: false, configurable: true }</c></description>
 ///   </item>
+///   <item>
+///     <term><a href="https://webidl.spec.whatwg.org/#js-iterable"><c>Symbol.iterator</c></a></term>
+///     <description><c>{ writable: true, enumerable: false, configurable: true }</c>, on the prototype of an interface that supports indexed properties</description>
+///   </item>
 /// </list>
 /// <para>
 /// It walks every interface rather than a sample, because the attributes come from one call site per kind in
@@ -59,7 +63,11 @@ public sealed class WebIdlPropertyAttributeTests
 
                 if (key.IsSymbol())
                 {
-                    Check(violations, name, descriptor, writable: false, enumerable: false, configurable: true);
+                    // Two symbol-keyed members are emitted and they differ in one attribute: @@iterator is a
+                    // writable data property (Web IDL gives it an operation's writability), @@toStringTag is
+                    // not.
+                    var writableSymbol = ReferenceEquals(key, GlobalSymbolRegistry.Iterator);
+                    Check(violations, name, descriptor, writable: writableSymbol, enumerable: false, configurable: true);
                     continue;
                 }
 

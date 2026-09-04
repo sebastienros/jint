@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using Jint.Native.Object;
+using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -67,18 +68,18 @@ public sealed class JsObjectShape
     private readonly BuiltinShape _layout;
     private readonly FunctionEntry[] _functions;
     private readonly PerRealmValueSlot[] _perRealmValueSlots;
-    private readonly JsString? _toStringTag;
+    private readonly SymbolMember[] _symbolMembers;
 
     private JsObjectShape(
         BuiltinShape layout,
         FunctionEntry[] functions,
         PerRealmValueSlot[] perRealmValueSlots,
-        JsString? toStringTag)
+        SymbolMember[] symbolMembers)
     {
         _layout = layout;
         _functions = functions;
         _perRealmValueSlots = perRealmValueSlots;
-        _toStringTag = toStringTag;
+        _symbolMembers = symbolMembers;
     }
 
     /// <summary>The number of string-keyed members this shape declares.</summary>
@@ -220,8 +221,11 @@ public sealed class JsObjectShape
     /// </summary>
     internal PerRealmValueSlot[] PerRealmValueSlots => _perRealmValueSlots;
 
-    /// <summary>The declared <c>Symbol.toStringTag</c> value, or <c>null</c> when none was declared.</summary>
-    internal JsString? ToStringTagValue => _toStringTag;
+    /// <summary>
+    /// The symbol-keyed members, in declaration order. Symbols are orthogonal to the shared string-keyed
+    /// layout, so these are applied per instantiated object rather than through it.
+    /// </summary>
+    internal SymbolMember[] SymbolMembers => _symbolMembers;
 
     /// <summary>
     /// Creates the function object for a method slot or an accessor half, in <paramref name="realm"/>.
@@ -232,6 +236,66 @@ public sealed class JsObjectShape
         var entry = _functions[slot];
         return new ClrFunction(engine, realm, entry.Name, entry.Implementation, entry.Length);
     }
+
+    /// <summary>
+    /// The descriptor one instantiated object gets for symbol member <paramref name="index"/>. Built per
+    /// object, never shared: a symbol member is configurable or writable in every shape WebIDL and
+    /// ECMAScript give one, and one shared mutable descriptor would let one engine rewrite what another
+    /// reads — the hazard <see cref="Builder.Constant"/> states in full for the string-keyed case.
+    /// </summary>
+    /// <remarks>
+    /// A method and a per-realm slot are lazy through <see cref="PropertyDescriptor.CreateLazy{TState}"/>,
+    /// so declaring one costs an unmaterialized descriptor and nothing else until a script reads the member.
+    /// An accessor pair is not: <c>Object.getOwnPropertyDescriptor</c> has to observe a settled pair, so both
+    /// halves are created together, here.
+    /// </remarks>
+    internal PropertyDescriptor MakeSymbolDescriptor(ObjectInstance owner, Engine engine, Realm realm, int index)
+    {
+        var member = _symbolMembers[index];
+        switch (member.Kind)
+        {
+            case SymbolMemberKind.Constant:
+                return new PropertyDescriptor(member.Constant!, member.Flags);
+
+            case SymbolMemberKind.Method:
+                return PropertyDescriptor.CreateLazy(
+                    (Shape: this, Engine: engine, Realm: realm, member.GetterSlot),
+                    static state => state.Shape.MakeFunction(state.Engine, state.Realm, state.GetterSlot),
+                    member.Flags);
+
+            case SymbolMemberKind.PerRealmFactory:
+                return PropertyDescriptor.CreateLazy(
+                    (Owner: owner, Factory: member.Factory!),
+                    static state => state.Factory(state.Owner) ?? JsValue.Undefined,
+                    member.Flags);
+
+            default:
+                return new GetSetPropertyDescriptor(
+                    member.GetterSlot == BuiltinShape.NotAFunction ? null : MakeFunction(engine, realm, member.GetterSlot),
+                    member.SetterSlot == BuiltinShape.NotAFunction ? null : MakeFunction(engine, realm, member.SetterSlot),
+                    member.Flags);
+        }
+    }
+
+    /// <summary>What a symbol-keyed member is; the symbol siblings of the string-keyed member kinds.</summary>
+    internal enum SymbolMemberKind : byte
+    {
+        Constant,
+        Method,
+        Accessor,
+        PerRealmFactory,
+    }
+
+    /// <summary>One symbol-keyed member: its key, its kind, its attributes and whichever payload it needs.</summary>
+    [StructLayout(LayoutKind.Auto)]
+    internal readonly record struct SymbolMember(
+        JsSymbol Key,
+        SymbolMemberKind Kind,
+        PropertyFlag Flags,
+        JsValue? Constant,
+        ushort GetterSlot,
+        ushort SetterSlot,
+        Func<ObjectInstance, JsValue>? Factory);
 
     /// <summary>One entry of the shape's process-shared function table: everything a per-realm function needs.</summary>
     [StructLayout(LayoutKind.Auto)]
@@ -256,7 +320,9 @@ public sealed class JsObjectShape
         private readonly List<MemberDeclaration> _members = [];
         private readonly List<FunctionEntry> _functions = [];
         private readonly HashSet<string> _declaredNames = new(StringComparer.Ordinal);
-        private JsString? _toStringTag;
+        private readonly List<SymbolMember> _symbolMembers = [];
+        private readonly HashSet<JsSymbol> _declaredSymbols = [];
+        private bool _toStringTagDeclared;
         private bool _built;
 
         /// <summary>Creates an empty builder.</summary>
@@ -329,7 +395,8 @@ public sealed class JsObjectShape
         /// <c>"set name"</c> per spec convention. Defaults follow Web IDL attributes
         /// (<c>{ enumerable: true, configurable: true }</c>).
         /// <para>
-        /// The delegates carry the same engine-independence contract as <see cref="Method"/>.
+        /// The delegates carry the same engine-independence contract as
+        /// <see cref="Method(string, Func{JsValue, JsValue[], JsValue}, int, bool, bool, bool)"/>.
         /// </para>
         /// </summary>
         /// <param name="name">The property name.</param>
@@ -536,13 +603,177 @@ public sealed class JsObjectShape
         }
 
         /// <summary>
+        /// Declares a symbol-keyed method — <c>Symbol.iterator</c>, <c>Symbol.hasInstance</c>,
+        /// <c>Symbol.toPrimitive</c> — whose function is created per engine on first access of the member.
+        /// Attribute defaults are the ones both Web IDL and ECMAScript give a symbol-keyed operation
+        /// (<c>{ writable: true, enumerable: false, configurable: true }</c>): a symbol-keyed member is
+        /// <em>not</em> enumerable, which is the one place Web IDL agrees with ECMAScript rather than
+        /// diverging from it.
+        /// <para>
+        /// The materialized function is named the way
+        /// <see href="https://tc39.es/ecma262/#sec-setfunctionname">SetFunctionName</see> names one under a
+        /// symbol key — <c>"[Symbol.iterator]"</c> — so nothing has to be passed for it.
+        /// <paramref name="implementation"/> carries the same engine-independence contract as
+        /// <see cref="Method(string, Func{JsValue, JsValue[], JsValue}, int, bool, bool, bool)"/>.
+        /// </para>
+        /// </summary>
+        /// <param name="key">The symbol key. Well-known symbols are process-shared and are the intended use.</param>
+        /// <param name="implementation">The method body.</param>
+        /// <param name="length">The function's <c>length</c> — its declared parameter count.</param>
+        /// <param name="enumerable">Whether the property is enumerable.</param>
+        /// <param name="writable">Whether the property is writable.</param>
+        /// <param name="configurable">Whether the property is configurable.</param>
+        /// <returns>This builder, for chaining.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="key"/> or <paramref name="implementation"/> is <c>null</c>.</exception>
+        /// <exception cref="ArgumentException"><paramref name="key"/> is already declared.</exception>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="length"/> is negative.</exception>
+        /// <exception cref="InvalidOperationException">The shape has already been built.</exception>
+        public Builder Method(
+            JsSymbol key,
+            Func<JsValue, JsValue[], JsValue> implementation,
+            int length = 0,
+            bool enumerable = false,
+            bool writable = true,
+            bool configurable = true)
+        {
+            DeclareSymbol(key);
+
+            if (implementation is null)
+            {
+                Throw.ArgumentNullException(nameof(implementation));
+            }
+
+            if (length < 0)
+            {
+                Throw.ArgumentOutOfRangeException(nameof(length), "A function's length must not be negative.");
+            }
+
+            var slot = AddFunction(FunctionName(key), implementation, length);
+            _symbolMembers.Add(new SymbolMember(
+                key,
+                SymbolMemberKind.Method,
+                DataFlags(enumerable, writable, configurable),
+                Constant: null,
+                slot,
+                BuiltinShape.NotAFunction,
+                Factory: null));
+            return this;
+        }
+
+        /// <summary>
+        /// Declares a symbol-keyed accessor property — <c>Symbol.toStringTag</c> as a getter,
+        /// <c>Symbol.species</c>. Both halves are created together when the object initializes, so that
+        /// <c>Object.getOwnPropertyDescriptor</c> observes a settled pair; an absent half surfaces as
+        /// <c>undefined</c>, per spec. Defaults are <c>{ enumerable: false, configurable: true }</c>.
+        /// <para>
+        /// The delegates carry the same engine-independence contract as
+        /// <see cref="Method(string, Func{JsValue, JsValue[], JsValue}, int, bool, bool, bool)"/>, and the
+        /// materialized functions are named <c>"get [Symbol.x]"</c> / <c>"set [Symbol.x]"</c>.
+        /// </para>
+        /// </summary>
+        /// <param name="key">The symbol key.</param>
+        /// <param name="getter">The getter body, or <c>null</c> for a set-only property.</param>
+        /// <param name="setter">The setter body, or <c>null</c> for a get-only property.</param>
+        /// <param name="enumerable">Whether the property is enumerable.</param>
+        /// <param name="configurable">Whether the property is configurable.</param>
+        /// <returns>This builder, for chaining.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="key"/> is <c>null</c>.</exception>
+        /// <exception cref="ArgumentException">
+        /// <paramref name="key"/> is already declared, or both <paramref name="getter"/> and
+        /// <paramref name="setter"/> are <c>null</c>.
+        /// </exception>
+        /// <exception cref="InvalidOperationException">The shape has already been built.</exception>
+        public Builder Accessor(
+            JsSymbol key,
+            Func<JsValue, JsValue[], JsValue>? getter,
+            Func<JsValue, JsValue[], JsValue>? setter = null,
+            bool enumerable = false,
+            bool configurable = true)
+        {
+            DeclareSymbol(key);
+
+            if (getter is null && setter is null)
+            {
+                Throw.ArgumentException(
+                    $"Accessor '{key}' declares neither a getter nor a setter; at least one half is required.",
+                    nameof(getter));
+            }
+
+            var name = FunctionName(key);
+            var getterSlot = getter is null ? BuiltinShape.NotAFunction : AddFunction("get " + name, getter, 0);
+            var setterSlot = setter is null ? BuiltinShape.NotAFunction : AddFunction("set " + name, setter, 1);
+
+            // GetSetPropertyDescriptor owns the writable bits (an accessor has none), so only the
+            // enumerable/configurable claims travel with the member.
+            var flags = (enumerable ? PropertyFlag.Enumerable : PropertyFlag.EnumerableSet)
+                        | (configurable ? PropertyFlag.Configurable : PropertyFlag.ConfigurableSet);
+
+            _symbolMembers.Add(new SymbolMember(
+                key,
+                SymbolMemberKind.Accessor,
+                flags,
+                Constant: null,
+                getterSlot,
+                setterSlot,
+                Factory: null));
+            return this;
+        }
+
+        /// <summary>
+        /// Declares a symbol-keyed data property whose value differs per engine, produced by
+        /// <paramref name="factory"/> on the first access of that member in that engine. This is what a
+        /// member whose value is an <em>intrinsic</em> needs: Web IDL's
+        /// <see href="https://webidl.spec.whatwg.org/#es-iterable-entries">iterable&lt;&gt;</see> declaration
+        /// makes <c>@@iterator</c> the very <c>%Array.prototype.values%</c> function object of the realm, not
+        /// a wrapper around it, and only a per-realm value can be that.
+        /// <para>
+        /// The factory receives the instantiated object (reach the engine through
+        /// <see cref="ObjectInstance.Engine"/>) and must itself be engine-independent — a static lambda, with
+        /// all per-engine state coming from the argument.
+        /// </para>
+        /// </summary>
+        /// <param name="key">The symbol key.</param>
+        /// <param name="factory">Produces the value for one instantiated object.</param>
+        /// <param name="enumerable">Whether the property is enumerable.</param>
+        /// <param name="writable">Whether the property is writable.</param>
+        /// <param name="configurable">Whether the property is configurable.</param>
+        /// <returns>This builder, for chaining.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="key"/> or <paramref name="factory"/> is <c>null</c>.</exception>
+        /// <exception cref="ArgumentException"><paramref name="key"/> is already declared.</exception>
+        /// <exception cref="InvalidOperationException">The shape has already been built.</exception>
+        public Builder PerRealmSlot(
+            JsSymbol key,
+            Func<ObjectInstance, JsValue> factory,
+            bool enumerable = false,
+            bool writable = true,
+            bool configurable = true)
+        {
+            DeclareSymbol(key);
+
+            if (factory is null)
+            {
+                Throw.ArgumentNullException(nameof(factory));
+            }
+
+            _symbolMembers.Add(new SymbolMember(
+                key,
+                SymbolMemberKind.PerRealmFactory,
+                DataFlags(enumerable, writable, configurable),
+                Constant: null,
+                BuiltinShape.NotAFunction,
+                BuiltinShape.NotAFunction,
+                factory));
+            return this;
+        }
+
+        /// <summary>
         /// Declares the <c>Symbol.toStringTag</c> value (non-writable, non-enumerable, configurable — the
-        /// intrinsic convention), which is what <c>Object.prototype.toString.call(obj)</c> reports.
+        /// intrinsic convention), which is what <c>Object.prototype.toString.call(obj)</c> reports. Sugar for
+        /// the one symbol-keyed constant every host prototype wants.
         /// <para>
         /// Symbols are stored per object — the shared string-keyed layout is orthogonal to them — so this
         /// costs one descriptor per instantiated object, applied on first touch along with the rest of the
-        /// object's initialization. Other symbol-keyed members are added per object after instantiation with
-        /// <c>DefineOwnProperty</c>; symbol keys never disturb the shared layout.
+        /// object's initialization, and the same is true of every other symbol-keyed member declared here.
         /// </para>
         /// </summary>
         /// <param name="value">The tag, e.g. the Web IDL interface name.</param>
@@ -560,12 +791,21 @@ public sealed class JsObjectShape
                 Throw.ArgumentNullException(nameof(value));
             }
 
-            if (_toStringTag is not null)
+            if (_toStringTagDeclared)
             {
                 Throw.InvalidOperationException("Symbol.toStringTag has already been declared on this shape.");
             }
 
-            _toStringTag = JsString.Create(value);
+            _toStringTagDeclared = true;
+            DeclareSymbol(GlobalSymbolRegistry.ToStringTag);
+            _symbolMembers.Add(new SymbolMember(
+                GlobalSymbolRegistry.ToStringTag,
+                SymbolMemberKind.Constant,
+                PropertyFlag.Configurable,
+                JsString.Create(value),
+                BuiltinShape.NotAFunction,
+                BuiltinShape.NotAFunction,
+                Factory: null));
             return this;
         }
 
@@ -619,7 +859,7 @@ public sealed class JsObjectShape
                 layoutBuilder.Build(),
                 _functions.ToArray(),
                 perRealmValueSlots.Count > 0 ? perRealmValueSlots.ToArray() : [],
-                _toStringTag);
+                _symbolMembers.Count > 0 ? _symbolMembers.ToArray() : []);
         }
 
         private ushort AddFunction(string name, JsCallDelegate implementation, int length)
@@ -656,6 +896,28 @@ public sealed class JsObjectShape
                 Throw.ArgumentException($"Member '{name}' has already been declared; member names must be distinct.", nameof(name));
             }
         }
+
+        private void DeclareSymbol(JsSymbol key)
+        {
+            ThrowIfBuilt();
+
+            if (key is null)
+            {
+                Throw.ArgumentNullException(nameof(key));
+            }
+
+            if (!_declaredSymbols.Add(key))
+            {
+                Throw.ArgumentException($"Member '{key}' has already been declared; member keys must be distinct.", nameof(key));
+            }
+        }
+
+        /// <summary>
+        /// <see href="https://tc39.es/ecma262/#sec-setfunctionname">SetFunctionName</see> for a symbol key:
+        /// the description in brackets, or the empty string for a symbol that has none.
+        /// </summary>
+        private static string FunctionName(JsSymbol key)
+            => key._value.IsUndefined() ? "" : "[" + key._value.AsString() + "]";
 
         private void ThrowIfBuilt()
         {

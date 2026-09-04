@@ -3,8 +3,8 @@ using Jint.Native.Object;
 namespace Jint.Browser.Dom.Collections;
 
 /// <summary>
-/// What every DOM collection wrapper shares: the AngleSharp object, the realm, the interface it was given a
-/// prototype from, and the <c>Symbol.iterator</c> wiring.
+/// What every DOM collection wrapper shares: the AngleSharp object, the realm, and the interface it was
+/// given a prototype from.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -32,7 +32,6 @@ internal abstract class DomCollectionBase : ArrayLikeObject, IDomWrapper
         Definition = definition;
         DomTarget = target;
         Prototype = realm.PrototypeOf(definition);
-        DomIterator.Install(realm, this);
     }
 
     /// <inheritdoc />

@@ -506,6 +506,9 @@ internal static partial class DomInterfaces
         var builder = new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("DOMTokenList")
             .PerRealmSlot("constructor", enumerable: false)
+            .PerRealmSlot(
+                global::Jint.Native.Symbol.GlobalSymbolRegistry.Iterator,
+                global::Jint.Browser.Dom.Collections.DomIterator.ArrayValues)
             .Method("add",
                 global::Jint.Browser.Dom.DomFailures.Guard("DOMTokenList.add", static (thisObj, args) =>
                 {
@@ -590,6 +593,9 @@ internal static partial class DomInterfaces
         => new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("DOMStringList")
             .PerRealmSlot("constructor", enumerable: false)
+            .PerRealmSlot(
+                global::Jint.Native.Symbol.GlobalSymbolRegistry.Iterator,
+                global::Jint.Browser.Dom.Collections.DomIterator.ArrayValues)
             .Method("contains",
                 global::Jint.Browser.Dom.DomFailures.Guard("DOMStringList.contains", static (thisObj, args) =>
                 {
@@ -2039,6 +2045,9 @@ internal static partial class DomInterfaces
         => new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("NamedNodeMap")
             .PerRealmSlot("constructor", enumerable: false)
+            .PerRealmSlot(
+                global::Jint.Native.Symbol.GlobalSymbolRegistry.Iterator,
+                global::Jint.Browser.Dom.Collections.DomIterator.ArrayValues)
             .Method("getNamedItem",
                 global::Jint.Browser.Dom.DomFailures.Guard("NamedNodeMap.getNamedItem", static (thisObj, args) =>
                 {
@@ -2160,6 +2169,9 @@ internal static partial class DomInterfaces
         var builder = new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("NodeList")
             .PerRealmSlot("constructor", enumerable: false)
+            .PerRealmSlot(
+                global::Jint.Native.Symbol.GlobalSymbolRegistry.Iterator,
+                global::Jint.Browser.Dom.Collections.DomIterator.ArrayValues)
             .Method("item",
                 global::Jint.Browser.Dom.DomFailures.Guard("NodeList.item", static (thisObj, args) =>
                 {
@@ -2465,6 +2477,9 @@ internal static partial class DomInterfaces
         => new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("StyleSheetList")
             .PerRealmSlot("constructor", enumerable: false)
+            .PerRealmSlot(
+                global::Jint.Native.Symbol.GlobalSymbolRegistry.Iterator,
+                global::Jint.Browser.Dom.Collections.DomIterator.ArrayValues)
             .Method("item",
                 global::Jint.Browser.Dom.DomFailures.Guard("StyleSheetList.item", static (thisObj, args) =>
                 {

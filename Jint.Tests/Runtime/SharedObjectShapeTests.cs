@@ -27,6 +27,19 @@ public class SharedObjectShapeTests
         .Method("c", static (t, args) => new JsString("c"))
         .Build();
 
+    private static int _symbolSlotFactoryCalls;
+
+    private static readonly JsObjectShape LazySymbolShape = new JsObjectShape.Builder()
+        .Method("touch", static (t, args) => new JsString("touch"))
+        .PerRealmSlot(
+            Jint.Native.Symbol.GlobalSymbolRegistry.Iterator,
+            static _ =>
+            {
+                Interlocked.Increment(ref _symbolSlotFactoryCalls);
+                return new JsString("late");
+            })
+        .Build();
+
     private static readonly JsObjectShape MixedShape = new JsObjectShape.Builder()
         .Method("m", static (t, args) => new JsString("m"))
         .Accessor("acc", getter: static (t, args) => new JsString("acc"))
@@ -475,6 +488,31 @@ public class SharedObjectShapeTests
         }
     }
 
+    [Test]
+    public void ASymbolKeyedSlotStaysUnmaterializedUntilTheMemberIsRead()
+    {
+        // The DOM bindings declare @@iterator on fifteen collection prototypes, so a declaration that ran its
+        // factory at initialization would cost every one of them a value nothing had asked for. It runs on the
+        // first read of that member and never again.
+        Volatile.Write(ref _symbolSlotFactoryCalls, 0);
+
+        var engine = new Engine();
+        var proto = LazySymbolShape.Instantiate(engine);
+
+        // Initializes the object — the symbol dictionary is built here — without reading the member.
+        proto.Get("touch");
+        Volatile.Read(ref _symbolSlotFactoryCalls).Should().Be(0, "declaring a per-realm symbol slot must cost nothing");
+
+        proto.Get(GlobalSymbolRegistryIterator(engine)).Should().Be(new JsString("late"));
+        Volatile.Read(ref _symbolSlotFactoryCalls).Should().Be(1);
+
+        proto.Get(GlobalSymbolRegistryIterator(engine)).Should().Be(new JsString("late"));
+        Volatile.Read(ref _symbolSlotFactoryCalls).Should().Be(1, "the value is memoized into the descriptor, as PropertyDescriptor.CreateLazy promises");
+    }
+
     private static JsValue GlobalSymbolRegistryToStringTag(Engine engine)
         => engine.Evaluate("Symbol.toStringTag");
+
+    private static JsValue GlobalSymbolRegistryIterator(Engine engine)
+        => engine.Evaluate("Symbol.iterator");
 }
