@@ -162,12 +162,6 @@ internal sealed class JintStatementList
                     {
                         c = pair.Statement.Execute(context);
                     }
-
-                    if (context.Engine._error is not null)
-                    {
-                        c = HandleError(context.Engine, pair.Statement);
-                        break;
-                    }
                 }
                 else
                 {
@@ -325,26 +319,6 @@ internal sealed class JintStatementList
         }
 
         return completion;
-    }
-
-    internal static Completion HandleError(Engine engine, JintStatement? s)
-    {
-        var error = engine._error!;
-        engine._error = null;
-        var completion = CreateThrowCompletion(error.ErrorConstructor, error.Message, engine._lastSyntaxElement ?? s!._statement);
-
-        if (engine._isDebugMode)
-        {
-            engine.Debugger.OnExceptionThrown(completion.Value, completion.Location);
-        }
-
-        return completion;
-    }
-
-    private static Completion CreateThrowCompletion(ErrorConstructor errorConstructor, string? message, Node s)
-    {
-        var error = errorConstructor.Construct(message);
-        return new Completion(CompletionType.Throw, error, s);
     }
 
     private static Completion CreateThrowCompletion(ErrorConstructor errorConstructor, Exception e, Node s)

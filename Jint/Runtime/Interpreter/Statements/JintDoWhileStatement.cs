@@ -127,7 +127,7 @@ internal sealed class JintDoWhileStatement : JintStatement<DoWhileStatement>
     /// <summary>
     /// The bare per-iteration loop for structurally-Normal bodies — the do-while twin of
     /// <see cref="JintWhileStatement"/>'s tight lane (body first, then test); see there for the
-    /// deferred-error and amortized-constraint reasoning.
+    /// amortized-constraint reasoning.
     /// </summary>
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
     private Completion TightDoWhileBody(EvaluationContext context)
@@ -135,7 +135,6 @@ internal sealed class JintDoWhileStatement : JintStatement<DoWhileStatement>
         var test = _test;
         var single = _tightSingleStatement;
         var list = _tightBodyList;
-        var engine = context.Engine;
 
         // See JintForStatement.TightForBody: a non-single body costs the generic lane one extra
         // statement-counter charge per iteration (the block, or the bare EmptyStatement body).
@@ -153,10 +152,6 @@ internal sealed class JintDoWhileStatement : JintStatement<DoWhileStatement>
             if (single is not null)
             {
                 single.ExecuteDiscarded(context);
-                if (engine._error is not null)
-                {
-                    return JintStatementList.HandleError(engine, single);
-                }
             }
             else if (list is not null)
             {
@@ -164,10 +159,6 @@ internal sealed class JintDoWhileStatement : JintStatement<DoWhileStatement>
                 {
                     var statement = list.GetStatement(i);
                     statement.ExecuteDiscarded(context);
-                    if (engine._error is not null)
-                    {
-                        return JintStatementList.HandleError(engine, statement);
-                    }
                 }
             }
         } while (test.GetBooleanValue(context));
