@@ -31,14 +31,14 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `dom/lists/` | 5 | 0 | 189 | 5 |
 | `dom/traversal/` | 13 | 0 | 52 | 7 |
 | `dom/ranges/` | 17 | 0 | 82 | 10 |
-| `html/dom/` | 5 | 0 | 85 | 31 |
+| `html/dom/` | 6 | 0 | 4,962 | 31 |
 | `html/webappapis/scripting/events/` | 12 | 0 | 37 | 5 |
-| `html/webappapis/scripting/processing-model-2/` | 25 | 0 | 44 | 14 |
+| `html/webappapis/scripting/processing-model-2/` | 25 | 0 | 44 | 12 |
 | `custom-elements/` | 16 | 0 | 510 | 247 |
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 68 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 3 |
-| **total** | **340** | **9** | **6,664** | **1,855** |
+| **total** | **341** | **9** | **11,541** | **1,853** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -73,10 +73,12 @@ What `NeedsTriage` holds now is four things, each bounded and each named by the 
    `<script src="data:text/javascript,…">` is the one shape of external script that never runs; three
    `processing-model-2/` documents are about exactly that script. The report site those documents test works,
    which their `<script src>` and inline siblings say.
-2. **`script.src` does not reflect a URL.** HTML reflects it *as a URL*, so it answers the resolved absolute
-   one; AngleSharp's `IHtmlScriptElement.Source` answers the raw attribute value, so four rows compare a
-   correct absolute filename against the unresolved string the document wrote. It is AngleSharp's divergence
-   and is recorded in [`Jint.Browser/Dom/AGENTS.md`](../../Jint.Browser/Dom/AGENTS.md).
+2. **A URL's fragment is dropped between the element and the error report.** This entry used to be
+   "`script.src` does not reflect a URL" and four rows; [#3770](https://github.com/sebastienros/jint/issues/3770)'s
+   reflection machinery took the member over and two of the four are cases now. The two that remain load
+   `<script src="support/syntax-error.js#">` and the URL `onerror` reports has lost the trailing `#`, so what
+   goes missing is the (empty) fragment rather than the resolution — a re-serialization on the
+   script-loading path, and a change to `Jint.Browser/Runtime/` rather than to the binding.
 3. **A DOM prototype carries no `@@unscopables`.** WebIDL puts one on the interface prototype object of every
    interface with an `[Unscopable]` member — `Element`'s and `Document`'s `append`, `prepend` and
    `replaceChildren` among them — and the generator emits none, because AngleSharp's metadata does not say
@@ -205,6 +207,16 @@ Ordered by how many tests each accounts for:
 | 5 | 1 | [#3767](https://github.com/sebastienros/jint/issues/3767) **`DOMTokenList`** was the largest single cause this corpus found — 661 rows across six documents, more than a quarter of everything the DOM suites reported. DOM §7.1's mutating half is `Dom/Collections/DomTokenListMembers` now: the validation steps, `toggle`'s given-versus-not-given `force`, `replace`, `supports`, `item`'s `null`, the update steps and WebIDL's value iterator. What is left is five rows of one document: `sandbox`, `link.sizes` and `output.htmlFor` land on `DOMSettableTokenList`, an interface the standard merged away in 2016 and AngleSharp still carries a `[DomName]` for, and two `a.relList` rows are in namespaces HTML does not reflect `rel` in. `Element-classlist.html` passes all 1,420. |
 | 4 | 2 | **A `MutationObserver` record too few, or too many.** `classList.add` of an existing token reports one record where two are due, and an observer of the document itself never fires — both already recorded as AngleSharp divergences. |
 
+**`html/dom/reflection-misc.html` is the tenth suite's first document, and it passes whole.** HTML §2.6.1's
+reflection algorithms are `Jint.Browser/Dom/ReflectedAttribute.cs` and the members that take them are
+`overrides.json`'s `reflected` list, so all 4,877 of its assertions pass with nothing excluded — where 1,866
+of them failed before. Fifteen rows did it, and most were the **global** attributes every element carries
+(`dir`, `lang`, `tabIndex`, `autofocus`, `inputMode`, `enterKeyHint`), which is why they moved the other nine
+documents so far as well: measured against text, metadata, grouping and sections, 8,773 failing assertions
+became 2,437. What is left in those is element-specific — `align`, `as`, `referrerPolicy`, `compact`,
+`charset` — one `reflected` row each, and [#3770](https://github.com/sebastienros/jint/issues/3770)'s
+remaining work.
+
 **Four documents did not terminate at all, and that was the finding this campaign put first.**
 `TreeWalker-currentNode.html`, `TreeWalker-previousNodeLastChildReject.html`, `TreeWalker-traversal-reject.html`
 and `TreeWalker-traversal-skip.html` each spun forever: AngleSharp's `TreeWalker.ToPrevious` never advanced the
@@ -270,7 +282,7 @@ costs: half of them are one member reached at file scope.
 | a DOM marker, or not a document | 6 | `.window.js`, `.tentative.html` and `.sub.html` under the six new suites |
 | an XML document | 6 | `.xhtml`, `.xht`, `.svg` and the three `.xml` fixture globs: a page here parses HTML |
 | the WebIDL conformance harness, again | 2 | `html/dom/idlharness.https.html`, and one that needs an `RTCPeerConnection` |
-| HTML's reflection suite | 5 | [#3770](https://github.com/sebastienros/jint/issues/3770); ten documents and their four helpers, 22,028 of 56,660 assertions fail because reflection is not implemented, and the smallest table that names them and no passing test is over four thousand rows. **Not** a time problem: 22.5 s for the set, 7.3 s for the largest |
+| HTML's reflection suite, nine of ten | 11 | [#3770](https://github.com/sebastienros/jint/issues/3770); `reflection-misc.html` is a case now and the other nine need the per-element attribute table each of them tests, one `reflected` row per content attribute. **Not** a time problem: 22.5 s for the whole set, 7.3 s for the largest. The exclusion table's own comment carries the per-family measurement |
 | a DOM crash test or reftest | 5 | none loads `testharness.js` |
 | a helper document beside its test | 5 | three frames, a fragment and an iframe body; a document under a suite would have to be a case |
 | a DOM frame that runs script | 17 | listed when a frame had neither a document nor a realm; it has a document now ([#3771](https://github.com/sebastienros/jint/issues/3771)) and each row is owed a re-examination against the half that is left — three of them need the frame body above, which a document under a suite cannot be |

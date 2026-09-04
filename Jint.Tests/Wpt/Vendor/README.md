@@ -385,7 +385,7 @@ corpus.
 | `dom/traversal/` | 13 `.html` | `NodeIterator` and `TreeWalker`; four of them are the walks that used to run forever ([#3765](https://github.com/sebastienros/jint/issues/3765)) |
 | `dom/traversal/support/` | 1 `.html`, 1 `.js` | An empty document a filter's realm comes from, and the node assertions |
 | `dom/ranges/` | 17 `.html` | The `Range` and `StaticRange` documents that do not load `dom/common.js`; the twenty-four that do are not-vendored rows |
-| `html/dom/` | 5 `.html` | ARIA reflection, `accessKeyLabel` and HTML's historical members. **Not** the ten `reflection-*.html` documents — see the browser lane's README |
+| `html/dom/` | 6 `.html`, 4 `.js` | ARIA reflection, `accessKeyLabel`, HTML's historical members, and `reflection-misc.html` with the four helpers it loads — HTML's reflection suite, of which this is one document of ten. The other nine are the browser lane's README |
 | `dom/constants.js` | 1 | The `Node` and `NodeFilter` constant tables, shared by `dom/nodes/` and `dom/traversal/` |
 | `dom/common.js` is *not* here | — | It calls `document.createCDATASection` at file scope, which the bindings do not have, so every document that loads it reports nothing at all |
 
@@ -1622,8 +1622,8 @@ find . -type f \( $TYPES \) | sort | while read -r f; do
 done
 ```
 
-Silence is a clean corpus, and at this pin there are 864 files in 78 directories to be silent
-about — 348 of them the documents the browser lane navigates to, the rest the scripts, payloads and
+Silence is a clean corpus, and at this pin there are 869 files in 78 directories to be silent
+about — 349 of them the documents the browser lane navigates to, the rest the scripts, payloads and
 sidecars every lane reads.
 
 <!-- end generated -->

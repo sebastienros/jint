@@ -47,6 +47,7 @@ version of AngleSharp nobody references.
 | `skip` | A member whose AngleSharp implementation must not be projected: navigation (`location.assign`, `location.href`'s setter), the parser (`document.open`/`close`/`load`), `document.createEvent` whose AngleSharp `Event` must never reach script, `DOMImplementation.createHTMLDocument` whose title AngleSharp makes required, and the six the events bridge re-declares because AngleSharp's own do nothing — see the divergence table. Every one of them is re-declared in `additions`, so a skip here is a *replacement* and not an absence. `half: "setter"` skips the write half only. |
 | `hooks` | A member routed through `DomHostHooks` so the package can replace its body: the `innerHTML` and `outerHTML` setters, `insertAdjacentHTML`, `document.write`/`writeln`, and `setAttribute`/`removeAttribute` — the one write of an attribute this package can see, and therefore where a handler content attribute takes its position in the element's listener list. The default implementations *are* the AngleSharp call, so the seam costs nothing until R3 uses it. `"half": "getter"` replaces the *read* of an attribute, which is what a member whose value the host has and AngleSharp does not needs: `document.currentScript`, `readyState`, `URL`, `documentURI`, `referrer`, `cookie` and `Node.baseURI` are accessors on their prototypes because of it, where they used to be own properties written onto the document wrapper. `"returns": true` is the form for a member whose *answer* belongs to the host rather than its effect, which is `document.createElement`, `createElementNS` and `Node.cloneNode`: with the synchronous custom elements flag set the element a defined name produces is the constructor's and not AngleSharp's. **Reach for it before `skip` + `additions`** — a hook stands in front of a generated member, so the member keeps its arity and its name, and a member AngleSharp later grows under that name is still reported rather than shadowed. The same class carries `WrapperCreated`, which is the other direction — a member the generator could not emit at all, added to one wrapper; it is also where the events bridge registers an element's handler content attributes. |
 | `additions` | A member the **standard** puts on a generated interface and AngleSharp's metadata cannot express: a callback parameter, a stringifier with no `[DomName]`, a Shadow DOM v0 spelling, a missing `[DomName]`, the whole of CSSOM View's box model (`getBoundingClientRect` and its `client*`/`scroll*`/`offset*` family, answered from the flat layout — [`../Runtime/AGENTS.md`](../Runtime/AGENTS.md)), the legacy event-creation surface (`document.createEvent`), and the operations whose body is an event rather than a DOM call (`click`/`focus`/`blur`, `form.submit`/`requestSubmit`/`reset`, `document.activeElement`/`hasFocus`). Two forms, and an entry uses exactly one: **reach for the member form**, which names one member and goes through the model like any projected member, so the generated file names it and a member AngleSharp later grows under that name is reported rather than shadowed; the `"extend"` form hands the builder to a method and exists only for a *family* whose member list is computed, which today is HTML's event handler IDL attributes. `Overrides.AdditionEntry` has the whole of why, including what the extend form gives up. Either way it adds rather than replaces, so the interface stays **one** shape — the only way to add a member to a class rather than to one object without costing the prototype its shape. |
+| `reflected` | The **standard's** half of the table rather than AngleSharp's: which of [HTML §2.6.1](https://html.spec.whatwg.org/multipage/common-dom-interfaces.html#reflecting-content-attributes-in-idl-attributes)'s thirteen reflection algorithms one IDL attribute takes, plus its keywords, its invalid and missing value defaults and its range. None of that is in a CLR signature — a `long` and a `long` limited to only non-negative numbers are the same `Int32` property, and `<col span>` defaulting to 1 while `<select size>` defaults to 0 is nowhere in the metadata — which is why it is a table and not a heuristic. An entry **replaces** the member AngleSharp projects under that name, the opposite of `additions`, because most reflected attributes *are* projected already, from a property that hands back the raw attribute value or parses it with the wrong default; neither presence nor absence is an error, and the generated report says which each entry was. The bodies are one shared `ReflectedAttribute` descriptor per member in `DomReflected.g.cs`, process-shared and immutable, so HTML's rules for parsing integers, non-negative integers and floating-point number values exist once rather than once per emitted member. |
 | `nullableStrings` | The members whose **return** type is `DOMString?` rather than `DOMString`. See the conversion table below. |
 | `nullableParameters`, `nonNullableParameters` | The two directions of *argument* nullability; the conversion table below says which type reads which, and why only one of the two is a list of everything. |
 | `stringEnums`, `constants` | The two enum decisions the heuristics above cannot make. |
@@ -128,6 +129,10 @@ Divergences from a browser that are **ours** and deliberate:
 - **A node's indexed and named getters are dropped** (`form[0]`, `form.username`, `select[0]`): a node wrapper
   is a `JsEventTarget` rather than an `ArrayLikeObject`, so it carries no property projection.
   `form.elements[0]` and `form.elements.namedItem('username')` are the same values.
+- **`el.tabIndex` answers 0 when the attribute is absent**, where HTML's default is −1 for anything not
+  inherently focusable. It was AngleSharp's answer and is this binding's now, because `reflected` took the
+  member over to get HTML's integer parsing (`tabindex="5%"` is 5, not 0); what is still missing is a
+  focusability model rather than a parse, so `tabIndex` cannot decide focusability.
 
 ### Every member body goes through one invoker, and that is where a refusal is converted
 
@@ -154,34 +159,12 @@ The `dataset` one has a visible consequence inside the binding, and the one plac
 the generated `SupportedNames` filters out a `null` value, because the projection's three hooks must agree at
 the same instant or host-contract verification fails. That is keeping *our* contract, not mending AngleSharp's.
 
-### DOM §7's XPath, and CSSOM's `CSS`
+### DOM §7's XPath, and CSSOM's `CSS` are in the package file
 
-Two surfaces neither pinned assembly declares, so neither could be generated: there is no
-`[DomName("evaluate")]` and no `[DomName("escape")]` anywhere in AngleSharp or AngleSharp.Css. Both are
-hand-written in `Dom/Views/` beside `DOMParser`, and the three `Document` members XPath adds are
-`overrides.json` `additions`. `Jint.Tests.Browser/Fixtures/htmx` is why: htmx 2 builds an `XPathEvaluator`
-expression and calls `CSS.escape` at the top level of its bundle.
-
-- **The XPath engine is `System.Xml.XPath` over `AngleSharp.XPath`'s `HtmlDocumentNavigator`** — the
-  AngleSharp project's own package, referenced for this and nothing else, and exactly the seam the BCL's
-  XPath 1.0 evaluator takes. Writing an evaluator here instead is the one thing this package is not for.
-- **Namespaces are ignored, and that is what makes `//div` match.** An HTML element is in the XHTML
-  namespace, so an unprefixed XPath 1.0 name test — which is what every page writes — would match nothing
-  if the navigator reported it; `AngleSharp.XPath`'s own default is the same choice. The consequence is
-  stated rather than hidden: a *prefixed* test (`svg:circle`) compiles, because a resolver the page
-  supplied is consulted while the expression is compiled, and then matches nothing.
-- **A node set is materialized at evaluation**, so `invalidIteratorState` is always `false` and an
-  iterator survives a mutation instead of raising `InvalidStateError`. DOM's iterator is live and needs a
-  mutation signal this has none of; the direction is the safe one, because what it removes is a page
-  throwing.
-- **`CSS` is a namespace object, not an interface** — no constructor, no prototype, `[object CSS]` — and
-  it carries both members rather than the one htmx needs, because `window.CSS && CSS.supports(…)` is how
-  the feature is detected and half of it is a trap. `escape` is CSSOM's serialize-an-identifier;
-  `supports` parses the condition as an `@supports` rule and asks AngleSharp.Css's own
-  `IConditionFunction.Check`, so what this claims to support is exactly what the cascade can act on.
-- **`DomConstructors` grew a second entry**: `new DocumentFragment()`, which DOM gives a constructor and
-  htmx builds for every swap whose response starts with `<html>` or `<body>`. The shortness of that table
-  is still the point.
+Neither pinned assembly declares either surface, so neither could be generated and both are hand-written in
+`Dom/Views/`. What each answers, why the XPath engine is `System.Xml.XPath` over `AngleSharp.XPath` rather
+than one written here, and why namespaces are ignored are in
+[`../AGENTS.md`](../AGENTS.md#dom-7s-xpath-and-cssoms-css), beside the rest of what is hand-written.
 
 ### Wrapper identity, and the two classes that are not one hierarchy
 
