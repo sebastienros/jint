@@ -111,9 +111,12 @@ public class SamplingProfilerTests
 
         self.Should().ContainKey("innermost");
         // A wall-clock sampler over-attributes to whichever frame is on top when a descheduled thread is
-        // sampled, so on a loaded CI runner this share has read 0.881, 0.842 and 0.895 with no profiler change
-        // in the pull request; 0.8 still says the loop dominates, which is what the test is about.
-        (self["innermost"] / total).Should().BeGreaterThan(0.8, "the loop is the only work the script does");
+        // sampled, so on a loaded CI runner this share has read 0.881, 0.842, 0.895 and exactly 0.800 with no
+        // profiler change in the pull request; 0.8 still says the loop dominates, which is what the test is
+        // about. Inclusive of the floor, because the share is a ratio of a sample count in the low tens and
+        // therefore quantised - 0.800 is 8 samples of 10, a value this comment already calls acceptable, and
+        // a strict > failed it on a loaded ARM leg for a pull request that changes no engine code.
+        (self["innermost"] / total).Should().BeGreaterThanOrEqualTo(0.8, "the loop is the only work the script does");
 
         // middle and outermost do nothing but delegate, so they own almost no self time and almost all of
         // the inclusive time - which is the shape a call tree has to show for a profile to be worth reading.
