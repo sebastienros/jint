@@ -62,6 +62,12 @@ internal sealed class PageRuntime
         MutationObservers = new Observers.MutationObserverLane(this);
         Layout = new Layout.PageLayout(this);
         _started = System.Diagnostics.Stopwatch.GetTimestamp();
+
+        // The engine was built with this page's user agent already on it; what this adds is the *later*
+        // half. `navigator.userAgent` is the engine's own accessor now, so an override a client sets on a
+        // document that is already loaded has to be carried across rather than read through - and it is
+        // re-pointed here per navigation, because the engine it names is the one showing the document.
+        emulation.UserAgentChanged = userAgent => engine.WebApi.UserAgent = userAgent;
     }
 
     /// <summary>The engine this page runs in.</summary>

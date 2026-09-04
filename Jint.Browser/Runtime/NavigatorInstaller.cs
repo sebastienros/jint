@@ -31,9 +31,14 @@ namespace Jint.Browser.Runtime;
 /// members are inherited, and an own enumerable accessor would put every one of them in an object spread.
 /// </para>
 /// <para>
-/// <b><c>userAgent</c> is shadowed rather than left to the prototype</b>, because the page's user agent is
-/// <see cref="BrowserOptions.UserAgent"/> and a client's override, not <c>Jint/&lt;version&gt;</c> — and
-/// because it has to be the same string every request the page makes carries.
+/// <b><c>userAgent</c> is the exception, and it is left to the prototype.</b> The page's user agent is
+/// <see cref="BrowserOptions.UserAgent"/> and a client's override rather than <c>Jint/&lt;version&gt;</c>, and
+/// it used to be shadowed here to say so — which meant two answers to one IDL attribute, since the accessor
+/// the standard declares on <c>Navigator.prototype</c> went on answering the engine's own token
+/// (<see href="https://github.com/sebastienros/jint/issues/3655">#3655</see>). The engine now names its own:
+/// <c>Options.WebApi.Navigator.UserAgent</c> is what a page's engine is built with and
+/// <c>Engine.WebApi.UserAgent</c> is what an override moves, so one accessor answers and there is nothing
+/// here to shadow it with.
 /// </para>
 /// <para>
 /// The whole object is installed as a lazy global, so a page that never mentions <c>navigator</c> builds
@@ -69,9 +74,6 @@ internal static class NavigatorInstaller
             PropertyFlag.ConfigurableEnumerableWritable);
     }
 
-    /// <summary>What <c>navigator.userAgent</c> answers and what every request the page makes carries.</summary>
-    internal static string UserAgentOf(PageRuntime runtime) => runtime.Emulation.EffectiveUserAgent;
-
     /// <summary>
     /// What <c>navigator.language</c> answers: the first tag of the <c>Accept-Language</c> a user-agent
     /// override named, and otherwise the engine's own culture.
@@ -95,7 +97,8 @@ internal static class NavigatorInstaller
 
     private static void Attach(Engine engine, ObjectInstance navigator)
     {
-        Accessor(engine, navigator, "userAgent", static runtime => JsString.Create(UserAgentOf(runtime)));
+        // userAgent is deliberately absent: it is the one member the engine's own Navigator already declares,
+        // and Engine.WebApi.UserAgent is what carries the page's string to it.
         Accessor(engine, navigator, "language", static runtime => JsString.Create(LanguageOf(runtime)));
         Accessor(engine, navigator, "languages", static runtime => Languages(runtime));
         Accessor(engine, navigator, "platform", static runtime => JsString.Create(runtime.Emulation.Platform ?? ""));

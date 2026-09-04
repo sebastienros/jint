@@ -349,7 +349,7 @@ public sealed partial class Options
 
         void IOptionsGroup.SetReadOnly(bool value)
         {
-            // Published with a barrier for the reason Options.SetReadOnly states: the eight accessors below
+            // Published with a barrier for the reason Options.SetReadOnly states: the nine accessors below
             // read this flag before they publish, and this cascade reads their fields after it.
             Volatile.Write(ref _readOnly, value);
             Thread.MemoryBarrier();
@@ -358,6 +358,7 @@ public sealed partial class Options
             Options.SetReadOnly(_timers, value);
             Options.SetReadOnly(_fetch, value);
             Options.SetReadOnly(_xhr, value);
+            Options.SetReadOnly(_navigator, value);
             Options.SetReadOnly(_diagnostics, value);
             Options.SetReadOnly(_storage, value);
             Options.SetReadOnly(_cache, value);
@@ -366,7 +367,7 @@ public sealed partial class Options
         }
 
         /// <summary>
-        /// Whether <paramref name="group"/> is this group or one of its eight sub-groups.
+        /// Whether <paramref name="group"/> is this group or one of its nine sub-groups.
         /// </summary>
         internal bool Owns(IOptionsGroup group)
             => ReferenceEquals(group, this)
@@ -374,6 +375,7 @@ public sealed partial class Options
                 || ReferenceEquals(group, _timers)
                 || ReferenceEquals(group, _fetch)
                 || ReferenceEquals(group, _xhr)
+                || ReferenceEquals(group, _navigator)
                 || ReferenceEquals(group, _diagnostics)
                 || ReferenceEquals(group, _storage)
                 || ReferenceEquals(group, _cache)
@@ -400,6 +402,21 @@ public sealed partial class Options
             if (_readOnly && !IsConfiguringWebApisLive(this))
             {
                 Throw.OptionsReadOnly("Options.WebApi.Messaging." + setting);
+            }
+        }
+    }
+
+    public sealed partial class NavigatorOptions : IOptionsGroup
+    {
+        private bool _readOnly;
+
+        void IOptionsGroup.SetReadOnly(bool value) => _readOnly = value;
+
+        private void ThrowIfReadOnly([CallerMemberName] string? setting = null)
+        {
+            if (_readOnly && !IsConfiguringWebApisLive(this))
+            {
+                Throw.OptionsReadOnly("Options.WebApi.Navigator." + setting);
             }
         }
     }

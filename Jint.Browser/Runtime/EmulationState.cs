@@ -99,6 +99,48 @@ internal sealed class EmulationState
     /// </remarks>
     internal string EffectiveUserAgent => UserAgent is { Length: > 0 } overridden ? overridden : DefaultUserAgent;
 
+    /// <summary>
+    /// Called on the page loop whenever <see cref="EffectiveUserAgent"/> may have changed, so the engine
+    /// showing the document can be told. Set by the page runtime for the engine it currently owns.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is a publish rather than a second resolution.</b> <c>navigator.userAgent</c> is now the engine's
+    /// own accessor, and an engine holds a string rather than a view of this object — so something has to
+    /// carry the new value across, and this is the one place that does. The resolution above stays the only
+    /// one there is, which is the property <see cref="EffectiveUserAgent"/>'s remarks are about.
+    /// </remarks>
+    internal Action<string>? UserAgentChanged { get; set; }
+
+    /// <summary>
+    /// <c>Emulation.setUserAgentOverride</c> and <c>Network.setUserAgentOverride</c>, which Chrome treats as
+    /// one setting and which are one write here.
+    /// <para>
+    /// https://chromedevtools.github.io/devtools-protocol/tot/Emulation/#method-setUserAgentOverride
+    /// </para>
+    /// </summary>
+    /// <remarks>
+    /// All three reach the document that is <i>already loaded</i>: the user agent because the engine is told,
+    /// and the language and the platform because <c>NavigatorInstaller</c> reads this object per get. An
+    /// absent <c>acceptLanguage</c> or <c>platform</c> leaves the one already set, which is what a client
+    /// sending only a user agent expects.
+    /// </remarks>
+    internal void ApplyUserAgentOverride(string? userAgent, string? acceptLanguage, string? platform)
+    {
+        UserAgent = userAgent;
+
+        if (acceptLanguage is { Length: > 0 } language)
+        {
+            AcceptLanguage = language;
+        }
+
+        if (platform is { Length: > 0 } named)
+        {
+            Platform = named;
+        }
+
+        UserAgentChanged?.Invoke(EffectiveUserAgent);
+    }
+
     /// <summary>What <c>navigator.language</c> answers when a user agent override named one.</summary>
     internal string? AcceptLanguage { get; set; }
 

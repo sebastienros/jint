@@ -132,17 +132,7 @@ internal sealed partial class NetworkDomain : NetworkDomainBase, IDetachableDoma
     {
         // The page's EmulationState is the one place either command writes; PageNetworkPolicy reads it while
         // composing a request, and navigator reads it in script, so the two can never disagree.
-        _target.Emulation.UserAgent = parameters.UserAgent;
-
-        if (parameters.AcceptLanguage is { Length: > 0 } language)
-        {
-            _target.Emulation.AcceptLanguage = language;
-        }
-
-        if (parameters.Platform is { Length: > 0 } platform)
-        {
-            _target.Emulation.Platform = platform;
-        }
+        _target.Emulation.ApplyUserAgentOverride(parameters.UserAgent, parameters.AcceptLanguage, parameters.Platform);
 
         return new ValueTask<EmptyResult>(EmptyResult.Instance);
     }

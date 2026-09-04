@@ -697,11 +697,31 @@ new PerformanceObserver(list => {
 }).observe({ type: 'measure', buffered: true });
 ```
 
-`navigator` carries `userAgent` and nothing else. It reports `Jint/<version>` — a single RFC 7231 product
-token with no comment component, so nothing about your operating system or your application leaks into it —
-and it is there because [WinterTC's Minimum Common API](https://min-common-api.proposal.wintertc.org/)
+`navigator` carries `userAgent` and nothing else. It reports `Jint/<version>` by default — a single RFC 7231
+product token with no comment component, so nothing about your operating system or your application leaks into
+it — and it is there because [WinterTC's Minimum Common API](https://min-common-api.proposal.wintertc.org/)
 requires `globalThis.navigator.userAgent` of a conforming runtime. Everything else a browser's `Navigator`
 carries describes a user agent with a user, a document and a network stack, so it is absent rather than faked.
+
+**The default is deliberately the truth: a script that branches on the runtime it is on should get the runtime
+it is on.** The host that is wrong for is a browser, whose pages sniff `navigator.userAgent`, so naming one is
+explicit rather than inherited:
+
+```csharp
+var engine = new Engine(options =>
+{
+    options.UseWebApis();
+    options.WebApi.Navigator.UserAgent = "Mozilla/5.0 (compatible; MyHost/1.0)";  // what script reads
+    options.WebApi.Fetch.UserAgent = "Mozilla/5.0 (compatible; MyHost/1.0)";      // what the wire carries
+});
+
+engine.WebApi.UserAgent = "Mozilla/5.0 (compatible; MyHost/2.0)";  // and it moves on a live engine
+```
+
+Naming only one of the two is how an engine comes to say one thing to script and another on the wire, so name
+both. Setting either to `null` or `""` puts `Jint/<version>` back. `Jint.Browser` uses exactly this seam: a
+page's user agent is `BrowserOptions.UserAgent` and whatever a client's `Emulation.setUserAgentOverride` last
+said.
 
 `Navigator` is a real interface object, so `navigator instanceof Navigator` holds and `userAgent` lives on
 `Navigator.prototype` where a browser's and Node's do — which is why `Object.keys(navigator)` and

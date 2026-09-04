@@ -71,6 +71,35 @@ public partial class Engine
         public WebApiFeatures Features => _engine._webApiFeatures;
 
         /// <summary>
+        /// What <c>navigator.userAgent</c> answers on this engine. Requires .NET 8 or higher.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Starts as <see cref="Options.NavigatorOptions.UserAgent"/> — and, when the host named none, as the
+        /// engine's own product token <c>Jint/&lt;version&gt;</c>. Setting it to <see langword="null"/> or the
+        /// empty string puts that default back.
+        /// </para>
+        /// <para>
+        /// <b>Unlike the option, it may be moved after the engine is built</b>, and that is the whole reason
+        /// it exists: a browser's user agent is what a client's <c>Emulation.setUserAgentOverride</c> sets, and
+        /// a page under a client is expected to report the new string without navigating first
+        /// (<see href="https://github.com/sebastienros/jint/issues/3655">#3655</see>). The value is the
+        /// engine's own, so two engines built from one <see cref="Options"/> object never share it.
+        /// </para>
+        /// <para>
+        /// It names what <i>script</i> reads. What a request carries is <see cref="Options.FetchOptions.UserAgent"/>,
+        /// fixed when the engine is built; a host that moves one usually wants to move the other, and a page
+        /// does exactly that through its own network policy.
+        /// </para>
+        /// </remarks>
+        [System.Diagnostics.CodeAnalysis.AllowNull]
+        public string UserAgent
+        {
+            get => _engine.NavigatorUserAgent;
+            set => _engine.NavigatorUserAgent = value;
+        }
+
+        /// <summary>
         /// Turns on the web APIs a host normally wants — <see cref="WebApiFeatures.Default"/> — on an engine
         /// that already exists. The per-engine counterpart of
         /// <see cref="WebApiOptionsExtensions.UseWebApis(Options)"/>. Requires .NET 8 or higher.

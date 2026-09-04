@@ -180,8 +180,10 @@ internal static class BrowserEngineFactory
         // https://fetch.spec.whatwg.org/#default-user-agent-value: what this document's fetches, its
         // XMLHttpRequests and — through the worker provider — its workers put on the wire is the same string
         // navigator.userAgent answers. An override a client sets *after* the engine was built reaches the
-        // wire through PageNetworkState.Apply, which rewrites the header per hop.
+        // wire through PageNetworkState.Apply, which rewrites the header per hop, and reaches script through
+        // Engine.WebApi.UserAgent, which EmulationState publishes to the engine showing the document.
         fetch.UserAgent = request.Emulation.EffectiveUserAgent;
+        options.WebApi.Navigator.UserAgent = request.Emulation.EffectiveUserAgent;
 
         if (request.Network.Client is { } client)
         {

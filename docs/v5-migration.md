@@ -5376,6 +5376,26 @@ lane it did not before — a long-lived stream at that, so an observer that buff
 its own is the one to look at. The enum's own documentation already said new members may appear and that a
 `switch` over it wants a default arm.
 
+### 4.127 `navigator.userAgent` is the host's to name ([#3655](https://github.com/sebastienros/jint/issues/3655))
+
+`navigator.userAgent` was a fixed `Jint/<version>` with no way to change it. It is now
+`Options.WebApi.Navigator.UserAgent`, read when the engine is built, and `Engine.WebApi.UserAgent`, which
+moves it on an engine that already exists. **The default is unchanged**, so an engine that names neither
+reports exactly what it reported before and nothing has to be done to migrate.
+
+What a host that wants its own string writes:
+
+```csharp
+var engine = new Engine(options =>
+{
+    options.UseWebApis();
+    options.WebApi.Navigator.UserAgent = "Mozilla/5.0 (compatible; MyHost/1.0)";
+});
+```
+
+`null` and `""` both mean the default. `Options.WebApi.Fetch.UserAgent` ([§4.125](#4125-every-request-the-engine-makes-carries-a-user-agent-3720))
+is the other half — what a request carries — and a host that names one usually wants to name both.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
