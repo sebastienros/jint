@@ -36,11 +36,16 @@ internal sealed class ClientWebSocketConnection : IWebSocketConnection
     private readonly ClientWebSocket _socket = new();
     private readonly Uri _url;
     private readonly long _maxMessageBytes;
+    private readonly List<Fetch.FetchHeader> _requestHeaders = [];
 
-    internal ClientWebSocketConnection(Uri url, IReadOnlyList<string> protocols, long maxMessageBytes, string? userAgent)
+    internal ClientWebSocketConnection(Uri url, IReadOnlyList<string> protocols, long maxMessageBytes, string? userAgent, bool collectHandshake = false)
     {
         _url = url;
         _maxMessageBytes = maxMessageBytes;
+
+        // Only when somebody is watching: keeping the response details costs an allocation per socket and
+        // answers a question nothing else in the engine asks.
+        _socket.Options.CollectHttpResponseDetails = collectHandshake;
 
         for (var i = 0; i < protocols.Count; i++)
         {
@@ -58,10 +63,40 @@ internal sealed class ClientWebSocketConnection : IWebSocketConnection
         if (userAgent is { Length: > 0 })
         {
             _socket.Options.SetRequestHeader("User-Agent", userAgent);
+            _requestHeaders.Add(new Fetch.FetchHeader("user-agent", userAgent));
         }
     }
 
     public string SubProtocol => _socket.SubProtocol ?? string.Empty;
+
+    /// <inheritdoc />
+    public int? HandshakeStatus => (int) _socket.HttpStatusCode is var status && status == 0 ? null : status;
+
+    /// <inheritdoc />
+    public IReadOnlyList<Fetch.FetchHeader> HandshakeHeaders
+    {
+        get
+        {
+            if (_socket.HttpResponseHeaders is not { } headers)
+            {
+                return [];
+            }
+
+            var collected = new List<Fetch.FetchHeader>();
+            foreach (var header in headers)
+            {
+                foreach (var value in header.Value)
+                {
+                    collected.Add(new Fetch.FetchHeader(Fetch.HeaderList.Lowercase(header.Key), value));
+                }
+            }
+
+            return collected;
+        }
+    }
+
+    /// <inheritdoc />
+    public IReadOnlyList<Fetch.FetchHeader> RequestHeaders => _requestHeaders;
 
     public Task ConnectAsync(CancellationToken cancellationToken) => _socket.ConnectAsync(_url, cancellationToken);
 
@@ -163,13 +198,25 @@ internal sealed class ClientWebSocketConnection : IWebSocketConnection
 /// </summary>
 internal sealed class ClientWebSocketConnectionFactory : IWebSocketConnectionFactory
 {
-    internal static readonly ClientWebSocketConnectionFactory Instance = new();
+    private static readonly ClientWebSocketConnectionFactory _plain = new(collectHandshake: false);
+    private static readonly ClientWebSocketConnectionFactory _observed = new(collectHandshake: true);
 
-    private ClientWebSocketConnectionFactory()
+    private readonly bool _collectHandshake;
+
+    private ClientWebSocketConnectionFactory(bool collectHandshake)
     {
+        _collectHandshake = collectHandshake;
     }
 
+    /// <summary>The in-box factory, which keeps the handshake's response details only when asked.</summary>
+    /// <remarks>
+    /// The flag rather than a parameter on <see cref="IWebSocketConnectionFactory.Create"/>: that seam is a
+    /// host's to implement, and a host supplying its own transport already knows what it wants to report.
+    /// </remarks>
+    internal static ClientWebSocketConnectionFactory For(bool collectHandshake)
+        => collectHandshake ? _observed : _plain;
+
     public IWebSocketConnection Create(Uri url, IReadOnlyList<string> protocols, long maxMessageBytes, string? userAgent)
-        => new ClientWebSocketConnection(url, protocols, maxMessageBytes, userAgent);
+        => new ClientWebSocketConnection(url, protocols, maxMessageBytes, userAgent, _collectHandshake);
 }
 #endif

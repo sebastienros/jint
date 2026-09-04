@@ -1,5 +1,6 @@
 #if NET8_0_OR_GREATER
 #nullable enable
+#pragma warning disable JINT0002 // the WebSocket observer is a preview surface
 
 using System.Diagnostics;
 using System.Threading;
@@ -80,6 +81,16 @@ public class WebSocketTests
         internal TaskCompletionSource Handshake { get; } = new();
 
         public string SubProtocol { get; set; } = string.Empty;
+
+        /// <summary>What the "server" answered the opening handshake with, if anything.</summary>
+        public int? HandshakeStatus { get; set; }
+
+        /// <inheritdoc />
+        public IReadOnlyList<Jint.WebApi.Fetch.FetchHeader> HandshakeHeaders { get; set; } = [];
+
+        /// <inheritdoc />
+        public IReadOnlyList<Jint.WebApi.Fetch.FetchHeader> RequestHeaders { get; set; } =
+            [new Jint.WebApi.Fetch.FetchHeader("user-agent", "Jint/test")];
 
         internal List<(byte[] Payload, bool IsText)> Sent { get; } = new();
 
@@ -288,6 +299,216 @@ public class WebSocketTests
         PumpUntilLogged(engine, 1);
 
         return (engine, sockets);
+    }
+
+    /// <summary>
+    /// The four moments a <c>WebSocketObserver</c> is told about, in the order
+    /// <see cref="Jint.WebApi.WebSockets.WebSocketObserver"/> fixes them:
+    /// <c>OnCreated</c>, <c>OnHandshakeRequest</c>, <c>OnHandshakeResponse</c> and one <c>OnClosed</c>.
+    /// </summary>
+    /// <remarks>
+    /// The seam is deliberately not <c>FetchObserver</c>'s — a socket's handshake never reaches the fetch
+    /// transport and its frames are not a body — and deliberately carries an identifier of its own, so that a
+    /// host waiting for its network to go quiet is not waiting on a socket that is meant to stay open
+    /// (<see href="https://github.com/sebastienros/jint/issues/3701">#3701</see> item 2).
+    /// </remarks>
+    [Test]
+    public void AnObserverIsToldAboutTheHandshakeAndTheClose()
+    {
+        var observer = new RecordingSocketObserver();
+        var (engine, sockets) = SocketEngine(fetch => fetch.WebSocketObserver = observer);
+
+        engine.Execute("""
+            var ws = new WebSocket('wss://example.org/socket', ['chat', 'v2']);
+            ws.onopen = () => log.push('open');
+            """);
+
+        sockets.Last.HandshakeStatus = 101;
+        sockets.Last.HandshakeHeaders = [new Jint.WebApi.Fetch.FetchHeader("sec-websocket-accept", "abc")];
+        sockets.Last.SubProtocol = "chat";
+        sockets.Last.Handshake.SetResult();
+
+        // The wait is for `open`, not for the observer's third call, and the difference is the whole of
+        // https://github.com/sebastienros/jint/issues/3701's CI failure: the response is reported to the
+        // observer *before* the open task is queued, so a close() sent on the strength of that third event
+        // can still land while the socket is CONNECTING - which the standard answers by failing the
+        // connection, 1006 and not clean. AnObserverSeesAbnormalClosureWhenACloseFallsDuringTheHandshake
+        // asserts that answer on purpose; this test is about the graceful one and has to be past it.
+        PumpUntilLogged(engine, 1);
+
+        observer.Events.Should().Equal(
+            "created wss://example.org/socket",
+            "handshake wss://example.org/socket protocols=chat,v2 headers=user-agent",
+            "response 101 chat headers=sec-websocket-accept");
+
+        engine.Execute("ws.close();");
+        sockets.Last.Deliver(WebSocketReceipt.Closed(1000, "done"));
+        Pump(engine, () => observer.Events.Count >= 4);
+
+        observer.Events[3].Should().StartWith("closed 1000 done");
+
+        // One socket, one identifier, and it is not a fetch request id.
+        observer.Ids.Distinct().Should().HaveCount(1);
+    }
+
+    /// <summary>
+    /// A URL the host's own filter refuses is still a socket the script holds: it is created, it never shakes
+    /// hands, and it closes. An observer that paired every <c>created</c> with a <c>closed</c> would otherwise
+    /// leak one per refusal.
+    /// </summary>
+    [Test]
+    public void ARefusedUrlIsACreatedSocketThatClosesWithoutAHandshake()
+    {
+        var observer = new RecordingSocketObserver();
+        var (engine, _) = SocketEngine(fetch =>
+        {
+            fetch.WebSocketObserver = observer;
+            fetch.UrlFilter = _ => false;
+        });
+
+        engine.Execute("var ws = new WebSocket('wss://example.org/socket');");
+        Pump(engine, () => observer.Events.Count >= 2);
+
+        observer.Events[0].Should().Be("created wss://example.org/socket");
+        observer.Events[1].Should().StartWith("closed 1006 ");
+        observer.Events.Should().NotContain(entry => entry.StartsWith("handshake ", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// <c>OnClosed</c> is terminal and fires once, however many ways one socket ends at the same moment.
+    /// </summary>
+    [Test]
+    public void AnObserverIsToldOfACloseExactlyOnce()
+    {
+        var observer = new RecordingSocketObserver();
+        var (engine, sockets) = SocketEngine(fetch => fetch.WebSocketObserver = observer);
+
+        engine.Execute("""
+            var ws = new WebSocket('wss://example.org/socket');
+            ws.onopen = () => log.push('open');
+            """);
+
+        sockets.Last.Handshake.SetResult();
+        PumpUntilLogged(engine, 1);
+
+        engine.Execute("ws.close(); ws.close();");
+        sockets.Last.Deliver(WebSocketReceipt.Closed(1000, ""));
+        Pump(engine, () => observer.Events.Any(entry => entry.StartsWith("closed ", StringComparison.Ordinal)));
+
+        engine.Tasks.ProcessTasks();
+        engine.Tasks.ProcessTasks();
+
+        observer.Events.Count(entry => entry.StartsWith("closed ", StringComparison.Ordinal)).Should().Be(1);
+    }
+
+    /// <summary>
+    /// A <c>close()</c> that falls while the socket is still <c>CONNECTING</c> is
+    /// https://websockets.spec.whatwg.org/#dom-websocket-close step 3.2 — "fail the WebSocket connection" —
+    /// so the observer is told <c>1006</c> with no reason and <c>wasClean</c> false, whatever code the script
+    /// passed and whatever the peer sends afterwards.
+    /// </summary>
+    /// <remarks>
+    /// <b>This is the answer the <c>linux</c>/<c>net10.0</c> leg was reporting</b>, and it was right: the
+    /// test above had been waiting for the observer's handshake-response call, which the operation makes
+    /// before the open task is queued, so on a leg that scheduled the pool differently the close arrived
+    /// during CONNECTING. Nothing about the discriminator was the platform — it was which of the two
+    /// moments the wait was for — so the fix was the wait, and this is the behaviour it used to reach by
+    /// accident, reached on purpose.
+    /// </remarks>
+    [Test]
+    public void AnObserverSeesAbnormalClosureWhenACloseFallsDuringTheHandshake()
+    {
+        var observer = new RecordingSocketObserver();
+        var (engine, sockets) = SocketEngine(fetch => fetch.WebSocketObserver = observer);
+
+        engine.Execute("var ws = new WebSocket('wss://example.org/socket');");
+
+        // Deliberately not waiting for `open`: the handshake is still in flight, which is what makes this the
+        // CONNECTING branch rather than a graceful close.
+        engine.Evaluate("ws.readyState").AsNumber().Should().Be(0, "the socket is CONNECTING");
+        engine.Execute("ws.close(1000, 'please');");
+
+        // Even the peer answering afterwards changes nothing: there was no connection to close politely.
+        sockets.Last.Deliver(WebSocketReceipt.Closed(1000, "done"));
+        Pump(engine, () => observer.Events.Any(entry => entry.StartsWith("closed ", StringComparison.Ordinal)));
+
+        observer.Events.Should().ContainSingle(entry => entry.StartsWith("closed ", StringComparison.Ordinal))
+            .Which.Should().Be("closed 1006  clean=False");
+    }
+
+    /// <summary>An observer whose every callback throws changes nothing about the socket.</summary>
+    [Test]
+    public void AnObserverThatThrowsIsIgnored()
+    {
+        var (engine, sockets) = SocketEngine(fetch => fetch.WebSocketObserver = new ThrowingSocketObserver());
+
+        engine.Execute("""
+            var ws = new WebSocket('wss://example.org/socket');
+            ws.onopen = () => log.push('open');
+            ws.onclose = e => log.push('close:' + e.code);
+            """);
+
+        sockets.Last.Handshake.SetResult();
+        PumpUntilLogged(engine, 1);
+
+        sockets.Last.Deliver(WebSocketReceipt.Closed(1000, "done"));
+        PumpUntilLogged(engine, 2);
+
+        Log(engine).Should().Be("open|close:1000");
+    }
+
+    private sealed class RecordingSocketObserver : Jint.WebApi.WebSockets.WebSocketObserver
+    {
+        internal List<string> Events { get; } = new();
+
+        internal List<Jint.WebApi.WebSockets.WebSocketId> Ids { get; } = new();
+
+        public override void OnCreated(Jint.WebApi.WebSockets.WebSocketId id, Uri url)
+        {
+            lock (Events)
+            {
+                Ids.Add(id);
+                Events.Add("created " + url.AbsoluteUri);
+            }
+        }
+
+        public override void OnHandshakeRequest(Jint.WebApi.WebSockets.ObservedWebSocketHandshake handshake)
+        {
+            lock (Events)
+            {
+                Ids.Add(handshake.Id);
+                Events.Add($"handshake {handshake.Url.AbsoluteUri} protocols={string.Join(",", handshake.Protocols)} headers={string.Join(",", handshake.Headers.Select(h => h.Name))}");
+            }
+        }
+
+        public override void OnHandshakeResponse(Jint.WebApi.WebSockets.ObservedWebSocketResponse response)
+        {
+            lock (Events)
+            {
+                Ids.Add(response.Id);
+                Events.Add($"response {response.Status} {response.SubProtocol} headers={string.Join(",", response.Headers.Select(h => h.Name))}");
+            }
+        }
+
+        public override void OnClosed(Jint.WebApi.WebSockets.WebSocketId id, int code, string reason, bool wasClean)
+        {
+            lock (Events)
+            {
+                Ids.Add(id);
+                Events.Add($"closed {code} {reason} clean={wasClean}");
+            }
+        }
+    }
+
+    private sealed class ThrowingSocketObserver : Jint.WebApi.WebSockets.WebSocketObserver
+    {
+        public override void OnCreated(Jint.WebApi.WebSockets.WebSocketId id, Uri url) => throw new InvalidOperationException("created");
+
+        public override void OnHandshakeRequest(Jint.WebApi.WebSockets.ObservedWebSocketHandshake handshake) => throw new InvalidOperationException("handshake");
+
+        public override void OnHandshakeResponse(Jint.WebApi.WebSockets.ObservedWebSocketResponse response) => throw new InvalidOperationException("response");
+
+        public override void OnClosed(Jint.WebApi.WebSockets.WebSocketId id, int code, string reason, bool wasClean) => throw new InvalidOperationException("closed");
     }
 
     /// <summary>

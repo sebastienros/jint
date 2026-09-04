@@ -73,15 +73,21 @@ that is the whole difference from `Fulfill`, which discards the socket's bytes u
 onto a protocol: **a refusal before the transport** (a `UrlFilter` denial, the concurrency cap, an
 already-aborted signal) reports `OnFailed` with no `OnRequest` before it, because `fetch`'s synchronous half
 cannot await one; and **a body nobody reads never completes**, because it is only pulled when script consumes
-it. **`EventSource` is observed whole; a `WebSocket` is not observed at all, and the line between them is
-whether the observer can be told everything.** A stream reaches `FetchTransport`, so the request and every
+it. **`EventSource` is observed whole, and a `WebSocket` has an observer of its own; the line between them is
+whether *this* observer can be told everything.** A stream reaches `FetchTransport`, so the request and every
 redirect hop cost nothing to report — but it reads its own body, which is why it was left unobserved until
 `EventSourceConnection` paid the same two debts a document fetch pays: `FinalResponse`, which every caller of
 `SendForStreamAsync` owes, and `Data` per chunk from inside the read loop. Each connection is its own
 observation, so a reconnect is a second request with its own id, and the terminal call is `OnCompleted` for a
-stream the server ended and `OnFailed` for every other ending, an abandoned one included. A socket is the
-case that stays refused: its handshake never reaches this transport (`ClientWebSocket` makes its own HTTP
-request, and the headers that matter — `Sec-WebSocket-Key`, the negotiated extensions — are added inside it
-and cannot be enumerated), an interception's `Fulfill` could not be honoured at all, and the frames afterwards
-are not a body. That is a `WebSocketObserver` of its own, not this one
-([#3621](https://github.com/sebastienros/jint/issues/3621)).
+stream the server ended and `OnFailed` for every other ending, an abandoned one included. A socket stays out
+of *this* observer and takes `Options.WebApi.Fetch.WebSocketObserver` instead: its handshake never reaches
+this transport (`ClientWebSocket` makes its own HTTP request, and the headers that matter —
+`Sec-WebSocket-Key`, the negotiated extensions — are added inside it and cannot be enumerated), an
+interception's `Fulfill` could not be honoured at all, and the frames afterwards are not a body. So that
+observer watches and never answers, and carries a `WebSocketId` rather than a `FetchRequestId` — **a socket
+must not be an outstanding request**, or a page with one open is a page whose network never goes quiet. What
+it can honestly report is four moments: created, the handshake request with the headers *this engine* set,
+the handshake response (`ClientWebSocket.CollectHttpResponseDetails`, turned on only when somebody is
+watching), and one terminal close
+([#3621](https://github.com/sebastienros/jint/issues/3621),
+[#3701](https://github.com/sebastienros/jint/issues/3701) item 2).

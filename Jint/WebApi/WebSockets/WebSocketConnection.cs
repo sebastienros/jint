@@ -78,6 +78,23 @@ internal interface IWebSocketConnection : IDisposable
     /// </summary>
     string SubProtocol { get; }
 
+    /// <summary>
+    /// The status the server answered the opening handshake with, or <see langword="null"/> when there was no
+    /// HTTP response at all — a refused connection, a name that did not resolve, a TLS failure.
+    /// </summary>
+    /// <remarks>
+    /// Collected only when the host set an observer, because asking
+    /// <see cref="System.Net.WebSockets.ClientWebSocket"/> to keep the response details is a cost a socket
+    /// nobody is watching should not pay. Read after <see cref="ConnectAsync"/> has returned or thrown.
+    /// </remarks>
+    int? HandshakeStatus => null;
+
+    /// <summary>The headers of that response, or an empty list. See <see cref="HandshakeStatus"/>.</summary>
+    IReadOnlyList<Fetch.FetchHeader> HandshakeHeaders => [];
+
+    /// <summary>The headers this engine set on the opening handshake.</summary>
+    IReadOnlyList<Fetch.FetchHeader> RequestHeaders => [];
+
     /// <summary>Opens the connection — https://websockets.spec.whatwg.org/#concept-websocket-establish.</summary>
     Task ConnectAsync(CancellationToken cancellationToken);
 

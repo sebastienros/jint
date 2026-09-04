@@ -332,6 +332,8 @@ namespace Jint
             public System.TimeSpan Timeout { get; set; }
             public System.Func<System.Uri, bool> UrlFilter { get; set; }
             public string? UserAgent { get; set; }
+            [System.Diagnostics.CodeAnalysis.Experimental("JINT0002")]
+            public Jint.WebApi.WebSockets.WebSocketObserver? WebSocketObserver { get; set; }
         }
         public sealed class HostOptions
         {
@@ -3156,5 +3158,41 @@ namespace Jint.WebApi.Fetch
         StrictOrigin = 5,
         StrictOriginWhenCrossOrigin = 6,
         UnsafeUrl = 7,
+    }
+}
+namespace Jint.WebApi.WebSockets
+{
+    [System.Diagnostics.CodeAnalysis.Experimental("JINT0002")]
+    public sealed class ObservedWebSocketHandshake : System.IEquatable<Jint.WebApi.WebSockets.ObservedWebSocketHandshake>
+    {
+        public ObservedWebSocketHandshake() { }
+        public required System.Collections.Generic.IReadOnlyList<Jint.WebApi.Fetch.FetchHeader> Headers { get; init; }
+        public required Jint.WebApi.WebSockets.WebSocketId Id { get; init; }
+        public required System.Collections.Generic.IReadOnlyList<string> Protocols { get; init; }
+        public required System.Uri Url { get; init; }
+    }
+    [System.Diagnostics.CodeAnalysis.Experimental("JINT0002")]
+    public sealed class ObservedWebSocketResponse : System.IEquatable<Jint.WebApi.WebSockets.ObservedWebSocketResponse>
+    {
+        public ObservedWebSocketResponse() { }
+        public required System.Collections.Generic.IReadOnlyList<Jint.WebApi.Fetch.FetchHeader> Headers { get; init; }
+        public required Jint.WebApi.WebSockets.WebSocketId Id { get; init; }
+        public required int Status { get; init; }
+        public required string SubProtocol { get; init; }
+    }
+    public readonly struct WebSocketId : System.IEquatable<Jint.WebApi.WebSockets.WebSocketId>
+    {
+        public WebSocketId(long Value) { }
+        public long Value { get; init; }
+        public override string ToString() { }
+    }
+    [System.Diagnostics.CodeAnalysis.Experimental("JINT0002")]
+    public abstract class WebSocketObserver
+    {
+        protected WebSocketObserver() { }
+        public virtual void OnClosed(Jint.WebApi.WebSockets.WebSocketId id, int code, string reason, bool wasClean) { }
+        public virtual void OnCreated(Jint.WebApi.WebSockets.WebSocketId id, System.Uri url) { }
+        public virtual void OnHandshakeRequest(Jint.WebApi.WebSockets.ObservedWebSocketHandshake handshake) { }
+        public virtual void OnHandshakeResponse(Jint.WebApi.WebSockets.ObservedWebSocketResponse response) { }
     }
 }
