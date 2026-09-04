@@ -1,4 +1,4 @@
-using System.Net.Http;
+﻿using System.Net.Http;
 using System.Runtime.ExceptionServices;
 using System.Text;
 using AngleSharp.Html.Dom;
@@ -475,7 +475,7 @@ public sealed partial class Page
             return;
         }
 
-        _recorder.Add(new PageError(PageErrorKind.ReportedError, failure.Message, "Navigation"));
+        _recorder.Add(PageErrorKind.ReportedError, failure.Message, "Navigation");
     }
 
     /// <summary>The commit half of <see cref="SetContentAsync"/>, under the navigation gate.</summary>
