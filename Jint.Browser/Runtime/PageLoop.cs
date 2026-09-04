@@ -50,6 +50,7 @@ internal sealed class PageLoop : IDisposable
     private volatile Engine.TaskOperations? _tasks;
     private volatile PageBudget? _budget;
     private volatile bool _closed;
+    private volatile int _turns;
     private Action<Engine?>? _beforeStop;
 
     /// <summary>The turn the loop currently has open, if any. Loop thread only.</summary>
@@ -76,6 +77,37 @@ internal sealed class PageLoop : IDisposable
 
     /// <summary>The thread this loop runs on, which is the only thread allowed to touch the engine.</summary>
     internal Thread Thread => _thread;
+
+    /// <summary>How many turns this loop has taken since it started.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>One turn is what the page runtime's <c>AGENTS.md</c> calls one</b>, counted at the two places the
+    /// loop takes one: a <b>bracketed mailbox request</b>, and a <b><c>ProcessTasks</c> drain</b>. Both are
+    /// counted as they open, so a value read from the loop thread itself — from inside a request, a job or a
+    /// listener — is the ordinal of the turn currently running, and two things that read the same number ran
+    /// in the same turn. A drain that finds nothing due still counts, because the loop still took it.
+    /// </para>
+    /// <para>
+    /// <b>A request posted <c>bracketed: false</c> is not a turn, and neither is a drain it performs.</b>
+    /// Those are the pumps — <c>Page.WaitForIdleAsync</c> and <c>Page.WaitForNavigationAsync</c> — and each
+    /// takes the page's <see cref="PageBudget"/> over its own drains directly rather than through the loop,
+    /// so the count stands still for as long as one of them holds the thread. That is the honest reading:
+    /// the loop is not turning, something else is using it.
+    /// </para>
+    /// <para>
+    /// <b><see cref="ReplaceEngine"/>'s close-and-reopen is not a turn either.</b> A navigation is one
+    /// mailbox request from the loop's point of view, and the swap in the middle of it re-arms the budget on
+    /// the incoming engine rather than starting a new unit of work — so a document is replaced without the
+    /// count moving, and a scheduling test that measures a navigation measures the request.
+    /// </para>
+    /// <para>
+    /// An <see cref="int"/> and not a <see cref="long"/>, because the field is <c>volatile</c> — which is
+    /// what a field written here and read from another thread has to be, and which C# does not allow on a
+    /// 64-bit one. It is a scheduling instrument rather than a meter, and it wraps where an
+    /// <see cref="int"/> does.
+    /// </para>
+    /// </remarks>
+    internal int Turns => _turns;
 
     /// <summary>
     /// The engine the loop currently owns, for the members already running on the loop thread.
@@ -310,7 +342,7 @@ internal sealed class PageLoop : IDisposable
                 // The bracket is outside the request rather than inside it, and that is what makes a budget
                 // failure the caller's: PostAsync's own try/catch is inside this one, so a TimeoutException
                 // from the turn's deadline faults that request's Task and nothing reaches the pump.
-                BeginTurn(request.Bracketed);
+                BeginLoopTurn(request.Bracketed);
 
                 try
                 {
@@ -334,7 +366,7 @@ internal sealed class PageLoop : IDisposable
                 // One drain is one turn: every timer callback, microtask, promise reaction and animation
                 // frame that was due shares one time and one allocation budget, because none of them reaches
                 // ExecuteWithConstraints and so none of them is bounded by a per-entry limit at all.
-                BeginTurn(bracketed: true);
+                BeginLoopTurn(bracketed: true);
 
                 try
                 {
@@ -378,6 +410,25 @@ internal sealed class PageLoop : IDisposable
                 _onPumpError(exception);
             }
         }
+    }
+
+    /// <summary>Opens one of the loop's own turns: counts it, then arms the budget over it.</summary>
+    /// <remarks>
+    /// Counting here rather than in <see cref="BeginTurn"/> is what makes <see cref="Turns"/> the count of
+    /// the loop's own turns and nothing else. <see cref="ReplaceEngine"/> re-brackets the request it is
+    /// already running, on the engine that replaced the one the bracket was opened on; that is a budget
+    /// re-armed rather than a second turn, and it goes to <see cref="BeginTurn"/> directly.
+    /// </remarks>
+    private void BeginLoopTurn(bool bracketed)
+    {
+        if (bracketed)
+        {
+            // Written on the loop thread and on no other, so the increment needs nothing beyond the volatile
+            // write the field already is: every reader is on another thread and reads a published value.
+            _turns++;
+        }
+
+        BeginTurn(bracketed);
     }
 
     /// <summary>Opens the loop's own turn on whichever engine it currently owns.</summary>
