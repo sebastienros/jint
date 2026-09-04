@@ -53,9 +53,11 @@ internal sealed partial class EventSourceConstructor : Constructor
     /// </summary>
     /// <remarks>
     /// The steps a browser needs and this engine has no counterpart for are the ones about the environment
-    /// the object lives in: there is no settings object to parse the URL relative to (so the URL must be
-    /// absolute), no CORS attribute state to select (see <c>withCredentials</c>) and no client to attribute
-    /// the request to.
+    /// the object lives in: no CORS attribute state to select (see <c>withCredentials</c>) and no client to
+    /// attribute the request to. The <i>settings object</i> the URL is parsed relative to does have a
+    /// counterpart — <see cref="Options.FetchOptions.BaseUrl"/>, which is what a host embedding a document
+    /// sets and what <c>Request</c> and <c>WebSocket</c> already resolve against — so a relative URL is
+    /// resolved here the same way, and only an engine with no base URL requires an absolute one.
     /// </remarks>
     public override ObjectInstance Construct(JsCallArguments arguments, JsValue newTarget)
     {
@@ -79,8 +81,10 @@ internal sealed partial class EventSourceConstructor : Constructor
 
         // Step 3: "let urlRecord be the result of encoding-parsing a URL given url, relative to settings", and
         // step 4: "if urlRecord is failure, then throw a SyntaxError DOMException" — a DOMException, not the
-        // TypeError the fetch interfaces raise for the same mistake.
-        var url = UrlParser.Parse(href);
+        // TypeError the fetch interfaces raise for the same mistake. The base URL is the same one Request and
+        // WebSocket parse against, which is what makes new EventSource('/events') mean what it means in a
+        // document rather than being the one of the three that only accepts an absolute URL.
+        var url = UrlParser.Parse(href, state.FetchNetwork.BaseUrl);
         if (url is null)
         {
             ThrowDomException(DomExceptionNames.Syntax, $"Failed to construct 'EventSource': Cannot open an EventSource to '{href}'. The URL is invalid.");

@@ -81,15 +81,38 @@ internal static class BrowserEngineFactory
 
             hasStorage = PageStorage.Configure(o, request.Network, request.SessionStores, origin);
 
+            // What a document may reach the network with. The four network features are one decision, not
+            // four: a page is a browsing position, and every one of them is bounded by the same
+            // options.WebApi.Fetch group the context configures below - the HttpClient, AllowedSchemes
+            // (http admits ws, https admits wss), UrlFilter, MaxRedirects and MaxConcurrentRequests. So a
+            // host that has written a network policy for this context has already written the socket's and
+            // the stream's, and granting them adds no reach a page did not already have.
+            //
+            // WebSocket and EventSource are also what Jint.Browser's own protocol layer reports on:
+            // Network.webSocketCreated and its three siblings are raised from the socket observer wired a
+            // hundred lines below, and an EventSource's stream is in the request log as
+            // ResourceType: EventSource. A page that could not open either left both of those unreachable.
             var features = WebApiFeatures.Default
                 | WebApiFeatures.XmlHttpRequest
                 | WebApiFeatures.Fetch
+                | WebApiFeatures.WebSocket
+                | WebApiFeatures.EventSource
                 | WebApiFeatures.Workers;
 
             if (hasStorage)
             {
                 features |= WebApiFeatures.Storage;
             }
+
+            // WebApiFeatures.CacheApi is deliberately NOT here, and the reason is a lifetime rather than a
+            // policy. The engine's default CacheStorageProvider is one per engine with no quota, and a page
+            // builds a new engine on every navigation - so a `caches` granted on the default would be
+            // emptied by every navigation and bounded by nothing, which is a scratchpad under a name that
+            // promises storage. localStorage is granted because PageStorage points it at a provider the
+            // *context* owns and partitions by origin; caches has no such partition yet, and inventing one
+            // is a public seam (StoragePartitionProvider) and a BrowserOptions budget rather than a flag.
+            // Until then a page has no `caches`, which is what it has on an insecure origin in a browser and
+            // what every feature-detecting script is already written for.
 
             o.UseWebApis(features);
 
