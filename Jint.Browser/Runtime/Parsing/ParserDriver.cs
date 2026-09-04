@@ -99,6 +99,16 @@ internal sealed class ParserDriver : IDisposable
         // service rather than replacing one, so AngleSharp's own observer keeps working.
         var configuration = Configuration.Default
             .WithCss()
+            // https://drafts.csswg.org/selectors-4/#the-lang-pseudo — a document's language is the
+            // document's. AngleSharp resolves an element with no inherited language through
+            // `IBrowsingContext.GetCulture()`, which without this is whatever `CultureInfo.CurrentCulture`
+            // the host thread happens to carry: `:lang(en)` then matches an element that declared no
+            // language at all on an English machine and matches nothing on an invariant one, so a page's
+            // selectors answer differently on two machines running the same document. The engine's own
+            // culture is the page's — `Options.Culture`, which a host sets through `ConfigureEngine` and
+            // which itself defaults to the current culture, so nothing moves for an embedder who sets
+            // none — and it is what a document is parsed and matched against here.
+            .WithCulture(_runtime.Engine.Options.Culture)
             .With(new PageResourceLoader(this))
             .With<AngleSharp.Css.IRenderDevice>(_ => new PageRenderDevice(_runtime))
             .With<AngleSharp.Dom.IAttributeObserver>(_ => new CustomElements.CustomElementAttributeObserver(_runtime));

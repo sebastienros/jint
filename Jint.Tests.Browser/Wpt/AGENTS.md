@@ -47,7 +47,8 @@ subtest pass": every judgement there is upstream's `testharness_result_converter
 descending, exactly as `TestFiles` does for `.any.js`. So a `resources/` or `support/` child holds the helpers
 a case loads and never a case of its own, and a document belongs to exactly one suite.
 
-A **case** is a path the server answers, which is not the same as a file on disk. Two kinds:
+A **case** is a path the server answers, which is not the same as a file on disk. Three kinds of vendored
+document, and only two of them are cases:
 
 * a **vendored document** — `dom/events/Event-propagation.html`, bytes in this repository;
 * a **synthesized wrapper** — `dom/events/Event-constructors.any.html`, which exists nowhere. Upstream's
@@ -56,6 +57,16 @@ A **case** is a path the server answers, which is not the same as a file on disk
   and then the file. So the `.any.js` corpus a suite already has runs **again** here, in a `Window` realm under
   the real harness, without being vendored twice — and the two lanes are allowed to disagree about a file,
   because a divergence only a document exposes is what this lane is for.
+
+* a **frame body** — `dom/nodes/ParentNode-querySelector-All-content.html`, vendored and served and never
+  run. A document directly under a suite is a case, which is `BrowserTestFiles` never descending; upstream
+  does not always agree, and a fixture with no `testharness.js` in it registers nothing and times out as a
+  case. `WptBrowserExclusions.FrameBodies` is the third answer, and it is the opposite of the not-vendored
+  table rather than a variant of it: a row there is a path the corpus does not hold, a row here is one it
+  holds and does not run, and **nothing may be in both**. Held from both ends like every other table here —
+  a row must name a vendored document directly under a suite — and it takes no minimum-test entry and
+  appears in no census column, because neither counts anything about a document that reports nothing. What
+  holds a frame body to its job is the case that loads it.
 
 **The dedicated-worker wrapper is deliberately not generated.** `WorkersHandler`'s document creates a *classic*
 worker whose generated body opens with `importScripts("/resources/testharness.js")`, and Jint runs module
@@ -155,6 +166,13 @@ never a document deleted, and never one left in to hang the lane.
   per-file deadline (`WptBrowserHarness.Deadline`, 30 s, and no deadline under a debugger because a breakpoint
   is not a hang), and before that upstream's harness timeout, which is the one that usually fires first and is
   left exactly as upstream sets it.
+* **The lane pins its culture to the invariant one.** A page's document culture is the engine's
+  (`Options.Culture`) since the parse started handing it to AngleSharp's browsing context, and AngleSharp
+  resolves `:lang()` on an element with **no** inherited language from it — so without a pin four rows of
+  `dom/nodes/ParentNode-querySelector-All.html` passed on the Linux leg, which runs with no culture, and
+  failed on the Windows one, which has a real one. **A gate whose answer depends on the runner's locale is
+  not a gate**, and no exclusion could name those rows on both legs; scoping one to an operating system
+  would have encoded the coincidence rather than removed it.
 * **The context's `UrlFilter` is the server's own `Owns`**, so the oldest promise this corpus makes is kept
   here too: no document can open a socket to anything but the loopback port, on the first hop and on every
   redirect.

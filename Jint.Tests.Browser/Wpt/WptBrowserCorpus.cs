@@ -31,9 +31,34 @@ internal static class WptBrowserCorpus
     /// </summary>
     internal static IReadOnlyList<string> Cases(string suite)
     {
-        var cases = new List<string>(WptCorpus.BrowserTestFiles(suite));
+        var cases = new List<string>();
+
+        foreach (var file in WptCorpus.BrowserTestFiles(suite))
+        {
+            // A frame body is vendored and served and never run: it is the fixture a case loads, and running
+            // it as one is a page that registers no test. WptBrowserExclusions.FrameBodies argues it.
+            if (!IsFrameBody(file))
+            {
+                cases.Add(file);
+            }
+        }
+
         cases.AddRange(SynthesizedCases(suite));
         return cases;
+    }
+
+    /// <summary>Whether the path is one <see cref="WptBrowserExclusions.FrameBodies"/> names.</summary>
+    internal static bool IsFrameBody(string path)
+    {
+        foreach (var (body, _) in WptBrowserExclusions.FrameBodies)
+        {
+            if (string.Equals(body, path, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>

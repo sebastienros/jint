@@ -84,6 +84,13 @@ script runs before a module script that precedes it in the document, because the
 HTML's one; and the first import map found anywhere applies to every module, because none of them could have
 resolved before the parse ended anyway.
 
+**A document's culture is the engine's, not the thread's.** AngleSharp resolves `:lang()` on an element with
+no inherited language through its browsing context's culture, and a context given none takes
+`CultureInfo.CurrentCulture` off whatever thread is parsing — so the same document answered a selector
+differently on two machines. The parse hands the context `Options.Culture`, which is what a host sets through
+`ConfigureEngine` and which itself defaults to the current culture, so nothing moves for a host that sets
+none; what moves is that the answer is now the *page's* rather than the host's.
+
 **`document.readyState` is the page's shadow.** `PageRuntime.ReadyState` moves `loading` → `interactive` →
 `complete` and `ParserDriver.SetReadyState` fires the `readystatechange` that goes with each, because
 `Document.ReadyState`'s setter is protected and unreachable from outside AngleSharp's assembly. AngleSharp's
