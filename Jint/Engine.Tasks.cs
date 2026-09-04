@@ -88,12 +88,14 @@ public partial class Engine
         /// <para>
         /// The job belongs to the evaluation cycle current when it was posted, so an
         /// <see cref="AdvancedOperations.RestoreGlobalSnapshot"/> in between drops it; post again afterwards.
-        /// <see cref="Engine.Dispose"/> is not a barrier — an engine has no disposed state, and a job posted
-        /// to a disposed engine still runs if it is pumped again.
+        /// <b><see cref="Engine.Dispose"/> is a barrier</b> — a post to a disposed engine is refused with
+        /// <see cref="ObjectDisposedException"/>, so subscribe to <see cref="Engine.Disposed"/> or check
+        /// <see cref="Engine.IsDisposed"/> rather than posting and hoping.
         /// </para>
         /// </remarks>
         /// <param name="action">The callback to run on the engine's own thread.</param>
         /// <exception cref="ArgumentNullException"><paramref name="action"/> is <c>null</c>.</exception>
+        /// <exception cref="ObjectDisposedException">The engine has been disposed.</exception>
         /// <example>
         /// One thread per engine, with the rest of the process handing it work:
         /// <code>
@@ -110,6 +112,16 @@ public partial class Engine
             if (action is null)
             {
                 Throw.ArgumentNullException(nameof(action));
+            }
+
+            if (_engine.IsDisposed)
+            {
+                // One documented exception rather than whatever the queue happens to raise, because this is
+                // the entry a thread that does not own the engine calls and it can lose the race with the
+                // owner's Dispose at any point. Engine.Disposed is how a host stops before it gets here.
+                Throw.ObjectDisposedException(
+                    nameof(Engine),
+                    "The engine has been disposed; nothing will pump it again, so this job could never run.");
             }
 
             // Deliberately unguarded — no EnterHostCall — because the caller is the thread that does not own

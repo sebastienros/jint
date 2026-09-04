@@ -87,7 +87,7 @@ internal sealed class ParserBaton : IDisposable
         // The engine's own cross-thread entry, used for nothing but its documented side effect: it ends the
         // loop's park. The queue write happens first, so the wake can never be lost.
         _arrived.Release();
-        _tasks.Post(EventLoop.WakeJob);
+        Wake(_tasks);
 
         // Polled rather than waited outright, so that a parse the loop has given up on cannot leave this
         // thread parked for ever: the abandoned flag is the only thing that can arrive after the loop stops
@@ -179,6 +179,24 @@ internal sealed class ParserBaton : IDisposable
         }
     }
 
+    /// <summary>Ends the loop's park, from a thread that is not the loop's — the parser's, or a pool one.</summary>
+    /// <remarks>
+    /// A wake and nothing else, so a page whose engine has gone needs none: <c>Engine.Tasks.Post</c> refuses a
+    /// disposed engine, and both callers reach here off the loop thread, where a throw would surface as an
+    /// AngleSharp parse failure or as a faulted continuation nobody observes. The parser thread's own way out
+    /// is the abandoned flag it polls; the loop has already set it by the time it disposes its engine.
+    /// </remarks>
+    private static void Wake(Engine.TaskOperations tasks)
+    {
+        try
+        {
+            tasks.Post(EventLoop.WakeJob);
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+    }
+
     /// <summary>How often a parked parser thread re-checks whether the loop has given up on it.</summary>
     private static readonly TimeSpan AbandonPollInterval = TimeSpan.FromMilliseconds(50);
 
@@ -198,7 +216,7 @@ internal sealed class ParserBaton : IDisposable
         // The completion is a wake for the same reason the parse's is: without it the loop would sit out an
         // idle interval after the network answered.
         var tasks = _tasks;
-        task.ContinueWith(static (_, state) => ((Engine.TaskOperations) state!).Post(EventLoop.WakeJob), tasks, TaskScheduler.Default);
+        task.ContinueWith(static (_, state) => Wake((Engine.TaskOperations) state!), tasks, TaskScheduler.Default);
 
         while (!task.IsCompleted)
         {
