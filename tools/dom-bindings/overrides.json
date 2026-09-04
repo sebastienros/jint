@@ -181,6 +181,11 @@
     },
     {
       "interface": "HTMLIFrameElement",
+      "member": "contentWindow",
+      "reason": "Re-declared in `additions` for the same reason as its sibling above, and it must be a skip rather than an addition: the pinned assemblies project ContentWindow themselves, so an addition alone is reported and ignored. The generated body converts AngleSharp's own IWindow; the window a page gets here is the runtime's (Runtime/FrameWindows), one object per frame on the page's realm, and it is answered only same origin."
+    },
+    {
+      "interface": "HTMLIFrameElement",
       "member": "sandbox",
       "reason": "Re-declared in `additions` so the projected `ITokenList` records the element and attribute it reflects: DOM §7.1 defines `value`, the stringifier and the update steps in terms of both, and AngleSharp's `ITokenList` names neither."
     },
@@ -1010,6 +1015,16 @@
         "return global::Jint.Browser.Dom.DomFrameMembers.ContentDocument(self.Realm, self.Target);"
       ],
       "reason": "Re-declared because HTML answers null for a frame whose document is not same origin with the one asking (html.spec.whatwg.org/multipage/iframe-embed-object.html#dom-iframe-contentdocument), and AngleSharp's ContentDocument answers whatever is in the nested browsing context."
+    },
+    {
+      "interface": "HTMLIFrameElement",
+      "member": "contentWindow",
+      "kind": "attribute",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, \"HTMLIFrameElement.contentWindow\");",
+        "return global::Jint.Browser.Dom.DomFrameMembers.ContentWindow(self.Realm, self.Target);"
+      ],
+      "reason": "AngleSharp declares ContentWindow and the conversion table drops it with the rest of AngleSharp.Dom.IWindow, so nothing generated it. A frame has a window of its own now (Runtime/FrameWindows) on the page's realm rather than a realm of its own, so this answers it — same origin, by the same rule contentDocument uses, because a window is a door to a document. A frame with no document still answers null, which is what HTML gives a frame with no browsing context and what a page tests for."
     },
     {
       "interface": "HTMLIFrameElement",

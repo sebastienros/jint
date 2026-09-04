@@ -34,6 +34,7 @@ internal sealed class PageRuntime
     private CustomElements.CustomElementRegistry? _customElements;
     private Dom.Views.ViewRealm? _views;
     private List<JsMediaQueryList>? _mediaQueryLists;
+    private ConditionalWeakTable<object, ObjectInstance>? _frameWindows;
 
     private PageRuntime(
         Engine engine,
@@ -343,6 +344,20 @@ internal sealed class PageRuntime
             list.MediaChanged();
         }
     }
+
+    /// <summary>The window built for a frame element, or <see langword="null"/> when none has been.</summary>
+    /// <remarks>
+    /// Keyed on the AngleSharp element the way the binding's own wrapper cache is keyed, so a frame answers
+    /// the same window object every time it is asked — <c>frame.contentWindow === frame.contentWindow</c> and
+    /// <c>frames[0] === frame.contentWindow</c> are both things a page compares. The table is built on first
+    /// use, so a document with no frames pays nothing for it.
+    /// </remarks>
+    internal ObjectInstance? FrameWindowFor(object frame)
+        => _frameWindows is { } windows && windows.TryGetValue(frame, out var window) ? window : null;
+
+    /// <summary>Remembers the window of a frame element for the life of this document.</summary>
+    internal void RememberFrameWindow(object frame, ObjectInstance window)
+        => (_frameWindows ??= new ConditionalWeakTable<object, ObjectInstance>()).Add(frame, window);
 
     /// <summary>Replaces the viewport alone, leaving the emulated media and preferences where they are.</summary>
     internal void SetViewport(Viewport viewport) => SetMedia(Media with { Viewport = viewport });

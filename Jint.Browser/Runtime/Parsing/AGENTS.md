@@ -130,10 +130,12 @@ frame's own frames, comes back here. Four things follow and each is load-bearing
 - **`BrowserOptions.MaxFrameDocuments` is counted over the load and not per document**, because a page
   pointing a frame at itself would otherwise recurse until the parser thread's stack ran out. `srcdoc` is
   neither counted nor refused: there is no request to answer.
-- **`contentDocument` is `Dom/DomFrameMembers`, not the generated body**, because HTML answers `null` for a
-  document that is not same origin with the one asking. `contentWindow` is `null` rather than absent — a
-  frame has no second global object to be one, and `'contentWindow' in frame` and `if (frame.contentWindow)`
-  disagree about a member that is missing and one that is null.
+- **`contentDocument` and `contentWindow` are `Dom/DomFrameMembers`, not the generated bodies**, because
+  HTML answers `null` for a document that is not same origin with the one asking. `contentWindow` answers a
+  window built by `Runtime/FrameWindows` — one object per frame, whose `[[Prototype]]` is the page's global,
+  so the realm is shared and only what a frame answers differently is an own property. A frame with no
+  document has `contentWindow === null` rather than absent: `'contentWindow' in frame` and
+  `if (frame.contentWindow)` disagree about a member that is missing and one that is null.
 
 **`document.write` after the parse is refused.** During one it is AngleSharp's own call and it is right — its
 writable text source inserts at the parser's index and the script processor restores the index afterwards, so

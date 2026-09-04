@@ -10,10 +10,11 @@ namespace Jint.Browser;
 /// <para>
 /// A page has exactly one scripted frame, its main frame. A child frame has a <b>document</b> — its
 /// <c>src</c> is fetched over the page's own network position and parsed, so <c>contentDocument</c> answers
-/// it and <c>load</c> arrives at the element — and it has <b>no realm</b>: nothing in it runs, and
-/// <c>contentWindow</c> is <see langword="null"/>. One realm per frame on the same engine is what would make
-/// <c>parent.document</c> answerable, and that is a later change
-/// (<c>docs/design/headless-browser.md</c> §3).
+/// it and <c>load</c> arrives at the element — and a <b>window</b>, on the page's own realm
+/// (<c>Runtime/FrameWindows</c>), so <c>contentWindow</c>, <c>defaultView</c> and <c>frames[i]</c> answer it.
+/// What it has no <b>realm</b> of its own: nothing in it runs, and every constructor it reaches is the
+/// page's. One realm per frame is what is left, and the survey on
+/// <a href="https://github.com/sebastienros/jint/issues/3771">#3771</a> says what it would cost.
 /// </para>
 /// <para>
 /// A frame is a snapshot taken when the document finished loading, not a live view: a frame added by script

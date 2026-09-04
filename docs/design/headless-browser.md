@@ -79,8 +79,9 @@ fraction of Chromium's CPU and memory per page, at some multiple of its wall-clo
   `Tasks.TimeUntilNextScheduledWork` — the `WptHarness.PumpWorker` shape. Every public `Page` API and every CDP
   command posts to the mailbox and awaits a completion; nothing else touches the engine or the DOM. Workers come
   from a `ThreadPerWorkerProvider` (the package is a host, so it may start threads; the engine still never does).
-- **Iframes parse but do not run script in v1**: frames are real in the frame tree and their documents are
-  fetched and parsed, but `contentWindow` is `null`. v1.1 adds one realm per frame on the same engine through an
+- **Iframes parse but do not run script in v1**: frames are real in the frame tree, their documents are
+  fetched and parsed, and each has a `contentWindow` of its own on the page's realm — what it has not got is a
+  realm, so nothing in a frame runs and its constructors are the page's. v1.1 adds one realm per frame on the same engine through an
   `Engine.WebApi.InstallInRealm(Realm)` seam (today `WebApiRegistration.InstallGlobals` targets the main realm
   only); a second engine could never satisfy `parent.document`.
 
@@ -434,7 +435,7 @@ planned. A blank last column means the section above describes what exists.
 | § | What shipped | PR | Where it differs |
 | --- | --- | --- | --- |
 | 3 | One `PageLoop` thread per page, a new engine per navigation, and the global's `Window.prototype` chain | [#3648](https://github.com/sebastienros/jint/pull/3648) | — |
-| 3 | Frames, parsed and listed; then given a document of their own ([#3771](https://github.com/sebastienros/jint/issues/3771)) | [#3667](https://github.com/sebastienros/jint/pull/3667) | A child frame has a document and no realm: `contentDocument` answers it same-origin and `load` arrives at the element, while `contentWindow` is `null` and nothing in the frame runs — so a document that needs a second global still cannot run here, which is what puts thirty-seven `custom-elements/` files in the not-vendored table |
+| 3 | Frames, parsed and listed; then given a document and a window of their own ([#3771](https://github.com/sebastienros/jint/issues/3771)) | [#3667](https://github.com/sebastienros/jint/pull/3667) | A child frame has a document and a window and no realm: `contentDocument` answers it same-origin, `load` arrives at the element, and `contentWindow`, `defaultView` and `frames[i]` answer an object of the frame's own on the page's realm — but nothing in a frame *runs*, and its constructors are the page's, so a document that needs a second **realm** still cannot report here. That is what keeps thirty-seven `custom-elements/` files in the not-vendored table: `create_window_in_test` now resolves, and what those files then compare is a constructor across realms |
 | 4 | The generator over the two pinned AngleSharp assemblies, and the checked-in `Dom/Generated/` | [#3634](https://github.com/sebastienros/jint/pull/3634) | A DOM prototype carries no `@@unscopables`, because AngleSharp's metadata does not say which members are unscopable; and a nullable `DOMString` parameter converts `null` to the string `"null"` ([#3712](https://github.com/sebastienros/jint/issues/3712)) |
 | 4 | HTML §4.13: the registry, the construction stack, the element state and the reaction lane | [#3709](https://github.com/sebastienros/jint/pull/3709) | The element queue is drained as a reaction *arrives* rather than when the outermost `[CEReactions]` operation returns, and a parser-created element is upgraded at the driver's next script boundary rather than constructed by the tokenizer. There is no `ElementInternals`, so `static formAssociated` is recorded and consulted by nothing |
 | 5 | The UI event interfaces, HTML's handler content attributes and every activation behaviour a click has | [#3671](https://github.com/sebastienros/jint/pull/3671), engine seams [#3696](https://github.com/sebastienros/jint/pull/3696) | — |

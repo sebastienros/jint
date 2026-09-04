@@ -145,9 +145,13 @@ internal static class WptBrowserExclusions
         // is written against a second global**. `resources/custom-elements-helpers.js` gives it
         // `create_window_in_test`, which loads an iframe and resolves with its window, and `document_types()`,
         // which walks the current document, `new Document()`, `createHTMLDocument()`, an iframe's document and
-        // an XHR-fetched one. A page here parses child frames and gives none of them an engine, so a file
-        // built on either waits for a load that never comes: the harness reports TIMEOUT, which is a whole-file
-        // error no per-test exclusion can name.
+        // an XHR-fetched one. These were listed when a frame had neither a document nor a window, so a file
+        // built on either waited for a load that never came and the harness reported TIMEOUT — a whole-file
+        // error no per-test exclusion can name. #3771 gave a frame both, and `create_window_in_test` resolves
+        // now (`ChildFrameTests` runs the helper's own shape), so what is missing is the narrower half: the
+        // window's constructors are the page's, because a frame shares the page's realm. **Each of these rows
+        // is therefore owed a re-derivation**, which takes vendoring the document — that moves the census's
+        // Documents and Tests columns and is a change of its own.
 
         // ------------------------------------------------------------ the whole-directory and marker rules
         ("custom-elements/form-associated/*", "ElementInternals and form association, which this package has no ElementInternals for"),
@@ -317,8 +321,11 @@ internal static class WptBrowserExclusions
         ("dom/traversal/support/TreeWalker-acceptNode-filter-cross-realm-null-browsing-context-subframe.html", "the subframe of a test that is not vendored"),
 
         // ------------------------------------------------------------ a frame that runs script
-        // A page here parses its child frames and gives none of them an engine, so an `iframe.onload` never
-        // arrives and a file that waits for one reports TIMEOUT — a harness error covering the whole file.
+        // Listed when a frame had neither a document nor a window, so an `iframe.onload` never arrived and a
+        // file that waits for one reported TIMEOUT — a harness error covering the whole file. #3771 gave a
+        // frame a document and a window and `load` fires now, so **the reason on each of these rows is owed a
+        // re-derivation**; it takes vendoring the document, which moves the census's Documents and Tests
+        // columns and is a change of its own.
         ("dom/nodes/Comment-constructor.html", "its last test waits for an iframe's load; the other fifteen do report, and all fifteen fail because `new Comment()` is an illegal constructor"),
         ("dom/nodes/Text-constructor.html", "the same file for Text, and the same refusal in its fifteen reported tests"),
         ("dom/nodes/Document-URL.html", "waits for an iframe that follows a redirect"),
@@ -836,9 +843,13 @@ internal static class WptBrowserExclusions
         new("html/webappapis/scripting/events/compile-event-handler-lexical-scopes-form-owner.html", "form-associated <x-foo> has a form owner", WptDivergence.NeedsTriage),
 
         // ---------------------------------------------------------------- 5. a frame that runs script
-        // `eventhandler-cancellation.html` fires its events at `frames[0]`, which is an iframe's window; a
-        // page here parses child frames and gives none of them an engine. It is the NeedsIframeScripting
-        // group below by cause, and is here only because the file is in another suite.
+        // `eventhandler-cancellation.html` fires its events at `frames[0]`, which is an iframe's window. A
+        // frame has a window since #3771 — but this file's frame is `<iframe>` with no `src`, and a frame
+        // with no source is never asked for and so has no document and no window here, where HTML gives it an
+        // initial `about:blank` one. `frames[0]` is therefore undefined and the file fails on it. Even given
+        // one it would need the realm: the events it fires are meant to be cancelled in the frame's own
+        // global. It is the NeedsIframeScripting group below by cause, and is here only because the file is
+        // in another suite.
         new("html/webappapis/scripting/events/eventhandler-cancellation.html", "*", WptDivergence.NeedsIframeScripting),
 
         // ---------------------------------------------------------------- 6. a bubbling `submit` the file counts as an activation
@@ -865,13 +876,20 @@ internal static class WptBrowserExclusions
 
         // ---------------------------------------------------------------- a frame that runs script
         // https://html.spec.whatwg.org/multipage/nav-history-apis.html#window: each of these needs a second
-        // global with a document in it — a cross-realm listener, a `beforeunload` result coerced in the
-        // frame's realm, an exception reported in the realm of the listener that threw. A page here parses
-        // child frames and gives none of them an engine.
+        // *realm* with a document in it — a cross-realm listener, a `beforeunload` result coerced in the
+        // frame's realm, an exception reported in the realm of the listener that threw. A frame has a window
+        // and a document since #3771 and still no realm of its own, so nothing in it runs.
         //
         // Named access on the window is what these files used to meet first, and it is implemented now
         // (Runtime/WindowNamedProperties); the frame is what is left, and no fix short of one moves them.
-        new("dom/events/EventListener-handleEvent-cross-realm.html", "*", WptDivergence.NeedsIframeScripting),
+        //
+        // The five `window-onerror-with-cross-frame-event-listeners-*` files meet something before the realm,
+        // and the run says so: `new frames[0].Function(...)` reads a member of `undefined`, because their
+        // frames are `<iframe>` with no `src`. A frame with no source is never asked for here — the resource
+        // loader answers a request AngleSharp makes, and it makes none — so it has no document and therefore
+        // no window, where HTML gives every nested browsing context an initial `about:blank` document. That is
+        // a gap of its own and not this category; opening a document into a context nobody navigated is not
+        // something AngleSharp's public surface does.
         new("dom/events/event-global-is-still-set-when-coercing-beforeunload-result.html", "*", WptDivergence.NeedsIframeScripting),
         new("dom/events/event-global-is-still-set-when-reporting-exception-onerror.html", "*", WptDivergence.NeedsIframeScripting),
         new("html/webappapis/scripting/processing-model-2/window-onerror-with-cross-frame-event-listeners-1.html", "*", WptDivergence.NeedsIframeScripting),
@@ -963,8 +981,52 @@ internal static class WptBrowserExclusions
 
         // ---------------------------------------------------------------- a frame that runs script
         // a second global with a document in it
-        new("dom/nodes/Document-createElement.html", "*XHTML document", WptDivergence.NeedsIframeScripting),
-        new("dom/nodes/Document-createElement.html", "*XML document", WptDivergence.NeedsIframeScripting),
+        // Not the frame any more, and the twin of the same move in Document-createElementNS.html: a frame
+        // has a window now, so what is left of these 49 is that `application/xhtml+xml` is parsed by the
+        // HTML parser — the fixture never loads as XHTML and every row fails on that first assertion.
+        new("dom/nodes/Document-createElement.html", "*XHTML document", WptDivergence.NeedsXmlDocuments),
+        // Narrowed by the run: a frame has a window now, so the ten rows that only needed one pass.
+        // What is left is the XML twins of the HTML rows above — the same arguments, refused or accepted
+        // by the same two defects — so they are named the same way.
+        new("dom/nodes/Document-createElement.html", "*(\":\") in XML document", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElement.html", "*(\":foo\") in XML document", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElement.html", "*(\"FOO\") in XML document", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElement.html", "*(\"\\ufffffoo\") in XML document", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElement.html", "*(\"f1oo\") in XML document", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElement.html", "*(\"f::oo\") in XML document", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElement.html", "*(\"f::oo:\") in XML document", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElement.html", "*(\"f:o:o\") in XML document", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElement.html", "*(\"f:oo\") in XML document", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElement.html", "*(\"f<oo\") in XML document", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElement.html", "*(\"f\\uffffoo\") in XML document", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElement.html", "*(\"foo\") in XML document", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElement.html", "*(\"foo1\") in XML document", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElement.html", "*(\"foo:\") in XML document", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElement.html", "*(\"foo:0\") in XML document", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElement.html", "*(\"foo:_\") in XML document", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElement.html", "*(\"foo:fooெ\") in XML document", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElement.html", "*(\"foo:ெ\") in XML document", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElement.html", "*(\"foo\\uffff\") in XML document", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElement.html", "*(\"foo}\") in XML document", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElement.html", "*(\"fooெ\") in XML document", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElement.html", "*(\"fooெ:foo\") in XML document", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElement.html", "*(\"f}oo\") in XML document", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElement.html", "*(\"fெ\") in XML document", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElement.html", "*(\"marK\") in XML document", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElement.html", "*(\"math\") in XML document", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElement.html", "*(\"svg\") in XML document", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElement.html", "*(\"xml\") in XML document", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElement.html", "*(\"xml:foo\") in XML document", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElement.html", "*(\"xmlfoo\") in XML document", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElement.html", "*(\"xmlfoo:bar\") in XML document", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElement.html", "*(\"xmlns\") in XML document", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElement.html", "*(\"xmlns:foo\") in XML document", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElement.html", "*(\"İnput\") in XML document", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElement.html", "*(\"ınput\") in XML document", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElement.html", "*(\"̀\") in XML document", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElement.html", "*(\"̀foo\") in XML document", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElement.html", "*(null) in XML document", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElement.html", "*(undefined) in XML document", WptDivergence.NeedsTriage),
         // Not the frame any more: the frame has its document. `application/xhtml+xml` is routed to the
         // HTML parser even with the XML factory registered, so the XHTML fixture comes back as an HTML
         // document and all 195 fail on its first assertion — the trailing newline an HTML skeleton adds.
@@ -973,20 +1035,13 @@ internal static class WptBrowserExclusions
         // What is left of them is the 110 rows that reach `doc.defaultView.DOMException`, and a frame
         // has a document here and no window — every one of those names ends in the exception it expects,
         // which is what separates them from the 56 that do not throw at all.
-        new("dom/nodes/Document-createElementNS.html", "createElementNS test in XML document:*_ERR\"", WptDivergence.NeedsIframeScripting),
         new("dom/nodes/Document-createEvent.https.html", "*TextEvent.", WptDivergence.NeedsIframeScripting),
-        new("dom/nodes/Node-appendChild.html", "*document", WptDivergence.NeedsIframeScripting),
-        new("dom/nodes/Node-appendChild.html", "*orphan", WptDivergence.NeedsIframeScripting),
         new("dom/nodes/Node-isConnected.html", "*iframes", WptDivergence.NeedsIframeScripting),
-        new("dom/nodes/Node-removeChild.html", "*frame document to removeChild should not affect it.", WptDivergence.NeedsIframeScripting),
-        new("dom/nodes/Node-removeChild.html", "*frame document with no children should throw NOT_FOUND_ERR.", WptDivergence.NeedsIframeScripting),
         new("dom/nodes/node-creation-realm.html", "*", WptDivergence.NeedsIframeScripting),
         new("dom/nodes/node-realm-adoption-after-frame-removal.html", "*", WptDivergence.NeedsIframeScripting),
         new("dom/nodes/node-realm-mixed-across-adoption.html", "*", WptDivergence.NeedsIframeScripting),
         new("dom/nodes/node-realm-preserved-across-adoption.html", "*", WptDivergence.NeedsIframeScripting),
         new("dom/nodes/node-realm-preserved-across-frameless-adoption.html", "*", WptDivergence.NeedsIframeScripting),
-        new("dom/traversal/TreeWalker-acceptNode-filter-cross-realm.html", "*", WptDivergence.NeedsIframeScripting),
-        new("dom/traversal/TreeWalker-realm.html", "*", WptDivergence.NeedsIframeScripting),
 
         // ---------------------------------------------------------------- DOMTokenList: the token validation, the indexed access and the iteration
         // DOMTokenList's validation and its indexed access
@@ -1212,7 +1267,6 @@ internal static class WptBrowserExclusions
         // ---------------------------------------------------------------- Range's own algorithms
         // Range's remaining algorithms
         new("dom/ranges/Range-comparePoint-2.html", "*2", WptDivergence.NeedsTriage),
-        new("dom/ranges/Range-extractContents-dynamic-end.html", "*", WptDivergence.NeedsTriage),
         new("dom/ranges/Range-in-shadow-after-the-shadow-removed.html", "*", WptDivergence.NeedsTriage),
 
         // ---------------------------------------------------------------- an event interface this browser does not build
