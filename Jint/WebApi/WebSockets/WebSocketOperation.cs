@@ -110,17 +110,24 @@ internal sealed class WebSocketOperation
     private CloseIntent? _closeIntent;
     private bool _abandoned;
 
+    private readonly WebSocketObservation? _observation;
+    private readonly IReadOnlyList<string> _protocols;
+
     internal WebSocketOperation(
         Engine engine,
         Realm realm,
         JsWebSocket socket,
         IWebSocketConnection? connection,
-        TimeSpan handshakeTimeout)
+        TimeSpan handshakeTimeout,
+        WebSocketObservation? observation = null,
+        IReadOnlyList<string>? protocols = null)
     {
         _engine = engine;
         _realm = realm;
         _socket = socket;
         _connection = connection;
+        _observation = observation;
+        _protocols = protocols ?? [];
         _generation = engine.EventLoopGeneration;
         _handshakeTimeout = handshakeTimeout;
         _engineToken = engine.Constraints.Find<CancellationConstraint>()?.Token ?? CancellationToken.None;
@@ -216,11 +223,18 @@ internal sealed class WebSocketOperation
                     handshake.CancelAfter(_handshakeTimeout);
                 }
 
+                _observation?.HandshakeRequest(connection.RequestHeaders, _protocols);
+
                 await connection.ConnectAsync(handshake.Token).ConfigureAwait(false);
             }
+
+            ReportHandshakeResponse(connection);
         }
         catch
         {
+            // The server may have answered and refused; a status collected before the throw is still worth
+            // reporting, and there is nothing to report when the connection never got one.
+            ReportHandshakeResponse(connection);
             // Every way the handshake can fail is one failure: a refused connection, a name that does not
             // resolve, a TLS error, a status that is not 101, a subprotocol the server did not accept, the
             // deadline, or a close() that fell during it. The standard requires exactly that — none of them
@@ -350,7 +364,25 @@ internal sealed class WebSocketOperation
     {
         _connection?.Dispose();
         _cancellation.Dispose();
+
+        // Before the task that tells script, because the observer is not on the engine's queue and a socket
+        // whose engine has gone away would otherwise never report its close at all.
+        _observation?.Closed(closure.Code, closure.Reason, closure.WasClean);
+
         EnqueueClosed(closure);
+    }
+
+    /// <summary>
+    /// Tells the observer what the server answered the handshake with, when there was an answer at all.
+    /// </summary>
+    private void ReportHandshakeResponse(IWebSocketConnection connection)
+    {
+        if (_observation is null || connection.HandshakeStatus is not { } status)
+        {
+            return;
+        }
+
+        _observation.HandshakeResponse(status, connection.HandshakeHeaders, connection.SubProtocol);
     }
 
     private void EnqueueOpen(string protocol) => Enqueue(() => _socket.ReportOpen(protocol));

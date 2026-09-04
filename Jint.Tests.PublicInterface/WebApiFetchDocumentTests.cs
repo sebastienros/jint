@@ -889,7 +889,16 @@ public class WebApiFetchDocumentTests
     {
         // The whole point of the seam: a protocol layer runs it from a transport thread, so nothing it is
         // handed may be a value only the engine thread may touch.
-        var types = new[] { typeof(FetchObserver), typeof(ObservedFetchRequest), typeof(ObservedFetchResponse), typeof(FetchInterception), typeof(FetchResponseInterception), typeof(FetchRequestId), typeof(FetchHeader), typeof(FetchTiming) };
+        var types = new[]
+        {
+            typeof(FetchObserver), typeof(ObservedFetchRequest), typeof(ObservedFetchResponse),
+            typeof(FetchInterception), typeof(FetchResponseInterception), typeof(FetchRequestId),
+            typeof(FetchHeader), typeof(FetchTiming),
+
+            // The socket seam is a second observer with the same rule, so it takes the same walk.
+            typeof(Jint.WebApi.WebSockets.WebSocketObserver), typeof(Jint.WebApi.WebSockets.WebSocketId),
+            typeof(Jint.WebApi.WebSockets.ObservedWebSocketHandshake), typeof(Jint.WebApi.WebSockets.ObservedWebSocketResponse),
+        };
 
         foreach (var type in types)
         {

@@ -5421,6 +5421,25 @@ both now sees two entries for the final response where it saw one.
 
 `FetchObserver` remains a preview surface (`JINT0002`).
 
+### 4.129 A host can watch a `WebSocket`'s handshakes ([#3701](https://github.com/sebastienros/jint/issues/3701))
+
+A socket was the one network lane nothing could observe. `Options.WebApi.Fetch.WebSocketObserver` takes a
+`WebSocketObserver`, which is told four things about every socket the engine opens: it was created, its
+opening handshake is going out, the server answered one, and it closed.
+
+```csharp
+options.WebApi.Fetch.WebSocketObserver = new MyObserver();   // JINT0002, a preview surface
+```
+
+Nothing has to be done to migrate: the default is `null`, and an engine that sets none behaves exactly as
+before — including not asking `ClientWebSocket` to keep the handshake's response details, which is a cost
+only an observed socket pays.
+
+**It is deliberately not a callback on `FetchObserver`.** A socket's handshake never reaches the fetch
+transport, so there is no hop to intercept and nothing to substitute; and it carries a `WebSocketId` rather
+than a `FetchRequestId`, because a socket counted as an outstanding request would leave a host waiting for a
+network that never goes quiet.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

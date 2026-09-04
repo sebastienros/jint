@@ -808,6 +808,34 @@ public sealed partial class Options
         [Experimental(JintDiagnosticIds.PreviewDiagnostic)]
         public FetchObserver? Observer { get; set { ThrowIfReadOnly(); field = value; } }
 
+        /// <summary>
+        /// Watches the opening and closing handshakes of the <c>WebSocket</c>s this engine opens.
+        /// <see langword="null"/> — the default — observes nothing and costs nothing.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>It lives here rather than in a group of its own</b>, for the reason <c>WebSocketPolicy</c>
+        /// gives: a socket is outbound network access from the same process reaching the same hosts, so it
+        /// answers to these settings and not to a second set.
+        /// </para>
+        /// <para>
+        /// <b>It is a separate observer from <see cref="Observer"/>, not a callback on it.</b> A socket's
+        /// handshake never reaches the fetch transport and its frames are not a body, so there is no hop to
+        /// intercept and nothing to substitute; and a socket counted as an outstanding request would leave a
+        /// host waiting for a network that never goes quiet.
+        /// <see cref="WebApi.WebSockets.WebSocketObserver"/> says the rest.
+        /// </para>
+        /// <para>
+        /// Every callback runs on a transport thread and must never touch the engine. The shape is a preview,
+        /// declared to the compiler as <c>JINT0002</c>.
+        /// </para>
+        /// <para>
+        /// Read once, when the engine is built.
+        /// </para>
+        /// </remarks>
+        [Experimental(JintDiagnosticIds.PreviewDiagnostic)]
+        public WebApi.WebSockets.WebSocketObserver? WebSocketObserver { get; set { ThrowIfReadOnly(); field = value; } }
+
         internal FetchOptions Clone()
         {
             var clone = (FetchOptions) MemberwiseClone();

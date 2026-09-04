@@ -169,14 +169,24 @@ internal sealed partial class WebSocketConstructor : Constructor
                 requested: (double) state.ActiveWebSocketCount + 1);
         }
 
+        // The socket exists whether or not the policy admits it, and an observer is told about it either
+        // way: a refused URL is a socket that closes at once, not a socket that never was.
+        var observation = WebSocketObservation.Create(options.WebSocketObserver);
+
         IWebSocketConnection? connection = null;
         if (WebSocketPolicy.Allows(options, url, out var uri))
         {
-            var factory = state.WebSocketConnections ?? ClientWebSocketConnectionFactory.Instance;
+            observation?.Created(uri);
+
+            var factory = state.WebSocketConnections ?? ClientWebSocketConnectionFactory.For(observation is not null);
             connection = factory.Create(uri, protocols, options.MaxResponseBytes, options.UserAgent);
         }
+        else if (observation is not null && Uri.TryCreate(url.Serialize(), UriKind.Absolute, out var refused))
+        {
+            observation.Created(refused);
+        }
 
-        var operation = new WebSocketOperation(_engine, _realm, socket, connection, options.Timeout);
+        var operation = new WebSocketOperation(_engine, _realm, socket, connection, options.Timeout, observation, protocols);
         socket.Operation = operation;
         state.RegisterWebSocket(socket);
         operation.Start();
