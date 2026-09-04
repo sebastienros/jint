@@ -241,6 +241,42 @@ internal static class WptBrowserCensus
         return table.ToString();
     }
 
+    /// <summary>What the lane measured for the named suites, totalled.</summary>
+    /// <remarks>
+    /// The same three quantities the table renders, for a caller that wants to hold a <i>sentence</i> to them
+    /// rather than a row — <c>WptBrowserCauseTests</c> is the one, and the sentence is the one above the cause
+    /// table. Read from the corpus and the run, never from the table, so the two cannot agree by copying. It
+    /// also validates that every report completed before any cause is reconciled or rendered.
+    /// </remarks>
+    internal static (int Documents, int Tests, int NotPassing) MeasuredTotals(IReadOnlyList<string> suites)
+    {
+        var observations = _observed.CompleteCounts();
+        var documents = 0;
+        var tests = 0;
+        var notPassing = 0;
+
+        foreach (var suite in suites)
+        {
+            var name = suite.TrimEnd('/');
+
+            foreach (var path in WptBrowserCorpus.Cases(name))
+            {
+                if (WptBrowserCorpus.IsVendored(path))
+                {
+                    documents++;
+                }
+
+                if (observations.TryGetValue(path, out var counts))
+                {
+                    tests += counts.Tests;
+                    notPassing += counts.NotPassing;
+                }
+            }
+        }
+
+        return (documents, tests, notPassing);
+    }
+
     private static string Number(int value) => value.ToString("N0", CultureInfo.InvariantCulture);
 
     private static Dictionary<string, (int Tests, int NotPassing)> ParseClaimedCounts(IReadOnlyList<string> lines)
@@ -403,7 +439,7 @@ internal static class WptBrowserCensus
         return path;
     }
 
-    private static string LocateReadmeOnDisk()
+    internal static string LocateReadmeOnDisk()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory is not null)

@@ -809,43 +809,9 @@ internal static class WptBrowserExclusions
         ["html/webappapis/scripting/processing-model-2/window-onerror-with-cross-frame-event-listeners-5.html"] = 1,
     };
 
-    /// <summary>
-    /// Every test that does not pass, with the category it belongs to.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// An entry must match at least one failing test and no passing one, so a fix, a rename or a corpus bump
-    /// makes the run fail until this table is brought back in line — which is what makes a <c>*</c> safe to
-    /// write. A file whose every test fails for one cause is one row; a file where some pass is named test by
-    /// test, or by a glob over a family the file generates.
-    /// </para>
-    /// <para>
-    /// <b><see cref="WptDivergence.NeedsTriage"/> records bounded causes, not a count of exclusion rows.</b> The eleven
-    /// defects this lane first recorded were filed as
-    /// https://github.com/sebastienros/jint/issues/3686 to 3695 and are fixed; what is left is named in
-    /// <c>Wpt/README.md</c>, one section per cause, and every one of them is bounded — a scheme a subresource
-    /// cannot fetch, a member AngleSharp reflects wrong, an <c>@@unscopables</c> object the binding does not
-    /// emit, and a custom element.
-    /// </para>
-    /// <para>
-    /// <b>The DOM suites made it much bigger, and every one of those causes is bounded.</b> They now hold
-    /// 1,128 failing tests over 219 documents, and <c>Wpt/README.md</c>'s "What the DOM corpus says about this
-    /// browser" names eighteen causes with the count each accounts for. Ten families were filed as
-    /// https://github.com/sebastienros/jint/issues/3765 to 3774 and one was already open as
-    /// https://github.com/sebastienros/jint/issues/3712, so a row here that is not one of
-    /// <see cref="WptDivergence.NeedsIframeScripting"/>, <see cref="WptDivergence.NeedsXmlDocuments"/> or
-    /// <see cref="WptDivergence.NeedsMoreEventInterfaces"/> is a numbered debt rather than an unread one.
-    /// </para>
-    /// <para>
-    /// <b>The Selectors-API table adds one bounded group on current main.</b> Its 128 failing rows cover the
-    /// selector-error contract, link and target state, enabled links, no-namespace selectors and
-    /// <c>::slotted</c>. The patterns below group only rows with the same selector and outcome; the runner
-    /// still proves each pattern matches a failure and no passing test.
-    /// </para>
-    /// </remarks>
-    internal static readonly WptExclusion[] All =
+    // ---------------------------------------------------------------- 1. an event interface this browser has not built
+    private static readonly WptExclusion[] _1AnEventInterfaceThisBrowserHasNotBuilt =
     [
-        // ---------------------------------------------------------------- 1. an event interface this browser has not built
         // https://dom.spec.whatwg.org/#dom-document-createevent's alias table names five interfaces
         // Jint.Browser deliberately does not build, and this file is the only place a page meets them all at
         // once: it asks each of them for an uninitialized event and dispatches it. `createEvent` refuses the
@@ -855,8 +821,11 @@ internal static class WptBrowserExclusions
         new("dom/events/EventTarget-dispatchEvent.html", "If the event's initialized flag is not set, an InvalidStateError must be thrown (DeviceOrientationEvent).", WptDivergence.NeedsMoreEventInterfaces),
         new("dom/events/EventTarget-dispatchEvent.html", "If the event's initialized flag is not set, an InvalidStateError must be thrown (DragEvent).", WptDivergence.NeedsMoreEventInterfaces),
         new("dom/events/EventTarget-dispatchEvent.html", "If the event's initialized flag is not set, an InvalidStateError must be thrown (StorageEvent).", WptDivergence.NeedsMoreEventInterfaces),
+    ];
 
-        // ---------------------------------------------------------------- 2. a `data:` URL subresource
+    // ---------------------------------------------------------------- 2. a `data:` URL subresource
+    private static readonly WptExclusion[] _2ADataURLSubresource =
+    [
         // A page navigates to a `data:` URL and cannot fetch one as a subresource, so a
         // `<script src="data:text/javascript,…">` is never run — which is what "ran expected true got false"
         // says here. The report site these documents are about works; what is missing is the scheme, and
@@ -864,8 +833,11 @@ internal static class WptBrowserExclusions
         new("html/webappapis/scripting/processing-model-2/compile-error-data-url.html", "*", WptDivergence.NeedsTriage),
         new("html/webappapis/scripting/processing-model-2/runtime-error-data-url.html", "*", WptDivergence.NeedsTriage),
         new("html/webappapis/scripting/processing-model-2/body-onerror-compile-error-data-url.html", "<body onerror> - compile error in <script src=data:...>", WptDivergence.NeedsTriage),
+    ];
 
-        // ---------------------------------------------------------------- 3. a URL's fragment is dropped
+    // ---------------------------------------------------------------- 3. a URL's fragment is dropped
+    private static readonly WptExclusion[] _3AURLSFragmentIsDropped =
+    [
         // This group used to be four rows and the cause was `script.src` not reflecting a URL: HTML says the
         // `src` IDL attribute reflects the content attribute AS A URL, so it answers the resolved absolute
         // one, and AngleSharp's `IHtmlScriptElement.Source` answered the raw attribute value. #3770's
@@ -877,8 +849,11 @@ internal static class WptBrowserExclusions
         // change to `Runtime/`, not to the binding.
         new("html/webappapis/scripting/processing-model-2/compile-error-same-origin-with-hash.html", "window.onerror - compile error in <script src=...> with hash", WptDivergence.NeedsTriage),
         new("html/webappapis/scripting/processing-model-2/runtime-error-same-origin-with-hash.html", "window.onerror - runtime error in <script src=...> with hash", WptDivergence.NeedsTriage),
+    ];
 
-        // ---------------------------------------------------------------- 4. AngleSharp has no HTMLDListElement
+    // ---------------------------------------------------------------- 4. AngleSharp has no HTMLDListElement
+    private static readonly WptExclusion[] _4AngleSharpHasNoHTMLDListElement =
+    [
         // HTML gives <dl> its own interface, whose one member is the obsolete `compact`. The pinned
         // assemblies have no IHtmlDListElement and no [DomName("HTMLDListElement")], so a <dl> is an
         // HTMLElement here and there is no interface for a `reflected` row to put `compact` on — putting it
@@ -903,22 +878,31 @@ internal static class WptBrowserExclusions
         new("html/dom/reflection-grouping.html", "dl.compact: IDL set to Infinity", WptDivergence.NeedsTriage),
         new("html/dom/reflection-grouping.html", "dl.compact: IDL set to -Infinity", WptDivergence.NeedsTriage),
         new("html/dom/reflection-grouping.html", "dl.compact: IDL set to null", WptDivergence.NeedsTriage),
+    ];
 
-        // ---------------------------------------------------------------- 5. a DOM prototype has no @@unscopables
+    // ---------------------------------------------------------------- 5. a DOM prototype has no @@unscopables
+    private static readonly WptExclusion[] _5ADOMPrototypeHasNoUnscopables =
+    [
         // WebIDL puts an `@@unscopables` object on the interface prototype object of every interface with an
         // `[Unscopable]` member — `Element`'s and `Document`'s `append`, `prepend` and `replaceChildren`
         // among them — and this binding emits none, because AngleSharp's metadata does not say which members
         // are unscopable. The three rows below never reach their subject: they *write* to
         // `document[Symbol.unscopables]`, which is undefined here.
         new("html/webappapis/scripting/events/compile-event-handler-symbol-unscopables.html", "*", WptDivergence.NeedsTriage),
+    ];
 
-        // ---------------------------------------------------------------- 4b. a custom element
+    // ---------------------------------------------------------------- 4b. a custom element
+    private static readonly WptExclusion[] _4bACustomElement =
+    [
         // The file's other three rows pass. This one defines a form-associated custom element, and
         // `window.customElements` is a name this browser does not have — the same reason
         // `EventTarget-add-listener-platform-object.html` is not vendored.
         new("html/webappapis/scripting/events/compile-event-handler-lexical-scopes-form-owner.html", "form-associated <x-foo> has a form owner", WptDivergence.NeedsTriage),
+    ];
 
-        // ---------------------------------------------------------------- 6. a frame that runs script
+    // ---------------------------------------------------------------- 6. a frame that runs script
+    private static readonly WptExclusion[] _6AFrameThatRunsScriptTheScriptingSuites =
+    [
         // `eventhandler-cancellation.html` fires its events at `frames[0]`, which is an iframe's window. A
         // frame has a window since #3771 — but this file's frame is `<iframe>` with no `src`, and a frame
         // with no source is never asked for and so has no document and no window here, where HTML gives it an
@@ -927,8 +911,11 @@ internal static class WptBrowserExclusions
         // global. It is the NeedsIframeScripting group below by cause, and is here only because the file is
         // in another suite.
         new("html/webappapis/scripting/events/eventhandler-cancellation.html", "*", WptDivergence.NeedsIframeScripting),
+    ];
 
-        // ---------------------------------------------------------------- 7. a bubbling `submit` the file counts as an activation
+    // ---------------------------------------------------------------- 7. a bubbling `submit` the file counts as an activation
+    private static readonly WptExclusion[] _7ABubblingSubmitTheFileCountsAsAnActivation =
+    [
         // `Event-dispatch-single-activation-behavior.html` builds 132 nesting shapes and asserts that exactly
         // one activation behaviour runs. Its instrumentation is the *handler* — `<form onsubmit="activated(this)">`
         // — and for eight of the shapes that cannot tell an activation behaviour from an ordinary bubble:
@@ -949,8 +936,11 @@ internal static class WptBrowserExclusions
         new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <FORM><INPUT type=reset></INPUT></FORM> of parent <FORM><BUTTON type=reset></BUTTON></FORM>, only child should be activated.", WptDivergence.AssertsWhatNothingRequires),
         new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <FORM><INPUT type=submit></INPUT></FORM> of parent <FORM><BUTTON type=submit></BUTTON></FORM>, only child should be activated.", WptDivergence.AssertsWhatNothingRequires),
         new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <FORM><INPUT type=submit></INPUT></FORM> of parent <FORM><INPUT type=image></INPUT></FORM>, only child should be activated.", WptDivergence.AssertsWhatNothingRequires),
+    ];
 
-        // ---------------------------------------------------------------- a frame that runs script
+    // ---------------------------------------------------------------- a frame that runs script
+    private static readonly WptExclusion[] _aFrameThatRunsScriptCustomElements =
+    [
         // https://html.spec.whatwg.org/multipage/nav-history-apis.html#window: each of these needs a second
         // *realm* with a document in it — a cross-realm listener, a `beforeunload` result coerced in the
         // frame's realm, an exception reported in the realm of the listener that threw. A frame has a window
@@ -973,8 +963,11 @@ internal static class WptBrowserExclusions
         new("html/webappapis/scripting/processing-model-2/window-onerror-with-cross-frame-event-listeners-3.html", "*", WptDivergence.NeedsIframeScripting),
         new("html/webappapis/scripting/processing-model-2/window-onerror-with-cross-frame-event-listeners-4.html", "*", WptDivergence.NeedsIframeScripting),
         new("html/webappapis/scripting/processing-model-2/window-onerror-with-cross-frame-event-listeners-5.html", "*", WptDivergence.NeedsIframeScripting),
+    ];
 
-        // ---------------------------------------------------------------- a rendering
+    // ---------------------------------------------------------------- a rendering
+    private static readonly WptExclusion[] _aRendering =
+    [
         // `MouseEvent.offsetX` against a `body { margin: 8px }`, which is a used value and not a computed
         // one. Named access now carries it as far as the assertion, which is where no fix short of campaign
         // item C4's flat renderer moves it.
@@ -984,8 +977,11 @@ internal static class WptBrowserExclusions
         // What the custom element corpus found. Every one of these is a defect somebody owes a fix for:
         // `Wpt/README.md` groups them by cause and names each, and the groups below are that list in the
         // order the README gives it.
+    ];
 
-        // ---------------------------------------------------------------- the registry, the constructor and the two creation members
+    // ---------------------------------------------------------------- the registry, the constructor and the two creation members
+    private static readonly WptExclusion[] _theRegistryTheConstructorAndTheTwoCreationMembers =
+    [
         new("custom-elements/CustomElementRegistry-constructor-and-callbacks-are-held-strongly.html", "adoptedCallback", WptDivergence.NeedsTriage),
         new("custom-elements/CustomElementRegistry-getName.html", "customElements.getName must throw when the element interface is not a constructor", WptDivergence.NeedsTriage),
         new("custom-elements/CustomElementRegistry-getName.html", "customElements.getName returns the name of the entry with the given constructor when there is a matching entry.", WptDivergence.NeedsTriage),
@@ -1005,18 +1001,27 @@ internal static class WptBrowserExclusions
         new("custom-elements/attribute-changed-callback.html", "attributedChangedCallback must be enqueued for style attribute change by mutating inline style declaration", WptDivergence.NeedsTriage),
         new("custom-elements/attribute-changed-callback.html", "setAttributeNS and removeAttributeNS must enqueue and invoke attributeChangedCallback", WptDivergence.NeedsTriage),
         new("custom-elements/attribute-changed-callback.html", "setAttributeNode and removeAttributeNS must enqueue and invoke attributeChangedCallback for an SVG attribute", WptDivergence.NeedsTriage),
+    ];
 
-        // ---------------------------------------------------------------- the callbacks and when they run
+    // ---------------------------------------------------------------- the callbacks and when they run
+    private static readonly WptExclusion[] _theCallbacksAndWhenTheyRun =
+    [
         new("custom-elements/microtasks-and-constructors.html", "Microtasks evaluate immediately when the stack is empty inside the parser", WptDivergence.NeedsTriage),
         new("custom-elements/microtasks-and-constructors.html", "Microtasks evaluate immediately when the stack is empty inside the parser, causing the checks on no attributes to fail", WptDivergence.NeedsTriage),
         new("custom-elements/reaction-timing.html", "*", WptDivergence.NeedsTriage),
+    ];
 
-        // ---------------------------------------------------------------- the customized built-in table
+    // ---------------------------------------------------------------- the customized built-in table
+    private static readonly WptExclusion[] _theCustomizedBuiltInTable =
+    [
         new("custom-elements/builtin-coverage.html", "*: Operator 'new' should instantiate a customized built-in element", WptDivergence.NeedsTriage),
         new("custom-elements/builtin-coverage.html", "*: document.createElement() should instantiate a customized built-in element", WptDivergence.NeedsTriage),
         new("custom-elements/builtin-coverage.html", "dl: Define a customized built-in element", WptDivergence.NeedsTriage),
+    ];
 
-        // ---------------------------------------------------------------- the parser
+    // ---------------------------------------------------------------- the parser
+    private static readonly WptExclusion[] _theParser =
+    [
         new("custom-elements/parser/parser-constructs-custom-element-in-document-write.html", "HTML parser must instantiate custom elements inside document.write", WptDivergence.NeedsTriage),
         new("custom-elements/parser/parser-constructs-custom-element-synchronously.html", "*", WptDivergence.NeedsTriage),
         new("custom-elements/parser/parser-fallsback-to-unknown-element.html", "*", WptDivergence.NeedsTriage),
@@ -1025,13 +1030,19 @@ internal static class WptBrowserExclusions
         new("custom-elements/parser/parser-sets-attributes-and-children.html", "HTML parser should call connectedCallback before appending child nodes.", WptDivergence.NeedsTriage),
         new("custom-elements/parser/serializing-html-fragments-customized-builtins.html", "\"is\" value should be serialized even for an undefined element", WptDivergence.NeedsTriage),
         new("custom-elements/parser/serializing-html-fragments-customized-builtins.html", "\"is\" value should be serialized if the custom element has no \"is\" content attribute", WptDivergence.NeedsTriage),
+    ];
 
-        // ---------------------------------------------------------------- the upgrade
+    // ---------------------------------------------------------------- the upgrade
+    private static readonly WptExclusion[] _theUpgrade =
+    [
         new("custom-elements/upgrading/Node-cloneNode-customized-builtins.html", "*", WptDivergence.NeedsTriage),
         new("custom-elements/upgrading/upgrading-parser-created-element.html", "HTMLElement constructor must throw an TypeError when the top of the construction stack is marked AlreadyConstructed due to a custom element constructor constructing itself after super() call", WptDivergence.NeedsTriage),
         new("custom-elements/upgrading/upgrading-parser-created-element.html", "HTMLElement constructor must throw an TypeError when the top of the construction stack is marked AlreadyConstructed due to a custom element constructor constructing itself before super() call", WptDivergence.NeedsTriage),
+    ];
 
-        // ---------------------------------------------------------------- one [CEReactions] member per file
+    // ---------------------------------------------------------------- one [CEReactions] member per file
+    private static readonly WptExclusion[] _oneCEReactionsMemberPerFile =
+    [
         new("custom-elements/reactions/Animation.html", "*", WptDivergence.NeedsTriage),
         new("custom-elements/reactions/CSSStyleDeclaration.html", "*", WptDivergence.NeedsTriage),
         new("custom-elements/reactions/ChildNode.html", "after on ChildNode must enqueue a disconnected reaction, an adopted reaction, and a connected reaction when the custom element was in another document", WptDivergence.NeedsTriage),
@@ -1053,8 +1064,11 @@ internal static class WptBrowserExclusions
         new("custom-elements/reactions/Node.html", "replaceChild on ChildNode must enqueue a disconnected reaction, an adopted reaction, and a connected reaction when the custom element was in another document", WptDivergence.NeedsTriage),
         new("custom-elements/reactions/ParentNode.html", "append on ParentNode must enqueue a disconnected reaction, an adopted reaction, and a connected reaction when the custom element was in another document", WptDivergence.NeedsTriage),
         new("custom-elements/reactions/ParentNode.html", "prepend on ParentNode must enqueue a disconnected reaction, an adopted reaction, and a connected reaction when the custom element was in another document", WptDivergence.NeedsTriage),
+    ];
 
-        // ---------------------------------------------------------------- a frame that runs script
+    // ---------------------------------------------------------------- a frame that runs script
+    private static readonly WptExclusion[] _aFrameThatRunsScript =
+    [
         // a second global with a document in it
         // Not the frame any more, and the twin of the same move in Document-createElementNS.html: a frame
         // has a window now, so what is left of these 49 is that `application/xhtml+xml` is parsed by the
@@ -1117,16 +1131,22 @@ internal static class WptBrowserExclusions
         new("dom/nodes/node-realm-mixed-across-adoption.html", "*", WptDivergence.NeedsIframeScripting),
         new("dom/nodes/node-realm-preserved-across-adoption.html", "*", WptDivergence.NeedsIframeScripting),
         new("dom/nodes/node-realm-preserved-across-frameless-adoption.html", "*", WptDivergence.NeedsIframeScripting),
+    ];
 
-        // ---------------------------------------------------------------- DOMTokenList: the token validation, the indexed access and the iteration
+    // ---------------------------------------------------------------- DOMTokenList: the token validation, the indexed access and the iteration
+    private static readonly WptExclusion[] _dOMTokenListTheTokenValidationTheIndexedAccessAndTheIteration =
+    [
         // DOMTokenList's validation and its indexed access
         new("dom/lists/DOMTokenList-coverage-for-attributes.html", "a.relList in http://www.w3.org/1998*", WptDivergence.NeedsTriage),
         new("dom/lists/DOMTokenList-coverage-for-attributes.html", "a.relList in http://www.w3.org/2000*", WptDivergence.NeedsTriage),
         new("dom/lists/DOMTokenList-coverage-for-attributes.html", "iframe.sandbox*DOMTokenList.", WptDivergence.NeedsTriage),
         new("dom/lists/DOMTokenList-coverage-for-attributes.html", "link.sizes*DOMTokenList.", WptDivergence.NeedsTriage),
         new("dom/lists/DOMTokenList-coverage-for-attributes.html", "output.htmlFor*DOMTokenList.", WptDivergence.NeedsTriage),
+    ];
 
-        // ---------------------------------------------------------------- a member of a DOM interface the bindings do not have
+    // ---------------------------------------------------------------- a member of a DOM interface the bindings do not have
+    private static readonly WptExclusion[] _aMemberOfADOMInterfaceTheBindingsDoNotHave =
+    [
         // a member of a DOM interface the bindings do not have
         new("dom/nodes/Document-createEvent.https.html", "createEvent('DEVICEMOTIONEVENT*", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createEvent.https.html", "createEvent('DEVICEORIENTATIONEVENT*", WptDivergence.NeedsTriage),
@@ -1144,8 +1164,11 @@ internal static class WptBrowserExclusions
         new("dom/nodes/attributes.html", "*tests", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "*toggleAttribute)", WptDivergence.NeedsTriage),
         new("dom/nodes/remove-unscopable.html", "*", WptDivergence.NeedsTriage),
+    ];
 
-        // ---------------------------------------------------------------- an XML document, and the two members that make one
+    // ---------------------------------------------------------------- an XML document, and the two members that make one
+    private static readonly WptExclusion[] _anXMLDocumentAndTheTwoMembersThatMakeOne =
+    [
         // an XML document, and the members that make one
         // This document's table is built inside its first test, and the builder calls createDocument — so
         // while the member was absent the file reported *two* tests and the rest were never registered at
@@ -1165,8 +1188,11 @@ internal static class WptBrowserExclusions
         new("dom/nodes/processing-instruction-attributes.html", "Processing*", WptDivergence.NeedsXmlDocuments),
         // Range adoption across documents still depends on the XML-document lane this category tracks.
         new("dom/ranges/Range-adopt-test.html", "*appendChild: Removing the only element in the range must collapse the range", WptDivergence.NeedsXmlDocuments),
+    ];
 
-        // ---------------------------------------------------------------- a collection's named and indexed properties, and its liveness
+    // ---------------------------------------------------------------- a collection's named and indexed properties, and its liveness
+    private static readonly WptExclusion[] _aCollectionSNamedAndIndexedPropertiesAndItsLiveness =
+    [
         // a collection's named and indexed properties
         new("dom/nodes/Document-getElementById.html", "*string argument.", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-getElementsByTagName.html", "HTML*", WptDivergence.NeedsTriage),
@@ -1182,12 +1208,18 @@ internal static class WptBrowserExclusions
         new("dom/nodes/case.html", "createElementNS http://www.w3.org/1999*ABC", WptDivergence.NeedsTriage),
         new("dom/nodes/case.html", "createElementNS http://www.w3.org/1999*Abc", WptDivergence.NeedsTriage),
         new("dom/nodes/getElementsByClassName-14.htm", "*)", WptDivergence.NeedsTriage),
+    ];
 
-        // ---------------------------------------------------------------- a (Node or DOMString) union parameter takes only a Node
+    // ---------------------------------------------------------------- a (Node or DOMString) union parameter takes only a Node
+    private static readonly WptExclusion[] _aNodeOrDOMStringUnionParameterTakesOnlyANode =
+    [
         // a (Node or DOMString) union parameter takes only a Node
         new("dom/nodes/ChildNode-before.html", "*the argument.", WptDivergence.NeedsTriage),
+    ];
 
-        // ---------------------------------------------------------------- DOM's validate-and-extract, and the XML name productions
+    // ---------------------------------------------------------------- DOM's validate-and-extract, and the XML name productions
+    private static readonly WptExclusion[] _dOMSValidateAndExtractAndTheXMLNameProductions =
+    [
         // DOM's validate-and-extract, and the XML name productions
         new("dom/nodes/DOMImplementation-createDocumentType.html", "*:\", \"\", \"\") should work", WptDivergence.NeedsTriage),
         new("dom/nodes/DOMImplementation-createDocumentType.html", "*@\", \"\", \"\") should work", WptDivergence.NeedsTriage),
@@ -1210,8 +1242,11 @@ internal static class WptBrowserExclusions
         new("dom/nodes/DOMImplementation-createDocumentType.html", "createDocumentType(\"}*", WptDivergence.NeedsTriage),
         new("dom/nodes/DOMImplementation-createDocumentType.html", "createDocumentType(\"~*", WptDivergence.NeedsTriage),
         new("dom/nodes/name-validation.html", "*", WptDivergence.NeedsTriage),
+    ];
 
-        // ---------------------------------------------------------------- a name AngleSharp refuses that the standard allows
+    // ---------------------------------------------------------------- a name AngleSharp refuses that the standard allows
+    private static readonly WptExclusion[] _aNameAngleSharpRefusesThatTheStandardAllows =
+    [
         // a name AngleSharp refuses that the standard allows, and the two refusals it still does not make
         new("dom/nodes/Document-createElement.html", "*<oo\") in HTML document", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElement.html", "*uffff\") in HTML document", WptDivergence.NeedsTriage),
@@ -1264,19 +1299,28 @@ internal static class WptBrowserExclusions
         new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: \"http://example.com/\",\"a:̀\",null,null", WptDivergence.NeedsTriage),
         new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: \"http://example.com/\",\"̀:a\",null,null", WptDivergence.NeedsTriage),
         new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: \"http://example.com/\",\";:a\",null,null", WptDivergence.NeedsTriage),
+    ];
 
-        // ---------------------------------------------------------------- a nullable DOMString answers the string "null"
+    // ---------------------------------------------------------------- a nullable DOMString answers the string "null"
+    private static readonly WptExclusion[] _aNullableDOMStringAnswersTheStringNull =
+    [
         // a DOMString? parameter or attribute answers the string "null"
         new("dom/nodes/CharacterData-data.html", "*null", WptDivergence.NeedsTriage),
         new("dom/nodes/Node-nodeValue.html", "Comment*", WptDivergence.NeedsTriage),
         new("dom/nodes/Node-nodeValue.html", "ProcessingInstruction*", WptDivergence.NeedsTriage),
         new("dom/nodes/Node-nodeValue.html", "Text*", WptDivergence.NeedsTriage),
+    ];
 
-        // ---------------------------------------------------------------- Range's own algorithms
+    // ---------------------------------------------------------------- Range's own algorithms
+    private static readonly WptExclusion[] _rangeSOwnAlgorithms =
+    [
         // Range's remaining algorithms
         new("dom/ranges/Range-in-shadow-after-the-shadow-removed.html", "*", WptDivergence.NeedsTriage),
+    ];
 
-        // ---------------------------------------------------------------- an event interface this browser does not build
+    // ---------------------------------------------------------------- an event interface this browser does not build
+    private static readonly WptExclusion[] _anEventInterfaceThisBrowserDoesNotBuild =
+    [
         // an event interface this package deliberately does not build
         new("dom/nodes/Document-createEvent.https.html", "*DeviceMotionEvent.", WptDivergence.NeedsMoreEventInterfaces),
         new("dom/nodes/Document-createEvent.https.html", "*DeviceOrientationEvent.", WptDivergence.NeedsMoreEventInterfaces),
@@ -1286,8 +1330,11 @@ internal static class WptBrowserExclusions
         new("dom/nodes/Document-createEvent.https.html", "createEvent('TOUCHEVENT*", WptDivergence.NeedsMoreEventInterfaces),
         new("dom/nodes/Document-createEvent.https.html", "createEvent('TouchEvent*", WptDivergence.NeedsMoreEventInterfaces),
         new("dom/nodes/Document-createEvent.https.html", "createEvent('touchevent*", WptDivergence.NeedsMoreEventInterfaces),
+    ];
 
-        // ---------------------------------------------------------------- a document with no browsing context
+    // ---------------------------------------------------------------- a document with no browsing context
+    private static readonly WptExclusion[] _aDocumentWithNoBrowsingContext =
+    [
         // a document with no browsing context, and what createHTMLDocument makes
         new("dom/nodes/DOMImplementation-createHTMLDocument-with-saved-implementation.html", "*", WptDivergence.NeedsTriage),
         new("dom/nodes/DOMImplementation-createHTMLDocument.html", "*\",\"\"", WptDivergence.NeedsTriage),
@@ -1296,8 +1343,11 @@ internal static class WptBrowserExclusions
         new("dom/nodes/DOMImplementation-createHTMLDocument.html", "*null", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-constructor.html", "*aliases", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-constructor.html", "*metadata", WptDivergence.NeedsTriage),
+    ];
 
-        // ---------------------------------------------------------------- the selector engine: escapes, :scope and :has
+    // ---------------------------------------------------------------- the selector engine: escapes, :scope and :has
+    private static readonly WptExclusion[] _theSelectorEngineEscapesScopeAndHas =
+    [
         // the selector engine's escapes, :scope and :has
         new("dom/nodes/Element-closest.html", "*div > :scope'", WptDivergence.NeedsTriage),
         new("dom/nodes/Element-closest.html", "*invalid'", WptDivergence.NeedsTriage),
@@ -1306,8 +1356,11 @@ internal static class WptBrowserExclusions
         new("dom/nodes/ParentNode-querySelector-escapes.html", "\"�\"*", WptDivergence.NeedsTriage),
         new("dom/nodes/ParentNode-querySelector-escapes.html", "*\\\"", WptDivergence.NeedsTriage),
         new("dom/nodes/ParentNode-querySelector-escapes.html", "*ns\"", WptDivergence.NeedsTriage),
+    ];
 
-        // ---------------------------------------------------------------- the Selectors-API table and selector-only element states
+    // ---------------------------------------------------------------- the Selectors-API table and selector-only element states
+    private static readonly WptExclusion[] _theSelectorsAPITableAndSelectorOnlyElementStates =
+    [
         // Selectors-API runs the same table through matches(), its prefixed alias, and
         // querySelector/querySelectorAll in five contexts. Most of its old syntax divergences now pass;
         // these patterns are the remaining current-main failures, grouped only where the test names state
@@ -1341,21 +1394,30 @@ internal static class WptBrowserExclusions
         new("dom/nodes/ParentNode-querySelector-All.html", "*Namespace selector, matching any elements in no namespace only*", WptDivergence.NeedsTriage),
         new("dom/nodes/ParentNode-querySelector-All.html", "*Slotted selector: ::slotted(foo)*", WptDivergence.NeedsTriage),
         new("dom/nodes/ParentNode-querySelector-All.html", "*Slotted selector (no matching closing paren): ::slotted(foo*", WptDivergence.NeedsTriage),
+    ];
 
-        // ---------------------------------------------------------------- a member the standard removed and this browser still has
+    // ---------------------------------------------------------------- a member the standard removed and this browser still has
+    private static readonly WptExclusion[] _aMemberTheStandardRemovedAndThisBrowserStillHas =
+    [
         // a member the standard removed and this browser still has
         new("html/dom/historical.html", "*interface is removed", WptDivergence.NeedsTriage),
         new("html/dom/historical.html", "*styled", WptDivergence.NeedsTriage),
         new("html/dom/historical.html", "<applet*", WptDivergence.NeedsTriage),
         new("html/dom/historical.html", "document.*", WptDivergence.NeedsTriage),
+    ];
 
-        // ---------------------------------------------------------------- MutationObserver's records
+    // ---------------------------------------------------------------- MutationObserver's records
+    private static readonly WptExclusion[] _mutationObserverSRecords =
+    [
         // MutationObserver's records
         new("dom/nodes/MutationObserver-document.html", "*parsing", WptDivergence.NeedsTriage),
         new("dom/nodes/MutationObserver-document.html", "parser*", WptDivergence.NeedsTriage),
         new("dom/nodes/MutationObserver-inner-outer.html", "outerHTML*", WptDivergence.NeedsTriage),
+    ];
 
-        // ---------------------------------------------------------------- one assertion each
+    // ---------------------------------------------------------------- one assertion each
+    private static readonly WptExclusion[] _oneAssertionEach =
+    [
         // one assertion each; see Wpt/README.md
         new("dom/nodes/ChildNode-after.html", "*positions.", WptDivergence.NeedsTriage),
         new("dom/nodes/ChildNode-before.html", "*positions.", WptDivergence.NeedsTriage),
@@ -1406,4 +1468,94 @@ internal static class WptBrowserExclusions
         new("dom/nodes/attributes.html", "setAttribute*name", WptDivergence.NeedsTriage),
         new("html/dom/access-key-label.html", "*invalid", WptDivergence.NeedsTriage),
     ];
+
+    /// <summary>The causes this corpus found, each one the exclusions that are it.</summary>
+    /// <remarks>
+    /// A cause was a comment until it became a value a run could count. Its unique name is the hidden key
+    /// used by the corresponding README row; the row's prose remains hand-written.
+    /// </remarks>
+    internal static readonly WptCause[] Causes =
+    [
+        new("1. an event interface this browser has not built", _1AnEventInterfaceThisBrowserHasNotBuilt),
+        new("2. a `data:` URL subresource", _2ADataURLSubresource),
+        new("3. a URL's fragment is dropped", _3AURLSFragmentIsDropped),
+        new("4. AngleSharp has no HTMLDListElement", _4AngleSharpHasNoHTMLDListElement),
+        new("5. a DOM prototype has no @@unscopables", _5ADOMPrototypeHasNoUnscopables),
+        new("4b. a custom element", _4bACustomElement),
+        new("6. a frame that runs script: the scripting suites", _6AFrameThatRunsScriptTheScriptingSuites),
+        new("7. a bubbling `submit` the file counts as an activation", _7ABubblingSubmitTheFileCountsAsAnActivation),
+        new("a frame that runs script: custom elements", _aFrameThatRunsScriptCustomElements),
+        new("a rendering", _aRendering),
+        new("the registry, the constructor and the two creation members", _theRegistryTheConstructorAndTheTwoCreationMembers),
+        new("the callbacks and when they run", _theCallbacksAndWhenTheyRun),
+        new("the customized built-in table", _theCustomizedBuiltInTable),
+        new("the parser", _theParser),
+        new("the upgrade", _theUpgrade),
+        new("one [CEReactions] member per file", _oneCEReactionsMemberPerFile),
+        new("a frame that runs script", _aFrameThatRunsScript),
+        new("DOMTokenList: the token validation, the indexed access and the iteration", _dOMTokenListTheTokenValidationTheIndexedAccessAndTheIteration),
+        new("a member of a DOM interface the bindings do not have", _aMemberOfADOMInterfaceTheBindingsDoNotHave),
+        new("an XML document, and the two members that make one", _anXMLDocumentAndTheTwoMembersThatMakeOne),
+        new("a collection's named and indexed properties, and its liveness", _aCollectionSNamedAndIndexedPropertiesAndItsLiveness),
+        new("a (Node or DOMString) union parameter takes only a Node", _aNodeOrDOMStringUnionParameterTakesOnlyANode),
+        new("DOM's validate-and-extract, and the XML name productions", _dOMSValidateAndExtractAndTheXMLNameProductions),
+        new("a name AngleSharp refuses that the standard allows", _aNameAngleSharpRefusesThatTheStandardAllows),
+        new("a nullable DOMString answers the string \"null\"", _aNullableDOMStringAnswersTheStringNull),
+        new("Range's own algorithms", _rangeSOwnAlgorithms),
+        new("an event interface this browser does not build", _anEventInterfaceThisBrowserDoesNotBuild),
+        new("a document with no browsing context", _aDocumentWithNoBrowsingContext),
+        new("the selector engine: escapes, :scope and :has", _theSelectorEngineEscapesScopeAndHas),
+        new("the Selectors-API table and selector-only element states", _theSelectorsAPITableAndSelectorOnlyElementStates),
+        new("a member the standard removed and this browser still has", _aMemberTheStandardRemovedAndThisBrowserStillHas),
+        new("MutationObserver's records", _mutationObserverSRecords),
+        new("one assertion each", _oneAssertionEach),
+    ];
+
+    /// <summary>
+    /// Every test that does not pass, with the category it belongs to.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// An entry must match at least one failing test and no passing one, so a fix, a rename or a corpus bump
+    /// makes the run fail until this table is brought back in line — which is what makes a <c>*</c> safe to
+    /// write. A file whose every test fails for one cause is one row; a file where some pass is named test by
+    /// test, or by a glob over a family the file generates.
+    /// </para>
+    /// <para>
+    /// <b><see cref="WptDivergence.NeedsTriage"/> records bounded causes, not a count of exclusion rows.</b> The eleven
+    /// defects this lane first recorded were filed as
+    /// https://github.com/sebastienros/jint/issues/3686 to 3695 and are fixed; what is left is named in
+    /// <c>Wpt/README.md</c>, one section per cause, and every one of them is bounded — a scheme a subresource
+    /// cannot fetch, a member AngleSharp reflects wrong, an <c>@@unscopables</c> object the binding does not
+    /// emit, and a custom element.
+    /// </para>
+    /// <para>
+    /// <b>The DOM suites made it much bigger, and every one of those causes is bounded.</b> They now hold
+    /// 1,128 failing tests over 219 documents, and <c>Wpt/README.md</c>'s "What the DOM corpus says about this
+    /// browser" names eighteen causes with the count each accounts for. Ten families were filed as
+    /// https://github.com/sebastienros/jint/issues/3765 to 3774 and one was already open as
+    /// https://github.com/sebastienros/jint/issues/3712, so a row here that is not one of
+    /// <see cref="WptDivergence.NeedsIframeScripting"/>, <see cref="WptDivergence.NeedsXmlDocuments"/> or
+    /// <see cref="WptDivergence.NeedsMoreEventInterfaces"/> is a numbered debt rather than an unread one.
+    /// </para>
+    /// <para>
+    /// <b>The Selectors-API table adds one bounded group.</b> Its 128 failing rows cover the selector-error
+    /// contract, link and target state, enabled links, no-namespace selectors and <c>::slotted</c>. The
+    /// runner still proves each pattern matches a failure and no passing test.
+    /// </para>
+    /// </remarks>
+    internal static readonly WptExclusion[] All = Flatten();
+
+    private static WptExclusion[] Flatten()
+    {
+        var all = new List<WptExclusion>();
+
+        foreach (var cause in Causes)
+        {
+            all.AddRange(cause.Exclusions);
+        }
+
+        return all.ToArray();
+    }
+
 }
