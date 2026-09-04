@@ -32,20 +32,21 @@ namespace Jint.Browser.DevTools;
 /// thread that read them, and what they release is the fetch the loop is blocked on.
 /// </para>
 /// <para>
-/// <b>The <c>Request</c> stage only, and the reason has changed.</b> A pattern asking for
-/// <c>requestStage: "Response"</c> is still accepted and still matches nothing, but no longer because the
-/// engine cannot answer one: <c>FetchObserver.OnResponseAsync</c> is asked about the response that ends the
-/// chain and its answer substitutes, rewrites or fails it
-/// (<see href="https://github.com/sebastienros/jint/issues/3701">#3701</see> item 1). What is left is the
-/// wiring — this domain, <c>PageNetworkRecorder</c> and <c>IPageNetworkListener</c> — which is why
-/// <c>Fetch.continueResponse</c> is still absent and a response-stage pattern still matches nothing rather
-/// than pausing at something a client could not answer.
+/// <b>Both stages, and the response stage is opt-in per pattern.</b> A pattern asking for
+/// <c>requestStage: "Response"</c> pauses when the response's headers are in and its body has not been read,
+/// carrying <c>responseStatusCode</c>, <c>responseStatusText</c> and <c>responseHeaders</c>;
+/// <see cref="ContinueResponseAsync"/> lets it through with the status line and the header list rewritable,
+/// and <see cref="FulfillRequestAsync"/> and <see cref="FailRequestAsync"/> answer one too. A pattern that
+/// names no stage means <c>Request</c>, which is the protocol's own default — pausing both stages for it
+/// would double every pause a recorded client expects. The engine seam under it is
+/// <c>FetchObserver.OnResponseAsync</c>
+/// (<see href="https://github.com/sebastienros/jint/issues/3701">#3701</see> item 1).
 /// </para>
 /// <para>
 /// <b><c>Fetch.getResponseBody</c> and <c>Fetch.takeResponseBodyAsStream</c> (and with them the whole
-/// <c>IO</c> domain) need something further</b>: the seam hands the observer a response's headers while its
-/// body is still on the socket, so there are no bytes to give a paused client without buffering them first.
-/// <c>Network.getResponseBody</c> is what answers a body here.
+/// <c>IO</c> domain) need something further</b>: the pause has the response's headers while its body is
+/// still on the socket, so there are no bytes to give a paused client without buffering them first — a
+/// budget decision rather than a hook. <c>Network.getResponseBody</c> is what answers a body here.
 /// </para>
 /// <para>
 /// <b>No authentication challenge exists here.</b> <c>handleAuthRequests</c> is accepted and
@@ -60,6 +61,7 @@ internal sealed class FetchDomain : FetchDomainBase, IDetachableDomain
 {
     private readonly PageTarget _target;
     private readonly ConcurrentDictionary<string, PausedRequest> _paused = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, PausedResponse> _pausedResponses = new(StringComparer.Ordinal);
 
     private volatile RequestPattern[] _patterns = [];
     private long _lastInterception;
@@ -167,7 +169,102 @@ internal sealed class FetchDomain : FetchDomainBase, IDetachableDomain
         }
     }
 
-    /// <summary>Lets every paused request go, which disabling and detaching both do.</summary>
+    /// <summary>Whether this domain wants to be asked about <paramref name="request"/>'s response.</summary>
+    /// <remarks>
+    /// The response stage is opt-in per pattern, unlike the request stage: a client that named no
+    /// <c>requestStage</c> asked for the protocol's default, which is <c>Request</c>, and pausing its
+    /// responses as well would double every pause it expects.
+    /// </remarks>
+    internal bool WantsResponse(PageNetworkRequest request)
+    {
+        if (!IsEnabled)
+        {
+            return false;
+        }
+
+        foreach (var pattern in _patterns)
+        {
+            if (IsResponseStage(pattern) && Matches(pattern, request, RequestStageValues.Response))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Holds one response until the client answers it, and turns that answer into a decision.
+    /// </summary>
+    /// <remarks>
+    /// The same wait <see cref="PauseAsync"/> makes, at the other stage, and bounded by the same nothing of
+    /// this domain's own — the fetch carries the page's timeout and the document's token. A pause the token
+    /// ends delivers the response, because a fetch that has been abandoned is about to fail anyway.
+    /// </remarks>
+    internal async ValueTask<PageNetworkResponseDecision> PauseResponseAsync(
+        PageNetworkRequest request,
+        PageNetworkResponse response,
+        string frameId,
+        CancellationToken cancellationToken)
+    {
+        var id = "interception-job-" + Interlocked.Increment(ref _lastInterception).ToString(CultureInfo.InvariantCulture);
+        var paused = new PausedResponse();
+
+        _pausedResponses[id] = paused;
+
+        EmitDetached(ProtocolFetchEvents.RequestPaused(new RequestPausedEvent
+        {
+            RequestId = id,
+            Request = Describe(request),
+            FrameId = frameId,
+            ResourceType = ResourceTypeOf(request.Kind),
+            NetworkId = request.RequestId,
+
+            // What makes this a response-stage pause to every client: the protocol says the status code and
+            // the headers are present exactly then.
+            ResponseStatusCode = response.Status,
+            ResponseStatusText = response.StatusText,
+            ResponseHeaders = [.. response.Headers.Select(header => new HeaderEntry { Name = header.Name, Value = header.Value })],
+        }));
+
+        try
+        {
+            using var registration = cancellationToken.Register(
+                static state => ((PausedResponse) state!).Answer(PageNetworkResponseDecision.Proceed),
+                paused);
+
+            return await paused.Completion.Task.ConfigureAwait(false);
+        }
+        finally
+        {
+            _pausedResponses.TryRemove(id, out _);
+        }
+    }
+
+    /// <inheritdoc/>
+    /// <remarks>
+    /// https://chromedevtools.github.io/devtools-protocol/tot/Fetch/#method-continueResponse — the response
+    /// stage's own "let it through", with the status line and the header list rewritable and the body not:
+    /// the bytes have not been read and are still coming, so what this changes is what the response
+    /// <i>says</i>. <c>binaryResponseHeaders</c> is the same list in one <c>\0</c>-separated blob and is
+    /// read when a client sent it instead of <c>responseHeaders</c>.
+    /// </remarks>
+    protected override ValueTask<EmptyResult> ContinueResponseAsync(ContinueResponseRequest parameters, CommandContext context)
+    {
+        var paused = TakeResponse(parameters.RequestId);
+
+        IReadOnlyList<PageHeader>? headers = parameters.ResponseHeaders is { } declared
+            ? Headers(declared)
+            : Headers(parameters.BinaryResponseHeaders);
+
+        paused.Answer(headers is null && parameters.ResponseCode is null && parameters.ResponsePhrase is null
+            ? PageNetworkResponseDecision.Proceed
+            : PageNetworkResponseDecision.Continue(parameters.ResponseCode, parameters.ResponsePhrase, headers));
+
+        return new ValueTask<EmptyResult>(EmptyResult.Instance);
+    }
+
+    /// <summary>Lets every paused request and response go, which disabling and detaching both do.</summary>
     internal void ContinueEverything()
     {
         foreach (var id in _paused.Keys)
@@ -177,13 +274,21 @@ internal sealed class FetchDomain : FetchDomainBase, IDetachableDomain
                 paused.Answer(PageNetworkDecision.Proceed);
             }
         }
+
+        foreach (var id in _pausedResponses.Keys)
+        {
+            if (_pausedResponses.TryRemove(id, out var paused))
+            {
+                paused.Answer(PageNetworkResponseDecision.Proceed);
+            }
+        }
     }
 
     /// <inheritdoc/>
     /// <remarks>
-    /// <c>interceptResponse</c> is accepted and never honoured, for the reason the class remarks give: this
-    /// browser has no response stage to pause at, so asking to be paused again after the response is asking
-    /// for something that would never arrive.
+    /// <c>interceptResponse</c> is accepted and never honoured: a client asking to be paused again after the
+    /// response is asking for a second pause on a request it has already released, and the way to get a
+    /// response-stage pause here is a pattern that asks for one.
     /// </remarks>
     protected override ValueTask<EmptyResult> ContinueRequestAsync(ContinueRequestRequest parameters, CommandContext context)
     {
@@ -206,14 +311,21 @@ internal sealed class FetchDomain : FetchDomainBase, IDetachableDomain
     /// </remarks>
     protected override ValueTask<EmptyResult> FulfillRequestAsync(FulfillRequestRequest parameters, CommandContext context)
     {
-        var paused = Take(parameters.RequestId);
-
         IReadOnlyList<PageHeader>? headers = parameters.ResponseHeaders is { } declared
             ? Headers(declared)
             : Headers(parameters.BinaryResponseHeaders);
 
         var body = parameters.Body is { } encoded ? Convert.FromBase64String(encoded) : [];
 
+        // Either stage: Chrome answers a response-stage pause with this command too, and there the bytes the
+        // server sent are discarded unread rather than never asked for.
+        if (_pausedResponses.TryRemove(parameters.RequestId, out var pausedResponse))
+        {
+            pausedResponse.Answer(PageNetworkResponseDecision.Fulfill(parameters.ResponseCode, headers, body, parameters.ResponsePhrase));
+            return new ValueTask<EmptyResult>(EmptyResult.Instance);
+        }
+
+        var paused = Take(parameters.RequestId);
         paused.Answer(PageNetworkDecision.Fulfill(parameters.ResponseCode, headers, body, parameters.ResponsePhrase));
         return new ValueTask<EmptyResult>(EmptyResult.Instance);
     }
@@ -221,6 +333,13 @@ internal sealed class FetchDomain : FetchDomainBase, IDetachableDomain
     /// <inheritdoc/>
     protected override ValueTask<EmptyResult> FailRequestAsync(FailRequestRequest parameters, CommandContext context)
     {
+        // Either stage, like fulfillRequest above.
+        if (_pausedResponses.TryRemove(parameters.RequestId, out var pausedResponse))
+        {
+            pausedResponse.Answer(PageNetworkResponseDecision.Fail(NetworkError(parameters.ErrorReason)));
+            return new ValueTask<EmptyResult>(EmptyResult.Instance);
+        }
+
         var paused = Take(parameters.RequestId);
         paused.Answer(PageNetworkDecision.Fail(NetworkError(parameters.ErrorReason)));
         return new ValueTask<EmptyResult>(EmptyResult.Instance);
@@ -237,15 +356,31 @@ internal sealed class FetchDomain : FetchDomainBase, IDetachableDomain
         return paused!;
     }
 
+    /// <summary>The paused response one identifier names, or Chrome's own refusal.</summary>
+    private PausedResponse TakeResponse(string requestId)
+    {
+        if (!_pausedResponses.TryRemove(requestId, out var paused))
+        {
+            Throw.ServerError("Invalid InterceptionId.");
+        }
+
+        return paused!;
+    }
+
+    /// <summary>Whether one pattern asks about the response stage.</summary>
+    private static bool IsResponseStage(RequestPattern pattern)
+        => pattern.RequestStage is { } stage && string.Equals(stage, RequestStageValues.Response, StringComparison.Ordinal);
+
     /// <summary>Whether one pattern asks about one request.</summary>
     /// <remarks>
-    /// <c>requestStage: "Response"</c> matches nothing here until this domain is wired to the engine's
-    /// response stage; see the class remarks. A pattern with no
+    /// A pattern is asked about one stage at a time; a pattern with no
     /// <c>urlPattern</c> means every URL, which is the protocol's default.
     /// </remarks>
-    private static bool Matches(RequestPattern pattern, PageNetworkRequest request)
+    private static bool Matches(RequestPattern pattern, PageNetworkRequest request, string stage = RequestStageValues.Request)
     {
-        if (pattern.RequestStage is { } stage && string.Equals(stage, RequestStageValues.Response, StringComparison.Ordinal))
+        // A pattern with no requestStage means the protocol's default, which is Request.
+        var wanted = pattern.RequestStage ?? RequestStageValues.Request;
+        if (!string.Equals(wanted, stage, StringComparison.Ordinal))
         {
             return false;
         }
@@ -366,5 +501,19 @@ internal sealed class FetchDomain : FetchDomainBase, IDetachableDomain
 
         /// <summary>Answers the pause, ignoring a second answer for the same request.</summary>
         internal void Answer(PageNetworkDecision decision) => Completion.TrySetResult(decision);
+    }
+
+    /// <summary>
+    /// The response stage's own pause. A separate type from <see cref="PausedRequest"/> because the two
+    /// stages are answered with different decisions, and a separate map for the same reason — one identifier
+    /// space, two things it can name, and a command that looked in the wrong one would answer a client's
+    /// <c>continueResponse</c> with "Invalid InterceptionId" for an identifier it had just been given.
+    /// </summary>
+    private sealed class PausedResponse
+    {
+        internal TaskCompletionSource<PageNetworkResponseDecision> Completion { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        /// <summary>Answers the pause, ignoring a second answer for the same response.</summary>
+        internal void Answer(PageNetworkResponseDecision decision) => Completion.TrySetResult(decision);
     }
 }

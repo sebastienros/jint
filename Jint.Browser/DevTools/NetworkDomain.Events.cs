@@ -83,6 +83,90 @@ internal sealed partial class NetworkDomain
     }
 
     /// <summary>The final response's headers are in.</summary>
+    /// <summary>
+    /// The four <c>WebSocket</c> events, over the engine's own <c>WebSocketObserver</c>
+    /// (<see href="https://github.com/sebastienros/jint/issues/3701">#3701</see> item 2).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A socket is not in the request log and takes no <c>Network.requestWillBeSent</c>.</b> That is the
+    /// protocol's own shape — Chrome gives a socket its own four events and its own identifier — and it is
+    /// also what keeps a page with an open socket from being a page whose network never goes quiet.
+    /// </para>
+    /// <para>
+    /// <b><c>webSocketFrameSent</c>, <c>webSocketFrameReceived</c> and <c>webSocketFrameError</c> are not
+    /// emitted</b>, and that is honest rather than pending: the engine's observer is told about the two
+    /// handshakes and the close, and a frame never reaches it. Reporting frames would mean an observer on
+    /// the message path, which is a decision about what a socket costs when somebody is watching.
+    /// </para>
+    /// </remarks>
+    internal void WebSocketCreated(string socketId, string url)
+    {
+        if (!IsEnabled)
+        {
+            return;
+        }
+
+        EmitDetached(ProtocolNetworkEvents.WebSocketCreated(new WebSocketCreatedEvent
+        {
+            RequestId = socketId,
+            Url = url,
+        }));
+    }
+
+    /// <inheritdoc cref="WebSocketCreated"/>
+    internal void WebSocketHandshakeRequest(string socketId, IReadOnlyList<PageHeader> headers)
+    {
+        if (!IsEnabled)
+        {
+            return;
+        }
+
+        EmitDetached(ProtocolNetworkEvents.WebSocketWillSendHandshakeRequest(new WebSocketWillSendHandshakeRequestEvent
+        {
+            RequestId = socketId,
+            Timestamp = Timestamp(),
+            WallTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000d,
+            Request = new WebSocketRequest { Headers = Map(headers) },
+        }));
+    }
+
+    /// <inheritdoc cref="WebSocketCreated"/>
+    internal void WebSocketHandshakeResponse(string socketId, int status, string statusText, IReadOnlyList<PageHeader> headers)
+    {
+        if (!IsEnabled)
+        {
+            return;
+        }
+
+        EmitDetached(ProtocolNetworkEvents.WebSocketHandshakeResponseReceived(new WebSocketHandshakeResponseReceivedEvent
+        {
+            RequestId = socketId,
+            Timestamp = Timestamp(),
+            Response = new WebSocketResponse
+            {
+                Status = status,
+                StatusText = statusText,
+                Headers = Map(headers),
+            },
+        }));
+    }
+
+    /// <inheritdoc cref="WebSocketCreated"/>
+    internal void WebSocketClosed(string socketId)
+    {
+        if (!IsEnabled)
+        {
+            return;
+        }
+
+        EmitDetached(ProtocolNetworkEvents.WebSocketClosed(new WebSocketClosedEvent
+        {
+            RequestId = socketId,
+            Timestamp = Timestamp(),
+        }));
+    }
+
     internal void ResponseReceived(PageNetworkRequest request, PageNetworkResponse response, string frameId)
     {
         if (!IsEnabled)
