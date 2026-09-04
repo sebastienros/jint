@@ -1,4 +1,5 @@
-﻿using System.Net.Http;
+using System.Net.Http;
+using System.Runtime.ExceptionServices;
 using System.Text;
 using AngleSharp.Html.Dom;
 using Jint.Browser.Runtime;
@@ -208,7 +209,12 @@ public sealed partial class Page
     /// awaited — the document that script is running in is the one being replaced — and a failure becomes a
     /// page error rather than an unobserved faulted task, because there is nobody to hand it to.
     /// </remarks>
-    internal void RequestNavigation(string url, bool replace, bool reload = false, Engine? engine = null)
+    internal void RequestNavigation(
+        string url,
+        bool replace,
+        bool reload = false,
+        Engine? engine = null,
+        PageNavigationReason? reason = PageNavigationReason.ScriptInitiated)
     {
         if (engine is not null && !reload && TryFragmentNavigation(engine, url, replace))
         {
@@ -223,7 +229,8 @@ public sealed partial class Page
             Body: null,
             ContentType: null,
             reload,
-            Referrer: null));
+            Referrer: null),
+            reload && reason is not null ? PageNavigationReason.Reload : reason);
     }
 
     /// <summary>
@@ -290,7 +297,8 @@ public sealed partial class Page
             Body: body,
             ContentType: contentType,
             Reload: true,
-            Referrer: null));
+            Referrer: null),
+            PageNavigationReason.FormSubmissionPost);
 
     /// <summary>
     /// <c>history.back()</c>, <c>forward()</c> and <c>go()</c>: queue a traversal, on the page loop.
@@ -300,7 +308,7 @@ public sealed partial class Page
     /// on the line after <c>history.back()</c> sees the old URL. A same-document traversal is queued as a job
     /// on the engine's own loop; one that crosses documents is a navigation like any other.
     /// </remarks>
-    internal void RequestTraversal(int delta)
+    internal void RequestTraversal(int delta, bool rendererInitiated = false)
     {
         if (_closed)
         {
@@ -310,7 +318,11 @@ public sealed partial class Page
         if (delta == 0)
         {
             // https://html.spec.whatwg.org/multipage/nav-history-apis.html#dom-history-go: go(0) reloads.
-            RequestNavigation(_url, replace: true, reload: true);
+            RequestNavigation(
+                _url,
+                replace: true,
+                reload: true,
+                reason: rendererInitiated ? PageNavigationReason.Reload : null);
             return;
         }
 
@@ -340,7 +352,8 @@ public sealed partial class Page
             Body: null,
             ContentType: null,
             Reload: true,
-            Referrer: null));
+            Referrer: null),
+            rendererInitiated ? PageNavigationReason.ScriptInitiated : null);
     }
 
     /// <summary>
@@ -356,11 +369,69 @@ public sealed partial class Page
     }
 
     /// <summary>Starts a navigation nobody is waiting for, and turns its failure into a page error.</summary>
-    private void Start(NavigationRequest request)
+    private void Start(NavigationRequest request, PageNavigationReason? reason)
     {
         if (_closed)
         {
             return;
+        }
+
+        if (reason is { } requestedReason)
+        {
+            var target = PageUrl.Parse(request.Target, _url);
+            if (target is null)
+            {
+                RejectBeforeStart(
+                    request,
+                    new NavigationFailedException(
+                        request.Target,
+                        "'" + request.Target + "' cannot be parsed as a URL."));
+                return;
+            }
+
+            // Freeze the URL at request time: this navigation may wait behind one that changes the base URL.
+            var initiatorUrl = _url;
+            var href = target.Serialize();
+            request = request with
+            {
+                Target = href,
+                Referrer = request.Referrer ?? ReferrerFor(initiatorUrl),
+                InitiatorUrl = initiatorUrl,
+            };
+
+            var allowed = true;
+            if (PageUrl.IsNetworkScheme(target))
+            {
+                var uri = PageUrl.ToUri(target);
+                try
+                {
+                    allowed = uri is not null && _network.UrlFilter(uri);
+                }
+                catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
+                {
+                    RejectBeforeStart(request, exception);
+                    return;
+                }
+
+                request = request with { FirstHopAllowed = allowed };
+            }
+            else
+            {
+                try
+                {
+                    request = request with { InlineContent = ContentOf(href) };
+                }
+                catch (NavigationFailedException failure)
+                {
+                    RejectBeforeStart(request, failure);
+                    return;
+                }
+            }
+
+            if (allowed)
+            {
+                _observer?.NavigationRequested(href, requestedReason);
+            }
         }
 
         if (_capturingNavigation)
@@ -396,6 +467,17 @@ public sealed partial class Page
         });
     }
 
+    private void RejectBeforeStart(NavigationRequest request, Exception failure)
+    {
+        if (_capturingNavigation)
+        {
+            _capturedNavigation = request with { PreflightFailure = failure };
+            return;
+        }
+
+        _recorder.Add(new PageError(PageErrorKind.ReportedError, failure.Message, "Navigation"));
+    }
+
     /// <summary>The commit half of <see cref="SetContentAsync"/>, under the navigation gate.</summary>
     private async Task SetContentCoreAsync(string url, string html)
     {
@@ -425,6 +507,11 @@ public sealed partial class Page
 
     private async Task<PageResponse?> NavigateCoreAsync(NavigationRequest request)
     {
+        if (request.PreflightFailure is { } failure)
+        {
+            ExceptionDispatchInfo.Capture(failure).Throw();
+        }
+
         using var timeout = new CancellationTokenSource(request.Options.Timeout);
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(timeout.Token, _loop.Closing);
 
@@ -450,6 +537,7 @@ public sealed partial class Page
     private async Task<PageResponse?> RunAsync(NavigationRequest request, CancellationTokenSource timeout, CancellationToken cancellationToken)
     {
         var current = _url;
+        var initiatorUrl = request.InitiatorUrl ?? current;
         var target = PageUrl.Parse(request.Target, current);
 
         if (target is null)
@@ -490,7 +578,7 @@ public sealed partial class Page
 
         if (PageUrl.IsNetworkScheme(target))
         {
-            var fetched = await FetchDocumentAsync(target, request, current, loaderId, timeout, cancellationToken).ConfigureAwait(false);
+            var fetched = await FetchDocumentAsync(target, request, initiatorUrl, loaderId, timeout, cancellationToken).ConfigureAwait(false);
             html = fetched.Html;
 
             // https://html.spec.whatwg.org/multipage/browsing-the-web.html#create-navigation-params-by-fetching:
@@ -501,12 +589,12 @@ public sealed partial class Page
         }
         else
         {
-            html = ContentOf(href);
+            html = request.InlineContent ?? ContentOf(href);
             finalUrl = href;
         }
 
         var signals = new NavigationSignals();
-        var referrer = request.Referrer ?? ReferrerFor(current);
+        var referrer = request.Referrer ?? ReferrerFor(initiatorUrl);
 
         var commit = _loop.PostAsync(engine => Commit(
             engine,
@@ -542,7 +630,7 @@ public sealed partial class Page
     private async Task<FetchedDocument> FetchDocumentAsync(
         UrlRecord target,
         NavigationRequest request,
-        string currentUrl,
+        string initiatorUrl,
         string loaderId,
         CancellationTokenSource timeout,
         CancellationToken cancellationToken)
@@ -550,12 +638,12 @@ public sealed partial class Page
         // The first hop's filter is run here rather than in the transport, which deliberately does not run it
         // twice: a host filter being called once per request is observable to the host.
         var uri = PageUrl.ToUri(target);
-        if (uri is null || !_network.UrlFilter(uri))
+        if (uri is null || request.FirstHopAllowed == false || (request.FirstHopAllowed is null && !_network.UrlFilter(uri)))
         {
             throw new NavigationFailedException(target.Serialize(), "Navigation to '" + target.Serialize() + "' was refused by the browser context's URL filter.");
         }
 
-        var referrerUrl = request.Referrer ?? ReferrerFor(currentUrl);
+        var referrerUrl = request.Referrer ?? ReferrerFor(initiatorUrl);
         var fetchOptions = _options;
 
         var documentRequest = new DocumentRequest(
@@ -564,7 +652,7 @@ public sealed partial class Page
             request.Body,
             request.ContentType,
             referrerUrl.Length == 0 ? null : UrlParser.Parse(referrerUrl),
-            PageUrl.HasOrigin(currentUrl) ? UrlParser.Parse(currentUrl) : null,
+            PageUrl.HasOrigin(initiatorUrl) ? UrlParser.Parse(initiatorUrl) : null,
             fetchOptions.MaxDocumentBytes,
             fetchOptions.MaxRedirects,
             Emulation.EffectiveUserAgent);
@@ -987,7 +1075,11 @@ public sealed partial class Page
         byte[]? Body,
         string? ContentType,
         bool Reload,
-        string? Referrer);
+        string? Referrer,
+        string? InitiatorUrl = null,
+        bool? FirstHopAllowed = null,
+        string? InlineContent = null,
+        Exception? PreflightFailure = null);
 
     /// <summary>What the loop is handed once the document's bytes are in.</summary>
     private sealed record CommitRequest(

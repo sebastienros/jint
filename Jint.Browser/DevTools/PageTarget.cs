@@ -208,6 +208,15 @@ internal sealed partial class PageTarget : DevToolsTarget, IPageObserver
     }
 
     /// <inheritdoc/>
+    void IPageObserver.NavigationRequested(string url, PageNavigationReason reason)
+    {
+        foreach (var domain in Snapshot())
+        {
+            domain.NavigationRequested(url, reason);
+        }
+    }
+
+    /// <inheritdoc/>
     void IPageObserver.NavigationStarted(string url, string loaderId)
     {
         foreach (var domain in Snapshot())

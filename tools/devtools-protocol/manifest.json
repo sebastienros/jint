@@ -426,6 +426,7 @@
     "Network.responseReceivedExtraInfo",
     "Page.domContentEventFired",
     "Page.frameNavigated",
+    "Page.frameRequestedNavigation",
     "Page.frameStartedLoading",
     "Page.frameStartedNavigating",
     "Page.frameStoppedLoading",

@@ -71,6 +71,9 @@ internal sealed class LoopbackServer : IDisposable
     /// </remarks>
     internal Func<LoopbackRequest, LoopbackResponse?>? Fallback { get; set; }
 
+    /// <summary>Optional latency to add before a response is written, selected from the request.</summary>
+    internal Func<LoopbackRequest, TimeSpan>? ResponseDelay { get; set; }
+
     /// <summary>Registers a handler for one path.</summary>
     internal LoopbackServer Map(string path, Func<LoopbackRequest, LoopbackResponse> handler)
     {
@@ -139,6 +142,12 @@ internal sealed class LoopbackServer : IDisposable
                 var response = _routes.TryGetValue(request.Path, out var handler)
                     ? handler(request)
                     : Fallback?.Invoke(request) ?? LoopbackResponse.NotFound(request.Path);
+
+                var delay = ResponseDelay?.Invoke(request) ?? TimeSpan.Zero;
+                if (delay > TimeSpan.Zero)
+                {
+                    await Task.Delay(delay, _stopping.Token).ConfigureAwait(false);
+                }
 
                 await WriteAsync(stream, response, _stopping.Token).ConfigureAwait(false);
             }

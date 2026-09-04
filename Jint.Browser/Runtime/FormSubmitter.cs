@@ -129,7 +129,10 @@ internal static class FormSubmitter
     private static void SubmitAsGet(PageRuntime runtime, UrlRecord target, List<FormDataEntry> entries)
     {
         target.Query = FormUrlEncoded.Serialize(UrlEncodedPairs(entries));
-        runtime.Page.RequestNavigation(target.Serialize(), replace: false);
+        runtime.Page.RequestNavigation(
+            target.Serialize(),
+            replace: false,
+            reason: PageNavigationReason.FormSubmissionGet);
     }
 
     private static void SubmitAsPost(PageRuntime runtime, UrlRecord target, List<FormDataEntry> entries, string enctype)

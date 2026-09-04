@@ -15,10 +15,11 @@
 /// loop thread</b>, and <see cref="DocumentCreated"/> runs with the engine of the document that is about to
 /// be parsed: that is what makes it the place to replace a target's engine, re-install its bindings, and run
 /// the scripts a client asked to be evaluated on every new document. Nothing here may block — the loop it is
-/// on is what would have to run whatever it waited for. <see cref="NavigationStarted"/> runs on whichever
+/// on is what would have to run whatever it waited for. <see cref="NavigationRequested"/> runs on the loop
+/// inside the script or input action that requested it, <see cref="NavigationStarted"/> runs on whichever
 /// thread started the navigation, <see cref="NetworkIdle"/> on the page's own quiet-period timer, and
-/// <see cref="Closed"/> on whichever thread closed the page; none of the three carries anything that
-/// belongs to an engine.
+/// <see cref="Closed"/> on whichever thread closed the page; none carries anything that belongs to an
+/// engine.
 /// </para>
 /// <para>
 /// <b>A <c>loaderId</c> names one committed document</b> and every signal of that document carries it. It is
@@ -28,6 +29,14 @@
 /// </remarks>
 internal interface IPageObserver
 {
+    /// <summary>A renderer-initiated navigation has been requested, before it is started.</summary>
+    /// <param name="url">Where the page was asked to go, resolved against the current document.</param>
+    /// <param name="reason">What in the document requested the navigation.</param>
+    /// <remarks>Runs on the page loop inside the script or input action that requested it.</remarks>
+    void NavigationRequested(string url, PageNavigationReason reason)
+    {
+    }
+
     /// <summary>A navigation has been asked for, before anything has been fetched.</summary>
     /// <param name="url">Where the page is going, resolved against the current document.</param>
     /// <param name="loaderId">The identifier the document this produces will carry.</param>
@@ -128,4 +137,14 @@ internal interface IPageObserver
     void Closed()
     {
     }
+}
+
+/// <summary>What in a document requested a navigation.</summary>
+internal enum PageNavigationReason
+{
+    ScriptInitiated,
+    AnchorClick,
+    FormSubmissionGet,
+    FormSubmissionPost,
+    Reload,
 }

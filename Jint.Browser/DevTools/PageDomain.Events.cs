@@ -11,7 +11,8 @@ namespace Jint.Browser.DevTools;
 /// <remarks>
 /// <para>
 /// <b>The order is Chrome's, taken from the recordings rather than from the specification.</b> For a
-/// cross-document navigation it is <c>frameStartedNavigating</c>, <c>frameStartedLoading</c>,
+/// renderer-initiated cross-document navigation it is <c>frameRequestedNavigation</c>,
+/// <c>frameStartedNavigating</c>, <c>frameStartedLoading</c>,
 /// <c>lifecycleEvent(init)</c>, <c>frameNavigated</c>, then the engine swap the base target performs
 /// (<c>Runtime.executionContextsCleared</c> and <c>executionContextCreated</c>),
 /// <c>lifecycleEvent(commit)</c>, <c>domContentEventFired</c> + <c>lifecycleEvent(DOMContentLoaded)</c>,
@@ -52,6 +53,23 @@ internal sealed partial class PageDomain
 
     /// <inheritdoc cref="Init"/>
     private const string NetworkIdleName = "networkIdle";
+
+    /// <summary>A navigation initiated by the document has been requested but not started yet.</summary>
+    internal void NavigationRequested(string url, PageNavigationReason reason)
+    {
+        if (!IsEnabled)
+        {
+            return;
+        }
+
+        EmitDetached(ProtocolPageEvents.FrameRequestedNavigation(new FrameRequestedNavigationEvent
+        {
+            FrameId = _target.FrameId,
+            Reason = Reason(reason),
+            Url = url,
+            Disposition = ClientNavigationDispositionValues.CurrentTab,
+        }));
+    }
 
     /// <summary>A navigation has been asked for and nothing has been fetched.</summary>
     internal void NavigationStarted(string url, string loaderId)
@@ -221,4 +239,13 @@ internal sealed partial class PageDomain
 
     /// <summary>The protocol's monotonic timestamp, in seconds.</summary>
     private static double Timestamp() => DevToolsTarget.UnixMilliseconds() / 1000d;
+
+    private static string Reason(PageNavigationReason reason) => reason switch
+    {
+        PageNavigationReason.AnchorClick => ClientNavigationReasonValues.AnchorClick,
+        PageNavigationReason.FormSubmissionGet => ClientNavigationReasonValues.FormSubmissionGet,
+        PageNavigationReason.FormSubmissionPost => ClientNavigationReasonValues.FormSubmissionPost,
+        PageNavigationReason.Reload => ClientNavigationReasonValues.Reload,
+        _ => ClientNavigationReasonValues.ScriptInitiated,
+    };
 }

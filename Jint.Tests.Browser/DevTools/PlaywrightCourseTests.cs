@@ -149,6 +149,67 @@ public class PlaywrightCourseTests
         await page.CloseAsync();
     }
 
+    /// <summary>A click that starts a form navigation does not answer before its redirected document loads.</summary>
+    /// <remarks>
+    /// <c>Input.dispatchMouseEvent</c> must publish <c>Page.frameRequestedNavigation</c> before it replies, or
+    /// Playwright concludes that the action started no navigation and returns while the redirected document is
+    /// still in flight. There is deliberately no explicit navigation or locator wait after the click.
+    /// </remarks>
+    [Test]
+    public async Task PlaywrightClickWaitsForAPostRedirectNavigation()
+    {
+        string? body = null;
+        string? method = null;
+
+        await using var lane = await ClientLane.OpenAsync(
+            server =>
+            {
+                server.ResponseDelay = request => request.Path == "/form-redirect/done.html"
+                    ? TimeSpan.FromMilliseconds(500)
+                    : TimeSpan.Zero;
+
+                FixtureRoutes.FormRedirect(server, (seenMethod, seenBody) =>
+                {
+                    method = seenMethod;
+                    body = seenBody;
+                });
+            });
+
+        var page = await lane.NewPageAsync("form-redirect");
+        await page.Locator("#place").ClickAsync();
+
+        page.Url.Should().StartWith(lane.Server.Url("/form-redirect/done.html") + "?");
+        (await page.EvaluateAsync<string>("() => document.querySelector('#method')?.textContent ?? ''"))
+            .Should().Be("arrived by GET at /form-redirect/done.html");
+
+        method.Should().Be("POST");
+        body.Should().Be("item=a+widget&quantity=3&colour=blue&gift=yes&token=abc123&action=place");
+
+        var redirected = lane.Server.Received.Single(request => request.Path == "/form-redirect/done.html");
+        redirected.Method.Should().Be("GET");
+        redirected.Body.Should().BeEmpty();
+
+        await page.CloseAsync();
+    }
+
+    /// <summary>A refused navigation is not announced as one the click must wait for.</summary>
+    [TestCase("http://127.0.0.1:1/blocked")]
+    [TestCase("ftp://example.test/unsupported")]
+    [TestCase("data:text/html;base64,%%%")]
+    public async Task PlaywrightClickDoesNotWaitForARefusedNavigation(string target)
+    {
+        await using var lane = await ClientLane.OpenAsync(server => server.MapHtml(
+            "/blocked-link/index.html",
+            "<!doctype html><html><body><a id='blocked' href='" + target + "'>blocked</a></body></html>"));
+
+        var page = await lane.NewPageAsync("blocked-link");
+
+        await page.Locator("#blocked").ClickAsync(new LocatorClickOptions { Timeout = 2_000 });
+
+        page.Url.Should().Be(lane.Url("blocked-link"));
+        await page.CloseAsync();
+    }
+
     /// <summary>A route the client fulfils itself, and the cookies its context reads afterwards.</summary>
     [Test]
     public async Task PlaywrightFulfilsARouteAndReadsTheCookies()

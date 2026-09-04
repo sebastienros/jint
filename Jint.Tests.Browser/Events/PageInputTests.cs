@@ -55,6 +55,19 @@ public sealed class PageInputTests
     }
 
     [Test]
+    public async Task AClickPropagatesANavigationFailure()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<!doctype html><a id='go' href='ftp://example.test/unsupported'>go</a>");
+
+        var act = async () => await page.ClickAsync("#go");
+
+        (await act.Should().ThrowAsync<NavigationFailedException>()).WithMessage("*cannot load*");
+        page.Errors.Should().BeEmpty("an awaited navigation reports its failure to its caller");
+    }
+
+    [Test]
     public async Task ATargetThatMatchesNothingIsFalseRatherThanAThrow()
     {
         await using var browser = new Browser();
