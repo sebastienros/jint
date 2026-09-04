@@ -38,10 +38,10 @@ namespace Jint.Browser.Dom;
 /// <c>JsObjectShape.Builder</c> refusing a duplicate rather than reported as a diagnostic.
 /// </para>
 /// <para>
-/// <b>The element-reflection half is not here.</b> <c>ariaActiveDescendantElement</c>,
-/// <c>ariaControlsElements</c>, <c>ariaDescribedByElements</c> and their four siblings reflect an element or a
+/// <b>The element-reflection half is <see cref="AriaElementReflection"/>.</b> <c>ariaActiveDescendantElement</c>,
+/// <c>ariaControlsElements</c>, <c>ariaDescribedByElements</c> and their five siblings reflect an element or a
 /// frozen array of elements and carry an explicitly-set value that outlives the target leaving the tree, which
-/// is bookkeeping rather than a view. <c>Dom/AGENTS.md</c> records the absence.
+/// is bookkeeping rather than a view — so it is a file of its own, declared onto this same shape.
 /// </para>
 /// </remarks>
 internal static class AriaReflection
@@ -110,6 +110,8 @@ internal static class AriaReflection
                 DomFailures.Guard(accessor.Member, accessor.Get),
                 DomFailures.Guard(accessor.Member, accessor.Set));
         }
+
+        AriaElementReflection.Declare(builder);
     }
 
     /// <summary>

@@ -984,7 +984,6 @@ internal static class WptBrowserExclusions
 
         // ---------------------------------------------------------------- one [CEReactions] member per file
         new("custom-elements/reactions/Animation.html", "*", WptDivergence.NeedsTriage),
-        new("custom-elements/reactions/AriaMixin-element-attributes.html", "*", WptDivergence.NeedsTriage),
         new("custom-elements/reactions/CSSStyleDeclaration.html", "*", WptDivergence.NeedsTriage),
         new("custom-elements/reactions/ChildNode.html", "after on ChildNode must enqueue a disconnected reaction, an adopted reaction, and a connected reaction when the custom element was in another document", WptDivergence.NeedsTriage),
         new("custom-elements/reactions/ChildNode.html", "before on ChildNode must enqueue a disconnected reaction, an adopted reaction, and a connected reaction when the custom element was in another document", WptDivergence.NeedsTriage),
@@ -1129,21 +1128,6 @@ internal static class WptBrowserExclusions
         new("dom/nodes/getElementsByClassName-21.htm", "*", WptDivergence.NeedsTriage),
         new("dom/nodes/getElementsByClassName-22.htm", "*", WptDivergence.NeedsTriage),
         new("dom/nodes/getElementsByClassName-25.htm", "*", WptDivergence.NeedsTriage),
-
-        // ---------------------------------------------------------------- the ARIA mixin's element-reflection half
-        // the ARIA mixin's element-reflection half
-        new("html/dom/aria-element-reflection-disconnected.html", "*", WptDivergence.NeedsTriage),
-        new("html/dom/aria-element-reflection.html", "*DOM.", WptDivergence.NeedsTriage),
-        new("html/dom/aria-element-reflection.html", "*empty.", WptDivergence.NeedsTriage),
-        new("html/dom/aria-element-reflection.html", "*reference.", WptDivergence.NeedsTriage),
-        new("html/dom/aria-element-reflection.html", "*scope.", WptDivergence.NeedsTriage),
-        new("html/dom/aria-element-reflection.html", "Cross*", WptDivergence.NeedsTriage),
-        new("html/dom/aria-element-reflection.html", "If*", WptDivergence.NeedsTriage),
-        new("html/dom/aria-element-reflection.html", "Moving*", WptDivergence.NeedsTriage),
-        new("html/dom/aria-element-reflection.html", "Passing*", WptDivergence.NeedsTriage),
-        new("html/dom/aria-element-reflection.html", "Setting*", WptDivergence.NeedsTriage),
-        new("html/dom/aria-element-reflection.html", "aria-*", WptDivergence.NeedsTriage),
-        new("html/dom/aria-element-reflection.html", "shadow*", WptDivergence.NeedsTriage),
 
         // ---------------------------------------------------------------- a (Node or DOMString) union parameter takes only a Node
         // a (Node or DOMString) union parameter takes only a Node

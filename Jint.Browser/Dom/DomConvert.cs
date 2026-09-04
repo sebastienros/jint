@@ -95,7 +95,7 @@ internal static class DomConvert
         => value is null ? JsValue.Null : JsValue.FromObject(realm.Engine, value);
 
     /// <summary>
-    /// A frozen array of nodes, for the one member AngleSharp types as a sequence rather than as a
+    /// An array of nodes, for the one member AngleSharp types as a sequence rather than as a
     /// <c>NodeList</c> (<c>HTMLSlotElement.assignedNodes</c>). WebIDL's <c>sequence&lt;Node&gt;</c> is a
     /// snapshot by definition, so a plain array is the right shape and there is nothing live to keep.
     /// </summary>
