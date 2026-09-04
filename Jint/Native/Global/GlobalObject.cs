@@ -404,7 +404,7 @@ public sealed partial class GlobalObject : ObjectInstance
 
 uriError:
         builder.Dispose();
-        _engine.SignalError(UriError);
+        _engine.ThrowError(UriError);
         return JsEmpty.Instance;
     }
 
@@ -594,7 +594,7 @@ uriError:
 
 uriError:
         builder.Dispose();
-        _engine.SignalError(UriError);
+        _engine.ThrowError(UriError);
         return JsEmpty.Instance;
     }
 

@@ -45,9 +45,8 @@ internal abstract class JintStatement
     /// prove it dead. Callers guarantee a non-suspendable frame, no exact constraint/debug checks
     /// (amortized constraints stay live via the caller's own countdown-driven cadence), dead
     /// completion values, and a statement shape vetted by <see cref="JintForStatement"/>'s tight-body
-    /// predicate (no break/continue/return/labels, so only Normal completions can occur). Deferred
-    /// errors surface via <see cref="Engine._error"/>, which the caller polls after each statement.
-    /// The base implementation falls back to the full <see cref="Execute"/> ceremony.
+    /// predicate (no break/continue/return/labels, so only Normal completions can occur). The base
+    /// implementation falls back to the full <see cref="Execute"/> ceremony.
     /// <para>
     /// Overrides must call <see cref="EvaluationContext.ChargeStatement"/> first: it stands in for the
     /// statement-counting constraint that <see cref="Execute"/> would have charged here, and its cadence

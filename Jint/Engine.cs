@@ -53,14 +53,14 @@ public sealed partial class Engine : IDisposable
 
     private readonly ExecutionContextStack _executionContexts;
 
-    // Invariant for engine-level ambient mutable fields (e.g. _error, _lastSyntaxElement): they must
+    // Invariant for engine-level ambient mutable fields (e.g. _lastSyntaxElement): they must
     // not hold an in-flight result across a call that can re-enter the engine (anything that may run
     // RunAvailableContinuations, or a CLR callback that calls Evaluate/Execute/Invoke). Either
     // save-and-restore around the re-entrant region, or carry the value out-of-band rather than in a
     // field. A script's completion value used to live here as a field and was clobbered by a
     // re-entrant drain (https://github.com/sebastienros/jint/issues/2492); it is now returned from
-    // ScriptEvaluation as a per-frame local. _error and _lastSyntaxElement are safe because they are
-    // produced and consumed synchronously with no re-entrant drain in between.
+    // ScriptEvaluation as a per-frame local. _lastSyntaxElement is safe because it is produced and
+    // consumed synchronously with no re-entrant drain in between.
 
     /// <summary>
     /// The context threaded through every statement and expression handler. Per <em>engine</em>, not
@@ -1227,8 +1227,6 @@ public sealed partial class Engine : IDisposable
     // set by DebugHandler.Evaluate around watch/breakpoint-condition expression evaluation so the
     // host-boundary constraint checks can exempt it (see CheckAmortizedConstraintsAtHostBoundary)
     internal bool _debuggerEvaluating;
-    internal ErrorDispatchInfo? _error;
-
     // Per-engine cache of interpreter function definitions — hoisted declarations, class methods,
     // class field initializers and static blocks — keyed on the stable AST node. The definition
     // owns the lazily-built body handler tree — and through it every per-node inline cache — so
@@ -5201,9 +5199,11 @@ public sealed partial class Engine : IDisposable
         return result;
     }
 
-    internal void SignalError(ErrorDispatchInfo error)
+    [DoesNotReturn]
+    internal void ThrowError(ErrorDispatchInfo error)
     {
-        _error = error;
+        var location = GetLastSyntaxElement()?.Location ?? default;
+        throw new JavaScriptException(error.ErrorConstructor, error.Message).SetJavaScriptLocation(in location);
     }
 
     internal void RegisterTypeReference(TypeReference reference)
