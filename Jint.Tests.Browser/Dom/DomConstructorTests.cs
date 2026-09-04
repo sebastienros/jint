@@ -17,6 +17,149 @@ public sealed class DomConstructorTests
         """;
 
     /// <summary>
+    /// https://html.spec.whatwg.org/multipage/embedded-content.html#dom-image and
+    /// https://webidl.spec.whatwg.org/#legacy-factory-functions: <c>Image</c> is the legacy factory function
+    /// for <c>HTMLImageElement</c>, with that interface's prototype rather than a prototype of its own.
+    /// </summary>
+    [Test]
+    public async Task ImageIsTheHtmlImageElementLegacyFactoryFunction()
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+
+        await page.SetContentAsync("<!doctype html><body></body>");
+
+        (await page.EvaluateAsync<string>("""
+            const image = new Image();
+            class DerivedImage extends Image {}
+            const derived = new DerivedImage();
+            const globalDescriptor = Object.getOwnPropertyDescriptor(window, 'Image');
+            const prototypeDescriptor = Object.getOwnPropertyDescriptor(Image, 'prototype');
+            let callError;
+            try { Image(); } catch (error) { callError = error.name; }
+            [
+              typeof Image,
+              Image.name,
+              Image.length,
+              Image.prototype === HTMLImageElement.prototype,
+              Image.prototype.constructor === HTMLImageElement,
+              Object.getPrototypeOf(image) === HTMLImageElement.prototype,
+              image instanceof HTMLImageElement,
+              image.tagName,
+              Object.prototype.toString.call(image),
+              Object.getPrototypeOf(derived) === DerivedImage.prototype,
+              derived instanceof DerivedImage,
+              derived instanceof HTMLImageElement,
+              callError,
+              globalDescriptor.writable,
+              globalDescriptor.enumerable,
+              globalDescriptor.configurable,
+              prototypeDescriptor.writable,
+              prototypeDescriptor.enumerable,
+              prototypeDescriptor.configurable,
+            ].join('|')
+            """)).Should().Be(
+            "function|Image|0|true|true|true|true|IMG|[object HTMLImageElement]|true|true|true|TypeError|true|false|true|false|false|false");
+    }
+
+    /// <summary>
+    /// The two arguments are optional, and only arguments that were supplied create the corresponding
+    /// content attributes.
+    /// </summary>
+    [Test]
+    public async Task ImageAppliesOnlyTheDimensionsThatWereSupplied()
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+
+        await page.SetContentAsync("<!doctype html><body></body>");
+
+        (await page.EvaluateAsync<string>("""
+            const omitted = new Image();
+            const widthOnly = new Image(320);
+            const sized = new Image(320, 200);
+            [
+              omitted.width,
+              omitted.height,
+              omitted.hasAttribute('width'),
+              omitted.hasAttribute('height'),
+              widthOnly.width,
+              widthOnly.height,
+              widthOnly.getAttribute('width'),
+              widthOnly.hasAttribute('height'),
+              sized.width,
+              sized.height,
+              sized.getAttribute('width'),
+              sized.getAttribute('height'),
+            ].join('|')
+            """)).Should().Be("0|0|false|false|320|0|320|false|320|200|320|200");
+    }
+
+    /// <summary>
+    /// WebIDL converts each supplied argument to <c>unsigned long</c> before HTML writes the attribute.
+    /// </summary>
+    [Test]
+    public async Task ImageDimensionsUseUnsignedLongConversion()
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+
+        await page.SetContentAsync("<!doctype html><body></body>");
+
+        (await page.EvaluateAsync<string>("""
+            const wrapped = new Image(-1, 4294967297);
+            const converted = new Image('12.9', NaN);
+            const explicitUndefined = new Image(undefined, 9);
+            const object = new Image({ valueOf() { return 17; } }, 4);
+            const errorNames = [];
+            for (const value of [Symbol('width'), 1n]) {
+              try { new Image(value); }
+              catch (error) { errorNames.push(error.name); }
+            }
+            [
+              wrapped.getAttribute('width'),
+              wrapped.getAttribute('height'),
+              converted.getAttribute('width'),
+              converted.getAttribute('height'),
+              explicitUndefined.getAttribute('width'),
+              explicitUndefined.getAttribute('height'),
+              object.getAttribute('width'),
+              object.getAttribute('height'),
+              ...errorNames,
+            ].join('|')
+            """)).Should().Be("4294967295|1|12|0|0|9|17|4|TypeError|TypeError");
+    }
+
+    /// <summary>
+    /// Image fetching is intentionally outside this headless browser's rendering-free model, but the
+    /// constructed element still reflects <c>src</c> and participates in the normal DOM event path.
+    /// </summary>
+    [Test]
+    public async Task ImageSupportsSourceReflectionAndLoadEvents()
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+
+        await page.SetContentAsync("<!doctype html><body></body>");
+
+        (await page.EvaluateAsync<string>("""
+            const image = new Image();
+            let loads = 0;
+            image.addEventListener('load', () => loads++);
+            image.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+            const beforeDispatch = loads;
+            image.dispatchEvent(new Event('load'));
+            [
+              image.getAttribute('src'),
+              image.src,
+              beforeDispatch,
+              loads,
+            ].join('|')
+            """)).Should().Be(
+            "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==|data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==|0|1");
+    }
+
+    /// <summary>
     /// https://dom.spec.whatwg.org/#dom-comment-comment and
     /// https://dom.spec.whatwg.org/#dom-text-text: <c>constructor(optional DOMString data = "")</c>, whose
     /// node document is the current global object's associated <c>Document</c>.
