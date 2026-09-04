@@ -4,12 +4,12 @@
 
 It runs in one .NET process with no native browser or browser download. It **does not render** and offers no screenshots or PDFs. Agents read accessibility, markdown, or text snapshots instead.
 
-[View Jint.Browser.Mcp preview builds on Feedz](https://feedz.io/org/sebastienros/repository/jint/packages/Jint.Browser.Mcp)
+[View Jint.Browser.Mcp on NuGet.org](https://www.nuget.org/packages/Jint.Browser.Mcp)
 
 The quickest entry is the command-line tool:
 
 ```bash
-dotnet tool install -g Jint.Browser.Tool --prerelease
+dotnet tool install -g Jint.Browser.Tool
 jint-browser mcp
 ```
 

@@ -4,7 +4,7 @@
 
 It starts no browser, Node process, driver, or CDP connection. Operations run in the application process:
 
-[View Jint.Browser.Playwright preview builds on Feedz](https://feedz.io/org/sebastienros/repository/jint/packages/Jint.Browser.Playwright)
+[View Jint.Browser.Playwright on NuGet.org](https://www.nuget.org/packages/Jint.Browser.Playwright)
 
 With `using Jint.Browser.Playwright;` in scope:
 

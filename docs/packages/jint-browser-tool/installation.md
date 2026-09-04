@@ -3,13 +3,13 @@
 Install the global .NET tool:
 
 ```bash
-dotnet tool install -g Jint.Browser.Tool --prerelease
+dotnet tool install -g Jint.Browser.Tool
 ```
 
 Update it later with:
 
 ```bash
-dotnet tool update -g Jint.Browser.Tool --prerelease
+dotnet tool update -g Jint.Browser.Tool
 ```
 
 Show help or the installed version:

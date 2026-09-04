@@ -14,11 +14,9 @@ const previewSectionPrefixes = [
 ];
 
 const previewReferencePages = new Set([
-  "guide/migrating-to-v5.md",
   "reference/web-api-features.md",
   "reference/browser-compatibility.md",
-  "reference/devtools-domains.md",
-  "v5-migration.md"
+  "reference/devtools-domains.md"
 ]);
 
 function isJint5PreviewPage(relativePath: string): boolean {

@@ -3,7 +3,7 @@
 Install the package:
 
 ```bash
-dotnet add package Jint.Browser --prerelease
+dotnet add package Jint.Browser
 ```
 
 Create and dispose a browser asynchronously:

@@ -15,10 +15,10 @@ Keep the default loopback host (`127.0.0.1`) and do not expose the port to an un
 ## Install
 
 ```bash
-dotnet add package Jint.DevTools --prerelease
+dotnet add package Jint.DevTools
 ```
 
-[View Jint.DevTools preview builds on Feedz](https://feedz.io/org/sebastienros/repository/jint/packages/Jint.DevTools)
+[View Jint.DevTools on NuGet.org](https://www.nuget.org/packages/Jint.DevTools)
 
 ## Minimal host
 

@@ -9,7 +9,7 @@
 Install the package:
 
 ```bash
-dotnet add package Jint.DevTools --prerelease
+dotnet add package Jint.DevTools
 ```
 
 ## Create and publish a target

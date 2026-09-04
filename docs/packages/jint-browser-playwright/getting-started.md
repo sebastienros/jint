@@ -3,7 +3,7 @@
 Install the adapter:
 
 ```bash
-dotnet add package Jint.Browser.Playwright --prerelease
+dotnet add package Jint.Browser.Playwright
 ```
 
 Create a browser through the familiar public interfaces:

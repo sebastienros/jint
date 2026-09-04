@@ -3,7 +3,7 @@
 Install and run the packaged stdio server:
 
 ```bash
-dotnet tool install -g Jint.Browser.Tool --prerelease
+dotnet tool install -g Jint.Browser.Tool
 jint-browser mcp
 ```
 
