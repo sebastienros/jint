@@ -22,7 +22,9 @@ namespace Jint.Browser.Dom;
 /// and the three DOM has given a constructor since 2014 —
 /// <c>Comment</c> (https://dom.spec.whatwg.org/#dom-comment-comment),
 /// <c>Text</c> (https://dom.spec.whatwg.org/#dom-text-text) and
-/// <c>Range</c> (https://dom.spec.whatwg.org/#dom-range-range).
+/// <c>Range</c> (https://dom.spec.whatwg.org/#dom-range-range); plus
+/// <c>StaticRange</c> (https://dom.spec.whatwg.org/#dom-staticrange-staticrange), which is not a generated
+/// interface at all — see <see cref="DomStaticRange"/>.
 /// </para>
 /// <para>
 /// <b>Every one of them says "the current global object's associated <c>Document</c>".</b> That is the page's
@@ -76,6 +78,14 @@ internal static class DomConstructors
             // The new range's start and end are (that document, 0), which is what AngleSharp's own
             // CreateRange answers.
             instance = (ObjectInstance) realm.Wrap(NodeDocument(realm).CreateRange());
+            return true;
+        }
+
+        // https://dom.spec.whatwg.org/#dom-staticrange-staticrange, and the one row here that is not a
+        // generated interface: AngleSharp models no StaticRange, so this constructs the binding's own.
+        if (ReferenceEquals(definition, DomManualInterfaces.StaticRange))
+        {
+            instance = DomStaticRange.Construct(realm, arguments);
             return true;
         }
 

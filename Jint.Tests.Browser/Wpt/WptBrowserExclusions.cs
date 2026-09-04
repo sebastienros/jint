@@ -1169,6 +1169,8 @@ internal static class WptBrowserExclusions
         new("dom/nodes/ParentNode-prepend.html", "*null as an argument, on a parent having no child.", WptDivergence.NeedsTriage),
         new("dom/nodes/ParentNode-prepend.html", "*text as an argument, on a parent having no child.", WptDivergence.NeedsTriage),
         new("dom/nodes/ParentNode-prepend.html", "*undefined as an argument, on a parent having no child.", WptDivergence.NeedsTriage),
+        new("dom/ranges/StaticRange-constructor.html", "Construct static range with DocumentFragment container", WptDivergence.NeedsTriage),
+        new("dom/ranges/StaticRange-constructor.html", "Construct static range with endpoints in disconnected trees", WptDivergence.NeedsTriage),
 
         // ---------------------------------------------------------------- DOM's validate-and-extract, and the XML name productions
         // DOM's validate-and-extract, and the XML name productions
@@ -1237,12 +1239,11 @@ internal static class WptBrowserExclusions
         new("dom/nodes/Node-nodeValue.html", "Text*", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "null*", WptDivergence.NeedsTriage),
 
-        // ---------------------------------------------------------------- Range's own algorithms, and StaticRange
-        // Range's remaining algorithms, and the StaticRange interface that is not there
+        // ---------------------------------------------------------------- Range's own algorithms
+        // Range's remaining algorithms
         new("dom/ranges/Range-comparePoint-2.html", "*2", WptDivergence.NeedsTriage),
         new("dom/ranges/Range-extractContents-dynamic-end.html", "*", WptDivergence.NeedsTriage),
         new("dom/ranges/Range-in-shadow-after-the-shadow-removed.html", "*", WptDivergence.NeedsTriage),
-        new("dom/ranges/StaticRange-constructor.html", "*", WptDivergence.NeedsTriage),
 
         // ---------------------------------------------------------------- an event interface this browser does not build
         // an event interface this package deliberately does not build

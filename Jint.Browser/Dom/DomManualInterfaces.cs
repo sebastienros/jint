@@ -10,7 +10,10 @@ namespace Jint.Browser.Dom;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>There is exactly one, and it is chosen by local name rather than by CLR type.</b> AngleSharp models
+/// <b>There are two, and they are here for opposite reasons.</b> <c>HTMLFrameSetElement</c> is a node
+/// AngleSharp builds and cannot name, so it is chosen by <em>local name</em> where everything else is chosen
+/// by CLR type; <c>StaticRange</c> is not AngleSharp's at all, so it is chosen by a CLR type of this
+/// package's own that no node ever takes. The first is the harder one to see, and is this: AngleSharp models
 /// <c>&lt;frameset&gt;</c> with the plain <c>IHtmlElement</c> — there is no <c>IHtmlFrameSetElement</c> and no
 /// <c>[DomName("HTMLFrameSetElement")]</c> anywhere in the pinned assemblies — so <c>DomTypeMap</c>, which
 /// keys on the CLR type, cannot tell a frameset from a <c>&lt;div&gt;</c>. The events bridge already makes the
@@ -49,8 +52,28 @@ internal static class DomManualInterfaces
         Index = DomInterfaces.All.Length,
     };
 
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#staticrange. AngleSharp has no <c>StaticRange</c> and no
+    /// <c>AbstractRange</c> — the interface is four values a page hands over, so there is nothing for it to
+    /// model — which is why this one is declared by CLR type where <c>HTMLFrameSetElement</c> is declared by
+    /// local name: the type is <see cref="DomStaticRange.State"/>, ours, and no node ever takes it.
+    /// <see cref="DomStaticRange"/> carries the algorithm and the shape.
+    /// </summary>
+    internal static readonly DomInterfaceDefinition StaticRange = new(
+        "StaticRange",
+        typeof(DomStaticRange.State),
+        DomStaticRange.Shape,
+        parent: null,
+        rootsAtEventTarget: false,
+        hasInterfaceObject: true,
+        DomWrapperKind.Object,
+        constructorLength: DomStaticRange.ConstructorLength)
+    {
+        Index = DomInterfaces.All.Length + 1,
+    };
+
     /// <summary>Every manual interface, in index order.</summary>
-    internal static readonly DomInterfaceDefinition[] All = [HTMLFrameSetElement];
+    internal static readonly DomInterfaceDefinition[] All = [HTMLFrameSetElement, StaticRange];
 
     /// <summary>
     /// The interface a node takes when its CLR type does not decide it, or <see langword="null"/> when

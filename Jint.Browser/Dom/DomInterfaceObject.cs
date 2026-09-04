@@ -35,7 +35,7 @@ internal sealed class DomInterfaceObject : Constructor
         _domRealm = realm;
         _definition = definition;
         _prototype = realm.PrincipalRealm.Intrinsics.Function.PrototypeObject;
-        _length = new PropertyDescriptor(JsNumber.PositiveZero, PropertyFlag.Configurable);
+        _length = new PropertyDescriptor(JsNumber.Create(definition.ConstructorLength), PropertyFlag.Configurable);
 
         // https://webidl.spec.whatwg.org/#interface-object — { writable: false, enumerable: false,
         // configurable: false }, so a script cannot repoint an interface at another prototype.
