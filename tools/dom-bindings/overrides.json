@@ -243,6 +243,21 @@
       "interface": "CharacterData",
       "member": "replaceData",
       "reason": "The offset and the count of the same conversion; see substringData."
+    },
+    {
+      "interface": "HTMLInputElement",
+      "member": "files",
+      "reason": "HTML's selected files are File API File objects held by a live FileList. AngleSharp exposes its own IFileList through a getter only, which cannot hold Jint's File instances and cannot accept the FileList produced by DataTransfer. Re-declared in additions so the getter and setter share the browser runtime's selected-file state."
+    },
+    {
+      "interface": "HTMLInputElement",
+      "member": "type",
+      "reason": "Changing into or out of the file-upload state empties the selected file list. Re-declared in additions so the selected-file sidecar follows that state transition."
+    },
+    {
+      "interface": "HTMLInputElement",
+      "member": "value",
+      "reason": "The file-upload state exposes a fake path for the selected filename, permits only the empty string to be assigned, and clears its selected files when that happens. Re-declared in additions while preserving AngleSharp's behavior for every other input state."
     }
   ],
   "additions": [
@@ -1294,6 +1309,48 @@
       "reason": "The other half of the skip above; see substringData."
     },
     {
+      "interface": "HTMLInputElement",
+      "member": "files",
+      "kind": "attribute",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, \"HTMLInputElement.files\");",
+        "return global::Jint.Browser.Dom.Files.FileTransferMembers.InputFiles(self.Realm, self.Target);"
+      ],
+      "setter": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, \"HTMLInputElement.files\");",
+        "return global::Jint.Browser.Dom.Files.FileTransferMembers.SetInputFiles(self.Realm, self.Target, args);"
+      ],
+      "reason": "HTML §4.10.5.1.17 exposes the selected files as a nullable FileList and permits assigning another FileList. The binding's list carries Jint's standards-based File objects, so File.text(), FormData and fetch all observe the same bytes."
+    },
+    {
+      "interface": "HTMLInputElement",
+      "member": "type",
+      "kind": "attribute",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, \"HTMLInputElement.type\");",
+        "return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Type);"
+      ],
+      "setter": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, \"HTMLInputElement.type\");",
+        "return global::Jint.Browser.Dom.Files.FileTransferMembers.SetInputType(self.Realm, self.Target, args);"
+      ],
+      "reason": "HTML §4.10.5.3.1 empties selected files when a type change moves into or out of the file-upload state."
+    },
+    {
+      "interface": "HTMLInputElement",
+      "member": "value",
+      "kind": "attribute",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, \"HTMLInputElement.value\");",
+        "return global::Jint.Browser.Dom.Files.FileTransferMembers.InputValue(self.Realm, self.Target);"
+      ],
+      "setter": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, \"HTMLInputElement.value\");",
+        "return global::Jint.Browser.Dom.Files.FileTransferMembers.SetInputValue(self.Realm, self.Target, args);"
+      ],
+      "reason": "HTML §4.10.5.1.17 defines the file-upload state's filename value, fake path, and empty-string setter."
+    },
+    {
       "interface": "Element",
       "extend": "Jint.Browser.Dom.AriaReflection.ElementAria",
       "reason": "ARIA §10.1's ARIAMixin, which the standard puts on Element: `role` and forty-four `aria-*` IDL attributes, each an identically shaped accessor pair reflecting one content attribute. AngleSharp's IElement has no ARIA member at all, so the member closure yields none, and as member entries they would be ninety near-identical rows; the extend form exists for exactly this. The element-reflection half of the mixin is not here -- see Jint.Browser/Dom/AriaReflection.cs."
@@ -1386,6 +1443,14 @@
       "hook": "CloneNode",
       "returns": true,
       "reason": "The same AngleSharp call, and then the upgrade DOM's clone steps enqueue -- so the node the page is handed is the host's answer rather than AngleSharp's."
+    },
+    {
+      "interface": "Document",
+      "member": "importNode",
+      "half": "operation",
+      "hook": "ImportNode",
+      "returns": true,
+      "reason": "DOM's import steps leave a cloned file input with no selected files. AngleSharp copies its internal filename value, so the host clears copied file controls before exposing the imported tree."
     },
     {
       "interface": "Element",

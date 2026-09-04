@@ -92,8 +92,9 @@ internal sealed class ParserDriver : IDisposable
         // WithDefaultLoader: every byte a document pulls goes through the page's own network position.
         // The render device is what the cascade resolves a relative length and an `@media` rule against;
         // without one AngleSharp.Css raises rather than answering for `width: 100%` (see PageRenderDevice).
-        // The attribute observer is the last of them, and it is what a custom element's
-        // `attributeChangedCallback` is answered from: it is called for every element of this document,
+        // The attribute observers are the last of them: one answers a custom element's
+        // `attributeChangedCallback`, and one keeps file-input state aligned with type mutations. They run
+        // for every element of this document,
         // attached or not, where a mutation record needs the element to be under the observed document
         // and `el.setAttribute` before insertion is the commonest thing a component does. `.With` adds a
         // service rather than replacing one, so AngleSharp's own observer keeps working.
@@ -101,7 +102,8 @@ internal sealed class ParserDriver : IDisposable
             .WithCss()
             .With(new PageResourceLoader(this))
             .With<AngleSharp.Css.IRenderDevice>(_ => new PageRenderDevice(_runtime))
-            .With<AngleSharp.Dom.IAttributeObserver>(_ => new CustomElements.CustomElementAttributeObserver(_runtime));
+            .With<AngleSharp.Dom.IAttributeObserver>(_ => new CustomElements.CustomElementAttributeObserver(_runtime))
+            .With<AngleSharp.Dom.IAttributeObserver>(_ => new Dom.Files.FileInputAttributeObserver(_runtime));
 
         // https://chromedevtools.github.io/devtools-protocol/tot/Emulation/#method-setScriptExecutionDisabled
         // — the scripting service is simply not registered, which is how AngleSharp is told a document has

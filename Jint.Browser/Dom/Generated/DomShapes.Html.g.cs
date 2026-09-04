@@ -2173,7 +2173,12 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.files", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.files");
-                    return self.Realm.Wrap(self.Target.Files);
+                    return global::Jint.Browser.Dom.Files.FileTransferMembers.InputFiles(self.Realm, self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.files", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.files");
+                    return global::Jint.Browser.Dom.Files.FileTransferMembers.SetInputFiles(self.Realm, self.Target, args);
                 }))
             .Accessor("form",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.form", static (thisObj, args) =>
@@ -2485,7 +2490,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.type", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.type");
-                    self.Target.Type = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLInputElement.type"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.Files.FileTransferMembers.SetInputType(self.Realm, self.Target, args);
                 }))
             .Accessor("validationMessage",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.validationMessage", static (thisObj, args) =>
@@ -2503,12 +2508,12 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.value", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.value");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Value);
+                    return global::Jint.Browser.Dom.Files.FileTransferMembers.InputValue(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.value", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.value");
-                    self.Target.Value = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLInputElement.value"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.Files.FileTransferMembers.SetInputValue(self.Realm, self.Target, args);
                 }))
             .Accessor("valueAsDate",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.valueAsDate", static (thisObj, args) =>

@@ -246,6 +246,17 @@ internal static class FormSubmitter
                         return;
                     }
 
+                    var selectedFiles = Dom.Files.FileTransferRealm.Of(runtime.Engine).InputFiles(input, create: false);
+                    if (selectedFiles is { Length: > 0 })
+                    {
+                        foreach (var file in selectedFiles.Files)
+                        {
+                            entries.Add(new FormDataEntry(name!, file));
+                        }
+
+                        return;
+                    }
+
                     // "If there are no selected files, then append an entry with an empty File object" —
                     // which is what makes a server see the field at all.
                     entries.Add(new FormDataEntry(name!, EmptyFile(runtime)));
