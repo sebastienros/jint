@@ -3097,12 +3097,20 @@ namespace Jint.WebApi.Fetch
         public virtual void OnFailed(Jint.WebApi.Fetch.FetchRequestId id, string reason, System.Exception? exception) { }
         public virtual System.Threading.Tasks.ValueTask<Jint.WebApi.Fetch.FetchInterception?> OnRequestAsync(Jint.WebApi.Fetch.ObservedFetchRequest request, System.Threading.CancellationToken cancellationToken) { }
         public virtual void OnResponse(Jint.WebApi.Fetch.ObservedFetchResponse response) { }
+        public virtual System.Threading.Tasks.ValueTask<Jint.WebApi.Fetch.FetchResponseInterception?> OnResponseAsync(Jint.WebApi.Fetch.ObservedFetchResponse response, System.Threading.CancellationToken cancellationToken) { }
     }
     public readonly struct FetchRequestId : System.IEquatable<Jint.WebApi.Fetch.FetchRequestId>
     {
         public FetchRequestId(long Value) { }
         public long Value { get; init; }
         public override string ToString() { }
+    }
+    [System.Diagnostics.CodeAnalysis.Experimental("JINT0002")]
+    public sealed class FetchResponseInterception
+    {
+        public static Jint.WebApi.Fetch.FetchResponseInterception Continue(int? status = default, string? statusText = null, System.Collections.Generic.IReadOnlyList<Jint.WebApi.Fetch.FetchHeader>? headers = null) { }
+        public static Jint.WebApi.Fetch.FetchResponseInterception Fail(string reason) { }
+        public static Jint.WebApi.Fetch.FetchResponseInterception Fulfill(int status, System.Collections.Generic.IReadOnlyList<Jint.WebApi.Fetch.FetchHeader>? headers = null, System.ReadOnlyMemory<byte> body = default, string? statusText = null) { }
     }
     public readonly struct FetchTiming : System.IEquatable<Jint.WebApi.Fetch.FetchTiming>
     {

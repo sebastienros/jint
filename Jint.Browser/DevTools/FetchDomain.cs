@@ -32,13 +32,20 @@ namespace Jint.Browser.DevTools;
 /// thread that read them, and what they release is the fetch the loop is blocked on.
 /// </para>
 /// <para>
-/// <b>The <c>Request</c> stage only, and that is an engine seam rather than an omission.</b> A pattern
-/// asking for <c>requestStage: "Response"</c> is accepted and matches nothing:
-/// <c>FetchObserver.OnResponse</c> is a notification an observer cannot answer, so a response-stage pause
-/// could only ever continue unchanged — a client that called <c>fulfillRequest</c> from one would be
-/// silently ignored, which is worse than not pausing. <c>Fetch.continueResponse</c>,
-/// <c>Fetch.getResponseBody</c> and <c>Fetch.takeResponseBodyAsStream</c> (and with them the whole <c>IO</c>
-/// domain) are absent for the same reason; <c>Network.getResponseBody</c> is what answers a body here.
+/// <b>The <c>Request</c> stage only, and the reason has changed.</b> A pattern asking for
+/// <c>requestStage: "Response"</c> is still accepted and still matches nothing, but no longer because the
+/// engine cannot answer one: <c>FetchObserver.OnResponseAsync</c> is asked about the response that ends the
+/// chain and its answer substitutes, rewrites or fails it
+/// (<see href="https://github.com/sebastienros/jint/issues/3701">#3701</see> item 1). What is left is the
+/// wiring — this domain, <c>PageNetworkRecorder</c> and <c>IPageNetworkListener</c> — which is why
+/// <c>Fetch.continueResponse</c> is still absent and a response-stage pattern still matches nothing rather
+/// than pausing at something a client could not answer.
+/// </para>
+/// <para>
+/// <b><c>Fetch.getResponseBody</c> and <c>Fetch.takeResponseBodyAsStream</c> (and with them the whole
+/// <c>IO</c> domain) need something further</b>: the seam hands the observer a response's headers while its
+/// body is still on the socket, so there are no bytes to give a paused client without buffering them first.
+/// <c>Network.getResponseBody</c> is what answers a body here.
 /// </para>
 /// <para>
 /// <b>No authentication challenge exists here.</b> <c>handleAuthRequests</c> is accepted and
@@ -232,7 +239,8 @@ internal sealed class FetchDomain : FetchDomainBase, IDetachableDomain
 
     /// <summary>Whether one pattern asks about one request.</summary>
     /// <remarks>
-    /// <c>requestStage: "Response"</c> matches nothing here; see the class remarks. A pattern with no
+    /// <c>requestStage: "Response"</c> matches nothing here until this domain is wired to the engine's
+    /// response stage; see the class remarks. A pattern with no
     /// <c>urlPattern</c> means every URL, which is the protocol's default.
     /// </remarks>
     private static bool Matches(RequestPattern pattern, PageNetworkRequest request)

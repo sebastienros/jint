@@ -58,8 +58,18 @@ reason. Nothing it is handed is a `JsValue`, an `Engine` or a realm, and
 Terminality is enforced in `FetchObservation` rather than trusted to the call sites, because a request can
 fail in the redirect loop, in the body stream *and* in `FetchOperation`'s own classification; the
 compare-and-swap is what makes `OnCompleted`/`OnFailed` fire exactly once between them. A notification that
-throws is ignored — there is no engine thread to report it to — while a throw from `OnRequestAsync` fails the
-fetch, because that is the callback that was asked to decide. Two ordering facts matter before mapping it
+throws is ignored — there is no engine thread to report it to — while a throw from `OnRequestAsync` or
+`OnResponseAsync` fails the fetch, because those are the callbacks that were asked to decide.
+
+**Two callbacks answer, and each is asked in the one place every lane passes.** `OnRequestAsync` is asked per
+hop, inside the redirect loop. `OnResponseAsync` is asked once, for the response that *ends* the chain, in
+`SendForStreamAsync` — deliberately not in `SendAsync`, because a document fetch, a subresource, an
+`XMLHttpRequest` and an `EventSource` all take the stream lane and only `fetch()` takes the other, so an ask
+placed there would have served the one caller that needed it least. **The ask is not the notification**: who
+tells the observer about the final response is still per lane (`BeginResponseAsync` for `SendAsync`,
+`FetchObservation.FinalResponse` for everyone else), so both report what the answer produced rather than what
+the socket said. What `Continue` may not rewrite is the body — it has not been read and is still coming — and
+that is the whole difference from `Fulfill`, which discards the socket's bytes unread. Two ordering facts matter before mapping it
 onto a protocol: **a refusal before the transport** (a `UrlFilter` denial, the concurrency cap, an
 already-aborted signal) reports `OnFailed` with no `OnRequest` before it, because `fetch`'s synchronous half
 cannot await one; and **a body nobody reads never completes**, because it is only pulled when script consumes

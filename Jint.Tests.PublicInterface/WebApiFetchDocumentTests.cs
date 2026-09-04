@@ -504,6 +504,8 @@ public class WebApiFetchDocumentTests
 
         internal Func<ObservedFetchRequest, FetchInterception?>? OnRequestHandler { get; init; }
 
+        internal Func<ObservedFetchResponse, FetchResponseInterception?>? OnResponseHandler { get; init; }
+
         public override int RequestBodyPreviewBytes => 16;
 
         public override ValueTask<FetchInterception?> OnRequestAsync(ObservedFetchRequest request, CancellationToken cancellationToken)
@@ -514,6 +516,16 @@ public class WebApiFetchDocumentTests
             }
 
             return new ValueTask<FetchInterception?>(OnRequestHandler?.Invoke(request));
+        }
+
+        public override ValueTask<FetchResponseInterception?> OnResponseAsync(ObservedFetchResponse response, CancellationToken cancellationToken)
+        {
+            lock (Events)
+            {
+                Events.Add($"asked {response.Id} {response.Status} redirect={response.IsRedirect}");
+            }
+
+            return new ValueTask<FetchResponseInterception?>(OnResponseHandler?.Invoke(response));
         }
 
         public override void OnResponse(ObservedFetchResponse response)
@@ -572,6 +584,10 @@ public class WebApiFetchDocumentTests
             $"request {id} GET https://a.test/start redirects=0 after=- initiator=Script",
             $"response {id} 302 redirect=True intercepted=False",
             $"request {id} GET https://a.test/landing redirects=1 after=302 initiator=Script",
+
+            // The response stage: the final response is asked about before it is reported, and a redirect
+            // above is reported without being asked about.
+            $"asked {id} 200 redirect=False",
             $"response {id} 200 redirect=False intercepted=False",
             $"data {id} 5",
             $"completed {id} 5");
@@ -740,12 +756,140 @@ public class WebApiFetchDocumentTests
             "nothing went on the wire, and a zero-length timing would report a socket that was never opened as an instant round trip");
     });
 
+    /// <summary>
+    /// The response stage answers <c>Fulfill</c>: the bytes the server sent are discarded unread and the
+    /// observer's own response is what the script gets.
+    /// </summary>
+    /// <remarks>
+    /// This is what a protocol client's <c>Fetch.fulfillRequest</c> from a response-stage pause needs, and
+    /// what made the whole stage absent while <c>OnResponse</c> was a notification
+    /// (<see href="https://github.com/sebastienros/jint/issues/3701">#3701</see> item 1).
+    /// </remarks>
+    [Test]
+    public Task AnObserverCanReplaceTheResponseAtTheResponseStage() => DedicatedThread.RunAsync(() =>
+    {
+        var handler = new RecordingHandler
+        {
+            Responder = _ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("from the server") },
+        };
+
+        var observer = new RecordingObserver
+        {
+            OnResponseHandler = _ => FetchResponseInterception.Fulfill(
+                203,
+                [new FetchHeader("x-source", "observer")],
+                new ReadOnlyMemory<byte>("from the observer"u8.ToArray()),
+                "Substituted"),
+        };
+
+        var engine = WebEngine(handler, f => f.Observer = observer);
+
+        engine.Evaluate("""
+            fetch('https://a.test/thing').then(r => r.status + '|' + r.statusText + '|' + r.headers.get('x-source') + '|' + r.text())
+            """)
+            .UnwrapIfPromise(TransportSignalCeiling);
+
+        engine.Evaluate("""
+            fetch('https://a.test/thing').then(r => r.text().then(t => r.status + '|' + r.statusText + '|' + r.headers.get('x-source') + '|' + t))
+            """)
+            .UnwrapIfPromise(TransportSignalCeiling).AsString()
+            .Should().Be("203|Substituted|observer|from the observer");
+
+        // The notification that follows the ask reports what the answer produced, not what the socket said.
+        observer.Events.Should().Contain(entry => entry.Contains("response ", StringComparison.Ordinal) && entry.Contains(" 203 ", StringComparison.Ordinal));
+        observer.Events.Should().Contain(entry => entry.Contains("intercepted=True", StringComparison.Ordinal));
+    });
+
+    /// <summary>
+    /// It answers <c>Continue</c>: the status line and the headers are rewritten and the server's own body
+    /// still arrives, which is <c>Fetch.continueResponse</c>.
+    /// </summary>
+    [Test]
+    public Task AnObserverCanRewriteAResponsesStatusAndHeadersAndKeepItsBody() => DedicatedThread.RunAsync(() =>
+    {
+        var handler = new RecordingHandler
+        {
+            Responder = _ => new HttpResponseMessage(HttpStatusCode.InternalServerError) { Content = new StringContent("the real body") },
+        };
+
+        var observer = new RecordingObserver
+        {
+            OnResponseHandler = _ => FetchResponseInterception.Continue(
+                status: 200,
+                statusText: "Fine now",
+                headers: [new FetchHeader("content-type", "text/plain"), new FetchHeader("x-rewritten", "yes")]),
+        };
+
+        var engine = WebEngine(handler, f => f.Observer = observer);
+
+        engine.Evaluate("""
+            fetch('https://a.test/thing').then(r => r.text().then(t => r.ok + '|' + r.status + '|' + r.statusText + '|' + r.headers.get('x-rewritten') + '|' + t))
+            """)
+            .UnwrapIfPromise(TransportSignalCeiling).AsString()
+            .Should().Be("true|200|Fine now|yes|the real body");
+    });
+
+    /// <summary>
+    /// And <c>Fail</c>, which the script sees as the <c>TypeError</c> every network failure produces, with
+    /// the observer's own reason reaching only the host.
+    /// </summary>
+    [Test]
+    public Task AnObserverCanFailARequestAtTheResponseStage() => DedicatedThread.RunAsync(() =>
+    {
+        var handler = new RecordingHandler
+        {
+            Responder = _ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("never seen") },
+        };
+
+        var observer = new RecordingObserver
+        {
+            OnResponseHandler = _ => FetchResponseInterception.Fail("the observer refused it"),
+        };
+
+        var engine = WebEngine(handler, f => f.Observer = observer);
+
+        engine.Evaluate("fetch('https://a.test/thing').then(() => 'resolved', e => e.constructor.name)")
+            .UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("TypeError");
+
+        observer.Events.Should().Contain(entry => entry.StartsWith("failed ", StringComparison.Ordinal) && entry.Contains("the observer refused it", StringComparison.Ordinal));
+    });
+
+    /// <summary>
+    /// The ask is for the response that <b>ends</b> the chain, once: a redirect the loop follows is reported
+    /// and not answerable, because what it produces is a hop <c>OnRequestAsync</c> is already asked about.
+    /// </summary>
+    [Test]
+    public Task TheResponseStageIsAskedOnceAndOnlyForTheFinalResponse() => DedicatedThread.RunAsync(() =>
+    {
+        var handler = new RecordingHandler
+        {
+            Responder = url => url.EndsWith("/start", StringComparison.Ordinal)
+                ? Redirect("https://a.test/landing")
+                : new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("hello") },
+        };
+
+        var observer = new RecordingObserver();
+        var engine = WebEngine(handler, f => f.Observer = observer);
+
+        engine.Evaluate("fetch('https://a.test/start').then(r => r.text())")
+            .UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("hello");
+
+        observer.Events.Count(entry => entry.StartsWith("asked ", StringComparison.Ordinal))
+            .Should().Be(1, "the redirect is reported, not asked about");
+        observer.Events.Should().Contain(entry => entry.StartsWith("asked ", StringComparison.Ordinal) && entry.Contains(" 200 ", StringComparison.Ordinal));
+
+        // And the ask comes before the notification of the same response.
+        var asked = observer.Events.FindIndex(entry => entry.StartsWith("asked ", StringComparison.Ordinal));
+        var reported = observer.Events.FindIndex(entry => entry.StartsWith("response ", StringComparison.Ordinal) && entry.Contains(" 200 ", StringComparison.Ordinal));
+        asked.Should().BeLessThan(reported);
+    });
+
     [Test]
     public void TheObserverSurfaceMentionsNoEngineType()
     {
         // The whole point of the seam: a protocol layer runs it from a transport thread, so nothing it is
         // handed may be a value only the engine thread may touch.
-        var types = new[] { typeof(FetchObserver), typeof(ObservedFetchRequest), typeof(ObservedFetchResponse), typeof(FetchInterception), typeof(FetchRequestId), typeof(FetchHeader), typeof(FetchTiming) };
+        var types = new[] { typeof(FetchObserver), typeof(ObservedFetchRequest), typeof(ObservedFetchResponse), typeof(FetchInterception), typeof(FetchResponseInterception), typeof(FetchRequestId), typeof(FetchHeader), typeof(FetchTiming) };
 
         foreach (var type in types)
         {

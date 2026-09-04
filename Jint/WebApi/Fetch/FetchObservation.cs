@@ -72,6 +72,13 @@ internal sealed class FetchObservation
     }
 
     /// <summary>
+    /// Asks the observer what to do with the response that ends the chain. Like <see cref="RequestAsync"/>
+    /// and unlike every notification here, a throw is <b>not</b> swallowed.
+    /// </summary>
+    internal async Task<FetchResponseInterception?> ResponseAsync(ObservedFetchResponse response, CancellationToken cancellationToken)
+        => await _observer.OnResponseAsync(response, cancellationToken).ConfigureAwait(false);
+
+    /// <summary>
     /// Reports the final response of an exchange whose body the caller reads itself, then — once those bytes
     /// are counted — <see cref="Completed"/>.
     /// </summary>
