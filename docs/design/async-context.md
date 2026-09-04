@@ -566,11 +566,11 @@ keeps that realm's objects alive for as long as the mapping is reachable. That i
 
 **AsyncContext is Stage 2.** Verified against `tc39/proposals@main`'s Stage 2 table (row: *Async Context*,
 author Chengzhong Wu, champions Andreu Botella, Chengzhong Wu, Justin Ridgewell) and against the proposal
-README's own `Status: Stage 2`. It is not in the Stage 2.7 table.
+The proposal's own `Status: Stage 2`. It is not in the Stage 2.7 table.
 
 `AGENTS.md` says proposal built-ins are registered unconditionally, with no per-feature option and no ES-version
 gate, and that rule should stay. But it is worth being precise about what Jint has actually been shipping under
-it. **Not one of the proposals in the README's "no version yet" list appears in the Stage 2 table** — the whole
+it. **Not one of the proposal features summarized in the ECMAScript reference appears in the Stage 2 table** — the whole
 table was read, and Jint's set sits at 2.7 or above:
 
 | Jint's shipped proposals | Stage |

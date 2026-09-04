@@ -256,7 +256,7 @@ public sealed partial class Options
         /// </summary>
         /// <remarks>
         /// <para>
-        /// <b>The default is deliberately the truth</b>, and README's WinterTC section says why: a script that
+        /// <b>The default is deliberately the truth</b>, and docs/reference/web-api-features.md says why: a script that
         /// branches on the runtime it is on should get the runtime it is on, and an embedded interpreter
         /// claiming to be a browser is a lie a page cannot check. The host that this is wrong for is a
         /// <i>browser</i> — a page's scripts sniff <c>navigator.userAgent</c>, and CDP's

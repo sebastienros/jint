@@ -10,7 +10,7 @@ namespace Jint.Tests.Runtime.WebApi;
 /// </summary>
 /// <remarks>
 /// <para>
-/// This is the pin behind the conformance table in <c>README.md</c>. The table claims, row by row, which
+/// This is the pin behind the conformance summary in <c>docs/reference/web-api-features.md</c>. The documentation claims which
 /// <see cref="WebApiFeatures"/> flag provides each member and which ones are absent; a change that installs a
 /// global WinterTC does not name, stops installing one it does, or quietly closes one of the documented gaps
 /// fails here, so the table cannot go stale without the build saying so.
@@ -84,7 +84,7 @@ public class WinterTcMinimumCommonApiTests
     ];
 
     /// <summary>
-    /// Everything the README's table records as absent from a <see cref="WebApiFeatures.Default"/> engine,
+    /// Everything the Web API reference records as absent from a <see cref="WebApiFeatures.Default"/> engine,
     /// with the reason each one is on this list.
     /// </summary>
     private static readonly string[] AbsentFromDefault =
@@ -107,7 +107,7 @@ public class WinterTcMinimumCommonApiTests
     private static string[] AllMembers => [.. CommonInterfaces, .. CommonMethodsAndProperties];
 
     [Test]
-    public void ADefaultEngineIsMissingExactlyTheMembersTheReadmeRecordsAsAbsent()
+    public void ADefaultEngineIsMissingExactlyTheMembersTheDocumentationRecordsAsAbsent()
     {
         var engine = new Engine(options => options.UseWebApis());
 
@@ -138,7 +138,7 @@ public class WinterTcMinimumCommonApiTests
     /// <summary>
     /// Every §5.1 interface a <see cref="WebApiFeatures.Default"/> engine carries is a real interface object:
     /// a function whose <c>prototype</c> is what its instances inherit from. <c>Object.getPrototypeOf</c> and
-    /// <c>instanceof</c> therefore agree, which is what makes each row of the README's table a claim about the
+    /// <c>instanceof</c> therefore agree, which is what makes each documented interface a claim about the
     /// prototype chain rather than about a name being defined.
     /// </summary>
     [TestCase("ReadableStreamDefaultReader", "new ReadableStream().getReader()")]

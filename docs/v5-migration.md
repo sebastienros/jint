@@ -1216,7 +1216,7 @@ noise. Turn it off only for trusted, independently bounded scripts:
 var engine = new Engine(options => options.Constraints.StackOverflowGuard = false);
 ```
 
-See [Surviving an unbounded recursion](../README.md#surviving-an-unbounded-recursion).
+See [Execution constraints](packages/jint/constraints.md).
 
 ### 4.6 Atomics agent suspension is disabled by default ([#3058](https://github.com/sebastienros/jint/pull/3058))
 
@@ -1249,7 +1249,7 @@ What a host has to change:
   still be dispatched from another thread inside one of the four callback-admission windows.
 
 The full contract, including those windows, is in
-[Thread-safety](../README.md#thread-safety).
+[Thread safety](packages/jint/thread-safety.md).
 
 ### 4.8 Memory is accounted across async continuations ([#3036](https://github.com/sebastienros/jint/pull/3036))
 
@@ -1276,7 +1276,7 @@ var engine = new Engine(options => options
 
 Narrower opt-ins: `Interop.ExposeDetailedExceptionMessages`, `Interop.ExposeDetailedResolutionErrors`
 (which already existed and already defaulted to `false`), `Modules.ExposeDetailedLoadErrors`. See
-[Detailed development errors](../README.md#detailed-development-errors).
+[Errors and diagnostics](packages/jint/errors.md).
 
 ### 4.10 `*Async` entries have one deterministic failure channel ([#3252](https://github.com/sebastienros/jint/pull/3252))
 
@@ -1308,7 +1308,7 @@ Two smaller consequences: `ExecuteAsync` and `Modules.ImportAsync` now throw the
 `InvalidOperationException` **synchronously** rather than faulting the task, and a `null` source now
 raises `ArgumentNullException` where 4.16 raised `NullReferenceException` from inside the parser. No
 constraint is weakened — same exception type, same message, same aborted run. See
-[Where failures arrive](../README.md#where-failures-arrive).
+[Errors and diagnostics](packages/jint/errors.md).
 
 ### 4.11 Array-like `length` above 2^32−1 ([#3248](https://github.com/sebastienros/jint/pull/3248))
 
@@ -1370,11 +1370,11 @@ Two further additions in the same stack are entirely opt-in and change nothing o
 - [#3059](https://github.com/sebastienros/jint/pull/3059) — the `JINTSEC*` configuration diagnostics,
   read through `options.ValidateSecurityConfiguration()` or enforced with
   `options.EnsureSecurityConfiguration()`. See
-  [Validating options for untrusted scripts](../README.md#validating-options-for-untrusted-scripts).
+  [Running untrusted code](packages/jint/untrusted-code.md).
 - [#3060](https://github.com/sebastienros/jint/pull/3060) — the hardened `ForUntrustedCode(limits)`
   profile and its `UntrustedCodeLimits.BeginOperation(engine, token)` scope, which spans one
   cumulative deadline and allocation budget across every entry an operation makes. See
-  [Running untrusted code](../README.md#running-untrusted-code).
+  [Running untrusted code](packages/jint/untrusted-code.md).
 
 The supported boundaries and the residual risks are in the
 [threat model](../.github/THREAT_MODEL.md).
@@ -5463,32 +5463,32 @@ none of it changes an engine that does not.
 
 | Area | Enable with | Reference |
 | --- | --- | --- |
-| WHATWG web APIs — `console`, timers, `URL`, encoding, streams, `fetch`, storage, `WebSocket`, `EventSource`, crypto | `options.UseWebApis(...)` | [Web APIs (opt-in)](../README.md#web-apis-opt-in) |
-| Web Workers, on a thread you supply | `options.UseWebApis().UseWorkers(provider)` | [`new Worker()`](../README.md#new-worker-with-the-thread-supplied-by-you) |
-| Node compatibility — the `process` shim, `node:` builtin modules | `options.UseNodeProcess()`, `options.UseNodeBuiltinModules()` | [Node compatibility (opt-in)](../README.md#node-compatibility-opt-in) |
-| Script profiling — a sampling profiler writing [Firefox Profiler](https://profiler.firefox.com) profiles with script / built-in / host-interop frame categories, and an evented one writing speedscope profiles | `options.Profiling.Enabled = true` | [Profiling scripts (opt-in)](../README.md#profiling-scripts-opt-in) |
-| Statement-level code coverage | `options.Coverage.Enabled = true` | [Code coverage (opt-in)](../README.md#code-coverage-opt-in) |
-| `NamedPropertyObject` — one base class for a host object projecting *named* properties, the string-keyed sibling of `ArrayLikeObject` | derive from it instead of overriding `GetOwnProperty` / `ProbeOwnProperty` / `GetOwnPropertyKeys` / `TryGetOwnPropertyValue` / `GetOwnProperties` by hand | [Projecting host data](../README.md#embedding-performance) |
+| WHATWG web APIs — `console`, timers, `URL`, encoding, streams, `fetch`, storage, `WebSocket`, `EventSource`, crypto | `options.UseWebApis(...)` | [Web APIs](packages/jint/web-apis.md) |
+| Web Workers, on a thread you supply | `options.UseWebApis().UseWorkers(provider)` | [Workers](packages/jint/web-apis/workers.md) |
+| Node compatibility — the `process` shim, `node:` builtin modules | `options.UseNodeProcess()`, `options.UseNodeBuiltinModules()` | [Node compatibility](packages/jint/node-compatibility.md) |
+| Script profiling — a sampling profiler writing [Firefox Profiler](https://profiler.firefox.com) profiles with script / built-in / host-interop frame categories, and an evented one writing speedscope profiles | `options.Profiling.Enabled = true` | [Profiling](packages/jint/profiling.md) |
+| Statement-level code coverage | `options.Coverage.Enabled = true` | [Code coverage](packages/jint/code-coverage.md) |
+| `NamedPropertyObject` — one base class for a host object projecting *named* properties, the string-keyed sibling of `ArrayLikeObject` | derive from it instead of overriding `GetOwnProperty` / `ProbeOwnProperty` / `GetOwnPropertyKeys` / `TryGetOwnPropertyValue` / `GetOwnProperties` by hand | [Advanced hosting](packages/jint/advanced-hosting.md) |
 | Source-generated CLR interop for annotated types | `[JsAccessible]` on the type, plus one `JsAccessibleRegistration.RegisterAll()` call | [§5.1](#51-source-generated-clr-interop) |
 | The three shipped locale-data providers are extensible — one datum is one override | derive from `DefaultCldrProvider` / `DefaultTimeZoneProvider` / `DefaultCalendarProvider` and assign the instance to the matching `Options` property | [5.2](#52-changing-one-locale-datum-is-one-override-3335) |
 | Writable named projections, and named members on an `ArrayLikeObject` | `IsNameWritable` / `TrySetNamedValue` / `TryDeleteName`, and the same `NameCount` / `NameAt` / `TryGetNamedValue` triple on both classes | [§5.3](#53-host-objects-one-hook-set-for-named-properties-3338) |
 | `HostFunction` — one base class for a host-defined callable, the function sibling of `ArrayLikeObject` and `NamedPropertyObject` | derive from it and override `Invoke` | [§5.5](#55-a-host-function-is-a-class-you-can-derive-3345) |
 | Host-contract verification catches a value built for an engine another thread is using | `AppContext.SetSwitch("Jint.EnableHostContractVerification", true)` | [§5.6](#56-host-contract-verification-also-checks-thread-affinity-3332) |
 | The source text a script or module was parsed from, read back through `engine.Advanced.TryGetSourceText(program, out var text)` | `options.RetainFunctionSourceText = true`, or the same setting on a preparation's parsing options | [§5.8](#58-a-host-thread-can-hand-the-engine-work-and-read-back-the-source-a-program-was-parsed-from-3587) |
-| Structured `console` records — the method, the raw `JsValue` arguments, the group depth, and `console.trace`'s frames | override `ConsoleSink.Write(in ConsoleRecord)` instead of, or as well as, `Write(level, message)` | [Web APIs (opt-in)](../README.md#web-apis-opt-in) |
-| `ValueInspector.Describe(value)` — a bounded, getter-free `ValueDescription` of any `JsValue`, holding no `JsValue` and running no script | nothing, beyond acknowledging the preview diagnostic: `<NoWarn>$(NoWarn);JINT0002</NoWarn>` | [Web APIs (opt-in)](../README.md#web-apis-opt-in) |
+| Structured `console` records — the method, the raw `JsValue` arguments, the group depth, and `console.trace`'s frames | override `ConsoleSink.Write(in ConsoleRecord)` instead of, or as well as, `Write(level, message)` | [Console and timers](packages/jint/web-apis/console-and-timers.md) |
+| `ValueInspector.Describe(value)` — a bounded, getter-free `ValueDescription` of any `JsValue`, holding no `JsValue` and running no script | nothing, beyond acknowledging the preview diagnostic: `<NoWarn>$(NoWarn);JINT0002</NoWarn>` | [Errors and diagnostics](packages/jint/errors.md) |
 | An API base URL, so a relative url in `fetch()` and `new Request()` resolves instead of throwing | `options.WebApi.Fetch.BaseUrl = new Uri("https://example.org/app/")` | [§5.10](#510-fetch-can-behave-as-a-documents-fetch-3617) |
 | A `Referer` header under a referrer policy, and an `Origin` header | `options.WebApi.Fetch.Referrer`, `.ReferrerPolicy`, `.Origin` | [§5.10](#510-fetch-can-behave-as-a-documents-fetch-3617) |
 | Cookies, in a jar the host owns, consulted per redirect hop under the request's `credentials` mode | `options.WebApi.Fetch.CookieJar = new CookieContainerCookieJar()` | [§5.10](#510-fetch-can-behave-as-a-documents-fetch-3617) |
 | Watching and intercepting every request, response and body chunk | `options.WebApi.Fetch.Observer = …`, plus `<NoWarn>$(NoWarn);JINT0002</NoWarn>` | [§5.10](#510-fetch-can-behave-as-a-documents-fetch-3617) |
 | When each hop went out and when its response headers came back, so a host can report a real time to first byte | `ObservedFetchResponse.Timing`, on the observer you already set | [§5.29](#529-an-observed-response-says-when-its-hop-went-out-and-when-its-headers-came-back-3701) |
-| The Chrome DevTools Protocol over a WebSocket, so a debugging client can attach to an engine your host is already running | `dotnet add package Jint.DevTools`, then `options.UseDevTools()` | [Chrome DevTools Protocol (opt-in package)](../README.md#chrome-devtools-protocol-opt-in-package) |
-| A headless browser — AngleSharp's DOM under Jint, drivable by Puppeteer and Playwright, plus a `jint-browser` command line | `dotnet add package Jint.Browser`, or `dotnet tool install -g Jint.Browser.Tool` | [Headless browser (opt-in package)](../README.md#headless-browser-opt-in-package) |
-| Playwright for .NET's public browser interfaces over that headless browser, without Node, CDP or a WebSocket | `dotnet add package Jint.Browser.Playwright`, then use `JintPlaywright.BrowserType` | [Headless browser (opt-in package)](../README.md#headless-browser-opt-in-package) |
-| A Model Context Protocol server over that browser, so an agent reads a page as its accessibility tree and clicks its way through it | `jint-browser mcp`, or `AddMcpServer().AddJintBrowser()` in a host of your own | [Headless browser (opt-in package)](../README.md#headless-browser-opt-in-package) |
+| The Chrome DevTools Protocol over a WebSocket, so a debugging client can attach to an engine your host is already running | `dotnet add package Jint.DevTools`, then `options.UseDevTools()` | [Jint.DevTools](packages/jint-devtools/index.md) |
+| A headless browser — AngleSharp's DOM under Jint, drivable by Puppeteer and Playwright, plus a `jint-browser` command line | `dotnet add package Jint.Browser`, or `dotnet tool install -g Jint.Browser.Tool` | [Jint.Browser](packages/jint-browser/index.md) |
+| Playwright for .NET's public browser interfaces over that headless browser, without Node, CDP or a WebSocket | `dotnet add package Jint.Browser.Playwright`, then use `JintPlaywright.BrowserType` | [Jint.Browser.Playwright](packages/jint-browser-playwright/index.md) |
+| A Model Context Protocol server over that browser, so an agent reads a page as its accessibility tree and clicks its way through it | `jint-browser mcp`, or `AddMcpServer().AddJintBrowser()` in a host of your own | [Jint.Browser.Mcp](packages/jint-browser-mcp/index.md) |
 | The names of the global `let`/`const`/`class` declarations, which `globalThis` does not carry | `engine.Advanced.GetGlobalLexicalNames()` | [§5.27](#527-a-host-can-list-the-global-lexical-bindings-3610) |
 | The program a function value was parsed in, so a tooling protocol resolves its script by identity | `function.Program`, beside `FunctionDeclaration` | [§5.28](#528-a-function-value-names-the-program-it-was-parsed-in-3666) |
-| `LazyJsString` — one base class for a host string whose text is expensive to produce | `class Field : LazyJsString { public Field(int len) : base(len) {} protected override string Materialize() => … }` | [Lazy strings](../README.md#embedding-performance) |
+| `LazyJsString` — one base class for a host string whose text is expensive to produce | `class Field : LazyJsString { public Field(int len) : base(len) {} protected override string Materialize() => … }` | [Advanced hosting](packages/jint/advanced-hosting.md) |
 
 The last row is the only one that replaces an existing spelling rather than adding a capability, so it is
 worth saying what happens to the old one. A lazy host string used to be written by deriving from `JsString`
@@ -5699,7 +5699,7 @@ var rangeError = engine.Intrinsics.RangeError;
 ```
 
 The CLR name of `%URIError%` is `Intrinsics.UriError`; script still sees `URIError`. See [Raising an
-error from host code](../README.md#raising-an-error-from-host-code).
+error from host code](packages/jint/errors.md).
 ### 5.5 A host function is a class you can derive ([#3345](https://github.com/sebastienros/jint/pull/3345))
 
 Until v5 there was exactly one host-writable *plain* callable: `ClrFunction`, which is `sealed` and takes
@@ -5762,7 +5762,7 @@ wants a name a stack trace can show, or belongs to a family that shares a base.
 Jint guards *operations* against concurrent use and does not guard *value construction*. `Engine.Evaluate`,
 `JsValue.FromObject`, `JsonSerializer.Serialize` and `JsonParser.Parse` all reject a second thread while the
 engine is in use; `JsObject.Create`, `JsObject.CreateFromEntries` and the `JsArray` constructors — the ones
-README's **Projecting host data** recommends in preference to subclassing `ObjectInstance` — build the value
+The [Advanced hosting](packages/jint/advanced-hosting.md) guide recommends in preference to subclassing `ObjectInstance` — build the value
 anyway. They are per-object APIs on a bulk path, so an always-on claim there would be paid by every host that
 never got this wrong.
 
@@ -6313,10 +6313,10 @@ rather than internals. The one member of theirs this document records is
 [5.16](#516-enginetargetoptionsurl-accepts-a-path-and-publishes-a-url-3640), which is here because it changed
 after the package's first release rather than because the package is in scope.
 
-The reference material is `README.md`, per this document's own rule: what they do, what a page can and
+The reference material is the package documentation: what they do, what a page can and
 cannot do, the per-page budgets and how much of it is measured rather than claimed are in
-[Chrome DevTools Protocol (opt-in package)](../README.md#chrome-devtools-protocol-opt-in-package) and
-[Headless browser (opt-in package)](../README.md#headless-browser-opt-in-package), and
+[Jint.DevTools](packages/jint-devtools/index.md) and
+[Jint.Browser](packages/jint-browser/index.md), and
 [`docs/releases/headless-browser.md`](releases/headless-browser.md) is the same thing package by package.
 
 ### 5.27 A host can list the global lexical bindings ([#3610](https://github.com/sebastienros/jint/issues/3610))

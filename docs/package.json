@@ -1,0 +1,14 @@
+{
+  "name": "jint-documentation",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vitepress dev",
+    "build": "vitepress build",
+    "preview": "vitepress preview"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "vitepress": "^2.0.0-alpha.17"
+  }
+}
