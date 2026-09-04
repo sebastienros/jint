@@ -144,5 +144,8 @@ byte-verified and run by nothing. `WptServer` **synthesizes** `<name>.any.html` 
 way `WptServerFiles` is held to `tools/wptserve/`; the dedicated-worker wrapper is deliberately not generated,
 for the reason `workers/*.worker.js` is a not-vendored row. And `_notVendored` here covers `.any.js` while the
 lane's own table covers documents, so a directory both lanes touch has a row in each and neither may name a
-file the other vendors. [`Jint.Tests.Browser/Wpt/AGENTS.md`](../../Jint.Tests.Browser/Wpt/AGENTS.md) is the
+file the other vendors. That lane has a **third** table this one has no use for: `FrameBodies` names a
+vendored document it serves and never runs — the fixture a case loads into a frame — which is a distinction
+only a lane that loads documents can make, and it is the opposite of a not-vendored row rather than a
+variant of it. [`Jint.Tests.Browser/Wpt/AGENTS.md`](../../Jint.Tests.Browser/Wpt/AGENTS.md) is the
 rest of it.

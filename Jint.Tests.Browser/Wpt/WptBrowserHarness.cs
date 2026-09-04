@@ -117,6 +117,15 @@ internal sealed class WptBrowserHarness : IDisposable
             RecordConsoleMessages = true,
         };
 
+        // https://drafts.csswg.org/selectors-4/#the-lang-pseudo — an element whose language is unknown
+        // matches no `:lang()`, and AngleSharp answers one from the document's culture instead. The page's
+        // culture is the engine's since #3771's parse change, so pinning it here is what makes a verdict the
+        // corpus's rather than the machine's: four `ParentNode-querySelector-All.html` rows pass under the
+        // invariant culture and fail under an English one, which is the Linux and the Windows leg exactly.
+        // A gate whose answer depends on the runner's locale is not a gate, and scoping the exclusion to an
+        // operating system would encode the coincidence rather than remove it.
+        options.ConfigureEngine(o => o.Culture = System.Globalization.CultureInfo.InvariantCulture);
+
         options.ConfigureEngine(o => o.Configure(engine =>
         {
             engine.SetValue("__jintWptReport", new Action<string>(json => Report(engine, json)));
