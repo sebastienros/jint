@@ -102,6 +102,10 @@ internal sealed class FetchObservation
             Headers = headers ?? CollectHeaders(response),
             FromInterception = exchange.FromInterception,
 
+            // The reading the redirect loop took around the send that produced this exchange, which is the
+            // only place either instant exists — and null when an interception answered without a socket.
+            Timing = exchange.Timing,
+
             // The redirect loop is what reports a redirect; what an exchange carries is the answer at its end.
             IsRedirect = false,
         });

@@ -30,6 +30,44 @@ public readonly record struct FetchRequestId(long Value)
 }
 
 /// <summary>
+/// When one hop went out, and how long it was until its response headers were in.
+/// </summary>
+/// <param name="SentAt">
+/// The wall-clock instant the hop was handed to the transport, read immediately before the send.
+/// </param>
+/// <param name="TimeToHeaders">
+/// How long it took from that instant until the hop's response headers were in — the hop's time to first
+/// byte, and the only duration this engine can measure.
+/// </param>
+/// <remarks>
+/// <para>
+/// <b>Two clocks, deliberately.</b> <paramref name="SentAt"/> is wall-clock, so a host reporting to a tool
+/// can put the hop on the same timeline as everything else it timestamps; <paramref name="TimeToHeaders"/> is
+/// measured monotonically between two readings taken either side of the one call that knows, so a system
+/// clock adjusted mid-request cannot turn a time to first byte negative. Adding the two therefore gives an
+/// instant that is only as accurate as the wall clock was when the hop went out, which is why
+/// <see cref="HeadersAt"/> is derived rather than measured.
+/// </para>
+/// <para>
+/// <b>These two readings are all there is, and the omissions are not an oversight.</b> The request goes out
+/// through the host's own <see cref="System.Net.Http.HttpClient"/>, which reports neither when DNS resolved,
+/// nor when the socket connected, nor when the TLS handshake finished — nothing in this process can measure a
+/// phase it does not own the handler for. A host mapping this onto a protocol that names those phases must
+/// report them as <i>absent</i> rather than as zero: a duration of zero is a claim that the phase happened
+/// instantly, and a phase this engine never saw did not happen here at all.
+/// </para>
+/// </remarks>
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct FetchTiming(DateTimeOffset SentAt, TimeSpan TimeToHeaders)
+{
+    /// <summary>
+    /// Gets the wall-clock instant the hop's response headers were in, derived from <see cref="SentAt"/> and
+    /// <see cref="TimeToHeaders"/>.
+    /// </summary>
+    public DateTimeOffset HeadersAt => SentAt + TimeToHeaders;
+}
+
+/// <summary>
 /// What asked for a request.
 /// </summary>
 /// <remarks>
@@ -160,6 +198,19 @@ public sealed record ObservedFetchResponse
 
     /// <summary>Whether this is a redirect the request is about to follow.</summary>
     public bool IsRedirect { get; init; }
+
+    /// <summary>
+    /// Gets when the hop that produced this response went out and when its headers came back, or
+    /// <see langword="null"/> for a response that never went on the wire.
+    /// </summary>
+    /// <remarks>
+    /// <b><see langword="null"/> is itself information.</b> An observer's own
+    /// <see cref="FetchInterception.Fulfill"/> answers a request without opening a socket, so there is no
+    /// send to time and reporting a zero-length one would be a measurement of something that did not happen.
+    /// Every response the network produced carries a timing — a redirect the loop walked past included, each
+    /// hop timed on its own.
+    /// </remarks>
+    public FetchTiming? Timing { get; init; }
 }
 
 /// <summary>

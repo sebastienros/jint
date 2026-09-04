@@ -3092,6 +3092,13 @@ namespace Jint.WebApi.Fetch
         public long Value { get; init; }
         public override string ToString() { }
     }
+    public readonly struct FetchTiming : System.IEquatable<Jint.WebApi.Fetch.FetchTiming>
+    {
+        public FetchTiming(System.DateTimeOffset SentAt, System.TimeSpan TimeToHeaders) { }
+        public System.DateTimeOffset HeadersAt { get; }
+        public System.DateTimeOffset SentAt { get; init; }
+        public System.TimeSpan TimeToHeaders { get; init; }
+    }
     [System.Diagnostics.CodeAnalysis.Experimental("JINT0002")]
     public sealed class ObservedFetchRequest : System.IEquatable<Jint.WebApi.Fetch.ObservedFetchRequest>
     {
@@ -3116,6 +3123,7 @@ namespace Jint.WebApi.Fetch
         public bool IsRedirect { get; init; }
         public required int Status { get; init; }
         public required string StatusText { get; init; }
+        public Jint.WebApi.Fetch.FetchTiming? Timing { get; init; }
         public required System.Uri Url { get; init; }
     }
     public enum ReferrerPolicy

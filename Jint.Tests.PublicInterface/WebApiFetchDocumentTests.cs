@@ -499,6 +499,9 @@ public class WebApiFetchDocumentTests
     {
         internal List<string> Events { get; } = new();
 
+        /// <summary>Every response's <see cref="ObservedFetchResponse.Timing"/>, in the order they arrived.</summary>
+        internal List<FetchTiming?> Timings { get; } = new();
+
         internal Func<ObservedFetchRequest, FetchInterception?>? OnRequestHandler { get; init; }
 
         public override int RequestBodyPreviewBytes => 16;
@@ -518,6 +521,7 @@ public class WebApiFetchDocumentTests
             lock (Events)
             {
                 Events.Add($"response {response.Id} {response.Status} redirect={response.IsRedirect} intercepted={response.FromInterception}");
+                Timings.Add(response.Timing);
             }
         }
 
@@ -672,11 +676,76 @@ public class WebApiFetchDocumentTests
     }
 
     [Test]
+    public Task EveryHopSaysWhenItWentOutAndWhenItsHeadersCameBack() => DedicatedThread.RunAsync(() =>
+    {
+        var handler = new RecordingHandler
+        {
+            Responder = url => url.EndsWith("/start", StringComparison.Ordinal)
+                ? Redirect("https://a.test/landing")
+                : new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("hello") },
+        };
+
+        var observer = new RecordingObserver();
+        var engine = WebEngine(handler, f => f.Observer = observer);
+
+        var before = DateTimeOffset.UtcNow;
+        engine.Evaluate("fetch('https://a.test/start').then(r => r.text())")
+            .UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("hello");
+        var after = DateTimeOffset.UtcNow;
+
+        // Both hops are timed on their own: the redirect the loop walked past and the answer at the end.
+        observer.Timings.Should().HaveCount(2);
+
+        foreach (var reported in observer.Timings)
+        {
+            reported.Should().NotBeNull("a response the network produced is timed");
+            var timing = reported!.Value;
+
+            // The whole promise: the headers came in at or after the hop went out, so a host subtracting
+            // the two reads a time to first byte rather than a negative number.
+            timing.TimeToHeaders.Should().BeGreaterThanOrEqualTo(TimeSpan.Zero);
+            timing.HeadersAt.Should().BeOnOrAfter(timing.SentAt);
+
+            // And the origin is a wall-clock instant inside the fetch, which is what makes it comparable
+            // with a timestamp the host took itself.
+            timing.SentAt.Should().BeOnOrAfter(before).And.BeOnOrBefore(after);
+        }
+    });
+
+    [Test]
+    public Task AFulfilledRequestIsReportedWithNoTimingWhereANetworkOneCarriesOne() => DedicatedThread.RunAsync(() =>
+    {
+        // Two requests through one observer, so the contrast is the assertion: the absence only says
+        // something because the request beside it carries one.
+        var handler = new RecordingHandler();
+        var observer = new RecordingObserver
+        {
+            OnRequestHandler = request => request.Url.AbsolutePath == "/fulfilled"
+                ? FetchInterception.Fulfill(200, body: "brewed"u8.ToArray())
+                : null,
+        };
+
+        var engine = WebEngine(handler, f => f.Observer = observer);
+
+        engine.Evaluate("fetch('https://a.test/sent').then(r => r.text())")
+            .UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("ok");
+        engine.Evaluate("fetch('https://a.test/fulfilled').then(r => r.text())")
+            .UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("brewed");
+
+        handler.Requests.Should().ContainSingle().Which.Url.Should().Be("https://a.test/sent");
+
+        observer.Timings.Should().HaveCount(2);
+        observer.Timings[0].HasValue.Should().BeTrue("the network answered this one, so there is a send to time");
+        observer.Timings[1].HasValue.Should().BeFalse(
+            "nothing went on the wire, and a zero-length timing would report a socket that was never opened as an instant round trip");
+    });
+
+    [Test]
     public void TheObserverSurfaceMentionsNoEngineType()
     {
         // The whole point of the seam: a protocol layer runs it from a transport thread, so nothing it is
         // handed may be a value only the engine thread may touch.
-        var types = new[] { typeof(FetchObserver), typeof(ObservedFetchRequest), typeof(ObservedFetchResponse), typeof(FetchInterception), typeof(FetchRequestId), typeof(FetchHeader) };
+        var types = new[] { typeof(FetchObserver), typeof(ObservedFetchRequest), typeof(ObservedFetchResponse), typeof(FetchInterception), typeof(FetchRequestId), typeof(FetchHeader), typeof(FetchTiming) };
 
         foreach (var type in types)
         {

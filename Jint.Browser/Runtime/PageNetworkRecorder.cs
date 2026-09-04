@@ -596,7 +596,8 @@ internal sealed class PageNetworkRecorder : FetchObserver
             headers,
             mime,
             charset,
-            response.FromInterception);
+            response.FromInterception,
+            response.Timing);
     }
 
     /// <summary>Copies as much of the request body as the capture is allowed to keep.</summary>

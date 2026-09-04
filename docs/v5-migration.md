@@ -5401,6 +5401,7 @@ none of it changes an engine that does not.
 | A `Referer` header under a referrer policy, and an `Origin` header | `options.WebApi.Fetch.Referrer`, `.ReferrerPolicy`, `.Origin` | [§5.10](#510-fetch-can-behave-as-a-documents-fetch-3617) |
 | Cookies, in a jar the host owns, consulted per redirect hop under the request's `credentials` mode | `options.WebApi.Fetch.CookieJar = new CookieContainerCookieJar()` | [§5.10](#510-fetch-can-behave-as-a-documents-fetch-3617) |
 | Watching and intercepting every request, response and body chunk | `options.WebApi.Fetch.Observer = …`, plus `<NoWarn>$(NoWarn);JINT0002</NoWarn>` | [§5.10](#510-fetch-can-behave-as-a-documents-fetch-3617) |
+| When each hop went out and when its response headers came back, so a host can report a real time to first byte | `ObservedFetchResponse.Timing`, on the observer you already set | [§5.29](#529-an-observed-response-says-when-its-hop-went-out-and-when-its-headers-came-back-3701) |
 | The Chrome DevTools Protocol over a WebSocket, so a debugging client can attach to an engine your host is already running | `dotnet add package Jint.DevTools`, then `options.UseDevTools()` | [Chrome DevTools Protocol (opt-in package)](../README.md#chrome-devtools-protocol-opt-in-package) |
 | A headless browser — AngleSharp's DOM under Jint, drivable by Puppeteer and Playwright, plus a `jint-browser` command line | `dotnet add package Jint.Browser`, or `dotnet tool install -g Jint.Browser.Tool` | [Headless browser (opt-in package)](../README.md#headless-browser-opt-in-package) |
 | Playwright for .NET's public browser interfaces over that headless browser, without Node, CDP or a WebSocket | `dotnet add package Jint.Browser.Playwright`, then use `JintPlaywright.BrowserType` | [Headless browser (opt-in package)](../README.md#headless-browser-opt-in-package) |
@@ -6287,6 +6288,41 @@ constructor body are declined rather than attributed to the script that ran them
 
 `Jint.DevTools` resolves `[[FunctionLocation]]`'s `scriptId` through it, which was the last thing in that
 package still matching a script by name.
+
+### 5.29 An observed response says when its hop went out and when its headers came back ([#3701](https://github.com/sebastienros/jint/issues/3701))
+
+`ObservedFetchResponse` carried the identifier, the URL, the status and the headers, and nothing at all about
+time — so a host watching `fetch` could say what a request answered and never how long it took. The new
+`FetchTiming` is two readings taken either side of the one call in the process that knows:
+
+```csharp
+public override void OnResponse(ObservedFetchResponse response)
+{
+    if (response.Timing is { } timing)
+    {
+        // 5.0: there was nothing to read.  5.x: a real time to first byte, per hop.
+        Log($"{response.Url} answered in {timing.TimeToHeaders.TotalMilliseconds:F1} ms, sent at {timing.SentAt:O}");
+    }
+}
+```
+
+`SentAt` is wall-clock, so it can be put on the same timeline as anything else the host timestamps;
+`TimeToHeaders` is measured monotonically between the two readings, so a system clock adjusted mid-request
+cannot turn it negative, and `HeadersAt` is the sum of the two. Every hop of a redirect chain is timed on its
+own — the redirect the loop walks past as well as the answer at the end.
+
+**`null` is information, and the phases that are absent are information too.** A request an observer answered
+itself with `FetchInterception.Fulfill` reports no timing, because nothing went on the wire and a zero-length
+one would describe a socket that was never opened as an instant round trip. For the same reason there is no
+DNS, connect or TLS number: the request goes out through the host's own `HttpClient`, which reports none of
+them, and nothing in this process can measure a phase it does not own the handler for. `Jint.Browser` maps
+this onto the Chrome DevTools Protocol's `Network.ResourceTiming` accordingly — `requestTime`, `sendStart`,
+`sendEnd`, `receiveHeadersStart` and `receiveHeadersEnd` are real, and `proxy*`, `dns*`, `connect*`, `ssl*`,
+`worker*` and `push*` are `-1`, which is the protocol's own value for a phase that did not happen here rather
+than a zero a client would read as a page that loaded instantly.
+
+**What could break:** nothing. It is a new property on a preview record, and an observer that does not read
+it pays nothing for it.
 
 ## 6. AOT and trimming
 
