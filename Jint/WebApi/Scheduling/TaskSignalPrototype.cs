@@ -56,47 +56,19 @@ internal sealed partial class TaskSignalPrototype : Prototype
     /// event handler event type is <c>prioritychange</c>.
     /// </summary>
     /// <remarks>
-    /// The same registration mechanics <c>onabort</c> has: the handler is one entry of the signal's own
-    /// listener list, so it takes its turn in registration order among the
-    /// <c>addEventListener('prioritychange', …)</c> listeners; reassigning replaces the value in place, and
-    /// assigning a non-object removes the entry outright.
+    /// The same registration mechanics <c>onabort</c> has, and for the same reason: both are
+    /// <see cref="EventHandlerAttributes"/>.
     /// </remarks>
     [JsAccessor("onprioritychange", Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
     private JsValue OnPriorityChangeGet(JsValue thisObject)
-    {
-        return Brand(thisObject).FindEventHandler(JsTaskSignal.PriorityChangeEventType)?.Callback ?? Null;
-    }
+        => EventHandlerAttributes.Get(Brand(thisObject), JsTaskSignal.PriorityChangeEventType);
 
     /// <summary>
-    /// https://wicg.github.io/scheduling-apis/#dom-tasksignal-onprioritychange, setter half. <c>EventHandler</c>
-    /// is a nullable callback function annotated <c>[LegacyTreatNonObjectAsNull]</c>, so assigning anything
-    /// that is not an object clears the handler rather than raising a <c>TypeError</c>.
+    /// https://wicg.github.io/scheduling-apis/#dom-tasksignal-onprioritychange, setter half.
     /// </summary>
     [JsAccessor("onprioritychange", AccessorKind.Set, Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
     private JsValue OnPriorityChangeSet(JsValue thisObject, JsValue value)
-    {
-        var signal = Brand(thisObject);
-        var existing = signal.FindEventHandler(JsTaskSignal.PriorityChangeEventType);
-
-        if (value is not ObjectInstance)
-        {
-            if (existing is not null)
-            {
-                signal.RemoveListener(existing);
-            }
-
-            return Undefined;
-        }
-
-        if (existing is not null)
-        {
-            existing.Callback = value;
-            return Undefined;
-        }
-
-        signal.AddListener(new EventListenerRegistration(JsTaskSignal.PriorityChangeEventType, value) { IsEventHandler = true });
-        return Undefined;
-    }
+        => EventHandlerAttributes.Set(Brand(thisObject), JsTaskSignal.PriorityChangeEventType, value);
 
     private JsTaskSignal Brand(JsValue thisObject)
     {

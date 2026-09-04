@@ -104,9 +104,7 @@ internal sealed partial class MessagePortPrototype : Prototype
     /// </remarks>
     [JsAccessor("onmessage", Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
     private JsValue OnMessageGet(JsValue thisObject)
-    {
-        return Brand(thisObject).FindEventHandler(JsMessagePort.MessageEventType)?.Callback ?? Null;
-    }
+        => EventHandlerAttributes.Get(Brand(thisObject), JsMessagePort.MessageEventType);
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/web-messaging.html#handler-messageport-onmessage, setter half.
@@ -119,11 +117,18 @@ internal sealed partial class MessagePortPrototype : Prototype
     /// including one that clears the handler, which is what the specification's "is set" says and what
     /// browsers do.
     /// </remarks>
+    /// <remarks>
+    /// <b>This is the one handler attribute in the engine with a step after the set</b>, and it is written
+    /// here rather than as a hook on <see cref="EventHandlerAttributes"/>: the shared half is the same three
+    /// rules every other attribute obeys, and the port-specific half is one line a reader can see. The order
+    /// matters - the handler is in place before the queue is enabled, so a message the enabling delivers
+    /// finds it.
+    /// </remarks>
     [JsAccessor("onmessage", AccessorKind.Set, Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
     private JsValue OnMessageSet(JsValue thisObject, JsValue value)
     {
         var port = Brand(thisObject);
-        SetEventHandler(port, JsMessagePort.MessageEventType, value);
+        EventHandlerAttributes.Set(port, JsMessagePort.MessageEventType, value);
         port.Start();
         return Undefined;
     }
@@ -137,9 +142,7 @@ internal sealed partial class MessagePortPrototype : Prototype
     /// </remarks>
     [JsAccessor("onmessageerror", Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
     private JsValue OnMessageErrorGet(JsValue thisObject)
-    {
-        return Brand(thisObject).FindEventHandler(JsMessagePort.MessageErrorEventType)?.Callback ?? Null;
-    }
+        => EventHandlerAttributes.Get(Brand(thisObject), JsMessagePort.MessageErrorEventType);
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/web-messaging.html#handler-messageport-onmessageerror, setter
@@ -147,40 +150,7 @@ internal sealed partial class MessagePortPrototype : Prototype
     /// </summary>
     [JsAccessor("onmessageerror", AccessorKind.Set, Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
     private JsValue OnMessageErrorSet(JsValue thisObject, JsValue value)
-    {
-        SetEventHandler(Brand(thisObject), JsMessagePort.MessageErrorEventType, value);
-        return Undefined;
-    }
-
-    /// <summary>
-    /// HTML's "set the current value of the event handler". <c>EventHandler</c> is a nullable callback
-    /// function annotated <c>[LegacyTreatNonObjectAsNull]</c>, so assigning anything that is not an object
-    /// clears the handler rather than raising a <c>TypeError</c>. Reassigning replaces the value in place, so
-    /// the listener keeps the position it was first given.
-    /// </summary>
-    private static void SetEventHandler(JsMessagePort port, string type, JsValue value)
-    {
-        var existing = port.FindEventHandler(type);
-
-        if (value is not ObjectInstance)
-        {
-            // "Deactivate an event handler": the listener goes away entirely.
-            if (existing is not null)
-            {
-                port.RemoveListener(existing);
-            }
-
-            return;
-        }
-
-        if (existing is not null)
-        {
-            existing.Callback = value;
-            return;
-        }
-
-        port.AddListener(new EventListenerRegistration(type, value) { IsEventHandler = true });
-    }
+        => EventHandlerAttributes.Set(Brand(thisObject), JsMessagePort.MessageErrorEventType, value);
 
     /// <summary>
     /// Resolves <c>postMessage</c>'s second argument to a transfer list. See the operation's remarks for the

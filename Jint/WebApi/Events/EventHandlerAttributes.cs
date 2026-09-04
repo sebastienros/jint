@@ -22,6 +22,23 @@ namespace Jint.WebApi.Events;
 /// is why assigning a number or a string clears the handler rather than raising a <c>TypeError</c>; an object
 /// that is not callable is stored and read back but never invoked.
 /// </para>
+/// <para>
+/// <b>The entry is invisible to <c>removeEventListener</c></b>, because in the specification its callback is
+/// the event handler processing algorithm rather than the function the script assigned. Clearing it and
+/// assigning again therefore <i>appends</i> a fresh entry at the end of the list, since the one it had is
+/// gone: "activate an event handler" does nothing once a listener exists, and "deactivate" removes it
+/// outright.
+/// </para>
+/// <para>
+/// <b>Setting a handler starts nothing.</b> Exactly one interface in the engine disagrees —
+/// <c>MessagePort</c>, whose <c>onmessage</c> setter must also enable the port message queue
+/// (https://html.spec.whatwg.org/multipage/web-messaging.html#dom-messageport-onmessage) — and it says so by
+/// calling <see cref="Set"/> and then <c>start()</c>, in that order, rather than by this method growing a
+/// hook. The rule is scoped to that interface: the <c>MessageEventTarget</c> mixin a <c>Worker</c> and a
+/// worker's global scope include carries no such rule, so on those <c>addEventListener('message', …)</c>
+/// alone has to receive and both façades are enabled by the engine instead. A caller that needs a post-set
+/// step writes it beside the call, where a reader can see it.
+/// </para>
 /// </remarks>
 internal static class EventHandlerAttributes
 {
