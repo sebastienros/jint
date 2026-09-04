@@ -143,7 +143,35 @@ internal class JsEvent : ObjectInstance
     /// what makes a re-entrant dispatch of the same event an <c>InvalidStateError</c> and what
     /// <c>composedPath()</c> answers from.
     /// </summary>
-    internal bool DispatchFlag { get; set; }
+    internal bool DispatchFlag
+    {
+        get;
+        set
+        {
+            field = value;
+
+            if (value)
+            {
+                OnDispatchBegun();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Called as the dispatch flag is set, before the path is built and before <see cref="Target"/> is
+    /// assigned — the moment an interface whose members are defined as "the position where the event
+    /// occurred" has to fix them.
+    /// </summary>
+    /// <remarks>
+    /// It exists for CSSOM View's <c>pageX</c>/<c>pageY</c>, whose first step is conditioned on this very
+    /// flag, and there is nowhere else to put it: a script's own <c>target.dispatchEvent(e)</c> reaches
+    /// dispatch through the engine, so a host cannot bracket one from outside. The base implementation is
+    /// empty and no event this engine ships overrides it, so an ordinary dispatch costs one branch and one
+    /// virtual call — once per dispatch, not once per listener.
+    /// </remarks>
+    protected virtual void OnDispatchBegun()
+    {
+    }
 
     /// <summary>
     /// https://dom.spec.whatwg.org/#event-relatedtarget — the event's related target, which
