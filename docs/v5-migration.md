@@ -5456,6 +5456,41 @@ options.WebApi.Fetch.BaseUrl = new Uri("https://example.org/pages/one.html");
 a `SyntaxError` rather than a request to a host nobody named. The only scripts affected are ones that were
 throwing.
 
+### 4.131 A `FetchObserver` can answer an authentication challenge ([#3828](https://github.com/sebastienros/jint/issues/3828))
+
+A `401` carrying a `WWW-Authenticate` used to be delivered and nothing else. `FetchObserver` grows a third
+ask beside `OnRequestAsync` and `OnResponseAsync`:
+
+```csharp
+public override ValueTask<FetchAuthDecision?> OnAuthRequiredAsync(
+    ObservedFetchAuthChallenge challenge,
+    CancellationToken cancellationToken)
+    => new(challenge.CanProvideCredentials
+        ? FetchAuthDecision.ProvideCredentials("ada", "l0velace")   // sends the hop again
+        : null);                                                    // delivers the 401
+```
+
+Nothing has to be done to migrate: the default answers `null`, and an engine whose observer does not override
+it behaves exactly as before.
+
+**Only `Basic` can be answered**, and `CanProvideCredentials` says so before the decision is made. `Digest`
+needs a nonce exchange and `Negotiate` and `NTLM` a handshake bound to the connection; a transport that hands
+the socket back after every response holds neither. Every scheme is still *reported*, because being asked is
+how an observer tells "unsupported" from "never challenged" — and credentials offered for one that cannot be
+answered are refused rather than quietly dropped.
+
+**One retry per request.** An observer has one credential to offer, so a challenge on the retry is delivered
+rather than asked about again. The retry is not a redirect and spends none of `MaxRedirects`, and the
+`Authorization` header it carries is dropped if a later redirect crosses to another origin, which is the Fetch
+Standard's own rule.
+
+**A `407` is not reported.** The proxy belongs to the `HttpClient` the host supplied, so a challenge's
+`Source` is always `Server`.
+
+Over the protocol this is `Fetch.enable`'s `handleAuthRequests`, the `Fetch.authRequired` event and
+`Fetch.continueWithAuth` — which both Puppeteer and Playwright send unconditionally whenever they intercept,
+and which used to be accepted and do nothing.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

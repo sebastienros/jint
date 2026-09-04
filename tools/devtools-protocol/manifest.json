@@ -158,9 +158,15 @@
   // a different reason than they used to be: the pause has the response's *headers* while its body is still
   // on the socket, so there are no bytes to hand a client without buffering them first, which is a budget
   // decision rather than a hook. Network.getResponseBody is what answers a body here.
-  // Fetch.continueWithAuth is absent for a smaller
-  // reason: nothing in this browser answers a 401 with credentials, so there is no challenge to be asked
-  // about and Fetch.authRequired is never sent.
+  //
+  // Fetch.authRequired and continueWithAuth are here now, over FetchObserver.OnAuthRequiredAsync: a 401
+  // carrying a WWW-Authenticate pauses when the client asked for handleAuthRequests, and continueWithAuth
+  // answers it. Only Basic can be answered - it is the one scheme whose answer is a function of the
+  // credentials alone, while Digest needs a nonce exchange and Negotiate and NTLM a handshake bound to the
+  // connection. Every other scheme is still reported, because being asked is how a client tells
+  // "unsupported" from "never challenged", and ProvideCredentials for one is refused with an error naming
+  // the scheme rather than accepted and dropped. A 407 is a proxy's and is not reported: the proxy belongs
+  // to the HttpClient the context was given, so the challenge's source is always Server.
   //
   // Network's four WebSocket events are here, over the engine's own WebSocketObserver: a socket's creation,
   // both of its handshakes and its close. webSocketFrameSent, webSocketFrameReceived and webSocketFrameError
@@ -292,6 +298,7 @@
     "Emulation.setVisibleSize",
     "Fetch.continueRequest",
     "Fetch.continueResponse",
+    "Fetch.continueWithAuth",
     "Fetch.disable",
     "Fetch.enable",
     "Fetch.failRequest",
@@ -422,6 +429,7 @@
     "Debugger.paused",
     "Debugger.resumed",
     "Debugger.scriptParsed",
+    "Fetch.authRequired",
     "Fetch.requestPaused",
     "Log.entryAdded",
     "Network.dataReceived",

@@ -172,6 +172,20 @@ internal sealed partial class PageTarget : IPageNetworkListener
         return await interceptor.PauseResponseAsync(request, response, FrameId, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <inheritdoc/>
+    async ValueTask<PageNetworkAuthDecision> IPageNetworkListener.AuthRequiredAsync(
+        PageNetworkRequest request,
+        PageNetworkAuthChallenge challenge,
+        CancellationToken cancellationToken)
+    {
+        if (_interceptor is not { } interceptor || !interceptor.WantsAuth)
+        {
+            return PageNetworkAuthDecision.Proceed;
+        }
+
+        return await interceptor.PauseAuthAsync(request, challenge, FrameId, cancellationToken).ConfigureAwait(false);
+    }
+
     void IPageNetworkListener.WebSocketCreated(string socketId, string url)
     {
         foreach (var domain in NetworkDomains())

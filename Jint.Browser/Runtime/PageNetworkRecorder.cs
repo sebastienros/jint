@@ -383,6 +383,69 @@ internal sealed class PageNetworkRecorder : FetchObserver
         return Translate(decision);
     }
 
+    /// <summary>
+    /// A hop was challenged; asks the listener, which is <c>Fetch.authRequired</c> and the
+    /// <c>continueWithAuth</c> that answers it.
+    /// </summary>
+    /// <remarks>
+    /// <b>A challenge is only ever a question</b>, so unlike a request and a response there is no
+    /// notification beside it. The <c>401</c> itself has already been reported as an ordinary response by the
+    /// time a listener that declines lets it through, so nothing about it is hidden by this existing.
+    /// </remarks>
+    public override async ValueTask<FetchAuthDecision?> OnAuthRequiredAsync(
+        ObservedFetchAuthChallenge challenge,
+        CancellationToken cancellationToken)
+    {
+        if (_listener is not { } listener)
+        {
+            return null;
+        }
+
+        Entry? entry;
+        lock (_gate)
+        {
+            if (!_entries.TryGetValue(challenge.Id.Value, out entry))
+            {
+                return null;
+            }
+        }
+
+        if (entry.LastHop is not { } hop)
+        {
+            return null;
+        }
+
+        PageNetworkAuthDecision decision;
+        try
+        {
+            decision = await listener.AuthRequiredAsync(
+                hop,
+                new PageNetworkAuthChallenge(
+                    entry.RequestId,
+                    challenge.Url.ToString(),
+                    challenge.Status,
+                    challenge.Source,
+                    challenge.Scheme,
+                    challenge.Realm,
+                    challenge.CanProvideCredentials),
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+#pragma warning disable CA1031 // a watcher that failed must not decide the request; see IPageNetworkListener
+        catch (Exception)
+#pragma warning restore CA1031
+        {
+            return null;
+        }
+
+        return decision.HasCredentials
+            ? FetchAuthDecision.ProvideCredentials(decision.Username, decision.Password)
+            : null;
+    }
+
     /// <summary>The client's answer, as the engine's own preview type.</summary>
     private static FetchResponseInterception? Translate(PageNetworkResponseDecision decision)
     {

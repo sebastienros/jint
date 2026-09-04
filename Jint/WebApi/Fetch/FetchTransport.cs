@@ -583,6 +583,10 @@ internal static class FetchTransport
         var referrer = request.Referrer;
         ObservedFetchResponse? redirectResponse = null;
 
+        // One retry per request, not per hop: an observer has one credential to offer, so a second ask has
+        // nothing new to answer with and a loop is worse than delivering the 401.
+        var authRetried = false;
+
         while (true)
         {
             // The first hop's filter has already been run on the engine thread, where the fetch was started;
@@ -687,6 +691,25 @@ internal static class FetchTransport
                 // all, rather than a browser's opaque-redirect filtered response — which exists to hide a
                 // cross-origin redirect from a page, a concern an embedded engine with no origin does not have.
                 var status = (int) response.StatusCode;
+
+                // The challenge is offered before the response is handed anywhere, because answering it
+                // re-sends this hop rather than producing one. It is asked here, in the core, beside the
+                // per-hop request ask and not beside the final-response one: a 401 on a document fetch, on a
+                // subresource and on an XMLHttpRequest all pass through here, and only fetch() takes the lane
+                // AnswerResponseAsync is asked in.
+                if (status == UnauthorizedStatus
+                    && !authRetried
+                    && observation is not null
+                    && ReadChallenge(response) is { } challenge
+                    && await AuthorizeAsync(observation, challenge, uri, headers, cancellationToken).ConfigureAwait(false))
+                {
+                    // Not a redirect and not counted as one: the same URL is asked again, once, with the
+                    // Authorization header now in `headers` so every later hop carries it - until one crosses
+                    // to another origin, where _crossOriginHeaderNames strips it as the standard asks.
+                    authRetried = true;
+                    continue;
+                }
+
                 if (!FetchValues.IsRedirectStatus(status)
                     || string.Equals(request.Redirect, JsRequest.RedirectManual, StringComparison.Ordinal))
                 {
@@ -749,6 +772,126 @@ internal static class FetchTransport
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// The one authentication scheme this transport can answer from a username and a password alone.
+    /// </summary>
+    /// <remarks>
+    /// <c>Digest</c> needs a nonce exchange and <c>Negotiate</c> and <c>NTLM</c> a handshake bound to the
+    /// connection; a transport that hands the socket back after every response holds neither. Both are still
+    /// <i>reported</i> — see <see cref="ObservedFetchAuthChallenge.CanProvideCredentials"/>.
+    /// </remarks>
+    private const string BasicScheme = "Basic";
+
+    /// <summary>The status a server challenges with. A <c>407</c> is a proxy's and is not this engine's.</summary>
+    private const int UnauthorizedStatus = 401;
+
+    /// <summary>
+    /// The first <c>WWW-Authenticate</c> challenge on a response, or <see langword="null"/> when it carried
+    /// none.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The first, not the strongest.</b> A server may offer several and a browser picks the one it likes
+    /// best; there is only one this engine can answer, so choosing between them would be a choice with one
+    /// outcome. What a client is told is what the server said first, and if that is a scheme this engine
+    /// cannot answer, that is the honest report.
+    /// </para>
+    /// <para>
+    /// The realm comes from the challenge's <c>Parameter</c>, which is the whole
+    /// <c>auth-param</c> list; only <c>realm</c> is read out of it, unquoted, because that is the one
+    /// parameter the protocol's own challenge type carries.
+    /// </para>
+    /// </remarks>
+    private static (string Scheme, string Realm)? ReadChallenge(HttpResponseMessage response)
+    {
+        foreach (var header in response.Headers.WwwAuthenticate)
+        {
+            if (string.IsNullOrEmpty(header.Scheme))
+            {
+                continue;
+            }
+
+            return (header.Scheme, ReadRealm(header.Parameter));
+        }
+
+        return null;
+    }
+
+    /// <summary>Pulls <c>realm="…"</c> out of a challenge's parameter list.</summary>
+    private static string ReadRealm(string? parameter)
+    {
+        if (string.IsNullOrEmpty(parameter))
+        {
+            return string.Empty;
+        }
+
+        foreach (var part in parameter!.Split(','))
+        {
+            var trimmed = part.Trim();
+            if (!trimmed.StartsWith("realm=", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var value = trimmed.Substring("realm=".Length).Trim();
+            if (value.Length >= 2 && value[0] == '"' && value[value.Length - 1] == '"')
+            {
+                value = value.Substring(1, value.Length - 2);
+            }
+
+            return value;
+        }
+
+        return string.Empty;
+    }
+
+    /// <summary>
+    /// Asks the observer about a challenge and, when it answers with credentials this engine can use, puts
+    /// them on <paramref name="headers"/> for the retry.
+    /// </summary>
+    /// <returns>
+    /// <see langword="true"/> when the hop should be sent again; <see langword="false"/> to deliver the
+    /// <c>401</c> as it is — which covers a declined challenge, an uninterested observer, and credentials
+    /// offered for a scheme this engine cannot answer.
+    /// </returns>
+    private static async Task<bool> AuthorizeAsync(
+        FetchObservation observation,
+        (string Scheme, string Realm) challenge,
+        Uri uri,
+        List<HeaderEntry> headers,
+        CancellationToken cancellationToken)
+    {
+        var basic = string.Equals(challenge.Scheme, BasicScheme, StringComparison.OrdinalIgnoreCase);
+
+        var decision = await observation.AuthRequiredAsync(
+            new ObservedFetchAuthChallenge
+            {
+                Id = observation.Id,
+                Url = uri,
+                Status = UnauthorizedStatus,
+                Scheme = challenge.Scheme,
+                Realm = challenge.Realm,
+                CanProvideCredentials = basic,
+            },
+            cancellationToken).ConfigureAwait(false);
+
+        if (decision is not { HasCredentials: true } || !basic)
+        {
+            return false;
+        }
+
+        // https://www.rfc-editor.org/rfc/rfc7617 - the user-pass is joined by a colon and encoded as UTF-8,
+        // which is what the "charset" parameter asks for and what every server that omits it expects anyway.
+        var credentials = Convert.ToBase64String(
+            System.Text.Encoding.UTF8.GetBytes(decision.Username + ":" + decision.Password));
+
+        // The script's own Authorization header, if it wrote one, has already failed against this server -
+        // the challenge is the proof - so the answer replaces it rather than joining it.
+        headers.RemoveAll(static entry => string.Equals(entry.LowerName, "authorization", StringComparison.OrdinalIgnoreCase));
+        headers.Add(new HeaderEntry("authorization", BasicScheme + " " + credentials));
+        return true;
     }
 
     /// <summary>

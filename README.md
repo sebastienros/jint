@@ -2651,7 +2651,10 @@ document, every script and style sheet the parse loads, every `fetch` and `XMLHt
 modules — with Chrome's own resource types, so `page.on('request')` and `page.on('response')` fire and a
 `goto` answers a response object with the status, the headers and the body. `Fetch.enable` is real
 interception: a request is paused before it goes on the wire, and the client continues it (rewriting the URL,
-the method, the headers or the body), fulfils it from its own bytes, or fails it. A paused request holds only
+the method, the headers or the body), fulfils it from its own bytes, or fails it. With
+`handleAuthRequests` it also pauses a `401` as `Fetch.authRequired`, and `continueWithAuth` answers one —
+`Basic` is honoured, every other scheme is reported and credentials offered for it are refused by name rather
+than accepted and dropped. A paused request holds only
 its own connection — the page's timers go on firing, and the command that releases it is answered while it
 waits. Around them, `Network.setExtraHTTPHeaders` and `setUserAgentOverride` reach every request the page
 makes, `setBlockedURLs` refuses a URL before a socket is opened,
