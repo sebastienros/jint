@@ -1013,16 +1013,6 @@
     },
     {
       "interface": "HTMLIFrameElement",
-      "member": "contentWindow",
-      "kind": "attribute",
-      "body": [
-        "global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, \"HTMLIFrameElement.contentWindow\");",
-        "return global::Jint.Native.JsValue.Null;"
-      ],
-      "reason": "AngleSharp declares ContentWindow and the conversion table drops it with the rest of AngleSharp.Dom.IWindow, so nothing generated it and the member was simply absent. A frame has a document here and no realm of its own (docs/design/headless-browser.md §3), so there is no second global object to answer with — but null is what HTML gives a frame with no browsing context, and it is what a page tests for. Absent is not: `if (frame.contentWindow)` and `'contentWindow' in frame` disagree about a member that is missing and one that is null."
-    },
-    {
-      "interface": "HTMLIFrameElement",
       "member": "sandbox",
       "kind": "attribute",
       "body": [
@@ -1310,6 +1300,62 @@
     }
   ],
   "hooks": [
+    {
+      "interface": "Document",
+      "member": "currentScript",
+      "half": "getter",
+      "hook": "CurrentScript",
+      "reason": "HTML 3.2.6: the script whose text is running. AngleSharp answers the head of its DEFERRED script queue, so it is null for exactly the case a page uses it in -- see the divergence table. It used to be an own property of the document wrapper because a getter could not be hooked."
+    },
+    {
+      "interface": "Document",
+      "member": "readyState",
+      "half": "getter",
+      "hook": "ReadyState",
+      "reason": "HTML 3.1.6: the host advances it and fires readystatechange. Document.ReadyState's setter is protected, so nothing outside AngleSharp can move it and the parser driver's readiness is the only true one."
+    },
+    {
+      "interface": "Document",
+      "member": "URL",
+      "half": "getter",
+      "hook": "DocumentUrl",
+      "reason": "DOM 4.5: the document's URL, which pushState and a fragment navigation move without reloading. AngleSharp's document address cannot follow without raising its own Location.Changed navigation, so the page's URL is the answer."
+    },
+    {
+      "interface": "Document",
+      "member": "documentURI",
+      "half": "getter",
+      "hook": "DocumentUrl",
+      "reason": "DOM 4.5 gives documentURI the same value as URL, and it moves for the same reason."
+    },
+    {
+      "interface": "Document",
+      "member": "referrer",
+      "half": "getter",
+      "hook": "Referrer",
+      "reason": "HTML 3.1.5: the document this one was reached from, which only the navigator that reached it knows."
+    },
+    {
+      "interface": "Node",
+      "member": "baseURI",
+      "half": "getter",
+      "hook": "BaseUri",
+      "reason": "DOM 4.4: the node document's base URL. The <base href> is resolved against the PAGE's URL, so the answer moves with it; on Node rather than on Document because that is where DOM declares it, and where a browser answers it for every node."
+    },
+    {
+      "interface": "Document",
+      "member": "cookie",
+      "half": "getter",
+      "hook": "Cookie",
+      "reason": "HTML 3.1.6: the cookies of the document's URL, from the one jar every request of the browsing context reads and writes -- and with RFC 6265bis 5.5's HttpOnly rule applied, which AngleSharp's own document has no notion of."
+    },
+    {
+      "interface": "Document",
+      "member": "cookie",
+      "half": "setter",
+      "hook": "SetCookie",
+      "reason": "The write half of the same jar."
+    },
     {
       "interface": "Document",
       "member": "createElement",

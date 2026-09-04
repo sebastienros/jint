@@ -96,6 +96,16 @@ internal sealed class Conversions
             return true;
         }
 
+        // The one interface the conversion table names by CLR type rather than by looking it up: `IWindow` is
+        // excluded from the binding, because a window is the runtime's and the global object already is one,
+        // so a member returning it has no wrapper to answer with. It goes to the host instead, which knows
+        // whether the window in hand is the one this engine's global stands for.
+        if (type.FullName == "AngleSharp.Dom.IWindow")
+        {
+            code = "global::Jint.Browser.Dom.DomConvert.Window(" + realm + ", " + value + ")";
+            return true;
+        }
+
         if (IsHtmlCollection(type, out var element))
         {
             _model.HtmlCollectionElements.Add(CSharpNames.Render(element!));

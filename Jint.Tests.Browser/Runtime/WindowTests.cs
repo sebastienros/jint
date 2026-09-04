@@ -173,21 +173,76 @@ public sealed class WindowTests
     }
 
     [Test]
-    public async Task TheOwnMembersTheRuntimeAddsAreInvisibleToEnumeration()
+    public async Task TheDocumentHasNoOwnPropertiesAndItsMembersAreOnItsPrototype()
     {
         await using var browser = new Browser();
         var page = await browser.NewPageAsync();
 
-        // A browser has defaultView and currentScript on Document.prototype, so neither shows up in an
-        // enumeration of the document's own keys. Making them non-enumerable own properties keeps that true —
-        // and keeps a conversion of the document from walking into the window and back.
+        // A browser answers an empty list here: every member of `document` is inherited. The eight the
+        // runtime used to write onto the wrapper are accessors on Document.prototype now, answered through
+        // DomHostHooks, so `for..in`, object spread and JSON.stringify(document) all agree with a browser.
+        (await page.EvaluateAsync<string>("JSON.stringify(Object.getOwnPropertyNames(document))")).Should().Be("[]");
         (await page.EvaluateAsync<string>("Object.keys(document).join(',')")).Should().BeEmpty();
-        (await page.EvaluateAsync<bool>("Object.getOwnPropertyNames(document).includes('defaultView')")).Should().BeTrue();
 
-        // Location's members are [LegacyUnforgeable]: enumerable, and a page cannot delete them.
+        foreach (var member in new[] { "defaultView", "currentScript", "readyState", "URL", "documentURI", "referrer", "cookie" })
+        {
+            (await page.EvaluateAsync<bool>($"Object.getOwnPropertyDescriptor(Document.prototype, '{member}') !== undefined"))
+                .Should().BeTrue($"Document.prototype declares {member}");
+        }
+
+        // https://dom.spec.whatwg.org/#dom-node-baseuri is Node's, and a browser has it there too.
+        (await page.EvaluateAsync<bool>("Object.getOwnPropertyDescriptor(Node.prototype, 'baseURI') !== undefined")).Should().BeTrue();
+
+        // And they answer the runtime's values, not AngleSharp's.
+        (await page.EvaluateAsync<bool>("document.defaultView === window")).Should().BeTrue();
+        (await page.EvaluateAsync<string>("document.readyState")).Should().Be("complete");
+        (await page.EvaluateAsync<bool>("document.URL === location.href && document.documentURI === document.URL")).Should().BeTrue();
+    }
+
+    [Test]
+    public async Task DocumentAndLocationAreLegacyUnforgeable()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+
+        // https://html.spec.whatwg.org/multipage/nav-history-apis.html#the-window-object — both carry
+        // [LegacyUnforgeable], which is what stops one script replacing them for every other script.
+        (await page.EvaluateAsync<bool>("Object.getOwnPropertyDescriptor(window, 'document').configurable")).Should().BeFalse();
+        (await page.EvaluateAsync<bool>("Object.getOwnPropertyDescriptor(window, 'document').enumerable")).Should().BeTrue();
+        (await page.EvaluateAsync<bool>("delete window.document")).Should().BeFalse();
+        (await page.EvaluateAsync<bool>("(function () { document = 1; return typeof document === 'object'; })()")).Should().BeTrue();
+
+        (await page.EvaluateAsync<bool>("Object.getOwnPropertyDescriptor(window, 'location').configurable")).Should().BeFalse();
+        (await page.EvaluateAsync<bool>("delete window.location")).Should().BeFalse();
+
+        // [PutForwards=href]: `location` is an accessor whose setter navigates, which is how a great many
+        // pages navigate at all.
+        (await page.EvaluateAsync<string>("typeof Object.getOwnPropertyDescriptor(window, 'location').set")).Should().Be("function");
+
+        // Location's own members are [LegacyUnforgeable] too: enumerable, and a page cannot delete them.
         (await page.EvaluateAsync<bool>("Object.keys(location).includes('assign')")).Should().BeTrue();
         (await page.EvaluateAsync<bool>("delete location.assign")).Should().BeFalse();
         (await page.EvaluateAsync<string>("typeof location.assign")).Should().Be("function");
+    }
+
+    [Test]
+    public async Task AWindowValuedMemberAnswersAWindowOrNullAndNeverUndefined()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<iframe id='f'></iframe>");
+
+        // The conversion table used to drop every IWindow-returning member, so `contentWindow` did not exist
+        // at all and a page testing it read `undefined`. Web IDL types it `WindowProxy?`, and this browser
+        // does not script frames, so the honest answer is null — which is also what a browser answers for a
+        // frame with no browsing context yet.
+        (await page.EvaluateAsync<bool>("Object.getOwnPropertyDescriptor(HTMLIFrameElement.prototype, 'contentWindow') !== undefined")).Should().BeTrue();
+        (await page.EvaluateAsync<string>("String(document.getElementById('f').contentWindow)")).Should().Be("null");
+
+        // The one window this engine can answer with is its own, and it is the global object itself rather
+        // than a second object claiming to be a window.
+        (await page.EvaluateAsync<bool>("document.defaultView === window")).Should().BeTrue();
+        (await page.EvaluateAsync<bool>("document.defaultView === globalThis")).Should().BeTrue();
     }
 
     [Test]

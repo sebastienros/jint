@@ -146,17 +146,21 @@ the engine** (`WindowInstaller.Operation`), and only an operation that needs not
 `open` — stays a `Method`. Adding a window operation the other way compiles, passes `window.foo()`, and fails
 `foo()`. `getSelection` crossed that line the moment it had a selection to answer.
 
-Several members are own properties of their object rather than accessors on a shaped prototype, and each says
-why in place. On `document`: `defaultView` (the binding excludes AngleSharp's `IWindow`), `currentScript`
-(AngleSharp answers the wrong thing — see the divergence table), `cookie` (the jar is the context's, and
-`HttpOnly` has to be enforced against script) and `URL`/`documentURI`/`baseURI`/`referrer` (the URL is the
-page's — see the next section). On a **form wrapper**: `submit` and `requestSubmit`, installed by
-`DomHostHooks.WrapperCreated`, because neither is generated and neither could be — AngleSharp's `Submit()`
-returns a `Task`, there is no `requestSubmit` at all, and its own submission navigates on the calling thread
-through its own event bus. And the whole of **`Location`**, which `Runtime/LocationInstaller` owns outright.
-**A member installed this way shadows the prototype and is visible to `Object.getOwnPropertyNames`**; it is
-the right tool for one object and the wrong one for a class, because a shaped prototype that takes an
-undeclared property loses its shape and its inline caching with it.
+Some members are own properties of their object rather than accessors on a shaped prototype. **`document` is no
+longer one of them**: its eight runtime-answered members are getter hooks on `Document.prototype` (and
+`Node.prototype`, for `baseURI`), so `Object.getOwnPropertyNames(document)` is empty as a browser's is. Left: `ontouchstart` on `document`, a presence test rather than an interface member; `submit` and
+`requestSubmit` on a **form wrapper**, installed by `DomHostHooks.WrapperCreated`, because neither is generated
+and neither could be — AngleSharp's `Submit()` returns a `Task`, there is no `requestSubmit`, and its own
+submission navigates on the calling thread through its own event bus; and **`Location`**, which
+`Runtime/LocationInstaller` owns outright and where own properties are the *correct* answer, every member of
+`Location` being `[LegacyUnforgeable]`. **Such a member shadows the prototype and is visible to
+`Object.getOwnPropertyNames`**: the right tool for one object and the wrong one for a class, since a shaped
+prototype that takes an undeclared property loses its shape and its inline caching with it.
+
+**`document` and `location` are `[LegacyUnforgeable]` globals**, so no script can replace them for every other
+script on the page — and `location` is an accessor, because it is also `[PutForwards=href]`:
+`window.location = '/next'` is a navigation, where a writable data property replaced the global and went
+nowhere.
 
 ### The events bridge has a file of its own
 

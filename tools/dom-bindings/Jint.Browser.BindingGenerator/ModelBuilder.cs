@@ -744,6 +744,25 @@ internal sealed class ModelBuilder
         var extensionGetter = FindExtensionAccessor(declaring, domName, Accessors.Getter);
         var extensionSetter = FindExtensionAccessor(declaring, domName, Accessors.Setter);
 
+        // A getter hook replaces the read entirely, so nothing about AngleSharp's own accessor is consulted:
+        // the members this exists for are the ones whose value AngleSharp does not have (the page's URL, the
+        // script that is running, a readiness only the parser driver can advance). The write half is still
+        // BuildSetter's, so an attribute can have a hooked getter and a projected setter or the reverse.
+        if (_overrides.Hooks.FirstOrDefault(h => h.Interface == model.DomName && h.Member == domName && h.Half == "getter") is { } getterHook)
+        {
+            model.Members.Add(new MemberModel
+            {
+                DomName = domName,
+                Kind = MemberKind.Attribute,
+                Body = Bind(model, qualified) + "return self.Realm.Hooks." + getterHook.Hook + "(self.Realm, self.Target);",
+                SetterBody = BuildSetter(model, property, extensionSetter, domName, qualified) is { } hookedSetter
+                    ? Bind(model, qualified) + hookedSetter
+                    : null,
+                Origin = declaring.Name + "." + property.Name + " (hook)",
+            });
+            return;
+        }
+
         string read;
         Type readType;
         if (extensionGetter is not null)

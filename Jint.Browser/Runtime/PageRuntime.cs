@@ -251,6 +251,29 @@ internal sealed class PageRuntime
     /// <summary>What <c>document.referrer</c> answers: the document this one was reached from.</summary>
     internal string Referrer { get; set; }
 
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#concept-document-base-url — the document's base URL, which
+    /// <c>&lt;base href&gt;</c> moves.
+    /// </summary>
+    /// <remarks>
+    /// The first <c>&lt;base&gt;</c> with an <c>href</c> wins, resolved against the document's own URL, and
+    /// one that does not parse is ignored. AngleSharp computes the same thing from the same element; it is
+    /// recomputed here because the URL it resolves against has to be the page's.
+    /// </remarks>
+    internal string BaseUri
+    {
+        get
+        {
+            var href = Document?.QuerySelector("base[href]")?.GetAttribute("href");
+            if (string.IsNullOrEmpty(href))
+            {
+                return DocumentUrl;
+            }
+
+            return PageUrl.Resolve(href!, DocumentUrl) ?? DocumentUrl;
+        }
+    }
+
     /// <summary><c>history.scrollRestoration</c>, which nothing scrolls and nothing restores.</summary>
     /// <remarks>
     /// Stored and answered so that a router setting it — which many do, on their first line — is not
