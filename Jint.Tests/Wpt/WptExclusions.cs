@@ -545,10 +545,12 @@ internal enum WptDivergence
     /// <para>
     /// <b>The browser lane's.</b> The test needs a nested browsing context that <i>runs script</i> — an
     /// <c>&lt;iframe&gt;</c>, an <c>&lt;object&gt;</c>, a <c>&lt;frameset&gt;</c>, or a window it opened. A
-    /// page here parses child frames and lists them (<c>Frame.IsScripted</c> is the property that says so) and
-    /// gives none of them an engine, because one engine per top-level navigation is what lets "per document"
-    /// and "per engine" coincide and needs no <c>WindowProxy</c> —
-    /// <c>Jint.Browser/Runtime/BrowserEngineFactory.cs</c> argues it.
+    /// child frame <i>has a document</i> here since
+    /// <a href="https://github.com/sebastienros/jint/issues/3771">#3771</a> — its <c>src</c> is fetched and
+    /// parsed, <c>contentDocument</c> answers it same-origin and <c>load</c> arrives at the element — and it
+    /// has no <b>realm</b>: <c>contentWindow</c> is <see langword="null"/>, <c>window.frames[i]</c> is
+    /// undefined and nothing in the frame runs, because one realm per top-level navigation is what lets
+    /// "per document" and "per engine" coincide and needs no <c>WindowProxy</c>.
     /// </para>
     /// <para>
     /// So a file whose subject is a second realm — an event dispatched across two documents, a cross-realm

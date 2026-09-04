@@ -171,9 +171,10 @@ after every subresource. `document.write` during parsing writes into the live te
 parked, and after it is refused with a page error rather than implying `document.open()`. A `<script>` a
 script inserted runs (blocking the loop for its fetch rather than pumping, since pumping from inside a
 running script would run the page's jobs in the middle of one); one `innerHTML` inserted does not, which is
-HTML's rule and AngleSharp's behaviour already. `<link rel=stylesheet>` is fetched and cascaded; an `<img>`
-and a frame's document are recorded in `Page.Requests` as not fetched, there being nothing to render them
-with. The scheduling divergences this shape costs are listed in `Jint.Browser/Runtime/AGENTS.md`.
+HTML's rule and AngleSharp's behaviour already. `<link rel=stylesheet>` is fetched and cascaded, and so is a
+frame's document — AngleSharp opens it into the nested browsing context it already made for the element, and
+`load` fires at the frame before the window's, HTML's "delay the load event"; an `<img>` is recorded in
+`Page.Requests` as not fetched, there being nothing to render it with. The scheduling divergences this shape costs are listed in `Jint.Browser/Runtime/AGENTS.md`.
 
 ## 7. Constraints per page
 
@@ -433,12 +434,12 @@ planned. A blank last column means the section above describes what exists.
 | § | What shipped | PR | Where it differs |
 | --- | --- | --- | --- |
 | 3 | One `PageLoop` thread per page, a new engine per navigation, and the global's `Window.prototype` chain | [#3648](https://github.com/sebastienros/jint/pull/3648) | — |
-| 3 | Frames, parsed and listed | [#3667](https://github.com/sebastienros/jint/pull/3667) | Nothing gives a child frame an engine, so `contentWindow` is absent and a document that needs a second global cannot run here at all — which is what puts thirty-seven `custom-elements/` files in the not-vendored table |
+| 3 | Frames, parsed and listed; then given a document of their own ([#3771](https://github.com/sebastienros/jint/issues/3771)) | [#3667](https://github.com/sebastienros/jint/pull/3667) | A child frame has a document and no realm: `contentDocument` answers it same-origin and `load` arrives at the element, while `contentWindow` is `null` and nothing in the frame runs — so a document that needs a second global still cannot run here, which is what puts thirty-seven `custom-elements/` files in the not-vendored table |
 | 4 | The generator over the two pinned AngleSharp assemblies, and the checked-in `Dom/Generated/` | [#3634](https://github.com/sebastienros/jint/pull/3634) | A DOM prototype carries no `@@unscopables`, because AngleSharp's metadata does not say which members are unscopable; and a nullable `DOMString` parameter converts `null` to the string `"null"` ([#3712](https://github.com/sebastienros/jint/issues/3712)) |
 | 4 | HTML §4.13: the registry, the construction stack, the element state and the reaction lane | [#3709](https://github.com/sebastienros/jint/pull/3709) | The element queue is drained as a reaction *arrives* rather than when the outermost `[CEReactions]` operation returns, and a parser-created element is upgraded at the driver's next script boundary rather than constructed by the tokenizer. There is no `ElementInternals`, so `static formAssociated` is recorded and consulted by nothing |
 | 5 | The UI event interfaces, HTML's handler content attributes and every activation behaviour a click has | [#3671](https://github.com/sebastienros/jint/pull/3671), engine seams [#3696](https://github.com/sebastienros/jint/pull/3696) | — |
 | 6 | The `ParserDriver` and the baton: classic, `defer` and `async` scripts, modules through the import map, `document.write`, `<link rel=stylesheet>` | [#3676](https://github.com/sebastienros/jint/pull/3676) | The refinement §6 already records: a subresource fetch finishes *before* AngleSharp's `IResourceLoader` returns, so the parse never suspends and stays on the thread it started on |
-| 6 | A navigation is a fetch and a new engine; forms, history, cookies, storage and workers | [#3667](https://github.com/sebastienros/jint/pull/3667) | Images and frame documents are recorded in `Page.Requests` as *not* fetched, there being nothing to render them with |
+| 6 | A navigation is a fetch and a new engine; forms, history, cookies, storage and workers | [#3667](https://github.com/sebastienros/jint/pull/3667) | Images are recorded in `Page.Requests` as *not* fetched, there being nothing to render them with; a frame's document is fetched and parsed and runs no script ([#3771](https://github.com/sebastienros/jint/issues/3771)) |
 | 5, 6 | The observers and the DOM views: `MutationObserver`, `IntersectionObserver`, `ResizeObserver`, `Range`, `TreeWalker`, `NodeIterator`, `DOMParser`, `XMLSerializer`, `getSelection` | [#3669](https://github.com/sebastienros/jint/pull/3669) | The two stubs the design named now carry real numbers from §8's model — but with no layout nothing can stop intersecting, so an observed target is reported once, fully intersecting, and a lazy list loads every page at once |
 | 7 | `PageBudget`: `MaxTaskDuration` and `MemoryLimit` over a turn, `ForUntrustedContent`, `MaxDomNodes` | [#3679](https://github.com/sebastienros/jint/pull/3679) | — |
 | 8 | `Layout/FlatLayout`, the hit test, the virtual scroll, `dispatchMouseEvent` and the activation behaviours | [#3697](https://github.com/sebastienros/jint/pull/3697) | Boxes are rows, so an excluded element takes its subtree with it — right for `display: none` and wrong for `visibility: hidden`, whose `visibility: visible` descendant CSS lets escape |

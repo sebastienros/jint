@@ -43,6 +43,7 @@ namespace Jint.Browser
         public long MaxCapturedResponseBytes { get; set; }
         public long MaxDocumentBytes { get; set; }
         public int MaxDomNodes { get; set; }
+        public int MaxFrameDocuments { get; set; }
         public int MaxRecordedEvents { get; set; }
         public int MaxRedirects { get; set; }
         public long MaxResponseBytes { get; set; }

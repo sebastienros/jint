@@ -128,7 +128,7 @@ hope: `JintIdentifierExpression.TryRememberGlobalBinding` admits only a descript
 because a prototype mutation bumps no global version, so a name answered there is never cached and never
 displaces one that is. Two divergences are stated on the class: a name several elements answer to gives the
 first rather than an `HTMLCollection`, and an `<iframe name=x>` gives the frame element rather than a nested
-`WindowProxy`, there being no engine in a child frame.
+`WindowProxy`, a child frame having a document and no realm.
 
 **`window.event` is the one member that is an own property of the global** rather than an accessor on the
 shaped prototype, because WebIDL's `[Global]` puts an interface's members on the global object itself and

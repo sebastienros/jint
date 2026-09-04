@@ -191,6 +191,11 @@
     },
     {
       "interface": "HTMLIFrameElement",
+      "member": "contentDocument",
+      "reason": "Re-declared in `additions` because HTML returns null for a document that is not same origin with the one asking, and AngleSharp's ContentDocument answers whatever is in the nested browsing context. The generated body would hand a page a cross-origin tree."
+    },
+    {
+      "interface": "HTMLIFrameElement",
       "member": "sandbox",
       "reason": "Re-declared in `additions` so the projected `ITokenList` records the element and attribute it reflects: DOM §7.1 defines `value`, the stringifier and the update steps in terms of both, and AngleSharp's `ITokenList` names neither."
     },
@@ -1043,6 +1048,26 @@
         "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, \"HTMLAreaElement.relList\");",
         "return global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, \"rel\", args);"
       ]
+    },
+    {
+      "interface": "HTMLIFrameElement",
+      "member": "contentDocument",
+      "kind": "attribute",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, \"HTMLIFrameElement.contentDocument\");",
+        "return global::Jint.Browser.Dom.DomFrameMembers.ContentDocument(self.Realm, self.Target);"
+      ],
+      "reason": "Re-declared because HTML answers null for a frame whose document is not same origin with the one asking (html.spec.whatwg.org/multipage/iframe-embed-object.html#dom-iframe-contentdocument), and AngleSharp's ContentDocument answers whatever is in the nested browsing context."
+    },
+    {
+      "interface": "HTMLIFrameElement",
+      "member": "contentWindow",
+      "kind": "attribute",
+      "body": [
+        "global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, \"HTMLIFrameElement.contentWindow\");",
+        "return global::Jint.Native.JsValue.Null;"
+      ],
+      "reason": "AngleSharp declares ContentWindow and the conversion table drops it with the rest of AngleSharp.Dom.IWindow, so nothing generated it and the member was simply absent. A frame has a document here and no realm of its own (docs/design/headless-browser.md §3), so there is no second global object to answer with — but null is what HTML gives a frame with no browsing context, and it is what a page tests for. Absent is not: `if (frame.contentWindow)` and `'contentWindow' in frame` disagree about a member that is missing and one that is null."
     },
     {
       "interface": "HTMLIFrameElement",

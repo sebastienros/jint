@@ -92,13 +92,39 @@ to see the moment it starts the deferred queue. `DOMContentLoaded` (bubbling, at
 module scripts; `complete` and then `load` and `pageshow` (at the window) follow every subresource, which is
 the order HTML gives and the reason a `load` listener reads `"complete"`.
 
-**What is not fetched is recorded, not skipped.** An `<img>`, a frame's document, a non-stylesheet `<link>`:
-there is no rendering to need them, so the reference goes into `Page.Requests` with a
-`PageRequest.NotFetchedReason` and no socket is opened. A refusal and a failure are both a download that
-completes with a `null` response, which is the shape AngleSharp's own processors already test for; the `load`
-and `error` a *page* hears are dispatched through Jint's dispatcher, because AngleSharp's go into its own
-listener lists. `integrity` and `crossorigin` are accepted and ignored, and say so here rather than in a
-sentence nobody reads.
+**What is not fetched is recorded, not skipped.** An `<img>`, a non-stylesheet `<link>`: there is no
+rendering to need them, so the reference goes into `Page.Requests` with a `PageRequest.NotFetchedReason` and
+no socket is opened. A refusal and a failure are both a download that completes with a `null` response, which
+is the shape AngleSharp's own processors already test for; the `load` and `error` a *page* hears are
+dispatched through Jint's dispatcher, because AngleSharp's go into its own listener lists. `integrity` and
+`crossorigin` are accepted and ignored, and say so here rather than in a sentence nobody reads.
+
+**A frame's document is fetched, and the nested browsing context is AngleSharp's.**
+`HtmlFrameElementBase.SetupElement` already makes a child context per frame element and asks the loader for
+the document to put in it; refusing that request was the whole of why `contentDocument` was `null` and
+`iframe.onload` never arrived ([#3771](https://github.com/sebastienros/jint/issues/3771)). `ParserDriver.FetchFrame`
+answers it instead — `about:blank` from nothing, everything else over the page's own network position under
+`MaxSubresourceBytes` and `SubresourceTimeout` — and AngleSharp opens the response, parses it and, for a
+frame's own frames, comes back here. Four things follow and each is load-bearing:
+
+- **The child context copies the page's services**, so the page's `IScriptingService` is what a frame's
+  `<script>` reaches. `ParserDriver.IsFrameDocument` — the document's context is not the page's — is what
+  stops it: an external one is refused at the fetch, with the reference it names in the request log; an
+  inline one is dropped at `RunClassicScript`, there being no reference to record. **A frame has a document
+  and no realm**, and running its script in the page's would be running it in the wrong one. Before this it
+  did: an `<iframe srcdoc>` needs no fetch, so nothing gated it, and its `<script>` ran on the page's `Window`
+  while the srcdoc markup replaced the page's own tree, with nothing in `Page.Errors` to say so.
+- **`load` is fired from `FinishLoad`, innermost frame first**, after `DOMContentLoaded` and before
+  `readyState` becomes `complete` — which is where HTML's "spin until nothing delays the load event" puts it,
+  a frame being one of the things that delays it. A frame with no document fires nothing; one whose fetch
+  failed already heard `error`.
+- **`BrowserOptions.MaxFrameDocuments` is counted over the load and not per document**, because a page
+  pointing a frame at itself would otherwise recurse until the parser thread's stack ran out. `srcdoc` is
+  neither counted nor refused: there is no request to answer.
+- **`contentDocument` is `Dom/DomFrameMembers`, not the generated body**, because HTML answers `null` for a
+  document that is not same origin with the one asking. `contentWindow` is `null` rather than absent — a
+  frame has no second global object to be one, and `'contentWindow' in frame` and `if (frame.contentWindow)`
+  disagree about a member that is missing and one that is null.
 
 **`document.write` after the parse is refused.** During one it is AngleSharp's own call and it is right — its
 writable text source inserts at the parser's index and the script processor restores the index afterwards, so

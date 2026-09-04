@@ -35,6 +35,7 @@ public sealed class BrowserOptions
     private long _maxResponseBytes = 32 * 1024 * 1024;
     private TimeSpan _fetchTimeout = TimeSpan.FromSeconds(30);
     private int _maxDomNodes;
+    private int _maxFrameDocuments = 16;
     private bool? _blockPrivateNetwork;
 
     /// <summary>What a page reports itself as, in script and on the wire.</summary>
@@ -220,6 +221,41 @@ public sealed class BrowserOptions
         set => _maxDomNodes = value >= 0
             ? value
             : throw new ArgumentOutOfRangeException(nameof(value), value, "MaxDomNodes cannot be negative.");
+    }
+
+    /// <summary>
+    /// How many child-frame documents one page load may fetch and parse; 16 by default, and 0 loads none.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A frame's document is fetched over the page's own network position, bounded by
+    /// <see cref="MaxSubresourceBytes"/> and <see cref="SubresourceTimeout"/> like every other subresource,
+    /// and parsed into the nested browsing context AngleSharp already makes for the element. It runs no
+    /// script: a frame has a document here and no realm of its own, so <c>iframe.contentWindow</c> is
+    /// <see langword="null"/> (<c>docs/design/headless-browser.md</c> §3).
+    /// </para>
+    /// <para>
+    /// <b>The count is over the whole load and not per document</b>, because a frame's document may hold
+    /// frames of its own: one ceiling per document would let a page pointing a frame at itself recurse until
+    /// the parser thread's stack ran out, and one ceiling for the load bounds the depth and the breadth
+    /// together. A frame over the ceiling is recorded in <see cref="Page.Requests"/> with a
+    /// <see cref="PageRequest.NotFetchedReason"/> and left with no document, which is what every frame was
+    /// before there was a number here at all.
+    /// </para>
+    /// <para>
+    /// <b>It counts the frame documents the page <i>fetches</i>.</b> An <c>&lt;iframe srcdoc&gt;</c> is
+    /// parsed out of the attribute with no request to answer, so it is neither counted nor refused; what
+    /// bounds it is the document that carries it, which <see cref="MaxDocumentBytes"/> and
+    /// <see cref="MaxDomNodes"/> already bound.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The value is negative.</exception>
+    public int MaxFrameDocuments
+    {
+        get => _maxFrameDocuments;
+        set => _maxFrameDocuments = value >= 0
+            ? value
+            : throw new ArgumentOutOfRangeException(nameof(value), value, "MaxFrameDocuments cannot be negative.");
     }
 
     /// <summary>The most bytes one document may be; 32 MiB by default.</summary>

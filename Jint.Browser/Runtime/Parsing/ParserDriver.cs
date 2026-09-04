@@ -56,6 +56,8 @@ internal sealed class ParserDriver : IDisposable
 
     private bool _importMapRead;
     private IHtmlScriptElement? _importMapElement;
+    private IBrowsingContext? _context;
+    private int _frameDocuments;
 
     private ParserDriver(PageRuntime runtime, string url, CancellationToken cancellationToken)
     {
@@ -111,6 +113,7 @@ internal sealed class ParserDriver : IDisposable
         }
 
         var context = BrowsingContext.New(configuration);
+        _context = context;
         IDocument document;
 
         try
@@ -260,6 +263,12 @@ internal sealed class ParserDriver : IDisposable
 
         return Serve(() =>
         {
+            if (script.Owner is { } owner && IsFrameDocument(owner))
+            {
+                RefuseFrameScript(url);
+                return null;
+            }
+
             _runtime.Document ??= script.Owner;
 
             // https://html.spec.whatwg.org/multipage/scripting.html#prepare-the-script-element step 12: a
@@ -275,16 +284,111 @@ internal sealed class ParserDriver : IDisposable
     }
 
     /// <summary>Fetches an external style sheet so that AngleSharp.Css can parse it into the document.</summary>
+    /// <remarks>
+    /// A frame's style sheet is fetched like the page's own: the cascade is what
+    /// <c>getComputedStyle</c> and the box model read, and neither needs a realm. Only a script does.
+    /// </remarks>
     internal IResponse? FetchStyleSheet(IHtmlLinkElement link, string url)
     {
         var handedOver = HandsOver;
 
         return Serve(() =>
         {
-            _runtime.Document ??= link.Owner;
+            if (link.Owner is { } owner && !IsFrameDocument(owner))
+            {
+                _runtime.Document ??= owner;
+            }
+
             return Fetch(url, link, "stylesheet", PageRequestKind.Stylesheet, handedOver);
         });
     }
+
+    /// <summary>Records a script a frame's document asked for and this browser will not run.</summary>
+    private void RefuseFrameScript(string url)
+        => _requests.RecordNotFetched(
+            url,
+            RequestInitiator.Subresource,
+            PageRequestKind.Script,
+            "a script in a child frame's document is not run: a frame has a document here and no realm of its own");
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/iframe-embed-object.html#process-the-iframe-attributes — the
+    /// document a child frame's <c>src</c> names, fetched so that AngleSharp can open it into the nested
+    /// browsing context it has already made for the element.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The nested context is AngleSharp's, not this driver's.</b> <c>HtmlFrameElementBase.SetupElement</c>
+    /// creates a child context for every frame element it builds and asks the resource loader for the
+    /// document to put in it; until this method existed that request was refused, so <c>ContentDocument</c>
+    /// stayed <see langword="null"/> and <c>load</c> never arrived
+    /// (<a href="https://github.com/sebastienros/jint/issues/3771">#3771</a>). Answering it is the whole of
+    /// what gives a frame a document.
+    /// </para>
+    /// <para>
+    /// <b>The child document runs no script</b> — see <see cref="IsFrameDocument"/>. The child context
+    /// inherits this page's services, so refusing there rather than here is what keeps a frame's
+    /// <c>&lt;script&gt;</c> out of the page's own realm, which is the one realm there is.
+    /// </para>
+    /// <para>
+    /// <b>The ceiling is <see cref="BrowserOptions.MaxFrameDocuments"/></b>, counted over the whole load
+    /// rather than per document, because a frame's document may hold frames of its own: a page pointing a
+    /// frame at itself would otherwise recurse until the parser thread's stack ran out. Over the ceiling a
+    /// frame is recorded as not fetched, exactly as every frame was before.
+    /// </para>
+    /// <para>
+    /// <b><c>about:blank</c> is answered here rather than fetched.</b> It is the commonest frame source
+    /// there is and no network position can answer it: HTML says it is an empty HTML document, so that is
+    /// what is handed back, without a socket and without a row in <see cref="Page.Requests"/> — a page that
+    /// asked for nothing made no request.
+    /// </para>
+    /// </remarks>
+    internal IResponse? FetchFrame(IHtmlInlineFrameElement frame, string url)
+    {
+        var handedOver = HandsOver;
+
+        return Serve(() =>
+        {
+            var ceiling = _runtime.Options.MaxFrameDocuments;
+
+            if (ceiling <= 0 || _frameDocuments >= ceiling)
+            {
+                _requests.RecordNotFetched(
+                    url,
+                    RequestInitiator.Subresource,
+                    PageRequestKind.Frame,
+                    ceiling <= 0
+                        ? "a frame's document is not fetched: BrowserOptions.MaxFrameDocuments is zero"
+                        : "a frame's document is not fetched: this page has already reached the "
+                            + ceiling.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                            + " frame documents BrowserOptions.MaxFrameDocuments allows");
+                return null;
+            }
+
+            _frameDocuments++;
+
+            // https://html.spec.whatwg.org/multipage/urls-and-fetching.html#about:blank — "a resource whose
+            // representation is the empty byte sequence, parsed as HTML".
+            if (string.Equals(url, "about:blank", StringComparison.OrdinalIgnoreCase))
+            {
+                return PageResourceLoader.Answer(url, [], "text/html; charset=utf-8");
+            }
+
+            return Fetch(url, frame, "frame document", PageRequestKind.Frame, handedOver);
+        });
+    }
+
+    /// <summary>
+    /// Whether <paramref name="document"/> belongs to a child frame rather than to the page itself.
+    /// </summary>
+    /// <remarks>
+    /// A frame's document is opened into the child browsing context AngleSharp made for the element, and a
+    /// child context copies its parent's services — so the page's own <c>IScriptingService</c> and
+    /// <c>IResourceLoader</c> are what a frame's document asks. The context is therefore the only thing that
+    /// separates the two, and it is what says which document a script belongs to.
+    /// </remarks>
+    private bool IsFrameDocument(IDocument document)
+        => _context is not null && !ReferenceEquals(document.Context, _context);
 
     /// <summary>
     /// Whether a call arriving now would cross from the parser thread to the loop — as opposed to already
@@ -311,6 +415,16 @@ internal sealed class ParserDriver : IDisposable
 
         Serve<object?>(() =>
         {
+            // https://html.spec.whatwg.org/multipage/webappapis.html#concept-environment-noscript — a frame's
+            // document has no realm of its own here, so its scripts do not run at all rather than running in
+            // the page's. Both halves of a script arrive: an external one is refused at the fetch above, so
+            // that the reference it names is in the request log, and an inline one here, because AngleSharp
+            // prepares an inline script with no download and there is no reference to record.
+            if (IsFrameDocument(options.Document))
+            {
+                return null;
+            }
+
             // The document exists from the first token, but this is the earliest AngleSharp hands it over,
             // and a script running during the parse needs `document` to answer before the parse has finished.
             _runtime.Document ??= options.Document;
@@ -618,6 +732,12 @@ internal sealed class ParserDriver : IDisposable
         // candidate is flushed once the document has parsed, before `load`, and it fires the focus events.
         Events.FocusController.FlushAutofocus(_runtime.Dom, document);
 
+        // Step 6 of "the end": spin until nothing delays the load event. An <iframe> delays it
+        // (https://html.spec.whatwg.org/multipage/iframe-embed-object.html#the-iframe-element), so its own
+        // load lands here — after DOMContentLoaded, before readyState becomes "complete" and before the
+        // window's load.
+        FireFrameLoads(document);
+
         // Step 9: readiness becomes "complete" and only then does load fire, which is why a load listener
         // reads "complete" rather than "interactive".
         SetReadyState("complete");
@@ -634,6 +754,43 @@ internal sealed class ParserDriver : IDisposable
         }
 
         onPhase?.Invoke(NavigationPhase.Loaded);
+    }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/iframe-embed-object.html#iframe-load-event-steps — <c>load</c>
+    /// at every frame element whose document arrived, innermost first.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Innermost first, because that is the order the documents finished in.</b> A frame's document is
+    /// opened while its parent's parse is still running, so a frame nested two deep completed before the one
+    /// that holds it; walking the tree the other way round would tell a page the outer frame loaded first.
+    /// </para>
+    /// <para>
+    /// <b>Only a frame that has a document fires.</b> One whose fetch failed already heard <c>error</c> from
+    /// <see cref="FailSubresource"/>, one over <see cref="BrowserOptions.MaxFrameDocuments"/> hears nothing
+    /// because nothing was attempted, and one with no <c>src</c> and no <c>srcdoc</c> has no document at all
+    /// — where a browser would give it <c>about:blank</c> and fire. That last one is the divergence this
+    /// leaves: a frame is given a document by what it points at, and an empty frame points at nothing.
+    /// </para>
+    /// <para>
+    /// AngleSharp fires its own <c>load</c> into its own listener list, which holds nothing a script
+    /// registered; <see cref="FireAt"/> is the one a page can hear. A <c>&lt;frame&gt;</c> is not here
+    /// because it never gets a document — see <see cref="IsLegacyFrame"/>.
+    /// </para>
+    /// </remarks>
+    private void FireFrameLoads(IDocument document)
+    {
+        foreach (var element in document.QuerySelectorAll("iframe, frame"))
+        {
+            if (element is not IHtmlInlineFrameElement { ContentDocument: { } nested })
+            {
+                continue;
+            }
+
+            FireFrameLoads(nested);
+            FireAt(element, "load");
+        }
     }
 
     /// <summary>Moves the page's <c>document.readyState</c> and fires <c>readystatechange</c> at the document.</summary>
@@ -868,20 +1025,36 @@ internal sealed class ParserDriver : IDisposable
         => document.BaseUri ?? document.Url;
 
     /// <summary>What kind of resource a reference the page will not follow was, for the request log.</summary>
+    /// <remarks>
+    /// A frame is deliberately not here any more: <see cref="PageResourceLoader"/> routes one to
+    /// <see cref="FetchFrame"/>, which records its own refusal with the reason it has and this one has not.
+    /// </remarks>
     private static PageRequestKind KindNotFetched(IElement source) => source switch
     {
         IHtmlImageElement => PageRequestKind.Image,
-        IHtmlInlineFrameElement => PageRequestKind.Frame,
+        _ when IsLegacyFrame(source) => PageRequestKind.Frame,
         _ => PageRequestKind.Other,
     };
 
     private static string ReasonNotFetched(IElement source) => source switch
     {
         IHtmlImageElement => "images are not fetched: there is no rendering to need them",
-        IHtmlInlineFrameElement => "a frame's document is not fetched: frames do not run script in this version",
         IHtmlLinkElement link => "a <link rel=\"" + (link.Relation ?? "") + "\"> is not fetched: only a stylesheet is",
+        _ when IsLegacyFrame(source) => "a <frame>'s document is not fetched: AngleSharp has no HTMLFrameElement "
+            + "interface, so nothing script can reach would answer it",
         _ => source.LocalName + " resources are not fetched: there is no rendering to need them",
     };
+
+    /// <summary>Whether the element is a <c>&lt;frame&gt;</c> inside a <c>&lt;frameset&gt;</c>.</summary>
+    /// <remarks>
+    /// It asks AngleSharp for its document exactly as an <c>&lt;iframe&gt;</c> does, and it is refused where
+    /// an <c>&lt;iframe&gt;</c> is answered: AngleSharp declares no <c>IHtmlFrameElement</c>, so the binding
+    /// projects no <c>HTMLFrameElement</c> and there is no <c>contentDocument</c> for a page to read the
+    /// document through. Fetching it would be traffic whose result nothing could reach. The local name is
+    /// what names it, for the same reason <c>WindowNamedProperties.IsNamedAccessKind</c> uses one.
+    /// </remarks>
+    private static bool IsLegacyFrame(IElement source)
+        => source is IHtmlElement && string.Equals(source.LocalName, "frame", StringComparison.Ordinal);
 
     /// <summary>
     /// The parsing options an inline script gets: the engine's own, plus the position in the document its
