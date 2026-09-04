@@ -513,7 +513,8 @@ public sealed partial class Page
         }
 
         using var timeout = new CancellationTokenSource(request.Options.Timeout);
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(timeout.Token, _loop.Closing);
+        var closing = _loop.Closing;
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(timeout.Token, closing);
 
         try
         {
@@ -530,6 +531,18 @@ public sealed partial class Page
         try
         {
             return await RunAsync(request, timeout, linked.Token).ConfigureAwait(false);
+        }
+        catch (ObjectDisposedException) when (closing.IsCancellationRequested)
+        {
+            // A navigation runs off the page's thread and comes back to it several times - to fire
+            // `beforeunload`, to resolve the client, to commit - and a close can win any one of those races.
+            // Which one it won is not something the caller can act on: they closed the page, so what they are
+            // owed is the cancellation this method documents. Without this, a loaded machine turns the
+            // documented OperationCanceledException into the loop's internal "the page has been closed"
+            // (https://github.com/sebastienros/jint/issues/3802).
+            throw new OperationCanceledException(
+                "The page was closed while the navigation to '" + request.Target + "' was in flight.",
+                closing);
         }
         finally
         {

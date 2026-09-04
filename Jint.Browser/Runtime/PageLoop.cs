@@ -38,6 +38,7 @@ internal sealed class PageLoop : IDisposable
         new UnboundedChannelOptions { SingleReader = true, AllowSynchronousContinuations = false });
 
     private readonly CancellationTokenSource _closing = new();
+    private readonly CancellationToken _closingToken;
     private CancellationTokenSource _documentClosing = new();
     private readonly TaskCompletionSource _started = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly TaskCompletionSource _stopped = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -81,10 +82,17 @@ internal sealed class PageLoop : IDisposable
         _onPumpError = onPumpError;
         _onTurnEnd = onTurnEnd;
         _thread = new Thread(Run) { IsBackground = true, Name = name };
+        _closingToken = _closing.Token;
     }
 
     /// <summary>The page's cancellation token, cancelled when the page closes.</summary>
-    internal CancellationToken Closing => _closing.Token;
+    /// <remarks>
+    /// Taken from the source once, at construction, rather than read from it per call: the source is
+    /// disposed as the page finishes closing, and the caller who most needs to see the cancellation is
+    /// exactly the one still running then — a navigation the close overtook. A token already handed out
+    /// keeps answering after its source is disposed; the <c>Token</c> property does not.
+    /// </remarks>
+    internal CancellationToken Closing => _closingToken;
 
     /// <summary>Whether the loop has been asked to stop.</summary>
     internal bool IsClosed => _closed;
@@ -215,15 +223,22 @@ internal sealed class PageLoop : IDisposable
             _beforeStop = beforeStop;
             _closed = true;
             _mailbox.Writer.TryComplete();
+        }
 
-            try
-            {
-                _closing.Cancel();
-            }
-            catch (AggregateException)
-            {
-                // A registration threw on its way out; the loop is stopping either way.
-            }
+        // Outside the guard, because the flag is also set by a loop whose engine failed to build, and a
+        // token that is disposed without ever having been cancelled is one nothing can wait on. Cancel
+        // is idempotent, so calling it on the way through a second close costs nothing.
+        try
+        {
+            _closing.Cancel();
+        }
+        catch (AggregateException)
+        {
+            // A registration threw on its way out; the loop is stopping either way.
+        }
+        catch (ObjectDisposedException)
+        {
+            // Closed and disposed already; the token it handed out is cancelled and stays readable.
         }
 
         return _stopped.Task;
