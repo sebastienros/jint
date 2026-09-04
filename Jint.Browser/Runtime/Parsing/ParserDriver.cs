@@ -99,6 +99,15 @@ internal sealed class ParserDriver : IDisposable
         // service rather than replacing one, so AngleSharp's own observer keeps working.
         var configuration = Configuration.Default
             .WithCss()
+            // https://html.spec.whatwg.org/multipage/document-lifecycle.html#read-xml — a document whose
+            // content type is an XML MIME type is parsed by the XML parser, and without the factory
+            // AngleSharp.Xml supplies there is no XML document for it to produce: `<foo>Dummy</foo>` served
+            // as `text/xml` came back as an *HTML* document with the text inside an `<html><body>` skeleton,
+            // so `documentElement.tagName` was `HTML` and every XML rule a page then asked about was the
+            // wrong document's. Only a *frame* can reach this: `Parse` states `text/html` for the page's own
+            // document, which is what the navigate rules already decided. AngleSharp.Xml is referenced for
+            // `DOMParser` either way, so this costs a service registration and no dependency.
+            .WithXml()
             .With(new PageResourceLoader(this))
             .With<AngleSharp.Css.IRenderDevice>(_ => new PageRenderDevice(_runtime))
             .With<AngleSharp.Dom.IAttributeObserver>(_ => new CustomElements.CustomElementAttributeObserver(_runtime));
