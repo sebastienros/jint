@@ -113,6 +113,83 @@ public sealed class HistoryTests
         fixture.Server.Received.Count(r => r.Path == "/app").Should().Be(1, "a fragment navigation reaches no network");
     }
 
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/nav-history-apis.html#dom-location-hash, setter step 8: a
+    /// fragment equal to the one the URL already has returns without navigating. The specification calls the
+    /// bailout necessary "for compatibility with deployed content, which redundantly sets location.hash on
+    /// scroll" - a scroll handler doing it once a frame would otherwise fill the session history.
+    /// </summary>
+    [Test]
+    public async Task SettingLocationHashToTheFragmentItAlreadyHasNavigatesNowhere()
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(server => server.MapHtml("/app", Router));
+
+        await fixture.Page.NavigateAsync(fixture.Url("/app"));
+        await fixture.NavigateByScriptAsync("location.hash = '#section'");
+
+        var entries = await fixture.Page.EvaluateAsync<double>("history.length");
+
+        // Both spellings the setter's step 5 flattens to the same fragment: with the '#' and without it.
+        var navigated = fixture.Page.WaitForNavigationAsync(TimeSpan.FromSeconds(2));
+        await fixture.Page.EvaluateAsync("location.hash = location.hash");
+        await fixture.Page.EvaluateAsync("location.hash = 'section'");
+
+        (await navigated).Should().BeFalse("the setter returns before it navigates");
+
+        fixture.Page.Url.Should().Be(fixture.Url("/app#section"));
+        (await fixture.Page.EvaluateAsync<double>("history.length"))
+            .Should().Be(entries, "an unchanged fragment adds no session history entry");
+        (await fixture.Page.EvaluateAsync<string>("window.seen.join('|')"))
+            .Should().Be("hashchange:#section", "the only hashchange is the move that really happened");
+    }
+
+    /// <summary>
+    /// Setter step 4: the fragment compared against is the URL's, or the empty string when it has none - so
+    /// the empty string assigned to a URL carrying no fragment is the unchanged case as well.
+    /// </summary>
+    [Test]
+    public async Task SettingLocationHashToEmptyWithNoFragmentNavigatesNowhere()
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(server => server.MapHtml("/app", Router));
+
+        await fixture.Page.NavigateAsync(fixture.Url("/app"));
+
+        var entries = await fixture.Page.EvaluateAsync<double>("history.length");
+
+        var navigated = fixture.Page.WaitForNavigationAsync(TimeSpan.FromSeconds(2));
+        await fixture.Page.EvaluateAsync("location.hash = ''");
+
+        (await navigated).Should().BeFalse("the empty string is the fragment this URL already has");
+
+        fixture.Page.Url.Should().Be(fixture.Url("/app"));
+        (await fixture.Page.EvaluateAsync<double>("history.length")).Should().Be(entries);
+        (await fixture.Page.EvaluateAsync<double>("window.seen.length")).Should().Be(0);
+        fixture.Server.Received.Count(r => r.Path == "/app")
+            .Should().Be(1, "and a URL whose fragment is null is not a fragment navigation, so navigating would reload");
+    }
+
+    /// <summary>
+    /// The half of the same algorithm that must keep navigating: "the hash setter does not special case the
+    /// empty string", so emptying a fragment that was there moves to the empty fragment - a same-document
+    /// move to <c>#</c>, and emphatically not a reload.
+    /// </summary>
+    [Test]
+    public async Task SettingLocationHashToEmptyClearsAFragmentWithoutReloading()
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(server => server.MapHtml("/app", Router));
+
+        await fixture.Page.NavigateAsync(fixture.Url("/app#section"));
+        fixture.Server.Received.Count(r => r.Path == "/app").Should().Be(1);
+
+        await fixture.NavigateByScriptAsync("location.hash = ''");
+
+        fixture.Page.Url.Should().Be(fixture.Url("/app#"), "the empty fragment is a fragment, so the URL keeps its '#'");
+        (await fixture.Page.EvaluateAsync<string>("location.hash")).Should().Be("");
+        (await fixture.Page.EvaluateAsync<string>("window.seen.join('|')")).Should().Be("hashchange:");
+        fixture.Server.Received.Count(r => r.Path == "/app")
+            .Should().Be(1, "an empty fragment is still a fragment navigation, so the document stays");
+    }
+
     [Test]
     public async Task LocationAssignNavigatesAndLocationReplaceLeavesNoEntry()
     {

@@ -73,9 +73,11 @@ internal static class LocationInstaller
             static runtime => Read(runtime, static url => url.SerializeSearch()),
             static (runtime, value) => Write(runtime, value, static (url, v) => UrlSetters.SetSearch(url, v)));
 
+        // The one component whose setter is not the generic Write: HTML's own hash setter, which both
+        // bails out on an unchanged fragment and refuses to special-case the empty string. WriteHash says why.
         Accessor(engine, wrapper, "hash",
             static runtime => Read(runtime, static url => url.SerializeHash()),
-            static (runtime, value) => Write(runtime, value, static (url, v) => UrlSetters.SetHash(url, v)));
+            static (runtime, value) => WriteHash(runtime, value));
 
         // Read-only: an origin is derived, and HTML declares no setter for it.
         Accessor(engine, wrapper, "origin", static runtime => Read(runtime, static url => url.SerializeOrigin()), setter: null);
@@ -124,9 +126,9 @@ internal static class LocationInstaller
     /// </summary>
     /// <remarks>
     /// It is a navigation even when the component did not change, which is what HTML says: assigning
-    /// <c>location.pathname</c> the value it already has reloads the document. The <c>hash</c> setter is not
-    /// special-cased here either — the navigator recognizes a fragment-only change and keeps the document,
-    /// which is the one place that decision belongs.
+    /// <c>location.pathname</c> the value it already has reloads the document. <c>hash</c> is the one
+    /// exception and has <see cref="WriteHash"/> to itself; every other setter comes through here, and the
+    /// navigator is what recognizes a fragment-only change and keeps the document.
     /// </remarks>
     private static void Write(PageRuntime runtime, string value, Action<UrlRecord, string> setter)
     {
@@ -137,6 +139,62 @@ internal static class LocationInstaller
         }
 
         setter(url, value);
+        runtime.Page.RequestNavigation(url.Serialize(), replace: false, engine: runtime.Engine);
+    }
+
+    /// <summary>
+    /// The <c>hash</c> setter, https://html.spec.whatwg.org/multipage/nav-history-apis.html#dom-location-hash,
+    /// steps 3 to 9.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Step 8 is a bailout, and it is the whole reason this member is not a <see cref="Write"/> call.</b>
+    /// A fragment equal to the one the URL already carries returns without navigating, which the
+    /// specification calls "necessary for compatibility with deployed content, which redundantly sets
+    /// <c>location.hash</c> on scroll" — a scroll handler doing that once a frame would otherwise add a
+    /// session history entry per frame and fire a <c>hashchange</c> per frame, neither of which a browser
+    /// does. It is the <i>only</i> Location member with the bailout: <c>location.href</c> and
+    /// <c>assign()</c> given the URL they already have still navigate, and step 8 says so outright.
+    /// </para>
+    /// <para>
+    /// <b>Step 4 is what makes the empty string the unchanged case for a URL that has no fragment</b>, since
+    /// the value compared against is the URL's fragment or, when that is null, the empty string.
+    /// </para>
+    /// <para>
+    /// <b>And step 6 is why <c>UrlSetters.SetHash</c> cannot be reused</b>: that is the URL standard's
+    /// setter, which maps the empty string to a null fragment. HTML's "does not special case the empty
+    /// string, to remain compatible with deployed scripts", so <c>location.hash = ''</c> on
+    /// <c>/page#section</c> moves to <c>/page#</c> — a same-document move to an empty fragment. Routing it
+    /// through the URL setter produced <c>/page</c>, whose fragment is null, which the navigator can only
+    /// read as a reload: the document, its engine and everything a script had put on them went away.
+    /// </para>
+    /// </remarks>
+    private static void WriteHash(PageRuntime runtime, string value)
+    {
+        // Step 3: a copy of the URL, which parsing the page's own gives us for free.
+        var url = UrlParser.Parse(runtime.DocumentUrl);
+        if (url is null)
+        {
+            return;
+        }
+
+        // Step 4.
+        var thisUrlFragment = url.Fragment ?? "";
+
+        // Step 5: a single leading '#' removed, if any.
+        var input = value.Length != 0 && value[0] == '#' ? value.Substring(1) : value;
+
+        // Steps 6 and 7.
+        url.Fragment = "";
+        UrlParser.ParseInto(input, url, UrlParserState.Fragment);
+
+        // Step 8.
+        if (string.Equals(url.Fragment, thisUrlFragment, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        // Step 9.
         runtime.Page.RequestNavigation(url.Serialize(), replace: false, engine: runtime.Engine);
     }
 
