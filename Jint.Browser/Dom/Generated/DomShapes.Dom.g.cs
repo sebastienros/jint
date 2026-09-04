@@ -469,6 +469,13 @@ internal static partial class DomInterfaces
         => new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("DOMImplementation")
             .PerRealmSlot("constructor", enumerable: false)
+            .Method("createDocument",
+                global::Jint.Browser.Dom.DomFailures.Guard("DOMImplementation.createDocument", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IImplementation>(thisObj, "DOMImplementation.createDocument");
+                    return global::Jint.Browser.Dom.Views.DomViewMembers.CreateDocument(self.Realm, args);
+                }),
+                length: 2)
             .Method("createDocumentType",
                 global::Jint.Browser.Dom.DomFailures.Guard("DOMImplementation.createDocumentType", static (thisObj, args) =>
                 {
@@ -722,6 +729,13 @@ internal static partial class DomInterfaces
                     return self.Realm.WrapNodeValue(self.Target.CreateAttribute(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.createAttributeNS"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Document.createAttributeNS")));
                 }),
                 length: 2)
+            .Method("createCDATASection",
+                global::Jint.Browser.Dom.DomFailures.Guard("Document.createCDATASection", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.createCDATASection");
+                    return global::Jint.Browser.Dom.Views.DomViewMembers.CreateCDataSection(self.Realm, self.Target, args);
+                }),
+                length: 1)
             .Method("createComment",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.createComment", static (thisObj, args) =>
                 {

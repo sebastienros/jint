@@ -1,10 +1,12 @@
 using System.Runtime.CompilerServices;
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
+using AngleSharp.Xml.Dom;
 using Jint.Browser.Observers;
 using Jint.Browser.Runtime;
 using Jint.Native;
 using Jint.Runtime;
+using Jint.WebApi.DomException;
 
 namespace Jint.Browser.Dom.Views;
 
@@ -159,6 +161,117 @@ internal static class DomViewMembers
         return runtime is null ? JsValue.Null : runtime.Views.Selection;
     }
 
+    /// <summary>https://dom.spec.whatwg.org/#dom-document-createcdatasection.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Its first step is a refusal, and that refusal is the point.</b> On an HTML document — every page
+    /// this browser loads — the standard's answer is a <c>NotSupportedError</c>, not the <c>TypeError</c> a
+    /// missing member gives. <c>dom/common.js</c>, the fixture builder the whole of <c>dom/ranges/</c> and
+    /// half of <c>dom/traversal/</c> load, reaches this member on a <c>new Document()</c> before a single
+    /// <c>test()</c> runs; with the member absent it threw at file scope and thirty-one documents reported
+    /// nothing at all.
+    /// </para>
+    /// <para>
+    /// The node itself comes from AngleSharp.Xml's <c>IXmlDocument.CreateCDataSection</c>, which is the only
+    /// place in either assembly a CDATA section can be made. Every non-HTML document this package can produce
+    /// is one — <c>new Document()</c> and every <c>DOMParser</c> XML type go through <c>XmlParser</c> — so the
+    /// last refusal is for a document shape that does not exist yet rather than one a page can reach.
+    /// </para>
+    /// </remarks>
+    internal static JsValue CreateCDataSection(DomRealm realm, IDocument document, JsValue[] arguments)
+    {
+        // WebIDL converts the argument before any of the method's own steps, so a missing one is a TypeError
+        // even on an HTML document.
+        var data = DomConvert.RequiredText(arguments, 0, Member.CreateCDataSection);
+
+        if (document is IHtmlDocument)
+        {
+            return DomFailures.Refuse(
+                realm.Engine,
+                Member.CreateCDataSection,
+                DomExceptionNames.NotSupported,
+                "This node is an HTML document, and an HTML document has no CDATA sections.");
+        }
+
+        if (data.Contains("]]>", StringComparison.Ordinal))
+        {
+            // AngleSharp's own Data setter raises this too, but only after the node exists; refusing here is
+            // what makes the order the standard's.
+            return DomFailures.Refuse(
+                realm.Engine,
+                Member.CreateCDataSection,
+                DomExceptionNames.InvalidCharacter,
+                "The data provided ('" + data + "') contains ']]>'.");
+        }
+
+        if (document is IXmlDocument xml)
+        {
+            return realm.WrapNode(xml.CreateCDataSection(data));
+        }
+
+        return DomFailures.Refuse(
+            realm.Engine,
+            Member.CreateCDataSection,
+            DomExceptionNames.NotSupported,
+            "This document is neither an HTML document nor an XML one, so it can hold no CDATA section.");
+    }
+
+    /// <summary>https://dom.spec.whatwg.org/#dom-domimplementation-createdocument.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>AngleSharp's <c>IImplementation</c> has three members and this is not one of them</b> —
+    /// <c>createHTMLDocument</c>, <c>createDocumentType</c> and <c>hasFeature</c> are the whole of it — so
+    /// there is nothing to project and the algorithm is here. It is DOM's, over the pieces AngleSharp does
+    /// have: an empty XML document from the same parse <c>DomConstructors</c> uses for <c>new Document()</c>,
+    /// <c>createElementNS</c> for the document element, and DOM's own append for both children.
+    /// </para>
+    /// <para>
+    /// <b>The content-type step is the one this cannot do.</b> DOM sets the new document's content type from
+    /// the namespace — <c>application/xhtml+xml</c>, <c>image/svg+xml</c> or <c>application/xml</c> — and
+    /// AngleSharp's <c>Document.ContentType</c> setter is not public, so every document made here answers
+    /// <c>application/xml</c>. It is recorded in <c>Dom/AGENTS.md</c>'s divergence table rather than hidden.
+    /// </para>
+    /// </remarks>
+    internal static JsValue CreateDocument(DomRealm realm, JsValue[] arguments)
+    {
+        if (arguments.Length < 2)
+        {
+            Throw.TypeError(
+                realm.PrincipalRealm,
+                "Failed to execute '" + Member.CreateDocument + "': 2 arguments required, but only "
+                + arguments.Length + " present.");
+        }
+
+        var namespaceUri = DomConvert.NullableText(arguments, 0);
+
+        // [LegacyNullToEmptyString]: null is the empty string here, and undefined is still "undefined" —
+        // which is why this cannot be DomConvert.NullableText or OptionalText.
+        var qualifiedNameValue = DomConvert.At(arguments, 1);
+        var qualifiedName = qualifiedNameValue.IsNull() ? "" : TypeConverter.ToString(qualifiedNameValue);
+
+        var doctype = DomBindings.NullableArgument<IDocumentType>(arguments, 2, Member.CreateDocument);
+        var document = DomConstructors.NewXmlDocument();
+
+        // Step 3: the internal createElementNS steps, which is where a NamespaceError or an
+        // InvalidCharacterError for a bad qualified name comes from — AngleSharp raises both.
+        var element = qualifiedName.Length == 0 ? null : document.CreateElement(namespaceUri, qualifiedName);
+
+        // Steps 4 and 5, in the standard's order: the doctype first, so a document built with both has them
+        // the way a parse would. Appending adopts, which is what lets a doctype made by the page's own
+        // implementation become this document's child.
+        if (doctype is not null)
+        {
+            document.AppendChild(doctype);
+        }
+
+        if (element is not null)
+        {
+            document.AppendChild(element);
+        }
+
+        return realm.WrapNode(document);
+    }
+
     /// <summary>
     /// <c>whatToShow</c>, an <c>unsigned long</c> whose default is <c>0xFFFFFFFF</c>. It is read as a
     /// <see cref="uint"/> and widened, because <c>FilterSettings</c> is a 64-bit enum and a signed read of
@@ -166,4 +279,12 @@ internal static class DomViewMembers
     /// </summary>
     private static FilterSettings WhatToShow(JsValue[] arguments)
         => (FilterSettings) DomConvert.OptionalUInt32(arguments, 1, uint.MaxValue);
+
+    /// <summary>The qualified member names the refusals above wear, spelled once.</summary>
+    private static class Member
+    {
+        internal const string CreateCDataSection = "Document.createCDATASection";
+
+        internal const string CreateDocument = "DOMImplementation.createDocument";
+    }
 }

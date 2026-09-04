@@ -76,13 +76,13 @@ internal static class WptBrowserExclusions
         // These four were harness errors because `document.createEvent` did not exist and each of them reaches
         // for it before a test could report. It exists now, so the reason these are not vendored is spent and
         // vendoring them is a change of its own: it moves the census's Documents and Tests columns, which the
-        // change that fixes an engine deliberately does not. `keypress-dispatch-crash.html` needs one more
+        // change that fixes an engine deliberately does not. `keypress-dispatch-crash.html` needed one more
         // thing — `document.implementation.createDocument`, which AngleSharp's IImplementation does not have
-        // at all (`createHTMLDocument` and `new Document()` are the two this package answers).
+        // at all — and that is answered too now, from `additions` rather than from AngleSharp.
         ("dom/events/Event-constants.html", "not vendored: it called document.createEvent at file scope, which now exists"),
         ("dom/events/Event-propagation.html", "not vendored: it called document.createEvent at file scope, which now exists"),
         ("dom/events/Event-dispatch-detached-click.html", "not vendored: it called document.createEvent inside its one test, which now exists"),
-        ("dom/events/keypress-dispatch-crash.html", "calls document.implementation.createDocument at file scope, which AngleSharp's IImplementation does not have"),
+        ("dom/events/keypress-dispatch-crash.html", "not vendored: it called document.implementation.createDocument at file scope, which now exists"),
 
         // ------------------------------------------------------------ needs a name this browser does not have
         ("dom/events/Event-stopPropagation-cancel-bubbling.html", "not vendored: it read the legacy global `window.event`, which now exists"),
@@ -324,7 +324,7 @@ internal static class WptBrowserExclusions
         ("dom/nodes/Document-URL.html", "waits for an iframe that follows a redirect"),
         ("dom/nodes/Document-characterSet-normalization-1.html", "builds one iframe per encoding label and waits for each"),
         ("dom/nodes/Document-characterSet-normalization-2.html", "the same, for the second half of the label table"),
-        ("dom/nodes/Document-createElement-namespace.html", "createDocument at file scope for four of its tests, then an iframe per XML fixture for the rest"),
+        ("dom/nodes/Document-createElement-namespace.html", "an iframe per XML fixture, each of which has to run script"),
         ("dom/nodes/Element-matches.html", "runs its whole table inside ParentNode-querySelector-All-content.html, which is a frame"),
         ("dom/nodes/Element-webkitMatchesSelector.html", "the same table, through the prefixed alias"),
         ("dom/nodes/ParentNode-querySelector-All.html", "the same table again, for querySelector and querySelectorAll"),
@@ -341,36 +341,41 @@ internal static class WptBrowserExclusions
         // Each of these asks for a member the bindings do not have before it has registered a test, so the
         // harness reports ERROR for the whole file. The member itself is the exclusion table's business and is
         // named there test by test by a document that does report; what is different here is only *when* it is
-        // reached. `dom/common.js` is the one that costs the most: it is the shared fixture builder of the
-        // Range and traversal suites and it calls createCDATASection at file scope: twenty-four of `dom/ranges/`'s
-        // forty-one documents are here for that one reason, and the seventeen that do not load it are cases.
-        ("dom/ranges/Range-mutations-*.html", "dom/common.js calls document.createCDATASection at file scope, so none of the ten mutation documents registers a test"),
-        ("dom/ranges/Range-cloneContents.html", "createCDATASection at file scope, through dom/common.js"),
-        ("dom/ranges/Range-cloneRange.html", "createCDATASection at file scope, through dom/common.js"),
-        ("dom/ranges/Range-collapse.html", "createCDATASection at file scope, through dom/common.js"),
-        ("dom/ranges/Range-commonAncestorContainer.html", "createCDATASection at file scope, through dom/common.js"),
-        ("dom/ranges/Range-compareBoundaryPoints.html", "createCDATASection at file scope, through dom/common.js"),
-        ("dom/ranges/Range-comparePoint.html", "createCDATASection at file scope, through dom/common.js"),
-        ("dom/ranges/Range-deleteContents.html", "createCDATASection at file scope, through dom/common.js"),
-        ("dom/ranges/Range-extractContents.html", "createCDATASection at file scope, through dom/common.js"),
-        ("dom/ranges/Range-insertNode.html", "createCDATASection at file scope, through dom/common.js"),
-        ("dom/ranges/Range-intersectsNode.html", "createCDATASection at file scope, through dom/common.js"),
-        ("dom/ranges/Range-isPointInRange.html", "createCDATASection at file scope, through dom/common.js"),
-        ("dom/ranges/Range-selectNode.html", "createCDATASection at file scope, through dom/common.js"),
-        ("dom/ranges/Range-set.html", "createCDATASection at file scope, through dom/common.js"),
-        ("dom/ranges/Range-surroundContents.html", "createCDATASection at file scope, through dom/common.js"),
-        ("dom/traversal/NodeIterator.html", "createCDATASection at file scope, through dom/common.js"),
-        ("dom/traversal/NodeIterator-removal.html", "createCDATASection at file scope, through dom/common.js"),
-        ("dom/traversal/TreeWalker.html", "createCDATASection at file scope, through dom/common.js"),
-        ("dom/nodes/Node-compareDocumentPosition.html", "createCDATASection at file scope"),
-        ("dom/nodes/Node-contains.html", "createCDATASection at file scope"),
-        ("dom/nodes/Node-properties.html", "createCDATASection at file scope"),
-        ("dom/nodes/MutationObserver-textContent.html", "createCDATASection in a promise, whose rejection testharness makes a file-wide error"),
-        ("dom/nodes/Document-createAttribute.html", "document.implementation.createDocument at file scope"),
-        ("dom/nodes/DocumentType-remove.html", "document.implementation.createDocument at file scope"),
-        ("dom/nodes/Node-textContent.html", "document.implementation.createDocument at file scope"),
-        ("dom/nodes/append-on-Document.html", "document.implementation.createDocument at file scope"),
-        ("dom/nodes/prepend-on-Document.html", "document.implementation.createDocument at file scope"),
+        // reached.
+        //
+        // **Thirty-one of them are here for a reason that has been spent**: `dom/common.js`, the shared
+        // fixture builder of the Range and traversal suites, calls `createCDATASection` at file scope and
+        // `document.implementation.createDocument` two lines later, and both exist now. Vendoring them is a
+        // change of its own — it moves the census's Documents and Tests columns, which the change that fixes
+        // an engine deliberately does not — which is the same standing this table already gives the four
+        // `dom/events/` documents that were waiting on `document.createEvent`.
+        ("dom/ranges/Range-mutations-*.html", "not vendored: dom/common.js called document.createCDATASection at file scope, which now exists"),
+        ("dom/ranges/Range-cloneContents.html", "not vendored: it called createCDATASection through dom/common.js at file scope, which now exists"),
+        ("dom/ranges/Range-cloneRange.html", "not vendored: it called createCDATASection through dom/common.js at file scope, which now exists"),
+        ("dom/ranges/Range-collapse.html", "not vendored: it called createCDATASection through dom/common.js at file scope, which now exists"),
+        ("dom/ranges/Range-commonAncestorContainer.html", "not vendored: it called createCDATASection through dom/common.js at file scope, which now exists"),
+        ("dom/ranges/Range-compareBoundaryPoints.html", "not vendored: it called createCDATASection through dom/common.js at file scope, which now exists"),
+        ("dom/ranges/Range-comparePoint.html", "not vendored: it called createCDATASection through dom/common.js at file scope, which now exists"),
+        ("dom/ranges/Range-deleteContents.html", "not vendored: it called createCDATASection through dom/common.js at file scope, which now exists"),
+        ("dom/ranges/Range-extractContents.html", "not vendored: it called createCDATASection through dom/common.js at file scope, which now exists"),
+        ("dom/ranges/Range-insertNode.html", "not vendored: it called createCDATASection through dom/common.js at file scope, which now exists"),
+        ("dom/ranges/Range-intersectsNode.html", "not vendored: it called createCDATASection through dom/common.js at file scope, which now exists"),
+        ("dom/ranges/Range-isPointInRange.html", "not vendored: it called createCDATASection through dom/common.js at file scope, which now exists"),
+        ("dom/ranges/Range-selectNode.html", "not vendored: it called createCDATASection through dom/common.js at file scope, which now exists"),
+        ("dom/ranges/Range-set.html", "not vendored: it called createCDATASection through dom/common.js at file scope, which now exists"),
+        ("dom/ranges/Range-surroundContents.html", "not vendored: it called createCDATASection through dom/common.js at file scope, which now exists"),
+        ("dom/traversal/NodeIterator.html", "not vendored: it called createCDATASection through dom/common.js at file scope, which now exists"),
+        ("dom/traversal/NodeIterator-removal.html", "not vendored: it called createCDATASection through dom/common.js at file scope, which now exists"),
+        ("dom/traversal/TreeWalker.html", "not vendored: it called createCDATASection through dom/common.js at file scope, which now exists"),
+        ("dom/nodes/Node-compareDocumentPosition.html", "not vendored: it called createCDATASection at file scope, which now exists"),
+        ("dom/nodes/Node-contains.html", "not vendored: it called createCDATASection at file scope, which now exists"),
+        ("dom/nodes/Node-properties.html", "not vendored: it called createCDATASection at file scope, which now exists"),
+        ("dom/nodes/MutationObserver-textContent.html", "not vendored: it called createCDATASection in a promise whose rejection testharness makes a file-wide error; the member now exists"),
+        ("dom/nodes/Document-createAttribute.html", "not vendored: it called document.implementation.createDocument at file scope, which now exists"),
+        ("dom/nodes/DocumentType-remove.html", "not vendored: it called document.implementation.createDocument at file scope, which now exists"),
+        ("dom/nodes/Node-textContent.html", "not vendored: it called document.implementation.createDocument at file scope, which now exists"),
+        ("dom/nodes/append-on-Document.html", "not vendored: it called document.implementation.createDocument at file scope, which now exists"),
+        ("dom/nodes/prepend-on-Document.html", "not vendored: it called document.implementation.createDocument at file scope, which now exists"),
         ("dom/nodes/Node-lookupNamespaceURI.html", "setAttributeNode at file scope, after seventy-two of its tests have reported"),
         ("html/dom/aria-element-reflection-labelledby.html", "reads firstElementChild off a null shadow root in a promise, which testharness makes a file-wide error"),
 
@@ -534,7 +539,7 @@ internal static class WptBrowserExclusions
         ["dom/nodes/ChildNode-after.html"] = 45,
         ["dom/nodes/ChildNode-before.html"] = 45,
         ["dom/nodes/ChildNode-replaceWith.html"] = 33,
-        ["dom/nodes/DOMImplementation-createDocument.html"] = 2,
+        ["dom/nodes/DOMImplementation-createDocument.html"] = 434,
         ["dom/nodes/DOMImplementation-createDocumentType.html"] = 82,
         ["dom/nodes/DOMImplementation-createHTMLDocument-with-saved-implementation.html"] = 1,
         ["dom/nodes/DOMImplementation-createHTMLDocument.html"] = 13,
@@ -1048,31 +1053,26 @@ internal static class WptBrowserExclusions
 
         // ---------------------------------------------------------------- an XML document, and the two members that make one
         // an XML document, and the members that make one
-        new("dom/nodes/DOMImplementation-createDocument.html", "*)", WptDivergence.NeedsXmlDocuments),
-        new("dom/nodes/Document-adoptNode.html", "Adopting*", WptDivergence.NeedsXmlDocuments),
+        // This document's table is built inside its first test, and the builder calls createDocument — so
+        // while the member was absent the file reported *two* tests and the rest were never registered at
+        // all. They are registered now, and what they say is that the document a browser gets back is an
+        // XMLDocument with no location, an ASCII-upper-cased encoding name and a content type taken from the
+        // namespace, and that none of the three is reachable from what AngleSharp exposes. See Wpt/README.md.
+        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: metadata for*", WptDivergence.NeedsXmlDocuments),
+        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: characterSet aliases for*", WptDivergence.NeedsXmlDocuments),
+        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: *,null", WptDivergence.NeedsXmlDocuments),
+        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: null,\"\",DocumentType node*", WptDivergence.NeedsXmlDocuments),
         new("dom/nodes/Document-constructor.html", "*interfaces", WptDivergence.NeedsXmlDocuments),
-        new("dom/nodes/Document-createCDATASection.html", "*", WptDivergence.NeedsXmlDocuments),
         new("dom/nodes/Element-tagName.html", "*)", WptDivergence.NeedsXmlDocuments),
         new("dom/nodes/Node-cloneNode-XMLDocument.html", "*", WptDivergence.NeedsXmlDocuments),
-        new("dom/nodes/Node-cloneNode-document-with-doctype.html", "*createDocumentType", WptDivergence.NeedsXmlDocuments),
         new("dom/nodes/Node-cloneNode.html", "*createDocument", WptDivergence.NeedsXmlDocuments),
-        new("dom/nodes/Node-insertBefore.html", "* is.", WptDivergence.NeedsXmlDocuments),
-        new("dom/nodes/Node-insertBefore.html", "* now.", WptDivergence.NeedsXmlDocuments),
-        new("dom/nodes/Node-insertBefore.html", "Should check the*", WptDivergence.NeedsXmlDocuments),
-        new("dom/nodes/Node-isEqualNode.html", "*too", WptDivergence.NeedsXmlDocuments),
         new("dom/nodes/Node-isEqualNode.html", "documents*", WptDivergence.NeedsXmlDocuments),
-        new("dom/nodes/Node-normalize.html", "*.", WptDivergence.NeedsXmlDocuments),
-        new("dom/nodes/Node-replaceChild.html", "* is.", WptDivergence.NeedsXmlDocuments),
-        new("dom/nodes/Node-replaceChild.html", "* now.", WptDivergence.NeedsXmlDocuments),
-        new("dom/nodes/Node-replaceChild.html", "If the*thrown", WptDivergence.NeedsXmlDocuments),
-        new("dom/nodes/Node-replaceChild.html", "Should check the*", WptDivergence.NeedsXmlDocuments),
         new("dom/nodes/attributes.html", "*-HTML document", WptDivergence.NeedsXmlDocuments),
         new("dom/nodes/processing-instruction-attributes.html", "*)", WptDivergence.NeedsXmlDocuments),
         new("dom/nodes/processing-instruction-attributes.html", "Distinct attribute name (source: html*", WptDivergence.NeedsXmlDocuments),
         new("dom/nodes/processing-instruction-attributes.html", "Distinct attribute name (source: xml-dom*", WptDivergence.NeedsXmlDocuments),
         new("dom/nodes/processing-instruction-attributes.html", "Processing*", WptDivergence.NeedsXmlDocuments),
         new("dom/ranges/Range-adopt-test.html", "*appendChild: Removing the only element in the range must collapse the range", WptDivergence.NeedsXmlDocuments),
-        new("dom/ranges/Range-adopt-test.html", "Parented*", WptDivergence.NeedsXmlDocuments),
 
         // ---------------------------------------------------------------- DOMImplementation.hasFeature, which DOM makes unconditionally true
         // DOMImplementation.hasFeature, which DOM makes unconditionally true
@@ -1378,11 +1378,17 @@ internal static class WptBrowserExclusions
         new("dom/nodes/ChildNode-replaceWith.html", "*on a parentless child with two elements as arguments.", WptDivergence.NeedsTriage),
         new("dom/nodes/ChildNode-replaceWith.html", "*with one sibling of child and child itself as arguments.", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-importNode.html", "*'deep' argument.", WptDivergence.NeedsTriage),
-        new("dom/nodes/Node-isSameNode.html", "documents should be compared on reference", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "Basic functionality of getAttributeNode/getAttributeNodeNS", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "Basic functionality of setAttributeNode", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "setAttributeNode doesn't have case-insensitivity even with an HTMLElement 2", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "toggleAttribute should set the first attribute with the given name", WptDivergence.NeedsTriage),
+        // createDocument's own share of the refusal defects the table already names: DOM's
+        // validate-and-extract makes an empty prefix or an empty local part an InvalidCharacterError, and
+        // AngleSharp answers a NamespaceError or nothing at all.
+        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: *,\":foo\",null,\"INVALID_CHARACTER_ERR\"", WptDivergence.NeedsTriage),
+        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: *,\"foo:\",null,\"INVALID_CHARACTER_ERR\"", WptDivergence.NeedsTriage),
+        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: null,\":\",null,\"INVALID_CHARACTER_ERR\"", WptDivergence.NeedsTriage),
+        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: \"http://example.com/\",\"a:0\",null,\"INVALID_CHARACTER_ERR\"", WptDivergence.NeedsTriage),
         new("dom/nodes/Element-removeAttribute.html", "*", WptDivergence.NeedsTriage),
         new("dom/nodes/Element-setAttribute.html", "*namespace", WptDivergence.NeedsTriage),
         new("dom/nodes/Element-tagName.html", "*ownerDocument", WptDivergence.NeedsTriage),

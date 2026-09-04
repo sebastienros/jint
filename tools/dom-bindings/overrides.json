@@ -387,6 +387,28 @@
     },
     {
       "interface": "Document",
+      "member": "createCDATASection",
+      "kind": "operation",
+      "length": 1,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, \"Document.createCDATASection\");",
+        "return global::Jint.Browser.Dom.Views.DomViewMembers.CreateCDataSection(self.Realm, self.Target, args);"
+      ],
+      "reason": "DOM §4.5. AngleSharp's IDocument has no member for it — a CDATA section lives in AngleSharp.Xml, which is not in the generator's pin — and its first step is a NotSupportedError on an HTML document, which is what dom/common.js catches and a missing member is not."
+    },
+    {
+      "interface": "DOMImplementation",
+      "member": "createDocument",
+      "kind": "operation",
+      "length": 2,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IImplementation>(thisObj, \"DOMImplementation.createDocument\");",
+        "return global::Jint.Browser.Dom.Views.DomViewMembers.CreateDocument(self.Realm, args);"
+      ],
+      "reason": "DOM §4.5.1. AngleSharp's IImplementation is createHTMLDocument, createDocumentType and hasFeature, and nothing else, so there is nothing to project; the algorithm is DOM's own over the pieces AngleSharp does have."
+    },
+    {
+      "interface": "Document",
       "member": "createTreeWalker",
       "kind": "operation",
       "length": 1,
