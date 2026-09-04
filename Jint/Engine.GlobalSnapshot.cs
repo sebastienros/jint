@@ -277,7 +277,6 @@ public partial class Engine
         // depend on whether a wait happened to have a timeout.
         DiscardAtomicsWaiterDeadlines();
 
-        _error = null;
         _lastSyntaxElement = null;
 
         // RegExp legacy statics: every successful match writes them, so RegExp.$1 in the next
