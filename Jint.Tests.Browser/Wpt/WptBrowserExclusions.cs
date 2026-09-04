@@ -965,8 +965,15 @@ internal static class WptBrowserExclusions
         // a second global with a document in it
         new("dom/nodes/Document-createElement.html", "*XHTML document", WptDivergence.NeedsIframeScripting),
         new("dom/nodes/Document-createElement.html", "*XML document", WptDivergence.NeedsIframeScripting),
-        new("dom/nodes/Document-createElementNS.html", "createElementNS test in XHTML*", WptDivergence.NeedsIframeScripting),
-        new("dom/nodes/Document-createElementNS.html", "createElementNS test in XML*", WptDivergence.NeedsIframeScripting),
+        // Not the frame any more: the frame has its document. `application/xhtml+xml` is routed to the
+        // HTML parser even with the XML factory registered, so the XHTML fixture comes back as an HTML
+        // document and all 195 fail on its first assertion — the trailing newline an HTML skeleton adds.
+        new("dom/nodes/Document-createElementNS.html", "createElementNS test in XHTML*", WptDivergence.NeedsXmlDocuments),
+        // Narrowed by the run rather than by hand: the XML document is real now, so 56 of these pass.
+        // What is left of them is the 110 rows that reach `doc.defaultView.DOMException`, and a frame
+        // has a document here and no window — every one of those names ends in the exception it expects,
+        // which is what separates them from the 56 that do not throw at all.
+        new("dom/nodes/Document-createElementNS.html", "createElementNS test in XML document:*_ERR\"", WptDivergence.NeedsIframeScripting),
         new("dom/nodes/Document-createEvent.https.html", "*TextEvent.", WptDivergence.NeedsIframeScripting),
         new("dom/nodes/Node-appendChild.html", "*document", WptDivergence.NeedsIframeScripting),
         new("dom/nodes/Node-appendChild.html", "*orphan", WptDivergence.NeedsIframeScripting),
@@ -1180,6 +1187,20 @@ internal static class WptBrowserExclusions
         new("dom/nodes/Node-replaceChild.html", "*a doctype should throw a HierarchyRequestError.", WptDivergence.NeedsTriage),
         new("dom/nodes/Node-replaceChild.html", "*node should throw a HierarchyRequestError.", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "Basic*.", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElementNS.html", "* XML document: \"http://example.com/\",\"0:a\",null", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElementNS.html", "* XML document: \"http://example.com/\",\"a:̀\",null", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElementNS.html", "* XML document: \"http://example.com/\",\"a:;\",null", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElementNS.html", "* XML document: \"http://example.com/\",\"f:o:o\",null", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElementNS.html", "* XML document: \"http://example.com/\",\"fo<o\",null", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElementNS.html", "* XML document: \"http://example.com/\",\"̀:a\",null", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElementNS.html", "* XML document: \"http://example.com/\",\";:a\",null", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElementNS.html", "* XML document: null,\"\\ufffffoo\",null", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElementNS.html", "* XML document: null,\"f<oo\",null", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElementNS.html", "* XML document: null,\"f\\uffffoo\",null", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElementNS.html", "* XML document: null,\"foo\\uffff\",null", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElementNS.html", "* XML document: null,\"foo}\",null", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElementNS.html", "* XML document: null,\"f}oo\",null", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-createElementNS.html", "* XML document: null,\";foo\",null", WptDivergence.NeedsTriage),
 
         // ---------------------------------------------------------------- a nullable DOMString answers the string "null"
         // a DOMString? parameter or attribute answers the string "null"
