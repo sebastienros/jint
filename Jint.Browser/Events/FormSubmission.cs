@@ -145,6 +145,7 @@ internal static class FormSubmission
         if (target.DispatchEvent(resetEvent))
         {
             form.Reset();
+            Dom.Files.FileTransferRealm.Of(realm.Engine).ResetForm(form);
         }
     }
 

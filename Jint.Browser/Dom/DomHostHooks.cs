@@ -203,6 +203,16 @@ internal class DomHostHooks
     internal virtual JsValue CloneNode(DomRealm realm, INode node, JsValue[] arguments)
         => CustomElements.CustomElementCreation.CloneNode(realm, node, arguments);
 
+    /// <summary>DOM's import steps do not copy a file input's selected files.</summary>
+    internal virtual JsValue ImportNode(DomRealm realm, IDocument document, JsValue[] arguments)
+    {
+        var imported = document.Import(
+            DomBindings.Argument<INode>(arguments, 0, "Document.importNode"),
+            DomConvert.OptionalBool(arguments, 1, true));
+        Files.FileTransferRealm.ResetCopiedInputs(imported);
+        return realm.WrapNodeValue(imported);
+    }
+
     // ------------------------------------------------------------------------------------------------
     // The members whose value the host has and AngleSharp does not. Every one of them used to be an own
     // property written onto the document wrapper, because a getter could not be hooked; they are accessors

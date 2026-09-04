@@ -1,3 +1,4 @@
+using System.Text;
 using Jint.Browser;
 using Jint.DevTools;
 using Jint.Tests.Browser.Fixtures;
@@ -339,6 +340,67 @@ public class PlaywrightCourseTests
         // And the box the check reads is a real one, computed against the viewport rather than refused.
         (await page.EvaluateAsync<string>(
             "() => getComputedStyle(document.getElementById('SiteName')).width")).Should().Be("1280px");
+
+        await page.CloseAsync();
+    }
+
+    /// <summary>Issue #3844: Playwright's standard DataTransfer path can select in-memory files.</summary>
+    [Test]
+    public async Task PlaywrightCanSetMultipleInputFiles()
+    {
+        await using var lane = await ClientLane.OpenAsync(server => server.MapHtml(
+            "/file-input/index.html",
+            """
+            <form>
+              <input id="upload" type="file" multiple>
+            </form>
+            <script>
+              window.fileEvents = [];
+              for (const type of ['input', 'change']) {
+                document.body.addEventListener(type, event => {
+                  window.fileEvents.push(type + ':' + event.target.id + ':' + event.bubbles);
+                });
+              }
+            </script>
+            """));
+        var page = await lane.NewPageAsync("file-input");
+
+        await page.Locator("#upload").SetInputFilesAsync(
+        [
+            new FilePayload
+            {
+                Name = "hello.txt",
+                MimeType = "text/plain",
+                Buffer = Encoding.UTF8.GetBytes("hello from Playwright"),
+            },
+            new FilePayload
+            {
+                Name = "data.json",
+                MimeType = "application/json",
+                Buffer = Encoding.UTF8.GetBytes("{\"answer\":42}"),
+            },
+        ]);
+
+        var result = await page.EvaluateAsync<string>(
+            """
+            async () => {
+              const files = document.getElementById('upload').files;
+              const details = await Promise.all(Array.from(files, async file =>
+                [file.name, file.type, await file.text()].join('|')));
+              return [
+                files instanceof FileList,
+                files.length,
+                files.item(0) === files[0],
+                files.item(2) === null,
+                details.join(';'),
+                window.fileEvents.join(',')
+              ].join('#');
+            }
+            """);
+
+        result.Should().Be(
+            "true#2#true#true#hello.txt|text/plain|hello from Playwright;"
+            + "data.json|application/json|{\"answer\":42}#input:upload:true,change:upload:true");
 
         await page.CloseAsync();
     }
