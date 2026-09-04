@@ -1,4 +1,4 @@
-using Jint.Browser;
+﻿using Jint.Browser;
 
 namespace Jint.Tests.Browser.Navigation;
 
@@ -423,6 +423,48 @@ public sealed class NavigationTests
         var requests = fixture.Page.Requests;
         requests.Should().Contain(r => r.Url == fixture.Url("/index.html") && r.Initiator == RequestInitiator.Document && r.Status == 200);
         requests.Should().Contain(r => r.Url == fixture.Url("/api") && r.Initiator == RequestInitiator.Script && r.Status == 200);
+    }
+
+    /// <summary>A navigation that ran out of its deadline says so, rather than only saying it in English.</summary>
+    /// <remarks>
+    /// A timeout is the one failure a caller routinely tells apart — it says nothing about the page — and
+    /// the flag is what makes telling it apart possible: the <c>Page</c> domain matched on the message, and
+    /// a client library that reports its own timeout for the navigation it started needs the same answer.
+    /// </remarks>
+    [Test]
+    public async Task ANavigationThatRanOutOfTimeSaysItTimedOut()
+    {
+        using var release = new SemaphoreSlim(0, 1);
+
+        await using var fixture = await LoopbackPage.CreateAsync(server => server.Map("/slow.html", _ =>
+        {
+            release.Wait(TimeSpan.FromSeconds(10));
+            return LoopbackResponse.Html("<title>too late</title>");
+        }));
+
+        var act = async () => await fixture.Page.NavigateAsync(
+            fixture.Url("/slow.html"),
+            new NavigationOptions { Timeout = TimeSpan.FromMilliseconds(50) });
+
+        var failure = await act.Should().ThrowAsync<NavigationFailedException>();
+        failure.Which.TimedOut.Should().BeTrue();
+        failure.Which.Url.Should().Be(fixture.Url("/slow.html"));
+
+        release.Release();
+    }
+
+    /// <summary>Every other failure is not a timeout, so a caller that retries a timeout does not retry it.</summary>
+    [Test]
+    public async Task ANavigationRefusedByTheFilterIsNotATimeout()
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(
+            server => server.MapHtml("/forbidden.html", "<title>no</title>"),
+            options => options.UrlFilter = _ => false);
+
+        var act = async () => await fixture.Page.NavigateAsync(fixture.Url("/forbidden.html"));
+
+        var failure = await act.Should().ThrowAsync<NavigationFailedException>();
+        failure.Which.TimedOut.Should().BeFalse();
     }
 
     [Test]

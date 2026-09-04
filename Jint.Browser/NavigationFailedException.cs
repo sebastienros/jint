@@ -1,4 +1,4 @@
-namespace Jint.Browser;
+﻿namespace Jint.Browser;
 
 /// <summary>
 /// A navigation that never produced a document: a refused URL, a network failure, a timeout, or a page that
@@ -38,12 +38,28 @@ public sealed class NavigationFailedException : Exception
         Url = "";
     }
 
-    internal NavigationFailedException(string url, string message, Exception? innerException = null)
+    internal NavigationFailedException(string url, string message, Exception? innerException = null, bool timedOut = false)
         : base(message, innerException)
     {
         Url = url;
+        TimedOut = timedOut;
     }
 
     /// <summary>The URL the navigation was aimed at, or the empty string when none was known.</summary>
     public string Url { get; }
+
+    /// <summary>Whether the navigation ran out of its <see cref="NavigationOptions.Timeout"/>.</summary>
+    /// <remarks>
+    /// <para>
+    /// A timeout is the one failure a caller routinely has to tell apart, because it is the only one that
+    /// says nothing about the page: a client library whose own action timeout covers the navigation reports
+    /// its own timeout for it, and a host that retries retries this and not a refused URL.
+    /// </para>
+    /// <para>
+    /// It is a flag rather than an exception type because the two are the same failure to everything that
+    /// does not care — nothing was shown — and matching on the message to find out, which is what the
+    /// <c>Page</c> domain did, breaks the moment the message is reworded.
+    /// </para>
+    /// </remarks>
+    public bool TimedOut { get; }
 }

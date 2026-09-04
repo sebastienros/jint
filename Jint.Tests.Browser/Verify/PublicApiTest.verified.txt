@@ -96,6 +96,7 @@ namespace Jint.Browser
         public NavigationFailedException() { }
         public NavigationFailedException(string message) { }
         public NavigationFailedException(string message, System.Exception innerException) { }
+        public bool TimedOut { get; }
         public string Url { get; }
     }
     public sealed class NavigationOptions
