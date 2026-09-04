@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using Jint.Browser;
 using Jint.Tests.Browser.Navigation;
@@ -390,9 +391,11 @@ public class NetworkDomainTests
     /// <para>
     /// The URL here is one the context's own filter refuses, which is what lets this run with no WebSocket
     /// server: a refused socket is still created and still closes, which is the pair that proves the whole
-    /// chain — the engine's observer, the recorder, the listener, the target, the domain, the client. What
-    /// the two <i>handshake</i> events carry is pinned one level down, in
-    /// <c>Jint.Tests/Runtime/WebApi/WebSocketTests</c>, over a connection double.
+    /// chain — the engine's observer, the recorder, the listener, the target, the domain, the client.
+    /// <see cref="ASocketToTheOriginPutsItsHandshakeRequestOnTheWire"/> is the same chain with a real socket
+    /// on a real origin, which adds the handshake request; what the handshake <i>response</i> carries is
+    /// pinned one level down, in <c>Jint.Tests/Runtime/WebApi/WebSocketTests</c>, because raising it needs a
+    /// server that answers <c>101</c> and the loopback server does not speak the upgrade.
     /// </para>
     /// </remarks>
     [Test]
@@ -401,11 +404,7 @@ public class NetworkDomainTests
         using var server = new LoopbackServer();
         server.MapHtml("/page", "<html><body>ok</body></html>");
 
-        // A page does not carry WebSocket by default, so the host turns it on the way an embedder would.
-        var options = new BrowserOptions().ConfigureEngine(
-            engine => engine.WebApi.Features |= WebApiFeatures.WebSocket);
-
-        await using var fixture = await NetworkFixture.OpenAsync(server, options);
+        await using var fixture = await NetworkFixture.OpenAsync(server);
         await fixture.NavigateAsync("/page");
 
         await fixture.Page.EvaluateAsync("new WebSocket('wss://elsewhere.invalid/socket');");
@@ -423,6 +422,62 @@ public class NetworkDomainTests
         fixture.Page.Requests.Should().NotContain(
             request => request.Url.StartsWith("wss:", StringComparison.Ordinal),
             "a socket is not a request and must not be one that never finishes");
+    }
+
+    /// <summary>
+    /// The same chain with a socket that really goes out: the handshake request a page's <c>WebSocket</c>
+    /// puts on the wire reaches a client as
+    /// https://chromedevtools.github.io/devtools-protocol/tot/Network/#event-webSocketWillSendHandshakeRequest.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The filter is widened to the loopback port rather than to a scheme</b>, because the context's
+    /// <c>UrlFilter</c> is shown the <c>ws:</c> URL and <see cref="LoopbackServer.Owns"/> requires
+    /// <c>http</c>. One policy covers a document, its subresources and its sockets, which is the property
+    /// being relied on here.
+    /// </para>
+    /// <para>
+    /// The server answers an ordinary response rather than a <c>101</c>, so the connection fails — and by
+    /// then every event but <c>webSocketHandshakeResponseReceived</c> has already been raised. Raising that
+    /// one needs a server that speaks the upgrade, which this one deliberately does not; what it carries is
+    /// pinned over a connection double in <c>Jint.Tests/Runtime/WebApi/WebSocketTests</c>.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task ASocketToTheOriginPutsItsHandshakeRequestOnTheWire()
+    {
+        using var server = new LoopbackServer();
+        server.MapHtml("/page", "<html><body>ok</body></html>");
+
+        await using var fixture = await NetworkFixture.OpenAsync(
+            server,
+            urlFilter: uri => uri.IsLoopback && uri.Port == server.Port);
+
+        await fixture.NavigateAsync("/page");
+
+        var url = string.Create(CultureInfo.InvariantCulture, $"ws://127.0.0.1:{server.Port}/socket");
+        await fixture.Page.EvaluateAsync($"new WebSocket('{url}');");
+
+        var created = await fixture.EventAsync("Network.webSocketCreated");
+        created.GetProperty("url").GetString().Should().Be(url);
+        var socketId = created.GetProperty("requestId").GetString();
+
+        var handshake = await fixture.EventAsync("Network.webSocketWillSendHandshakeRequest");
+        handshake.GetProperty("requestId").GetString().Should().Be(socketId);
+
+        // The one header the connection sets for itself, and the page's own: a socket goes out claiming to
+        // be the same browser the document's requests claim to be.
+        var agent = await fixture.Page.EvaluateAsync<string>("navigator.userAgent");
+        handshake.GetProperty("request").GetProperty("headers").GetProperty("user-agent").GetString().Should().Be(agent);
+
+        var closed = await fixture.EventAsync("Network.webSocketClosed");
+        closed.GetProperty("requestId").GetString().Should().Be(socketId);
+
+        // And the origin really was asked to upgrade, which is what makes the events above a report of
+        // something rather than a report of nothing.
+        var received = server.Received.Single(request => request.Path == "/socket");
+        received.Header("Upgrade").Should().Be("websocket");
+        received.Header("User-Agent").Should().Be(agent);
     }
 
     [Test]
@@ -543,9 +598,19 @@ public class NetworkDomainTests
 
         internal string FrameId { get; }
 
-        internal static async Task<NetworkFixture> OpenAsync(LoopbackServer server, BrowserOptions? options = null)
+        /// <param name="server">The origin the page loads from.</param>
+        /// <param name="options">The browser's own options, or <see langword="null"/> for the defaults.</param>
+        /// <param name="urlFilter">
+        /// The context's policy, or <see langword="null"/> for <see cref="LoopbackServer.Owns"/>. A test that
+        /// opens a socket passes one, because <c>Owns</c> requires the <c>http</c> scheme and the filter is
+        /// shown the <c>ws:</c> URL.
+        /// </param>
+        internal static async Task<NetworkFixture> OpenAsync(
+            LoopbackServer server,
+            BrowserOptions? options = null,
+            Func<Uri, bool>? urlFilter = null)
         {
-            var session = await PageSession.CreateAsync(new BrowserContextOptions { UrlFilter = server.Owns }, options);
+            var session = await PageSession.CreateAsync(new BrowserContextOptions { UrlFilter = urlFilter ?? server.Owns }, options);
             var page = await session.NewPageAsync();
             var target = await session.TargetForAsync(page);
             var attachment = await session.AttachAsync(target);

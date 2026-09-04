@@ -1,4 +1,4 @@
-﻿# Migrating from Jint 4.16 to Jint 5
+# Migrating from Jint 4.16 to Jint 5
 
 Jint 5 is under development on `main`. This document is the running record of every change a
 4.16.x embedder has to react to; it is written for someone upgrading, so it says what broke and
@@ -5439,6 +5439,22 @@ only an observed socket pays.
 transport, so there is no hop to intercept and nothing to substitute; and it carries a `WebSocketId` rather
 than a `FetchRequestId`, because a socket counted as an outstanding request would leave a host waiting for a
 network that never goes quiet.
+
+### 4.130 `EventSource` resolves a relative URL against `BaseUrl` ([#3701](https://github.com/sebastienros/jint/issues/3701))
+
+`new EventSource('/events')` used to throw a `SyntaxError` on every engine, because the constructor parsed
+its URL with no base while `Request` and `WebSocket` both parsed theirs against
+`Options.WebApi.Fetch.BaseUrl`. It now reads that base too, which is the standard's *"relative to settings"*
+and what makes one relative URL mean the same thing to all three interfaces.
+
+```csharp
+options.WebApi.Fetch.BaseUrl = new Uri("https://example.org/pages/one.html");
+// new EventSource('../stream')  ->  https://example.org/stream
+```
+
+**An engine that sets no `BaseUrl` is unchanged**: with nothing to resolve against, a relative URL is still
+a `SyntaxError` rather than a request to a host nobody named. The only scripts affected are ones that were
+throwing.
 
 ## 5. New in v5
 

@@ -1,4 +1,4 @@
-﻿[![Build](https://github.com/sebastienros/jint/actions/workflows/build.yml/badge.svg)](https://github.com/sebastienros/jint/actions/workflows/build.yml)
+[![Build](https://github.com/sebastienros/jint/actions/workflows/build.yml/badge.svg)](https://github.com/sebastienros/jint/actions/workflows/build.yml)
 [![NuGet](https://img.shields.io/nuget/v/Jint.svg)](https://www.nuget.org/packages/Jint)
 [![NuGet](https://img.shields.io/nuget/vpre/Jint.svg)](https://www.nuget.org/packages/Jint)
 [![MyGet](https://img.shields.io/myget/jint/vpre/jint.svg?label=MyGet)](https://www.myget.org/feed/jint/package/nuget/Jint)
@@ -1600,8 +1600,10 @@ through `fetch`'s own request pipeline, so `Options.WebApi.Fetch.CookieJar` is n
 
 **It reads `Options.WebApi.Fetch`** — the same transport (`HttpClient` / `HttpClientFactory`) and the same
 policy (`AllowedSchemes`, `UrlFilter`, `MaxRedirects`) that `fetch` uses, so a filter you have already written
-covers both, and every redirect hop is re-checked exactly as it is for a fetch. Three of those settings mean
-something different for a stream:
+covers both, and every redirect hop is re-checked exactly as it is for a fetch. `BaseUrl` is read too, which
+is the standard's *"relative to settings"*: it is the same setting `fetch`, `new Request()` and
+`new WebSocket()` resolve against, so `new EventSource('/updates')` means what it means in a document. Three
+of those settings mean something different for a stream:
 
 - **`Timeout` does not apply.** A connection that is idle for an hour is what an event stream is *for*.
 - **`MaxResponseBytes` does not bound the stream** — nothing could — it bounds **one event**: the data buffer
