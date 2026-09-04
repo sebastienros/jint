@@ -1,6 +1,7 @@
 ﻿using System.Text;
 using Acornima.Ast;
 using Jint.Runtime.Interop;
+using Jint.Runtime.Interpreter;
 
 namespace Jint.Tests.Runtime;
 
@@ -59,83 +60,104 @@ public class GarbageCollectionTests
     {
         // Regression test for #2560: by default a prepared script must not keep the full source text alive
         // (it was retained per function node to back Function.prototype.toString()). With many large cached
-        // scripts this caused hundreds of MB of duplicated source strings. Holding N large scripts, the
-        // retaining variant must keep ~N * sourceSize more bytes alive than the non-retaining default.
+        // scripts that duplicated hundreds of MB of source strings.
         //
-        // Each script is a tiny function wrapped around a large, unique comment: the source string is big
-        // (~commentChars * 2 bytes, UTF-16) while the AST is tiny, so the measured delta isolates the source.
+        // Retention is a reachability property, so this proves it by reachability. Each arm builds a large
+        // source string, prepares a script from it and drops the string; what comes back is the
+        // Prepared<Script> and a WeakReference to that exact instance. After a full collection the weak
+        // reference answers the question outright: with RetainFunctionSourceText on, the prepared script has
+        // to be keeping the string reachable, and with it off nothing may be.
+        //
+        // Nothing here reads a heap size, and that is the point. This compared GC.GetTotalMemory across the
+        // two arms until #3435 and within each arm after it, and both forms are a residency reading of a
+        // whole process, so whatever else the runner happens to be holding lands in the number. On the macOS
+        // CI leg that residue was large enough to fail the test in both directions within one hour, on pull
+        // requests that touched no engine file: once reading 8.0 MB of a ~20 MB saving, once reading the
+        // retaining arm as holding too little to be retaining anything at all (#3641). A reachability answer
+        // has no residue term to be confused by, and it is the stronger statement anyway - it names the
+        // string rather than an amount of bytes that resembles it.
 
-        const int count = 25;
-        const int commentChars = 400_000; // ~800 KB of source per script
+        const int commentChars = 400_000; // ~800 KB of source, so each arm's string is a large-object allocation
 
-        var retained = MeasurePreparedHeap(count, commentChars, retainSourceText: true);
-        var notRetained = MeasurePreparedHeap(count, commentChars, retainSourceText: false);
+        var retaining = PrepareAndDropTheSource(commentChars, retainSourceText: true);
+        var byDefault = PrepareAndDropTheSource(commentChars, retainSourceText: false);
 
-        // Each phase reports what its own prepared scripts hold, so the two are independent statements
-        // rather than a difference of two whole-process heap sizes — see MeasurePreparedHeap.
-        var sourceBytes = (long) count * commentChars * 2; // UTF-16
-        var actualSavings = retained - notRetained;
+        GC.Collect(2, GCCollectionMode.Forced, blocking: true);
+        GC.WaitForPendingFinalizers();
+        GC.Collect(2, GCCollectionMode.Forced, blocking: true);
 
-        // The retaining variant keeps the source text: it must hold most of it.
-        retained.Should().BeGreaterThan(sourceBytes / 2, $"""
-                          RetainFunctionSourceText did not keep the source text alive, so this test is
-                          no longer measuring what it claims to measure.
-                          Retained  : {BytesToString(retained)}
-                          Source    : {BytesToString(sourceBytes)}
-                          """);
+        // The control, and what keeps the claim below from passing for the wrong reason: with retention asked
+        // for, the prepared script must be what is holding the string, because nothing else holds it any more.
+        retaining.Source.IsAlive.Should().BeTrue(
+            "RetainFunctionSourceText did not keep the source text alive, so this test is no longer measuring what it claims to measure");
 
-        // The default must keep the ASTs and essentially nothing else.
-        notRetained.Should().BeLessThan(sourceBytes / 4, $"""
-                          The default retained a substantial share of the source text.
-                          Not retained : {BytesToString(notRetained)}
-                          Source       : {BytesToString(sourceBytes)}
-                          """);
+        // And it is the whole text that survived, not a fragment of it.
+        ((string) retaining.Source.Target).Length.Should().Be(retaining.SourceLength,
+            "the retained source text is the very string that was parsed, whole");
 
-        actualSavings.Should().BeGreaterThan(sourceBytes / 2, $"""
-                          Disabling RetainFunctionSourceText did not free the expected source text.
-                          Retained     : {BytesToString(retained)}
-                          Not retained : {BytesToString(notRetained)}
-                          Savings      : {BytesToString(actualSavings)}
-                          Expected     : > {BytesToString(sourceBytes / 2)}
-                          """);
+        // The claim itself: the default holds the prepared script and lets the source text go.
+        byDefault.Source.IsAlive.Should().BeFalse(
+            "a prepared script must not keep the source text it was parsed from alive by default");
 
-        static long MeasurePreparedHeap(int count, int commentChars, bool retainSourceText)
+        // A weak reference to the string the host handed in cannot see a copy of it, and a copy costs the same
+        // bytes, so the trees are asked as well: text a function node can still produce is text the prepared
+        // script is still holding. This materializes that text on the retaining arm - which is what releases
+        // its own reference to the full string - so it has to run after the reachability assertions, not before.
+        FunctionSourceText(byDefault.Prepared).Should().BeNull(
+            "the default must publish no source text onto the function node either, not even a per-function copy");
+        FunctionSourceText(retaining.Prepared).Should().NotBeNull(
+            "the retaining arm publishes the function's own text onto its node");
+
+        // Both prepared scripts are the subject of every assertion above, so both have to outlive the collection.
+        GC.KeepAlive(retaining.Prepared);
+        GC.KeepAlive(byDefault.Prepared);
+    }
+
+    /// <summary>
+    /// One arm of <see cref="PreparedScriptsDoNotRetainSourceTextByDefault"/>: a prepared script, and what is
+    /// left of the string it was parsed from once the frame that built that string is gone.
+    /// </summary>
+    private readonly record struct PreparedSource(Prepared<Script> Prepared, WeakReference Source, int SourceLength);
+
+    /// <summary>
+    /// Prepares a script from a large, freshly built source string and returns everything about that string
+    /// except a strong reference to it. NoInlining so it cannot stay stack-rooted in the calling frame across
+    /// the collection that follows.
+    /// </summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private static PreparedSource PrepareAndDropTheSource(int commentChars, bool retainSourceText)
+    {
+        var options = new ScriptPreparationOptions
         {
-            var options = new ScriptPreparationOptions
-            {
-                ParsingOptions = new ScriptParsingOptions { RetainFunctionSourceText = retainSourceText },
-            };
+            ParsingOptions = new ScriptParsingOptions { RetainFunctionSourceText = retainSourceText },
+        };
 
-            // Measured against a baseline taken inside the phase rather than as an absolute heap size.
-            // The two phases run back to back in one process, so an absolute reading makes the second
-            // one carry whatever the first left behind and the difference under-reports the saving by
-            // exactly that much. That is how this failed on a macOS runner reporting 8.1 MB of a ~20 MB
-            // theoretical saving while Windows reported 19.2 MB on the same commit. A per-phase baseline
-            // cancels the residue instead of racing it, and makes each phase's number mean something on
-            // its own: ~20.0 MB held with retention on, ~0.8 MB with it off.
-            var baseline = CurrentlyUsedMemory();
+        // A tiny function wrapped around a large comment: the source string is big (~commentChars * 2 bytes,
+        // UTF-16) while the AST it parses to is tiny, so the string is unmistakably the thing whose fate is
+        // being watched. The comment names the arm as well, so the two arms cannot be one shared instance.
+        var sb = new StringBuilder(commentChars + 64);
+        sb.Append("function big() {\n  /* retain=").Append(retainSourceText).Append(' ');
+        sb.Append('x', commentChars);
+        sb.Append(" */\n  return 0;\n}\n");
+        var source = sb.ToString();
 
-            var prepared = new List<Prepared<Script>>(count);
-            for (var i = 0; i < count; i++)
-            {
-                // The source string is built inline and never stored: only a retaining prepared script keeps
-                // it reachable. With retention off it becomes collectable once parsing completes.
-                prepared.Add(Engine.PrepareScript(BuildLargeScript(i, commentChars), options: options));
-            }
+        return new PreparedSource(
+            Engine.PrepareScript(source, options: options),
+            new WeakReference(source),
+            source.Length);
+    }
 
-            var used = CurrentlyUsedMemory();
-            GC.KeepAlive(prepared);
-            return used - baseline;
-        }
-
-        static string BuildLargeScript(int seed, int commentChars)
-        {
-            var sb = new StringBuilder(commentChars + 64);
-            sb.Append("function big").Append(seed).Append("() {\n  /* ").Append(seed).Append(' ');
-            sb.Append('x', commentChars); // unique-ish, large comment body kept only in the source text
-            sb.Append(" */\n  return 0;\n}\n");
-            return sb.ToString();
-        }
+    /// <summary>
+    /// The source text the prepared script's single function node can still produce, or <see langword="null"/>
+    /// when the parse retained none. Asked because a weak reference to the string the host handed in proves
+    /// only that <em>that instance</em> was let go: a regression that sliced a per-function copy at preparation
+    /// time would leave the original collectable while holding the same bytes under a different identity.
+    /// </summary>
+    private static string FunctionSourceText(Prepared<Script> prepared)
+    {
+        var function = prepared.Program.Body.OfType<FunctionDeclaration>().Single();
+        var state = (JintFunctionDefinition.State) function.UserData;
+        return state.SourceText.GetValue(function);
     }
 
     /// <summary>
