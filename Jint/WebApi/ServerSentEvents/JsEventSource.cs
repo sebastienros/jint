@@ -119,6 +119,12 @@ internal sealed class JsEventSource : JsEventTarget
     {
         var urlFilter = _options.UrlFilter ?? (static _ => true);
 
+        // One observation per connection, created before the three refusals below so that a stream the host
+        // never let out is reported as a failure rather than as nothing at all — the same shape a fetch
+        // refused before the transport has, and the same reason: fetch's synchronous half cannot await an
+        // OnRequest either.
+        var observation = FetchObservation.Create(_state.FetchNetwork.Observer, FetchInitiator.EventSource);
+
         var policy = new FetchPolicy
         {
             AllowedSchemes = [.. _options.AllowedSchemes],
@@ -132,6 +138,7 @@ internal sealed class JsEventSource : JsEventTarget
         // redirect hop is re-checked inside the transport, and every reconnect comes back through here.
         if (!policy.Allows(Url, out _))
         {
+            observation?.Failed("The fetch policy refused '" + Url.Serialize() + "'.", null);
             FailConnectionLater();
             return;
         }
@@ -140,6 +147,10 @@ internal sealed class JsEventSource : JsEventTarget
         // separately, the event streams open, because a stream holds its socket for as long as it lives.
         if (_state.ActiveEventSourceCount >= _options.MaxConcurrentRequests)
         {
+            observation?.Failed(
+                "The engine already has " + _options.MaxConcurrentRequests.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + " event streams open.",
+                null);
             FailConnectionLater();
             return;
         }
@@ -159,6 +170,7 @@ internal sealed class JsEventSource : JsEventTarget
 
         if (client is null)
         {
+            observation?.Failed("The host's HttpClient factory did not answer with a client.", null);
             FailConnectionLater();
             return;
         }
@@ -168,7 +180,7 @@ internal sealed class JsEventSource : JsEventTarget
         var connection = new EventSourceConnection(this, _engine, _realm, _options.MaxResponseBytes, LastEventId);
         _connection = connection;
         _state.RegisterEventSource(connection);
-        connection.Start(client, BuildRequest(), policy);
+        connection.Start(client, BuildRequest(), policy, observation);
     }
 
     /// <summary>

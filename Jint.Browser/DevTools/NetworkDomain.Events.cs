@@ -217,6 +217,7 @@ internal sealed partial class NetworkDomain
         PageRequestKind.Stylesheet => ResourceTypeValues.Stylesheet,
         PageRequestKind.Xhr => ResourceTypeValues.XHR,
         PageRequestKind.Fetch => ResourceTypeValues.Fetch,
+        PageRequestKind.EventSource => ResourceTypeValues.EventSource,
         PageRequestKind.Image => ResourceTypeValues.Image,
         PageRequestKind.Frame => ResourceTypeValues.Document,
         _ => ResourceTypeValues.Other,

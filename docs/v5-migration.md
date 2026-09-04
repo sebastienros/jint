@@ -5349,6 +5349,33 @@ request that sets `User-Agent` itself still wins, because the standard's own con
 host that deliberately made anonymous requests. `fetch.UserAgent = null` restores the 4.16 behaviour for
 every lane at once.
 
+### 4.126 A `FetchObserver` sees an `EventSource` stream ([#3621](https://github.com/sebastienros/jint/issues/3621))
+
+`EventSource` reached the same transport every other request does and was reported to
+`Options.WebApi.Fetch.Observer` not at all, so a host watching its engine's network saw every `fetch` and
+every `XMLHttpRequest` and nothing of a stream. It is now reported like anything else: the request under the
+new `FetchInitiator.EventSource`, the response, every chunk through `OnData` as it comes off the wire, and
+one terminal call.
+
+```csharp
+public override ValueTask<FetchInterception?> OnRequestAsync(ObservedFetchRequest request, CancellationToken token)
+{
+    // 5.0: never called for an EventSource.
+    // 5.x: called per connection, with Initiator == FetchInitiator.EventSource.
+    return new((FetchInterception?) null);
+}
+```
+
+**Each connection is its own request.** A reconnect has an identifier of its own, so an observer that keys
+state on `FetchRequestId` sees one request end and another begin rather than a single long-lived one. The
+terminal call is `OnCompleted` for a stream the server ended and `OnFailed` for everything else — a refusal
+before the transport, a network error, and `close()`, which reports `"The event stream was closed."`.
+
+**What could break:** an observer that counts requests, or one that keeps every `OnData` chunk, now sees a
+lane it did not before — a long-lived stream at that, so an observer that buffers bodies without a bound of
+its own is the one to look at. The enum's own documentation already said new members may appear and that a
+`switch` over it wants a default arm.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

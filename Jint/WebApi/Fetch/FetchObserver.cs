@@ -33,8 +33,9 @@ public readonly record struct FetchRequestId(long Value)
 /// What asked for a request.
 /// </summary>
 /// <remarks>
-/// Only <see cref="Script"/> and <see cref="XmlHttpRequest"/> are produced by the engine itself; the rest
-/// name the callers a host layer above Jint adds, and new members may appear, so switch with a default arm.
+/// Only <see cref="Script"/>, <see cref="XmlHttpRequest"/> and <see cref="EventSource"/> are produced by the
+/// engine itself; the rest name the callers a host layer above Jint adds, and new members may appear, so
+/// switch with a default arm.
 /// </remarks>
 public enum FetchInitiator
 {
@@ -51,6 +52,15 @@ public enum FetchInitiator
     /// and another for <c>XMLHttpRequest</c>, and nothing on the wire distinguishes the two.
     /// </remarks>
     XmlHttpRequest = 2,
+
+    /// <summary>An <c>EventSource</c> connection made by script.</summary>
+    /// <remarks>
+    /// One per connection rather than one per <c>EventSource</c>: a reconnect is a second request with its
+    /// own identifier, which is what it is on the wire and what a network panel shows. The Chrome DevTools
+    /// Protocol has its own resource type for one, for the same reason <see cref="XmlHttpRequest"/> is told
+    /// apart from <see cref="Script"/>.
+    /// </remarks>
+    EventSource = 3,
 }
 
 /// <summary>

@@ -95,6 +95,21 @@ internal sealed class EventSourceConnection
 
     private readonly EventStreamParser _parser;
 
+    /// <summary>
+    /// The host's observer, or <see langword="null"/> when it set none.
+    /// </summary>
+    /// <remarks>
+    /// <b>A stream is observed whole, not partially.</b> The transport reports the request and every redirect
+    /// hop, and this class owes the rest — the final response, because every caller of
+    /// <c>SendForStreamAsync</c> does, and the body, because the read loop below is the only thing that ever
+    /// sees these bytes. Without both, an observer would be shown a stream that was asked for and answered
+    /// and never a byte of what it carried.
+    /// </remarks>
+    private FetchObservation? _observation;
+
+    /// <summary>How many bytes of the stream have been read, for the observer's terminal call.</summary>
+    private long _observedBytes;
+
     private int _finished;
 
     internal EventSourceConnection(JsEventSource source, Engine engine, Realm realm, long maxEventLength, string lastEventId)
@@ -113,8 +128,10 @@ internal sealed class EventSourceConnection
     /// Starts the request. Returns as soon as the transport goes asynchronous, so the constructor that
     /// ultimately called this does not wait for a socket.
     /// </summary>
-    internal void Start(HttpClient client, FetchRequestSnapshot request, FetchPolicy policy)
+    internal void Start(HttpClient client, FetchRequestSnapshot request, FetchPolicy policy, FetchObservation? observation)
     {
+        _observation = observation;
+
         // Fire and forget by design: every outcome the loop can reach, including a synchronous throw from a
         // host's own handler, is turned into an engine-thread job inside it.
         _ = RunAsync(client, request, policy);
@@ -125,16 +142,20 @@ internal sealed class EventSourceConnection
         try
         {
             using var exchange = await FetchTransport
-                .SendForStreamAsync(client, request, policy, _token)
+                .SendForStreamAsync(client, request, policy, _token, _observation)
                 .ConfigureAwait(false);
 
             var response = exchange.Response;
+
+            // The debt every SendForStreamAsync caller owes its observer; see FetchObservation.FinalResponse.
+            _observation?.FinalResponse(exchange);
 
             // Constructor step 15.iii: "if res's status is not 200, or if res's Content-Type is not
             // text/event-stream, then fail the connection" — a failure the standard deliberately does not
             // reconnect from, because retrying an answer the server meant would only repeat it.
             if ((int) response.StatusCode != 200 || !IsEventStream(response))
             {
+                _observation?.Failed(FailureReason(response), null);
                 Finish(EventSourceOutcome.Fail);
                 return;
             }
@@ -147,18 +168,23 @@ internal sealed class EventSourceConnection
         catch (OperationCanceledException)
         {
             // close(), a restore, or the engine's own cancellation: the only three things that cancel this
-            // token. None of them announces anything, and none of them reconnects.
+            // token. None of them announces anything, and none of them reconnects — and to an observer a
+            // stream nobody will read again is a request that ended without its answer, which is what an
+            // abandoned fetch reports too.
+            _observation?.Failed("The event stream was closed.", null);
             Finish(EventSourceOutcome.Abandoned);
         }
         catch (FetchFailureException failure) when (failure.Kind is FetchFailureKind.ResponseTooLarge or FetchFailureKind.PolicyDenied or FetchFailureKind.RedirectLimit)
         {
             // The host's own limits, all three of which a reconnect would run straight back into.
+            _observation?.Failed(failure.Message, failure);
             Finish(EventSourceOutcome.Fail);
         }
         catch (Exception exception) when (!ConstraintFailure.MustPropagate(exception))
         {
             // Constructor step 15.ii: a network error reestablishes the connection. A DNS failure, a refused
             // connection and a stream the server dropped are the ordinary life of a long-lived stream.
+            _observation?.Failed(exception.Message, exception);
             Finish(EventSourceOutcome.Reestablish);
         }
     }
@@ -179,10 +205,17 @@ internal sealed class EventSourceConnection
                 if (read == 0)
                 {
                     // processResponseEndOfBody: "if res is not a network error, then reestablish the
-                    // connection". A server closing the stream is how it asks to be polled again.
+                    // connection". A server closing the stream is how it asks to be polled again — and to an
+                    // observer this connection is a request that completed, the reconnect being another one.
+                    _observation?.Completed(_observedBytes);
                     Finish(EventSourceOutcome.Reestablish);
                     return;
                 }
+
+                // Handed over before the parser sees them, which is what "as it is read off the wire" means:
+                // an observer is watching the transfer, not the events the bytes happen to decode into.
+                _observedBytes += read;
+                _observation?.Data(buffer.AsSpan(0, read));
 
                 Deliver(buffer, read, origin);
             }
@@ -211,6 +244,17 @@ internal sealed class EventSourceConnection
 
         Enqueue(() => _source.DeliverMessages(this, reconnectionTime, messages, origin));
     }
+
+    /// <summary>
+    /// Why a response the standard refuses failed, in the observer's vocabulary rather than the script's —
+    /// which is told nothing at all, because https://html.spec.whatwg.org/multipage/server-sent-events.html
+    /// fires a bare <c>error</c> event and a script that could tell one refusal from another could map the
+    /// network it runs in.
+    /// </summary>
+    private static string FailureReason(HttpResponseMessage response)
+        => (int) response.StatusCode != 200
+            ? "The event stream answered " + ((int) response.StatusCode).ToString(System.Globalization.CultureInfo.InvariantCulture) + "."
+            : "The response is not a text/event-stream.";
 
     /// <summary>
     /// https://mimesniff.spec.whatwg.org/#mime-type-essence of the response's <c>Content-Type</c>, compared

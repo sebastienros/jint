@@ -75,8 +75,10 @@ target/runtime split and the manifest are there and none of it is repeated here.
 - **What is accepted and not effective says so, in place.** `Network.setCacheDisabled` (there is no cache)
   and `Audits.enable` are answered because a refusal fails an ordinary connection. Three whole lanes are
   absent with a reason rather than pending: the `Fetch` **response stage** and with it `IO` (an observer
-  cannot answer `OnResponse`, so a response-stage pause could only continue unchanged), the **WebSocket and
-  EventSource** events (the engine deliberately does not observe those two handshakes), and `Network`'s
+  cannot answer `OnResponse`, so a response-stage pause could only continue unchanged), the **WebSocket**
+  events and `eventSourceMessageReceived` (a socket's handshake is not a fetch and is not observed; a stream
+  *is*, but as bytes rather than as the events they decode into, so its requests are in the log as
+  `ResourceType: EventSource` and its messages are nowhere), and `Network`'s
   **timing** document (no phase of a request is measured). **`Emulation` is no longer among any of it**:
   every command of that domain is either effective or an accepted no-op whose summary says what there is
   none of.
