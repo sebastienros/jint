@@ -45,7 +45,7 @@ role (`html-abbr`, `html-audio`, `keyboard`, `variable` and their kind) the elem
 anything at all), and `Full` is what `Accessibility.getFullAXTree` answers with. A snapshot states each
 string once — text that is already a node's accessible name is not published again as a text node.
 
-The four fixture pages under `Jint.Tests.Browser/Accessibility/Golden/` are rendered three ways each and the
+The four fixture pages under `Jint.Tests.Browser/Accessibility/Golden/` are rendered up to three ways each and the
 output is checked in. **`JINT_BROWSER_GOLDEN=update` rewrites them**, the same discipline `JINT_SPEC_ANCHORS`
 and `JINT_DOM_BINDINGS` use: the diff is the artefact, so a change to what an agent reads has to be looked at.
 
@@ -62,7 +62,7 @@ Divergences that are **AngleSharp's**, found by this work, to be reported upstre
 | a longhand nothing declared, through `getComputedStyle` | CSSOM's *resolved value*: every supported longhand answers, and a property nothing declared answers its initial value — `visibility` is `visible` | the empty string. **This is the one that stops an automation client.** Playwright's actionability check ends in `style.visibility !== "visible"`, so it reads every element of every page as hidden: `IsVisibleAsync` is false for an element with a real 1280×16 box, an unforced `ClickAsync` or `WaitForSelectorAsync` waits out its timeout, and the ARIA role engine drops the element as hidden. `Jint.Tests.Browser/DevTools/PlaywrightCourseTests` drives past it with `Force` and `IncludeHidden` and pins the reason; the standing decision (`Views/ComputedStyleTests`) is to record this rather than keep an initial-value table here, and what is new is that a supported client is unusable without one |
 | the selector parser on `:has(*,:jqfake)` | a parse failure the caller can act on | `CssSelectorConstructor.HasFunctionState.Produce()` dereferences null, so the failure is a `NullReferenceException` rather than the `DomException` every other bad selector raises. jQuery 3.7 asks for exactly that selector inside a `try` during its support detection, so an unwrapped binding refuses to load jQuery at all — `Dom/DomSelectorMembers` contains both shapes and answers the `SyntaxError` the standard names |
 
-One more, in AngleSharp itself rather than in `AngleSharp.Css`:
+Two more, in AngleSharp itself rather than in `AngleSharp.Css`:
 
 | What | The standard | AngleSharp 1.7.2 |
 | --- | --- | --- |

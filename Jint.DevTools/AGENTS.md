@@ -63,7 +63,7 @@ transport thread only ever moves strings.
 `tools/devtools-protocol/` holds `js_protocol.json` and `browser_protocol.json` verbatim from
 [ChromeDevTools/devtools-protocol](https://github.com/ChromeDevTools/devtools-protocol) at the commit
 `pin.json` names, under the 3-Clause BSD licence beside them. `tools/devtools-protocol/README.md` is the
-file to read before touching any of it; two rules from it matter enough to repeat:
+file to read before touching any of it; three rules from it matter enough to repeat:
 
 - **A bump is a code change, not a pin change.** Upstream renames methods, moves them between domains and
   turns optional parameters into required ones. Fetch, regenerate, *read the diff of
@@ -86,7 +86,7 @@ A Roslyn source generator was rejected: the `System.Text.Json` context has to be
 transfer objects and generators do not chain, `Jint.SourceGenerators` is `netstandard2.0` without
 `System.Text.Json`, and a protocol surface is the kind of thing whose diff a reviewer wants to read.
 
-Four things about the emitted code are decisions rather than accidents:
+Six things about the emitted code are decisions rather than accidents:
 
 - **A CDP `enum` becomes `string` plus a `<Type>Values` class of `const string`s**, never a C# enum.
   `JsonStringEnumMemberName` is .NET 9+ and `net8.0` has to compile; string constants are also what a
@@ -98,8 +98,7 @@ Four things about the emitted code are decisions rather than accidents:
   transitively discovered type after the element's *short* name — `CallFrameArray` for both
   `Runtime.CallFrame[]` and `Debugger.CallFrame[]` — and refuses to generate the second one (`SYSLIB1031`).
 - **A `$ref` into a domain the manifest does not generate must resolve to a primitive alias**, or the
-  generator fails rather than emit something that will not compile. Today `Network.RequestId` and
-  `Page.FrameId` are both `string`.
+  generator fails rather than emit something that will not compile.
 - **A named type declared as an object with no properties is a map**, not an empty record:
   `Network.Headers` resolves to `Dictionary<string, string>` and no type is emitted for it. An *inline*
   `"type": "object"` member is a different thing and stays a `JsonElement` — see the map-type section of
@@ -205,7 +204,7 @@ from inside the engine assembly is one no third party could have written. Every 
 is a seam the engine should expose — as public API with a row in
 [`docs/v5-migration.md`](../docs/v5-migration.md), on the terms
 [`Jint/AGENTS.md`](../Jint/AGENTS.md#what-counts-as-a-public-contract) sets. `Jint.DevTools` does grant
-`InternalsVisibleTo` to `Jint.Tests.DevTools` and `Jint.Browser`.
+`InternalsVisibleTo` to `Jint.Tests.DevTools`, `Jint.Browser` and `Jint.Tests.Browser`.
 
 ### What is deliberately absent
 

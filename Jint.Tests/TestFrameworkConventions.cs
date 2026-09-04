@@ -2,7 +2,8 @@
 
 // The two decisions that make an NUnit run of these suites mean what the xUnit run meant. Both are stated
 // once, for the whole assembly, rather than repeated on 500 fixtures — and this file is compiled into
-// Jint.Tests.PublicInterface as well, so the two suites cannot drift apart on either of them.
+// Jint.Tests.Browser, Jint.Tests.DevTools and Jint.Tests.PublicInterface as well, so the four suites cannot
+// drift apart on either of them.
 
 // xUnit constructs a new instance of a test class for every test; NUnit's default is one instance per
 // fixture, reused. Nothing in either suite was written against the reused instance — EngineTests,

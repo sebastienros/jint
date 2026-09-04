@@ -91,10 +91,10 @@ delegates in both directions, extension methods, `TypeReference` construction, J
 instantiation over a value type built at run time**. Reference-type arguments share canonical code and
 are fine; `int`, `double` and friends need a specific instantiation ILC never saw.
 
-**Eight sites have that shape, not the five
+**Ten sites have that shape, not the five
 [#3299](https://github.com/sebastienros/jint/issues/3299) was filed with** — `MakeGenericType` and
 `MakeGenericMethod` are the whole inventory, and `grep` for those two names is how to re-derive it after
-this area moves again. Four degrade, four throw, and the split is the same question every time: *is
+this area moves again. The table groups them into eight rows; four degrade, four throw, and the split is the same question every time: *is
 there a non-generic value that satisfies what was asked for?*
 
 | site | shape | today |
@@ -103,7 +103,7 @@ there a non-generic value that satisfies what was asked for?*
 | same site, `IList<>` branch | `GenericListWrapperFactory<int>` | degrades to `ListWrapper` |
 | same site, `IReadOnlyList<>` branch | `ReadOnlyListWrapperFactory<double>` | degrades to a plain `ObjectWrapper` (loses array-likeness, keeps the indexer) |
 | `ObjectWrapper.ResolveEnumerableSnapshotFactory` | `EnumerableSnapshotFactory<int>` | degrades to `ObjectEnumerableSnapshotFactory` |
-| `DefaultTypeConverter.GetFromResultMethod` | `Task.FromResult<double>` | throws `NotSupportedException` |
+| `DefaultTypeConverter.GetFromResultMethod`, ×2 | `Task.FromResult<double>`, and `ValueTask.FromResult<double>` on `net8.0`+ | throws `NotSupportedException` |
 | `MethodInfoFunction.ResolveMethod` | `methodInfo.MakeGenericMethod(double)` | throws `NotSupportedException` |
 | `DefaultTypeConverter.TryConvertInternal`, ×2 | `List<long>` for an `IEnumerable<long>` parameter, and the inner list a `Collection<short>` takes | throws `NotSupportedException` |
 | `NamespaceReference.MakeGenericType` → `TypeReference` | a closed generic type the *script* named | throws `NotSupportedException`, on construction |
@@ -139,7 +139,8 @@ asymmetry that makes the recipe worth writing down: a compiled reference in the 
 one lives in an assembly the host has not rooted and Jint reaches it reflectively. Rooting it takes the
 same expression Jint evaluates —
 `typeof(Task).GetMethod(nameof(Task.FromResult)).MakeGenericMethod(typeof(double))` — which ILC folds
-because both tokens are constants.
+because both tokens are constants. The `ValueTask` half of that site wants the same expression again over
+`ValueTask`.
 
 #### The rule for new work here
 

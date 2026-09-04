@@ -99,7 +99,7 @@ Divergences from a browser that are **ours** and deliberate:
 - **`select.add` and `HTMLOptionsCollection.add` take one of their two overloads**, because HTML's union type
   is two CLR methods sharing a `[DomName]`. Two diagnostics say so and `DomBindingsStalenessTests` pins them
   at exactly two, so a third means something new turned up.
-- **The ARIA mixin's element-reflection half is not projected.** `role` and the forty-four `aria-*`
+- **The ARIA mixin's element-reflection half is not projected.** `role` and the forty-three `aria-*`
   IDL attributes are, through `AriaReflection` and the `additions` extend form, and each is a view of
   its content attribute rather than stored state — which is what makes the two directions agree by
   construction and what makes `[CEReactions]` come free. `ariaActiveDescendantElement`,
@@ -126,10 +126,6 @@ the filter. A member the standard gives a *different* name to is written by hand
 `DomFailures.Refuse`, which is the same door `DomSelectorMembers` uses; the register in [`divergences.md`](divergences.md) is what
 says which those are.
 
-Divergences that are **AngleSharp's** — where it answers differently from the standard and the binding has to
-work around it — are the register in [`divergences.md`](divergences.md), which is data rather than instruction
-and so is not budgeted here. **Add a row there for every one you find**, and never work around a divergence
-silently; never open an issue on the AngleSharp repositories without being asked to.
 Divergences that are **AngleSharp's** — where it answers differently from the standard and the binding has to
 work around it — are the register in [`divergences.md`](divergences.md), which is data rather than instruction
 and so is not budgeted here. **Add a row there for every one you find**, and never work around a divergence

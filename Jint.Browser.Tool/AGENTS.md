@@ -57,7 +57,7 @@ did need two options to *not* be defaults, and the reasons are worth knowing bef
 `--max-task-duration 0` is passed because a five-second turn cuts a legitimately slow conformance file
 mid-script, and `--untrusted` is deliberately **not**, because `ForUntrustedContent` applies
 `UntrustedCodeLimits.Default` — one second per engine entry, 50 000 statements, 10 000-element arrays,
-recursion depth 64 — and no option here can move any of the five. A measurement taken under that profile
+recursion depth 64, and four more — and no option here can move any of the eight it sets. A measurement taken under that profile
 would be a report on the profile.
 
 ### What is deliberately absent
@@ -100,7 +100,7 @@ repository. Three things about it are decisions:
 - **`IsAotCompatible=false`, and the reason is AngleSharp's** rather than this project's — the same reason
   `Jint.Browser/Jint.Browser.csproj` argues at length. `PackAsTool` and `PublishAot` cannot both be true
   anyway, so nothing is lost by saying so out loud.
-- **It packs from `build.yml` and `release.yml` beside `Jint`, `Jint.DevTools` and `Jint.Browser`**, at the
+- **It packs from `build.yml` and `release.yml` beside `Jint`, `Jint.DevTools`, `Jint.Browser`, `Jint.Browser.Playwright` and `Jint.Browser.Mcp`**, at the
   same version and from the same tag, because it references them by project. `pr.yml` packs nothing but
   `Jint`, so a packaging change is verified by running `dotnet pack Jint.Browser.Tool/Jint.Browser.Tool.csproj`
   before the pull request, not by CI.

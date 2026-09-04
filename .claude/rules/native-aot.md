@@ -1,6 +1,7 @@
 ---
 paths:
   - "/Jint.AotExample/**"
+  - "/Jint.AotExample.UnrootedHost/**"
 ---
 
 You are editing the Native AOT example, or a lane an AOT annotation covers. `Jint.AotExample/AGENTS.md` records which generic-instantiation sites degrade and which must keep throwing, why a binary that is published *and run* is the only evidence `IsAotCompatible` means anything, and the annotation plus probe a new reflection lane owes.

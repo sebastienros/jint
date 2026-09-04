@@ -1,7 +1,7 @@
 # The obstacle course
 
 Offline fixtures that say whether real pages work. Each is a directory of files served over a real socket by
-`Navigation/LoopbackServer` and driven through the public `Page` API — and three of them are driven again, over
+`Navigation/LoopbackServer` and driven through the public `Page` API — and four of them are driven again, over
 the protocol, by PuppeteerSharp and by Playwright for .NET (`DevTools/PuppeteerSharpCourseTests`,
 `DevTools/PlaywrightCourseTests`).
 
