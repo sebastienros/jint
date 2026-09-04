@@ -97,11 +97,31 @@ internal class JsUiEvent : JsEvent
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The coordinates are inputs, not measurements.</b> There is no layout here, so <c>pageX</c> is
-/// <c>clientX</c> plus a scroll offset that is always zero, and <c>offsetX</c> is <c>clientX</c> minus the
-/// target's border-box origin, which the flat renderer (campaign item C4) will supply and which is zero until
-/// it does. A page reading them gets exactly what the dispatcher was given; a page computing with them gets an
-/// answer consistent with a document whose every box sits at the origin.
+/// <b>The coordinates are inputs, not measurements.</b> <c>screenX</c>, <c>clientX</c> and their siblings are
+/// exactly what the dispatcher was given.
+/// </para>
+/// <para>
+/// <b>The four CSSOM View adds are fixed for the length of one dispatch</b>, which is what
+/// https://drafts.csswg.org/cssom-view/#dom-mouseevent-pagex asks for: step 1 of each of <c>pageX</c>,
+/// <c>pageY</c>, <c>offsetX</c> and <c>offsetY</c> is conditioned on the event's <i>dispatch flag</i>, and
+/// while it is set each answers "the position where the event occurred" rather than a sum taken afresh. They
+/// were recomputed on every read, so a listener could move them out from under itself by scrolling — or by
+/// mutating the document, which in the flat box model moves every element after the mutation
+/// (<see href="https://github.com/sebastienros/jint/issues/3698">#3698</see> item 4).
+/// </para>
+/// <para>
+/// <b>The two pairs are captured at different moments, and the reason is cost.</b> The page pair needs only
+/// the scroll offset, so it is taken in <see cref="OnDispatchBegun"/> — one field read per dispatch. The
+/// offset pair needs the target's box, and the flat layout is recomputed per query by design, so taking it
+/// eagerly would walk the whole document on every mouse dispatch whether or not anything read it. It is
+/// taken on the first read of the dispatch instead and held for the rest, which is strictly cheaper than
+/// before (one walk per dispatch rather than one per read) and leaves one residue: a listener that moves the
+/// target <i>and</i> is the first to read <c>offsetX</c>/<c>offsetY</c> sees the box it made. Closing that
+/// needs the cheap layout-invalidation signal the same issue records as its first half.
+/// </para>
+/// <para>
+/// Outside a dispatch all four follow their step 2, which <i>is</i> live: <c>pageY</c> is <c>clientY</c> plus
+/// the window's current <c>scrollY</c>, and <c>offsetY</c> is <c>pageY</c>.
 /// </para>
 /// <para>
 /// It is the interface that carries <see cref="JsEvent.IsActivationEvent"/>: dispatch's step 6.4 is "true if
@@ -131,6 +151,102 @@ internal class JsMouseEvent : JsUiEvent
         Modifiers = state.Modifiers;
         RelatedTarget = state.RelatedTarget;
     }
+
+    /// <summary>
+    /// https://drafts.csswg.org/cssom-view/#dom-mouseevent-pagex step 1 — the document coordinate the event
+    /// occurred at, fixed while the dispatch flag is set. Outside a dispatch, steps 2 and 3: the sum of the
+    /// window's current scroll offset and <see cref="ClientX"/>.
+    /// </summary>
+    /// <remarks>
+    /// The horizontal half needs no scroll offset of its own: the flat box model is exactly as wide as the
+    /// viewport and never scrolls sideways, which is the same reason <c>window.scrollX</c> is a constant zero.
+    /// It is still written as the sum rather than as <see cref="ClientX"/>, so that the day the model grows a
+    /// horizontal axis this member does not have to be found again.
+    /// </remarks>
+    internal double PageX => DispatchFlag ? _pageX : ClientX + ScrollX;
+
+    /// <inheritdoc cref="PageX"/>
+    internal double PageY => DispatchFlag ? _pageY : ClientY + ScrollY;
+
+    /// <summary>
+    /// https://drafts.csswg.org/cssom-view/#dom-mouseevent-offsetx step 1 — the coordinate relative to the
+    /// padding edge of the target node, as the event found it. Outside a dispatch, step 2: <see cref="PageX"/>.
+    /// </summary>
+    internal double OffsetX
+    {
+        get
+        {
+            if (!DispatchFlag)
+            {
+                return PageX;
+            }
+
+            CaptureOffsets();
+            return _offsetX;
+        }
+    }
+
+    /// <inheritdoc cref="OffsetX"/>
+    internal double OffsetY
+    {
+        get
+        {
+            if (!DispatchFlag)
+            {
+                return PageY;
+            }
+
+            CaptureOffsets();
+            return _offsetY;
+        }
+    }
+
+    /// <inheritdoc />
+    protected override void OnDispatchBegun()
+    {
+        _pageX = ClientX + ScrollX;
+        _pageY = ClientY + ScrollY;
+        _offsetsCaptured = false;
+    }
+
+    /// <summary>The page's scroll offset, or zero for an engine that is not showing one.</summary>
+    private double ScrollY => Runtime.PageRuntime.Find(Engine)?.Layout.ScrollY ?? 0;
+
+    /// <summary>Zero, and the flat box model is what keeps it zero. See <see cref="PageX"/>.</summary>
+    private static double ScrollX => 0;
+
+    /// <summary>
+    /// The offset pair, taken once per dispatch on the first read. See the class remarks for why it is not
+    /// taken with the page pair.
+    /// </summary>
+    private void CaptureOffsets()
+    {
+        if (_offsetsCaptured)
+        {
+            return;
+        }
+
+        _offsetsCaptured = true;
+
+        // Step 1 needs a box; a target that is not an element of a page has none, so the coordinate is the
+        // viewport one — which is what a document whose every box sits at the origin would have answered.
+        _offsetX = ClientX;
+        _offsetY = ClientY;
+
+        if (Target is Dom.DomNodeObject { Node: AngleSharp.Dom.IElement element } wrapper &&
+            Runtime.PageRuntime.Find(wrapper.DomRealm.Engine) is { } runtime &&
+            runtime.Layout.Current().ClientBoxOf(element) is { } box)
+        {
+            _offsetX = ClientX - box.X;
+            _offsetY = ClientY - box.Y;
+        }
+    }
+
+    private double _pageX;
+    private double _pageY;
+    private double _offsetX;
+    private double _offsetY;
+    private bool _offsetsCaptured;
 
     /// <summary>
     /// https://w3c.github.io/uievents/#dom-mouseevent-initmouseevent — the legacy initializer.
