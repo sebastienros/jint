@@ -8,7 +8,7 @@ namespace Jint.Browser.Runtime;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The shape is the engine's documented host loop: drain the mailbox, call <c>Tasks.ProcessTasks()</c>, then
+/// The shape is the engine's host loop: drain the mailbox, run one task and its microtasks, then
 /// park in <c>Tasks.WaitForScheduledWork</c> for the shorter of the idle interval and whatever the engine
 /// says is next. Jint never starts a thread of its own, so a page that is not pumped runs no timer callback
 /// and settles no promise; this is what pumps it.
@@ -25,8 +25,8 @@ namespace Jint.Browser.Runtime;
 /// rather than left to hang.
 /// </para>
 /// <para>
-/// <b>Every turn is bracketed.</b> One mailbox request and one <c>ProcessTasks</c> drain are each one turn,
-/// and each takes the page's <see cref="PageBudget"/> — see
+/// <b>Every task is bracketed.</b> A mailbox request and each engine task together with its microtask
+/// checkpoint take the page's <see cref="PageBudget"/> — see
 /// <see cref="BrowserOptions.MaxTaskDuration"/>. A request that runs out of budget fails its own task,
 /// because the bracket is outside <see cref="PostAsync{T}"/>'s own <c>catch</c>; a drain that runs out
 /// erupts here and is recorded like anything else that erupts, and the loop goes on.
@@ -108,7 +108,7 @@ internal sealed class PageLoop : IDisposable
     /// <remarks>
     /// <para>
     /// <b>One turn is what the page runtime's <c>AGENTS.md</c> calls one</b>, counted at the two places the
-    /// loop takes one: a <b>bracketed mailbox request</b>, and a <b><c>ProcessTasks</c> drain</b>. Both are
+    /// loop takes one: a <b>bracketed mailbox request</b>, and a <b>single-task pump pass</b>. Both are
     /// counted as they open, so a value read from the loop thread itself — from inside a request, a job or a
     /// listener — is the ordinal of the turn currently running, and two things that read the same number ran
     /// in the same turn. A drain that finds nothing due still counts, because the loop still took it.
@@ -116,7 +116,7 @@ internal sealed class PageLoop : IDisposable
     /// <para>
     /// <b>A request posted <c>bracketed: false</c> is not a turn, and neither is a drain it performs.</b>
     /// Those are the pumps — <c>Page.WaitForIdleAsync</c> and <c>Page.WaitForNavigationAsync</c> — and each
-    /// takes the page's <see cref="PageBudget"/> over its own drains directly rather than through the loop,
+    /// lets the engine take the page's <see cref="PageBudget"/> over each task rather than through the loop,
     /// so the count stands still for as long as one of them holds the thread. That is the honest reading:
     /// the loop is not turning, something else is using it.
     /// </para>
@@ -164,7 +164,7 @@ internal sealed class PageLoop : IDisposable
     /// <param name="work">What to do with the engine, on the thread that owns it.</param>
     /// <param name="bracketed">
     /// Whether the request is one turn and takes the page's turn budget. <see langword="false"/> is for a
-    /// request that <i>pumps</i> — it brackets each drain itself, so bracketing the request as well would
+    /// request that <i>pumps</i> — the engine brackets each task, so bracketing the request as well would
     /// charge a whole wait to one turn's budget and fail it. There are two of those and both are here in the
     /// package; a member added later wants the default.
     /// </param>
@@ -410,16 +410,15 @@ internal sealed class PageLoop : IDisposable
             var hasScheduledWork = tasks.TimeUntilNextScheduledWork is { Ticks: <= 0 };
             try
             {
-                // One drain is one turn: every timer callback, microtask, promise reaction and animation
-                // frame that was due shares one time and one allocation budget, because none of them reaches
-                // ExecuteWithConstraints and so none of them is bounded by a per-entry limit at all.
-                BeginLoopTurn(bracketed: true);
+                // The engine brackets one task together with its entire microtask checkpoint. Return to
+                // the mailbox between tasks, rather than letting a busy task source monopolize the loop.
+                _turns++;
 
                 try
                 {
                     if (hasScheduledWork)
                     {
-                        tasks.ProcessTasks();
+                        tasks.ProcessTask();
                     }
                 }
                 finally

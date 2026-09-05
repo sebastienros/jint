@@ -70,7 +70,7 @@ internal sealed class ParserDriver : IDisposable
         _maxRedirects = runtime.Options.MaxRedirects;
         _timeout = runtime.Options.SubresourceTimeout;
         _cancellationToken = cancellationToken;
-        _baton = new ParserBaton(runtime.Engine, runtime.Budget, runtime.Options.PumpIdle, OnPumpError, cancellationToken);
+        _baton = new ParserBaton(runtime.Engine, runtime.Options.PumpIdle, OnPumpError, cancellationToken);
     }
 
     /// <summary>Parses <paramref name="html"/> as <paramref name="url"/> and runs the document's scripts.</summary>

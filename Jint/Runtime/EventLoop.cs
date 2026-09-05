@@ -21,7 +21,7 @@ internal readonly record struct EventLoopRegistration(
     MemoryLimitConstraint.OperationState? MemoryState);
 
 /// <summary>
-/// Which of HTML's two queues an entry on Jint's single job queue would have been on: its <i>microtask
+/// Which of HTML's two queues an entry belongs on: its <i>microtask
 /// queue</i>, or one of its <i>task queues</i>.
 /// <para>
 /// https://html.spec.whatwg.org/multipage/webappapis.html#event-loop-processing-model
@@ -29,7 +29,8 @@ internal readonly record struct EventLoopRegistration(
 /// </summary>
 /// <remarks>
 /// <para>
-/// Jint has one queue, and running it in order is right for everything except one question:
+/// Ordinary Engine hosts retain one FIFO; browser engines separate tasks from microtasks so a task and
+/// its complete checkpoint share one budget. Both modes need the same classification:
 /// <see cref="EventLoop.RunMicrotaskCheckpoint"/> has to know where the microtasks end. So every enqueue
 /// site says which it is, at the site, and the two <see cref="Engine.AddToEventLoop(Action, EventLoopJobKind)"/>
 /// overloads take it with no default — a new source of deferred work has to decide rather than inherit.
@@ -46,7 +47,7 @@ internal readonly record struct EventLoopRegistration(
 internal enum EventLoopJobKind : byte
 {
     /// <summary>
-    /// A task. The checkpoint stops at it, and it runs in the turn's own drain.
+    /// A task. It runs outside the microtask checkpoint.
     /// </summary>
     Task,
 
@@ -106,6 +107,7 @@ internal readonly struct EventLoopJob
 
     public int Generation => _generation;
     public MemoryLimitConstraint.OperationState? MemoryState => _memoryState;
+    internal bool IsTask => _kind == EventLoopJobKind.Task && !ReferenceEquals(_state, EventLoop.WakeJob);
 
     /// <summary>
     /// Whether <see cref="EventLoop.RunMicrotaskCheckpoint"/> may run this job: a
@@ -128,6 +130,15 @@ internal readonly struct EventLoopJob
     }
 }
 
+/// <summary>
+/// The browser's budget over a task and its complete microtask checkpoint, never over a pump drain.
+/// </summary>
+internal interface IEventLoopTaskBudget
+{
+    bool BeginTask(bool isTask);
+    void EndTask();
+}
+
 internal sealed record EventLoop
 {
     /// <summary>
@@ -144,6 +155,41 @@ internal sealed record EventLoop
     internal static readonly Action WakeJob = static () => { };
 
     private readonly ConcurrentQueue<EventLoopJob> _events = new();
+    private ConcurrentQueue<EventLoopJob>? _tasks;
+    private IEventLoopTaskBudget? _taskBudget;
+
+    // Installed before a browser engine runs script. Ordinary embedders retain their single FIFO and
+    // host-owned budget contract; a browser needs HTML's two lanes to keep a task's reactions ahead of
+    // the next task, even when that task was queued before the reactions.
+    internal void ConfigureTaskBudget(IEventLoopTaskBudget budget)
+    {
+        if (_tasks is not null)
+        {
+            Throw.InvalidOperationException("The event loop already has a task budget.");
+        }
+
+        var tasks = new ConcurrentQueue<EventLoopJob>();
+        var pending = new Queue<EventLoopJob>();
+        while (_events.TryDequeue(out var job))
+        {
+            if (job.IsTask)
+            {
+                tasks.Enqueue(job);
+            }
+            else
+            {
+                pending.Enqueue(job);
+            }
+        }
+
+        foreach (var job in pending)
+        {
+            _events.Enqueue(job);
+        }
+
+        _taskBudget = budget;
+        _tasks = tasks;
+    }
 
     /// <summary>
     /// Tracks whether we are currently processing the event loop.
@@ -162,12 +208,13 @@ internal sealed record EventLoop
     internal bool IsRunningJob => Volatile.Read(ref _isProcessing) == 1;
 
     /// <summary>
-    /// Whether any job is still queued. Read from inside a running job by work that must not overtake the
-    /// jobs behind it: the web-API scheduler's drain job consults it to reproduce HTML's <i>microtask
-    /// checkpoint</i>, re-queueing itself while anything else is pending so that a scheduler task never runs
-    /// before a promise reaction that was queued in the same turn.
+    /// Whether either lane has queued work, including wake entries.
     /// </summary>
-    internal bool HasPendingJobs => !_events.IsEmpty;
+    internal bool HasPendingJobs => !_events.IsEmpty || _tasks is { IsEmpty: false };
+
+    // Feature pumps yield to the original FIFO for ordinary engines, but only to reactions in a browser.
+    // Yielding to other tasks on the separate lane would let two feature pumps defer on each other forever.
+    internal bool HasPendingCheckpointJobs => !_events.IsEmpty;
 
     /// <summary>
     /// Tracks the thread ID of the thread that is currently waiting on a promise.
@@ -237,20 +284,21 @@ internal sealed record EventLoop
     /// </summary>
     internal void NextGeneration() => Interlocked.Increment(ref _generation);
 
-    public bool IsEmpty => _events.IsEmpty;
+    public bool IsEmpty => !HasPendingJobs;
 
     /// <summary>
     /// How many jobs are queued right now, for <see cref="Engine.DiagnosticOperations.GetMemoryReport(int)"/>.
     /// A sample rather than a stable value: a background thread settling a promise enqueues from there.
     /// </summary>
-    internal int QueueDepth => _events.Count;
+    internal int QueueDepth => _events.Count + (_tasks?.Count ?? 0);
 
     public void Enqueue(Action continuation, EventLoopJobKind kind)
         => Enqueue(new EventLoopJob(continuation, Generation, memoryState: null, kind));
 
     public void Enqueue(in EventLoopJob job)
     {
-        _events.Enqueue(job);
+        var queue = job.IsTask ? _tasks ?? _events : _events;
+        queue.Enqueue(job);
 
         // Null means no thread has ever block-drained this engine, so there is nobody to wake. The enqueue
         // above and WaitForWork's event-creation are both full fences, so whichever of the two raced ahead,
@@ -299,7 +347,7 @@ internal sealed record EventLoop
         // A non-empty queue only ends the wait when this thread can actually drain it. Nested inside a job
         // (IsRunningJob), the re-entrancy guard makes queued jobs unrunnable from here, and returning early
         // for them would turn this bounded wait into a hot spin for the caller's whole timeout.
-        if ((!_events.IsEmpty && !IsRunningJob) || completedEvent?.IsSet == true)
+        if ((HasPendingJobs && !IsRunningJob) || completedEvent?.IsSet == true)
         {
             return;
         }
@@ -323,7 +371,7 @@ internal sealed record EventLoop
     public Task WaitForEventAsync(CancellationToken cancellationToken)
     {
         // Fast path: already have events queued
-        if (!_events.IsEmpty)
+        if (HasPendingJobs)
         {
             return Task.CompletedTask;
         }
@@ -340,7 +388,7 @@ internal sealed record EventLoop
         // rather than removing from the list — Enqueue's broadcast TrySetResult on
         // an already-completed TCS is a no-op, so leaving the entry costs nothing
         // beyond a single GC root until the next Enqueue clears the list.
-        if (!_events.IsEmpty)
+        if (HasPendingJobs)
         {
             tcs.TrySetResult(true);
             return tcs.Task;
@@ -397,9 +445,16 @@ internal sealed record EventLoop
         while (_events.TryDequeue(out _))
         {
         }
+
+        if (_tasks is { } tasks)
+        {
+            while (tasks.TryDequeue(out _))
+            {
+            }
+        }
     }
 
-    public void RunAvailableContinuations(Engine engine)
+    public void RunAvailableContinuations(Engine engine, bool singleTask = false)
     {
         // If there's a waiting thread (e.g., in UnwrapIfPromise), only that thread
         // should execute continuations. This prevents background threads (from Task
@@ -420,6 +475,12 @@ internal sealed record EventLoop
 
         try
         {
+            if (_tasks is not null)
+            {
+                RunTasks(engine, singleTask);
+                return;
+            }
+
             while (true)
             {
                 // An Atomics.waitAsync timeout is the one piece of scheduled work that cannot wait for the
@@ -485,6 +546,108 @@ internal sealed record EventLoop
         }
     }
 
+    private void RunTasks(Engine engine, bool singleTask)
+    {
+        engine.SettleTimedOutAtomicsWaiters();
+
+        // Pending reactions belong to the surrounding script/mailbox request when there is one, not to
+        // a new budget just because that script has returned to the pump.
+        if (!_events.IsEmpty || engine.HasPendingRejectionNotifications)
+        {
+            var entered = _taskBudget!.BeginTask(isTask: false);
+            try
+            {
+                RunTaskCheckpoint(engine);
+            }
+            finally
+            {
+                if (entered)
+                {
+                    _taskBudget.EndTask();
+                }
+            }
+        }
+
+        while (true)
+        {
+            if (!_tasks!.TryDequeue(out var task))
+            {
+                if (engine.TryPromoteDueTimerJob(includeIdleCallbacks: false))
+                {
+                    continue;
+                }
+
+                // Unlike a timer, an idle callback runs directly rather than being promoted to a job.
+                // It still owns one budget together with its reactions.
+                _taskBudget!.BeginTask(isTask: true);
+                try
+                {
+                    if (!engine.TryRunIdleCallback())
+                    {
+                        return;
+                    }
+
+                    RunTaskCheckpoint(engine);
+                }
+                finally
+                {
+                    _taskBudget.EndTask();
+                }
+
+                if (singleTask)
+                {
+                    return;
+                }
+
+                continue;
+            }
+
+            if (task.Generation != Generation)
+            {
+                continue;
+            }
+
+            _taskBudget!.BeginTask(isTask: true);
+            try
+            {
+                engine.RunEventLoopJob(in task);
+                RunTaskCheckpoint(engine);
+            }
+            finally
+            {
+                _taskBudget.EndTask();
+            }
+
+            if (singleTask)
+            {
+                return;
+            }
+        }
+    }
+
+    private void RunTaskCheckpoint(Engine engine)
+    {
+        // https://html.spec.whatwg.org/multipage/webappapis.html#perform-a-microtask-checkpoint
+        // No new budget inside this loop: a recursive Promise.then/queueMicrotask chain is still part
+        // of the task that queued it, including when unrelated tasks are already waiting.
+        do
+        {
+            while (true)
+            {
+                engine.SettleTimedOutAtomicsWaiters();
+                if (!_events.TryDequeue(out var job))
+                {
+                    break;
+                }
+
+                if (job.Generation == Generation)
+                {
+                    engine.RunEventLoopJob(in job);
+                }
+            }
+        } while (engine.NotifyAboutRejectedPromises());
+    }
+
     /// <summary>
     /// HTML's <i>perform a microtask checkpoint</i>
     /// (https://html.spec.whatwg.org/multipage/webappapis.html#perform-a-microtask-checkpoint), run from
@@ -494,15 +657,17 @@ internal sealed record EventLoop
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>It runs the microtasks at the head of the queue and stops at the first task.</b> Jint has a single
-    /// queue where HTML has a microtask queue and a set of task queues, so which of the two an entry belongs
-    /// to is carried by the entry: every enqueue site states an <see cref="EventLoopJobKind"/>, and
+    /// <b>It runs the microtasks at the head of the queue and stops at the first task.</b> An ordinary
+    /// Engine has a single queue where HTML has a microtask queue and a set of task queues, so an entry's kind
+    /// is carried by the entry: every enqueue site states an <see cref="EventLoopJobKind"/>, and
     /// <see cref="EventLoopJob.MayRunInMicrotaskCheckpoint"/> is that answer. Running a task from here would
     /// run one inside a checkpoint, which no event loop does; <b>skipping past it</b> to a microtask behind
     /// it would reorder the one queue, which is the approximation that remains — a
     /// <c>queueMicrotask</c> callback queued behind an <c>XMLHttpRequest</c> delivery waits for the turn's
     /// own drain, where a browser would run it first. That is the behaviour every dispatch had before this
     /// method existed, so what still waits costs nothing that was ever promised.
+    /// Browser engines instead put tasks on a separate lane, so this checkpoint reaches every reaction
+    /// without running or reordering tasks.
     /// <see cref="WakeJob"/> is looked past rather than stopped at, because a wake is not work.
     /// </para>
     /// <para>

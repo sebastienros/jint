@@ -24,14 +24,10 @@ namespace Jint.Browser.Runtime;
 /// as long as the document while the viewport does not.
 /// </para>
 /// <para>
-/// <b>It mirrors <see cref="MediaQuery"/> number for number</b>, because the two answer the same question
-/// through different code: a page reading <c>matchMedia('(min-width: 600px)')</c> and a style sheet whose
-/// <c>@media (min-width: 600px)</c> the cascade evaluates must agree
-/// (<a href="https://github.com/sebastienros/jint/issues/3721">#3721</a>). Which features AngleSharp.Css can
-/// evaluate at all — and the four it evaluates wrongly — is the table in
-/// <c>Jint.Browser/AGENTS.md</c>; the preference features are not among them, so
-/// <c>@media (prefers-color-scheme: dark)</c> still never matches and <see cref="PageMediaEnvironment"/>
-/// answers that half itself.
+/// <b>It shares <see cref="MediaQuery"/>'s environment</b>: the dimensions and the Level 5 preference
+/// dictionary both come from the page, including emulated values and touch state. AngleSharp.Css evaluates
+/// the supported preference features in the cascade; the local evaluator retains the media-query
+/// semantics the upstream evaluator does not yet cover.
 /// </para>
 /// <para>
 /// It is read on the page loop, and during a parse on the parser's thread — one holder at a time, which the
@@ -39,11 +35,14 @@ namespace Jint.Browser.Runtime;
 /// declarations of one cascade is stale rather than torn.
 /// </para>
 /// </remarks>
-internal sealed class PageRenderDevice : IRenderDevice
+internal sealed class PageRenderDevice : IRenderDevice, IRenderDevicePreferences
 {
     private readonly PageRuntime _runtime;
 
     internal PageRenderDevice(PageRuntime runtime) => _runtime = runtime;
+
+    /// <inheritdoc />
+    public IReadOnlyDictionary<string, string> Preferences => _runtime.Media;
 
     /// <inheritdoc />
     /// <remarks>

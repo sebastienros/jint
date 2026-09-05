@@ -1,5 +1,6 @@
 using System.Text;
 using Jint.Browser;
+using Jint.Constraints;
 using Jint.DevTools;
 using Jint.Tests.Browser.Fixtures;
 using Jint.Tests.Browser.Layout;
@@ -137,6 +138,70 @@ public class PlaywrightCourseTests
             }
         }
 
+        await page.CloseAsync();
+    }
+
+    [Test]
+    public async Task PlaywrightUpdatesTheVueTreeAfterSeparateQueuedTasks()
+    {
+        var clock = new TaskBudgetClock();
+        var options = new BrowserOptions().ConfigureEngine(options =>
+        {
+            // Only the page's host-owned deadline uses the fake clock; timers and promise waits do not.
+            options.RemoveConstraints(static constraint => constraint is OperationDeadlineConstraint);
+            options.AddConstraint(() => new OperationDeadlineConstraint(clock));
+            options.Configure(engine =>
+            {
+                engine.SetValue("__checkTaskBudget", () => engine.Constraints.Check());
+                engine.SetValue("__queueBudgetedTasks", () =>
+                {
+                    for (var i = 0; i < 2; i++)
+                    {
+                        engine.Tasks.Post(() =>
+                        {
+                            engine.Execute(
+                                "Vue.nextTick(() => { __checkTaskBudget(); globalThis.__budgetedReactions++; });");
+                            clock.Advance(TimeSpan.FromSeconds(4));
+                        });
+                    }
+                });
+            });
+        });
+        options.MaxTaskDuration.Should().Be(TimeSpan.FromSeconds(5));
+
+        await using var lane = await ClientLane.OpenAsync(options: options);
+        var page = await lane.NewPageAsync("vue-folder-tree");
+        await page.EvaluateAsync(
+            """
+            () => {
+              globalThis.__budgetedReactions = 0;
+              for (const id of ['load', 'create']) {
+                document.getElementById(id).addEventListener(
+                  'click', () => __queueBudgetedTasks(), { capture: true, once: true });
+              }
+            }
+            """);
+
+        // Both tasks are queued by the actual input dispatch, before either can run. Each costs four
+        // seconds, including its Vue reaction; only a drain-wide five-second deadline rejects the pair.
+        // Advancing after Execute leaves the old FIFO's pending Vue nextTick jobs to discover the expiry.
+        // The reaction checks explicitly rather than depending on the interpreter's amortized cadence.
+        await page.Locator("#load").ClickAsync();
+        await page.Locator("#children").WaitForAsync();
+        await page.Locator("#create").ClickAsync();
+        await page.Locator(".folder-name").Nth(1).WaitForAsync();
+
+        (await page.Locator(".folder-name").AllTextContentsAsync()).Should().Equal("Files", "TestFolder");
+        foreach (var context in lane.Pages.Contexts)
+        {
+            foreach (var hostPage in context.Pages)
+            {
+                hostPage.Errors.Should().BeEmpty();
+            }
+        }
+
+        (await page.EvaluateAsync<int>("() => globalThis.__budgetedReactions")).Should().Be(4);
+        (await page.EvaluateAsync<bool>("() => resizeHeights.some(height => height > 40)")).Should().BeTrue();
         await page.CloseAsync();
     }
 
@@ -523,6 +588,17 @@ public class PlaywrightCourseTests
         await page.CloseAsync();
     }
 
+    private sealed class TaskBudgetClock : TimeProvider
+    {
+        private long _ticks = 1;
+
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+
+        public override long GetTimestamp() => _ticks;
+
+        internal void Advance(TimeSpan elapsed) => _ticks += elapsed.Ticks;
+    }
+
     /// <summary>A server serving the course, a browser, a protocol server and a connected Playwright.</summary>
     private sealed class ClientLane : IAsyncDisposable
     {
@@ -554,12 +630,14 @@ public class PlaywrightCourseTests
 
         internal IBrowserContext Context { get; }
 
-        internal static async Task<ClientLane> OpenAsync(Action<LoopbackServer>? routes = null)
+        internal static async Task<ClientLane> OpenAsync(
+            Action<LoopbackServer>? routes = null,
+            BrowserOptions? options = null)
         {
             var server = FixtureOrigin.Serve(new LoopbackServer());
             routes?.Invoke(server);
 
-            var pages = new global::Jint.Browser.Browser();
+            var pages = new global::Jint.Browser.Browser(options);
             await pages.NewContextAsync(new PageContextOptions { UrlFilter = server.Owns }).ConfigureAwait(false);
 
             var protocol = new DevToolsServer();

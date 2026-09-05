@@ -34,8 +34,8 @@ namespace Jint.Browser.Workers;
 /// <para>
 /// <b>A worker's turns are bounded the way a page's are.</b> <c>CreateDefaultOptions</c> replays the
 /// parent's constraint <i>factories</i>, so a worker has an <c>OperationDeadlineConstraint</c> and — where
-/// the page has one — a <c>MemoryLimitConstraint</c> of its own, and the pump below brackets each drain with
-/// them exactly as <see cref="Runtime.PageLoop"/> does. Without that a worker would be the one engine here
+/// the page has one — a <c>MemoryLimitConstraint</c> of its own. Each task and its microtasks take these
+/// budgets, exactly as in <see cref="Runtime.PageLoop"/>. Without that a worker would be the one engine here
 /// with no wall-clock bound at all: an inherited <c>TimeoutInterval</c> never fires on an engine that is only
 /// ever pumped. The three web-API limits are not constraints and do not travel with the posture, so they are
 /// named again below.
@@ -136,7 +136,9 @@ internal sealed class ThreadPerWorkerProvider : WorkerProvider
                 options.WebApi.Fetch.UserAgent);
         }
 
-        return new Engine(options);
+        var engine = new Engine(options);
+        PageBudget.For(engine, _options);
+        return engine;
     }
 
     /// <inheritdoc />
@@ -209,23 +211,14 @@ internal sealed class ThreadPerWorkerProvider : WorkerProvider
     {
         var worker = connection.Worker;
 
-        // The same bracket the page loop puts around its own turns, over the same two constraints: a worker
-        // inherits its parent's constraint factories, so it has an OperationDeadlineConstraint and — where
-        // the page has one — a MemoryLimitConstraint of its own. Without it a worker is the one engine in
-        // the package with no wall-clock bound at all, because a pumped engine reaches ExecuteWithConstraints
-        // never and its inherited TimeoutInterval therefore never fires.
-        var budget = PageBudget.For(worker, _options);
-
+        // CreateWorkerEngine installed the task budget before publishing the engine to this thread.
         try
         {
             while (!connection.IsEnded)
             {
                 try
                 {
-                    using (budget.BeginTurn())
-                    {
-                        worker.Tasks.ProcessTasks();
-                    }
+                    worker.Tasks.ProcessTask();
                 }
                 catch (Exception exception) when (PageBudget.IsBudgetFailure(exception))
                 {

@@ -45,7 +45,7 @@ a swap to a source generator later is mechanical.
 | `DomTypeMap`'s candidate list, most derived first | `DomManualShapes` — the shapes the generator cannot express |
 | `DomEnums`, both directions, for the WebIDL string enumerations | `DomTypeMap.For` and its per-`Type` cache |
 | — | `DomManualInterfaces` and `DomConstructors` — the interface AngleSharp has no `[DomName]` for (`HTMLFrameSetElement`) and the one WebIDL really does give a constructor (`Document`) |
-| — | `DomSelectorMembers` and `DomNodeMembers` — the five members whose *failure* has to be WebIDL's rather than AngleSharp's, and the one (`getRootNode`) AngleSharp has no `[DomName]` for |
+| — | `DomNodeMembers` — members such as `getRootNode` that AngleSharp has no `[DomName]` for; selector operations now come from metadata and use the shared failure guard |
 
 **Never hand-edit a `.g.cs`.** `DomBindingsStalenessTests` runs the same emitter in memory and fails on any
 difference; `JINT_DOM_BINDINGS=update` writes the difference back, which is also the shortest regeneration
@@ -187,10 +187,10 @@ with both already in place. Every `MediaQueryList` the page holds then recompute
 `MediaQueryListEvent` — `e => e.matches` is how the listener is written — only if its own answer moved. No
 `resize` fires at the window: HTML fires that from update-the-rendering, and there is none.
 
-**The Level 5 preference features are the page's own answer, not AngleSharp.Css's**, and they had to be: that
-library evaluates `width` and its kind, has no notion of `prefers-color-scheme`, `forced-colors`, `hover` or
-`pointer` at all, and its own `CssMediaQueryList.ComputeMatched` is a stub answering `false` for every query.
-`PageMediaEnvironment.ValueOf` is the table, and the one place that will delegate the day it grows them.
+**The page owns preference values; AngleSharp.Css now evaluates supported preferences in stylesheets.**
+Since Css 1.1.0, `PageRenderDevice` implements `IRenderDevicePreferences` over `PageMediaEnvironment`, so
+`prefers-color-scheme`, `forced-colors`, `hover`, `pointer` and their supported siblings read the same defaults
+and emulated overrides as `matchMedia`. Clearing an override restores that page's default, not global state.
 
 **An `Emulation` command is a write to that value or to the page's `Runtime/EmulationState`**, which is where
 an override lives — on the **page**, not on the protocol target, because an override outlives the document it
@@ -211,19 +211,14 @@ two. And `Events/EventHandlerContentAttributes.Reconcile` is the one place scrip
 because it is the one place every path arrives at; the parse's own half is that the `IScriptingService` is
 not registered at all, which is how AngleSharp is told, and `Runtime.evaluate` is unaffected either way.
 
-**The cascade is evaluated against the page's own device, and that closes half of the divergence this used
-to buy.** `Runtime/PageRenderDevice` is registered on the browsing context `Parsing/ParserDriver` builds and
-holds no numbers of its own — every member is read off `PageMediaEnvironment` at the moment
-`ComputeCurrentStyle()` asks — so a dimension query and `@media print` in a style sheet answer from the same
-viewport and media type `matchMedia` does, with nothing to re-register when a client emulates
-([#3721](https://github.com/sebastienros/jint/issues/3721)). What still disagrees was measured rather than
-assumed, and it is two kinds of thing. `IRenderDevice` has no member for a Level 5 preference, so
-`@media (prefers-color-scheme: dark)` never becomes active while `matchMedia` answers it from the table
-above — a framework that themes itself reads the second. And `(scripting)`, `(color)`, both `orientation`
-values and every `min-resolution` answer the same whatever the device reports, so they are AngleSharp.Css's
-own arithmetic rather than anything a device can fix: `scripting` is
-[#233](https://github.com/AngleSharp/AngleSharp.Css/issues/233) and `orientation`
-[#232](https://github.com/AngleSharp/AngleSharp.Css/issues/232); the other two are not filed.
+**The cascade is evaluated against the page's own device.** `Runtime/PageRenderDevice` is registered on the
+browsing context `Parsing/ParserDriver` builds and reads `PageMediaEnvironment` at computation time, with
+nothing to re-register when a client emulates ([#3721](https://github.com/sebastienros/jint/issues/3721)).
+Css 1.1.0 also fixes media-list OR, media-type guards, orientation/scan constant recognition and scripting's
+validator. **That is not equivalence with `Runtime/MediaQuery`.** Whole-conjunction negation, boolean
+dimensions, colour arithmetic, malformed-query handling and ordered gamut/dynamic-range features still
+prevent replacing the local evaluator. Keep its semantics and the page's change-event scheduling; the
+remaining upstream differences are recorded in [`Dom/divergences.md`](Dom/divergences.md).
 
 ### Custom elements, and where a reaction actually runs
 
@@ -322,7 +317,7 @@ diff. **Nothing public takes or answers an AngleSharp node**, which is why `Page
 selector; R2 reaches the same algorithm through the internal `FormSubmitter.Submit` from inside the loop.
 Everything else is internal, and that is a decision with a date on it. `DomBindings`, `DomRealm`,
 `DomInterfaceDefinition` and `DomHostHooks` are the four most likely to be promoted next, each with XML docs
-and a `docs/v5-migration.md` row. Until then `Jint.Tests.Browser` is the only consumer, which is why it is
+and a `docs/guide/migrating-to-v5.md` row. Until then `Jint.Tests.Browser` is the only consumer, which is why it is
 named in `InternalsVisibleTo` and why every test of the binding is written against the internal surface
 rather than around it.
 
