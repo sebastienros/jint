@@ -140,6 +140,44 @@ public class PlaywrightCourseTests
         await page.CloseAsync();
     }
 
+    /// <summary>Role locators derive textbox names from HTML's label association.</summary>
+    [Test]
+    public async Task PlaywrightGetByRoleUsesAssociatedLabels()
+    {
+        await using var lane = await ClientLane.OpenAsync(server => server.MapHtml(
+            "/associated-labels/index.html",
+            """
+            <!doctype html>
+            <html><body>
+            <label for="explicit">Explicit</label><input id="explicit">
+            <label>Wrapped <input id="wrapped"></label>
+            <label for="multiple">First</label>
+            <label for="multiple" hidden>Hidden</label>
+            <label for="multiple">Second</label>
+            <input id="multiple">
+            <label for="aria">Native</label><input id="aria" aria-label="ARIA">
+            <span id="referenced" hidden>Referenced</span>
+            <label for="labelledby">Native</label>
+            <input id="labelledby" aria-label="ARIA" aria-labelledby="referenced">
+            </body></html>
+            """));
+        var page = await lane.NewPageAsync("associated-labels");
+
+        (await page.GetByRole(AriaRole.Textbox).CountAsync()).Should().Be(5);
+        (await NamedTextboxCount("Explicit")).Should().Be(1);
+        (await NamedTextboxCount("Wrapped")).Should().Be(1);
+        (await NamedTextboxCount("First Hidden Second")).Should().Be(1);
+        (await NamedTextboxCount("ARIA")).Should().Be(1);
+        (await NamedTextboxCount("Referenced")).Should().Be(1);
+
+        await page.CloseAsync();
+
+        async Task<int> NamedTextboxCount(string name)
+            => await page.GetByRole(
+                AriaRole.Textbox,
+                new PageGetByRoleOptions { Name = name, Exact = true }).CountAsync();
+    }
+
     /// <summary>The router, and the emulated colour scheme the page reads through <c>matchMedia</c>.</summary>
     [Test]
     public async Task PlaywrightMovesThroughTheRouterAndEmulatesTheColourScheme()
