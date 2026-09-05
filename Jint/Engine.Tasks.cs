@@ -63,6 +63,15 @@ public partial class Engine
             _engine.RunAvailableContinuations();
         }
 
+        internal void ConfigureTaskBudget(IEventLoopTaskBudget budget)
+            => _engine._eventLoop.ConfigureTaskBudget(budget);
+
+        internal void ProcessTask()
+        {
+            using var ownership = _engine.EnterHostCall();
+            _engine._eventLoop.RunAvailableContinuations(_engine, singleTask: true);
+        }
+
         /// <summary>
         /// Enqueues <paramref name="action"/> as an event-loop job, from any thread, waking a parked pump.
         /// </summary>

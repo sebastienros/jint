@@ -16,7 +16,7 @@
 ### The page loop, and the thread rule
 
 **One thread per page owns its engine and its DOM, and nothing else may touch either.** `Runtime/PageLoop`
-is that thread: it drains a mailbox of requests, calls `Tasks.ProcessTasks()`, and parks in
+is that thread: it drains a mailbox of requests, processes one engine task and its microtasks, and parks in
 `Tasks.WaitForScheduledWork` for the shorter of `BrowserOptions.PumpIdle` and
 `Tasks.TimeUntilNextScheduledWork`. The engine is built on it and disposed on it, because both are
 engine-owning operations, and a navigation replaces the engine from inside a mailbox request rather than from
@@ -65,18 +65,21 @@ all and a per-entry timeout there never fires even once. The two whose window th
 survive both — `OperationDeadlineConstraint` and `MemoryLimitConstraint` — and `Runtime/PageBudget` is where a
 page arms them.
 
-**A turn is one unit of work the page's thread does with the engine**, and there are exactly three kinds:
-one mailbox request (`PageLoop.PostAsync`), one `ProcessTasks` drain — which is every due timer callback,
-microtask, promise reaction and animation-frame batch together — and one inline `<script>`
-(`PageScriptingService`, and the parser driver after it). Each takes `BrowserOptions.MaxTaskDuration` and,
-where one is configured, `BrowserOptions.MemoryLimit`. Four consequences are easy to get wrong:
+**A budget turn is one mailbox request, one engine task together with its complete microtask checkpoint,
+or one inline `<script>`.** A timer callback, a rendering/observer task, an animation-frame batch and a
+protocol command are separate tasks, even when all were queued before one pump. Each takes
+`BrowserOptions.MaxTaskDuration` and, where configured, `BrowserOptions.MemoryLimit`. The engine's internal
+`IEventLoopTaskBudget` hook arms `PageBudget` around the task and the checkpoint, not around a drain.
+`PageLoop.Turns` remains a scheduling instrument: it counts mailbox requests and pump passes, including an
+empty pass, not these potentially nested budget scopes. Four consequences are easy to get wrong:
 
 - **A request's bracket is outside `PostAsync`'s own `try`/`catch`**, which is what makes a budget failure the
-  *caller's*: `Page.EvaluateAsync` faults with `TimeoutException`. A drain's erupts into the pump, becomes a
+  *caller's*: `Page.EvaluateAsync` faults with `TimeoutException`. A task's erupts into the pump, becomes a
   `PageErrorKind.BudgetExceeded` entry, and the loop goes on — a page survives its scripts.
-- **A request that pumps brackets its own turns and is posted `bracketed: false`.** `WaitForIdleAsync` is the
-  one; bracketing the whole wait would charge every drain *and every park* to one budget and fail a wait
-  longer than `MaxTaskDuration` for no reason. A `Page` member added later wants the default.
+- **A request that pumps is posted `bracketed: false`.** `WaitForIdleAsync` is one; the engine brackets each
+  task, so bracketing the wait would charge unrelated tasks and parks to one budget. Page, parser and worker
+  pumps use internal `ProcessTask`, returning after one task and its checkpoint so a busy task source cannot
+  hide cancellation or the page mailbox. A `Page` member added later wants the default request bracket.
 - **`ReplaceEngine` closes the outgoing engine's turn and opens one on the incoming engine.** A constraint
   belongs to one engine, so the turn a navigation request opened cannot be closed on the engine that replaced
   it — and doing it this way is also what stops an engine construction from spending the budget the new
@@ -91,6 +94,19 @@ A worker's pump takes the same bracket over its own engine's constraints, which 
 *not* carry is a web-API setting, so `MaxActiveTimers`, `MaxResponseBytes`, `FetchTimeout` and the page's
 user agent are named again in `ThreadPerWorkerProvider`; a new page-sized limit needs the same second call or a worker keeps the engine
 default.
+
+**The browser has separate task and microtask lanes; an ordinary `Engine` keeps its existing FIFO.**
+`PageBudget.For` installs the internal hook before the engine is published (also before a worker starts).
+The separate lane is necessary for accounting, not merely ordering: a command already queued behind the
+running command must not separate that command from a reaction it queues later. Every recursive
+`Promise.then`/`queueMicrotask` and nested event-listener checkpoint spends the same budget. Microtasks
+drained at the end of a mailbox evaluation keep that evaluation's budget too. The generation fence, queue
+clearing and wake/wait checks cover both lanes. `EngineDispatcher.Drain` answers one command per posted job;
+the debugger's inline paused drain stays nested and must not re-arm the suspended task.
+`HasPendingEventLoopJobs` means pending checkpoint work on this lane, not other tasks; otherwise two
+web-API feature pumps could defer forever on each other. Timer promotion still waits for both lanes to
+empty. Idle callbacks execute directly during promotion, not as queued jobs, so the pump must give each
+one its own task/checkpoint budget too.
 
 `BrowserOptions.ForUntrustedContent` applies `Options.ForUntrustedCode` from inside the factory's own
 construction callback, so the profile is expanded before the engine builds anything and re-expanded over the

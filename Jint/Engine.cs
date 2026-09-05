@@ -3060,6 +3060,8 @@ public sealed partial class Engine : IDisposable
     /// </summary>
     private List<JsPromise>? _rejectionNotifications;
 
+    internal bool HasPendingRejectionNotifications => _rejectionNotifications is { Count: > 0 };
+
     /// <summary>
     /// Drops every notification this engine still owes, for
     /// <see cref="AdvancedOperations.RestoreGlobalSnapshot"/>.
