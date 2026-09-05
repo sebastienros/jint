@@ -199,6 +199,7 @@ internal static class WindowInstaller
         // client set before this document existed: both are read on every access, so this is only the
         // installation and never a snapshot.
         NavigatorInstaller.Install(runtime);
+        PerformanceNavigation.Install(runtime);
         TouchEmulation.Apply(runtime);
 
         // https://html.spec.whatwg.org/multipage/interaction.html#dom-document-hasfocus — a headless page is

@@ -9,7 +9,8 @@ namespace Jint.Browser.Runtime;
 /// <param name="Html">The markup, already decoded and — for a plain-text answer — wrapped.</param>
 /// <param name="Url">The URL the document ends up with: the last hop of the redirect chain.</param>
 /// <param name="Response">The response, for <see cref="Page.Response"/>.</param>
-internal sealed record FetchedDocument(string Html, string Url, PageResponse Response);
+/// <param name="RedirectCount">The redirect count exposed by Navigation Timing, zero for a cross-origin chain.</param>
+internal sealed record FetchedDocument(string Html, string Url, PageResponse Response, int RedirectCount);
 
 /// <summary>
 /// A navigation's document fetch: Jint's own engine-free fetch pipeline, driven by the page rather than by
@@ -116,7 +117,8 @@ internal static class DocumentFetch
                 exchange.Redirected);
 
             var html = Decode(bytes, pageResponse, url);
-            return new FetchedDocument(html, url, pageResponse);
+            return new FetchedDocument(html, url, pageResponse,
+                exchange.HasCrossOriginRedirect ? 0 : exchange.RedirectCount);
         }
         catch (OperationCanceledException)
         {

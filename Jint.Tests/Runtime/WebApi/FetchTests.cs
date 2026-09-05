@@ -1,11 +1,15 @@
 #if NET8_0_OR_GREATER
 #nullable enable
 
+#pragma warning disable JINT0002 // the fetch observer is a preview surface
+
 using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Jint.Native;
+using Jint.WebApi.Fetch;
+using Jint.WebApi.Url.Parsing;
 
 namespace Jint.Tests.Runtime.WebApi;
 
@@ -361,6 +365,94 @@ public class FetchTests
     }
 
     [Test]
+    public async Task TransportPreservesRedirectMetadataThroughEverySuccessPath(
+        [Values(0, 1, 3)] int redirectCount,
+        [Values(false, true)] bool crossOrigin,
+        [Values("network", "no-location", "request-fulfill", "response-fulfill", "response-continue", "request-and-response-fulfill")] string completion)
+    {
+        var fulfillRequest = completion is "request-fulfill" or "request-and-response-fulfill";
+        var fulfillResponse = completion is "response-fulfill" or "request-and-response-fulfill";
+        var observer = completion is "network" or "no-location" ? null : new StubObserver
+        {
+            Request = request => fulfillRequest && request.RedirectCount == redirectCount
+                ? FetchInterception.Fulfill(202, body: "request"u8.ToArray())
+                : null,
+            Response = _ => fulfillResponse
+                ? FetchResponseInterception.Fulfill(201, body: "response"u8.ToArray())
+                : completion == "response-continue" ? FetchResponseInterception.Continue(status: 203) : null,
+        };
+
+        using var handler = new StubHandler();
+        handler.Responder = _ =>
+        {
+            if (handler.Requests.Count <= redirectCount)
+            {
+                var redirect = new HttpResponseMessage(HttpStatusCode.Found);
+                redirect.Headers.TryAddWithoutValidation("location", HopUrl(handler.Requests.Count));
+                return redirect;
+            }
+
+            return new HttpResponseMessage(completion == "no-location" ? HttpStatusCode.Found : HttpStatusCode.OK)
+            {
+                Content = new StringContent("network"),
+            };
+        };
+
+        using var client = new HttpClient(handler);
+        using var exchange = await SendForStreamAsync(client, observer: observer);
+
+        exchange.RedirectCount.Should().Be(redirectCount);
+        exchange.HasCrossOriginRedirect.Should().Be(crossOrigin && redirectCount > 0);
+        exchange.Redirected.Should().Be(redirectCount > 0);
+        exchange.Url.Serialize().Should().Be(HopUrl(redirectCount));
+        exchange.FromInterception.Should().Be(fulfillRequest || fulfillResponse);
+        handler.Requests.Should().HaveCount(redirectCount + (fulfillRequest ? 0 : 1));
+        ((int) exchange.Response.StatusCode).Should().Be(completion switch
+        {
+            "no-location" => 302,
+            "request-fulfill" => 202,
+            "response-fulfill" or "request-and-response-fulfill" => 201,
+            "response-continue" => 203,
+            _ => 200,
+        });
+        (await exchange.Response.Content.ReadAsStringAsync()).Should().Be(
+            fulfillResponse ? "response" : fulfillRequest ? "request" : "network");
+
+        // A cross-origin detour returns home on hop two; hop three must not clear the taint.
+        string HopUrl(int hop) => $"https://{(crossOrigin && hop == 1 ? "other.example" : "example.org")}/{hop}";
+    }
+
+    [TestCase("/b?q#fragment", false)]
+    [TestCase("https://EXAMPLE.ORG:443/b", false)]
+    [TestCase("http://example.org/b", true)]
+    [TestCase("https://example.org:8443/b", true)]
+    [TestCase("https://other.example/b", true)]
+    public async Task TransportComparesRedirectOrigins(string location, bool crossOrigin)
+    {
+        using var handler = Redirecting(location);
+        using var client = new HttpClient(handler);
+        using var exchange = await SendForStreamAsync(client);
+
+        exchange.RedirectCount.Should().Be(1);
+        exchange.HasCrossOriginRedirect.Should().Be(crossOrigin);
+    }
+
+    [TestCase("https://example.org/b")]
+    [TestCase("https://other.example/b")]
+    public async Task TransportDoesNotCountAManualRedirect(string location)
+    {
+        using var handler = Redirecting(location);
+        using var client = new HttpClient(handler);
+        using var exchange = await SendForStreamAsync(client, redirect: "manual");
+
+        exchange.RedirectCount.Should().Be(0);
+        exchange.HasCrossOriginRedirect.Should().BeFalse();
+        exchange.Redirected.Should().BeFalse();
+        exchange.Response.StatusCode.Should().Be(HttpStatusCode.MovedPermanently);
+        handler.Requests.Should().ContainSingle();
+    }
+
+    [Test]
     public void ResolvesARelativeLocationAgainstTheUrlThatSentIt()
     {
         var handler = Redirecting("/b?q");
@@ -679,6 +771,41 @@ public class FetchTests
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
             => throw new HttpRequestException("no such host is known");
+    }
+
+    private sealed class StubObserver : FetchObserver
+    {
+        internal Func<ObservedFetchRequest, FetchInterception?>? Request { get; init; }
+
+        internal Func<ObservedFetchResponse, FetchResponseInterception?>? Response { get; init; }
+
+        public override ValueTask<FetchInterception?> OnRequestAsync(ObservedFetchRequest request, CancellationToken cancellationToken)
+            => new(Request?.Invoke(request));
+
+        public override ValueTask<FetchResponseInterception?> OnResponseAsync(ObservedFetchResponse response, CancellationToken cancellationToken)
+            => new(Response?.Invoke(response));
+    }
+
+    private static Task<FetchExchange> SendForStreamAsync(HttpClient client, string redirect = "follow", FetchObserver? observer = null)
+    {
+        var request = new FetchRequestSnapshot
+        {
+            Method = "GET",
+            Url = UrlParser.Parse("https://example.org/0")!,
+            Headers = [],
+            Body = null,
+            Redirect = redirect,
+        };
+        var policy = new FetchPolicy
+        {
+            AllowedSchemes = ["http", "https"],
+            UrlFilter = _ => true,
+            MaxResponseBytes = 1024,
+            MaxRedirects = 5,
+        };
+
+        return FetchTransport.SendForStreamAsync(client, request, policy, CancellationToken.None,
+            FetchObservation.Create(observer, FetchInitiator.Host));
     }
 
     private static StubHandler Redirecting(string location, HttpStatusCode status = HttpStatusCode.MovedPermanently)
