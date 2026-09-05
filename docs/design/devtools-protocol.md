@@ -6,7 +6,7 @@ document and that issue disagree, the issue wins and this file is brought back i
 the longer form: the engine mechanisms each decision rests on, named so that a reader can find them.
 [§9](#9-what-shipped-and-where-it-differs) is the index of what was built against this design and the one line
 in which each item differs from it. For what the package does rather than why, read
-[the README](../../README.md#chrome-devtools-protocol-opt-in-package) instead of this file.
+[the Jint.DevTools package guide](../packages/jint-devtools/index.md) instead of this file.
 
 Everything normative here was read from the [Chrome DevTools Protocol](https://chromedevtools.github.io/devtools-protocol/)
 (the pinned `js_protocol.json` / `browser_protocol.json` under `tools/devtools-protocol/`), from V8's inspector

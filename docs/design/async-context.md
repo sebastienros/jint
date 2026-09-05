@@ -1,7 +1,7 @@
 # AsyncContext in Jint — design
 
 **Status: design only. No implementation exists, and none should land before the maturity decision in
-[§6.3](#63-proposal-maturity) is taken.**
+[§6.3](#6-3-proposal-maturity) is taken.**
 
 This document maps the TC39 [AsyncContext proposal](https://tc39.es/proposal-async-context/) onto Jint's async
 machinery: where the agent-level state lives, what the mapping looks like, every point at which the mapping is
@@ -101,7 +101,7 @@ internal sealed class Agent
 
 One `Engine` is one agent. `ShadowRealmConstructor` calls `_engine._host.CreateRealm()`
 (`Jint/Native/ShadowRealm/ShadowRealmConstructor.cs:38`) — a new Realm Record inside the *same* Engine — so a
-shadow realm shares the mapping, which is what the spec requires and is analysed in [§6.2](#62-shadowrealm).
+shadow realm shares the mapping, which is what the spec requires and is analysed in [§6.2](#6-2-shadowrealm).
 
 The engine-level accessors are two `AggressiveInlining` methods on `Engine`, so that no call site outside
 `Jint/Native/AsyncContext/` ever touches `_agent` directly:
@@ -174,7 +174,7 @@ Three properties this shape gives us, each load-bearing later:
   reference equality, so a lookup is `ReferenceEquals` over an array with no hashing and no `JsValue`
   comparison semantics involved.
 - **A snapshot is one reference.** Capturing is a field read; there is no copy, no defensive clone, and no
-  lifetime concern beyond the retention analysed in [§6.4](#64-retention).
+  lifetime concern beyond the retention analysed in [§6.4](#6-4-retention).
 
 `Variable.prototype.get` on a `null` mapping is one null test and a return of
 `[[AsyncVariableDefaultValue]]`.
@@ -218,7 +218,7 @@ restore sites, which must test the reaction's own field regardless — a job cre
 must restore it even though the agent field has since gone back to `null`.
 
 Where "only pay when it is in use" *does* buy something real is the storage question in
-[§7.2](#72-the-eight-bytes-on-promisereaction), and there the lever is allocation shape rather than a flag.
+[§7.2](#7-2-the-eight-bytes-on-promisereaction), and there the lever is allocation shape rather than a flag.
 
 ---
 
@@ -237,11 +237,11 @@ This is the exhaustive list. Each row names the spec clause, the Jint site, and 
 | 4 | [`GeneratorStart`](https://tc39.es/proposal-async-context/#sec-generatorstart) | capture onto the generator | `GeneratorInstance.GeneratorStart`, `Jint/Native/Generator/GeneratorInstance.cs:128` |
 | 5 | [`GeneratorResume`](https://tc39.es/proposal-async-context/#sec-generatorresume) / [`GeneratorResumeAbrupt`](https://tc39.es/proposal-async-context/#sec-generatorresumeabrupt) | restore | `GeneratorInstance.GeneratorResume` `:142`, `GeneratorResumeAbrupt` `:170` |
 | 6 | [`AsyncGeneratorStart`](https://tc39.es/proposal-async-context/#sec-asyncgeneratorstart) / [`AsyncGeneratorResume`](https://tc39.es/proposal-async-context/#sec-asyncgeneratorresume) | capture / restore | `Jint/Native/AsyncGenerator/AsyncGeneratorInstance.cs` |
-| 7 | [`YieldExpression` evaluation](https://tc39.es/proposal-async-context/#sec-generator-function-definitions-runtime-semantics-evaluation) | restore the generator's own mapping after the yield returns | **Nothing needed in Jint** — see [§3.4](#34-jint-shapes-that-change-the-answer) |
+| 7 | [`YieldExpression` evaluation](https://tc39.es/proposal-async-context/#sec-generator-function-definitions-runtime-semantics-evaluation) | restore the generator's own mapping after the yield returns | **Nothing needed in Jint** — see [§3.4](#3-4-jint-shapes-that-change-the-answer) |
 | 8 | [`ExecuteModule`](https://tc39.es/proposal-async-context/#sec-source-text-module-record-execute-module) — *"Let moduleContextMapping be a new empty list"* | swap to the **empty** mapping for the whole evaluation | `SourceTextModuleRecord.ExecuteModule`, `Jint/Runtime/Modules/SourceTextModuleRecord.cs:396` |
-| 9 | [`FinalizationRegistry ( cleanupCallback )`](https://tc39.es/proposal-async-context/#sec-finalization-registry-cleanup-callback) — *"Set finalizationRegistry.[[FinalizationRegistryAsyncContextMapping]] to AsyncContextSnapshot()"* | capture at construction | `FinalizationRegistryInstance` ctor, `Jint/Native/FinalizationRegistry/FinalizationRegistryInstance.cs:16` — **blocked, see [§3.3](#33-finalizationregistry-is-blocked-in-jint)** |
+| 9 | [`FinalizationRegistry ( cleanupCallback )`](https://tc39.es/proposal-async-context/#sec-finalization-registry-cleanup-callback) — *"Set finalizationRegistry.[[FinalizationRegistryAsyncContextMapping]] to AsyncContextSnapshot()"* | capture at construction | `FinalizationRegistryInstance` ctor, `Jint/Native/FinalizationRegistry/FinalizationRegistryInstance.cs:16` — **blocked, see [§3.3](#3-3-finalizationregistry-is-blocked-in-jint)** |
 | 10 | [`HostEnqueueFinalizationRegistryCleanupJob`](https://tc39.es/proposal-async-context/#sec-host-cleanup-finalization-registry) | restore the construction-time mapping around the cleanup | same file, `Observer` finalizer at `:64` — **blocked** |
-| 11 | [`HostPromiseRejectionTracker`](https://tc39.es/proposal-async-context/#sec-host-promise-rejection-tracker) requirements list | snapshot at the call, swap around the notification | `Host.HostPromiseRejectionTracker` `Jint/Runtime/Host.cs:473` → `Engine.OnPromiseRejectionTracker`. Host territory; see [§4.4](#44-hostpromiserejectiontracker) |
+| 11 | [`HostPromiseRejectionTracker`](https://tc39.es/proposal-async-context/#sec-host-promise-rejection-tracker) requirements list | snapshot at the call, swap around the notification | `Host.HostPromiseRejectionTracker` `Jint/Runtime/Host.cs:473` → `Engine.OnPromiseRejectionTracker`. Host territory; see [§4.4](#4-4-hostpromiserejectiontracker) |
 | 12 | The API itself: `Variable.run`, `Snapshot` ctor, `Snapshot.prototype.run`, `Snapshot.wrap` | capture and restore | new `Jint/Native/AsyncContext/` |
 
 **Row 9 corrects a widespread misreading.** Earlier accounts of the proposal — and more than one summary still
@@ -358,7 +358,7 @@ internal void AddToEventLoopPreservingAsyncContext(Action continuation);
 ```
 
 It must not be spelled as an overload of `AddToEventLoop` and must not become the default, for the reason in
-[§3.2](#32-points-the-spec-deliberately-does-not-define). Each use site gets a comment naming the spec algorithm
+[§3.2](#3-2-points-the-spec-deliberately-does-not-define). Each use site gets a comment naming the spec algorithm
 whose continuation it is.
 
 `Atomics.waitAsync`'s settle paths (`Jint/Native/Atomics/AtomicsInstance.cs:346,815`) are deliberately **not**
@@ -459,7 +459,7 @@ They answer different questions and compose rather than compete:
 | --- | --- | --- |
 | Scope | per **engine** (principal realm's `[[HostDefined]]`) | per **flow**, within one engine |
 | Set by | the host, in CLR | the script, or the host through §4.1 |
-| Survives `RestoreGlobalSnapshot` | yes, deliberately | no — reset, see [§6.1](#61-restoreglobalsnapshot-and-generations) |
+| Survives `RestoreGlobalSnapshot` | yes, deliberately | no — reset, see [§6.1](#6-1-restoreglobalsnapshot-and-generations) |
 | Readable from | any CLR code holding the `Engine` | script through `Variable.get()`; CLR through §4.1 |
 
 A `ConsoleSink` correlating log lines reads the request identity from `HostDefined` and the operation identity
@@ -496,10 +496,10 @@ held to (`Jint/Engine.Pump.cs:44-59`).
 
 | Site | Cost with no AsyncContext in use | Notes |
 | --- | --- | --- |
-| `EventLoop.Enqueue` / `EventLoopJob` / `RunAvailableContinuations` | **zero** | untouched by design ([§3.2](#32-points-the-spec-deliberately-does-not-define)) |
+| `EventLoop.Enqueue` / `EventLoopJob` / `RunAvailableContinuations` | **zero** | untouched by design ([§3.2](#3-2-points-the-spec-deliberately-does-not-define)) |
 | `Engine.AddToEventLoop(Action)` | **zero** | untouched |
-| `PerformPromiseThen` (both overloads) | 1 field load + 1 field store per reaction | plus the storage question in [§7.2](#72-the-eight-bytes-on-promisereaction) |
-| `RunReactionJob` | 2 null tests, **no protected region** on the fast arm | the two-arm split in [§2.3](#23-the-swap-a-null-mapping-fast-path-and-no-tryfinally-on-it) |
+| `PerformPromiseThen` (both overloads) | 1 field load + 1 field store per reaction | plus the storage question in [§7.2](#7-2-the-eight-bytes-on-promisereaction) |
+| `RunReactionJob` | 2 null tests, **no protected region** on the fast arm | the two-arm split in [§2.3](#2-3-the-swap-a-null-mapping-fast-path-and-no-try-finally-on-it) |
 | `GeneratorStart` / `GeneratorResume` / `GeneratorResumeAbrupt` | 1 load + 1 store on start; 2 null tests on resume | + 8 B on `GeneratorInstance`, which is not a per-call allocation |
 | `AsyncGeneratorStart` / `AsyncGeneratorResume` | as above | |
 | `setTimeout` / `setInterval` registration | 1 load + 1 store on `TimerEntry` | +8 B per timer, capped by `MaxActiveTimers` |
@@ -513,7 +513,7 @@ held to (`Jint/Engine.Pump.cs:44-59`).
 every installer restores its predecessor in a `finally`, so once the outermost `run` unwinds the agent field is
 `null` again, and the next reaction job takes the fast arm. There is no accumulating state and no "used it once,
 pays forever" residue. The one place an explicit reset is still required is the restore fence
-([§6.1](#61-restoreglobalsnapshot-and-generations)).
+([§6.1](#6-1-restoreglobalsnapshot-and-generations)).
 
 **What must be measured before merging.** The reaction-record change is on the promise hot path, so the
 implementing PR carries the standing perf gate: a paired A/B (`Jint.Benchmark/measure-paired.ps1`, `gate` mode)
@@ -560,17 +560,17 @@ ShadowRealm callable boundary only lets primitives and (wrapped) functions acros
 
 The residual risk is retention, and the champions flag it: a mapping entry keyed by a shadow realm's `Variable`
 keeps that realm's objects alive for as long as the mapping is reachable. That is the cross-realm case
-`MEMORY-MANAGEMENT.md` cites as the argument for weak keying. See [§6.4](#64-retention).
+`MEMORY-MANAGEMENT.md` cites as the argument for weak keying. See [§6.4](#6-4-retention).
 
 ### 6.3 Proposal maturity
 
 **AsyncContext is Stage 2.** Verified against `tc39/proposals@main`'s Stage 2 table (row: *Async Context*,
 author Chengzhong Wu, champions Andreu Botella, Chengzhong Wu, Justin Ridgewell) and against the proposal
-README's own `Status: Stage 2`. It is not in the Stage 2.7 table.
+The proposal's own `Status: Stage 2`. It is not in the Stage 2.7 table.
 
 `AGENTS.md` says proposal built-ins are registered unconditionally, with no per-feature option and no ES-version
 gate, and that rule should stay. But it is worth being precise about what Jint has actually been shipping under
-it. **Not one of the proposals in the README's "no version yet" list appears in the Stage 2 table** — the whole
+it. **Not one of the proposal features summarized in the ECMAScript reference appears in the Stage 2 table** — the whole
 table was read, and Jint's set sits at 2.7 or above:
 
 | Jint's shipped proposals | Stage |
@@ -601,7 +601,7 @@ first:
 **Recommendation.** Do not merge a JS-visible `AsyncContext` global while the proposal is at Stage 2.
 Concretely:
 
-1. **Now:** keep this document, and treat the [§3.4](#34-jint-shapes-that-change-the-answer) findings as
+1. **Now:** keep this document, and treat the [§3.4](#3-4-jint-shapes-that-change-the-answer) findings as
    independently valuable — the extra event-loop hops and the finalizer-thread FinalizationRegistry are
    pre-existing issues worth their own fixes regardless of whether AsyncContext ever lands.
 2. **At Stage 2.7:** land phases 1-4 of [§7](#7-implementation-plan). 2.7 is exactly the gate that fixes this:
@@ -664,8 +664,8 @@ PR-sized, each independently reviewable, each rebased on latest `main`, each tar
 
 | Phase | Content | Depends on |
 | --- | --- | --- |
-| **0** | *Prerequisites, independently valuable.* Fix the extra event-loop hops in [§3.4(b)](#34-jint-shapes-that-change-the-answer) to be spec-shaped; move FinalizationRegistry cleanup off the finalizer thread onto the event loop ([§3.3](#33-finalizationregistry-is-blocked-in-jint)). Neither mentions AsyncContext. | — |
-| **1** | `Agent.AsyncContextMapping`, `AsyncContextMapping` + `AsyncContextEntry`, `Engine.AsyncContextSnapshot/Swap`, `Jint/Native/AsyncContext/` (`AsyncContextInstance`, `VariableConstructor`, `VariablePrototype`, `SnapshotConstructor`, `SnapshotPrototype`, `JsAsyncContextVariable`, `JsAsyncContextSnapshot`), `Intrinsics.AsyncContext.cs`. **Promise reaction capture and restore** (rows 1-3). Global registration decided per [§6.3](#63-proposal-maturity). | 0 (not strictly) |
+| **0** | *Prerequisites, independently valuable.* Fix the extra event-loop hops in [§3.4(b)](#3-4-jint-shapes-that-change-the-answer) to be spec-shaped; move FinalizationRegistry cleanup off the finalizer thread onto the event loop ([§3.3](#3-3-finalizationregistry-is-blocked-in-jint)). Neither mentions AsyncContext. | — |
+| **1** | `Agent.AsyncContextMapping`, `AsyncContextMapping` + `AsyncContextEntry`, `Engine.AsyncContextSnapshot/Swap`, `Jint/Native/AsyncContext/` (`AsyncContextInstance`, `VariableConstructor`, `VariablePrototype`, `SnapshotConstructor`, `SnapshotPrototype`, `JsAsyncContextVariable`, `JsAsyncContextSnapshot`), `Intrinsics.AsyncContext.cs`. **Promise reaction capture and restore** (rows 1-3). Global registration decided per [§6.3](#6-3-proposal-maturity). | 0 (not strictly) |
 | **2** | Generators and async generators (rows 4-7), module evaluation's empty mapping (row 8). | 1 |
 | **3** | Web-API integration: `setTimeout`/`setInterval` capture at registration and restore in `TimerEntry.Fire`, `queueMicrotask` capture. Whole-file `#if NET8_0_OR_GREATER` is already in force in that subtree. A comment in the events code recording that `addEventListener` deliberately does not capture. | 1, and #3096 for the events comment |
 | **4** | Host surface: `Engine.Advanced.CaptureAsyncContext` / `RunWithAsyncContext`, the `AsyncContextSnapshot` struct, and `Jint.Tests.PublicInterface/HostAsyncContextTests.cs` — the `Host*Tests.cs` family, per the generically-named-file convention. | 1 |
@@ -701,7 +701,7 @@ Decide with the paired benchmark, not by argument.
 
 ## 8. Test strategy
 
-There is **no test262 coverage to inherit** ([§6.3](#63-proposal-maturity)), so every case is hand-written in
+There is **no test262 coverage to inherit** ([§6.3](#6-3-proposal-maturity)), so every case is hand-written in
 `Jint.Tests/Runtime/AsyncContextTests.cs` (plus `Jint.Tests/Runtime/WebApi/AsyncContextTimerTests.cs` under a
 whole-file `#if NET8_0_OR_GREATER`, since timers are net8-only), with the host-facing pins in
 `Jint.Tests.PublicInterface/HostAsyncContextTests.cs`. The proposal's own
@@ -725,20 +725,20 @@ pre-fix error quoted in the PR.
 | P5 | reaction job leaves the agent mapping exactly as it found it (assert via the internal accessor) | the fast/slow arm split leaks |
 | G1 | generator body sees its creation-time value across `yield` | row 4/5 missing |
 | G2 | a mutation made by the *resumer* between two `next()` calls is not visible inside the generator | the resume swap is missing |
-| G3 | **`yield` needs no swap of its own** — a `run` performed by the resumer around `gen.next()` does not leak in | [§3.4(a)](#34-jint-shapes-that-change-the-answer)'s equivalence claim; this is the test that proves it rather than asserting it |
-| G4 | the same for async generators and `for await` — including the extra-hop site at `JintForInForOfStatement.cs:1227` | [§3.4(b)](#34-jint-shapes-that-change-the-answer) |
+| G3 | **`yield` needs no swap of its own** — a `run` performed by the resumer around `gen.next()` does not leak in | [§3.4(a)](#3-4-jint-shapes-that-change-the-answer)'s equivalence claim; this is the test that proves it rather than asserting it |
+| G4 | the same for async generators and `for await` — including the extra-hop site at `JintForInForOfStatement.cs:1227` | [§3.4(b)](#3-4-jint-shapes-that-change-the-answer) |
 | M1 | a module body sees the **default** value even when imported from inside a `run` | row 8's empty mapping missing |
 | T1 | `setTimeout` callback sees the registration-time value | the timer capture in phase 3 is missing |
 | T2 | `setInterval` sees the *registration-time* value on **every** firing, not the value at the firing turn | the entry re-captures on `Reschedule` |
 | T3 | `queueMicrotask` sees the call-time value | |
-| T4 | a timer registered inside `run`, then `RestoreGlobalSnapshot`, then a pump — nothing fires and no mapping survives | [§6.1](#61-restoreglobalsnapshot-and-generations) |
-| E1 | **`addEventListener` does not capture**: a listener registered inside a `run` and dispatched outside it sees the *dispatch*-time value | [§3.2](#32-points-the-spec-deliberately-does-not-define) — this test exists to stop a future agent "fixing" the omission |
-| S1 | a shadow realm's `AsyncContext.Variable` is a different key; outer values are invisible inside | [§6.2](#62-shadowrealm) |
-| H1 | `Engine.Advanced.CaptureAsyncContext` + `RunWithAsyncContext` round-trips a value into a host-invoked callback | [§4.1](#41-the-minimal-pair) |
+| T4 | a timer registered inside `run`, then `RestoreGlobalSnapshot`, then a pump — nothing fires and no mapping survives | [§6.1](#6-1-restoreglobalsnapshot-and-generations) |
+| E1 | **`addEventListener` does not capture**: a listener registered inside a `run` and dispatched outside it sees the *dispatch*-time value | [§3.2](#3-2-points-the-spec-deliberately-does-not-define) — this test exists to stop a future agent "fixing" the omission |
+| S1 | a shadow realm's `AsyncContext.Variable` is a different key; outer values are invisible inside | [§6.2](#6-2-shadowrealm) |
+| H1 | `Engine.Advanced.CaptureAsyncContext` + `RunWithAsyncContext` round-trips a value into a host-invoked callback | [§4.1](#4-1-the-minimal-pair) |
 | H2 | `RunWithAsyncContext` restores when the action throws | |
 | H3 | `default(AsyncContextSnapshot)` runs the callback under the empty mapping | |
 | H4 | `Options` shared by two engines: mappings are independent | the mapping is stored anywhere but the per-engine `Agent` |
-| V1 | with `JINT_HOST_CONTRACT_VERIFICATION=1`, a deliberately unbalanced internal job trips the verifier | [§6.5](#65-host-contract-verification) |
+| V1 | with `JINT_HOST_CONTRACT_VERIFICATION=1`, a deliberately unbalanced internal job trips the verifier | [§6.5](#6-5-host-contract-verification) |
 
 Timer cases use `Options.WebApi.Timers.TimeProvider` with a fake provider, as the existing timer tests do, so
 none of them are wall-clock flaky.
@@ -747,16 +747,16 @@ none of them are wall-clock flaky.
 
 ## 9. Open questions
 
-1. **Phase 0 sequencing.** The extra-hop fixes ([§3.4(b)](#34-jint-shapes-that-change-the-answer)) are
+1. **Phase 0 sequencing.** The extra-hop fixes ([§3.4(b)](#3-4-jint-shapes-that-change-the-answer)) are
    observable today only as microtask-ordering detail. Are they worth a standalone PR before there is an
    AsyncContext to motivate them? This design says yes — they are correctness debt either way — but it is the
    maintainer's call.
 2. **FinalizationRegistry on the event loop.** Moving cleanup off the CLR finalizer thread is a behaviour change
    with its own risk profile (`CleanupFinalizationRegistry` is currently an empty stub, so today's behaviour is
    already non-conformant in more ways than one). Worth confirming that nobody depends on the current shape.
-3. **Whether phase 1 lands with the global installed.** [§6.3](#63-proposal-maturity) recommends building the
+3. **Whether phase 1 lands with the global installed.** [§6.3](#6-3-proposal-maturity) recommends building the
    mechanism and withholding the global until Stage 2.7; that is a policy decision, not an engineering one.
-4. **`PromiseReaction` storage.** Field or subclass ([§7.2](#72-the-eight-bytes-on-promisereaction)) — decided
+4. **`PromiseReaction` storage.** Field or subclass ([§7.2](#7-2-the-eight-bytes-on-promisereaction)) — decided
    by the paired benchmark, which has not been run.
 
 ---

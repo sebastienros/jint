@@ -54,13 +54,13 @@ This table is filled by the pull request that removes the member. A member that 
 | `Realm()` (public parameterless constructor) | nothing. A `Realm` only makes sense as the one an `Engine` built; get it from `Engine.HostDefined` or `Host.InitializeShadowRealm`. It was `public` only inside `#if DEBUG`, plus the implicit constructor in Release, so the shipped package's surface differed from a source build's | [#3304](https://github.com/sebastienros/jint/pull/3304) |
 | `Engine.ModuleOperations(Engine, IModuleLoader)` → `internal` | nothing. `Engine.Modules`' setter is `internal`, so an instance a host constructed could never be installed | [#3304](https://github.com/sebastienros/jint/pull/3304) |
 | `JsMap(Engine, Realm)` → `internal` | nothing. It required a `Realm`, which a host has no supported way to obtain; `JsSet`'s equivalent was already `internal` | [#3304](https://github.com/sebastienros/jint/pull/3304) |
-| The `Options` extension methods that mirrored a property — `Strict`, `Culture`, `LocalTimeZone`, `DebugMode`, `AllowClrWrite`, `LimitRecursion`, `SetTypeResolver` and sixteen more | the property they set — the full table is in [3.3](#33-options-is-configured-through-its-properties-3310) | [#3310](https://github.com/sebastienros/jint/pull/3310) |
-| `JsValueExtensions.AsInstance<TInstance>(JsValue)` | `value as TInstance` for the answer that may be absent, `(TInstance) value` for the one that must not be — see [2.4](#24-the-four-spellings-of-as-are-gone) | [#3319](https://github.com/sebastienros/jint/pull/3319) |
+| The `Options` extension methods that mirrored a property — `Strict`, `Culture`, `LocalTimeZone`, `DebugMode`, `AllowClrWrite`, `LimitRecursion`, `SetTypeResolver` and sixteen more | the property they set — the full table is in [3.3](#3-3-options-is-configured-through-its-properties-3310) | [#3310](https://github.com/sebastienros/jint/pull/3310) |
+| `JsValueExtensions.AsInstance<TInstance>(JsValue)` | `value as TInstance` for the answer that may be absent, `(TInstance) value` for the one that must not be — see [2.4](#2-4-the-four-spellings-of-as-are-gone) | [#3319](https://github.com/sebastienros/jint/pull/3319) |
 | `JsValueExtensions.As<T>(JsValue)` (`where T : ObjectInstance`) | `value as T`. The `IsObject()` test it ran first is implied by the constraint, so the two are the same question | [#3319](https://github.com/sebastienros/jint/pull/3319) |
 | `JsValueExtensions.TryCast<T>(JsValue)` | `value as T` — the body was exactly that, and it is not the `Try` pattern: no `bool`, no `out` | [#3319](https://github.com/sebastienros/jint/pull/3319) |
-| `JsValueExtensions.TryCast<T>(JsValue, Action<JsValue> fail)` | `value is T t`, with the failure written where it happens — see [2.4](#24-the-four-spellings-of-as-are-gone) | [#3319](https://github.com/sebastienros/jint/pull/3319) |
+| `JsValueExtensions.TryCast<T>(JsValue, Action<JsValue> fail)` | `value is T t`, with the failure written where it happens — see [2.4](#2-4-the-four-spellings-of-as-are-gone) | [#3319](https://github.com/sebastienros/jint/pull/3319) |
 | `Arguments.From(params JsValue[] o)` | nothing. It returned its own argument unchanged, so `Arguments.From(a, b)` and `new[] { a, b }` were the same array | [#3320](https://github.com/sebastienros/jint/pull/3320) |
-| `Arguments.Skip(this JsValue[] args, int count)` | a slice copy — `args.AsSpan(count).ToArray()`, guarded for an argument list shorter than `count` — or `System.Linq.Enumerable.Skip`, which the same source text now binds to. See [2.5](#25-argumentsskip-no-longer-shadows-linqs-skip) | [#3320](https://github.com/sebastienros/jint/pull/3320) |
+| `Arguments.Skip(this JsValue[] args, int count)` | a slice copy — `args.AsSpan(count).ToArray()`, guarded for an argument list shorter than `count` — or `System.Linq.Enumerable.Skip`, which the same source text now binds to. See [2.5](#2-5-arguments-skip-no-longer-shadows-linq-s-skip) | [#3320](https://github.com/sebastienros/jint/pull/3320) |
 | `AstExtensions` (the whole class, with its two `GetKey` overloads) → `internal` | nothing. `GetKey` extracts a property key from an Acornima expression and needs a live execution context to do it for a computed one, so it was never callable from host code at a meaningful moment; it appeared in IntelliSense for every host with `using Jint;` and an `Expression` in scope | [#3320](https://github.com/sebastienros/jint/pull/3320) |
 | `GlobalSymbolRegistry()` (public parameterless constructor) → `internal` | nothing. The well-known symbols on it are `static` and still readable — `GlobalSymbolRegistry.Iterator` and its fourteen siblings are unchanged. The *instance* half holds the symbols one engine's `Symbol.for` created, and `Engine.GlobalSymbolRegistry` is `internal`, so a host-constructed registry could never be installed | [#3320](https://github.com/sebastienros/jint/pull/3320) |
 | `ManualPromise(JsValue, Action<JsValue>, Action<JsValue>)` → `internal` | `Engine.Tasks.RegisterPromise()`, the only thing that ever returned one. Settling requires the resolving functions the engine built for that particular promise, so a hand-constructed handle settled nothing. The properties, `with` and `var (promise, resolve, reject) = …` are unchanged | [#3320](https://github.com/sebastienros/jint/pull/3320) |
@@ -69,11 +69,11 @@ This table is filled by the pull request that removes the member. A member that 
 | `WeekInfo.MinimalDays` | nothing. ECMA-402 removed `minimalDays` from `getWeekInfo()`'s result, and test262 asserts the keys are exactly `firstDay` and `weekend`, so no caller could ever have reached it | [#3336](https://github.com/sebastienros/jint/issues/3336) |
 | `ICldrProvider.GetCompactPatterns` and the `CompactPatterns` type (with `DefaultCldrProvider`'s override) | nothing. `CompactPatterns` is a magnitude-to-pattern map with no plural dimension and no digit count, so it cannot express what compact notation actually needs: CLDR keys these patterns by plural category as well as by power of ten (`ru` long is `0 тысяча` / `0 тысячи` / `0 тысяч`), and the zero count in a CLDR pattern (`00 Tsd.`) is the rounding. Compact suffixes come from the engine's embedded table | [#3354](https://github.com/sebastienros/jint/issues/3354) |
 | `ICldrProvider.GetDateTimePatterns` and the `DateTimePatterns` type (with `DefaultCldrProvider`'s override) | nothing. It never had an implementation — the only one in the tree returned `null` unconditionally — so the syntax of its three pattern strings was never fixed, and .NET custom format strings and LDML skeletons disagree on the letters that matter (`yyyy` vs `y`, `tt` vs `a`, `ddd` vs `E`). Wiring it would have meant inventing that contract, and for the `dateStyle`/`timeStyle` pair alone: ECMA-402 resolves both out of the same `availableFormats` skeleton data the component options use, which three strings cannot carry | [#3354](https://github.com/sebastienros/jint/issues/3354) |
-| `JsonSerializer.SerializeWithLimits(JsValue, ResultLimits)` | `new JsonSerializer(engine, limits).Serialize(value)` — the limits are the serializer's, the way `JsonParser`'s depth already was. See [2.6](#26-a-json-serializers-limits-are-its-own-not-an-argument-to-every-call) | [#3459](https://github.com/sebastienros/jint/pull/3459) |
-| `JsonSerializer.Serialize(JsValue, JsValue, JsValue, ResultLimits)` | `new JsonSerializer(engine, limits).Serialize(value, replacer, space)` — see [2.6](#26-a-json-serializers-limits-are-its-own-not-an-argument-to-every-call) | [#3459](https://github.com/sebastienros/jint/pull/3459) |
-| `JsonSerializer.Serialize(JsValue, IBufferWriter<byte>, ResultLimits)` | `new JsonSerializer(engine, limits).Serialize(value, writer)` — see [2.6](#26-a-json-serializers-limits-are-its-own-not-an-argument-to-every-call) | [#3459](https://github.com/sebastienros/jint/pull/3459) |
-| `JsonSerializer.Serialize(JsValue, JsValue, JsValue, IBufferWriter<byte>, ResultLimits)` | `new JsonSerializer(engine, limits).Serialize(value, replacer, space, writer)` — see [2.6](#26-a-json-serializers-limits-are-its-own-not-an-argument-to-every-call) | [#3459](https://github.com/sebastienros/jint/pull/3459) |
-| `ObjectInstance.GetOwnProperties()` → **no longer `virtual`** | nothing to call instead — the method is still there, and still public. What is gone is the ability to *override* it: it is derived from `GetOwnPropertyKeys` + `GetOwnProperty` now. A host that overrode it declares the same properties by overriding `GetOwnPropertyKeys` (and `ProbeOwnProperty` beside it), which is what every script-visible enumeration already read — see [2.6](#27-getownproperties-is-derived-not-overridden-3461) | [#3461](https://github.com/sebastienros/jint/pull/3461) |
+| `JsonSerializer.SerializeWithLimits(JsValue, ResultLimits)` | `new JsonSerializer(engine, limits).Serialize(value)` — the limits are the serializer's, the way `JsonParser`'s depth already was. See [2.6](#2-6-a-json-serializer-s-limits-are-its-own-not-an-argument-to-every-call) | [#3459](https://github.com/sebastienros/jint/pull/3459) |
+| `JsonSerializer.Serialize(JsValue, JsValue, JsValue, ResultLimits)` | `new JsonSerializer(engine, limits).Serialize(value, replacer, space)` — see [2.6](#2-6-a-json-serializer-s-limits-are-its-own-not-an-argument-to-every-call) | [#3459](https://github.com/sebastienros/jint/pull/3459) |
+| `JsonSerializer.Serialize(JsValue, IBufferWriter<byte>, ResultLimits)` | `new JsonSerializer(engine, limits).Serialize(value, writer)` — see [2.6](#2-6-a-json-serializer-s-limits-are-its-own-not-an-argument-to-every-call) | [#3459](https://github.com/sebastienros/jint/pull/3459) |
+| `JsonSerializer.Serialize(JsValue, JsValue, JsValue, IBufferWriter<byte>, ResultLimits)` | `new JsonSerializer(engine, limits).Serialize(value, replacer, space, writer)` — see [2.6](#2-6-a-json-serializer-s-limits-are-its-own-not-an-argument-to-every-call) | [#3459](https://github.com/sebastienros/jint/pull/3459) |
+| `ObjectInstance.GetOwnProperties()` → **no longer `virtual`** | nothing to call instead — the method is still there, and still public. What is gone is the ability to *override* it: it is derived from `GetOwnPropertyKeys` + `GetOwnProperty` now. A host that overrode it declares the same properties by overriding `GetOwnPropertyKeys` (and `ProbeOwnProperty` beside it), which is what every script-visible enumeration already read — see [2.6](#2-7-getownproperties-is-derived-not-overridden-3461) | [#3461](https://github.com/sebastienros/jint/pull/3461) |
 | `ICldrProvider.GetSupportedCalendars` (and `DefaultCldrProvider`'s override) | `ICalendarProvider.GetSupportedCalendars`. ECMA-402 has one list of calendars, not two, and defines it as the calendars the implementation can format — which in Jint means the ones it can *convert*, because that is what formatting a non-ISO calendar goes through. A calendar with conversions and no names still formats numerically; one with names and no conversions cannot be formatted at all. Adding a calendar was already three overrides on `ICalendarProvider`, and it now reaches `Intl` as well as `Temporal` | [#3404](https://github.com/sebastienros/jint/issues/3404) |
 
 ### 2.1 Sealed types
@@ -95,7 +95,7 @@ The sealed groups: `CacheOptions`, `ConsoleOptions`, `ConstraintOptions`, `Cover
 `TimerOptions`, `WebApiOptions`, `WorkerOptions` (`ParsingOptions` already was).
 
 `Engine`'s facets — `Engine.AdvancedOperations`, `Engine.ConstraintOperations`,
-`Engine.ModuleOperations`, and the three [§3.13](#313-engineadvanced-is-split-by-concern-3351) adds
+`Engine.ModuleOperations`, and the three [§3.13](#3-13-engine-advanced-is-split-by-concern-3351) adds
 (`Engine.TaskOperations`, `Engine.WebApiOperations`, `Engine.DiagnosticOperations`) — are `sealed`
 ([#3320](https://github.com/sebastienros/jint/pull/3320)). Each one's only constructor is `internal` and each
 is handed out by an `Engine` that built it, so nothing outside the assembly could have derived from one; they
@@ -309,7 +309,7 @@ indexed collection) derive the whole coherence matrix from two or three members 
 
 The in-box overrides are gone with it — `ArrayInstance`, `Function`, `JsRegExp`, `StringInstance`,
 `ObjectWrapper`, `ArrayLikeObject`, `NamedPropertyObject` and six others each declared their keys twice, and
-now declare them once. Two of those pairs did not agree; see [4.45](#445-getownproperties-reports-what-the-key-enumerations-report-3461).
+now declare them once. Two of those pairs did not agree; see [4.45](#4-45-getownproperties-reports-what-the-key-enumerations-report-3461).
 
 ## 3. Renamed and reshaped API
 
@@ -559,19 +559,19 @@ The annotation swap is the reason to read this section. A delegate registration 
 trimmer can remove, so the warning was noise; the `object` overload is the one that resolves members from a
 runtime type, and it was silent. A trimming host projecting a host object into a shadow realm therefore got
 no diagnostic, and a trimmed-away member read as `undefined` at run time. See
-[§6.3](#63-apis-that-now-warn) for what the message says and what to do about it.
+[§6.3](#6-3-apis-that-now-warn) for what the message says and what to do about it.
 
 Two consequences worth knowing. Passing a typed variable now picks `SetValue<T>` rather than
 `SetValue(string, object)`, which is an improvement — `[DynamicallyAccessedMembers]` preserves what Jint
 reflects over — but it also means a delegate registration wants the same cast the engine's does
-(`(Delegate) new Func<int, int>(…)`, see [§6.4](#64-what-you-owe-your-own-project)). And every overload now
+(`(Delegate) new Func<int, int>(…)`, see [§6.4](#6-4-what-you-owe-your-own-project)). And every overload now
 takes the engine's host-call reservation for the duration of the write, exactly as
 `ShadowRealm.Evaluate` already did, so registering a value from another thread while the engine is running
 is rejected with `InvalidOperationException` instead of racing the global object.
 ### 3.8 The option registries are `OptionsList<T>` ([#3327](https://github.com/sebastienros/jint/pull/3327))
 
 Six registries changed type from `List<T>` to `OptionsList<T>`, so that they can refuse a change after an
-engine has read them — see [4.16](#416-options-is-configuration-until-an-engine-reads-it-and-frozen-afterwards-3327),
+engine has read them — see [4.16](#4-16-options-is-configuration-until-an-engine-reads-it-and-frozen-afterwards-3327),
 which is the reason. `OptionsList<T>` is an `IList<T>` and an `IReadOnlyList<T>` with `AddRange`, `RemoveAll`
 and `ToArray`, so the calls a host already writes compile unchanged:
 
@@ -671,7 +671,7 @@ protected override bool TryGetNamedValue(string name, out JsValue value)
 The base class derives `GetOwnProperty`, `TryGetOwnPropertyValue`, `ProbeOwnProperty`, both key
 enumerations, `Set`, `Delete` and `DefineOwnProperty` from those, so the named key is now visible to every
 enumeration including the CLR conversion, and reaches the probe lane it could not reach before. See
-[§5.3](#53-host-objects-one-hook-set-for-named-properties-3338) for the whole hook set. A collection whose named
+[§5.3](#5-3-host-objects-one-hook-set-for-named-properties-3338) for the whole hook set. A collection whose named
 member genuinely needs to intercept reads that resolve on its *prototype* was never served by this class —
 `Get` has always been sealed — and stays on plain `ObjectInstance`.
 
@@ -775,7 +775,7 @@ The other two are gone rather than re-signatured, because neither is something a
   `BoundArguments` unchanged — those are what a host does with a bound function it is *handed*.
 - **`protected Function(Engine, Realm, JsString?)` is gone.** It was the only accessible constructor on
   `Function`, so `Function` advertised `Call` as an extension point that no third party could reach. The
-  replacement is [`HostFunction`](#55-a-host-function-is-a-class-you-can-derive-3345), which resolves the
+  replacement is [`HostFunction`](#5-5-a-host-function-is-a-class-you-can-derive-3345), which resolves the
   realm itself.
 
 After this change `Realm` appears in exactly six places in the public surface, and a host can satisfy every
@@ -855,7 +855,7 @@ script computes, which is the line between it and what stays on `Advanced`.
 | `engine.Advanced.GetInteropConversionDiagnostics()` | `engine.Diagnostics.GetInteropConversionDiagnostics()` |
 
 The last three are still the declared non-contracts and still carry `[Experimental("JINT0001")]`; see
-[§2.2](#22-the-declared-non-contracts-now-say-so-to-the-compiler).
+[§2.2](#2-2-the-declared-non-contracts-now-say-so-to-the-compiler).
 
 **Three members are on `Engine` itself**, because none of them is advanced and each is a peer of something
 already there. `HostDefined` is the host's own slot on this engine, next to `Global` and `Intrinsics`;
@@ -999,7 +999,7 @@ That is the shim, not the recommendation: a file that spells `Module` for the re
 
 ### 3.16 `UntrustedCodeLimits` and `ResultLimits` are named properties, and a preset is something you adjust ([#3459](https://github.com/sebastienros/jint/pull/3459))
 
-This is [3.3](#33-options-is-configured-through-its-properties-3310)'s rule — optional configuration is a
+This is [3.3](#3-3-options-is-configured-through-its-properties-3310)'s rule — optional configuration is a
 property, never a positional argument — applied to the two limit bags that still ignored it.
 
 `UntrustedCodeLimits` took **fifteen constructor parameters, eight of them required and positional, four of
@@ -1216,7 +1216,7 @@ noise. Turn it off only for trusted, independently bounded scripts:
 var engine = new Engine(options => options.Constraints.StackOverflowGuard = false);
 ```
 
-See [Surviving an unbounded recursion](../README.md#surviving-an-unbounded-recursion).
+See [Execution constraints](guide/constraints.md).
 
 ### 4.6 Atomics agent suspension is disabled by default ([#3058](https://github.com/sebastienros/jint/pull/3058))
 
@@ -1249,7 +1249,7 @@ What a host has to change:
   still be dispatched from another thread inside one of the four callback-admission windows.
 
 The full contract, including those windows, is in
-[Thread-safety](../README.md#thread-safety).
+[Thread safety](guide/thread-safety.md).
 
 ### 4.8 Memory is accounted across async continuations ([#3036](https://github.com/sebastienros/jint/pull/3036))
 
@@ -1276,7 +1276,7 @@ var engine = new Engine(options => options
 
 Narrower opt-ins: `Interop.ExposeDetailedExceptionMessages`, `Interop.ExposeDetailedResolutionErrors`
 (which already existed and already defaulted to `false`), `Modules.ExposeDetailedLoadErrors`. See
-[Detailed development errors](../README.md#detailed-development-errors).
+[Errors and diagnostics](guide/errors.md).
 
 ### 4.10 `*Async` entries have one deterministic failure channel ([#3252](https://github.com/sebastienros/jint/pull/3252))
 
@@ -1308,7 +1308,7 @@ Two smaller consequences: `ExecuteAsync` and `Modules.ImportAsync` now throw the
 `InvalidOperationException` **synchronously** rather than faulting the task, and a `null` source now
 raises `ArgumentNullException` where 4.16 raised `NullReferenceException` from inside the parser. No
 constraint is weakened — same exception type, same message, same aborted run. See
-[Where failures arrive](../README.md#where-failures-arrive).
+[Errors and diagnostics](guide/errors.md).
 
 ### 4.11 Array-like `length` above 2^32−1 ([#3248](https://github.com/sebastienros/jint/pull/3248))
 
@@ -1348,7 +1348,7 @@ assigned rather than the normalized one — so `JINTSEC010` (recursion limit dis
 (recursion limit saturated) still tell the two mistakes apart.
 
 `LimitStatements` also lost the parameter default that made `MaxStatements()` mean "no limit"; see
-[3.4](#34-the-surviving-extension-methods-have-one-verb-per-intent-3310).
+[3.4](#3-4-the-surviving-extension-methods-have-one-verb-per-intent-3310).
 
 ### 4.13 New limits, all defaulting to unlimited
 
@@ -1370,14 +1370,14 @@ Two further additions in the same stack are entirely opt-in and change nothing o
 - [#3059](https://github.com/sebastienros/jint/pull/3059) — the `JINTSEC*` configuration diagnostics,
   read through `options.ValidateSecurityConfiguration()` or enforced with
   `options.EnsureSecurityConfiguration()`. See
-  [Validating options for untrusted scripts](../README.md#validating-options-for-untrusted-scripts).
+  [Running untrusted code](guide/untrusted-code.md).
 - [#3060](https://github.com/sebastienros/jint/pull/3060) — the hardened `ForUntrustedCode(limits)`
   profile and its `UntrustedCodeLimits.BeginOperation(engine, token)` scope, which spans one
   cumulative deadline and allocation budget across every entry an operation makes. See
-  [Running untrusted code](../README.md#running-untrusted-code).
+  [Running untrusted code](guide/untrusted-code.md).
 
 The supported boundaries and the residual risks are in the
-[threat model](../.github/THREAT_MODEL.md).
+[threat model](https://github.com/sebastienros/jint/blob/main/.github/THREAT_MODEL.md).
 
 ### 4.14 `Engine.Constraints.Find<T>()` matches derived constraints ([#3309](https://github.com/sebastienros/jint/pull/3309))
 
@@ -1510,7 +1510,7 @@ Three details worth knowing:
   duration of the callback — no other `Options` instance, no other group, and not the registries: a live
   enable sets a value, it never grows an `OptionsList<T>`. What it writes to is a copy of the web-API settings
   the engine takes for itself, so nothing the callback writes reaches another engine — see
-  [§4.19](#421-webapienables-callback-configures-one-engine-not-every-engine-3359).
+  [§4.19](#4-21-webapi-enable-s-callback-configures-one-engine-not-every-engine-3359).
 - **A group is allocated on first touch, and one materialized after the freeze is born frozen.** So
   `options.Intl.CldrProvider = …` on an engine's options throws even though nothing had ever touched
   `Intl`.
@@ -1906,8 +1906,8 @@ A provider implementing `ICalendarProvider` from scratch is unaffected: both mem
 Second, a host calendar reaches construction, the field accessors, `with`, `toString` and the
 `PlainYearMonth`/`PlainMonthDay` conversions, but neither arithmetic nor `Intl.DateTimeFormat`; both refused
 it with a `RangeError` when this shipped.
-[§4.40](#438-one-list-of-calendars-and-icalendarprovider-owns-it-3404) gives it `Intl`, and
-[§4.44](#444-calendar-arithmetic-is-answered-by-whoever-answers-for-the-calendar-3403) gives it arithmetic.
+[§4.40](#4-38-one-list-of-calendars-and-icalendarprovider-owns-it-3404) gives it `Intl`, and
+[§4.44](#4-44-calendar-arithmetic-is-answered-by-whoever-answers-for-the-calendar-3403) gives it arithmetic.
 
 ### 4.31 A module graph too deep to link raises an error instead of ending the process ([#3401](https://github.com/sebastienros/jint/issues/3401))
 
@@ -1921,7 +1921,7 @@ stack, which is why [#3308](https://github.com/sebastienros/jint/issues/3308) ki
 on four.
 
 Both algorithms now probe for headroom, under the same `Options.Constraints.StackOverflowGuard` that covers
-script recursion ([4.5](#45-the-stack-overflow-guard-is-enabled-by-default-3057)), and raise
+script recursion ([4.5](#4-5-the-stack-overflow-guard-is-enabled-by-default-3057)), and raise
 `RangeError: Maximum call stack size exceeded while linking module '…'` — or `while evaluating module '…'` —
 naming the module the walk gave up on. It is an ordinary JavaScript error: a rejection for `import()`, a
 `JavaScriptException` out of `Engine.Modules.Import`, and an engine that still runs script afterwards. A
@@ -2156,7 +2156,7 @@ handle[Symbol.dispose] instanceof Function    // false
 ```
 
 All three are now functions of the realm the wrapper is created in — the same realm its own prototype comes
-from, and the one `ShadowRealm.SetValue` enters deliberately ([§4.23](#423-a-value-registered-on-a-shadowrealm-belongs-to-that-realm-3325)).
+from, and the one `ShadowRealm.SetValue` enters deliberately ([§4.23](#4-23-a-value-registered-on-a-shadowrealm-belongs-to-that-realm-3325)).
 
 **What could break:** nothing that worked. Calling the member never consulted its prototype, so `using` and
 `JSON.stringify` behaved correctly throughout; what changes is that a feature detection
@@ -2227,9 +2227,9 @@ dictionary-shaped target such as `JObject` (string keys still answer from its ow
 
 ### 4.41 Two holes in the freeze, closed ([#3360](https://github.com/sebastienros/jint/issues/3360))
 
-[§4.16](#416-options-is-configuration-until-an-engine-reads-it-and-frozen-afterwards-3327) says an `Options`
+[§4.16](#4-16-options-is-configuration-until-an-engine-reads-it-and-frozen-afterwards-3327) says an `Options`
 stops accepting changes once an engine has read it. Two things did not obey that, and both matter more now
-that [§5.7](#57-a-host-can-read-back-the-configuration-of-an-engine-it-was-handed-3360) hands the frozen
+that [§5.7](#5-7-a-host-can-read-back-the-configuration-of-an-engine-it-was-handed-3360) hands the frozen
 instance to a host.
 
 **`UseNodeBuiltinModules` on a frozen `Options` used to succeed silently.** It was the only public
@@ -2289,7 +2289,7 @@ budget the engine was configured with, so an engine with a deliberately short `R
 `Constraints.RegexTimeout`, or set `RegexTimeout` on the parsing options of the script in question, which
 still outranks the constraint. A prepared script applies its budget to the regexes it builds as well as the
 ones it declares; which budget that is became a question of its own in
-[4.67](#467-a-prepared-scripts-regexes-run-under-the-executing-engines-regextimeout-3442).
+[4.67](#4-67-a-prepared-script-s-regexes-run-under-the-executing-engine-s-regextimeout-3442).
 ### 4.43 A locale's own numbering system is what every `Intl` formatter resolves to ([#3418](https://github.com/sebastienros/jint/issues/3418))
 
 Four formatters carry a `[[NumberingSystem]]`. Two of them asked `ICldrProvider.GetDefaultNumberingSystem`
@@ -2365,7 +2365,7 @@ own arithmetic, do not claim it: override `IsSupported` to return `false` for it
 `GetSupportedCalendars`.
 
 What that answering path answers *with* changed after this section was written:
-[4.50](#450-a-date-past-a-lunisolar-calendars-table-is-still-reckoned-in-that-calendar-3451) gave `chinese`
+[4.50](#4-50-a-date-past-a-lunisolar-calendar-s-table-is-still-reckoned-in-that-calendar-3451) gave `chinese`
 and `dangi` a real reckoning past the end of their tables, where the conversions used to fall back to
 ISO-like fields. The subtraction above was `1849-11-13` — the ninth month, day 29, from a date in the
 eleventh month, day 13 — and is now `1849-12-26`, which is the eleventh month, day 13.
@@ -2383,7 +2383,7 @@ difference threw out of `Engine.Evaluate`.
 
 ### 4.45 `GetOwnProperties` reports what the key enumerations report ([#3461](https://github.com/sebastienros/jint/pull/3461))
 
-Deriving `GetOwnProperties` from `GetOwnPropertyKeys` ([2.6](#27-getownproperties-is-derived-not-overridden-3461))
+Deriving `GetOwnProperties` from `GetOwnPropertyKeys` ([2.6](#2-7-getownproperties-is-derived-not-overridden-3461))
 makes it agree with every other enumeration, and for three object shapes the two used to differ. Nothing in
 script changes; what changes is what a host reading `GetOwnProperties`, converting an object with
 `ToObject()`, or inspecting a scope in the debugger sees.
@@ -2506,7 +2506,7 @@ answering `null`.
 **What could break:** `ar-SA` and its region-mates now report and format in `islamic-umalqura`. Every other
 locale reports exactly what it reported before, `.NET`'s answer and CLDR's having already agreed everywhere
 else. A host implementing `ICldrProvider` **from scratch** rather than deriving from `DefaultCldrProvider`
-has one more member to write; deriving costs nothing, and [5.2](#52-changing-one-locale-datum-is-one-override-3335)
+has one more member to write; deriving costs nothing, and [5.2](#5-2-changing-one-locale-datum-is-one-override-3335)
 is why that is the shape the interface is documented for.
 ### 4.48 The blocking promise drain is bounded on the engine's clock, not on the wall clock ([#3406](https://github.com/sebastienros/jint/issues/3406))
 ### 4.49 `Duration.prototype.round` reckons in the calendar its `relativeTo` carries ([#3450](https://github.com/sebastienros/jint/issues/3450))
@@ -2573,7 +2573,7 @@ solar term. It landed as a fallback rather than a replacement — inside a table
 byte for byte — and it reproduces both tables exactly across every year over which they tabulate this
 calendar rather than an older one: `chinese` from 1929, `dangi` from 1912, to the end of each. It is the
 replacement now, for the reason
-[4.71](#471-chinese-and-dangi-read-the-same-on-every-target-framework-3484) gives.
+[4.71](#4-71-chinese-and-dangi-read-the-same-on-every-target-framework-3484) gives.
 
 **What could break:** anything reading `year`, `month`, `monthCode`, `day`, `dayOfYear`, `daysInMonth`,
 `daysInYear`, `monthsInYear` or `inLeapYear` off a `chinese` or `dangi` date outside those tables, and
@@ -2589,11 +2589,11 @@ Two consequences worth naming:
   `GetDaysInMonth` refuses the month `GetMonth` just named; the date used to come back as ISO fields for
   that reason rather than for being out of range.
 - **Arithmetic past a table's end refused when this landed**, unchanged from
-  [4.44](#444-calendar-arithmetic-is-answered-by-whoever-answers-for-the-calendar-3403) and
+  [4.44](#4-44-calendar-arithmetic-is-answered-by-whoever-answers-for-the-calendar-3403) and
   [#3452](https://github.com/sebastienros/jint/pull/3452): `add`, `subtract`, `until` and `since` were
   written against the BCL calendar directly, and a result it could not represent was a `RangeError` —
   the same split `hebrew` and `persian` had always had, fields reckoned and arithmetic refused. That
-  split is what [4.70](#470-a-date-a-calendar-reports-fields-for-is-a-date-it-reckons-arithmetic-in-3483)
+  split is what [4.70](#4-70-a-date-a-calendar-reports-fields-for-is-a-date-it-reckons-arithmetic-in-3483)
   closes; the note stays because it is the reason the **provider** path changed here too. §4.44 said a
   provider claiming `chinese` walks the two conversions and so answers `1849-11-13` where a default
   engine raised `RangeError`, because those conversions fell back to ISO-like fields. They no longer do,
@@ -2630,7 +2630,7 @@ with a pattern that was quadratic on input holding no `]`.
 
 **What could break:** nothing an embedder configured. `Options.Constraints.RegexTimeout` never reached
 these patterns and still does not — it bounds script-supplied regular expressions, which is unchanged
-(see [§4.42](#442-a-regex-built-at-run-time-is-bounded-by-the-configured-regextimeout-3431)). A host that
+(see [§4.42](#4-42-a-regex-built-at-run-time-is-bounded-by-the-configured-regextimeout-3431)). A host that
 caught `RegexMatchTimeoutException` around `Engine.Evaluate` to absorb this can drop that handler; a host
 that treated it as a signal the script was hostile was reading a scheduling artefact.
 ### 4.55 An index a wrapped collection does not have does not exist, in every lane ([#3423](https://github.com/sebastienros/jint/issues/3423))
@@ -2678,7 +2678,7 @@ indices, for named CLR members, or for a dictionary-shaped target such as Newton
 index-shaped string keys are dictionary keys and still answer from its own key set.
 ### 4.56 An index outside a wrapped collection is refused, not handed to the collection ([#3422](https://github.com/sebastienros/jint/issues/3422))
 
-[§4.40](#440-an-index-on-a-host-collection-is-one-property-however-it-is-spelled-3384) gave the array-like
+[§4.40](#4-40-an-index-on-a-host-collection-is-one-property-however-it-is-spelled-3384) gave the array-like
 *view* ownership of every index-shaped key. A host collection that has a `Count` and an indexer of its own,
 but none of the three interfaces that produce such a view, does not get one — and every index-shaped key on it
 resolved the reflected indexer, which takes whatever index it parsed out of the key straight to the
@@ -2771,7 +2771,7 @@ had given it the target's members. A contract with no index in it — `ICollecti
 no view and is unchanged. A type the target does **not** implement is not cast to: that exposure keeps the
 plain wrapper it has always had rather than raising `InvalidCastException`.
 
-[§4.37](#437-a-host-collection-exposed-as-ilistt-refuses-a-growing-generic-with-a-typeerror-3394) is narrowed
+[§4.37](#4-37-a-host-collection-exposed-as-ilist-t-refuses-a-growing-generic-with-a-typeerror-3394) is narrowed
 by this: the `ArrayOperations.IndexWrappedOperations` lane it describes is no longer reachable under a JIT,
 because the exposure that reached it now gets a typed wrapper. The refusal it added is still what a runtime
 with no code for the typed factory's instantiation gives — Native AOT over a value-type element — and
@@ -2801,7 +2801,7 @@ consequences, none of which changes a signature:
 ### 4.58 A worker's time budgets are measured on the worker's own clock ([#3481](https://github.com/sebastienros/jint/issues/3481))
 
 `Options.Constraints.TimeProvider` governs two budgets — `LimitExecutionTime`'s constraint and
-`PromiseTimeout`'s blocking drain ([§4.48](#448-the-blocking-promise-drain-is-bounded-on-the-engines-clock-not-on-the-wall-clock-3406)).
+`PromiseTimeout`'s blocking drain ([§4.48](#4-48-the-blocking-promise-drain-is-bounded-on-the-engine-s-clock-not-on-the-wall-clock-3406)).
 A worker inherited the second of those as a *value* and measured it on the system clock, while the first
 arrived as a replayed constraint factory that had closed over the **parent's** options and so read the
 parent's clock. One worker engine, two budgets, two clocks.
@@ -2951,7 +2951,7 @@ f.format(new Date(Date.UTC(2026, 7, 27)));  // "٢٧٫٠٨٫٢٠٢٦"  - U+066B 
 f.format(new Date(Date.UTC(2026, 7, 27)));  // "٢٧.٠٨.٢٠٢٦"
 ```
 
-This is [4.46](#446-intl-writes-the-numbering-systems-digits-in-the-parts-lane-and-only-in-the-number-3455-3456) one
+This is [4.46](#4-46-intl-writes-the-numbering-system-s-digits-in-the-parts-lane-and-only-in-the-number-3455-3456) one
 constructor over: the same "a literal is pattern text and only a number is a number" split, applied to
 `Intl.DateTimeFormat`'s two lanes rather than `Intl.NumberFormat`'s.
 
@@ -3072,7 +3072,7 @@ engine.Execute(prepared);
 chose anything" were always distinguishable — the preparation path just resolved the second case eagerly,
 against a default rather than against a constraint it could not see. It now leaves the value unresolved and
 each engine supplies its own at the point of use, which reaches the same two lanes
-[4.42](#442-a-regex-built-at-run-time-is-bounded-by-the-configured-regextimeout-3431) unified: the literals
+[4.42](#4-42-a-regex-built-at-run-time-is-bounded-by-the-configured-regextimeout-3431) unified: the literals
 a prepared program declares and the patterns it builds while running.
 
 An explicit `RegexTimeout` on the preparation's parsing options is unchanged and still outranks the engine:
@@ -3108,7 +3108,7 @@ For the overwhelmingly common case that is no change at all — `Constraints.Reg
 ten seconds preparation used to bake in. A host that *tightened* the constraint gets the tighter budget it
 asked for, which can raise `RegexMatchTimeoutException` where a prepared pattern used to complete; a host
 that *raised* it above ten seconds gets the looser one. Either way the fix is the same as it was for
-[4.42](#442-a-regex-built-at-run-time-is-bounded-by-the-configured-regextimeout-3431): set the value you want
+[4.42](#4-42-a-regex-built-at-run-time-is-bounded-by-the-configured-regextimeout-3431): set the value you want
 on `Constraints.RegexTimeout`, or pin one on the preparation's parsing options, which still wins. A host
 relying on the preparation report to warn about an unset `RegexTimeout` should validate the engine's
 `Options` instead.
@@ -3212,7 +3212,7 @@ Four calendars are backed by a `System.Globalization.Calendar` that covers less 
 `hebrew` (ISO 1583-01-01 to 2239-09-29), `persian` (from 622), `chinese` (1901–2101) and `dangi`
 (918–2051). Their field accessors have long answered past those bounds from a reckoning of the calendar's
 own — algorithmic for `hebrew` and `persian`, astronomical for the other two since
-[4.50](#450-a-date-past-a-lunisolar-calendars-table-is-still-reckoned-in-that-calendar-3451). Their
+[4.50](#4-50-a-date-past-a-lunisolar-calendar-s-table-is-still-reckoned-in-that-calendar-3451). Their
 arithmetic did not: it read the backing calendar directly and turned its refusal into a `RangeError`.
 
 ```js
@@ -3280,7 +3280,7 @@ Temporal.PlainDate.from('2057-09-28').withCalendar('chinese').monthCode;
 ```
 
 Both calendars are now reckoned by the astronomical implementation
-[4.50](#450-a-date-past-a-lunisolar-calendars-table-is-still-reckoned-in-that-calendar-3451) added for the
+[4.50](#4-50-a-date-past-a-lunisolar-calendar-s-table-is-still-reckoned-in-that-calendar-3451) added for the
 dates past the end of those tables, for **every** date rather than only for those. It is the same code on
 every runtime, and it is at least as accurate as the tables it replaces: measured against the Hong Kong
 Observatory's published conversion table over 1901–2100 (2,473 months), it names one month boundary
@@ -3569,7 +3569,7 @@ async function* countdown(n) {
 Per [AsyncGeneratorYield](https://tc39.es/ecma262/#sec-asyncgeneratoryield) the generator is suspended *at* the
 yield, and [14.4.14](https://tc39.es/ecma262/#sec-generator-function-definitions-runtime-semantics-evaluation)
 resumes a `yield*` delegation with the completion its caller sent; neither re-evaluates the iteration statement
-the `yield*` sits inside. This is a second defect under the same shape as [§4.72](#472-a-yield-a-loop-comes-back-to-delegates-again-3505),
+the `yield*` sits inside. This is a second defect under the same shape as [§4.72](#4-72-a-yield-a-loop-comes-back-to-delegates-again-3505),
 not the same one: that one was a stale memo of what a `yield` node had returned, this one is where the
 generator was standing when it stopped.
 
@@ -3652,10 +3652,10 @@ Both are gone: which month lies *n* lunations away is now arithmetic on the luna
 exact, additive and reached without touching the years in between. The year walk stays as the fallback for
 the cases a closed form must not answer — a year the reckoning cannot place, an ordinal that does not occur
 in it, or a step so large no representable date could survive it — and it is interruptible either way, per
-[4.80](#480-a-bulk-month-addition-in-a-lunisolar-calendar-can-be-interrupted-3511).
+[4.80](#4-80-a-bulk-month-addition-in-a-lunisolar-calendar-can-be-interrupted-3511).
 
 `hebrew` walked for one release more, and now counts its own cycle instead — see
-[4.83](#483-adding-months-in-hebrew-counts-the-metonic-cycle-3520).
+[4.83](#4-83-adding-months-in-hebrew-counts-the-metonic-cycle-3520).
 
 **What could break:** a `chinese` or `dangi` value produced by a month step of more than about 200,000
 months (some sixteen thousand years), or by any step from a date more than about that far out. Everything
@@ -3665,7 +3665,7 @@ closer is unchanged, and that is measured rather than asserted: the two reckonin
 
 ### 4.83 Adding months in `hebrew` counts the Metonic cycle ([#3520](https://github.com/sebastienros/jint/issues/3520))
 
-`hebrew` was the walk [4.81](#481-adding-months-in-chinese-or-dangi-counts-lunations-3511) left behind, and
+`hebrew` was the walk [4.81](#4-81-adding-months-in-chinese-or-dangi-counts-lunations-3511) left behind, and
 so was every other calendar the engine reads a BCL `Calendar` for. Adding months asked each year in turn how
 many months it held, one step per year crossed — and past the end of that calendar's own table, which for
 `hebrew` is only ISO 1583 to 2239, the question was answered by *catching* the
@@ -3702,10 +3702,10 @@ three million months, 528 `until` and `since` differences, and 126,455 field rea
 and they agree on every one.
 
 **What could break:** an engine that configures a limit and evaluates one of these additions.
-[4.80](#480-a-bulk-month-addition-in-a-lunisolar-calendar-can-be-interrupted-3511) charges `LimitStatements`
+[4.80](#4-80-a-bulk-month-addition-in-a-lunisolar-calendar-can-be-interrupted-3511) charges `LimitStatements`
 one statement per 256 years stepped, and for `hebrew` and `persian` there are no year steps left to charge,
 so a budget that used to expire on a bulk month addition now returns the date instead — the same reversal
-[4.81](#481-adding-months-in-chinese-or-dangi-counts-lunations-3511) made for `chinese` and `dangi`. A
+[4.81](#4-81-adding-months-in-chinese-or-dangi-counts-lunations-3511) made for `chinese` and `dangi`. A
 calendar a host `ICalendarProvider` answers for still walks, since only the provider knows how many months
 its years hold, and that walk is bounded exactly as before.
 
@@ -3871,7 +3871,7 @@ same way, and predates the converter half.
 
 Neither input is in a cache key any more, because no selected overload is cached at all: the process-wide
 table holds the *candidate set* a pair of types offers, and which candidate applies is scored on every
-evaluation. [§4.99](#499-an-operator-overload-is-chosen-by-the-arguments-in-hand-3567) is what settled that,
+evaluation. [§4.99](#4-99-an-operator-overload-is-chosen-by-the-arguments-in-hand-3567) is what settled that,
 and it covers a third input this section did not — the argument values.
 
 `JintUnaryExpression`'s table is untouched and still caches a resolved method: a unary operator is the operand
@@ -3921,7 +3921,7 @@ answers that differ are the ones listed above.
 
 [FormatNumericToString](https://tc39.es/ecma402/#sec-formatnumberstring) is where a number's digits are
 decided, once, for every style and every notation — the style and the notation only choose what is written
-around them. [§4.59](#459-intlnumberformat-walks-one-pattern-for-both-lanes-non-finite-values-included-3465)
+around them. [§4.59](#4-59-intl-numberformat-walks-one-pattern-for-both-lanes-non-finite-values-included-3465)
 brought the two lanes onto one pattern walk; this brings them onto one digit computation, and `format` is
 now literally the concatenation of the parts `formatToParts` returns, as
 [FormatNumber](https://tc39.es/ecma402/#sec-formatnumber) defines it. Three lanes were still computing
@@ -4029,7 +4029,7 @@ same conversion, so `0xAB54A98CEB1F0AD2`, `0o1255245230635307605322`, the binary
 9223372036854775808 moves through *this* conversion. A literal carrying a decimal point or an exponent
 takes the scanner's own `double.Parse` instead, which on `net472` and the `netstandard` assets loaded
 there is a second, separate source of the same one-ULP divergence;
-[§4.91](#491-a-literal-carrying-a-fraction-or-an-exponent-holds-the-same-double-on-every-target-framework-3533)
+[§4.91](#4-91-a-literal-carrying-a-fraction-or-an-exponent-holds-the-same-double-on-every-target-framework-3533)
 fixes that one, and §4.90 is the string side of both. There is no option to restore the old value: it was
 a different number from the one the source names.
 
@@ -4079,7 +4079,7 @@ compared the double one of these three produced for text of 16 or more significa
 catching an `OverflowException` around `JSON.parse`. There is no option to restore the old values: they
 were different numbers from the ones the text names. `parseInt` is a separate lane that accumulated in
 `double` and was one ULP off on *every* target framework for a long digit run; it is
-[4.92](#492-parseint-returns-the-number-nearest-the-digits-it-read-3534) below.
+[4.92](#4-92-parseint-returns-the-number-nearest-the-digits-it-read-3534) below.
 
 ### 4.91 A literal carrying a fraction or an exponent holds the same double on every target framework ([#3533](https://github.com/sebastienros/jint/issues/3533))
 
@@ -4132,8 +4132,8 @@ Step 15 of [parseInt](https://tc39.es/ecma262/#sec-parseint-string-radix) is `Re
 `mathInt` is the exact integer the accepted digits denote in the radix, and 𝔽 rounds it to the nearest
 Number, once. Jint accumulated the digits into a `double` instead — `result += digit * pow` — so every
 addition past the 53rd significant bit rounded, and a long digit run rounded many times where the spec
-rounds once. Unlike [4.89](#489-a-whole-number-literal-holds-the-same-double-on-every-target-framework-3530)
-and [4.90](#490-parsefloat-number-and-jsonparse-read-the-same-double-on-every-target-framework-3532) this
+rounds once. Unlike [4.89](#4-89-a-whole-number-literal-holds-the-same-double-on-every-target-framework-3530)
+and [4.90](#4-90-parsefloat-number-and-json-parse-read-the-same-double-on-every-target-framework-3532) this
 was not a runtime difference: the accumulation was Jint's own and was equally wrong on every target
 framework.
 
@@ -4173,7 +4173,7 @@ A [NumericLiteral](https://tc39.es/ecma262/#sec-literals-numeric-literals) denot
 mathematical value. The scanner accumulates a literal's digits into a `ulong`; when a **radix** literal
 overflows that, it rebuilds the value one digit at a time in a `double`, which rounds once per digit past
 the 53rd significant bit. It is the same defect as
-[4.92](#492-parseint-returns-the-number-nearest-the-digits-it-read-3534) in a second reader, and like that
+[4.92](#4-92-parseint-returns-the-number-nearest-the-digits-it-read-3534) in a second reader, and like that
 one it owed nothing to the platform — every target framework was wrong in the same places:
 
 ```js
@@ -4208,7 +4208,7 @@ digits as decimal, which is the wrong base:
 **What could break:** a hexadecimal, octal or binary literal denoting a value above 2^64, and any legacy
 octal literal denoting a value above 2^64 in sloppy mode. Nothing at or below 2^64 moves, and neither does
 a decimal literal, which takes a different branch of the scanner —
-[4.91](#491-a-literal-carrying-a-fraction-or-an-exponent-holds-the-same-double-on-every-target-framework-3533)
+[4.91](#4-91-a-literal-carrying-a-fraction-or-an-exponent-holds-the-same-double-on-every-target-framework-3533)
 covers that one. There is no option to restore the old values: they were not the numbers the literals name.
 
 ### 4.94 One definition of white space, and U+0085 is not in it ([#3539](https://github.com/sebastienros/jint/issues/3539))
@@ -4478,7 +4478,7 @@ engine.Evaluate("m + 300");   // 5.0:  OverflowException out of Evaluate, conver
 Run the two the other way round and the failure was silent instead: `m + 300` resolved to the `object`
 overload, and `m + 5` then took it too — `"object:5"` where the type declares an overload that fits. The table
 was process-wide, so a *fresh* engine got the previous engine's answer, and
-[§4.86](#486-two-engines-configured-differently-no-longer-decide-each-others-operator-overloads-3424)'s per-engine
+[§4.86](#4-86-two-engines-configured-differently-no-longer-decide-each-other-s-operator-overloads-3424)'s per-engine
 table did not close it: inside one engine the two values collide just the same.
 
 What is cached now is the **candidate set** — the operator methods the two types declare under that name,
@@ -4685,7 +4685,7 @@ mode, the reference resolver and its interests, the wait clock and the whole con
 One group is still read before the callbacks, because a callback can reach it: a callback's
 `engine.SetValue(name, clrValue)` converts, so the four interop-conversion fields have to be built for it.
 They are then taken **again** afterwards, exactly as `AddExtensionMethods` already was in
-[§4.100](#4100-addextensionmethods-from-a-configure-callback-reaches-the-engine-3568) — so a converter a
+[§4.100](#4-100-addextensionmethods-from-a-configure-callback-reaches-the-engine-3568) — so a converter a
 callback registered is honoured, and a registry a hardened profile cleared is obeyed. A CLR object the
 callback itself wrapped keeps the immutability reading it was wrapped with.
 
@@ -4932,7 +4932,7 @@ of a run sees no change at all.
 
 ### 4.113 An event listener has a call-stack frame of its own ([#3644](https://github.com/sebastienros/jint/issues/3644))
 
-The same defect [4.108](#4108-a-frame-the-engine-was-entered-at-is-named-and-a-timer-callback-has-one-3635)
+The same defect [4.108](#4-108-a-frame-the-engine-was-entered-at-is-named-and-a-timer-callback-has-one-3635)
 fixed for a timer callback held for an event listener: `JsEventTarget` reached every callback through
 `ICallable.Call`, which pushes nothing onto the call stack, so a listener invoked by `dispatchEvent`, by
 `controller.abort()` or by any engine-fired event was absent from `Error.prototype.stack`, from
@@ -5393,7 +5393,7 @@ var engine = new Engine(options =>
 });
 ```
 
-`null` and `""` both mean the default. `Options.WebApi.Fetch.UserAgent` ([§4.125](#4125-every-request-the-engine-makes-carries-a-user-agent-3720))
+`null` and `""` both mean the default. `Options.WebApi.Fetch.UserAgent` ([§4.125](#4-125-every-request-the-engine-makes-carries-a-user-agent-3720))
 is the other half — what a request carries — and a host that names one usually wants to name both.
 
 ### 4.128 A `FetchObserver` can answer a response, not only watch one ([#3701](https://github.com/sebastienros/jint/issues/3701))
@@ -5463,32 +5463,32 @@ none of it changes an engine that does not.
 
 | Area | Enable with | Reference |
 | --- | --- | --- |
-| WHATWG web APIs — `console`, timers, `URL`, encoding, streams, `fetch`, storage, `WebSocket`, `EventSource`, crypto | `options.UseWebApis(...)` | [Web APIs (opt-in)](../README.md#web-apis-opt-in) |
-| Web Workers, on a thread you supply | `options.UseWebApis().UseWorkers(provider)` | [`new Worker()`](../README.md#new-worker-with-the-thread-supplied-by-you) |
-| Node compatibility — the `process` shim, `node:` builtin modules | `options.UseNodeProcess()`, `options.UseNodeBuiltinModules()` | [Node compatibility (opt-in)](../README.md#node-compatibility-opt-in) |
-| Script profiling — a sampling profiler writing [Firefox Profiler](https://profiler.firefox.com) profiles with script / built-in / host-interop frame categories, and an evented one writing speedscope profiles | `options.Profiling.Enabled = true` | [Profiling scripts (opt-in)](../README.md#profiling-scripts-opt-in) |
-| Statement-level code coverage | `options.Coverage.Enabled = true` | [Code coverage (opt-in)](../README.md#code-coverage-opt-in) |
-| `NamedPropertyObject` — one base class for a host object projecting *named* properties, the string-keyed sibling of `ArrayLikeObject` | derive from it instead of overriding `GetOwnProperty` / `ProbeOwnProperty` / `GetOwnPropertyKeys` / `TryGetOwnPropertyValue` / `GetOwnProperties` by hand | [Projecting host data](../README.md#embedding-performance) |
-| Source-generated CLR interop for annotated types | `[JsAccessible]` on the type, plus one `JsAccessibleRegistration.RegisterAll()` call | [§5.1](#51-source-generated-clr-interop) |
-| The three shipped locale-data providers are extensible — one datum is one override | derive from `DefaultCldrProvider` / `DefaultTimeZoneProvider` / `DefaultCalendarProvider` and assign the instance to the matching `Options` property | [5.2](#52-changing-one-locale-datum-is-one-override-3335) |
-| Writable named projections, and named members on an `ArrayLikeObject` | `IsNameWritable` / `TrySetNamedValue` / `TryDeleteName`, and the same `NameCount` / `NameAt` / `TryGetNamedValue` triple on both classes | [§5.3](#53-host-objects-one-hook-set-for-named-properties-3338) |
-| `HostFunction` — one base class for a host-defined callable, the function sibling of `ArrayLikeObject` and `NamedPropertyObject` | derive from it and override `Invoke` | [§5.5](#55-a-host-function-is-a-class-you-can-derive-3345) |
-| Host-contract verification catches a value built for an engine another thread is using | `AppContext.SetSwitch("Jint.EnableHostContractVerification", true)` | [§5.6](#56-host-contract-verification-also-checks-thread-affinity-3332) |
-| The source text a script or module was parsed from, read back through `engine.Advanced.TryGetSourceText(program, out var text)` | `options.RetainFunctionSourceText = true`, or the same setting on a preparation's parsing options | [§5.8](#58-a-host-thread-can-hand-the-engine-work-and-read-back-the-source-a-program-was-parsed-from-3587) |
-| Structured `console` records — the method, the raw `JsValue` arguments, the group depth, and `console.trace`'s frames | override `ConsoleSink.Write(in ConsoleRecord)` instead of, or as well as, `Write(level, message)` | [Web APIs (opt-in)](../README.md#web-apis-opt-in) |
-| `ValueInspector.Describe(value)` — a bounded, getter-free `ValueDescription` of any `JsValue`, holding no `JsValue` and running no script | nothing, beyond acknowledging the preview diagnostic: `<NoWarn>$(NoWarn);JINT0002</NoWarn>` | [Web APIs (opt-in)](../README.md#web-apis-opt-in) |
-| An API base URL, so a relative url in `fetch()` and `new Request()` resolves instead of throwing | `options.WebApi.Fetch.BaseUrl = new Uri("https://example.org/app/")` | [§5.10](#510-fetch-can-behave-as-a-documents-fetch-3617) |
-| A `Referer` header under a referrer policy, and an `Origin` header | `options.WebApi.Fetch.Referrer`, `.ReferrerPolicy`, `.Origin` | [§5.10](#510-fetch-can-behave-as-a-documents-fetch-3617) |
-| Cookies, in a jar the host owns, consulted per redirect hop under the request's `credentials` mode | `options.WebApi.Fetch.CookieJar = new CookieContainerCookieJar()` | [§5.10](#510-fetch-can-behave-as-a-documents-fetch-3617) |
-| Watching and intercepting every request, response and body chunk | `options.WebApi.Fetch.Observer = …`, plus `<NoWarn>$(NoWarn);JINT0002</NoWarn>` | [§5.10](#510-fetch-can-behave-as-a-documents-fetch-3617) |
-| When each hop went out and when its response headers came back, so a host can report a real time to first byte | `ObservedFetchResponse.Timing`, on the observer you already set | [§5.29](#529-an-observed-response-says-when-its-hop-went-out-and-when-its-headers-came-back-3701) |
-| The Chrome DevTools Protocol over a WebSocket, so a debugging client can attach to an engine your host is already running | `dotnet add package Jint.DevTools`, then `options.UseDevTools()` | [Chrome DevTools Protocol (opt-in package)](../README.md#chrome-devtools-protocol-opt-in-package) |
-| A headless browser — AngleSharp's DOM under Jint, drivable by Puppeteer and Playwright, plus a `jint-browser` command line | `dotnet add package Jint.Browser`, or `dotnet tool install -g Jint.Browser.Tool` | [Headless browser (opt-in package)](../README.md#headless-browser-opt-in-package) |
-| Playwright for .NET's public browser interfaces over that headless browser, without Node, CDP or a WebSocket | `dotnet add package Jint.Browser.Playwright`, then use `JintPlaywright.BrowserType` | [Headless browser (opt-in package)](../README.md#headless-browser-opt-in-package) |
-| A Model Context Protocol server over that browser, so an agent reads a page as its accessibility tree and clicks its way through it | `jint-browser mcp`, or `AddMcpServer().AddJintBrowser()` in a host of your own | [Headless browser (opt-in package)](../README.md#headless-browser-opt-in-package) |
-| The names of the global `let`/`const`/`class` declarations, which `globalThis` does not carry | `engine.Advanced.GetGlobalLexicalNames()` | [§5.27](#527-a-host-can-list-the-global-lexical-bindings-3610) |
-| The program a function value was parsed in, so a tooling protocol resolves its script by identity | `function.Program`, beside `FunctionDeclaration` | [§5.28](#528-a-function-value-names-the-program-it-was-parsed-in-3666) |
-| `LazyJsString` — one base class for a host string whose text is expensive to produce | `class Field : LazyJsString { public Field(int len) : base(len) {} protected override string Materialize() => … }` | [Lazy strings](../README.md#embedding-performance) |
+| WHATWG web APIs — `console`, timers, `URL`, encoding, streams, `fetch`, storage, `WebSocket`, `EventSource`, crypto | `options.UseWebApis(...)` | [Web APIs](guide/web-apis.md) |
+| Web Workers, on a thread you supply | `options.UseWebApis().UseWorkers(provider)` | [Workers](guide/web-apis/workers.md) |
+| Node compatibility — the `process` shim, `node:` builtin modules | `options.UseNodeProcess()`, `options.UseNodeBuiltinModules()` | [Node compatibility](guide/node-compatibility.md) |
+| Script profiling — a sampling profiler writing [Firefox Profiler](https://profiler.firefox.com) profiles with script / built-in / host-interop frame categories, and an evented one writing speedscope profiles | `options.Profiling.Enabled = true` | [Profiling](guide/profiling.md) |
+| Statement-level code coverage | `options.Coverage.Enabled = true` | [Code coverage](guide/code-coverage.md) |
+| `NamedPropertyObject` — one base class for a host object projecting *named* properties, the string-keyed sibling of `ArrayLikeObject` | derive from it instead of overriding `GetOwnProperty` / `ProbeOwnProperty` / `GetOwnPropertyKeys` / `TryGetOwnPropertyValue` / `GetOwnProperties` by hand | [Advanced hosting](guide/advanced-hosting.md) |
+| Source-generated CLR interop for annotated types | `[JsAccessible]` on the type, plus one `JsAccessibleRegistration.RegisterAll()` call | [§5.1](#5-1-source-generated-clr-interop) |
+| The three shipped locale-data providers are extensible — one datum is one override | derive from `DefaultCldrProvider` / `DefaultTimeZoneProvider` / `DefaultCalendarProvider` and assign the instance to the matching `Options` property | [5.2](#5-2-changing-one-locale-datum-is-one-override-3335) |
+| Writable named projections, and named members on an `ArrayLikeObject` | `IsNameWritable` / `TrySetNamedValue` / `TryDeleteName`, and the same `NameCount` / `NameAt` / `TryGetNamedValue` triple on both classes | [§5.3](#5-3-host-objects-one-hook-set-for-named-properties-3338) |
+| `HostFunction` — one base class for a host-defined callable, the function sibling of `ArrayLikeObject` and `NamedPropertyObject` | derive from it and override `Invoke` | [§5.5](#5-5-a-host-function-is-a-class-you-can-derive-3345) |
+| Host-contract verification catches a value built for an engine another thread is using | `AppContext.SetSwitch("Jint.EnableHostContractVerification", true)` | [§5.6](#5-6-host-contract-verification-also-checks-thread-affinity-3332) |
+| The source text a script or module was parsed from, read back through `engine.Advanced.TryGetSourceText(program, out var text)` | `options.RetainFunctionSourceText = true`, or the same setting on a preparation's parsing options | [§5.8](#5-8-a-host-thread-can-hand-the-engine-work-and-read-back-the-source-a-program-was-parsed-from-3587) |
+| Structured `console` records — the method, the raw `JsValue` arguments, the group depth, and `console.trace`'s frames | override `ConsoleSink.Write(in ConsoleRecord)` instead of, or as well as, `Write(level, message)` | [Console and timers](guide/web-apis/console-and-timers.md) |
+| `ValueInspector.Describe(value)` — a bounded, getter-free `ValueDescription` of any `JsValue`, holding no `JsValue` and running no script | nothing, beyond acknowledging the preview diagnostic: `<NoWarn>$(NoWarn);JINT0002</NoWarn>` | [Errors and diagnostics](guide/errors.md) |
+| An API base URL, so a relative url in `fetch()` and `new Request()` resolves instead of throwing | `options.WebApi.Fetch.BaseUrl = new Uri("https://example.org/app/")` | [§5.10](#5-10-fetch-can-behave-as-a-document-s-fetch-3617) |
+| A `Referer` header under a referrer policy, and an `Origin` header | `options.WebApi.Fetch.Referrer`, `.ReferrerPolicy`, `.Origin` | [§5.10](#5-10-fetch-can-behave-as-a-document-s-fetch-3617) |
+| Cookies, in a jar the host owns, consulted per redirect hop under the request's `credentials` mode | `options.WebApi.Fetch.CookieJar = new CookieContainerCookieJar()` | [§5.10](#5-10-fetch-can-behave-as-a-document-s-fetch-3617) |
+| Watching and intercepting every request, response and body chunk | `options.WebApi.Fetch.Observer = …`, plus `<NoWarn>$(NoWarn);JINT0002</NoWarn>` | [§5.10](#5-10-fetch-can-behave-as-a-document-s-fetch-3617) |
+| When each hop went out and when its response headers came back, so a host can report a real time to first byte | `ObservedFetchResponse.Timing`, on the observer you already set | [§5.29](#5-29-an-observed-response-says-when-its-hop-went-out-and-when-its-headers-came-back-3701) |
+| The Chrome DevTools Protocol over a WebSocket, so a debugging client can attach to an engine your host is already running | `dotnet add package Jint.DevTools`, then `options.UseDevTools()` | [Jint.DevTools](packages/jint-devtools/index.md) |
+| A headless browser — AngleSharp's DOM under Jint, drivable by Puppeteer and Playwright, plus a `jint-browser` command line | `dotnet add package Jint.Browser`, or `dotnet tool install -g Jint.Browser.Tool` | [Jint.Browser](packages/jint-browser/index.md) |
+| Playwright for .NET's public browser interfaces over that headless browser, without Node, CDP or a WebSocket | `dotnet add package Jint.Browser.Playwright`, then use `JintPlaywright.BrowserType` | [Jint.Browser.Playwright](packages/jint-browser-playwright/index.md) |
+| A Model Context Protocol server over that browser, so an agent reads a page as its accessibility tree and clicks its way through it | `jint-browser mcp`, or `AddMcpServer().AddJintBrowser()` in a host of your own | [Jint.Browser.Mcp](packages/jint-browser-mcp/index.md) |
+| The names of the global `let`/`const`/`class` declarations, which `globalThis` does not carry | `engine.Advanced.GetGlobalLexicalNames()` | [§5.27](#5-27-a-host-can-list-the-global-lexical-bindings-3610) |
+| The program a function value was parsed in, so a tooling protocol resolves its script by identity | `function.Program`, beside `FunctionDeclaration` | [§5.28](#5-28-a-function-value-names-the-program-it-was-parsed-in-3666) |
+| `LazyJsString` — one base class for a host string whose text is expensive to produce | `class Field : LazyJsString { public Field(int len) : base(len) {} protected override string Materialize() => … }` | [Advanced hosting](guide/advanced-hosting.md) |
 
 The last row is the only one that replaces an existing spelling rather than adding a capability, so it is
 worth saying what happens to the old one. A lazy host string used to be written by deriving from `JsString`
@@ -5614,12 +5614,12 @@ var engine = new Engine(options => options.Intl.CldrProvider = new MyCldr());
 ```
 
 `ICldrProvider` is now nineteen members and every one of them has a caller, so whatever a derived class
-answers is what `Intl` shows — see [4.22](#422-intl-reads-the-cldr-provider-for-currency-symbols-and-week-info-3336)
-and [4.29](#429-intl-reads-the-cldr-provider-for-date-names-and-numbering-system-digits-3354) for the two changes
+answers is what `Intl` shows — see [4.22](#4-22-intl-reads-the-cldr-provider-for-currency-symbols-and-week-info-3336)
+and [4.29](#4-29-intl-reads-the-cldr-provider-for-date-names-and-numbering-system-digits-3354) for the two changes
 that closed the gap, and section [2](#2-removed-api) for the two members that went instead of being wired.
 On the calendar side, *correcting* a calendar Jint already knows is one override, while *adding* one it does
 not know is three — `GetSupportedCalendars` and both conversions — per
-[4.30](#430-a-calendar-icalendarprovider-claims-is-a-calendar-temporal-accepts-3355).
+[4.30](#4-30-a-calendar-icalendarprovider-claims-is-a-calendar-temporal-accepts-3355).
 
 ### 5.3 Host objects: one hook set for named properties ([#3338](https://github.com/sebastienros/jint/pull/3338))
 
@@ -5641,7 +5641,7 @@ to the host:
 
 The last three are new, and their defaults are exactly the old behaviour, so **an existing subclass keeps
 compiling and behaving**. The same eight are now published by `ArrayLikeObject` too, all `virtual` with
-empty defaults ([§3.10](#310-arraylikeobject-seals-the-three-members-a-named-getter-used-to-override-3338)).
+empty defaults ([§3.10](#3-10-arraylikeobject-seals-the-three-members-a-named-getter-used-to-override-3338)).
 
 ```c#
 internal sealed class Document : NamedPropertyObject
@@ -5699,7 +5699,7 @@ var rangeError = engine.Intrinsics.RangeError;
 ```
 
 The CLR name of `%URIError%` is `Intrinsics.UriError`; script still sees `URIError`. See [Raising an
-error from host code](../README.md#raising-an-error-from-host-code).
+error from host code](guide/errors.md).
 ### 5.5 A host function is a class you can derive ([#3345](https://github.com/sebastienros/jint/pull/3345))
 
 Until v5 there was exactly one host-writable *plain* callable: `ClrFunction`, which is `sealed` and takes
@@ -5707,7 +5707,7 @@ its body as a delegate. (`Constructor` was derivable, but its `Call` throws *"re
 subclass overrides it too, so it is the wrong base for something that is not a constructor.) `Function`
 looked like the other option — it is `public abstract` with a `protected abstract Call` — but its only
 accessible constructor asked for a `Realm`, and nothing public returns one, so nobody could derive it
-from outside Jint ([§3.10](#312-the-five-members-that-took-a-realm-take-an-engine-or-are-gone-3345)).
+from outside Jint ([§3.10](#3-12-the-five-members-that-took-a-realm-take-an-engine-or-are-gone-3345)).
 A host whose callable had state, or was one member of a family sharing a base, had to close over that state
 in a lambda.
 
@@ -5747,7 +5747,7 @@ Four things decided deliberately:
   says for a built-in with no `[[Construct]]`. A host that wants `new` derives from `Constructor` instead,
   which is the same deal for the other half: supply `Construct`, the base supplies the rest. (`Constructor`
   had a defect of its own, fixed here — see
-  [§4.18](#418-a-host-constructor-is-now-a-function-3345).)
+  [§4.18](#4-18-a-host-constructor-is-now-a-function-3345).)
 - **The `arguments` array is borrowed.** The engine pools it and may hand the same instance to the next
   call, so copy anything that must outlive the call. Reading it during the call is always safe.
 - **It belongs to the engine's principal realm**, the rule `ClrFunction` already follows, so a host
@@ -5762,7 +5762,7 @@ wants a name a stack trace can show, or belongs to a family that shares a base.
 Jint guards *operations* against concurrent use and does not guard *value construction*. `Engine.Evaluate`,
 `JsValue.FromObject`, `JsonSerializer.Serialize` and `JsonParser.Parse` all reject a second thread while the
 engine is in use; `JsObject.Create`, `JsObject.CreateFromEntries` and the `JsArray` constructors — the ones
-README's **Projecting host data** recommends in preference to subclassing `ObjectInstance` — build the value
+The [Advanced hosting](guide/advanced-hosting.md) guide recommends in preference to subclassing `ObjectInstance` — build the value
 anyway. They are per-object APIs on a bulk path, so an always-on claim there would be paid by every host that
 never got this wrong.
 
@@ -5810,13 +5810,13 @@ What it answers is what the engine actually runs under, which is not always what
 | `options.ForUntrustedCode(…)` | the engine's **private hardened copy**, so the grants the profile revoked read back revoked while the host's own object still reads back as the host wrote it |
 
 `Engine.WebApi.Enable` replaces the instance with a copy owning its own web-API subtree
-([§4.21](#421-webapienables-callback-configures-one-engine-not-every-engine-3359)), so read the property again
+([§4.21](#4-21-webapi-enable-s-callback-configures-one-engine-not-every-engine-3359)), so read the property again
 after that call rather than caching the reference across one.
 
 **It is a read, not a second configuration channel.** The options are frozen once an engine has read them
-([§4.16](#416-options-is-configuration-until-an-engine-reads-it-and-frozen-afterwards-3327)), so every setter
+([§4.16](#4-16-options-is-configuration-until-an-engine-reads-it-and-frozen-afterwards-3327)), so every setter
 and every registry reached through this property throws — including the two that used not to
-([§4.41](#441-two-holes-in-the-freeze-closed-3360)). What the freeze covers is the settings, not the objects
+([§4.41](#4-41-two-holes-in-the-freeze-closed-3360)). What the freeze covers is the settings, not the objects
 they name: a `TypeResolver`, a `CultureInfo`, a module loader, a provider or an `HttpClient` read back here is
 still the host's own mutable object, exactly as it was before it was handed to Jint.
 
@@ -5843,7 +5843,7 @@ while (!token.IsCancellationRequested)
 A posted job is a job like any other: it runs behind what is already queued, an exception it throws erupts out
 of the pump, and it belongs to the evaluation cycle it was posted in — so a `RestoreGlobalSnapshot` in between
 drops it. A turn is not a run, so execution constraints are not re-armed for it
-([§4.7](#47-concurrent-engine-use-is-rejected-3035) describes the ownership rule it is the exception to).
+([§4.7](#4-7-concurrent-engine-use-is-rejected-3035) describes the ownership rule it is the exception to).
 
 `engine.Advanced.TryGetSourceText(program, out var text)` answers with the string a script or module was parsed
 from, keyed by the `Program` node `DebugHandler.BeforeEvaluate` hands over. It is opt-in through the switch
@@ -5999,7 +5999,7 @@ called inside `try { f(); } catch {}` is reported uncaught, which is what a user
 exceptions means by it. A rejection with no throw behind it — `Promise.reject(x)` — never stops the engine.
 
 `ExceptionThrown` is unchanged: it still fires for every throw whatever the mode is, once per throw (see
-[4.112](#4112-exceptionthrown-fires-once-per-throw-not-once-per-frame-it-unwinds-through-3624)).
+[4.112](#4-112-exceptionthrown-fires-once-per-throw-not-once-per-frame-it-unwinds-through-3624)).
 `ExceptionPauseMode.None`, the default, leaves the engine byte-identical to before.
 
 ### 5.13 `XMLHttpRequest`, opt-in and without a network grant of its own ([#3626](https://github.com/sebastienros/jint/pull/3626))
@@ -6105,7 +6105,7 @@ new EngineTargetOptions { Url = Path.GetFullPath("app.js") }   // /json/list say
 ### 5.17 A frame, a profile frame and a coverage source name the program they belong to ([#3632](https://github.com/sebastienros/jint/issues/3632))
 
 A `SourceLocation` carries a source *name*, which cannot tell two parses apart
-([4.111](#4111-a-coverage-source-is-one-parse-not-one-name-3632) is the same problem seen from the coverage
+([4.111](#4-111-a-coverage-source-is-one-parse-not-one-name-3632) is the same problem seen from the coverage
 side). Three types now carry the program itself — the same reference `DebugHandler.BeforeEvaluate` hands over
 and `Engine.Advanced.TryGetSourceText` is keyed by:
 
@@ -6306,18 +6306,19 @@ are `net8.0` and later.
 **There is nothing to migrate.** They are additive, they are separate packages, and they are outside the
 engine's compatibility contract in the ordinary way — a package a project does not reference cannot break it.
 Where they touch this document is the other direction: the engine seams they were built on are
-[5.8](#58-a-host-thread-can-hand-the-engine-work-and-read-back-the-source-a-program-was-parsed-from-3587)
-through [5.19](#519-a-debugger-can-stop-on-caught-exceptions-and-decline-a-pause-without-cancelling-a-step-3631),
+[5.8](#5-8-a-host-thread-can-hand-the-engine-work-and-read-back-the-source-a-program-was-parsed-from-3587)
+through [5.19](#5-19-a-debugger-can-stop-on-caught-exceptions-and-decline-a-pause-without-cancelling-a-step-3631),
 and every one of them is public and usable without either package — which is the point of them being seams
 rather than internals. The one member of theirs this document records is
-[5.16](#516-enginetargetoptionsurl-accepts-a-path-and-publishes-a-url-3640), which is here because it changed
+[5.16](#5-16-enginetargetoptions-url-accepts-a-path-and-publishes-a-url-3640), which is here because it changed
 after the package's first release rather than because the package is in scope.
 
-The reference material is `README.md`, per this document's own rule: what they do, what a page can and
+The reference material is the package documentation: what they do, what a page can and
 cannot do, the per-page budgets and how much of it is measured rather than claimed are in
-[Chrome DevTools Protocol (opt-in package)](../README.md#chrome-devtools-protocol-opt-in-package) and
-[Headless browser (opt-in package)](../README.md#headless-browser-opt-in-package), and
-[`docs/releases/headless-browser.md`](releases/headless-browser.md) is the same thing package by package.
+[Jint.DevTools](packages/jint-devtools/index.md) and
+[Jint.Browser](packages/jint-browser/index.md), and
+[`docs/releases/headless-browser.md`](https://github.com/sebastienros/jint/blob/main/docs/releases/headless-browser.md)
+is the same thing package by package.
 
 ### 5.27 A host can list the global lexical bindings ([#3610](https://github.com/sebastienros/jint/issues/3610))
 
@@ -6344,7 +6345,7 @@ Chrome's front end; that command was `-32601` before.
 
 ### 5.28 A function value names the program it was parsed in ([#3666](https://github.com/sebastienros/jint/issues/3666))
 
-[5.17](#517-a-frame-a-profile-frame-and-a-coverage-source-name-the-program-they-belong-to-3632) gave a call
+[5.17](#5-17-a-frame-a-profile-frame-and-a-coverage-source-name-the-program-they-belong-to-3632) gave a call
 frame, a profile frame and a coverage source the program they belong to. A function *value* published only
 its declaration node — `Function.FunctionDeclaration` — so anything resolving "which script is this function
 in?" had to match the declaration's source *name*, and every sourceless `Execute` is `<anonymous>`.
@@ -6579,7 +6580,7 @@ own call site rather than as a wrong answer at run time. Each message names what
 | `Options.AllowClr()` and `AllowClr(params Assembly[])` | script names CLR types and namespaces as strings; nothing statically references what they expose | root the assemblies you allow, or drop `AllowClr` and hand each type to script explicitly |
 | `Options.AddExtensionMethods(params Type[])` | the types are reflected over, and a `Type[]` parameter cannot carry `[DynamicallyAccessedMembers]` - only a `Type` or a `string` can | root the declaring types; a trimmed-away extension method fails as `not a function`, with no diagnostic |
 | `Engine.SetValue(string, object?)` | no type at the call site to annotate | prefer `SetValue<T>(string, T)`, or pass a `JsValue` |
-| `ShadowRealm.SetValue(string, object?)` | the same overload on the same API, pointed at a shadow realm's global object; it carried no annotation at all until v5, while the harmless `Delegate` overload beside it carried one ([§3.7](#37-shadowrealmsetvalue-is-enginesetvalue-mirrored-3321)) | the same: prefer `SetValue<T>(string, T)`, or pass a `JsValue` |
+| `ShadowRealm.SetValue(string, object?)` | the same overload on the same API, pointed at a shadow realm's global object; it carried no annotation at all until v5, while the harmless `Delegate` overload beside it carried one ([§3.7](#3-7-shadowrealm-setvalue-is-engine-setvalue-mirrored-3321)) | the same: prefer `SetValue<T>(string, T)`, or pass a `JsValue` |
 | `ObjectWrapper.Create(Engine, object, Type?)` | same - and it is what a custom `WrapObjectHandler` calls | root the type, or project through `SetValue<T>` |
 
 (`ClrHelper.Unwrap` and `ClrHelper.Wrap`, reachable only from script through `clrHelper`, carry it too.)
@@ -6603,7 +6604,7 @@ Deliberately **not** annotated: `SetValue(string, Type)`, `SetValue<T>` — on `
 reflects over instead of merely warning about it - they are the AOT-friendly way to expose a type, which
 is exactly why the messages above point at them. Nothing carries `[RequiresDynamicCode]`, because §6.1 is what the measurement
 says, and warning an AOT host away from an API that works would be worse than not warning at all.
-[§6.6](#66-what-handing-jint-a-type-preserves-3396) says what that one shared annotation now covers.
+[§6.6](#6-6-what-handing-jint-a-type-preserves-3396) says what that one shared annotation now covers.
 
 The attributes are on the `net8.0` and `net10.0` assets. The downlevel targets carry the same
 annotations as internal polyfills, so they are invisible to a consumer - which costs nothing, since
@@ -6647,14 +6648,14 @@ so an AOT publish reports Jint's remaining trim-analysis warnings against Jint's
 There are 67 of them, down from 113 ([#3305](https://github.com/sebastienros/jint/issues/3305)), and
 they now divide into two kinds:
 
-* **Nine are the gaps in [§6.2](#62-the-one-thing-that-does-not-a-generic-instantiation-over-a-value-type)**
+* **Nine are the gaps in [§6.2](#6-2-the-one-thing-that-does-not-a-generic-instantiation-over-a-value-type)**
   - six `IL3050` and their three `IL2060` twins, one per site that builds a generic instantiation over a
   type only known at run time. These are true, they are the shapes the native run confirms do not work,
   and they are not suppressed for exactly that reason. If your script never reaches one, the diagnostic
   costs you nothing; if it does, §6.2 says what to write instead.
 * **The rest are dataflow**, and almost all root at one value: the runtime type of a host object,
   obtained through `object.GetType()`. No annotation can describe it, which is why the requirement is
-  stated at the entry points instead ([§6.3](#63-apis-that-now-warn)) and why the answer is the rooting
+  stated at the entry points instead ([§6.3](#6-3-apis-that-now-warn)) and why the answer is the rooting
   above rather than anything in the diagnostic.
 
 Neither kind is actionable at the file it names, so set
@@ -6675,7 +6676,7 @@ expose.
 
 ### 6.6 What handing Jint a type preserves ([#3396](https://github.com/sebastienros/jint/issues/3396))
 
-The five members [§6.3](#63-apis-that-now-warn) calls the AOT-friendly way to expose a type —
+The five members [§6.3](#6-3-apis-that-now-warn) calls the AOT-friendly way to expose a type —
 `Engine.SetValue(string, Type)`, `Engine.SetValue<T>`, the two `ShadowRealm` mirrors,
 `TypeReference.CreateTypeReference` and `ModuleBuilder.ExportType` — share one
 `[DynamicallyAccessedMembers]` set, because they are one promise. It has gained one entry, **the type's
@@ -6684,11 +6685,11 @@ interfaces**, alongside its public constructors, properties, methods, fields and
 Jint walks `Type.GetInterfaces()` to find a member a class implements only through an interface, and to
 decide whether a target is array-like, dictionary-shaped or enumerable. A trimmer may remove an
 interface implementation nothing else uses, and Jint would then report a member that is there as
-`undefined` — the failure mode [§6.4](#64-what-you-owe-your-own-project) warns about, with no
+`undefined` — the failure mode [§6.4](#6-4-what-you-owe-your-own-project) warns about, with no
 diagnostic anywhere. Nothing in your code changes; the annotation is what keeps the interface.
 
 **It keeps the interface, not the interface's members**, and that distinction is measured rather than
-assumed — see [§6.7](#67-the-annotation-contract-is-measured-3479), which also says which half of this
+assumed — see [§6.7](#6-7-the-annotation-contract-is-measured-3479), which also says which half of this
 paragraph a published binary actually confirms.
 
 `TypeReference.ReferenceType` carries the same set now, so a type handed to
@@ -6710,7 +6711,7 @@ second one.
 
 ### 6.7 The annotation contract is measured ([#3479](https://github.com/sebastienros/jint/issues/3479))
 
-Everything above [§6.3](#63-apis-that-now-warn) says about `SetValue<T>` preserving what Jint reflects
+Everything above [§6.3](#6-3-apis-that-now-warn) says about `SetValue<T>` preserving what Jint reflects
 over used to be a claim no run checked. `Jint.AotExample` roots both assemblies it publishes, so every
 host type its probes registered was preserved by the root and no probe could tell the annotation from it.
 There is now a second project, `Jint.AotExample.UnrootedHost`, that the AOT leg publishes and deliberately

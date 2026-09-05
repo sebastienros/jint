@@ -1,0 +1,71 @@
+name: Sponsor listing
+description: Request an addition, update, or removal on the Jint sponsors page.
+title: "[Sponsor]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form to request a change to the sponsors page. Sponsor listings must have a
+        current connection to Jint and permission to display the submitted name and logo.
+
+  - type: dropdown
+    id: action
+    attributes:
+      label: Requested change
+      options:
+        - Add a sponsor
+        - Update an existing sponsor
+        - Remove an existing sponsor
+    validations:
+      required: true
+
+  - type: input
+    id: name
+    attributes:
+      label: Organization or product name
+      placeholder: Example Company
+    validations:
+      required: true
+
+  - type: input
+    id: website
+    attributes:
+      label: Official website
+      placeholder: https://example.com/
+    validations:
+      required: true
+
+  - type: input
+    id: logo
+    attributes:
+      label: Official logo
+      description: Link to an official SVG or PNG asset. For removals, link to the currently listed logo.
+      placeholder: https://example.com/logo.svg
+    validations:
+      required: true
+
+  - type: textarea
+    id: relationship
+    attributes:
+      label: Relationship to Jint
+      description: Explain how the organization or product currently supports Jint, or why its listing should change.
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Suggested description
+      description: Provide one or two factual sentences for an addition or update. Use "N/A" for a removal.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: authorization
+    attributes:
+      label: Authorization
+      options:
+        - label: I am authorized to request this change, or I am reporting an inaccurate or unauthorized listing.
+          required: true
+        - label: For an addition or update, Jint has permission to display the submitted name and logo on its documentation site.
+          required: false

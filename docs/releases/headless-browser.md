@@ -6,8 +6,8 @@ and nothing else. It records what the campaign tracked by
 [#3575](https://github.com/sebastienros/jint/issues/3575) shipped: five new packages, the engine seams they
 were built on, the upstream contributions the work produced, and what is knowingly left.
 
-Reader-facing documentation is [`README.md`](../../README.md#chrome-devtools-protocol-opt-in-package) and
-[the browser section beside it](../../README.md#headless-browser-opt-in-package). The designs and the index of
+Reader-facing documentation is the [`Jint.DevTools`](../packages/jint-devtools/index.md) and
+[`Jint.Browser`](../packages/jint-browser/index.md) package guides. The designs and the index of
 what was built against them are [`docs/design/devtools-protocol.md`](../design/devtools-protocol.md) §9 and
 [`docs/design/headless-browser.md`](../design/headless-browser.md) §12.
 

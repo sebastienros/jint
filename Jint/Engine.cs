@@ -570,7 +570,7 @@ public sealed partial class Engine : IDisposable
     /// duration of <c>WaitForWork</c> alone, so on every iteration it was dropped again across
     /// <see cref="RunAvailableContinuations"/> - which runs arbitrary script - and re-taken. A callback
     /// landing in that gap took the "no reservation" path, was treated as an unrelated caller and destroyed
-    /// with <see cref="InvalidOperationException"/>, which contradicts what README.md's Thread-safety
+    /// with <see cref="InvalidOperationException"/>, which contradicts what docs/guide/thread-safety.md
     /// section and THREAT_MODEL.md TM-13 both promise: "such an authorized transfer may wait for the current
     /// callback turn". Whether a given callback was served or destroyed came down to where the OS scheduler
     /// happened to put it (sebastienros/jint#3206, sebastienros/jint#3220).
@@ -612,7 +612,7 @@ public sealed partial class Engine : IDisposable
     /// The claiming scope would in any case be the wrong question here, for a reason that has nothing to do
     /// with script: <see cref="ModuleOperations.Import(string)"/> claims the engine before this drain
     /// re-enters, so a blocking import <em>on an otherwise idle engine, from the host's own thread</em> is
-    /// not a claiming scope either. That drain is one of the windows README.md's Thread-safety section
+    /// not a claiming scope either. That drain is one of the windows docs/guide/thread-safety.md
     /// enumerates, so keying the window on the claiming scope would close a documented top-level window
     /// rather than a nested one. Nor is there a middle option: reserving under a fresh token instead would
     /// admit only callbacks converted <em>inside</em> the drain, which is the "latent fourth" gap

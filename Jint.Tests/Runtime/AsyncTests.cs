@@ -1006,7 +1006,7 @@ public class AsyncTests
     // callback then takes EnterTransferredHostCallback's `owner is null` branch, which falls through to
     // EnterHostCall() — fail-fast for any thread that is not the owner. Whether the owner thread has yet
     // reached the drain's own reservation (the WaitForWork inside DrainEventLoopUntil, the only other
-    // place it is held) is a scheduling coin flip. README.md's Thread-safety section and THREAT_MODEL.md
+    // place it is held) is a scheduling coin flip. docs/guide/thread-safety.md and THREAT_MODEL.md
     // TM-13 both promise the opposite for an authorized callback — "such an authorized transfer may wait
     // for the current callback turn" — and the waiting primitive (AcquireHostCall) already exists, on the
     // branch this one never reaches.
