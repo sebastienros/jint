@@ -219,8 +219,10 @@ every page pay for mutation records whether or not anything ever asks for a box.
 walk, `CssCascade.Traversal` shares the style collection and raw parent cascades: calling
 `ComputeCurrentStyle` separately for every element rematches every ancestor, which made a nested admin form
 expensive at every step of Playwright's actionability checks. AngleSharp still owns matching, specificity,
-inheritance and value computation. Raw rather than computed declarations preserve child-relative `var()`
-resolution; unresolved explicit `inherit` takes AngleSharp's ancestor-walk fallback. Nothing survives the
+inheritance and value computation. Raw ordinary declarations preserve the existing child-relative lengths
+and `var()` resolution; custom properties alone inherit resolved values, with dependency cycles invalidated
+before AngleSharp can recurse (`Dom/Views/CustomProperties`, #3851). Unresolved explicit `inherit` takes
+AngleSharp's ancestor-walk fallback. Nothing survives the
 query, so even same-turn CSSOM writes, `classList`, control state and media changes need no invalidation.
 
 **The scroll is virtual, and it is the only state.** `Layout/PageLayout` holds a `scrollY` clamped to the

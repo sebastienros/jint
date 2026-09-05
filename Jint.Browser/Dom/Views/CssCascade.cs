@@ -57,7 +57,8 @@ internal static class CssCascade
     {
         try
         {
-            return element.ComputeCurrentStyle();
+            var traversal = Traversal.For(element.Owner);
+            return traversal is null ? element.ComputeCurrentStyle() : traversal.Of(element);
         }
         catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or NullReferenceException)
         {
@@ -85,11 +86,11 @@ internal static class CssCascade
 
     /// <summary>
     /// https://drafts.csswg.org/css-cascade/#inheritance - a cascade shared only by one synchronous tree
-    /// walk, never across DOM or CSSOM writes. Matching and inheritance remain AngleSharp's.
+    /// walk, never across DOM or CSSOM writes. Matching and ordinary inheritance remain AngleSharp's.
     /// </summary>
     internal sealed class Traversal(IStyleCollection styles)
     {
-        private readonly Dictionary<IElement, ICssStyleDeclaration> _cascaded = new();
+        private readonly Dictionary<IElement, Cascade> _cascaded = new();
         private readonly Stack<IElement> _pending = new();
 
         internal static Traversal? For(IDocument? document)
@@ -107,8 +108,8 @@ internal static class CssCascade
         {
             try
             {
-                // Keep the uncomputed cascade: inheriting a parent's resolved lengths or var() values
-                // would change what ComputeCurrentStyle answers for the child.
+                // Keep ordinary declarations raw to preserve AngleSharp's child-relative lengths
+                // and var() behavior. Custom properties alone inherit resolved values.
                 var current = element;
                 while (current is not null && !_cascaded.ContainsKey(current))
                 {
@@ -119,23 +120,28 @@ internal static class CssCascade
                 var parent = current is null ? null : _cascaded[current];
                 while (_pending.TryPop(out current))
                 {
-                    parent = parent is null
-                        ? styles.ComputeExplicitStyle(current)
-                        : styles.ComputeCascadedStyle(current, parent);
+                    // Capture local variables before inheritance. A rule matching both parent and
+                    // child shares property objects, so reference identity cannot identify inheritance.
+                    var cascade = styles.ComputeExplicitStyle(current);
+                    var variables = new CustomProperties(cascade, parent?.Variables);
+                    if (parent is not null)
+                    {
+                        Inherit(cascade, parent.Raw);
+                    }
 
                     // AngleSharp's ancestor walk can resolve an explicit inherit past a parent that
                     // declares nothing for a non-inherited property. Preserve that answer too.
                     if (current.ParentElement is not null
-                        && parent.Any(static property => property.IsInherited && !property.CanBeInherited))
+                        && cascade.Any(static property => property.IsInherited && !property.CanBeInherited))
                     {
-                        parent = styles.GetDeclarations(current);
+                        cascade = styles.GetDeclarations(current);
                     }
 
+                    parent = new Cascade(cascade, variables, Compute(current, cascade, variables, parent?.Computed));
                     _cascaded.Add(current, parent);
                 }
 
-                var cascade = _cascaded[element];
-                return cascade.Compute(new ComputeContext(styles.Device, element.Owner?.Context, cascade));
+                return _cascaded[element].Computed;
             }
             catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or NullReferenceException)
             {
@@ -146,32 +152,78 @@ internal static class CssCascade
                 _pending.Clear();
             }
         }
+
+        private static void Inherit(ICssStyleDeclaration declarations, ICssStyleDeclaration parent)
+        {
+            // AngleSharp's UpdateDeclarations is internal. Replay its ordinary-property merge through
+            // CSSOM, but leave custom-property inheritance to the resolved per-element graph.
+            foreach (var property in parent)
+            {
+                if (property.Name.StartsWith("--", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var own = declarations.GetProperty(property.Name);
+                if (own is null ? property.CanBeInherited : own.IsInherited)
+                {
+                    declarations.RemoveProperty(property.Name);
+                    declarations.SetProperty(property.Name, property.Value, property.IsImportant ? "important" : null);
+                }
+            }
+        }
+
+        private ICssStyleDeclaration? Compute(
+            IElement element,
+            ICssStyleDeclaration declarations,
+            CustomProperties properties,
+            ICssStyleDeclaration? inherited)
+        {
+            try
+            {
+                var computed = declarations.Compute(new ComputeContext(styles.Device, element.Owner?.Context, properties));
+                properties.ApplyTo(computed);
+                foreach (var property in declarations)
+                {
+                    if (!property.Name.StartsWith("--", StringComparison.Ordinal)
+                        && property.RawValue is CssReferenceValue
+                        && string.IsNullOrEmpty(computed.GetPropertyValue(property.Name)))
+                    {
+                        // Invalid at computed-value time behaves as unset, not as a lower-priority
+                        // declaration. Keep the existing initial-value policy for non-inherited values.
+                        computed.RemoveProperty(property.Name);
+                        if (property.CanBeInherited && inherited is not null)
+                        {
+                            var value = inherited.GetPropertyValue(property.Name);
+                            if (value.Length != 0)
+                            {
+                                computed.SetProperty(property.Name, value);
+                            }
+                        }
+                    }
+                }
+
+                return computed;
+            }
+            catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or NullReferenceException)
+            {
+                return null;
+            }
+        }
+
+        private sealed record Cascade(ICssStyleDeclaration Raw, CustomProperties Variables, ICssStyleDeclaration? Computed);
     }
 
-    /// <summary>The device and raw variables AngleSharp's own value computation resolves against.</summary>
+    /// <summary>The device and cycle-free variables AngleSharp's own value computation resolves against.</summary>
     private sealed class ComputeContext(
         IRenderDevice device,
         IBrowsingContext? context,
-        ICssStyleDeclaration properties) : ICssComputeContext
+        CustomProperties properties) : ICssComputeContext
     {
         public IRenderDevice Device => device;
         public IBrowsingContext? Context => context;
         public IValueConverter? Converter => null;
 
-        public ICssValue? Resolve(string name)
-        {
-            if (name.StartsWith("--", StringComparison.Ordinal))
-            {
-                foreach (var property in properties)
-                {
-                    if (string.Equals(property.Name, name, StringComparison.Ordinal))
-                    {
-                        return property.RawValue;
-                    }
-                }
-            }
-
-            return null;
-        }
+        public ICssValue? Resolve(string name) => properties.Resolve(name);
     }
 }
