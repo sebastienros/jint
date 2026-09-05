@@ -8,6 +8,6 @@
     "node_modules/**",
     "releases/**",
     "snippets/**",
-    "v5-migration.md"
+    "guide/migrating-to-v5.md"
   ]
 }

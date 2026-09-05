@@ -18,4 +18,4 @@ types and generated accessors for a predictable native build.
 `Jint.Browser` and packages built on it are not currently trim- or AOT-compatible because AngleSharp discovers
 parts of its model through reflection without trimming annotations.
 
-See the [Jint 5 migration guide](../v5-migration.md) for the complete compatibility contract.
+See the [Jint 5 migration guide](../guide/migrating-to-v5.md) for the complete compatibility contract.
