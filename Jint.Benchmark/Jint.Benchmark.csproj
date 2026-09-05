@@ -28,6 +28,9 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Jint\Jint.csproj" />
+    <ProjectReference Include="..\Jint.Browser\Jint.Browser.csproj" />
+    <!-- The same script-free nested form drives the CDP regression and the layout benchmark. -->
+    <Compile Include="..\Jint.Tests.Browser\Layout\AdminSettingsDocument.cs" Link="AdminSettingsDocument.cs" />
     <!-- For InteropGeneratedAccessorBenchmarks. No <NoWarn>CS0436</NoWarn> accompanies it and none is
          needed: this analyzer emits no post-initialization source, so nothing it produces collides with the
          Jint internals this assembly can already see. -->

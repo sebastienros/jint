@@ -2,6 +2,7 @@ using System.Text;
 using Jint.Browser;
 using Jint.DevTools;
 using Jint.Tests.Browser.Fixtures;
+using Jint.Tests.Browser.Layout;
 using Jint.Tests.Browser.Navigation;
 using Microsoft.Playwright;
 using PageContextOptions = Jint.Browser.BrowserContextOptions;
@@ -189,6 +190,32 @@ public class PlaywrightCourseTests
         var redirected = lane.Server.Received.Single(request => request.Path == "/form-redirect/done.html");
         redirected.Method.Should().Be("GET");
         redirected.Body.Should().BeEmpty();
+
+        await page.CloseAsync();
+    }
+
+    [Test]
+    public async Task PlaywrightSavesANestedAdminFormWithoutRetryingThePost()
+    {
+        await using var lane = await ClientLane.OpenAsync(server => server.Map(
+            "/admin-settings/index.html",
+            request => LoopbackResponse.Html(AdminSettingsDocument.Create(saved: request.Method == "POST"))));
+        var page = await lane.NewPageAsync("admin-settings");
+
+        // No Force, extended timeout, explicit navigation wait or wait for the success marker.
+        await page.Locator(".btn.save").ClickAsync();
+
+        page.Url.Should().Be(lane.Url("admin-settings"));
+        (await page.EvaluateAsync<string>("() => document.querySelector('#saved')?.textContent ?? ''"))
+            .Should().Be("Settings saved");
+        lane.Server.Received.Count(request => request.Method == "POST").Should().Be(1);
+        foreach (var context in lane.Pages.Contexts)
+        {
+            foreach (var hostPage in context.Pages)
+            {
+                hostPage.Errors.Should().BeEmpty();
+            }
+        }
 
         await page.CloseAsync();
     }

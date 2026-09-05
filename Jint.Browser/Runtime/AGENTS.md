@@ -213,10 +213,15 @@ fall out of the row rule and every one of them is load-bearing:
   `visibility: hidden`, whose `visibility: visible` descendant CSS lets escape. A model whose boxes are rows
   cannot give a descendant a row inside a parent that has none, and the nesting is what the hit test rests on.
 
-**It is recomputed per query and never cached.** A cache needs an invalidation signal, and the only one
+**It is recomputed per query and never cached across queries.** A cache needs an invalidation signal, and the only one
 available is an AngleSharp `MutationObserver` over the whole document — which would make every DOM mutation on
-every page pay for mutation records whether or not anything ever asks for a box. The walk is linear in the
-size of the document and touches no engine state.
+every page pay for mutation records whether or not anything ever asks for a box. Within that synchronous
+walk, `CssCascade.Traversal` shares the style collection and raw parent cascades: calling
+`ComputeCurrentStyle` separately for every element rematches every ancestor, which made a nested admin form
+expensive at every step of Playwright's actionability checks. AngleSharp still owns matching, specificity,
+inheritance and value computation. Raw rather than computed declarations preserve child-relative `var()`
+resolution; unresolved explicit `inherit` takes AngleSharp's ancestor-walk fallback. Nothing survives the
+query, so even same-turn CSSOM writes, `classList`, control state and media changes need no invalidation.
 
 **The scroll is virtual, and it is the only state.** `Layout/PageLayout` holds a `scrollY` clamped to the
 document, and every viewport-relative answer subtracts it; `scrollX` is zero and stays zero, because every box
@@ -329,4 +334,3 @@ The baton between the parser thread and the page loop, which thread runs what, t
 costs, and how scripts, modules, import maps and style sheets load are
 [`Parsing/AGENTS.md`](Parsing/AGENTS.md). The one rule to carry across without opening it: exactly one
 holder touches the engine and the DOM at a time, and a fetch a *script* triggered never pumps.
-

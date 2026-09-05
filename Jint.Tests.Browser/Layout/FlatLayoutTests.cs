@@ -1,4 +1,5 @@
 using Jint.Browser;
+using Jint.Browser.Runtime;
 
 namespace Jint.Tests.Browser.Layout;
 
@@ -21,6 +22,95 @@ namespace Jint.Tests.Browser.Layout;
 public class FlatLayoutTests
 {
     private const int Row = 16;
+
+    [Test]
+    public async Task AFailedRootComputationDoesNotForgetThatTheCascadePreviouslyAnswered()
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<style>.gone { display: none }</style><button class='gone' id='target'>Save</button>");
+
+        (await page.EvaluateAsync<string>(
+            """
+            (() => {
+              const target = document.getElementById('target');
+              const before = target.getBoundingClientRect().height;
+              document.documentElement.style.width = '20ch';
+              return before + ',' + target.getBoundingClientRect().height;
+            })()
+            """)).Should().Be("0,0");
+        page.Errors.Should().BeEmpty();
+    }
+
+    [TestCase("target.classList.add('gone')")]
+    [TestCase("target.style.display = 'none'")]
+    [TestCase("target.hidden = true")]
+    [TestCase("document.body.setAttribute('data-hide', '')")]
+    [TestCase("document.querySelector('style').textContent = '.target { display: none }'")]
+    [TestCase("document.styleSheets[0].insertRule('.target { display: none }', 0)")]
+    [TestCase("document.styleSheets[0].cssRules[0].selectorText = '.target'")]
+    [TestCase("document.getElementById('trigger').addEventListener('focus', () => target.style.display = 'none'); document.getElementById('trigger').focus()")]
+    [TestCase("document.getElementById('trigger').checked = true")]
+    [TestCase("document.getElementById('hidden-parent').appendChild(target)")]
+    public async Task ANewQuerySeesMutationsAndControlStateWithinTheSameTurn(string mutation)
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(
+            """
+            <style>
+              .unmatched { display: none }
+              .gone, [data-hide] .target, input:focus ~ .target, input:checked ~ .target { display: none }
+            </style>
+            <input id="trigger" type="checkbox"><button id="target" class="target">Save</button>
+            <div id="hidden-parent" hidden></div>
+            """);
+
+        (await page.EvaluateAsync<string>(
+            $$"""
+            (() => {
+              const target = document.getElementById('target');
+              const before = target.getBoundingClientRect().height;
+              {{mutation}};
+              return before + ',' + target.getBoundingClientRect().height;
+            })()
+            """)).Should().Be("16,0");
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task ANewQuerySeesRuleDeletionAndViewportChanges()
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(
+            """
+            <style>
+              button { display: none }
+              @media (max-width: 600px) { button { display: none } }
+            </style>
+            <button id="target">Save</button>
+            """);
+
+        (await page.EvaluateAsync<string>(
+            """
+            (() => {
+              const target = document.getElementById('target');
+              const before = target.getBoundingClientRect().height;
+              document.styleSheets[0].deleteRule(0);
+              return before + ',' + target.getBoundingClientRect().height;
+            })()
+            """)).Should().Be("0,16");
+
+        (await page.RunOnLoopAsync(engine =>
+        {
+            var runtime = PageRuntime.Find(engine)!;
+            var before = runtime.Layout.Current().Count;
+            runtime.SetViewport(new Viewport(400, 800));
+            return before - runtime.Layout.Current().Count;
+        })).Should().Be(1);
+        page.Errors.Should().BeEmpty();
+    }
 
     [Test]
     public async Task EveryRenderedElementOwnsOneRowAndAContainerSpansItsSubtree()
