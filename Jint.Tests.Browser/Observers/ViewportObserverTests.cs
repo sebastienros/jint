@@ -7,8 +7,7 @@ namespace Jint.Tests.Browser.Observers;
 using Browser = global::Jint.Browser.Browser;
 
 /// <summary>
-/// <c>IntersectionObserver</c> and <c>ResizeObserver</c>: one notification per observed target, delivered as
-/// a task, with the geometry a page with no layout can honestly be told.
+/// <c>IntersectionObserver</c> and <c>ResizeObserver</c>: task delivery and the flat model's geometry.
 /// </summary>
 public sealed class ViewportObserverTests
 {
@@ -164,7 +163,7 @@ public sealed class ViewportObserverTests
     }
 
     [Test]
-    public async Task EveryResizeObservedTargetIsReportedOnce()
+    public async Task EveryResizeObservedTargetReceivesAnInitialNotification()
     {
         await using var browser = new Browser();
         var page = await browser.NewPageAsync();
@@ -226,7 +225,7 @@ public sealed class ViewportObserverTests
         await page.EvaluateAsync("window.log.length = 0");
         (await page.WaitForIdleAsync(TimeSpan.FromSeconds(5))).Should().BeTrue();
 
-        // Nothing is reported a second time: with no layout, no size can change.
+        // No dimensions changed, so an idle observer reports nothing more.
         (await page.EvaluateAsync<string>("window.log.join('|')")).Should().BeEmpty();
     }
 

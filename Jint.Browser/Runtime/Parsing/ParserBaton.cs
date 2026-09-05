@@ -322,6 +322,7 @@ internal sealed class ParserBaton : IDisposable
             using (_budget.BeginTurn())
             {
                 _tasks.ProcessTasks();
+                PageRuntime.Find(_engine)?.UpdateRendering();
             }
         }
         catch (Exception exception)

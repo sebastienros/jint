@@ -31,6 +31,7 @@ internal sealed class PageRuntime
     private readonly long _started;
     private IDocument? _document;
     private Observers.ObserverRealm? _observers;
+    private Observers.ResizeObserverLane? _resizeObservers;
     private CustomElements.CustomElementRegistry? _customElements;
     private Dom.Views.ViewRealm? _views;
     private List<JsMediaQueryList>? _mediaQueryLists;
@@ -178,6 +179,10 @@ internal sealed class PageRuntime
 
     /// <summary>The observer interface objects of this engine, built on first use.</summary>
     internal Observers.ObserverRealm Observers => _observers ??= new Observers.ObserverRealm(this);
+
+    internal Observers.ResizeObserverLane ResizeObservers => _resizeObservers ??= new Observers.ResizeObserverLane(this);
+
+    internal void UpdateRendering() => _resizeObservers?.CheckForChanges();
 
     /// <summary>
     /// This document's <c>CustomElementRegistry</c> — <c>window.customElements</c> — built on first use.

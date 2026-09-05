@@ -458,8 +458,11 @@ planned. A blank last column means the section above describes what exists.
 | 10 | `Jint.Browser.Mcp`, the Model Context Protocol server, and `jint-browser mcp` serving it on stdio | [#3717](https://github.com/sebastienros/jint/pull/3717) | **`--http` did not ship** — the protocol's 2026-07-28 revision removed the session header from streamable HTTP, and the two ways to hold per-session state either need an `[Experimental]` handler or put an ASP.NET Core framework reference in a `dotnet tool`; and a `ref=` is the accessibility tree's own identifier rather than a `backendNodeId`, which belongs to a protocol target an MCP session has none of |
 
 Two decisions in the v1/not-v1 table of §2 turned out differently and are worth naming here rather than
-leaving a reader to compare tables. `IntersectionObserver` and `ResizeObserver` are no longer stubs, since
-§8's model gives them numbers to report. And `getComputedStyle` answers a *resolved* value for the ten
+leaving a reader to compare tables. §8's model gives both observers numbers to report.
+`IntersectionObserver` still reports each target once, fully intersecting. `ResizeObserver` also reports
+subsequent synthetic size changes, including hidden-to-visible transitions, from page-turn checkpoints;
+its entries preserve the measured size. Callback-induced changes are deferred to another task rather than
+processed through a depth-limited rendering loop. And `getComputedStyle` answers a *resolved* value for the ten
 properties an automation client reads to decide whether an element can be interacted with
 ([#3716](https://github.com/sebastienros/jint/pull/3716)) — the smallest exception to the standing decision
 against an initial-value table of our own, made because without it no supported client can drive a page.
