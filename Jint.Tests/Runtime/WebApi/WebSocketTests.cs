@@ -457,45 +457,85 @@ public class WebSocketTests
         Log(engine).Should().Be("open|close:1000");
     }
 
+    [Test]
+    public void ObserverSnapshotsDoNotChangeWhenAnotherCallbackIsRecorded()
+    {
+        var observer = new RecordingSocketObserver();
+        var id = new WebSocketId(1);
+        observer.OnCreated(id, new Uri("wss://example.org/socket"));
+
+        var events = observer.Events;
+        var ids = observer.Ids;
+
+        observer.OnClosed(id, 1000, "done", wasClean: true);
+
+        events.Should().Equal("created wss://example.org/socket");
+        ids.Should().Equal(id);
+        observer.Events.Should().Equal("created wss://example.org/socket", "closed 1000 done clean=True");
+        observer.Ids.Should().Equal(id, id);
+    }
+
     private sealed class RecordingSocketObserver : Jint.WebApi.WebSockets.WebSocketObserver
     {
-        internal List<string> Events { get; } = new();
+        private readonly List<string> _events = new();
+        private readonly List<Jint.WebApi.WebSockets.WebSocketId> _ids = new();
 
-        internal List<Jint.WebApi.WebSockets.WebSocketId> Ids { get; } = new();
+        // Transport callbacks can append while the test enumerates its snapshot.
+        internal IReadOnlyList<string> Events
+        {
+            get
+            {
+                lock (_events)
+                {
+                    return _events.ToArray();
+                }
+            }
+        }
+
+        internal IReadOnlyList<Jint.WebApi.WebSockets.WebSocketId> Ids
+        {
+            get
+            {
+                lock (_events)
+                {
+                    return _ids.ToArray();
+                }
+            }
+        }
 
         public override void OnCreated(Jint.WebApi.WebSockets.WebSocketId id, Uri url)
         {
-            lock (Events)
+            lock (_events)
             {
-                Ids.Add(id);
-                Events.Add("created " + url.AbsoluteUri);
+                _ids.Add(id);
+                _events.Add("created " + url.AbsoluteUri);
             }
         }
 
         public override void OnHandshakeRequest(Jint.WebApi.WebSockets.ObservedWebSocketHandshake handshake)
         {
-            lock (Events)
+            lock (_events)
             {
-                Ids.Add(handshake.Id);
-                Events.Add($"handshake {handshake.Url.AbsoluteUri} protocols={string.Join(",", handshake.Protocols)} headers={string.Join(",", handshake.Headers.Select(h => h.Name))}");
+                _ids.Add(handshake.Id);
+                _events.Add($"handshake {handshake.Url.AbsoluteUri} protocols={string.Join(",", handshake.Protocols)} headers={string.Join(",", handshake.Headers.Select(h => h.Name))}");
             }
         }
 
         public override void OnHandshakeResponse(Jint.WebApi.WebSockets.ObservedWebSocketResponse response)
         {
-            lock (Events)
+            lock (_events)
             {
-                Ids.Add(response.Id);
-                Events.Add($"response {response.Status} {response.SubProtocol} headers={string.Join(",", response.Headers.Select(h => h.Name))}");
+                _ids.Add(response.Id);
+                _events.Add($"response {response.Status} {response.SubProtocol} headers={string.Join(",", response.Headers.Select(h => h.Name))}");
             }
         }
 
         public override void OnClosed(Jint.WebApi.WebSockets.WebSocketId id, int code, string reason, bool wasClean)
         {
-            lock (Events)
+            lock (_events)
             {
-                Ids.Add(id);
-                Events.Add($"closed {code} {reason} clean={wasClean}");
+                _ids.Add(id);
+                _events.Add($"closed {code} {reason} clean={wasClean}");
             }
         }
     }
