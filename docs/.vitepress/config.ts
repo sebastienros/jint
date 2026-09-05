@@ -103,6 +103,7 @@ export default defineConfig({
           text: "Observability and Performance",
           items: [
             { text: "Performance", link: "/packages/jint/performance" },
+            { text: "Engine Comparison", link: "/packages/jint/engine-comparison" },
             { text: "Profiling", link: "/packages/jint/profiling" },
             { text: "Code Coverage", link: "/packages/jint/code-coverage" }
           ]

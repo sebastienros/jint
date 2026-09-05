@@ -2,6 +2,9 @@
 
 Measure with your scripts and host objects; embedding shape often matters more than script size.
 
+For measured results across Jint, other managed engines, and V8, see the
+[JavaScript engine comparison](./engine-comparison.md).
+
 ## Prepare repeated programs
 
 Parse and analyze repeated source once:

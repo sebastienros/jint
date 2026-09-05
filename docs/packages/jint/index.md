@@ -45,6 +45,7 @@ Browser APIs and Node compatibility are separate, explicit opt-ins.
 - [Running untrusted code](./untrusted-code.md)
 - [Error handling](./errors.md)
 - [Performance](./performance.md)
+- [JavaScript engine comparison](./engine-comparison.md)
 - [Profiling](./profiling.md)
 - [Code coverage](./code-coverage.md)
 - [Thread safety](./thread-safety.md)

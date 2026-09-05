@@ -157,7 +157,7 @@ engine's recommended cached execution path:
 
 Native V8 remains faster on long, compute-heavy loops. Managed allocation
 figures also cannot include V8's native heap. Read the
-[full results and methodology](https://github.com/sebastienros/jint/blob/main/Jint.Benchmark/README.md)
+[engine comparison and methodology](https://sebastienros.github.io/jint/packages/jint/engine-comparison)
 before comparing engines; absolute numbers from different benchmark sessions
 are not comparable.
 
