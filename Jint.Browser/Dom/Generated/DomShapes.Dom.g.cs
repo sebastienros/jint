@@ -1020,7 +1020,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.importNode", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.importNode");
-                    return self.Realm.WrapNodeValue(self.Target.Import(global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Dom.INode>(args, 0, "Document.importNode"), global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 1, true)));
+                    return self.Realm.Hooks.ImportNode(self.Realm, self.Target, args);
                 }),
                 length: 1)
             .Accessor("lastElementChild",

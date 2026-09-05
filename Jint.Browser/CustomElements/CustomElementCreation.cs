@@ -65,6 +65,7 @@ internal static class CustomElementCreation
     internal static JsValue CloneNode(DomRealm realm, INode node, JsValue[] arguments)
     {
         var clone = node.Clone(DomConvert.OptionalBool(arguments, 0, true));
+        Dom.Files.FileTransferRealm.ResetCopiedInputs(clone);
         CustomElementRegistry.SubtreeCreated(realm, clone);
         return realm.WrapNodeValue(clone);
     }

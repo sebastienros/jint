@@ -306,22 +306,24 @@ public class DateTests
     [Test]
     public void FormattingTheFirstInstantOfYear10000DoesNotThrowAClrException()
     {
+        var engine = new Engine(options => options.TimeZone = TimeZoneInfo.Utc);
+
         // How many digits the expanded year gets is a separate defect; what this asserts is that a
         // string comes back at all.
-        _engine.Evaluate("new Date(253402300800000).toISOString()").AsString().Should().EndWith("10000-01-01T00:00:00.000Z");
-        _engine.Evaluate("new Date(253402300800000).toJSON()").AsString().Should().EndWith("10000-01-01T00:00:00.000Z");
-        _engine.Evaluate("JSON.stringify({ d: new Date(253402300800000) })").AsString().Should().EndWith("10000-01-01T00:00:00.000Z\"}");
-        _engine.Evaluate("new Date(253402300800000).getUTCFullYear()").AsNumber().Should().Be(10000);
+        engine.Evaluate("new Date(253402300800000).toISOString()").AsString().Should().EndWith("10000-01-01T00:00:00.000Z");
+        engine.Evaluate("new Date(253402300800000).toJSON()").AsString().Should().EndWith("10000-01-01T00:00:00.000Z");
+        engine.Evaluate("JSON.stringify({ d: new Date(253402300800000) })").AsString().Should().EndWith("10000-01-01T00:00:00.000Z\"}");
+        engine.Evaluate("new Date(253402300800000).getUTCFullYear()").AsNumber().Should().Be(10000);
 
         // toUTCString reached the same value through DateTimeOffset.FromUnixTimeMilliseconds, whose own
-        // message names 253402300799999 as the largest it accepts. toString renders in local time, so
-        // only the year is worth asserting there.
-        _engine.Evaluate("new Date(253402300800000).toUTCString()").AsString().Should().Be("Sat, 01 Jan 10000 00:00:00 GMT");
-        _engine.Evaluate("new Date(253402300800000).toString()").AsString().Should().Contain("10000");
+        // message names 253402300799999 as the largest it accepts. toString renders in the configured
+        // local time zone, so use UTC above to keep this boundary instant in year 10000 on every host.
+        engine.Evaluate("new Date(253402300800000).toUTCString()").AsString().Should().Be("Sat, 01 Jan 10000 00:00:00 GMT");
+        engine.Evaluate("new Date(253402300800000).toString()").AsString().Should().Contain("10000");
 
         // The escape itself: a CLR exception is invisible to script, so this used to throw out of
         // Evaluate rather than run the catch clause or return a value.
-        _engine.Evaluate("(function () { try { return new Date(253402300800000).toISOString(); } catch (e) { return 'caught'; } })()")
+        engine.Evaluate("(function () { try { return new Date(253402300800000).toISOString(); } catch (e) { return 'caught'; } })()")
             .AsString().Should().EndWith("10000-01-01T00:00:00.000Z");
     }
 

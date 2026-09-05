@@ -1,5 +1,6 @@
 using AngleSharp.Dom;
 using Jint.Browser.Dom;
+using Jint.Browser.Layout;
 using Jint.Browser.Runtime;
 using Jint.Native;
 using Jint.Native.Object;
@@ -8,32 +9,25 @@ using Jint.Runtime;
 namespace Jint.Browser.Observers;
 
 /// <summary>
-/// A <c>ResizeObserver</c> with no box to measure: every target it is given is reported once, at zero size.
+/// Reports changes to the sizes supplied by the page's flat box model.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>A stub, like <see cref="JsIntersectionObserver"/>, and for the same reason.</b>
-/// <a href="https://w3c.github.io/csswg-drafts/resize-observer/">Resize Observer</a> reports a box changing
-/// size, and there are no boxes. What matters to a page is the <em>initial</em> notification the specification
-/// requires — "observe() ... queues an initial observation" — because that is the one a component uses to
-/// measure itself when it mounts, and a component whose observer never fires never finishes mounting. So each
-/// observed target gets exactly one entry, delivered as a task after <c>observe()</c> returns, and nothing
-/// afterwards: with no layout, no size can change.
+/// The geometry is synthetic, but it changes when a target is shown, hidden, inserted or removed, when its
+/// rendered subtree changes, and when the viewport changes. Keeping the last reported size makes these
+/// changes observable without repeatedly reporting unchanged targets.
 /// </para>
 /// <para>
-/// The <c>box</c> option is read and ignored: the three box sizes an entry carries are the same zeros, so
-/// choosing between them would be a distinction without a difference. The flat-box model (campaign item C4)
-/// is what makes them different numbers.
+/// All three box sizes use the same flat dimensions; padding, borders and device-pixel scaling are not
+/// modeled. Entries retain their measured dimensions rather than consulting the current DOM on each read.
 /// </para>
 /// </remarks>
 internal sealed class JsResizeObserver : ObjectInstance
 {
     private readonly PageRuntime _runtime;
     private readonly ICallable _callback;
-    private readonly List<INode> _targets = [];
-    private readonly List<JsResizeObserverEntry> _queue = [];
+    private readonly List<Observation> _targets = [];
     private readonly ObjectInstance _entryPrototype;
-    private bool _scheduled;
 
     internal JsResizeObserver(PageRuntime runtime, ObjectInstance prototype, ObjectInstance entryPrototype, ICallable callback)
         : base(runtime.Engine)
@@ -56,14 +50,13 @@ internal sealed class JsResizeObserver : ObjectInstance
     {
         var target = Target(arguments, "observe");
 
-        if (_targets.Contains(target))
+        if (_targets.Exists(observation => ReferenceEquals(observation.Target, target)))
         {
             return JsValue.Undefined;
         }
 
-        _targets.Add(target);
-        _queue.Add(new JsResizeObserverEntry(_runtime, _entryPrototype, target));
-        Schedule();
+        _targets.Add(new Observation(target));
+        _runtime.ResizeObservers.Enlist(this);
         return JsValue.Undefined;
     }
 
@@ -71,8 +64,11 @@ internal sealed class JsResizeObserver : ObjectInstance
     internal JsValue Unobserve(JsValue[] arguments)
     {
         var target = Target(arguments, "unobserve");
-        _targets.Remove(target);
-        _queue.RemoveAll(entry => ReferenceEquals(entry.Node, target));
+        _targets.RemoveAll(observation => ReferenceEquals(observation.Target, target));
+        if (_targets.Count == 0)
+        {
+            _runtime.ResizeObservers.Withdraw(this);
+        }
         return JsValue.Undefined;
     }
 
@@ -80,41 +76,57 @@ internal sealed class JsResizeObserver : ObjectInstance
     internal JsValue Disconnect()
     {
         _targets.Clear();
-        _queue.Clear();
+        _runtime.ResizeObservers.Withdraw(this);
         return JsValue.Undefined;
     }
 
-    private void Schedule()
+    /// <summary>https://drafts.csswg.org/resize-observer/#dom-resizeobservation-isactive.</summary>
+    internal bool HasChanges(FlatLayout layout)
     {
-        if (_scheduled)
+        foreach (var observation in _targets)
         {
-            return;
+            var box = layout.ClientBoxOf(observation.Target) ?? FlatBox.Empty;
+            if (observation.Width != box.Width || observation.Height != box.Height)
+            {
+                return true;
+            }
         }
 
-        _scheduled = true;
-        ObserverTask.Post(_runtime, Deliver);
+        return false;
     }
 
-    private void Deliver()
+    /// <summary>https://drafts.csswg.org/resize-observer/#broadcast-resize-notifications-h.</summary>
+    internal void Deliver(FlatLayout layout)
     {
-        _scheduled = false;
+        List<JsValue>? entries = null;
+        foreach (var observation in _targets)
+        {
+            var box = layout.ClientBoxOf(observation.Target) ?? FlatBox.Empty;
+            if (observation.Width == box.Width && observation.Height == box.Height)
+            {
+                continue;
+            }
 
-        if (_queue.Count == 0)
+            observation.Width = box.Width;
+            observation.Height = box.Height;
+            (entries ??= []).Add(new JsResizeObserverEntry(_runtime, _entryPrototype, observation.Target, box));
+        }
+
+        if (entries is null)
         {
             return;
         }
-
-        var values = new JsValue[_queue.Count];
-        for (var i = 0; i < _queue.Count; i++)
-        {
-            values[i] = _queue[i];
-        }
-
-        _queue.Clear();
 
         try
         {
-            _callback.Call(this, [_runtime.Engine._mainRealm.Intrinsics.Array.ConstructFast(values), this]);
+            try
+            {
+                _callback.Call(this, [_runtime.Engine._mainRealm.Intrinsics.Array.ConstructFast(entries.ToArray()), this]);
+            }
+            finally
+            {
+                _runtime.Engine.CleanUpAfterRunningScript();
+            }
         }
         catch (JavaScriptException exception)
         {
@@ -125,7 +137,7 @@ internal sealed class JsResizeObserver : ObjectInstance
         }
     }
 
-    private INode Target(JsValue[] arguments, string member)
+    private IElement Target(JsValue[] arguments, string member)
     {
         if (arguments.At(0) is IDomWrapper { DomTarget: IElement element })
         {
@@ -137,6 +149,15 @@ internal sealed class JsResizeObserver : ObjectInstance
             "Failed to execute '" + member + "' on 'ResizeObserver': parameter 1 is not of type 'Element'.");
         return null!;
     }
+
+    private sealed class Observation(IElement target)
+    {
+        internal IElement Target { get; } = target;
+
+        // https://drafts.csswg.org/resize-observer/#dom-resizeobservation-resizeobservation-target-options
+        internal double Width { get; set; } = -1;
+        internal double Height { get; set; } = -1;
+    }
 }
 
 /// <summary>
@@ -145,11 +166,13 @@ internal sealed class JsResizeObserver : ObjectInstance
 internal sealed class JsResizeObserverEntry : ObjectInstance
 {
     private readonly PageRuntime _runtime;
+    private readonly FlatBox _box;
 
-    internal JsResizeObserverEntry(PageRuntime runtime, ObjectInstance prototype, INode node)
+    internal JsResizeObserverEntry(PageRuntime runtime, ObjectInstance prototype, INode node, FlatBox box)
         : base(runtime.Engine)
     {
         _runtime = runtime;
+        _box = new FlatBox(0, 0, box.Width, box.Height);
         Node = node;
         Prototype = prototype;
     }
@@ -164,25 +187,10 @@ internal sealed class JsResizeObserverEntry : ObjectInstance
     /// https://drafts.csswg.org/resize-observer/#dom-resizeobserverentry-contentrect — the target's own
     /// size, at the origin of its own padding box, which is where a content rectangle is measured from.
     /// </summary>
-    internal JsValue Rect()
-    {
-        var box = Box();
-        return Layout.DomRects.Of(Engine, new Layout.FlatBox(0, 0, box.Width, box.Height));
-    }
+    internal JsValue Rect() => DomRects.Of(Engine, _box);
 
     /// <summary>A fresh one-element array holding the target's own size.</summary>
-    internal JsValue BoxSizes()
-    {
-        var box = Box();
-        return ObserverGeometry.BoxSizes(Engine, box.Width, box.Height);
-    }
-
-    /// <summary>The target's box, or the empty one when it has none.</summary>
-    private Layout.FlatBox Box()
-    {
-        var box = Node is IElement element ? _runtime.Layout.Current().ClientBoxOf(element) : null;
-        return box ?? Layout.FlatBox.Empty;
-    }
+    internal JsValue BoxSizes() => ObserverGeometry.BoxSizes(Engine, _box.Width, _box.Height);
 
     /// <inheritdoc />
     public override string ToString() => "[object ResizeObserverEntry]";

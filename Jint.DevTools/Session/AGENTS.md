@@ -17,7 +17,7 @@ mechanism, in order:
    hands the request to `EngineDispatcher.DispatchAsync`, which enqueues it and waits.
 2. The enqueue calls `engine.Tasks.Post(Drain)`, the one engine entry a thread that does not own the engine
    may call. It wakes whichever thread is pumping.
-3. `Drain` runs **on the engine thread, inside an ordinary event-loop job**, answers the command, and
+3. `Drain` runs **on the engine thread, inside an ordinary event-loop job**, answers one command, and
    completes the waiting task with the finished JSON.
 4. The transport thread writes that string. **No `JsValue` ever crosses.**
 
@@ -28,6 +28,10 @@ Four consequences that are not negotiable:
   attaches reactions and completes from the job that runs them, which is V8's shape.
 - **The drain must never throw.** It is a job on the host's own pump, so an exception erupts out of
   `ProcessTasks` into the host. Every item catches everything and answers with it.
+- **One running-mode drain answers one command or host work item.** Work left queued is posted again.
+  A page's task budget includes that command's microtask checkpoint, not the other commands waiting behind
+  it. Never fold the queue back into one job: an expensive actionability burst would spend a later Vue
+  reaction's deadline. The paused drain remains inline inside the suspended task and does not re-arm it.
 - **A command that times out is answered, not cancelled.** `CommandTimeout` bounds the *client's* wait; the
   item stays queued and still runs when the engine is next pumped. The two messages are told apart
   deliberately — an item nothing dequeued says `Engine is not being pumped`, one that started and did not
@@ -183,4 +187,3 @@ A scope a client expands is a **snapshot**: environment records are not objects,
 bindings are copied into one — getter-free, like every describing path here — while a global or `with`
 scope is answered as the object it already is. A binding in its temporal dead zone is absent rather than
 shown as `undefined`, and `Debugger.setVariableValue` writes through.
-

@@ -121,6 +121,14 @@ internal class DomHostHooks
     internal virtual JsValue Dataset(DomRealm realm, IHtmlElement element)
         => realm.WrapStringMap(element, element.Dataset);
 
+    /// <summary>https://html.spec.whatwg.org/multipage/forms.html#dom-lfe-labels</summary>
+    internal virtual JsValue Labels(DomRealm realm, IHtmlElement element)
+        => HtmlLabelAssociation.IsLabelable(element) ? realm.WrapLabels(element) : JsValue.Null;
+
+    /// <summary>https://html.spec.whatwg.org/multipage/forms.html#dom-label-control</summary>
+    internal virtual JsValue LabelControl(DomRealm realm, IHtmlLabelElement label)
+        => realm.WrapNodeValue(HtmlLabelAssociation.ControlFor(label));
+
     /// <summary>https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-insertadjacenthtml</summary>
     /// <remarks>
     /// <para>
@@ -202,6 +210,16 @@ internal class DomHostHooks
     /// <inheritdoc cref="CreateElement" />
     internal virtual JsValue CloneNode(DomRealm realm, INode node, JsValue[] arguments)
         => CustomElements.CustomElementCreation.CloneNode(realm, node, arguments);
+
+    /// <summary>DOM's import steps do not copy a file input's selected files.</summary>
+    internal virtual JsValue ImportNode(DomRealm realm, IDocument document, JsValue[] arguments)
+    {
+        var imported = document.Import(
+            DomBindings.Argument<INode>(arguments, 0, "Document.importNode"),
+            DomConvert.OptionalBool(arguments, 1, true));
+        Files.FileTransferRealm.ResetCopiedInputs(imported);
+        return realm.WrapNodeValue(imported);
+    }
 
     // ------------------------------------------------------------------------------------------------
     // The members whose value the host has and AngleSharp does not. Every one of them used to be an own

@@ -1,6 +1,9 @@
+using System.Text;
 using Jint.Browser;
+using Jint.Constraints;
 using Jint.DevTools;
 using Jint.Tests.Browser.Fixtures;
+using Jint.Tests.Browser.Layout;
 using Jint.Tests.Browser.Navigation;
 using Microsoft.Playwright;
 using PageContextOptions = Jint.Browser.BrowserContextOptions;
@@ -114,6 +117,132 @@ public class PlaywrightCourseTests
         await page.CloseAsync();
     }
 
+    [Test]
+    public async Task PlaywrightCreatesAFolderInATreeMountedWhileHidden()
+    {
+        await using var lane = await ClientLane.OpenAsync();
+        var page = await lane.NewPageAsync("vue-folder-tree");
+        await page.WaitForFunctionAsync("() => resizeHeights.length === 1 && resizeHeights[0] === 0");
+
+        await page.Locator("#load").ClickAsync();
+        await page.Locator("#children").WaitForAsync();
+        await page.Locator("#create").ClickAsync();
+        await page.Locator(".folder-name").Nth(1).WaitForAsync();
+        (await page.Locator(".folder-name").AllTextContentsAsync()).Should().Equal("Files", "TestFolder");
+
+        foreach (var context in lane.Pages.Contexts)
+        {
+            foreach (var hostPage in context.Pages)
+            {
+                hostPage.Errors.Should().BeEmpty();
+            }
+        }
+
+        await page.CloseAsync();
+    }
+
+    [Test]
+    public async Task PlaywrightUpdatesTheVueTreeAfterSeparateQueuedTasks()
+    {
+        var clock = new TaskBudgetClock();
+        var options = new BrowserOptions().ConfigureEngine(options =>
+        {
+            // Only the page's host-owned deadline uses the fake clock; timers and promise waits do not.
+            options.RemoveConstraints(static constraint => constraint is OperationDeadlineConstraint);
+            options.AddConstraint(() => new OperationDeadlineConstraint(clock));
+            options.Configure(engine =>
+            {
+                engine.SetValue("__checkTaskBudget", () => engine.Constraints.Check());
+                engine.SetValue("__queueBudgetedTasks", () =>
+                {
+                    for (var i = 0; i < 2; i++)
+                    {
+                        engine.Tasks.Post(() =>
+                        {
+                            engine.Execute(
+                                "Vue.nextTick(() => { __checkTaskBudget(); globalThis.__budgetedReactions++; });");
+                            clock.Advance(TimeSpan.FromSeconds(4));
+                        });
+                    }
+                });
+            });
+        });
+        options.MaxTaskDuration.Should().Be(TimeSpan.FromSeconds(5));
+
+        await using var lane = await ClientLane.OpenAsync(options: options);
+        var page = await lane.NewPageAsync("vue-folder-tree");
+        await page.EvaluateAsync(
+            """
+            () => {
+              globalThis.__budgetedReactions = 0;
+              for (const id of ['load', 'create']) {
+                document.getElementById(id).addEventListener(
+                  'click', () => __queueBudgetedTasks(), { capture: true, once: true });
+              }
+            }
+            """);
+
+        // Both tasks are queued by the actual input dispatch, before either can run. Each costs four
+        // seconds, including its Vue reaction; only a drain-wide five-second deadline rejects the pair.
+        // Advancing after Execute leaves the old FIFO's pending Vue nextTick jobs to discover the expiry.
+        // The reaction checks explicitly rather than depending on the interpreter's amortized cadence.
+        await page.Locator("#load").ClickAsync();
+        await page.Locator("#children").WaitForAsync();
+        await page.Locator("#create").ClickAsync();
+        await page.Locator(".folder-name").Nth(1).WaitForAsync();
+
+        (await page.Locator(".folder-name").AllTextContentsAsync()).Should().Equal("Files", "TestFolder");
+        foreach (var context in lane.Pages.Contexts)
+        {
+            foreach (var hostPage in context.Pages)
+            {
+                hostPage.Errors.Should().BeEmpty();
+            }
+        }
+
+        (await page.EvaluateAsync<int>("() => globalThis.__budgetedReactions")).Should().Be(4);
+        (await page.EvaluateAsync<bool>("() => resizeHeights.some(height => height > 40)")).Should().BeTrue();
+        await page.CloseAsync();
+    }
+
+    /// <summary>Role locators derive textbox names from HTML's label association.</summary>
+    [Test]
+    public async Task PlaywrightGetByRoleUsesAssociatedLabels()
+    {
+        await using var lane = await ClientLane.OpenAsync(server => server.MapHtml(
+            "/associated-labels/index.html",
+            """
+            <!doctype html>
+            <html><body>
+            <label for="explicit">Explicit</label><input id="explicit">
+            <label>Wrapped <input id="wrapped"></label>
+            <label for="multiple">First</label>
+            <label for="multiple" hidden>Hidden</label>
+            <label for="multiple">Second</label>
+            <input id="multiple">
+            <label for="aria">Native</label><input id="aria" aria-label="ARIA">
+            <span id="referenced" hidden>Referenced</span>
+            <label for="labelledby">Native</label>
+            <input id="labelledby" aria-label="ARIA" aria-labelledby="referenced">
+            </body></html>
+            """));
+        var page = await lane.NewPageAsync("associated-labels");
+
+        (await page.GetByRole(AriaRole.Textbox).CountAsync()).Should().Be(5);
+        (await NamedTextboxCount("Explicit")).Should().Be(1);
+        (await NamedTextboxCount("Wrapped")).Should().Be(1);
+        (await NamedTextboxCount("First Hidden Second")).Should().Be(1);
+        (await NamedTextboxCount("ARIA")).Should().Be(1);
+        (await NamedTextboxCount("Referenced")).Should().Be(1);
+
+        await page.CloseAsync();
+
+        async Task<int> NamedTextboxCount(string name)
+            => await page.GetByRole(
+                AriaRole.Textbox,
+                new PageGetByRoleOptions { Name = name, Exact = true }).CountAsync();
+    }
+
     /// <summary>The router, and the emulated colour scheme the page reads through <c>matchMedia</c>.</summary>
     [Test]
     public async Task PlaywrightMovesThroughTheRouterAndEmulatesTheColourScheme()
@@ -188,6 +317,32 @@ public class PlaywrightCourseTests
         var redirected = lane.Server.Received.Single(request => request.Path == "/form-redirect/done.html");
         redirected.Method.Should().Be("GET");
         redirected.Body.Should().BeEmpty();
+
+        await page.CloseAsync();
+    }
+
+    [Test]
+    public async Task PlaywrightSavesANestedAdminFormWithoutRetryingThePost()
+    {
+        await using var lane = await ClientLane.OpenAsync(server => server.Map(
+            "/admin-settings/index.html",
+            request => LoopbackResponse.Html(AdminSettingsDocument.Create(saved: request.Method == "POST"))));
+        var page = await lane.NewPageAsync("admin-settings");
+
+        // No Force, extended timeout, explicit navigation wait or wait for the success marker.
+        await page.Locator(".btn.save").ClickAsync();
+
+        page.Url.Should().Be(lane.Url("admin-settings"));
+        (await page.EvaluateAsync<string>("() => document.querySelector('#saved')?.textContent ?? ''"))
+            .Should().Be("Settings saved");
+        lane.Server.Received.Count(request => request.Method == "POST").Should().Be(1);
+        foreach (var context in lane.Pages.Contexts)
+        {
+            foreach (var hostPage in context.Pages)
+            {
+                hostPage.Errors.Should().BeEmpty();
+            }
+        }
 
         await page.CloseAsync();
     }
@@ -343,6 +498,78 @@ public class PlaywrightCourseTests
         await page.CloseAsync();
     }
 
+    /// <summary>Issue #3844: Playwright's standard DataTransfer path can select in-memory files.</summary>
+    [Test]
+    public async Task PlaywrightCanSetMultipleInputFiles()
+    {
+        await using var lane = await ClientLane.OpenAsync(server => server.MapHtml(
+            "/file-input/index.html",
+            """
+            <form>
+              <input id="upload" type="file" multiple>
+            </form>
+            <script>
+              window.fileEvents = [];
+              for (const type of ['input', 'change']) {
+                document.body.addEventListener(type, event => {
+                  window.fileEvents.push(type + ':' + event.target.id + ':' + event.bubbles);
+                });
+              }
+            </script>
+            """));
+        var page = await lane.NewPageAsync("file-input");
+
+        await page.Locator("#upload").SetInputFilesAsync(
+        [
+            new FilePayload
+            {
+                Name = "hello.txt",
+                MimeType = "text/plain",
+                Buffer = Encoding.UTF8.GetBytes("hello from Playwright"),
+            },
+            new FilePayload
+            {
+                Name = "data.json",
+                MimeType = "application/json",
+                Buffer = Encoding.UTF8.GetBytes("{\"answer\":42}"),
+            },
+        ]);
+
+        var result = await page.EvaluateAsync<string>(
+            """
+            async () => {
+              const files = document.getElementById('upload').files;
+              const details = await Promise.all(Array.from(files, async file =>
+                [file.name, file.type, await file.text()].join('|')));
+              return [
+                files instanceof FileList,
+                files.length,
+                files.item(0) === files[0],
+                files.item(2) === null,
+                details.join(';'),
+                window.fileEvents.join(',')
+              ].join('#');
+            }
+            """);
+
+        result.Should().Be(
+            "true#2#true#true#hello.txt|text/plain|hello from Playwright;"
+            + "data.json|application/json|{\"answer\":42}#input:upload:true,change:upload:true");
+
+        await page.CloseAsync();
+    }
+
+    private sealed class TaskBudgetClock : TimeProvider
+    {
+        private long _ticks = 1;
+
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+
+        public override long GetTimestamp() => _ticks;
+
+        internal void Advance(TimeSpan elapsed) => _ticks += elapsed.Ticks;
+    }
+
     /// <summary>A server serving the course, a browser, a protocol server and a connected Playwright.</summary>
     private sealed class ClientLane : IAsyncDisposable
     {
@@ -374,12 +601,14 @@ public class PlaywrightCourseTests
 
         internal IBrowserContext Context { get; }
 
-        internal static async Task<ClientLane> OpenAsync(Action<LoopbackServer>? routes = null)
+        internal static async Task<ClientLane> OpenAsync(
+            Action<LoopbackServer>? routes = null,
+            BrowserOptions? options = null)
         {
             var server = FixtureOrigin.Serve(new LoopbackServer());
             routes?.Invoke(server);
 
-            var pages = new global::Jint.Browser.Browser();
+            var pages = new global::Jint.Browser.Browser(options);
             await pages.NewContextAsync(new PageContextOptions { UrlFilter = server.Owns }).ConfigureAwait(false);
 
             var protocol = new DevToolsServer();

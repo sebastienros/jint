@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using AngleSharp.Dom;
+using AngleSharp.Html.Dom;
 using Jint.Browser.Dom.Collections;
 using Jint.Native;
 using Jint.Native.Object;
@@ -261,6 +262,13 @@ internal sealed class DomRealm
 
         var target = new DomStaticNodeList(nodes);
         return Cache(nodes, new DomCollectionObject(this, DomInterfaces.NodeList, target, DomAccessorNodeList.Instance));
+    }
+
+    /// <summary>Projects the live <c>NodeList</c> of labels associated with a labelable element.</summary>
+    internal JsValue WrapLabels(IHtmlElement control)
+    {
+        var labels = new DomLabelNodeList(control);
+        return Cache(labels, new DomCollectionObject(this, DomInterfaces.NodeList, labels, DomAccessorNodeList.Instance));
     }
 
     /// <summary>Projects an element's <c>dataset</c> through HTML's name conversion algorithms.</summary>

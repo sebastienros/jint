@@ -93,14 +93,23 @@ public partial class Engine
     /// </summary>
     /// <returns>Whether a timer was promoted, i.e. whether the pump has more work to do.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal bool TryPromoteDueTimerJob()
+    internal bool TryPromoteDueTimerJob(bool includeIdleCallbacks = true)
     {
 #if NET8_0_OR_GREATER
         var webApi = _webApi;
-        return webApi is not null && webApi.TryPromoteDeferredWork();
+        return webApi is not null && webApi.TryPromoteDeferredWork(includeIdleCallbacks);
 #else
         // Timers are the one web API that needs engine infrastructure, and every line of them is net8.0 and
         // later; downlevel there is nothing to promote and the JIT folds this call away to nothing.
+        return false;
+#endif
+    }
+
+    internal bool TryRunIdleCallback()
+    {
+#if NET8_0_OR_GREATER
+        return _webApi?.IdleCallbacks is { } idle && idle.TryRunIdleCallback();
+#else
         return false;
 #endif
     }

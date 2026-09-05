@@ -141,15 +141,21 @@ and nothing belonging to an engine — a `JsValue`, an AngleSharp node — may b
 - **`IntersectionObserver` and `ResizeObserver` deliver as a *task*** — a zero-delay timer entry
   (`ObserverTask`) — because both belong to update-the-rendering and a microtask would run before the promises
   of the same turn. It also makes the delivery visible to `Page.WaitForIdleAsync`.
-- **Both are stubs, and the shape of the lie is the point.** Each observed target is reported exactly once,
-  fully intersecting or at its own size, and never again, because nothing here can change what a box is.
-  "Never intersecting" would stop every lazy list and reveal-on-scroll animation dead, and the initial resize
-  notification is the one a component uses to measure itself when it mounts. `root`, `rootMargin` and
+- **`IntersectionObserver` reports each target exactly once**, fully intersecting.
+  "Never intersecting" would stop every lazy list and reveal-on-scroll animation dead. `root`, `rootMargin` and
   `thresholds` are parsed, validated and reflected exactly as the specification says and change nothing.
   **The rectangles are real numbers now** — the flat box model gives every element a row, and an entry
   reports the target's own box through the same `Layout/DomRects` factory `getBoundingClientRect` answers
   from, so the two agree. They are still **plain objects, not `DOMRectReadOnly` instances**: the eight
   members are there and the interface object is not, and `Layout/DomRects` says what adding one would cost.
+- **`ResizeObserver` tracks changes in the flat model**, not just the initial size. A target mounted under
+  `display: none` must hear its later visible size, or a component that gates rendering on that measurement
+  stays empty forever. `ResizeObserverLane` checks at page-turn boundaries and in both nested pumps, shares
+  one layout per check/delivery, and schedules a task only for changed dimensions. No mutation observer is
+  installed: ancestor `classList`, CSSOM writes and viewport changes must work too. Idle wakes do not scan,
+  and a page with no resize observers allocates no lane. Entries retain measured sizes; the active list
+  retains observers only while they have targets. Callback-caused changes wait for another task rather than
+  running a depth-limited resize loop. All three box options still use the same synthetic dimensions.
 
 None of the five interface objects is generated, so they are hand-written `JsObjectShape`s behind
 `HostInterfaceObject`, and `Views/HostInterfaceDisciplineTests` holds them to the same two rules
@@ -277,7 +283,7 @@ never caches an engine, and a `JsValue` never leaves the page loop.
 
 ### The obstacle course, and what a red fixture means
 
-`Jint.Tests.Browser/Fixtures/` is eighteen offline pages built out of vendored libraries — TodoMVC on React,
+`Jint.Tests.Browser/Fixtures/` is nineteen offline pages built out of vendored libraries — TodoMVC on React,
 Vue 3, Preact and Svelte, React hydrating server markup, jQuery, htmx, Alpine, a `pushState` router, custom
 elements, an import map, `fetch`, a form that redirects, a cookie login, storage across navigations, both
 observers, dialogs — served over a real socket and driven through the public `Page` API. Four of them are
