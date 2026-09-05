@@ -32,15 +32,15 @@ public sealed class CustomPropertyTests
               return [s.getPropertyValue('--a'), s.getPropertyValue('--b'),
                       s.getPropertyValue('--c'), s.color, s.opacity, s.width].join('|');
             })()
-            """)).Should().Be("||||0.25|1280px");
+            """)).Should().Be("|||rgba(0, 0, 0, 1)|0.25|auto");
         page.Errors.Should().BeEmpty();
     }
 
     [TestCase("var(--a, red)", "rgba(255, 0, 0, 1)")]
     [TestCase("var(--a, var(--missing, blue))", "rgba(0, 0, 255, 1)")]
     [TestCase("var(--recovered)", "rgba(0, 128, 0, 1)")]
-    [TestCase("var(--missing, var(--a))", "")]
-    [TestCase("var(--a,)", "")]
+    [TestCase("var(--missing, var(--a))", "rgba(0, 0, 0, 1)")]
+    [TestCase("var(--a,)", "rgba(0, 0, 0, 1)")]
     public async Task AConsumerCanRecoverFromAnInvalidVariable(string value, string expected)
     {
         await using var browser = new Browser();
@@ -182,6 +182,8 @@ public sealed class CustomPropertyTests
         await using var browser = new Browser();
         var page = await browser.NewPageAsync();
         await page.SetContentAsync("<span>text</span>");
+        // calc(red) is a valid custom-property token stream, so var(--a,blue) substitutes it rather
+        // than choosing blue. The resulting color is invalid and takes its inherited/initial value.
         (await page.EvaluateAsync<string>(
             """
             (() => {
@@ -192,7 +194,7 @@ public sealed class CustomPropertyTests
               e.style.setProperty('--a', 'var(--missing,calc('.repeat(8192) + 'red' + '))'.repeat(8192));
               return shallow + '|' + getComputedStyle(e).color;
             })()
-            """)).Should().Be("rgba(0, 0, 255, 1)|rgba(0, 0, 255, 1)");
+            """)).Should().Be("rgba(0, 0, 0, 1)|rgba(0, 0, 0, 1)");
         page.Errors.Should().BeEmpty();
     }
 
@@ -233,6 +235,45 @@ public sealed class CustomPropertyTests
             })()
             """)).Should().Be("rgba(255, 0, 0, 1)|rgba(0, 0, 255, 1)|var(--a)|rgba(0, 128, 0, 1)");
         page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task StylesheetCyclesAreResolvedPerContextAndEachQuerySeesTheCurrentRule()
+    {
+        await using var browser = new Browser();
+        await using var firstContext = await browser.NewContextAsync();
+        await using var secondContext = await browser.NewContextAsync();
+        var first = await firstContext.NewPageAsync();
+        var second = await secondContext.NewPageAsync();
+        const string content =
+            """
+            <style>
+              :root { --a:red; --alias:var(--a) }
+              span { --a:green; color:var(--alias, blue) }
+            </style>
+            <span>text</span>
+            """;
+        await first.SetContentAsync(content);
+        await second.SetContentAsync(content);
+        const string read = "getComputedStyle(document.querySelector('span')).color";
+        (await first.EvaluateAsync<string>(read)).Should().Be("rgba(255, 0, 0, 1)");
+        (await second.EvaluateAsync<string>(read)).Should().Be("rgba(255, 0, 0, 1)");
+
+        (await first.EvaluateAsync<string>(
+            """
+            (() => {
+              const style = document.styleSheets[0].cssRules[0].style;
+              style.setProperty('--a', 'var(--alias)');
+              return getComputedStyle(document.querySelector('span')).color + '|' + style.getPropertyValue('--a');
+            })()
+            """)).Should().Be("rgba(0, 0, 255, 1)|var(--alias)");
+        (await second.EvaluateAsync<string>(read)).Should().Be("rgba(255, 0, 0, 1)");
+
+        await first.EvaluateAsync("document.styleSheets[0].cssRules[0].style.setProperty('--a', 'purple')");
+        (await first.EvaluateAsync<string>(read)).Should().Be("rgba(128, 0, 128, 1)");
+        (await second.EvaluateAsync<string>(read)).Should().Be("rgba(255, 0, 0, 1)");
+        first.Errors.Should().BeEmpty();
+        second.Errors.Should().BeEmpty();
     }
 
     [Test]
@@ -299,9 +340,10 @@ public sealed class CustomPropertyTests
             <button>Save</button>
             """);
 
-        // Color has no synthetic initial value in the existing resolved-style policy.
+        // An invalid declared color takes its inherited/initial value. This is upstream computation,
+        // not an expansion of ResolvedStyle's policy for properties that were never declared.
         (await page.EvaluateAsync<string>(
-            "getComputedStyle(document.querySelector('button')).color")).Should().BeEmpty();
+            "getComputedStyle(document.querySelector('button')).color")).Should().Be("rgba(0, 0, 0, 1)");
         page.Errors.Should().BeEmpty();
     }
 }

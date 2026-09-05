@@ -26,7 +26,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | Suite | Documents | Synthesized | Tests | Not passing |
 | --- | --- | --- | --- | --- |
 | `dom/events/` | 56 | 9 | 544 | 20 |
-| `dom/nodes/` | 159 | 0 | 4,796 | 1,413 |
+| `dom/nodes/` | 159 | 0 | 4,796 | 1,411 |
 | `dom/collections/` | 8 | 0 | 43 | 18 |
 | `dom/lists/` | 5 | 0 | 189 | 5 |
 | `dom/traversal/` | 13 | 0 | 52 | 7 |
@@ -38,7 +38,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 68 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 3 |
-| **total** | **341** | **9** | **11,541** | **1,850** |
+| **total** | **341** | **9** | **11,541** | **1,848** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -201,7 +201,7 @@ Ordered by how many tests each accounts for:
 | 40 | 5 | [#3774](https://github.com/sebastienros/jint/issues/3774) **A refusal the standard requires and AngleSharp does not make.** `createElementNS(null, "a:b")` is a `NamespaceError` in DOM's validate-and-extract and no error at all here — `Dom/AGENTS.md` records it — and `createElement` refuses eight names DOM allows. |
 | 20 | 5 | [#3772](https://github.com/sebastienros/jint/issues/3772) **`StaticRange` is not a name**, which is eleven rows of `StaticRange-constructor.html`, plus what is left of `Range`'s own algorithms: `comparePoint`, `extractContents` over a dynamic end, and a range whose shadow root has been removed. |
 | 18 | 1 | **An event interface this browser does not build**, which is `NeedsMoreEventInterfaces` and the alias table `dom/events/EventTarget-dispatchEvent.html` already names: `DragEvent`, `StorageEvent`, `TouchEvent` and the two device events. |
-| 10 | 2 | **The selector engine's escapes.** `#eof\` and a surrogate escape are refused as invalid selectors where CSS Syntax §4.3.7 defines them, and `:scope` inside `:has()` resolves to the wrong element. |
+| 8 | 2 | **The selector engine's escapes and matching.** AngleSharp 1.7.3 fixes the two surrogate escapes whose exclusions were removed. EOF, CRLF and NUL escapes still disagree with CSS Syntax, and `Element.closest` still disagrees on `:invalid`, `div > :scope` and `:has(> :scope)`. |
 | 7 | 3 | **A document with no browsing context still has a `location`**, `createHTMLDocument` gives it one child too few, and `characterSet` answers `"utf-8"` where the standard's encoding name is `"UTF-8"`. |
 | 6 | 1 | **Members the standard removed are still here**, which is exactly what `html/dom/historical.html` exists to find. |
 | 5 | 1 | [#3767](https://github.com/sebastienros/jint/issues/3767) **`DOMTokenList`** was the largest single cause this corpus found — 661 rows across six documents, more than a quarter of everything the DOM suites reported. DOM §7.1's mutating half is `Dom/Collections/DomTokenListMembers` now: the validation steps, `toggle`'s given-versus-not-given `force`, `replace`, `supports`, `item`'s `null`, the update steps and WebIDL's value iterator. What is left is five rows of one document: `sandbox`, `link.sizes` and `output.htmlFor` land on `DOMSettableTokenList`, an interface the standard merged away in 2016 and AngleSharp still carries a `[DomName]` for, and two `a.relList` rows are in namespaces HTML does not reflect `rel` in. `Element-classlist.html` passes all 1,420. |

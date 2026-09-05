@@ -72,6 +72,16 @@ public sealed class DomBindingTests
     }
 
     [Test]
+    public void MetaCharsetIsAContentAttributeButNotAnIdlMember()
+    {
+        using var fixture = DomTestFixture.Create("<meta charset='utf-8'>");
+
+        fixture.Text("document.querySelector('meta').getAttribute('charset')").Should().Be("utf-8");
+        fixture.Bool("'charset' in HTMLMetaElement.prototype").Should().BeFalse();
+        fixture.Bool("'charset' in document.querySelector('meta')").Should().BeFalse();
+    }
+
+    [Test]
     public void ClassListIsALiveTokenList()
     {
         using var fixture = DomTestFixture.Create(Page);

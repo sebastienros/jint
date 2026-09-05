@@ -252,8 +252,8 @@ internal class DomHostHooks
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/dom.html#dom-document-currentscript — the script whose text is
-    /// running. AngleSharp answers the head of its <em>deferred</em> script queue, so it is null for exactly
-    /// the case a page uses it in; the parser driver knows which script it is running.
+    /// running. AngleSharp 1.7.3 tracks its own execution path, but the page's parser driver also schedules
+    /// and executes scripts itself, so its current-script scope remains authoritative for a page.
     /// </summary>
     internal virtual JsValue CurrentScript(DomRealm realm, IDocument document)
     {
