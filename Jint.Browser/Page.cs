@@ -740,6 +740,7 @@ public sealed partial class Page : IAsyncDisposable
                 using (budget?.BeginTurn() ?? default)
                 {
                     engine.Tasks.ProcessTasks();
+                    PageRuntime.Find(engine)?.UpdateRendering();
                 }
             }
             catch (Exception exception) when (PageBudget.IsBudgetFailure(exception))

@@ -405,6 +405,9 @@ internal sealed class PageLoop : IDisposable
                 return;
             }
 
+            // An empty drain cannot resize anything. Leave work that arrives after this check queued for
+            // the next iteration rather than doing a layout walk on every idle wake.
+            var hasScheduledWork = tasks.TimeUntilNextScheduledWork is { Ticks: <= 0 };
             try
             {
                 // One drain is one turn: every timer callback, microtask, promise reaction and animation
@@ -414,11 +417,14 @@ internal sealed class PageLoop : IDisposable
 
                 try
                 {
-                    tasks.ProcessTasks();
+                    if (hasScheduledWork)
+                    {
+                        tasks.ProcessTasks();
+                    }
                 }
                 finally
                 {
-                    EndLoopTurn();
+                    EndLoopTurn(updateRendering: hasScheduledWork);
                 }
             }
             catch (Exception exception)
@@ -503,18 +509,23 @@ internal sealed class PageLoop : IDisposable
     /// it survives what watches them too.
     /// </para>
     /// </remarks>
-    private void EndLoopTurn()
+    private void EndLoopTurn(bool updateRendering = true)
     {
         EndTurn();
 
-        if (_onTurnEnd is not { } onTurnEnd || _engine is not { } engine)
+        if (_engine is not { } engine)
         {
             return;
         }
 
         try
         {
-            onTurnEnd(engine);
+            if (updateRendering)
+            {
+                PageRuntime.Find(engine)?.UpdateRendering();
+            }
+
+            _onTurnEnd?.Invoke(engine);
         }
         catch (Exception exception)
         {

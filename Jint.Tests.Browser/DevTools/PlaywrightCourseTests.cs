@@ -116,6 +116,30 @@ public class PlaywrightCourseTests
         await page.CloseAsync();
     }
 
+    [Test]
+    public async Task PlaywrightCreatesAFolderInATreeMountedWhileHidden()
+    {
+        await using var lane = await ClientLane.OpenAsync();
+        var page = await lane.NewPageAsync("vue-folder-tree");
+        await page.WaitForFunctionAsync("() => resizeHeights.length === 1 && resizeHeights[0] === 0");
+
+        await page.Locator("#load").ClickAsync();
+        await page.Locator("#children").WaitForAsync();
+        await page.Locator("#create").ClickAsync();
+        await page.Locator(".folder-name").Nth(1).WaitForAsync();
+        (await page.Locator(".folder-name").AllTextContentsAsync()).Should().Equal("Files", "TestFolder");
+
+        foreach (var context in lane.Pages.Contexts)
+        {
+            foreach (var hostPage in context.Pages)
+            {
+                hostPage.Errors.Should().BeEmpty();
+            }
+        }
+
+        await page.CloseAsync();
+    }
+
     /// <summary>Role locators derive textbox names from HTML's label association.</summary>
     [Test]
     public async Task PlaywrightGetByRoleUsesAssociatedLabels()
