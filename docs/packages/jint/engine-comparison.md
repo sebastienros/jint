@@ -13,15 +13,15 @@ The current published comparison measures Jint 4.16.0. It does not yet measure
 the Jint 5 preview.
 :::
 
-## Choose an execution model
+## Compared engines
 
-| Engine | Execution model | Prefer it when | Main tradeoff |
-| --- | --- | --- | --- |
-| [Jint](https://github.com/sebastienros/jint) | Tree-walking interpreter over a prepared syntax tree | Scripts are short, startup matters, .NET interop is frequent, or a fully managed in-process dependency is preferred | Long, tight compute loops cannot receive native-code optimization |
-| [NiL.JS](https://github.com/nilproject/NiL.JS) | Managed interpreter with an optimizing syntax-tree pass | You want another fully managed interpreter and its API or compatibility profile fits the application | Measure startup, allocation, standards support, and host interop against the exact workload |
-| [Okojo](https://github.com/akeit0/okojo) | Managed bytecode compiler and virtual machine | A VM execution model and reusable parsed programs fit repeated, self-contained scripts | The benchmarked release has no public CLR interop path, and bytecode compilation adds lifecycle cost |
-| [YantraJS](https://github.com/yantrajs/yantra) | Compiler from JavaScript to .NET IL, followed by the CLR JIT | Scripts are stable, repeated, and compute-heavy enough to repay compilation and warmup | Compilation and generated-code allocation make short or one-shot scripts relatively expensive |
-| [ClearScript with V8](https://github.com/ClearFoundry/ClearScript) | Native, multi-tier optimizing JIT accessed through a managed bridge | Long-running pure-JavaScript computation and V8 compatibility matter more than startup or chatty host interop | Requires a native runtime; engine startup, native memory, and managed/native crossings need separate consideration |
+| Engine | Description |
+| --- | --- |
+| [Jint](https://github.com/sebastienros/jint) | A fully managed tree-walking interpreter that executes prepared JavaScript syntax trees in-process. |
+| [NiL.JS](https://github.com/nilproject/NiL.JS) | A managed interpreter with an optimizing pass over its JavaScript syntax tree. |
+| [Okojo](https://github.com/akeit0/okojo) | A managed engine that compiles JavaScript to bytecode and executes it on a virtual machine. |
+| [YantraJS](https://github.com/yantrajs/yantra) | A managed compiler that emits .NET IL, which the CLR then compiles to native code. |
+| [ClearScript with V8](https://github.com/ClearFoundry/ClearScript) | A .NET binding to V8, Google's native multi-tier optimizing JavaScript JIT. |
 
 Interpreters generally start quickly because they execute parsed program
 structures directly. Bytecode virtual machines add a compact intermediate
