@@ -5456,6 +5456,19 @@ options.WebApi.Fetch.BaseUrl = new Uri("https://example.org/pages/one.html");
 a `SyntaxError` rather than a request to a host nobody named. The only scripts affected are ones that were
 throwing.
 
+### 4.131 Browser task budgets no longer cover an entire queue drain
+
+`Jint.Browser` applies `BrowserOptions.MaxTaskDuration` and `MemoryLimit` to each queued task and its complete
+microtask checkpoint, rather than to all the work available to one pump. Separately queued timer callbacks,
+observer/rendering tasks and CDP commands receive separate allowances; the default time budget remains five
+seconds. An expensive prior command no longer interrupts a later promise reaction just because both were
+available together. Recursive promise and `queueMicrotask` chains cannot renew their task's budget.
+
+Browser engines run a task's microtasks before the next queued task, even when that next task arrived first.
+Page, parser and worker pumps return between tasks. Ordinary `Engine.Tasks.ProcessTasks` hosts keep their
+existing FIFO and host-owned constraint-reset behavior. The DevTools running-mode dispatcher now answers one
+command per posted job; paused debugging remains inline in the suspended command. No public API was added.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

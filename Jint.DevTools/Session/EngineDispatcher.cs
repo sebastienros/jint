@@ -167,13 +167,13 @@ internal sealed class EngineDispatcher : ICommandGateway, IDisposable
     }
 
     /// <summary>
-    /// Runs everything queued, on the engine thread.
+    /// Runs one command or host work item, on the engine thread.
     /// </summary>
     /// <remarks>
     /// <para>
     /// Called as the event-loop job <see cref="Engine.TaskOperations.Post(System.Action)"/> queued, and
-    /// directly by <see cref="EngineTarget.Pump"/> and the library-owned loop. It drains everything rather
-    /// than one item, so the extra passes an unconditional post produces cost a dequeue that finds nothing.
+    /// directly by <see cref="EngineTarget.Pump"/> and the library-owned loop. One item per job leaves a
+    /// microtask checkpoint and, for a page, a fresh task budget between commands.
     /// </para>
     /// <para>
     /// <b>It never re-enters itself.</b> A command runs script, script pauses, the pause loop answers a
@@ -192,9 +192,10 @@ internal sealed class EngineDispatcher : ICommandGateway, IDisposable
 
         try
         {
-            while (_commands.TryDequeue(out var item))
+            if (_commands.TryDequeue(out var item))
             {
                 item.Run();
+                return;
             }
 
             if (IsWaitingForDebugger)
@@ -202,7 +203,7 @@ internal sealed class EngineDispatcher : ICommandGateway, IDisposable
                 return;
             }
 
-            while (_hostWork.TryDequeue(out var work))
+            if (_hostWork.TryDequeue(out var work))
             {
                 work(_engine);
             }
@@ -210,6 +211,13 @@ internal sealed class EngineDispatcher : ICommandGateway, IDisposable
         finally
         {
             Volatile.Write(ref _draining, 0);
+
+            // Each command is one event-loop task, followed by its microtask checkpoint. Also repost
+            // host work held while waiting for a debugger, whose original wake jobs may be spent.
+            if (!_commands.IsEmpty || (!IsWaitingForDebugger && !_hostWork.IsEmpty))
+            {
+                ScheduleDrain();
+            }
         }
     }
 
