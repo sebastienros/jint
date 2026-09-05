@@ -6,8 +6,8 @@ and nothing else. It records what the campaign tracked by
 [#3575](https://github.com/sebastienros/jint/issues/3575) shipped: five new packages, the engine seams they
 were built on, the upstream contributions the work produced, and what is knowingly left.
 
-Reader-facing documentation is [`README.md`](../../README.md#chrome-devtools-protocol-opt-in-package) and
-[the browser section beside it](../../README.md#headless-browser-opt-in-package). The designs and the index of
+Reader-facing documentation is the [`Jint.DevTools`](../packages/jint-devtools/index.md) and
+[`Jint.Browser`](../packages/jint-browser/index.md) package guides. The designs and the index of
 what was built against them are [`docs/design/devtools-protocol.md`](../design/devtools-protocol.md) §9 and
 [`docs/design/headless-browser.md`](../design/headless-browser.md) §12.
 
@@ -30,34 +30,34 @@ build the same thing. The migration guide's own rows are the reference; this is 
 
 | Seam | Migration row | PR |
 | --- | --- | --- |
-| `engine.Tasks.Post(Action)` — the one thread-safe door into a running engine — and `Engine.Advanced.TryGetSourceText(Program, out string)` | [5.8](../v5-migration.md#58-a-host-thread-can-hand-the-engine-work-and-read-back-the-source-a-program-was-parsed-from-3587) | [#3587](https://github.com/sebastienros/jint/pull/3587) |
-| `DebugHandler.GetStepLocations` / `FindStepLocation` — where the engine will stop, and snapping a breakpoint onto one | [5.9](../v5-migration.md#59-a-debugger-can-ask-where-the-engine-will-stop-3614) | [#3614](https://github.com/sebastienros/jint/pull/3614) |
-| `fetch` as a document's fetch: `BaseUrl`, `Referrer`, `ReferrerPolicy`, `Origin`, `CookieJar`, and the `FetchObserver` seam with interception | [5.10](../v5-migration.md#510-fetch-can-behave-as-a-documents-fetch-3617) | [#3617](https://github.com/sebastienros/jint/pull/3617) |
-| Evaluation in any call frame, not only the innermost | [5.11](../v5-migration.md#511-a-debugger-can-evaluate-in-any-call-frame-3622) | [#3622](https://github.com/sebastienros/jint/pull/3622) |
-| `PauseOnExceptions`, `ExceptionPauseMode`, `PauseType.Exception` — stopping at the throw, before the unwind | [5.12](../v5-migration.md#512-a-debugger-can-stop-where-an-exception-is-thrown-3623) | [#3623](https://github.com/sebastienros/jint/pull/3623) |
-| `XMLHttpRequest`, opt-in, synchronous requests included, and no network grant of its own | [5.13](../v5-migration.md#513-xmlhttprequest-opt-in-and-without-a-network-grant-of-its-own-3626) | [#3626](https://github.com/sebastienros/jint/pull/3626) |
-| `ConsoleSink.WantsStackTrace`, and a described function that carries its source | [5.14](../v5-migration.md#514-a-console-sink-can-ask-where-each-message-was-logged-from-3635), [5.15](../v5-migration.md#515-a-described-function-can-carry-its-source-instead-of-a-label-3635) | [#3635](https://github.com/sebastienros/jint/pull/3635) |
-| `CallFrame.Program`, `ScriptProfileFrame.Program`, `CoverageSource.Program` — a position matched to a script by identity rather than by name | [5.17](../v5-migration.md#517-a-frame-a-profile-frame-and-a-coverage-source-name-the-program-they-belong-to-3632) | [#3651](https://github.com/sebastienros/jint/pull/3651) |
-| `SampledProfile`'s sample, stack, frame and function tables, readable rather than only writable | [5.18](../v5-migration.md#518-a-sampled-profile-is-readable-not-only-writable-3630) | [#3654](https://github.com/sebastienros/jint/pull/3654) |
-| `ExceptionPauseMode.Caught` and `StepMode.Unchanged`, so declining a pause cannot cancel a step | [5.19](../v5-migration.md#519-a-debugger-can-stop-on-caught-exceptions-and-decline-a-pause-without-cancelling-a-step-3631) | [#3662](https://github.com/sebastienros/jint/pull/3662) |
-| `PerformanceObserver`, `FileReader` and blob URLs | [5.20](../v5-migration.md#520-a-script-can-watch-the-performance-timeline-as-it-fills-3660), [5.21](../v5-migration.md#521-a-blob-can-be-read-through-the-file-apis-reader-3660), [5.22](../v5-migration.md#522-a-blob-has-a-url-and-fetching-one-reaches-no-network-3660) | [#3660](https://github.com/sebastienros/jint/pull/3660) |
-| DOM's default passive value, the current event, and a real initialized flag — the four event seams a page needs and an engine has to own | [5.23](../v5-migration.md#523-addeventlistener-implements-doms-default-passive-value-3692), [5.24](../v5-migration.md#524-a-dispatch-maintains-doms-current-event-for-a-window-global-3687), [5.25](../v5-migration.md#525-an-events-initialized-flag-is-real-3686), [4.118](../v5-migration.md#4118-initevent-and-initcustomevent-require-a-type-3686) | [#3696](https://github.com/sebastienros/jint/pull/3696) |
+| `engine.Tasks.Post(Action)` — the one thread-safe door into a running engine — and `Engine.Advanced.TryGetSourceText(Program, out string)` | [5.8](../guide/migrating-to-v5.md#58-a-host-thread-can-hand-the-engine-work-and-read-back-the-source-a-program-was-parsed-from-3587) | [#3587](https://github.com/sebastienros/jint/pull/3587) |
+| `DebugHandler.GetStepLocations` / `FindStepLocation` — where the engine will stop, and snapping a breakpoint onto one | [5.9](../guide/migrating-to-v5.md#59-a-debugger-can-ask-where-the-engine-will-stop-3614) | [#3614](https://github.com/sebastienros/jint/pull/3614) |
+| `fetch` as a document's fetch: `BaseUrl`, `Referrer`, `ReferrerPolicy`, `Origin`, `CookieJar`, and the `FetchObserver` seam with interception | [5.10](../guide/migrating-to-v5.md#510-fetch-can-behave-as-a-documents-fetch-3617) | [#3617](https://github.com/sebastienros/jint/pull/3617) |
+| Evaluation in any call frame, not only the innermost | [5.11](../guide/migrating-to-v5.md#511-a-debugger-can-evaluate-in-any-call-frame-3622) | [#3622](https://github.com/sebastienros/jint/pull/3622) |
+| `PauseOnExceptions`, `ExceptionPauseMode`, `PauseType.Exception` — stopping at the throw, before the unwind | [5.12](../guide/migrating-to-v5.md#512-a-debugger-can-stop-where-an-exception-is-thrown-3623) | [#3623](https://github.com/sebastienros/jint/pull/3623) |
+| `XMLHttpRequest`, opt-in, synchronous requests included, and no network grant of its own | [5.13](../guide/migrating-to-v5.md#513-xmlhttprequest-opt-in-and-without-a-network-grant-of-its-own-3626) | [#3626](https://github.com/sebastienros/jint/pull/3626) |
+| `ConsoleSink.WantsStackTrace`, and a described function that carries its source | [5.14](../guide/migrating-to-v5.md#514-a-console-sink-can-ask-where-each-message-was-logged-from-3635), [5.15](../guide/migrating-to-v5.md#515-a-described-function-can-carry-its-source-instead-of-a-label-3635) | [#3635](https://github.com/sebastienros/jint/pull/3635) |
+| `CallFrame.Program`, `ScriptProfileFrame.Program`, `CoverageSource.Program` — a position matched to a script by identity rather than by name | [5.17](../guide/migrating-to-v5.md#517-a-frame-a-profile-frame-and-a-coverage-source-name-the-program-they-belong-to-3632) | [#3651](https://github.com/sebastienros/jint/pull/3651) |
+| `SampledProfile`'s sample, stack, frame and function tables, readable rather than only writable | [5.18](../guide/migrating-to-v5.md#518-a-sampled-profile-is-readable-not-only-writable-3630) | [#3654](https://github.com/sebastienros/jint/pull/3654) |
+| `ExceptionPauseMode.Caught` and `StepMode.Unchanged`, so declining a pause cannot cancel a step | [5.19](../guide/migrating-to-v5.md#519-a-debugger-can-stop-on-caught-exceptions-and-decline-a-pause-without-cancelling-a-step-3631) | [#3662](https://github.com/sebastienros/jint/pull/3662) |
+| `PerformanceObserver`, `FileReader` and blob URLs | [5.20](../guide/migrating-to-v5.md#520-a-script-can-watch-the-performance-timeline-as-it-fills-3660), [5.21](../guide/migrating-to-v5.md#521-a-blob-can-be-read-through-the-file-apis-reader-3660), [5.22](../guide/migrating-to-v5.md#522-a-blob-has-a-url-and-fetching-one-reaches-no-network-3660) | [#3660](https://github.com/sebastienros/jint/pull/3660) |
+| DOM's default passive value, the current event, and a real initialized flag — the four event seams a page needs and an engine has to own | [5.23](../guide/migrating-to-v5.md#523-addeventlistener-implements-doms-default-passive-value-3692), [5.24](../guide/migrating-to-v5.md#524-a-dispatch-maintains-doms-current-event-for-a-window-global-3687), [5.25](../guide/migrating-to-v5.md#525-an-events-initialized-flag-is-real-3686), [4.118](../guide/migrating-to-v5.md#4118-initevent-and-initcustomevent-require-a-type-3686) | [#3696](https://github.com/sebastienros/jint/pull/3696) |
 | A structured `ConsoleRecord` sink overload, and `ValueInspector.Describe` — a bounded, getter-free description of any value that runs no script | chapter 5's table | [#3597](https://github.com/sebastienros/jint/pull/3597) |
 | The sampling profiler: where script time goes, by sampling the engine's own call stack | chapter 5's table | [#3608](https://github.com/sebastienros/jint/pull/3608) |
 | Tree-aware event dispatch, so a host that supplies a node tree gets DOM's event path, retargeting and activation behaviour | none owed — the seam (`TreeParent`) is `internal`, and a target with no tree is untouched | [#3592](https://github.com/sebastienros/jint/pull/3592) |
 
 Eleven behaviour changes came out of the same work and are in chapter 4 rather than chapter 5:
-[4.108](../v5-migration.md#4108-a-frame-the-engine-was-entered-at-is-named-and-a-timer-callback-has-one-3635),
-[4.109](../v5-migration.md#4109-a-request-built-from-another-request-consumes-it-3618),
-[4.110](../v5-migration.md#4110-a-module-a-host-loader-supplied-honours-retainfunctionsourcetext-3588),
-[4.111](../v5-migration.md#4111-a-coverage-source-is-one-parse-not-one-name-3632),
-[4.112](../v5-migration.md#4112-exceptionthrown-fires-once-per-throw-not-once-per-frame-it-unwinds-through-3624) and
-[4.113](../v5-migration.md#4113-an-event-listener-has-a-call-stack-frame-of-its-own-3644),
-[4.114](../v5-migration.md#4114-bindfunction-is-a-function-3645),
-[4.115](../v5-migration.md#4115-performance-is-an-eventtarget-and-asking-for-it-brings-the-events-3660),
-[4.116](../v5-migration.md#4116-the-file-api-brings-the-event-interfaces-with-it-3660),
-[4.117](../v5-migration.md#4117-foruntrustedcode-keeps-the-cancellation-token-the-host-registered-3575) and
-[4.119](../v5-migration.md#4119-a-fetchobserver-is-told-which-requests-are-xmlhttprequests-and-sees-their-bodies-3575).
+[4.108](../guide/migrating-to-v5.md#4108-a-frame-the-engine-was-entered-at-is-named-and-a-timer-callback-has-one-3635),
+[4.109](../guide/migrating-to-v5.md#4109-a-request-built-from-another-request-consumes-it-3618),
+[4.110](../guide/migrating-to-v5.md#4110-a-module-a-host-loader-supplied-honours-retainfunctionsourcetext-3588),
+[4.111](../guide/migrating-to-v5.md#4111-a-coverage-source-is-one-parse-not-one-name-3632),
+[4.112](../guide/migrating-to-v5.md#4112-exceptionthrown-fires-once-per-throw-not-once-per-frame-it-unwinds-through-3624) and
+[4.113](../guide/migrating-to-v5.md#4113-an-event-listener-has-a-call-stack-frame-of-its-own-3644),
+[4.114](../guide/migrating-to-v5.md#4114-bindfunction-is-a-function-3645),
+[4.115](../guide/migrating-to-v5.md#4115-performance-is-an-eventtarget-and-asking-for-it-brings-the-events-3660),
+[4.116](../guide/migrating-to-v5.md#4116-the-file-api-brings-the-event-interfaces-with-it-3660),
+[4.117](../guide/migrating-to-v5.md#4117-foruntrustedcode-keeps-the-cancellation-token-the-host-registered-3575) and
+[4.119](../guide/migrating-to-v5.md#4119-a-fetchobserver-is-told-which-requests-are-xmlhttprequests-and-sees-their-bodies-3575).
 
 ## Upstream contributions
 

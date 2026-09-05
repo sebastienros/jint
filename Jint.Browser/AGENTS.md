@@ -315,7 +315,7 @@ diff. **Nothing public takes or answers an AngleSharp node**, which is why `Page
 selector; R2 reaches the same algorithm through the internal `FormSubmitter.Submit` from inside the loop.
 Everything else is internal, and that is a decision with a date on it. `DomBindings`, `DomRealm`,
 `DomInterfaceDefinition` and `DomHostHooks` are the four most likely to be promoted next, each with XML docs
-and a `docs/v5-migration.md` row. Until then `Jint.Tests.Browser` is the only consumer, which is why it is
+and a `docs/guide/migrating-to-v5.md` row. Until then `Jint.Tests.Browser` is the only consumer, which is why it is
 named in `InternalsVisibleTo` and why every test of the binding is written against the internal surface
 rather than around it.
 

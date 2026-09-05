@@ -37,6 +37,7 @@
   <Project Path="Jint.Tests.Test262/Jint.Tests.Test262.csproj" />
   <Project Path="Jint.Tests/Jint.Tests.csproj" />
   <Project Path="Jint/Jint.csproj" />
+  <Project Path="docs/snippets/Jint.Documentation.Samples/Jint.Documentation.Samples.csproj" />
   <Project Path="tools/devtools-protocol/Jint.DevTools.ProtocolGenerator/Jint.DevTools.ProtocolGenerator.csproj" />
   <Project Path="tools/dom-bindings/Jint.Browser.BindingGenerator/Jint.Browser.BindingGenerator.csproj" />
 </Solution>
