@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Vue folder tree</title></head>
+<body>
+  <div id="app">
+    <button id="load" @click="load">Load library</button>
+    <button id="create" @click="createDirectory" :disabled="loading">Create folder</button>
+    <output id="status">{{ loading ? 'Loading' : 'Ready' }}</output>
+    <div v-show="!loading">
+      <nav ref="navigation">
+        <ul id="folder-tree">
+          <li><span class="folder-name">{{ root.name }}</span></li>
+          <li v-if="scrollerHeight > 0">
+            <ul id="children" :style="{ height: scrollerHeight + 'px' }">
+              <li v-for="child in children" :key="child.directoryPath">
+                <span class="folder-name">{{ child.name }}</span>
+              </li>
+            </ul>
+          </li>
+        </ul>
+      </nav>
+    </div>
+  </div>
+  <script src="/vendor/vue-3.5.22/vue.global.prod.js"></script>
+  <script>
+    window.resizeHeights = [];
+    const { createApp, ref, computed, onMounted, onBeforeUnmount } = Vue;
+    createApp({
+      setup() {
+        const loading = ref(true);
+        const root = ref({ name: 'Files', directoryPath: '', hasChildren: false, children: [] });
+        const navigation = ref();
+        const scrollerHeight = ref(0);
+        const children = computed(() => root.value.hasChildren ? root.value.children : []);
+        const observer = new ResizeObserver(entries => {
+          const height = entries[0].contentRect.height;
+          resizeHeights.push(height);
+          scrollerHeight.value = Math.max(0, height - 40);
+        });
+        onMounted(() => observer.observe(navigation.value));
+        onBeforeUnmount(() => observer.disconnect());
+        async function load() {
+          root.value = await (await fetch('/vue-folder-tree/tree.json')).json();
+          loading.value = false;
+        }
+        async function createDirectory() {
+          const folder = await (await fetch('/vue-folder-tree/created.json?path=&name=TestFolder', { method: 'POST' })).json();
+          const parent = root.value;
+          parent.children.push({ ...folder, children: [] });
+          parent.hasChildren = true;
+          root.value = { ...root.value };
+        }
+        return { loading, root, navigation, scrollerHeight, children, load, createDirectory };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

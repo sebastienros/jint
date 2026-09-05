@@ -321,7 +321,6 @@ public partial class Engine
         AbandonHostStreamBridges();
 #endif
 
-        _error = null;
         _lastSyntaxElement = null;
 
         // RegExp legacy statics: every successful match writes them, so RegExp.$1 in the next

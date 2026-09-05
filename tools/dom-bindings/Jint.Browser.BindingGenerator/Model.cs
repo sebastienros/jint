@@ -128,6 +128,12 @@ internal sealed class BindingModel
     /// <summary>Members left out, and why. Every entry is reported.</summary>
     internal List<SkipRecord> Skipped { get; } = [];
 
+    /// <summary>
+    /// The reflected content attributes, in the order they were built: one static readonly descriptor each in
+    /// <c>DomReflected.g.cs</c>, which the shape members name.
+    /// </summary>
+    internal List<ReflectedModel> Reflected { get; } = [];
+
     /// <summary>Anything the generator wants a human to read: collisions, unmatched overrides.</summary>
     internal List<string> Diagnostics { get; } = [];
 
@@ -137,6 +143,23 @@ internal sealed class BindingModel
 
 /// <summary>A skipped member and the reason.</summary>
 internal sealed record SkipRecord(string Interface, string Member, string Reason);
+
+/// <summary>
+/// One reflected content attribute's descriptor, as <c>DomReflected.g.cs</c> declares it.
+/// </summary>
+/// <param name="Field">The descriptor's field name — <c>HTMLElementDir</c>.</param>
+/// <param name="Qualified">The qualified member name — <c>HTMLElement.dir</c>.</param>
+/// <param name="Attribute">The content attribute reflected.</param>
+/// <param name="Type">The reflection type, in HTML's vocabulary.</param>
+/// <param name="Factory">The C# expression that builds the descriptor.</param>
+/// <param name="Replaced">Whether the entry replaced a member the pinned assemblies project.</param>
+internal sealed record ReflectedModel(
+    string Field,
+    string Qualified,
+    string Attribute,
+    string Type,
+    string Factory,
+    bool Replaced);
 
 /// <summary>A WebIDL string enumeration projected from a CLR enum.</summary>
 internal sealed class EnumModel

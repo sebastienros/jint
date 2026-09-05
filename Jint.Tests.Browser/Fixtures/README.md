@@ -46,6 +46,7 @@ React does not) would otherwise read a draft it had already cleared.
 | --- | --- | --- |
 | `todomvc-react` | React 18 with a scheduler and synthetic events: controlled input, keyed list, hash-routed filters | passes |
 | `todomvc-vue` | Vue 3 compiling the document's **own** markup: `v-model`, `v-for`, `:class`, `@keydown.enter`, mustaches | passes |
+| `vue-folder-tree` | A Vue tree mounted while hidden, revealed after fetch, with child rendering gated by `ResizeObserver` height; async folder insertion and shallow root replacement | passes |
 | `todomvc-preact` | Preact hooks writing to the DOM directly, with no scheduler between them | passes |
 | `todomvc-svelte` | Svelte 5 compiled ahead of time: no framework runtime is loaded, only the component's own output | passes |
 | `ssr-hydration` | React `hydrateRoot` over server-rendered markup — the nodes are adopted, not replaced, and `onRecoverableError` stays empty | passes |
@@ -89,7 +90,7 @@ Each directory under `vendor/` holds the library's published bundle and its own 
 | Library | Version | Source | Licence | Used by |
 | --- | --- | --- | --- | --- |
 | React | 18.3.1 | `unpkg.com/react@18.3.1/umd/react.production.min.js`, `react-dom@18.3.1/umd/react-dom.production.min.js` | MIT | `todomvc-react`, `ssr-hydration` |
-| Vue | 3.5.22 | `unpkg.com/vue@3.5.22/dist/vue.global.prod.js` | MIT | `todomvc-vue` |
+| Vue | 3.5.22 | `unpkg.com/vue@3.5.22/dist/vue.global.prod.js` | MIT | `todomvc-vue`, `vue-folder-tree` |
 | Preact | 10.29.8 | `unpkg.com/preact@10.29.8/dist/preact.umd.js`, `preact@10.29.8/hooks/dist/hooks.umd.js` | MIT | `todomvc-preact` |
 | Svelte | 5.57.0 | compiled into `todomvc-svelte/todomvc.bundle.js`; only the licence is under `vendor/` | MIT | `todomvc-svelte` |
 | jQuery | 3.7.1 | `unpkg.com/jquery@3.7.1/dist/jquery.min.js` | MIT | `jquery` |

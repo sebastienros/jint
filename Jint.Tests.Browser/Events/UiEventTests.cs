@@ -354,9 +354,8 @@ public sealed class UiEventTests
     }
 
     /// <summary>
-    /// <c>DragEvent</c> is a stated v1 non-goal: drag and drop has no <c>DataTransfer</c> behind it, so an
-    /// interface object would be a constructor for an event nothing can mean. Feature detection has to be
-    /// honest about it.
+    /// <c>DragEvent</c> is a stated v1 non-goal: the transferable data store used by file inputs exists, but
+    /// drag dispatch and event-specific state do not. Feature detection has to be honest about it.
     /// </summary>
     [Test]
     public async Task DragEventIsAbsentSoFeatureDetectionIsHonest()

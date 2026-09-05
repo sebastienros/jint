@@ -130,7 +130,7 @@ internal sealed partial class StringConstructor : Constructor
         return JsString.Create(result.ToString());
 
 rangeError:
-        _engine.SignalError(Throw.CreateRangeError(_realm, "Invalid code point " + codePoint));
+        _engine.ThrowError(Throw.CreateRangeError(_realm, "Invalid code point " + codePoint));
         return JsEmpty.Instance;
     }
 

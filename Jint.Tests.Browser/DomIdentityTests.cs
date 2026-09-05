@@ -42,9 +42,10 @@ public sealed class DomIdentityTests
         fixture.Bool("document.querySelector('#a').classList === document.querySelector('#a').classList").Should().BeTrue();
         fixture.Bool("document.querySelector('#a').dataset === document.querySelector('#a').dataset").Should().BeTrue();
 
-        // It does NOT for a query result, because AngleSharp builds a fresh collection per call. A browser
-        // answers true here; the divergence is AngleSharp's and is recorded in Jint.Browser/AGENTS.md.
+        // DOM's querySelectorAll returns a fresh static NodeList for every call, unlike a SameObject
+        // attribute such as childNodes.
         fixture.Bool("document.querySelectorAll('div') === document.querySelectorAll('div')").Should().BeFalse();
+        fixture.Bool("document.body.childNodes === document.body.childNodes").Should().BeTrue();
     }
 
     [Test]

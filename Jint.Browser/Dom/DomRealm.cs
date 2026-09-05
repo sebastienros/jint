@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using AngleSharp.Dom;
+using AngleSharp.Html.Dom;
 using Jint.Browser.Dom.Collections;
 using Jint.Native;
 using Jint.Native.Object;
@@ -189,9 +190,10 @@ internal sealed class DomRealm
     /// <remarks>
     /// This is the general entry, reached when a value arrives from outside a generated member — a host
     /// handing over a document, or a member whose declared type is a base of what it returned. A generated
-    /// member whose declared return type is already precise calls a typed overload instead.
+    /// member whose declared return type is already precise calls a typed overload instead. An explicit
+    /// definition selects a <c>DomReturnType</c> projection when the object implements multiple IDL interfaces.
     /// </remarks>
-    internal JsValue Wrap(object? value)
+    internal JsValue Wrap(object? value, DomInterfaceDefinition? definition = null)
     {
         if (value is null)
         {
@@ -203,7 +205,7 @@ internal sealed class DomRealm
             return cached;
         }
 
-        var definition = DomTypeMap.For(value.GetType());
+        definition ??= DomTypeMap.For(value.GetType());
         if (definition is null)
         {
             Throw.TypeError(
@@ -244,8 +246,34 @@ internal sealed class DomRealm
             return cached;
         }
 
-        var definition = DomTypeMap.For(collection.GetType()) ?? DomInterfaces.HTMLCollection;
+        var definition = DomTypeMap.For(collection.GetType());
+        if (definition?.WrapperKind != DomWrapperKind.HtmlCollection)
+        {
+            // AngleSharp's QueryCollection also implements INodeList. The member's IDL return type,
+            // not that extra CLR interface, decides whether named properties belong on this result.
+            definition = DomInterfaces.HTMLCollection;
+        }
+
         return Cache(collection, new DomHtmlCollectionObject<T>(this, definition, collection));
+    }
+
+    /// <summary>Projects the live <c>NodeList</c> of labels associated with a labelable element.</summary>
+    internal JsValue WrapLabels(IHtmlElement control)
+    {
+        var labels = new DomLabelNodeList(control);
+        return Cache(labels, new DomCollectionObject(this, DomInterfaces.NodeList, labels, DomAccessorNodeList.Instance));
+    }
+
+    /// <summary>Projects an element's <c>dataset</c> through HTML's name conversion algorithms.</summary>
+    internal JsValue WrapStringMap(IElement element, IStringMap map)
+    {
+        if (_wrappers.TryGetValue(map, out var cached))
+        {
+            return cached;
+        }
+
+        var target = new DomStringMapAdapter(this, element);
+        return Cache(map, new DomNamedMapObject(this, DomInterfaces.DOMStringMap, target, DomAccessorDOMStringMap.Instance));
     }
 
     private ObjectInstance Create(DomInterfaceDefinition definition, object value)

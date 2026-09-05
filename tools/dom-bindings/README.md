@@ -12,6 +12,12 @@ actually loaded, so a pin cannot drift from the reference.
 Nothing about AngleSharp is vendored here: the assemblies come from the package reference, and the generator
 is pointed at whatever the build resolved.
 
+`DomReturnType` supplies an operation's IDL return type when its CLR signature cannot change. For example,
+AngleSharp 1.8.0's `querySelectorAll` still declares `IHtmlCollection<IElement>`, but its result also implements
+`INodeList`. The generator casts to that annotated type and selects the NodeList projection explicitly;
+ordinary HTMLCollection-returning members retain their named properties. `DomSameObject` is only a metadata
+promise, not an identity implementation: the wrapper cache still depends on the object AngleSharp returns.
+
 ## A bump is a code change
 
 Re-pointing the pin is not a configuration edit that lands on its own. AngleSharp adds interfaces, renames
@@ -63,8 +69,11 @@ analyzer-free.
 - **`pin.json`** — the versions above.
 - **`overrides.json`** — the curated half of the binding: the interfaces the runtime owns instead, the shapes
   that are hand-written, the members a later campaign item owns, the members routed through a host hook, the
-  `DOMString?` list, and the two enum decisions the heuristics cannot make. Every entry carries a reason, and
-  an entry naming a member the pinned assemblies no longer have becomes a diagnostic.
+  reflected content attributes, the `DOMString?` list, and the two enum decisions the heuristics cannot make.
+  Every entry carries a reason, and an entry naming a member the pinned assemblies no longer have becomes a
+  diagnostic. One list is the exception to that shape and says so in the file: `reflected` states what **HTML**
+  says about an attribute rather than correcting what AngleSharp says, so its entries replace a projection
+  rather than colliding with one, and the report names every one of them.
   [`Jint.Browser/AGENTS.md`](../../Jint.Browser/AGENTS.md) explains each list and why it exists.
 
 A member the generator simply could not convert is **not** in `overrides.json`. It is skipped with the reason

@@ -23,7 +23,8 @@ here. Three consequences bind every change:
 - **Every AngleSharp behaviour that disagrees with the DOM standard is reported upstream and recorded below,
   never worked around silently.** A workaround in the binding hides a defect from the project that can fix it,
   and makes the next reader believe the standard says what AngleSharp does. The one thing a wrapper may do is
-  keep *its own* contracts coherent — the `dataset` name filter below is the worked example, and it says so.
+  implement Web IDL semantics AngleSharp's CLR surface does not represent — `DOMStringMap`'s property-name
+  conversion and named setter/deleter are the worked example, and the divergence register says so.
 - **No document or README sentence positions this as a rival DOM stack.** It is "AngleSharp + Jint".
 - **A seam that proves useful is offered, not hoarded.** The tree-aware event dispatcher the engine grew for
   this package (`Jint/WebApi/Events/EventDispatch.cs`) knows nothing about a node; it asks the target. The
@@ -44,7 +45,7 @@ a swap to a source generator later is mechanical.
 | `DomTypeMap`'s candidate list, most derived first | `DomManualShapes` — the shapes the generator cannot express |
 | `DomEnums`, both directions, for the WebIDL string enumerations | `DomTypeMap.For` and its per-`Type` cache |
 | — | `DomManualInterfaces` and `DomConstructors` — the interface AngleSharp has no `[DomName]` for (`HTMLFrameSetElement`) and the one WebIDL really does give a constructor (`Document`) |
-| — | `DomSelectorMembers` and `DomNodeMembers` — the five members whose *failure* has to be WebIDL's rather than AngleSharp's, and the one (`getRootNode`) AngleSharp has no `[DomName]` for |
+| — | `DomNodeMembers` — members such as `getRootNode` that AngleSharp has no `[DomName]` for; selector operations now come from metadata and use the shared failure guard |
 
 **Never hand-edit a `.g.cs`.** `DomBindingsStalenessTests` runs the same emitter in memory and fails on any
 difference; `JINT_DOM_BINDINGS=update` writes the difference back, which is also the shortest regeneration
@@ -62,6 +63,35 @@ exist. That register's `getComputedStyle` row points back at this table.
 | the default style sheet's `display` rules | HTML's rendering section gives `display: block` to `section`, `article`, `nav`, `aside`, `header`, `footer`, `main`, `figure`, `figcaption`, `details`, `summary`, `dialog`, `hgroup` | no rule at all, so every one of them falls through to CSS's initial value and `getComputedStyle` reads `inline` |
 | a longhand nothing declared, through `getComputedStyle` | CSSOM's *resolved value*: every supported longhand answers, and a property nothing declared answers its initial value | the empty string, which read every element of every page as hidden to an automation client (`style.visibility !== "visible"` is where Playwright's actionability check ends). `Dom/Views/ResolvedStyle` is the exception this bought — **ten** properties, and it argues which ten. Everything else is still the declared cascade, a declaration always wins, and `length`/`item(i)` stay the declared set |
 | a relative length through `getComputedStyle` | the used value in `px` for `width`/`height`, resolved against the containing block; the percentage *kept* in the computed value of `min-width`, a margin and a padding | `px` against the **viewport** for every one of them, and against its *width* whichever axis the property is on — so `height: 50%` is half the window's width. `Runtime/PageRenderDevice` is the device that makes any of it computable: with none registered AngleSharp.Css raises `ArgumentException` rather than skipping the declaration, and one `width: 100%` rule took `getComputedStyle` **and every box query** down with it ([#3730](https://github.com/sebastienros/jint/issues/3730)). `ch` and `ex` have no conversion at all and still raise, which is why `Dom/Views/CssCascade` is the one guarded door all four callers come through |
+
+### DOM §7's XPath, and CSSOM's `CSS`
+
+Two surfaces neither pinned assembly declares, so neither could be generated: there is no
+`[DomName("evaluate")]` and no `[DomName("escape")]` anywhere in AngleSharp or AngleSharp.Css. Both are
+hand-written in `Dom/Views/` beside `DOMParser`, and the three `Document` members XPath adds are
+`overrides.json` `additions`. `Jint.Tests.Browser/Fixtures/htmx` is why: htmx 2 builds an `XPathEvaluator`
+expression and calls `CSS.escape` at the top level of its bundle.
+
+- **The XPath engine is `System.Xml.XPath` over `AngleSharp.XPath`'s `HtmlDocumentNavigator`** — the
+  AngleSharp project's own package, referenced for this and nothing else, and exactly the seam the BCL's
+  XPath 1.0 evaluator takes. Writing an evaluator here instead is the one thing this package is not for.
+- **Namespaces are ignored, and that is what makes `//div` match.** An HTML element is in the XHTML
+  namespace, so an unprefixed XPath 1.0 name test — which is what every page writes — would match nothing
+  if the navigator reported it; `AngleSharp.XPath`'s own default is the same choice. The consequence is
+  stated rather than hidden: a *prefixed* test (`svg:circle`) compiles, because a resolver the page
+  supplied is consulted while the expression is compiled, and then matches nothing.
+- **A node set is materialized at evaluation**, so `invalidIteratorState` is always `false` and an
+  iterator survives a mutation instead of raising `InvalidStateError`. DOM's iterator is live and needs a
+  mutation signal this has none of; the direction is the safe one, because what it removes is a page
+  throwing.
+- **`CSS` is a namespace object, not an interface** — no constructor, no prototype, `[object CSS]` — and
+  it carries both members rather than the one htmx needs, because `window.CSS && CSS.supports(…)` is how
+  the feature is detected and half of it is a trap. `escape` is CSSOM's serialize-an-identifier;
+  `supports` parses the condition as an `@supports` rule and asks AngleSharp.Css's own
+  `IConditionFunction.Check`, so what this claims to support is exactly what the cascade can act on.
+- **`DomConstructors` grew a second entry**: `new DocumentFragment()`, which DOM gives a constructor and
+  htmx builds for every swap whose response starts with `<html>` or `<body>`. The shortness of that table
+  is still the point.
 
 ### The bindings have a file of their own
 
@@ -111,15 +141,21 @@ and nothing belonging to an engine — a `JsValue`, an AngleSharp node — may b
 - **`IntersectionObserver` and `ResizeObserver` deliver as a *task*** — a zero-delay timer entry
   (`ObserverTask`) — because both belong to update-the-rendering and a microtask would run before the promises
   of the same turn. It also makes the delivery visible to `Page.WaitForIdleAsync`.
-- **Both are stubs, and the shape of the lie is the point.** Each observed target is reported exactly once,
-  fully intersecting or at its own size, and never again, because nothing here can change what a box is.
-  "Never intersecting" would stop every lazy list and reveal-on-scroll animation dead, and the initial resize
-  notification is the one a component uses to measure itself when it mounts. `root`, `rootMargin` and
+- **`IntersectionObserver` reports each target exactly once**, fully intersecting.
+  "Never intersecting" would stop every lazy list and reveal-on-scroll animation dead. `root`, `rootMargin` and
   `thresholds` are parsed, validated and reflected exactly as the specification says and change nothing.
   **The rectangles are real numbers now** — the flat box model gives every element a row, and an entry
   reports the target's own box through the same `Layout/DomRects` factory `getBoundingClientRect` answers
   from, so the two agree. They are still **plain objects, not `DOMRectReadOnly` instances**: the eight
   members are there and the interface object is not, and `Layout/DomRects` says what adding one would cost.
+- **`ResizeObserver` tracks changes in the flat model**, not just the initial size. A target mounted under
+  `display: none` must hear its later visible size, or a component that gates rendering on that measurement
+  stays empty forever. `ResizeObserverLane` checks at page-turn boundaries and in both nested pumps, shares
+  one layout per check/delivery, and schedules a task only for changed dimensions. No mutation observer is
+  installed: ancestor `classList`, CSSOM writes and viewport changes must work too. Idle wakes do not scan,
+  and a page with no resize observers allocates no lane. Entries retain measured sizes; the active list
+  retains observers only while they have targets. Callback-caused changes wait for another task rather than
+  running a depth-limited resize loop. All three box options still use the same synthetic dimensions.
 
 None of the five interface objects is generated, so they are hand-written `JsObjectShape`s behind
 `HostInterfaceObject`, and `Views/HostInterfaceDisciplineTests` holds them to the same two rules
@@ -149,10 +185,10 @@ with both already in place. Every `MediaQueryList` the page holds then recompute
 `MediaQueryListEvent` — `e => e.matches` is how the listener is written — only if its own answer moved. No
 `resize` fires at the window: HTML fires that from update-the-rendering, and there is none.
 
-**The Level 5 preference features are the page's own answer, not AngleSharp.Css's**, and they had to be: that
-library evaluates `width` and its kind, has no notion of `prefers-color-scheme`, `forced-colors`, `hover` or
-`pointer` at all, and its own `CssMediaQueryList.ComputeMatched` is a stub answering `false` for every query.
-`PageMediaEnvironment.ValueOf` is the table, and the one place that will delegate the day it grows them.
+**The page owns preference values; AngleSharp.Css now evaluates supported preferences in stylesheets.**
+Since Css 1.1.0, `PageRenderDevice` implements `IRenderDevicePreferences` over `PageMediaEnvironment`, so
+`prefers-color-scheme`, `forced-colors`, `hover`, `pointer` and their supported siblings read the same defaults
+and emulated overrides as `matchMedia`. Clearing an override restores that page's default, not global state.
 
 **An `Emulation` command is a write to that value or to the page's `Runtime/EmulationState`**, which is where
 an override lives — on the **page**, not on the protocol target, because an override outlives the document it
@@ -173,19 +209,14 @@ two. And `Events/EventHandlerContentAttributes.Reconcile` is the one place scrip
 because it is the one place every path arrives at; the parse's own half is that the `IScriptingService` is
 not registered at all, which is how AngleSharp is told, and `Runtime.evaluate` is unaffected either way.
 
-**The cascade is evaluated against the page's own device, and that closes half of the divergence this used
-to buy.** `Runtime/PageRenderDevice` is registered on the browsing context `Parsing/ParserDriver` builds and
-holds no numbers of its own — every member is read off `PageMediaEnvironment` at the moment
-`ComputeCurrentStyle()` asks — so a dimension query and `@media print` in a style sheet answer from the same
-viewport and media type `matchMedia` does, with nothing to re-register when a client emulates
-([#3721](https://github.com/sebastienros/jint/issues/3721)). What still disagrees was measured rather than
-assumed, and it is two kinds of thing. `IRenderDevice` has no member for a Level 5 preference, so
-`@media (prefers-color-scheme: dark)` never becomes active while `matchMedia` answers it from the table
-above — a framework that themes itself reads the second. And `(scripting)`, `(color)`, both `orientation`
-values and every `min-resolution` answer the same whatever the device reports, so they are AngleSharp.Css's
-own arithmetic rather than anything a device can fix: `scripting` is
-[#233](https://github.com/AngleSharp/AngleSharp.Css/issues/233) and `orientation`
-[#232](https://github.com/AngleSharp/AngleSharp.Css/issues/232); the other two are not filed.
+**The cascade is evaluated against the page's own device.** `Runtime/PageRenderDevice` is registered on the
+browsing context `Parsing/ParserDriver` builds and reads `PageMediaEnvironment` at computation time, with
+nothing to re-register when a client emulates ([#3721](https://github.com/sebastienros/jint/issues/3721)).
+Css 1.1.0 also fixes media-list OR, media-type guards, orientation/scan constant recognition and scripting's
+validator. **That is not equivalence with `Runtime/MediaQuery`.** Whole-conjunction negation, boolean
+dimensions, colour arithmetic, malformed-query handling and ordered gamut/dynamic-range features still
+prevent replacing the local evaluator. Keep its semantics and the page's change-event scheduling; the
+remaining upstream differences are recorded in [`Dom/divergences.md`](Dom/divergences.md).
 
 ### Custom elements, and where a reaction actually runs
 
@@ -247,7 +278,7 @@ never caches an engine, and a `JsValue` never leaves the page loop.
 
 ### The obstacle course, and what a red fixture means
 
-`Jint.Tests.Browser/Fixtures/` is eighteen offline pages built out of vendored libraries — TodoMVC on React,
+`Jint.Tests.Browser/Fixtures/` is nineteen offline pages built out of vendored libraries — TodoMVC on React,
 Vue 3, Preact and Svelte, React hydrating server markup, jQuery, htmx, Alpine, a `pushState` router, custom
 elements, an import map, `fetch`, a form that redirects, a cookie login, storage across navigations, both
 observers, dialogs — served over a real socket and driven through the public `Page` API. Four of them are

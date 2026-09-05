@@ -173,6 +173,7 @@ internal static class BrowserEngineFactory
         runtime.Cancellation = cancellation;
         runtime.Modules = ReferenceEquals(engine.Options.Modules.ModuleLoader, modules) ? modules : null;
 
+        Dom.Files.FileTransferInstaller.Install(runtime);
         DomBindings.Install(engine);
         runtime.Dom.MaxNodes = options.MaxDomNodes;
         runtime.Dom.ScriptingEnabled = runtime.ScriptingEnabled;

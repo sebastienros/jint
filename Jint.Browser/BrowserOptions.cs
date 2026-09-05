@@ -103,21 +103,18 @@ public sealed class BrowserOptions
             : throw new ArgumentOutOfRangeException(nameof(value), value, "MaxRecordedEvents must be positive.");
     }
 
-    /// <summary>How long one turn of a page's loop may run before it is cut short; five seconds.</summary>
+    /// <summary>Gets or sets the time budget for one page task and its microtasks; defaults to five seconds.</summary>
     /// <remarks>
     /// <para>
-    /// A <b>turn</b> is one unit of work the page's thread does with the engine: one call posted by a
-    /// <see cref="Page"/> member, one <c>ProcessTasks</c> drain (which is every timer callback, microtask,
-    /// promise reaction and animation frame that was due), and one inline <c>&lt;script&gt;</c> run during a
-    /// parse. Each is bracketed with an <c>OperationDeadlineConstraint</c>, which is one of the two
-    /// constraints a per-entry reset never rewinds — a plain <c>Options.LimitExecutionTime</c> bounds
-    /// neither a pumped job chain nor a sequence of host calls, which is why this exists.
+    /// Each <see cref="Page"/> call, inline script, timer callback, rendering task, animation-frame batch
+    /// and protocol command receives its own budget. Its complete microtask checkpoint shares that budget:
+    /// recursive promise reactions cannot renew it. Separately queued tasks do not consume each other's
+    /// allowance, even when they run in the same pump.
     /// </para>
     /// <para>
-    /// A turn that runs out fails differently depending on which turn it was. A <see cref="Page"/> call
-    /// fails its own task with <see cref="TimeoutException"/>; a job chain and an inline script are recorded
-    /// as a <see cref="PageErrorKind.BudgetExceeded"/> entry in <see cref="Page.Errors"/> and the page goes
-    /// on — a page survives its scripts.
+    /// A <see cref="Page"/> call that exhausts its budget fails with <see cref="TimeoutException"/>.
+    /// A pumped task or inline script records <see cref="PageErrorKind.BudgetExceeded"/> in
+    /// <see cref="Page.Errors"/>; a protocol command reports failure to its client. The page continues.
     /// </para>
     /// <para>
     /// <see cref="Timeout.InfiniteTimeSpan"/>, zero and any negative value all mean no time bound at all,

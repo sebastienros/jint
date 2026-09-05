@@ -45,7 +45,7 @@ namespace Jint.Browser.Runtime;
 /// worker's own pump for a worker.
 /// </para>
 /// </remarks>
-internal sealed class PageBudget
+internal sealed class PageBudget : IEventLoopTaskBudget
 {
     private readonly OperationDeadlineConstraint? _deadline;
     private readonly MemoryLimitConstraint? _memory;
@@ -75,7 +75,28 @@ internal sealed class PageBudget
             ? engine.Constraints.Find<MemoryLimitConstraint>()
             : null;
 
-        return new PageBudget(deadline, memory, turn);
+        var budget = new PageBudget(deadline, memory, turn);
+        engine.Tasks.ConfigureTaskBudget(budget);
+        return budget;
+    }
+
+    bool IEventLoopTaskBudget.BeginTask(bool isTask)
+    {
+        if (!isTask && _depth > 0)
+        {
+            return false;
+        }
+
+        BeginTurn();
+        return true;
+    }
+
+    void IEventLoopTaskBudget.EndTask()
+    {
+        if (IsArmed)
+        {
+            EndTurn();
+        }
     }
 
     /// <summary>Whether anything is actually bounded, which is what makes a turn worth bracketing.</summary>
