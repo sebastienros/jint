@@ -26,9 +26,9 @@
     <PackageVersion Include="GitHubActionsTestLogger" Version="3.0.5" />
     <PackageVersion Include="ICU4N" Version="60.1.0-alpha.440" />
     <PackageVersion Include="Meziantou.Analyzer" Version="3.0.192" />
-    <PackageVersion Include="Microsoft.ClearScript.V8" Version="7.5.1" />
-    <PackageVersion Include="Microsoft.ClearScript.V8.Native.win-x64" Version="7.5.1" />
-    <PackageVersion Include="Microsoft.ClearScript.V8.Native.linux-x64" Version="7.5.1" />
+    <PackageVersion Include="Microsoft.ClearScript.V8" Version="7.5.1.1" />
+    <PackageVersion Include="Microsoft.ClearScript.V8.Native.win-x64" Version="7.5.1.1" />
+    <PackageVersion Include="Microsoft.ClearScript.V8.Native.linux-x64" Version="7.5.1.1" />
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="5.9.0" PrivateAssets="all" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" PrivateAssets="all" />
     <PackageVersion Include="Verify.DiffPlex" Version="3.3.1" />
