@@ -14,7 +14,7 @@ CLR access is disabled by default; enable it with `new Engine(cfg => cfg.AllowCl
 ### What counts as a public contract
 
 These are this area's rows of Jint's public surface. The rule they all obey — **a change to any of it
-is a row in [`docs/v5-migration.md`](../../docs/v5-migration.md), written in the same pull request**, even
+is a row in [`docs/guide/migrating-to-v5.md`](../../docs/guide/migrating-to-v5.md), written in the same pull request**, even
 when it breaks nothing at compile time — and the engine-wide rows are in
 [`Jint/AGENTS.md`](../AGENTS.md#what-counts-as-a-public-contract).
 

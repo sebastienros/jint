@@ -123,7 +123,7 @@ All four checks together cost about a second, so they are not gated on an enviro
 
 ### What counts as a public contract
 
-**A change to any of it is a row in [`docs/v5-migration.md`](../docs/v5-migration.md), written in the same pull request.**
+**A change to any of it is a row in [`docs/guide/migrating-to-v5.md`](../docs/guide/migrating-to-v5.md), written in the same pull request.**
 That includes a change that breaks nothing at compile time — a flipped default, a narrowed lane, a message that stops
 being detailed. A compiler cannot find those, so the guide is the only place an embedder can.
 

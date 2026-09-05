@@ -130,7 +130,7 @@ public class HostConstraintClockTests
             .Should().Throw<ArgumentException>().WithMessage("*TimestampFrequency*");
 
         // ...and now with no time limit registered at all. The same clock bounds the blocking promise drain
-        // (docs/v5-migration.md 4.46), so it is resolved for every engine rather than only for one that
+        // (docs/guide/migrating-to-v5.md 4.46), so it is resolved for every engine rather than only for one that
         // happened to ask for an execution timeout.
         Invoking(() => new Engine(o => o.Constraints.TimeProvider = new FrequencylessClock()))
             .Should().Throw<ArgumentException>().WithMessage("*TimestampFrequency*");

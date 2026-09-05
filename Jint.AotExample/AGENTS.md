@@ -69,7 +69,7 @@ type whose metadata it emits, checked for six candidates with the annotation pre
 it marks each nested type `All`, so every nested **enum** of every exposed type raises an `IL3050` in
 the *embedder's own file* through the inherited `[RequiresDynamicCode] Enum.GetValues(Type)`. One
 `engine.SetValue("Env", typeof(Environment))` cost two. That is the `Delegate` trap of
-`docs/v5-migration.md` §6.4 a second time, and trading two diagnostics in Jint's files for an unbounded
+`docs/guide/migrating-to-v5.md` §6.4 a second time, and trading two diagnostics in Jint's files for an unbounded
 number in every host's was the wrong way round. **Do not close them by widening the constant.**
 
 **What is left is close to a floor, and the shape of it is one sentence:** 58 of the 67 are dataflow
@@ -133,7 +133,7 @@ value satisfies an `IEnumerable<T>` parameter or a `Box<short>` the script asked
 a guessed set of value types: every closed generic rooted costs binary size for every AOT consumer,
 including the ones that never touch that path, and no signature in Jint predicts which value types a
 host's members and a script's arguments will produce. **The embedder can close all four and Jint cannot**,
-which is what `docs/v5-migration.md` §6.2 now tells them — verified on a published binary, including the
+which is what `docs/guide/migrating-to-v5.md` §6.2 now tells them — verified on a published binary, including the
 asymmetry that makes the recipe worth writing down: a compiled reference in the host's own
 `TrimmerRootAssembly` closes three of them, and does *not* close `Task.FromResult<double>`, because that
 one lives in an assembly the host has not rooted and Jint reaches it reflectively. Rooting it takes the
@@ -236,7 +236,7 @@ implemented interfaces, not for their members, so `TypeResolver`'s `iface.GetPro
 nothing and the member reads `undefined` with the annotation present and correct — pinned as a
 `KnownTrimmedAway`. Adding `typeof(TheInterface).GetProperties()` anywhere in the program makes it
 resolve, which is what identifies the missing thing as member metadata. **Do not close it by widening the
-constant**; the embedder closes it by rooting their own assembly, which is what `docs/v5-migration.md`
+constant**; the embedder closes it by rooting their own assembly, which is what `docs/guide/migrating-to-v5.md`
 §6.4 already tells them.
 
 #### Reading the example
@@ -248,4 +248,4 @@ not do. It roots its own assembly too, and that one is not cosmetic — without 
 extension method nothing calls from C#, and `company.shout()` fails as *not a function* with no AOT
 diagnostic anywhere. Reflection-reached host types need rooting; the failure mode is a wrong answer,
 not an error. The embedder-facing form of all of it is section 6 of
-[`docs/v5-migration.md`](../docs/v5-migration.md).
+[`docs/guide/migrating-to-v5.md`](../docs/guide/migrating-to-v5.md).
