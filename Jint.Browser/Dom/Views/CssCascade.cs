@@ -1,4 +1,8 @@
+using AngleSharp;
+using AngleSharp.Css;
 using AngleSharp.Css.Dom;
+using AngleSharp.Css.RenderTree;
+using AngleSharp.Css.Values;
 using AngleSharp.Dom;
 
 namespace Jint.Browser.Dom.Views;
@@ -75,6 +79,98 @@ internal static class CssCascade
         }
         catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or NullReferenceException)
         {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// https://drafts.csswg.org/css-cascade/#inheritance - a cascade shared only by one synchronous tree
+    /// walk, never across DOM or CSSOM writes. Matching and inheritance remain AngleSharp's.
+    /// </summary>
+    internal sealed class Traversal(IStyleCollection styles)
+    {
+        private readonly Dictionary<IElement, ICssStyleDeclaration> _cascaded = new();
+        private readonly Stack<IElement> _pending = new();
+
+        internal static Traversal? For(IDocument? document)
+        {
+            if (document?.DefaultView is not { } window)
+            {
+                return null;
+            }
+
+            var device = document.Context.GetService<IRenderDevice>() ?? new DefaultRenderDevice();
+            return new Traversal(window.GetStyleCollection(device));
+        }
+
+        internal ICssStyleDeclaration? Of(IElement element)
+        {
+            try
+            {
+                // Keep the uncomputed cascade: inheriting a parent's resolved lengths or var() values
+                // would change what ComputeCurrentStyle answers for the child.
+                var current = element;
+                while (current is not null && !_cascaded.ContainsKey(current))
+                {
+                    _pending.Push(current);
+                    current = current.ParentElement;
+                }
+
+                var parent = current is null ? null : _cascaded[current];
+                while (_pending.TryPop(out current))
+                {
+                    parent = parent is null
+                        ? styles.ComputeExplicitStyle(current)
+                        : styles.ComputeCascadedStyle(current, parent);
+
+                    // AngleSharp's ancestor walk can resolve an explicit inherit past a parent that
+                    // declares nothing for a non-inherited property. Preserve that answer too.
+                    if (current.ParentElement is not null
+                        && parent.Any(static property => property.IsInherited && !property.CanBeInherited))
+                    {
+                        parent = styles.GetDeclarations(current);
+                    }
+
+                    _cascaded.Add(current, parent);
+                }
+
+                var cascade = _cascaded[element];
+                return cascade.Compute(new ComputeContext(styles.Device, element.Owner?.Context, cascade));
+            }
+            catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or NullReferenceException)
+            {
+                return null;
+            }
+            finally
+            {
+                _pending.Clear();
+            }
+        }
+    }
+
+    /// <summary>The device and raw variables AngleSharp's own value computation resolves against.</summary>
+    private sealed class ComputeContext(
+        IRenderDevice device,
+        IBrowsingContext? context,
+        ICssStyleDeclaration properties) : ICssComputeContext
+    {
+        public IRenderDevice Device => device;
+        public IBrowsingContext? Context => context;
+        public IValueConverter? Converter => null;
+
+        public ICssValue? Resolve(string name)
+        {
+            if (name.StartsWith("--", StringComparison.Ordinal))
+            {
+                foreach (var property in properties)
+                {
+                    if (string.Equals(property.Name, name, StringComparison.Ordinal))
+                    {
+                        return property.RawValue;
+                    }
+                }
+            }
+
             return null;
         }
     }
