@@ -219,11 +219,15 @@ every page pay for mutation records whether or not anything ever asks for a box.
 walk, `CssCascade.Traversal` shares the style collection and raw parent cascades: calling
 `ComputeCurrentStyle` separately for every element rematches every ancestor, which made a nested admin form
 expensive at every step of Playwright's actionability checks. AngleSharp still owns matching, specificity,
-inheritance and value computation. Raw ordinary declarations preserve the existing child-relative lengths
-and `var()` resolution; custom properties alone inherit resolved values, with dependency cycles invalidated
-before AngleSharp can recurse (`Dom/Views/CustomProperties`, #3851). Unresolved explicit `inherit` takes
-AngleSharp's ancestor-walk fallback. Nothing survives the
-query, so even same-turn CSSOM writes, `classList`, control state and media changes need no invalidation.
+inheritance and value computation. Individual style queries use Css 1.1.0's native computed-style API,
+including its cycle-safe custom-property resolution. **The traversal still needs `Dom/Views/CustomProperties`
+(#3851)**: the native computed-parent overload is internal, and calling the public entry per element would
+rematch every ancestor. The public bulk renderer instead eagerly recurses through the whole document and
+cannot accept this traversal's style collection or isolate per-element failures. Raw ordinary declarations
+preserve the existing child-relative lengths; custom properties inherit resolved values. Invalid inherited
+consumers use the parent's computed value rather than the native initial fallback. Unresolved explicit
+`inherit` retains the ancestor-walk compatibility path. Nothing survives the query, so same-turn CSSOM
+writes, `classList`, control state and media changes need no invalidation.
 
 **The scroll is virtual, and it is the only state.** `Layout/PageLayout` holds a `scrollY` clamped to the
 document, and every viewport-relative answer subtracts it; `scrollX` is zero and stays zero, because every box

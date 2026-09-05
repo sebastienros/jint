@@ -1,3 +1,6 @@
+using AngleSharp.Dom;
+using Jint.Browser.Dom;
+
 namespace Jint.Tests.Browser;
 
 /// <summary>
@@ -51,6 +54,72 @@ public sealed class DomCollectionTests
 
         // The Array.prototype generics work against it through the engine's array-like lane.
         fixture.Number("Array.prototype.filter.call(document.querySelector('#f').childNodes, n => n.nodeType === 1).length").Should().Be(2);
+    }
+
+    [Test]
+    public void AChildNodeListStaysLive()
+    {
+        using var fixture = DomTestFixture.Create("<div id='host'><b></b></div>");
+
+        fixture.Execute("""
+            var host = document.getElementById('host');
+            var nodes = host.childNodes;
+            var added = document.createElement('i');
+            host.appendChild(added);
+            """);
+
+        fixture.Number("nodes.length").Should().Be(2);
+        fixture.Bool("nodes[1] === added && nodes.item(1) === added").Should().BeTrue();
+        fixture.Bool("nodes[2] === undefined && nodes[-1] === undefined").Should().BeTrue();
+
+        fixture.Execute("host.removeChild(host.firstChild)");
+
+        fixture.Number("nodes.length").Should().Be(1);
+        fixture.Bool("nodes[0] === added && nodes[1] === undefined").Should().BeTrue();
+        fixture.Text("Object.keys(nodes).join(',')").Should().Be("0");
+    }
+
+    [TestCase("document")]
+    [TestCase("document.body")]
+    [TestCase("document.createDocumentFragment()")]
+    [TestCase("document.createElement('div').attachShadow({ mode: 'open' })")]
+    public void AQuerySelectorAllNodeListStaysStaticAndHasNoNamedProperties(string parent)
+    {
+        using var fixture = DomTestFixture.Create("");
+
+        fixture.Execute($$"""
+            var parent = {{parent}};
+            var host = document.createElement('section');
+            host.innerHTML = '<b id="first"></b>';
+            (parent.nodeType === 9 ? parent.body : parent).appendChild(host);
+            var nodes = parent.querySelectorAll('b');
+            var first = host.firstChild;
+            host.appendChild(document.createElement('b'));
+            host.removeChild(first);
+            """);
+
+        fixture.Bool("nodes instanceof NodeList && !(nodes instanceof HTMLCollection)").Should().BeTrue();
+        fixture.Number("nodes.length").Should().Be(1);
+        fixture.Bool("nodes[0] === first && nodes.item(0) === first").Should().BeTrue();
+        fixture.Bool("nodes[1] === undefined").Should().BeTrue();
+        fixture.Bool("nodes.first === undefined && nodes.namedItem === undefined").Should().BeTrue();
+        fixture.Text("[...nodes].map(node => node.id).join(',')").Should().Be("first");
+    }
+
+    [Test]
+    public void AnHtmlCollectionReturnKeepsItsBrandWhenTheTargetAlsoImplementsNodeList()
+    {
+        using var fixture = DomTestFixture.Create(Page);
+        var collection = fixture.Document.QuerySelectorAll("input");
+        collection.Should().BeAssignableTo<INodeList>();
+
+        var realm = DomRealm.Of(fixture.Engine);
+        fixture.Engine.SetValue("collection", realm.WrapCollection(collection));
+
+        fixture.Bool("collection instanceof HTMLCollection && !(collection instanceof NodeList)").Should().BeTrue();
+        fixture.Bool("collection.namedItem('username') === document.getElementById('user')").Should().BeTrue();
+        fixture.Bool("collection.username === collection[0]").Should().BeTrue();
+        realm.WrapCollection(collection).Should().BeSameAs(fixture.Evaluate("collection"));
     }
 
     [Test]
@@ -108,6 +177,7 @@ public sealed class DomCollectionTests
         fixture.Bool("DOMTokenList.prototype[Symbol.iterator] === Array.prototype[Symbol.iterator]").Should().BeTrue();
         fixture.Bool("CSSStyleDeclaration.prototype[Symbol.iterator] === Array.prototype[Symbol.iterator]").Should().BeTrue();
         fixture.Bool("NamedNodeMap.prototype[Symbol.iterator] === Array.prototype[Symbol.iterator]").Should().BeTrue();
+        fixture.Bool("TextTrackCueList.prototype[Symbol.iterator] === Array.prototype[Symbol.iterator]").Should().BeTrue();
 
         // And on the prototype only: a collection instance carries no own symbol, which is what a browser
         // answers and what the instance-level workaround this replaced could not.

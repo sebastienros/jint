@@ -24,10 +24,6 @@ public sealed class DomExceptionTests
     /// <a href="https://webidl.spec.whatwg.org/#idl-DOMException-error-names">error name</a> plus legacy code
     /// it has to arrive as.
     /// </summary>
-    /// <remarks>
-    /// <c>querySelector</c> is here although <c>DomSelectorMembers</c> already answered it by hand, because
-    /// the wrapping must not change what a member that refuses on its own says.
-    /// </remarks>
     [TestCase("document.createElement('1bad')", "InvalidCharacterError", 5, TestName = "createElement with an invalid name is an InvalidCharacterError")]
     [TestCase("document.createAttribute('1bad')", "InvalidCharacterError", 5, TestName = "createAttribute with an invalid name is an InvalidCharacterError")]
     [TestCase("document.getElementById('a').setAttribute('=bad', 'v')", "InvalidCharacterError", 5, TestName = "setAttribute with an invalid name is an InvalidCharacterError")]
@@ -39,6 +35,13 @@ public sealed class DomExceptionTests
     [TestCase("document.getElementById('a').firstChild.splitText(99)", "IndexSizeError", 1, TestName = "splitText past the end is an IndexSizeError")]
     [TestCase("document.getElementById('a').firstChild.substringData(99, 1)", "IndexSizeError", 1, TestName = "substringData past the end is an IndexSizeError")]
     [TestCase("document.querySelector('!!')", "SyntaxError", 12, TestName = "an unparseable selector is a SyntaxError")]
+    [TestCase("document.querySelectorAll('[')", "SyntaxError", 12)]
+    [TestCase("document.body.querySelector('[')", "SyntaxError", 12)]
+    [TestCase("document.body.querySelectorAll('[')", "SyntaxError", 12)]
+    [TestCase("var f = document.createDocumentFragment(); f.appendChild(document.createElement('div')); f.querySelector('[')", "SyntaxError", 12)]
+    [TestCase("var f = document.createDocumentFragment(); f.appendChild(document.createElement('div')); f.querySelectorAll('[')", "SyntaxError", 12)]
+    [TestCase("document.body.matches('[')", "SyntaxError", 12)]
+    [TestCase("document.body.closest('[')", "SyntaxError", 12)]
     [TestCase("document.importNode(document, true)", "NotSupportedError", 9, TestName = "importing a document is a NotSupportedError")]
     [TestCase("document.createRange().selectNode(document)", "InvalidNodeTypeError", 24, TestName = "selecting the document node is an InvalidNodeTypeError")]
     [TestCase("document.getElementById('a').attributes.removeNamedItem('nope')", "NotFoundError", 8, TestName = "removeNamedItem of an absent attribute is a NotFoundError")]

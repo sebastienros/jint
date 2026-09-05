@@ -122,13 +122,48 @@ public sealed class CascadeTraversalTests
             var expected = styles.ComputeDeclarations(element);
             var actual = traversal.Of(element);
             actual.Should().NotBeNull();
-            // Custom properties now retain their resolved tokens instead of AngleSharp's empty
-            // computed values. Ordinary properties must still match its existing cascade.
-            actual!.Where(property => !property.Name.StartsWith("--", StringComparison.Ordinal))
+            var explicitInherit = element.LocalName == "span";
+            if (explicitInherit)
+            {
+                // 1.1.0 leaves this width unresolved instead of walking past the undeclared parent.
+                // Keep the existing compatibility answer, including its child-relative var() value.
+                expected.GetPropertyValue("width").Should().Be("inherit");
+                actual!.GetPropertyValue("width").Should().Be("20px");
+                CssCascade.Of(element)!.GetPropertyValue("width").Should().Be("20px");
+            }
+
+            actual!.Where(property => !property.Name.StartsWith("--", StringComparison.Ordinal)
+                    && !(explicitInherit && property.Name == "width"))
                 .Select(property => (property.Name, property.Value, property.IsImportant))
-                .Should().BeEquivalentTo(expected.Where(property => !property.Name.StartsWith("--", StringComparison.Ordinal))
+                .Should().BeEquivalentTo(expected.Where(property => !property.Name.StartsWith("--", StringComparison.Ordinal)
+                        && !(explicitInherit && property.Name == "width"))
                     .Select(property => (property.Name, property.Value, property.IsImportant)));
         }
+    }
+
+    [Test]
+    public async Task InvalidInheritedConsumersUseTheParentRatherThanTheNativeInitialFallback()
+    {
+        using var context = BrowsingContext.New(Configuration.Default.WithCss());
+        using var document = await context.OpenAsync(response => response.Content(
+            """
+            <style>
+              #parent { --a:var(--a); color:green; visibility:hidden }
+              #child { color:var(--a) !important; visibility:var(--a) }
+            </style>
+            <div id="parent"><span id="child">text</span></div>
+            """));
+        var element = document.GetElementById("child")!;
+        var styles = document.DefaultView!.GetStyleCollection(new DefaultRenderDevice());
+        var native = styles.ComputeDeclarations(element);
+        var computed = new CssCascade.Traversal(styles).Of(element);
+
+        computed.Should().NotBeNull();
+        computed!.GetPropertyValue("color").Should().Be("rgba(0, 128, 0, 1)");
+        computed.GetPropertyValue("visibility").Should().Be("hidden");
+        computed.GetPropertyPriority("color").Should().Be("important");
+        computed.GetPropertyValue("color").Should().Be(native.GetPropertyValue("color"));
+        computed.GetPropertyValue("visibility").Should().Be(native.GetPropertyValue("visibility"));
     }
 
     private sealed class CountingStyles(IStyleCollection inner) : IStyleCollection
