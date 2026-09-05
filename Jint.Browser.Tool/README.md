@@ -6,13 +6,49 @@ follows its network, and answers what the page turned out to be — as markdown,
 tree, or over the Chrome DevTools Protocol so that Puppeteer and Playwright can drive it.
 
 **It renders nothing.** There is no layout, no pixels, no screenshots and no PDFs, and there is no browser to
-download: it is a .NET tool that runs in one process on any platform .NET runs on. What it costs is a
+download: it runs in one process. What it costs is a
 fraction of Chromium's memory and CPU per page; what it costs you back is wall-clock time, because the
 JavaScript is interpreted.
 
 ```bash
 dotnet tool install -g Jint.Browser.Tool
 ```
+
+## Installation and standalone downloads
+
+Starting with 5.0, installation requires the **.NET 10 SDK or later**. The SDK selects a self-contained
+Native AOT package for the current platform; running it does not require a .NET runtime.
+
+The [GitHub Releases page](https://github.com/sebastienros/jint/releases) also carries the same executable
+as a single-file download, with no SDK or runtime installation required:
+
+| Platform | x64 | arm64 |
+| --- | --- | --- |
+| Linux (glibc) | `jint-browser-linux-x64` | `jint-browser-linux-arm64` |
+| macOS | `jint-browser-osx-x64` | `jint-browser-osx-arm64` |
+| Windows | `jint-browser-win-x64.exe` | `jint-browser-win-arm64.exe` |
+
+Download the file for your OS and architecture and compare its SHA-256 hash with the release's
+`SHA256SUMS`. On Linux/macOS, run `chmod +x` on the downloaded file, then rename it to `jint-browser`
+and place it on your `PATH`. On Windows, rename it to `jint-browser.exe` and place it on your `PATH`.
+No Apple notarization or Windows Authenticode signature is provided.
+
+Linux builds use Ubuntu 22.04 (x64) and Ubuntu 24.04 (arm64), so they require at least those versions'
+glibc and the usual .NET native dependencies, including ICU, OpenSSL and zlib. Alpine/musl is not included.
+No invariant-globalization mode is used: JavaScript `Intl` remains available.
+
+Native publishing is scoped to this tool, not a general trimming guarantee for browser library consumers.
+To build it from source, use the .NET 10 SDK and the target OS's
+[Native AOT prerequisites](https://learn.microsoft.com/dotnet/core/deploying/native-aot/):
+
+```bash
+dotnet publish Jint.Browser.Tool/Jint.Browser.Tool.csproj -c Release -f net10.0 \
+  -r linux-x64 -p:BrowserToolNative=true
+```
+
+Use `dotnet pack -p:BrowserToolNative=true` on that project without a RID for the NuGet selection manifest,
+and once per RID with `-r` for each implementation package. All seven packages must have the same version;
+publish the six implementations before the manifest. The release workflow does this automatically.
 
 ## Reading a page
 

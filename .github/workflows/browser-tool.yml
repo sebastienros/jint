@@ -1,0 +1,139 @@
+name: Browser tool distribution
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+
+jobs:
+  native:
+    name: browser tool - ${{ matrix.rid }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { rid: linux-x64, image: ubuntu-22.04 }
+          - { rid: linux-arm64, image: ubuntu-24.04-arm }
+          - { rid: osx-x64, image: macos-15-intel }
+          - { rid: osx-arm64, image: macos-15 }
+          - { rid: win-x64, image: windows-2022, extension: .exe }
+          - { rid: win-arm64, image: windows-11-arm, extension: .exe }
+    runs-on: ${{ matrix.image }}
+    timeout-minutes: 30
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.release.tag_name || github.ref }}
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0
+
+      - name: Ensure the Linux native toolchain is present
+        if: runner.os == 'Linux'
+        run: |
+          if ! command -v clang > /dev/null || ! dpkg -s zlib1g-dev > /dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends clang zlib1g-dev
+          fi
+
+      - name: Determine package version
+        id: version
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          if [[ -n "$RELEASE_TAG" ]]; then
+            VERSION="${RELEASE_TAG#v}"
+          elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            PREFIX="$(dotnet msbuild Jint.Browser.Tool/Jint.Browser.Tool.csproj -getProperty:VersionPrefix | tr -d '\r')"
+            VERSION="$PREFIX-preview-$GITHUB_RUN_NUMBER"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "numeric=${VERSION%%-*}" >> "$GITHUB_OUTPUT"
+
+      # The SDK packs only the manifest without a RID; AOT implementations must be built on their OS.
+      - name: Pack the manifest and native implementation
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          NUMERIC_VERSION: ${{ steps.version.outputs.numeric }}
+          RID: ${{ matrix.rid }}
+        run: |
+          dotnet pack Jint.Browser.Tool/Jint.Browser.Tool.csproj -c Release \
+            -p:BrowserToolNative=true -p:Version="$VERSION" \
+            -p:AssemblyVersion="$NUMERIC_VERSION" -p:FileVersion="$NUMERIC_VERSION" \
+            -p:ContinuousIntegrationBuild=true -o artifacts/browser-tool-packages
+          set -o pipefail
+          dotnet pack Jint.Browser.Tool/Jint.Browser.Tool.csproj -c Release -r "$RID" \
+            -p:BrowserToolNative=true -p:Version="$VERSION" \
+            -p:AssemblyVersion="$NUMERIC_VERSION" -p:FileVersion="$NUMERIC_VERSION" \
+            -p:ContinuousIntegrationBuild=true -o artifacts/browser-tool-packages \
+            2>&1 | tee browser-tool-publish.log
+
+      - name: Only the standing core-engine AOT diagnostics are allowed
+        run: |
+          # Remove the trailing project path: every ILC diagnostic there names the tool, not its source.
+          awk '/(warning|error) IL[0-9][0-9][0-9][0-9]:/ { sub(/ \[.*/, ""); print }' \
+            browser-tool-publish.log > browser-tool-diagnostics.log
+          if grep -vE '[/\\]Jint[/\\].*: (Trim|AOT) analysis warning IL[0-9]{4}:' browser-tool-diagnostics.log; then
+            echo '::error::Native publishing reported a diagnostic outside the core Jint inventory'
+            exit 1
+          fi
+
+      - name: Install from the just-built packages, without nuget.org fallback
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          dotnet tool install Jint.Browser.Tool --version "$VERSION" \
+            --tool-path artifacts/browser-tool-installed \
+            --configfile .github/browser-tool.nuget.config
+
+      - name: Exercise the installed native tool
+        env:
+          JINT_BROWSER_TOOL: ${{ github.workspace }}/artifacts/browser-tool-installed/jint-browser${{ matrix.extension }}
+          JINT_BROWSER_TOOL_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          dotnet test Jint.Tests.Browser/Jint.Tests.Browser.csproj -c Release -f net10.0 \
+            --filter FullyQualifiedName~PublishedToolTests --logger "console;verbosity=normal"
+
+      - name: Stage the standalone binary from the same publish
+        env:
+          RID: ${{ matrix.rid }}
+          TOOL_EXTENSION: ${{ matrix.extension }}
+        run: |
+          mkdir -p artifacts/browser-tool-downloads
+          cp "artifacts/publish/Jint.Browser.Tool/release_net10.0_$RID/jint-browser$TOOL_EXTENSION" \
+            "artifacts/browser-tool-downloads/jint-browser-$RID$TOOL_EXTENSION"
+          "artifacts/browser-tool-downloads/jint-browser-$RID$TOOL_EXTENSION" --version
+          test "$("artifacts/browser-tool-downloads/jint-browser-$RID$TOOL_EXTENSION" eval about:blank '6 * 7' --timeout 10s | tr -d '\r')" = 42
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: browser-tool-packages-${{ matrix.rid }}
+          path: artifacts/browser-tool-packages/Jint.Browser.Tool.${{ matrix.rid }}.*.nupkg
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: browser-tool-binary-${{ matrix.rid }}
+          path: artifacts/browser-tool-downloads/*
+          if-no-files-found: error
+
+      - name: Preserve native publish diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-tool-diagnostics-${{ matrix.rid }}
+          path: browser-tool-*.log
+          if-no-files-found: ignore
