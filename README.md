@@ -107,6 +107,22 @@ Projects using Jint include
 See [Choosing a package](https://sebastienros.github.io/jint/guide/choosing-a-package)
 for dependencies, target frameworks, and common combinations.
 
+## Branches and releases
+
+Jint 5 is under development on `main` and has not been released. This branch
+includes breaking changes; development packages are available from the
+[preview feed](https://sebastienros.github.io/jint/guide/preview-packages).
+
+The `4.x` branch is the maintenance lane for Jint 4.16. Changes there preserve
+compatibility and focus on non-breaking correctness and conformance fixes. The
+`3.x` branch receives only security and severe-correctness maintenance.
+
+Pull requests target `main` unless they are explicit backports. See
+[Branches and Releases](https://sebastienros.github.io/jint/reference/releases)
+for the complete policy and
+[Migrating to Jint 5](https://sebastienros.github.io/jint/guide/migrating-to-v5)
+when upgrading from Jint 4.
+
 ## Standards conformance
 
 These percentages describe the pinned test corpora in this repository, not the
