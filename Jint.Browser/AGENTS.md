@@ -151,7 +151,9 @@ and nothing belonging to an engine — a `JsValue`, an AngleSharp node — may b
 - **`ResizeObserver` tracks changes in the flat model**, not just the initial size. A target mounted under
   `display: none` must hear its later visible size, or a component that gates rendering on that measurement
   stays empty forever. `ResizeObserverLane` checks at page-turn boundaries and in both nested pumps, shares
-  one layout per check/delivery, and schedules a task only for changed dimensions. No mutation observer is
+  one size-only query per check/delivery, and schedules a task only for changed dimensions. That query
+  visits observed subtrees and their visibility ancestors, not unrelated document branches; all delivery
+  measurements are captured before any callback, and no cascade or measurement survives into another query. No mutation observer is
   installed: ancestor `classList`, CSSOM writes and viewport changes must work too. Idle wakes do not scan,
   and a page with no resize observers allocates no lane. Entries retain measured sizes; the active list
   retains observers only while they have targets. Callback-caused changes wait for another task rather than
