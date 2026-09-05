@@ -55,23 +55,33 @@ reused parsed program for Okojo, and a precompiled `V8Script` on a shared V8
 runtime for ClearScript. Each operation still receives a fresh engine or
 context, so script state does not leak between runs.
 
-Mean time is shown in microseconds. Lower is better; the fastest lane for each
-workload is **bold**.
+Mean time is shown in microseconds. Lower is better. Each row uses the same
+five-shade rank scale; the fastest lane has the strongest background and bold
+text. Close measurements may be statistically tied, in which case they share a
+shade.
+
+<div class="benchmark-rank-legend" aria-label="Benchmark rank color scale">
+  <span><span class="benchmark-rank-swatch benchmark-rank-1"></span>Fastest</span>
+  <span><span class="benchmark-rank-swatch benchmark-rank-2"></span>Second</span>
+  <span><span class="benchmark-rank-swatch benchmark-rank-3"></span>Third</span>
+  <span><span class="benchmark-rank-swatch benchmark-rank-4"></span>Fourth</span>
+  <span><span class="benchmark-rank-swatch benchmark-rank-5"></span>Slowest</span>
+</div>
 
 | Workload | Jint prepared | NiL.JS | Okojo prepared | YantraJS | V8 compiled |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Minimal script | **1.094** | 2.883 | 1,154.071 | 126.579 | 379.509 |
-| Expression evaluation | **4.651** | 25.992 | 1,437.314 | 129.352 | 374.891 |
-| LINQ-style JavaScript | **68.403** | 3,865.936 | 5,912.862 | 316.724 | 462.290 |
-| Dromaeo core evaluation | **886.665** | 1,382.077 | 6,731.548 | 4,839.609 | 933.105 |
-| Array stress | 2,212.058 | 4,845.159 | 5,546.651 | 2,815.214 | **2,035.717** |
-| Dromaeo 3D cube | 4,607.760 | 7,095.742 | 6,826.450 | 2,299.281 | **1,361.995** |
-| JSON parsing | 16,243.839 | 126,595.546 | 24,871.608 | 24,030.128 | **7,465.707** |
-| Dromaeo object arrays | 14,574.726 | 52,137.758 | 40,069.776 | 26,468.928 | **13,511.360** |
-| Dromaeo regular expressions | **71,958.764** | 538,262.653 | 1,873,094.293 | 727,779.264 | 105,206.432 |
-| Dromaeo object strings | 38,511.691 | 143,285.835 | 55,635.516 | 176,114.896 | **5,837.141** |
-| Dromaeo Base64 strings | 16,717.857 | 32,092.329 | 30,042.911 | 35,415.762 | **1,697.677** |
-| Stopwatch | 85,204.309 | 209,122.986 | 155,504.922 | 56,498.545 | **14,161.990** |
+| Minimal script | <span class="benchmark-result benchmark-rank-1">1.094</span> | <span class="benchmark-result benchmark-rank-2">2.883</span> | <span class="benchmark-result benchmark-rank-5">1,154.071</span> | <span class="benchmark-result benchmark-rank-3">126.579</span> | <span class="benchmark-result benchmark-rank-4">379.509</span> |
+| Expression evaluation | <span class="benchmark-result benchmark-rank-1">4.651</span> | <span class="benchmark-result benchmark-rank-2">25.992</span> | <span class="benchmark-result benchmark-rank-5">1,437.314</span> | <span class="benchmark-result benchmark-rank-3">129.352</span> | <span class="benchmark-result benchmark-rank-4">374.891</span> |
+| LINQ-style JavaScript | <span class="benchmark-result benchmark-rank-1">68.403</span> | <span class="benchmark-result benchmark-rank-4">3,865.936</span> | <span class="benchmark-result benchmark-rank-5">5,912.862</span> | <span class="benchmark-result benchmark-rank-2">316.724</span> | <span class="benchmark-result benchmark-rank-3">462.290</span> |
+| Dromaeo core evaluation | <span class="benchmark-result benchmark-rank-1">886.665</span> | <span class="benchmark-result benchmark-rank-3">1,382.077</span> | <span class="benchmark-result benchmark-rank-5">6,731.548</span> | <span class="benchmark-result benchmark-rank-4">4,839.609</span> | <span class="benchmark-result benchmark-rank-2">933.105</span> |
+| Array stress | <span class="benchmark-result benchmark-rank-2">2,212.058</span> | <span class="benchmark-result benchmark-rank-4">4,845.159</span> | <span class="benchmark-result benchmark-rank-5">5,546.651</span> | <span class="benchmark-result benchmark-rank-3">2,815.214</span> | <span class="benchmark-result benchmark-rank-1">2,035.717</span> |
+| Dromaeo 3D cube | <span class="benchmark-result benchmark-rank-3">4,607.760</span> | <span class="benchmark-result benchmark-rank-5">7,095.742</span> | <span class="benchmark-result benchmark-rank-4">6,826.450</span> | <span class="benchmark-result benchmark-rank-2">2,299.281</span> | <span class="benchmark-result benchmark-rank-1">1,361.995</span> |
+| JSON parsing | <span class="benchmark-result benchmark-rank-2">16,243.839</span> | <span class="benchmark-result benchmark-rank-5">126,595.546</span> | <span class="benchmark-result benchmark-rank-4">24,871.608</span> | <span class="benchmark-result benchmark-rank-3">24,030.128</span> | <span class="benchmark-result benchmark-rank-1">7,465.707</span> |
+| Dromaeo object arrays | <span class="benchmark-result benchmark-rank-2">14,574.726</span> | <span class="benchmark-result benchmark-rank-5">52,137.758</span> | <span class="benchmark-result benchmark-rank-4">40,069.776</span> | <span class="benchmark-result benchmark-rank-3">26,468.928</span> | <span class="benchmark-result benchmark-rank-1">13,511.360</span> |
+| Dromaeo regular expressions | <span class="benchmark-result benchmark-rank-1">71,958.764</span> | <span class="benchmark-result benchmark-rank-3">538,262.653</span> | <span class="benchmark-result benchmark-rank-5">1,873,094.293</span> | <span class="benchmark-result benchmark-rank-4">727,779.264</span> | <span class="benchmark-result benchmark-rank-2">105,206.432</span> |
+| Dromaeo object strings | <span class="benchmark-result benchmark-rank-2">38,511.691</span> | <span class="benchmark-result benchmark-rank-4">143,285.835</span> | <span class="benchmark-result benchmark-rank-3">55,635.516</span> | <span class="benchmark-result benchmark-rank-5">176,114.896</span> | <span class="benchmark-result benchmark-rank-1">5,837.141</span> |
+| Dromaeo Base64 strings | <span class="benchmark-result benchmark-rank-2">16,717.857</span> | <span class="benchmark-result benchmark-rank-4">32,092.329</span> | <span class="benchmark-result benchmark-rank-3">30,042.911</span> | <span class="benchmark-result benchmark-rank-5">35,415.762</span> | <span class="benchmark-result benchmark-rank-1">1,697.677</span> |
+| Stopwatch | <span class="benchmark-result benchmark-rank-3">85,204.309</span> | <span class="benchmark-result benchmark-rank-5">209,122.986</span> | <span class="benchmark-result benchmark-rank-4">155,504.922</span> | <span class="benchmark-result benchmark-rank-2">56,498.545</span> | <span class="benchmark-result benchmark-rank-1">14,161.990</span> |
 
 The gap between the two ends is intentional. A prepared interpreter avoids the
 compilation and context setup that dominate very small programs. An optimizing
@@ -89,14 +99,16 @@ lower-overhead FastProxy API, where every exposed member is explicitly
 registered. Okojo is absent because the benchmarked version has no public way
 to enable CLR access.
 
-Mean time is shown in microseconds. Lower is better.
+Mean time is shown in microseconds. Lower is better. The same rank scale is
+used here; Jint and NiL.JS share the fastest shade for collection traversal
+because BenchmarkDotNet reports them as statistically tied.
 
 | Workload | Jint | NiL.JS | YantraJS | V8 FastProxy | V8 reflection |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Collection traversal | 1,251.0 | **1,242.7** | 3,685.3 | 8,779.5 | 11,691.8 |
-| Method calls | 1,440.0 | **1,172.2** | 2,102.4 | 5,457.7 | 16,108.5 |
-| Property access | 1,489.8 | 1,702.0 | **1,451.9** | 5,111.8 | 12,875.7 |
-| String passing | **522.4** | 769.8 | 577.5 | 2,961.1 | 5,263.2 |
+| Collection traversal | <span class="benchmark-result benchmark-rank-1">1,251.0</span> | <span class="benchmark-result benchmark-rank-1">1,242.7</span> | <span class="benchmark-result benchmark-rank-3">3,685.3</span> | <span class="benchmark-result benchmark-rank-4">8,779.5</span> | <span class="benchmark-result benchmark-rank-5">11,691.8</span> |
+| Method calls | <span class="benchmark-result benchmark-rank-2">1,440.0</span> | <span class="benchmark-result benchmark-rank-1">1,172.2</span> | <span class="benchmark-result benchmark-rank-3">2,102.4</span> | <span class="benchmark-result benchmark-rank-4">5,457.7</span> | <span class="benchmark-result benchmark-rank-5">16,108.5</span> |
+| Property access | <span class="benchmark-result benchmark-rank-2">1,489.8</span> | <span class="benchmark-result benchmark-rank-3">1,702.0</span> | <span class="benchmark-result benchmark-rank-1">1,451.9</span> | <span class="benchmark-result benchmark-rank-4">5,111.8</span> | <span class="benchmark-result benchmark-rank-5">12,875.7</span> |
+| String passing | <span class="benchmark-result benchmark-rank-1">522.4</span> | <span class="benchmark-result benchmark-rank-3">769.8</span> | <span class="benchmark-result benchmark-rank-2">577.5</span> | <span class="benchmark-result benchmark-rank-4">2,961.1</span> | <span class="benchmark-result benchmark-rank-5">5,263.2</span> |
 
 Jint and NiL.JS run host calls inside the managed process. ClearScript must
 marshal each interaction across the managed/native boundary. FastProxy reduces

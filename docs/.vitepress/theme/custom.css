@@ -7,6 +7,16 @@
   --vp-home-hero-name-background: linear-gradient(120deg, #6f42c1 20%, #2f81f7);
   --vp-home-hero-image-background-image: linear-gradient(135deg, #6f42c1 20%, #2f81f7 80%);
   --vp-home-hero-image-filter: blur(56px);
+  --benchmark-rank-1-bg: #5f35ad;
+  --benchmark-rank-1-text: #fff;
+  --benchmark-rank-2-bg: #9b82ca;
+  --benchmark-rank-2-text: #211333;
+  --benchmark-rank-3-bg: #bca9dc;
+  --benchmark-rank-3-text: #211333;
+  --benchmark-rank-4-bg: #d9d0eb;
+  --benchmark-rank-4-text: #211333;
+  --benchmark-rank-5-bg: #f0ecf7;
+  --benchmark-rank-5-text: #211333;
 }
 
 .dark {
@@ -14,6 +24,16 @@
   --vp-c-brand-2: #8b5cf6;
   --vp-c-brand-3: #7c3aed;
   --vp-c-brand-soft: rgba(167, 139, 250, 0.16);
+  --benchmark-rank-1-bg: #7c3aed;
+  --benchmark-rank-1-text: #fff;
+  --benchmark-rank-2-bg: #634b87;
+  --benchmark-rank-2-text: #fff;
+  --benchmark-rank-3-bg: #493b5c;
+  --benchmark-rank-3-text: #fff;
+  --benchmark-rank-4-bg: #352f3e;
+  --benchmark-rank-4-text: #f5f2f8;
+  --benchmark-rank-5-bg: #29262e;
+  --benchmark-rank-5-text: #f5f2f8;
 }
 
 .VPHomeHero .image-src {
@@ -45,6 +65,72 @@
 .jint-preview-banner a {
   color: var(--vp-c-brand-1);
   font-weight: 600;
+}
+
+.benchmark-rank-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin: 16px 0 12px;
+  color: var(--vp-c-text-2);
+  font-size: 13px;
+}
+
+.benchmark-rank-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.benchmark-rank-swatch {
+  width: 13px;
+  height: 13px;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 3px;
+}
+
+.vp-doc td:has(> .benchmark-result) {
+  padding: 0;
+}
+
+.benchmark-result {
+  display: block;
+  min-width: 88px;
+  padding: 8px 12px;
+  color: var(--benchmark-rank-text);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.benchmark-rank-1 {
+  --benchmark-rank-text: var(--benchmark-rank-1-text);
+  background: var(--benchmark-rank-1-bg);
+}
+
+.benchmark-result.benchmark-rank-1 {
+  font-weight: 700;
+}
+
+.benchmark-rank-2 {
+  --benchmark-rank-text: var(--benchmark-rank-2-text);
+  background: var(--benchmark-rank-2-bg);
+}
+
+.benchmark-rank-3 {
+  --benchmark-rank-text: var(--benchmark-rank-3-text);
+  background: var(--benchmark-rank-3-bg);
+}
+
+.benchmark-rank-4 {
+  --benchmark-rank-text: var(--benchmark-rank-4-text);
+  background: var(--benchmark-rank-4-bg);
+}
+
+.benchmark-rank-5 {
+  --benchmark-rank-text: var(--benchmark-rank-5-text);
+  background: var(--benchmark-rank-5-bg);
 }
 
 .package-grid {
