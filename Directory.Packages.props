@@ -10,7 +10,7 @@
          binding generator's pin: tools/dom-bindings/pin.json repeats them, and DomBindingsPinTests fails when
          the two records disagree, because the checked-in Jint.Browser/Dom/Generated/ is a picture of exactly
          these assemblies' [DomName] surface. Bump both together, regenerate, and read the diff. -->
-    <PackageVersion Include="AngleSharp" Version="1.7.2" />
+    <PackageVersion Include="AngleSharp" Version="1.7.3" />
     <PackageVersion Include="AngleSharp.Css" Version="1.0.2" />
     <!-- Neither of these is in the binding generator's pin, and deliberately: the generator reads AngleSharp
          and AngleSharp.Css and nothing else, and neither of these carries a [DomName] the binding could
