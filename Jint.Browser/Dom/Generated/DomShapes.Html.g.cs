@@ -1138,7 +1138,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLButtonElement.labels", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlButtonElement>(thisObj, "HTMLButtonElement.labels");
-                    return self.Realm.Wrap(self.Target.Labels);
+                    return self.Realm.Hooks.Labels(self.Realm, self.Target);
                 }))
             .Accessor("name",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLButtonElement.name", static (thisObj, args) =>
@@ -2267,7 +2267,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.labels", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, "HTMLInputElement.labels");
-                    return self.Realm.Wrap(self.Target.Labels);
+                    return self.Realm.Hooks.Labels(self.Realm, self.Target);
                 }))
             .Accessor("list",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.list", static (thisObj, args) =>
@@ -2695,7 +2695,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLLabelElement.control", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLabelElement>(thisObj, "HTMLLabelElement.control");
-                    return self.Realm.WrapNodeValue(self.Target.Control);
+                    return self.Realm.Hooks.LabelControl(self.Realm, self.Target);
                 }))
             .Accessor("form",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLLabelElement.form", static (thisObj, args) =>
@@ -3140,7 +3140,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMeterElement.labels", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMeterElement>(thisObj, "HTMLMeterElement.labels");
-                    return self.Realm.Wrap(self.Target.Labels);
+                    return self.Realm.Hooks.Labels(self.Realm, self.Target);
                 }))
             .Accessor("low",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMeterElement.low", static (thisObj, args) =>
@@ -3603,7 +3603,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOutputElement.labels", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOutputElement>(thisObj, "HTMLOutputElement.labels");
-                    return self.Realm.Wrap(self.Target.Labels);
+                    return self.Realm.Hooks.Labels(self.Realm, self.Target);
                 }))
             .Accessor("name",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOutputElement.name", static (thisObj, args) =>
@@ -3719,7 +3719,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLProgressElement.labels", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlProgressElement>(thisObj, "HTMLProgressElement.labels");
-                    return self.Realm.Wrap(self.Target.Labels);
+                    return self.Realm.Hooks.Labels(self.Realm, self.Target);
                 }))
             .Accessor("max",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLProgressElement.max", static (thisObj, args) =>
@@ -3948,7 +3948,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLSelectElement.labels", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSelectElement>(thisObj, "HTMLSelectElement.labels");
-                    return self.Realm.Wrap(self.Target.Labels);
+                    return self.Realm.Hooks.Labels(self.Realm, self.Target);
                 }))
             .Accessor("length",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLSelectElement.length", static (thisObj, args) =>
@@ -4607,7 +4607,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.labels", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.labels");
-                    return self.Realm.Wrap(self.Target.Labels);
+                    return self.Realm.Hooks.Labels(self.Realm, self.Target);
                 }))
             .Accessor("maxLength",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.maxLength", static (thisObj, args) =>

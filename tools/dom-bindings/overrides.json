@@ -1365,6 +1365,62 @@
       "reason": "HTML 3.2.6 maps DOMStringMap property names between camelCase and data-* attribute names and defines its own SyntaxError and InvalidCharacterError checks. AngleSharp's IStringMap instead accepts raw attribute suffixes, rejects uppercase ASCII, and leaves a removed attribute behind with a null value, so the binding supplies the standards-shaped map over the associated element."
     },
     {
+      "interface": "HTMLButtonElement",
+      "member": "labels",
+      "half": "getter",
+      "hook": "Labels",
+      "reason": "HTML 4.10.6 gives every labelable element a live NodeList of the labels whose labeled control it is. AngleSharp returns an empty collection for explicit for/id associations, so the shared HTML association algorithm supplies the value."
+    },
+    {
+      "interface": "HTMLInputElement",
+      "member": "labels",
+      "half": "getter",
+      "hook": "Labels",
+      "reason": "The input half of the labelable-element labels attribute, and the association Playwright's accessible-name computation reads."
+    },
+    {
+      "interface": "HTMLMeterElement",
+      "member": "labels",
+      "half": "getter",
+      "hook": "Labels",
+      "reason": "The meter half of the labelable-element labels attribute."
+    },
+    {
+      "interface": "HTMLOutputElement",
+      "member": "labels",
+      "half": "getter",
+      "hook": "Labels",
+      "reason": "The output half of the labelable-element labels attribute."
+    },
+    {
+      "interface": "HTMLProgressElement",
+      "member": "labels",
+      "half": "getter",
+      "hook": "Labels",
+      "reason": "The progress half of the labelable-element labels attribute."
+    },
+    {
+      "interface": "HTMLSelectElement",
+      "member": "labels",
+      "half": "getter",
+      "hook": "Labels",
+      "reason": "The select half of the labelable-element labels attribute."
+    },
+    {
+      "interface": "HTMLTextAreaElement",
+      "member": "labels",
+      "half": "getter",
+      "hook": "Labels",
+      "reason": "The textarea half of the labelable-element labels attribute."
+    },
+    {
+      "interface": "HTMLLabelElement",
+      "member": "control",
+      "half": "getter",
+      "hook": "LabelControl",
+      "reason": "HTML 4.10.4 resolves a label's explicit for target or first labelable descendant. AngleSharp returns null for the wrapping-label form, so the shared HTML association algorithm supplies the value."
+    },
+    {
       "interface": "Document",
       "member": "currentScript",
       "half": "getter",
