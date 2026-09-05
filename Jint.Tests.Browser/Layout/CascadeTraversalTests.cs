@@ -122,8 +122,12 @@ public sealed class CascadeTraversalTests
             var expected = styles.ComputeDeclarations(element);
             var actual = traversal.Of(element);
             actual.Should().NotBeNull();
-            actual!.Select(property => (property.Name, property.Value, property.IsImportant))
-                .Should().BeEquivalentTo(expected.Select(property => (property.Name, property.Value, property.IsImportant)));
+            // Custom properties now retain their resolved tokens instead of AngleSharp's empty
+            // computed values. Ordinary properties must still match its existing cascade.
+            actual!.Where(property => !property.Name.StartsWith("--", StringComparison.Ordinal))
+                .Select(property => (property.Name, property.Value, property.IsImportant))
+                .Should().BeEquivalentTo(expected.Where(property => !property.Name.StartsWith("--", StringComparison.Ordinal))
+                    .Select(property => (property.Name, property.Value, property.IsImportant)));
         }
     }
 
