@@ -2,6 +2,78 @@ import { defineConfig } from "vitepress";
 
 const base = process.env.DOCS_BASE ?? "/";
 
+const jintSidebar = [
+  {
+    text: "Jint",
+    items: [
+      { text: "Overview", link: "/guide/" },
+      { text: "Getting Started", link: "/guide/getting-started" },
+      { text: "Supported Platforms", link: "/guide/supported-platforms" },
+      { text: "Migrating to Jint 5", link: "/guide/migrating-to-v5" }
+    ]
+  },
+  {
+    text: "Core APIs",
+    items: [
+      { text: "Creating an Engine", link: "/guide/creating-an-engine" },
+      { text: "Execute, Evaluate, and Invoke", link: "/guide/execution" },
+      { text: "JavaScript and .NET Values", link: "/guide/values" },
+      { text: "Expose Host Values", link: "/guide/host-values" },
+      { text: "Advanced Hosting", link: "/guide/advanced-hosting" },
+      { text: "CLR Interop", link: "/guide/clr-interop" },
+      { text: "Modules", link: "/guide/modules" },
+      { text: "Async and Promises", link: "/guide/async" }
+    ]
+  },
+  {
+    text: "Runtime Features",
+    items: [
+      {
+        text: "Web APIs",
+        link: "/guide/web-apis",
+        collapsed: true,
+        items: [
+          { text: "Enabling Web APIs", link: "/guide/web-apis/enabling" },
+          { text: "Console and Timers", link: "/guide/web-apis/console-and-timers" },
+          { text: "Events and Messaging", link: "/guide/web-apis/events-and-messaging" },
+          { text: "Encoding, Files, and Streams", link: "/guide/web-apis/encoding-files-and-streams" },
+          { text: "Fetch and Networking", link: "/guide/web-apis/fetch-and-networking" },
+          { text: "Storage and Cache", link: "/guide/web-apis/storage-and-cache" },
+          { text: "Crypto and Performance", link: "/guide/web-apis/crypto-and-performance" },
+          { text: "Workers", link: "/guide/web-apis/workers" }
+        ]
+      },
+      { text: "Node Compatibility", link: "/guide/node-compatibility" },
+      { text: "Internationalization", link: "/guide/internationalization" }
+    ]
+  },
+  {
+    text: "Hosting Safely",
+    items: [
+      { text: "Execution Constraints", link: "/guide/constraints" },
+      { text: "Untrusted Code", link: "/guide/untrusted-code" },
+      { text: "Errors and Diagnostics", link: "/guide/errors" },
+      { text: "Thread Safety", link: "/guide/thread-safety" }
+    ]
+  },
+  {
+    text: "Observability and Performance",
+    items: [
+      { text: "Performance", link: "/guide/performance" },
+      { text: "Engine Comparison", link: "/guide/engine-comparison" },
+      { text: "Profiling", link: "/guide/profiling" },
+      { text: "Code Coverage", link: "/guide/code-coverage" }
+    ]
+  },
+  {
+    text: "Additional Packages",
+    items: [
+      { text: "Choose a Package", link: "/guide/choosing-a-package" },
+      { text: "Using Preview Packages", link: "/guide/preview-packages" }
+    ]
+  }
+];
+
 export default defineConfig({
   title: "Jint",
   description: "JavaScript interpreter and runtime for .NET",
@@ -22,11 +94,10 @@ export default defineConfig({
     logo: "/favicon.svg",
     siteTitle: "Jint",
     nav: [
-      { text: "Guide", link: "/guide/getting-started" },
+      { text: "Jint", link: "/guide/" },
       {
         text: "Packages",
         items: [
-          { text: "Jint", link: "/packages/jint/" },
           { text: "Jint.DevTools", link: "/packages/jint-devtools/" },
           { text: "Jint.Browser", link: "/packages/jint-browser/" },
           { text: "Jint.Browser.Playwright", link: "/packages/jint-browser-playwright/" },
@@ -40,75 +111,7 @@ export default defineConfig({
       { text: "GitHub", link: "https://github.com/sebastienros/jint" }
     ],
     sidebar: {
-      "/guide/": [
-        {
-          text: "Guide",
-          items: [
-            { text: "Overview", link: "/guide/" },
-            { text: "Getting Started", link: "/guide/getting-started" },
-            { text: "Choosing a Package", link: "/guide/choosing-a-package" },
-            { text: "Using Preview Packages", link: "/guide/preview-packages" },
-            { text: "Supported Platforms", link: "/guide/supported-platforms" },
-            { text: "Migrating to Jint 5", link: "/guide/migrating-to-v5" }
-          ]
-        }
-      ],
-      "/packages/jint/": [
-        {
-          text: "Jint",
-          items: [
-            { text: "Overview", link: "/packages/jint/" },
-            { text: "Creating an Engine", link: "/packages/jint/creating-an-engine" },
-            { text: "Execute, Evaluate, and Invoke", link: "/packages/jint/execution" },
-            { text: "JavaScript and .NET Values", link: "/packages/jint/values" },
-            { text: "Expose Host Values", link: "/packages/jint/host-values" },
-            { text: "Advanced Hosting", link: "/packages/jint/advanced-hosting" },
-            { text: "CLR Interop", link: "/packages/jint/clr-interop" },
-            { text: "Modules", link: "/packages/jint/modules" },
-            { text: "Async and Promises", link: "/packages/jint/async" }
-          ]
-        },
-        {
-          text: "Runtime Features",
-          items: [
-            {
-              text: "Web APIs",
-              link: "/packages/jint/web-apis",
-              collapsed: true,
-              items: [
-                { text: "Enabling Web APIs", link: "/packages/jint/web-apis/enabling" },
-                { text: "Console and Timers", link: "/packages/jint/web-apis/console-and-timers" },
-                { text: "Events and Messaging", link: "/packages/jint/web-apis/events-and-messaging" },
-                { text: "Encoding, Files, and Streams", link: "/packages/jint/web-apis/encoding-files-and-streams" },
-                { text: "Fetch and Networking", link: "/packages/jint/web-apis/fetch-and-networking" },
-                { text: "Storage and Cache", link: "/packages/jint/web-apis/storage-and-cache" },
-                { text: "Crypto and Performance", link: "/packages/jint/web-apis/crypto-and-performance" },
-                { text: "Workers", link: "/packages/jint/web-apis/workers" }
-              ]
-            },
-            { text: "Node Compatibility", link: "/packages/jint/node-compatibility" },
-            { text: "Internationalization", link: "/packages/jint/internationalization" }
-          ]
-        },
-        {
-          text: "Hosting Safely",
-          items: [
-            { text: "Execution Constraints", link: "/packages/jint/constraints" },
-            { text: "Untrusted Code", link: "/packages/jint/untrusted-code" },
-            { text: "Errors and Diagnostics", link: "/packages/jint/errors" },
-            { text: "Thread Safety", link: "/packages/jint/thread-safety" }
-          ]
-        },
-        {
-          text: "Observability and Performance",
-          items: [
-            { text: "Performance", link: "/packages/jint/performance" },
-            { text: "Engine Comparison", link: "/packages/jint/engine-comparison" },
-            { text: "Profiling", link: "/packages/jint/profiling" },
-            { text: "Code Coverage", link: "/packages/jint/code-coverage" }
-          ]
-        }
-      ],
+      "/guide/": jintSidebar,
       "/packages/jint-devtools/": [
         {
           text: "Jint.DevTools",

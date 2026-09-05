@@ -1,10 +1,11 @@
-# Choosing a Package
+# Additional Packages
 
-Start with `Jint`. The other packages add optional hosting surfaces.
+The `Jint` package is the core runtime used throughout this documentation. Add
+one of these packages when an application needs an optional debugging, browser,
+automation, command-line, or agent surface.
 
 | Package | Use it when you need |
 | --- | --- |
-| [`Jint`](../packages/jint/) | JavaScript execution, .NET interop, modules, constraints, promises, or opt-in web APIs |
 | [`Jint.DevTools`](../packages/jint-devtools/) | Chrome DevTools Protocol for an engine hosted by your application |
 | [`Jint.Browser`](../packages/jint-browser/) | HTML, DOM, navigation, extraction, or browser-style automation without rendering |
 | [`Jint.Browser.Playwright`](../packages/jint-browser-playwright/) | Public Playwright interfaces backed directly by `Jint.Browser` |

@@ -620,7 +620,7 @@ public partial class Engine
         /// </para>
         /// <para>
         /// <b>Authorized callbacks are admitted, and one of them can outlast the ceiling.</b> A park is one of
-        /// the engine's callback-admission windows (docs/packages/jint/thread-safety.md lists them all): a
+        /// the engine's callback-admission windows (docs/guide/thread-safety.md lists them all): a
         /// JavaScript callback the host was handed and converted to a CLR delegate may be dispatched here from
         /// another thread and will wait for its turn rather than being refused, which is the point of parking
         /// the engine's own thread rather than sleeping it. Unrelated public callers are refused throughout,

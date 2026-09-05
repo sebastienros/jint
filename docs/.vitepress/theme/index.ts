@@ -5,7 +5,7 @@ import Jint5PreviewBanner from "./Jint5PreviewBanner.vue";
 import "./custom.css";
 
 const previewSectionPrefixes = [
-  "packages/jint/web-apis",
+  "guide/web-apis",
   "packages/jint-devtools",
   "packages/jint-browser",
   "packages/jint-browser-playwright",

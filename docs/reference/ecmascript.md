@@ -21,8 +21,8 @@ specification rather than treating proposal behavior as a frozen contract.
 
 ECMAScript does not define browser or Node.js globals. Jint therefore installs neither by default:
 
-- enable standards-based runtime APIs through [Web APIs](../packages/jint/web-apis.md);
-- enable supported Node modules through [Node compatibility](../packages/jint/node-compatibility.md);
+- enable standards-based runtime APIs through [Web APIs](../guide/web-apis.md);
+- enable supported Node modules through [Node compatibility](../guide/node-compatibility.md);
 - use [`Jint.Browser`](../packages/jint-browser/) when scripts require a document and DOM.
 
 ## Measured conformance

@@ -44,5 +44,5 @@ var result = new Engine()
 ```
 <!-- endSnippet -->
 
-Continue with [Creating an Engine](../packages/jint/creating-an-engine.md) and
-[Execute, Evaluate, and Invoke](../packages/jint/execution.md).
+Continue with [Creating an Engine](./creating-an-engine.md) and
+[Execute, Evaluate, and Invoke](./execution.md).

@@ -6,7 +6,7 @@ namespace Jint.Tests.PublicInterface;
 
 /// <summary>
 /// Which authorized cross-thread callbacks a <em>blocking drain</em> admits, from the outside.
-/// docs/packages/jint/thread-safety.md names the drain as one of the engine's callback-admission windows; these pin the
+/// docs/guide/thread-safety.md names the drain as one of the engine's callback-admission windows; these pin the
 /// two things about it that a reader comparing it with the pump would reasonably expect to be otherwise,
 /// and that a change made for symmetry would silently take away (sebastienros/jint#3262).
 /// </summary>

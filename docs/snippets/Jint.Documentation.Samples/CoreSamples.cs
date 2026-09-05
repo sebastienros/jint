@@ -134,18 +134,4 @@ public static class CoreSamples
         return result;
     }
 
-    public static string PackageFirstScript()
-    {
-        #region docs:package-jint-first-script
-
-        var engine = new Engine()
-            .SetValue("name", "Ada");
-
-        var greeting = engine.Evaluate("`Hello, ${name}!`").AsString();
-        Console.WriteLine(greeting);
-
-        #endregion
-
-        return greeting;
-    }
 }

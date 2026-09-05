@@ -13,22 +13,22 @@ hero:
       text: Get Started
       link: /guide/getting-started
     - theme: alt
-      text: Explore Packages
+      text: Additional Packages
       link: /guide/choosing-a-package
 
 features:
   - icon: ⚡
     title: Embed JavaScript
     details: Execute scripts, evaluate expressions, call functions, and exchange values with .NET.
-    link: /packages/jint/execution
+    link: /guide/execution
   - icon: 🔒
     title: Bound Execution
     details: Apply statement, time, memory, recursion, parsing, and cancellation limits.
-    link: /packages/jint/untrusted-code
+    link: /guide/untrusted-code
   - icon: 🌐
     title: Opt-in Web APIs
     details: Add console, timers, fetch, streams, crypto, storage, workers, and more when your host needs them.
-    link: /packages/jint/web-apis
+    link: /guide/web-apis
   - icon: 🧭
     title: Headless Browser
     details: Parse HTML, run page scripts, automate a DOM, and inspect the result without Chromium.
@@ -62,15 +62,13 @@ var result = new Engine()
 ```
 <!-- endSnippet -->
 
-The `Jint` package is the main entry point. Add another package only when you need debugging or browser
-functionality. Jint is open source under the
+Jint is the main product and documentation entry point. Add another package only when you need debugging or
+browser functionality. Jint is open source under the
 [BSD 2-Clause License](https://github.com/sebastienros/jint/blob/main/LICENSE.txt).
 
+## Additional packages
+
 <div class="package-grid">
-  <a class="package-card" href="./packages/jint/">
-    <strong>Jint</strong>
-    <span>The JavaScript interpreter, .NET interop, constraints, modules, promises, and opt-in runtime APIs.</span>
-  </a>
   <a class="package-card" href="./packages/jint-devtools/">
     <strong>Jint.DevTools</strong>
     <span>A Chrome DevTools Protocol server for an engine hosted by your application.</span>

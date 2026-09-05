@@ -14,6 +14,6 @@ For scripts you do not trust:
 Network-capable Web APIs and browser automation also need URL filtering that is checked on redirects. Block
 loopback, private, link-local, and cloud metadata addresses unless access is intentional.
 
-Read [Running Untrusted Code](../packages/jint/untrusted-code.md) and the repository
+Read [Running Untrusted Code](../guide/untrusted-code.md) and the repository
 [threat model](https://github.com/sebastienros/jint/blob/main/.github/THREAT_MODEL.md) before deploying a script
 service.

@@ -36,4 +36,4 @@ the complete web platform.
 Dependencies between flags are expanded automatically. For example, fetch also installs the URL, files, streams,
 and events it needs.
 
-See [Web APIs](../packages/jint/web-apis.md) for configuration and security guidance.
+See [Web APIs](../guide/web-apis.md) for configuration and security guidance.

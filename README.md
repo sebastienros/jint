@@ -93,18 +93,20 @@ Projects using Jint include
 [Docfx](https://github.com/dotnet/docfx), and
 [JavaScript Engine Switcher](https://github.com/Taritsyn/JavaScriptEngineSwitcher).
 
-## Packages
+## Additional packages
+
+`Jint` is the core package used throughout this README. Add another package
+only when the application needs an optional debugging or browser surface.
 
 | Package | Purpose |
 | --- | --- |
-| [`Jint`](https://www.nuget.org/packages/Jint) | ECMAScript engine, CLR interop, modules, constraints, and opt-in runtime Web APIs |
 | [`Jint.DevTools`](https://www.nuget.org/packages/Jint.DevTools) | Chrome DevTools Protocol server for debugging and profiling an engine |
 | [`Jint.Browser`](https://www.nuget.org/packages/Jint.Browser) | Headless HTML, DOM, navigation, networking, storage, and content extraction |
 | [`Jint.Browser.Playwright`](https://www.nuget.org/packages/Jint.Browser.Playwright) | Direct Playwright-compatible adapter without the bundled Node driver |
 | [`Jint.Browser.Tool`](https://www.nuget.org/packages/Jint.Browser.Tool) | `jint-browser` command-line tool |
 | [`Jint.Browser.Mcp`](https://www.nuget.org/packages/Jint.Browser.Mcp) | Model Context Protocol server for browser automation |
 
-See [Choosing a package](https://sebastienros.github.io/jint/guide/choosing-a-package)
+See [Additional packages](https://sebastienros.github.io/jint/guide/choosing-a-package)
 for dependencies, target frameworks, and common combinations.
 
 ## Branches and releases
@@ -154,8 +156,8 @@ Read the detailed scope and exclusions for
 - Measure with your own scripts and host objects. Interpreter performance
   depends heavily on call frequency and script-to-host traffic.
 
-See [performance](https://sebastienros.github.io/jint/packages/jint/performance)
-and [advanced hosting](https://sebastienros.github.io/jint/packages/jint/advanced-hosting)
+See [performance](https://sebastienros.github.io/jint/guide/performance)
+and [advanced hosting](https://sebastienros.github.io/jint/guide/advanced-hosting)
 for engine lifetime, pooling, projection, and caching guidance.
 
 ## Benchmarks
@@ -173,7 +175,7 @@ engine's recommended cached execution path:
 
 Native V8 remains faster on long, compute-heavy loops. Managed allocation
 figures also cannot include V8's native heap. Read the
-[engine comparison and methodology](https://sebastienros.github.io/jint/packages/jint/engine-comparison)
+[engine comparison and methodology](https://sebastienros.github.io/jint/guide/engine-comparison)
 before comparing engines; absolute numbers from different benchmark sessions
 are not comparable.
 
@@ -212,7 +214,7 @@ Constraints are cooperative and cannot preempt arbitrary host callbacks. Use
 an external deadline, restrict module and network loaders on every hop, and run
 hostile code in a least-privileged disposable process or container.
 
-Read [Running untrusted code](https://sebastienros.github.io/jint/packages/jint/untrusted-code)
+Read [Running untrusted code](https://sebastienros.github.io/jint/guide/untrusted-code)
 and the [threat model](https://github.com/sebastienros/jint/blob/main/.github/THREAT_MODEL.md)
 before deploying a script service.
 
