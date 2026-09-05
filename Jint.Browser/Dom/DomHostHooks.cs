@@ -121,6 +121,14 @@ internal class DomHostHooks
     internal virtual JsValue Dataset(DomRealm realm, IHtmlElement element)
         => realm.WrapStringMap(element, element.Dataset);
 
+    /// <summary>https://html.spec.whatwg.org/multipage/forms.html#dom-lfe-labels</summary>
+    internal virtual JsValue Labels(DomRealm realm, IHtmlElement element)
+        => HtmlLabelAssociation.IsLabelable(element) ? realm.WrapLabels(element) : JsValue.Null;
+
+    /// <summary>https://html.spec.whatwg.org/multipage/forms.html#dom-label-control</summary>
+    internal virtual JsValue LabelControl(DomRealm realm, IHtmlLabelElement label)
+        => realm.WrapNodeValue(HtmlLabelAssociation.ControlFor(label));
+
     /// <summary>https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-insertadjacenthtml</summary>
     /// <remarks>
     /// <para>

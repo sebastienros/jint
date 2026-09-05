@@ -39,8 +39,8 @@ here:
 | the computed style is writable | CSSOM's computed flag makes every write a `NoModificationAllowedError` | an ordinary writable declaration, and a detached one, so a write neither throws nor changes anything readable — see `Dom/Views/ReadOnlyStyleDeclaration` |
 | `el.click()` on a checkbox, radio, `<summary>` or `<a href>` | the element's activation behaviour runs | `DoClick` dispatches on AngleSharp's own bus and runs **no activation behaviour at all**, with or without a browsing context: nothing toggles, opens or navigates |
 | `document.activeElement` | the focused element, or the body | `null` for the life of every document — nothing in AngleSharp ever assigns it, `DoFocus()` included |
-| `input.labels` | the `<label>`s whose `for` names the control | an empty collection |
-| `label.control` | the labeled control: the `for` target, or the first labelable **descendant** | `null` for a control the label contains, which is the commoner spelling; `Events/ActivationBehaviors` computes it instead so a click inside a wrapping label reaches its checkbox |
+| `input.labels` | every `<label>` whose labeled control is the input, in tree order | an empty collection. No longer reached directly: `HtmlLabelAssociation` supplies the live `NodeList` shared by the bindings and accessible-name computation |
+| `label.control` | the labeled control: the `for` target, or the first labelable **descendant** | `null` for a control the label contains, which is the commoner spelling. No longer reached directly: `HtmlLabelAssociation` supplies the binding and label activation |
 | `select.selectedIndex` with no `selected` option | 0 — the selectedness-setting algorithm picks the first option of a non-`multiple`, display-size-1 select | −1 |
 | `input.value = …` | the cursor moves to the end and the selection is dropped | `SelectionStart`/`SelectionEnd` are left where they were, so they can point past the end of the new value |
 | `input.setSelectionRange` on a `type=checkbox` | `InvalidStateError` — the type does not support selection | answers, so the type test has to be the caller's |
