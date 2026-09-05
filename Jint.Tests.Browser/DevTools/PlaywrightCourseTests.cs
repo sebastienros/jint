@@ -257,6 +257,35 @@ public class PlaywrightCourseTests
     }
 
     [Test]
+    public async Task PlaywrightClickSubmitsAJQueryDelegatedHiddenForm()
+    {
+        string? method = null;
+        string? body = null;
+        await using var lane = await ClientLane.OpenAsync(
+            server => FixtureRoutes.FormRedirect(server, (seenMethod, seenBody) =>
+            {
+                method = seenMethod;
+                body = seenBody;
+            }));
+        var page = await lane.NewPageAsync("jquery-unsafe-url");
+
+        (await page.Locator(".filter-option-inner-inner").TextContentAsync()).Should().Be("Choose a category");
+        await page.Locator("#enable").ClickAsync();
+
+        page.Url.Should().StartWith(lane.Server.Url("/form-redirect/done.html") + "?");
+        (await page.Locator("#method").TextContentAsync()).Should().Be("arrived by GET at /form-redirect/done.html");
+        method.Should().Be("POST");
+        body.Should().Be("__RequestVerificationToken=test-token&feature=Example");
+        lane.Server.Received.Count(request => request.Method == "POST").Should().Be(1);
+        foreach (var hostPage in lane.Pages.Contexts.SelectMany(context => context.Pages))
+        {
+            hostPage.Errors.Should().BeEmpty();
+        }
+
+        await page.CloseAsync();
+    }
+
+    [Test]
     public async Task PlaywrightSavesANestedAdminFormWithoutRetryingThePost()
     {
         await using var lane = await ClientLane.OpenAsync(server => server.Map(

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Delegated POST link</title></head>
+<body>
+  <select id="category" class="selectpicker" title="Choose a category">
+    <option value="content">Content</option>
+  </select>
+  <input type="hidden" name="__RequestVerificationToken" value="test-token">
+  <a id="enable" data-url-af="UnsafeUrl" href="/form-redirect/submit?feature=Example"><span>Enable</span></a>
+  <script src="/vendor/jquery-3.7.1/jquery.min.js"></script>
+  <script src="/vendor/bootstrap-5.3.8/bootstrap.bundle.min.js"></script>
+  <script src="/vendor/bootstrap-select-1.2.4/bootstrap-select.min.js"></script>
+  <script>
+    $(function () {
+      var token = $("input[name=__RequestVerificationToken]").first();
+      $("body").on("click", 'a[data-url-af~="UnsafeUrl"]', function (event) {
+        if (event.type !== "click" || event.currentTarget !== this ||
+            event.delegateTarget !== document.body || event.originalEvent.type !== "click" ||
+            event.originalEvent.currentTarget !== document.body) {
+          throw new Error("Delegated click event lost its target or original event");
+        }
+        var parts = $(this).attr("href").split("?");
+        var form = $('<form method="POST">').attr("action", parts[0]);
+        form.append(token.clone());
+        var parameter = parts[1].split("=");
+        form.append($('<input type="hidden">').attr("name", parameter[0]).val(parameter[1]));
+        form.css({ position: "absolute", left: "-9999em" });
+        $("body").append(form);
+        form.submit();
+        return false;
+      });
+    });
+    $("body").on("submit", "form.no-multisubmit", function (event) {
+      if ($(this).hasClass("submitting")) {
+        event.preventDefault();
+      }
+      $(this).addClass("submitting");
+    });
+  </script>
+</body>
+</html>
