@@ -4,6 +4,11 @@
 
 It starts no browser, Node process, driver, or CDP connection. Operations run in the application process:
 
+Use this package when your application needs Microsoft.Playwright-compatible abstractions.
+The direct [`Jint.Browser`](../jint-browser/) API exposes more of the browser model than this adapter
+currently maps, but it is not compatible with Playwright's interfaces. Prefer `Jint.Browser` when
+Playwright compatibility is not required.
+
 [View Jint.Browser.Playwright on NuGet.org](https://www.nuget.org/packages/Jint.Browser.Playwright)
 
 With `using Jint.Browser.Playwright;` in scope:
