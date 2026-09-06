@@ -121,7 +121,9 @@ public class PlaywrightCourseTests
     [Test]
     public async Task PlaywrightLoadsMonacoThroughItsAmdCssPlugin()
     {
-        await using var lane = await ClientLane.OpenAsync(server => FixtureRoutes.Monaco(server));
+        await using var lane = await ClientLane.OpenAsync(
+            server => FixtureRoutes.Monaco(server),
+            new BrowserOptions { MaxTaskDuration = TimeSpan.FromSeconds(30) });
         var page = await lane.Context.NewPageAsync();
         var errors = new ConcurrentQueue<string>();
         page.PageError += (_, error) => errors.Enqueue(error);
