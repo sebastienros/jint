@@ -16,15 +16,13 @@ internal static class DomManualShapes
     /// receiver's element type; both members reach the wrapper's own two virtuals instead, which
     /// <c>DomHtmlCollectionObject&lt;T&gt;</c> closes over the type it was created with.
     /// </summary>
-    /// <remarks>
-    /// <c>length</c> is deliberately absent: <c>ArrayLikeObject</c> makes it an own property of the
-    /// collection, and a prototype accessor of the same name could only ever be shadowed. That deviation is
-    /// documented on <see cref="DomCollectionBase"/>.
-    /// </remarks>
     internal static JsObjectShape HtmlCollection()
         => new JsObjectShape.Builder()
             .ToStringTag("HTMLCollection")
             .PerRealmSlot("constructor", enumerable: false)
+            // https://webidl.spec.whatwg.org/#es-attributes — IDL attributes are enumerable, configurable
+            // accessors on the interface prototype.
+            .Accessor("length", static (thisObj, _) => JsNumber.Create(Receiver(thisObj, "HTMLCollection.length").Length))
 
             // https://webidl.spec.whatwg.org/#js-iterable — the interface supports indexed properties, so its
             // prototype carries @@iterator; the generated collection shapes get the same line from the

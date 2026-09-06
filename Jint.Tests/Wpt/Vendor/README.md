@@ -380,7 +380,7 @@ corpus.
 | `html/webappapis/scripting/processing-model-2/` | 25 `.html` | `window.onerror` and `<body onerror>` over every way a script can fail |
 | `html/webappapis/scripting/processing-model-2/support/` | 2 `.js` | The two failing scripts those documents load |
 | `dom/nodes/Document-createEvent.js` | 1 | The alias table `dom/events/EventTarget-dispatchEvent.html` loads by absolute path — once vendored alone, because without it that document silently reported **one** of its twenty-five tests |
-| `dom/nodes/` | 159 `.html`/`.htm`, 15 `.js`, 1 `.xml` | The DOM standard's node suite, and the biggest thing this lane runs: 4,364 tests |
+| `dom/nodes/` | 165 `.html`/`.htm`, 16 `.js`, 1 `.xml` | The DOM standard's node suite, and the biggest thing this lane runs: 4,370 tests |
 | `dom/collections/`, `dom/lists/` | 13 `.html` | `HTMLCollection`, `NamedNodeMap`, `DOMStringMap` and `DOMTokenList` |
 | `dom/traversal/` | 13 `.html` | `NodeIterator` and `TreeWalker`; four of them are the walks that used to run forever ([#3765](https://github.com/sebastienros/jint/issues/3765)) |
 | `dom/traversal/support/` | 1 `.html`, 1 `.js` | An empty document a filter's realm comes from, and the node assertions |

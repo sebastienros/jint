@@ -905,6 +905,12 @@ internal static partial class DomInterfaces
                     return self.Realm.Wrap(self.Target[global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "CSSPseudoElementList.item")]);
                 }),
                 length: 1)
+            .Accessor("length",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSPseudoElementList.length", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssPseudoElementList>(thisObj, "CSSPseudoElementList.length");
+                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);
+                }))
             .Build();
 
     /// <summary>The members of <c>CSSRuleList</c>.</summary>
@@ -922,6 +928,12 @@ internal static partial class DomInterfaces
                     return self.Realm.Wrap(self.Target[global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "CSSRuleList.item")]);
                 }),
                 length: 1)
+            .Accessor("length",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSRuleList.length", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssRuleList>(thisObj, "CSSRuleList.length");
+                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);
+                }))
             .Build();
 
     /// <summary>The members of <c>CSSScopeRule</c>.</summary>
@@ -2408,6 +2420,12 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.left");
                     self.Target.SetLeft(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.left")); return global::Jint.Native.JsValue.Undefined;
                 }))
+            .Accessor("length",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.length", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.length");
+                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);
+                }))
             .Accessor("letterSpacing",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.letterSpacing", static (thisObj, args) =>
                 {
@@ -3683,6 +3701,12 @@ internal static partial class DomInterfaces
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target[global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "MediaList.item")]);
                 }),
                 length: 1)
+            .Accessor("length",
+                global::Jint.Browser.Dom.DomFailures.Guard("MediaList.length", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.IMediaList>(thisObj, "MediaList.length");
+                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);
+                }))
             .Accessor("mediaText",
                 global::Jint.Browser.Dom.DomFailures.Guard("MediaList.mediaText", static (thisObj, args) =>
                 {

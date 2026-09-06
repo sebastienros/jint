@@ -398,15 +398,6 @@ internal static class WptBrowserExclusions
         ("dom/nodes/MutationObserver-attributes.html", "thirty-four of its tests report and one waits forever for a record the observer never delivers"),
         ("dom/nodes/MutationObserver-childList.html", "the same, after thirty-eight"),
 
-        // ------------------------------------------------------------ too slow to be a case
-        // A static NodeList's length is re-read rather than snapshotted, so a test that tampers with the getter
-        // to answer a huge number is believed: the six documents take 5.9 s, 8.0 s, 9.3 s, 17.5 s, 17.9 s and
-        // 18.8 s on an idle machine and one of them crossed the driver's 30 s deadline on a loaded one. A case
-        // whose outcome depends on the machine is the thing the census exists to keep out, so they are rows here
-        // with the measurement rather than a flake in the run. The re-read is the defect and it is worth fixing;
-        // the two `-indexOf-` shapes also answer 0 where Array.prototype.indexOf should answer -1.
-        ("dom/nodes/NodeList-static-length-getter-tampered-*.html", "a static NodeList re-reads its tampered length getter, so the document spends between 5.9 s and 18.8 s and one of the six crossed the driver's 30 s deadline under load"),
-        ("dom/nodes/support/NodeList-static-length-tampered.js", "the helper the six documents above share"),
     ];
 
     /// <summary>
@@ -578,6 +569,12 @@ internal static class WptBrowserExclusions
         ["dom/nodes/DocumentFragment-constructor.html"] = 2,
         ["dom/nodes/DocumentFragment-getElementById.html"] = 5,
         ["dom/nodes/DocumentFragment-querySelectorAll-after-modification.html"] = 1,
+        ["dom/nodes/NodeList-static-length-getter-tampered-1.html"] = 1,
+        ["dom/nodes/NodeList-static-length-getter-tampered-2.html"] = 1,
+        ["dom/nodes/NodeList-static-length-getter-tampered-3.html"] = 1,
+        ["dom/nodes/NodeList-static-length-getter-tampered-indexOf-1.html"] = 1,
+        ["dom/nodes/NodeList-static-length-getter-tampered-indexOf-2.html"] = 1,
+        ["dom/nodes/NodeList-static-length-getter-tampered-indexOf-3.html"] = 1,
         ["dom/nodes/DocumentType-literal.html"] = 1,
         ["dom/nodes/Element-childElement-null.html"] = 1,
         ["dom/nodes/Element-childElementCount-dynamic-add.html"] = 1,

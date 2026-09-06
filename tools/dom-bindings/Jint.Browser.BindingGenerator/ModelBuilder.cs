@@ -700,15 +700,6 @@ internal sealed class ModelBuilder
             return;
         }
 
-        // `length` on a collection is an OWN property of the wrapper, put there by ArrayLikeObject, so a
-        // prototype accessor of the same name could only ever be shadowed. The deviation from a browser —
-        // which has it on the interface prototype — is documented on DomCollectionBase.
-        if (domName == "length" && model.Kind is WrapperKind.Collection or WrapperKind.HtmlCollection)
-        {
-            _model.Skipped.Add(new SkipRecord(model.DomName, domName, "is an own property of the collection wrapper (ArrayLikeObject), a documented deviation from putting it on the prototype"));
-            return;
-        }
-
         if (member is MethodInfo method)
         {
             // An extension method carrying Accessors.Getter is an IDL attribute, not an operation: it is how

@@ -26,7 +26,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | Suite | Documents | Synthesized | Tests | Not passing |
 | --- | --- | --- | --- | --- |
 | `dom/events/` | 56 | 9 | 544 | 20 |
-| `dom/nodes/` | 159 | 0 | 4,796 | 1,411 |
+| `dom/nodes/` | 165 | 0 | 4,802 | 1,411 |
 | `dom/collections/` | 8 | 0 | 43 | 18 |
 | `dom/lists/` | 5 | 0 | 189 | 5 |
 | `dom/traversal/` | 13 | 0 | 52 | 7 |
@@ -38,7 +38,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 68 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 3 |
-| **total** | **341** | **9** | **11,541** | **1,848** |
+| **total** | **347** | **9** | **11,547** | **1,848** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -168,7 +168,7 @@ document whose subject is that resolution is in the not-vendored table for the r
 
 `dom/nodes/`, `dom/collections/`, `dom/lists/`, `dom/traversal/`, `dom/ranges/` and `html/dom/` are the DOM
 standard's own suites and HTML's DOM half — the corpus every other suite in this lane is written on top of.
-They arrived together, 207 documents and 5,247 tests, and **1,532 of those tests do not pass**. That is a
+They arrived together, 213 documents and 5,253 tests, and **1,532 of those tests do not pass**. That is a
 much worse ratio than any suite already here, and it should be: `dom/events/` is one interface's dispatch,
 where these are every member of every node interface.
 
@@ -192,7 +192,7 @@ Ordered by how many tests each accounts for:
 | ---: | ---: | --- |
 | 540 | 13 | [#3771](https://github.com/sebastienros/jint/issues/3771) **A frame is never given a realm.** It has a **document** now — its `src` is fetched and parsed, `contentDocument` answers it same origin and `load` arrives at the element — and none of these 540 moved, which is the measurement that says what they were really waiting for. 488 of them are one line: `Document-createElement*.html` runs its whole table three times and two of the three documents are an **XML** and an **XHTML** one, which is [#3766](https://github.com/sebastienros/jint/issues/3766) and not this row; each of those runs then asks `doc.defaultView.DOMException`, and a frame with no realm has no `defaultView`. The rest are `node-realm-*`, `node-creation-realm` and the two cross-realm `TreeWalker` documents, whose whole subject is the second realm. `NeedsIframeScripting`, the category this lane already had. |
 | 478 | 10 | [#3766](https://github.com/sebastienros/jint/issues/3766) **An XML document, and the two members that make one.** Both members exist now, and what they uncovered is larger than what they hid: `DOMImplementation-createDocument.html` builds its own table of 434 cases *inside its first test* and the builder called the missing one, so the file used to register **two** tests. It registers them all now and **348** of them fail — the document a browser gets back is an `XMLDocument` with no location, an ASCII-upper-cased encoding name and a content type taken from the namespace, and none of the three is reachable from what AngleSharp exposes. `processing-instruction-attributes.html` is 137 more of the same. `NeedsXmlDocuments`, a scope decision rather than debt, and the largest cause in this table after the frames. |
-| 107 | 28 | [#3772](https://github.com/sebastienros/jint/issues/3772) **A collection's named and indexed properties, and its liveness.** An empty name is a supported property name (`HTMLCollection-empty-name.html`, 7 rows), `getElementsByTagName` matches where the standard matches nothing (23 rows), and `namednodemap-supported-property-names.html` sees names a browser does not. The six `NodeList-static-length-getter-tampered*` documents are the same interface from a seventh angle and are not vendored, because a static `NodeList` re-reads its tampered `length` getter and each of them takes between 5.9 s and 18.8 s. |
+| 107 | 28 | [#3772](https://github.com/sebastienros/jint/issues/3772) **A collection's named and indexed properties, and its liveness.** An empty name is a supported property name (`HTMLCollection-empty-name.html`, 7 rows), `getElementsByTagName` matches where the standard matches nothing (23 rows), and `namednodemap-supported-property-names.html` sees names a browser does not. |
 | 101 | 5 | [#3712](https://github.com/sebastienros/jint/issues/3712) **A nullable `DOMString` answers the string `"null"`.** `createElementNS(null, …)` gives an element whose `namespaceURI` is `"http://www.w3.org/1999/xhtml"` and `node.nodeValue = null` reads back `"null"`, because the binding converts a `DOMString?` parameter with `TypeConverter.ToString`. It is the same conversion the custom-element corpus records for `getAttributeNS`, from the other side, and 80 of the 101 are that document — `custom-elements/reactions/AriaMixin-string-attributes.html`. |
 | 87 | 18 | One assertion each: `Node.isEqualNode` compares data it should not, `Element.removeAttribute` removes one attribute of two, an attribute's order in `element.attributes` differs, `cloneNode` copies a `value` a browser leaves behind. |
 | 80 | 5 | [#3769](https://github.com/sebastienros/jint/issues/3769) **A `(Node or DOMString)` union parameter takes only a `Node`.** `before`, `after`, `append`, `prepend` and `replaceWith` all accept a string in DOM §4.2.7; here a string is "parameter 1 is not of the expected type". `replaceWith` joined the row when the member arrived: eighteen of its twenty-four remaining assertions are the union and nothing else. |
@@ -288,7 +288,6 @@ costs: half of them are one member reached at file scope.
 | a DOM frame that runs script | 17 | listed when a frame had neither a document nor a realm; it has a document now ([#3771](https://github.com/sebastienros/jint/issues/3771)) and each row is owed a re-examination against the half that is left — three of them need the frame body above, which a document under a suite cannot be |
 | a member reached at file scope | 30 | `createCDATASection` (31 documents, 24 of them `dom/ranges/`, through `dom/common.js`), `createDocument` (5) and `setAttributeNode` (1) |
 | one DOM file each | 3 | a `SyntaxError` no `error` event carries to the harness, and two `MutationObserver` documents waiting for a record that never comes |
-| too slow to be a case | 2 | the six `NodeList-static-length-getter-tampered*` documents and their helper: a static `NodeList` re-reads its tampered `length` getter, so each spends between 5.9 s and 18.8 s and one of them crossed the driver's 30 s deadline on a loaded machine |
 
 **The `testdriver.js` group is gone, which is what recording it by name was for.** Campaign item C4 mapped
 upstream's automation API onto the same `InputDispatcher` the `Input` domain reaches, through the
@@ -308,11 +307,10 @@ way: `window.customElements` exists, and `EventTarget-add-listener-platform-obje
 
 ## What runs, and what it costs
 
-The whole lane is **about forty seconds** — one `WptServer`, one `Browser`, and a fresh `BrowserContext` and
-`Page` per document. It was ten seconds before the DOM suites, which multiplied the documents by two and a
-half and the assertions by four. **No case comes within a factor of three of the driver's 30 s deadline**,
-and keeping that true is why the six `NodeList-static-length-getter-tampered*` documents are not vendored:
-the largest of them took 18.8 s idle and crossed 30 s on a loaded machine, and a case whose outcome depends
-on the machine is exactly what the census exists to keep out. Nothing in it waits on a real clock except upstream's own harness timeout, and no document
-reaches it: every case reports, which is the property `EveryVendoredDocumentIsAccountedFor` and the
-minimum-test table together keep true.
+The lane uses one `WptServer`, one `Browser`, and a fresh `BrowserContext` and `Page` per document. It was ten
+seconds before the DOM suites, which multiplied the documents by two and a half and the assertions by four.
+The six `NodeList-static-length-getter-tampered*` hot-loop probes are cases now: collection `length` lives on
+the prototype, and redefining or shadowing its getter limits the loop instead of leaving it to scan the full
+static collection. Each still reports inside the driver's 30-second deadline. Nothing in the lane waits on a
+real clock except upstream's own harness timeout, and no document reaches it: every case reports, which is the
+property `EveryVendoredDocumentIsAccountedFor` and the minimum-test table together keep true.

@@ -92,6 +92,33 @@ public class HostArrayLikeObjectTests
         }
     }
 
+    /// <summary>A host collection whose prototype supplies its JavaScript-visible <c>length</c>.</summary>
+    private sealed class PrototypeLengthHostList : ArrayLikeObject
+    {
+        private readonly string[] _items;
+
+        public PrototypeLengthHostList(Engine engine, params string[] items) : base(engine)
+        {
+            _items = items;
+        }
+
+        public override uint Length => (uint) _items.Length;
+
+        protected override bool OwnsLength => false;
+
+        public override bool TryGetIndex(uint index, out JsValue value)
+        {
+            if (index < (uint) _items.Length)
+            {
+                value = _items[index];
+                return true;
+            }
+
+            value = JsValue.Undefined;
+            return false;
+        }
+    }
+
     /// <summary>
     /// The extension point for a <b>live named member</b> beside the elements: the same three hooks
     /// <see cref="NamedPropertyObject"/> publishes, declared here on <see cref="ArrayLikeObject"/>. The base
@@ -407,6 +434,42 @@ public class HostArrayLikeObjectTests
             .Should().Be("""{"value":3,"writable":false,"enumerable":false,"configurable":true}""");
 
         engine.Evaluate("Object.getOwnPropertyDescriptor(list, 3)").Should().Be(JsValue.Undefined);
+    }
+
+    [Test]
+    public void AHostCanPutLengthOnItsPrototypeAndAllLengthConsumersObserveIt()
+    {
+        var engine = new Engine();
+        var prototype = new JsObject(engine)
+        {
+            Prototype = engine.Intrinsics.Array.PrototypeObject,
+        };
+        var list = new PrototypeLengthHostList(engine, "a", "b", "c")
+        {
+            Prototype = prototype,
+        };
+        engine.SetValue("list", list);
+        engine.SetValue("prototype", prototype);
+        engine.Execute("""
+            var visibleLength = 2;
+            Object.defineProperty(prototype, 'length', {
+                configurable: true,
+                enumerable: true,
+                get: function () { return visibleLength; }
+            });
+            """);
+
+        engine.Evaluate("list.hasOwnProperty('length')").Should().Be(false);
+        engine.Evaluate("list.length").Should().Be(2);
+        engine.Evaluate("Array.prototype.indexOf.call(list, 'c')").Should().Be(-1);
+        engine.Evaluate("[...list].join(',')").Should().Be("a,b");
+        engine.Evaluate("JSON.stringify(list)").Should().Be("[\"a\",\"b\"]");
+
+        engine.Execute("visibleLength = 0");
+
+        engine.Evaluate("Array.prototype.indexOf.call(list, 'a')").Should().Be(-1);
+        engine.Evaluate("[...list].length").Should().Be(0);
+        engine.Evaluate("JSON.stringify(list)").Should().Be("[]");
     }
 
     [Test]

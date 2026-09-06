@@ -757,9 +757,9 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
     }
 
     /// <summary>
-    /// Read side of a host <see cref="ArrayLikeObject"/>: length and elements come straight off the two abstract
-    /// members, so an <c>Array.prototype</c> generic, the array iterator (for-of, spread, <c>Array.from</c>,
-    /// destructuring) or <c>apply</c>-spreading costs one virtual call per element and allocates no key.
+    /// Read side of a host <see cref="ArrayLikeObject"/>: elements come straight from its index hook, while
+    /// length comes from its own hook or its prototype accessor. An <c>Array.prototype</c> generic, the array
+    /// iterator (for-of, spread, <c>Array.from</c>, destructuring) or <c>apply</c>-spreading allocates no index key.
     /// <para>
     /// A <c>false</c> from <c>TryGetIndex</c> is an authoritative own miss, not "no such element anywhere", so the
     /// miss path re-asks the object the ordinary way and the prototype chain still resolves an index the host does
@@ -774,7 +774,7 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
 
         public override ulong GetSmallestIndex(ulong length) => 0;
 
-        public override ulong GetLongLength() => _target.Length;
+        public override ulong GetLongLength() => _target.GetLongLength();
 
         public override void SetLength(ulong length) => _target.Set(CommonProperties.Length, length, true);
 
