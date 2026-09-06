@@ -105,7 +105,7 @@ now supplies the same preference values to stylesheet `@media` rules and `matchM
 overrides, clearing overrides, and touch state. The regression tests cover those transitions and isolation
 between browsing contexts. The local `matchMedia` evaluator remains because 1.1.0 still differs on negated
 conjunctions, boolean dimensions and colour features, malformed query text, and ordered gamut/dynamic-range
-preferences; [the divergence register](../../Jint.Browser/Dom/divergences.md) records those limits. The page
+preferences; [the divergence register](https://github.com/sebastienros/jint/blob/main/Jint.Browser/Dom/divergences.md) records those limits. The page
 continues to own preference-change notifications and their scheduling.
 
 The divergences that are *not* upstream contributions — because they are decisions AngleSharp is entitled to
