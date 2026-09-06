@@ -141,6 +141,41 @@ public sealed class CascadeTraversalTests
         }
     }
 
+    [TestCase(10)]
+    [TestCase(2000)]
+    public async Task ResizeMeasurementsOnlyMatchObservedSubtreesAndTheirAncestors(int unrelatedRows)
+    {
+        using var context = BrowsingContext.New(Configuration.Default.WithCss());
+        using var document = await context.OpenAsync(response => response.Content(
+            "<style>:root{"
+            + string.Concat(Enumerable.Range(0, 128).Select(i => $"--theme-{i}:red;"))
+            + "}</style><aside id='sidebar'><div id='target'><span id='leaf'>Files</span>"
+            + "<div hidden><b id='hidden'>Hidden</b></div><script>ignored()</script></div></aside><main>"
+            + string.Concat(Enumerable.Repeat("<section><a>Enable</a></section>", unrelatedRows))
+            + "</main>"));
+        var visibility = new ElementVisibility(useComputedStyle: true);
+        var styles = new CountingStyles(document.DefaultView!.GetStyleCollection(new DefaultRenderDevice()));
+        var sizes = new FlatLayout.SizeQuery(document, visibility, 1280, new CssCascade.Traversal(styles));
+        var leaf = document.GetElementById("leaf")!;
+        var target = document.GetElementById("target")!;
+        var sidebar = document.GetElementById("sidebar")!;
+
+        sizes.Measure(leaf).Should().Be(new FlatBox(0, 0, 1280, 16));
+        sizes.Measure(sidebar).Should().Be(new FlatBox(0, 0, 1280, 48));
+        sizes.Measure(target).Should().Be(new FlatBox(0, 0, 1280, 32));
+        sizes.Measure(document.GetElementById("hidden")!).Should().Be(FlatBox.Empty);
+        sizes.Measure(document.CreateElement("div")).Should().Be(FlatBox.Empty);
+        sizes.Measure(sidebar).Height.Should().Be(48);
+        styles.Matches.Should().Be(5, "only html, body, the sidebar and its two rendered descendants need the cascade");
+
+        var layout = FlatLayout.Of(document, visibility, 1280, 720, 96);
+        foreach (var element in new[] { leaf, target, sidebar })
+        {
+            var expected = layout.ClientBoxOf(element)!.Value;
+            sizes.Measure(element).Should().Be(new FlatBox(0, 0, expected.Width, expected.Height));
+        }
+    }
+
     [Test]
     public async Task InvalidInheritedConsumersUseTheParentRatherThanTheNativeInitialFallback()
     {

@@ -81,11 +81,11 @@ internal sealed class JsResizeObserver : ObjectInstance
     }
 
     /// <summary>https://drafts.csswg.org/resize-observer/#dom-resizeobservation-isactive.</summary>
-    internal bool HasChanges(FlatLayout layout)
+    internal bool HasChanges(FlatLayout.SizeQuery sizes)
     {
         foreach (var observation in _targets)
         {
-            var box = layout.ClientBoxOf(observation.Target) ?? FlatBox.Empty;
+            var box = sizes.Measure(observation.Target);
             if (observation.Width != box.Width || observation.Height != box.Height)
             {
                 return true;
@@ -95,13 +95,26 @@ internal sealed class JsResizeObserver : ObjectInstance
         return false;
     }
 
+    internal void MeasureTargets(FlatLayout.SizeQuery sizes)
+    {
+        foreach (var observation in _targets)
+        {
+            sizes.Measure(observation.Target);
+        }
+    }
+
     /// <summary>https://drafts.csswg.org/resize-observer/#broadcast-resize-notifications-h.</summary>
-    internal void Deliver(FlatLayout layout)
+    internal void Deliver(FlatLayout.SizeQuery sizes)
     {
         List<JsValue>? entries = null;
         foreach (var observation in _targets)
         {
-            var box = layout.ClientBoxOf(observation.Target) ?? FlatBox.Empty;
+            // All observers share the pre-callback snapshot. Newly observed targets wait for the next task.
+            if (!sizes.TryGetSize(observation.Target, out var box))
+            {
+                continue;
+            }
+
             if (observation.Width == box.Width && observation.Height == box.Height)
             {
                 continue;

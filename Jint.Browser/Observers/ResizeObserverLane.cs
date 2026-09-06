@@ -33,10 +33,10 @@ internal sealed class ResizeObserverLane(PageRuntime runtime)
             return;
         }
 
-        var layout = runtime.Layout.Current();
+        var sizes = runtime.Layout.MeasureSizes();
         foreach (var observer in _observers)
         {
-            if (observer.HasChanges(layout))
+            if (observer.HasChanges(sizes))
             {
                 Schedule();
                 return;
@@ -64,10 +64,15 @@ internal sealed class ResizeObserverLane(PageRuntime runtime)
         }
 
         var batch = _observers.ToArray();
-        var layout = runtime.Layout.Current();
+        var sizes = runtime.Layout.MeasureSizes();
         foreach (var observer in batch)
         {
-            observer.Deliver(layout);
+            observer.MeasureTargets(sizes);
+        }
+
+        foreach (var observer in batch)
+        {
+            observer.Deliver(sizes);
         }
     }
 }
