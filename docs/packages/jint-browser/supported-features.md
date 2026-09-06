@@ -8,6 +8,7 @@
 - Module scripts, import maps, and dynamic `import()`
 - `document.write` during parsing
 - External style sheets and a CSSOM through AngleSharp.Css
+- Emulated viewport, media type, and supported preferences such as colour scheme, reduced motion, contrast, and pointer capabilities in both `matchMedia` and stylesheet `@media` rules
 - `about:blank`, `data:text/html`, direct content, and HTTP(S) navigation
 - Custom elements, shadow DOM, templates, ranges, traversal, selection, DOMParser, and XMLSerializer
 
