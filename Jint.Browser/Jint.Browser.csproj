@@ -34,9 +34,9 @@
       IsAotCompatible here would turn on IL2xxx/IL3xxx analysis for THIS compilation only — where the bindings
       themselves are clean, because every generated member is a static lambda over an interface call and no
       protocol type is reached by reflection — while saying nothing at all about what a published native
-      binary would do when AngleSharp's own reflection fails at run time. A claim nothing runs is worse than
-      no claim. The v1.1 item is an inventory: publish a native Jint.Browser host, count AngleSharp's warnings,
-      and decide whether the ones that survive are answerable upstream or by a feature switch here.
+      binary would do with a different host's reflection requirements. The closed Jint.Browser.Tool program
+      is now published and exercised natively by browser-tool.yml, without rooting these assemblies; that
+      evidence supports the executable, not a general trimming contract for every library consumer.
     -->
     <IsAotCompatible>false</IsAotCompatible>
   </PropertyGroup>

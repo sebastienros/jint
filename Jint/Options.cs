@@ -616,7 +616,7 @@ public sealed partial class Options
         Justification = "The three reflection-dependent registrations below - System, importNamespace and " +
                         "clrHelper - are installed only when the host set Interop.Enabled, which is the gate " +
                         "they belong to. The setter cannot carry [RequiresUnreferencedCode] (it would warn on " +
-                        "= false as well), so docs/v5-migration.md section 6.3 states the requirement and " +
+                        "= false as well), so docs/guide/migrating-to-v5.md section 6.3 states the requirement and " +
                         "Options.AllowClr, the way a host normally opens the gate, carries the attribute. " +
                         "Warning here as well would report Jint's own file for a decision made in the host's.")]
     internal void Apply(Engine engine)
@@ -1336,7 +1336,7 @@ public sealed partial class Options
         /// so the token is recorded beside the registration for the one caller that has to rebuild it:
         /// <c>OptionsExtensions.ApplyUntrustedCodeOptions</c> clears every constraint the host registered and
         /// would otherwise drop a cancellation token declared before the profile, silently — see
-        /// <c>docs/v5-migration.md</c>.
+        /// <c>docs/guide/migrating-to-v5.md</c>.
         /// </remarks>
         internal CancellationToken? RequestedCancellationToken { get; set { ThrowIfReadOnly(); field = value; } }
 

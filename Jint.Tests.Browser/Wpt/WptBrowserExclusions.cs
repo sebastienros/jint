@@ -1111,9 +1111,6 @@ internal static class WptBrowserExclusions
         new("dom/nodes/Element-getElementsByTagNameNS.html", "BODY*", WptDivergence.NeedsTriage),
         new("dom/nodes/Element-getElementsByTagNameNS.html", "getElementsByTagNameNS('\\**", WptDivergence.NeedsTriage),
         new("dom/nodes/Node-childNodes.html", "*.", WptDivergence.NeedsTriage),
-        new("dom/nodes/NodeList-Iterable.html", "*entries method.", WptDivergence.NeedsTriage),
-        new("dom/nodes/NodeList-Iterable.html", "*forEach method.", WptDivergence.NeedsTriage),
-        new("dom/nodes/NodeList-Iterable.html", "*values method.", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes-namednodemap.html", "*names", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes-namednodemap.html", "setting an attribute should not overwrite the methods*", WptDivergence.NeedsTriage),
         new("dom/nodes/case.html", "createElementNS http://www.w3.org/1999*ABC", WptDivergence.NeedsTriage),
@@ -1251,8 +1248,6 @@ internal static class WptBrowserExclusions
         new("dom/nodes/Element-closest.html", "*scope)'", WptDivergence.NeedsTriage),
         new("dom/nodes/ParentNode-querySelector-escapes.html", "\"ab*", WptDivergence.NeedsTriage),
         new("dom/nodes/ParentNode-querySelector-escapes.html", "\"�\"*", WptDivergence.NeedsTriage),
-        new("dom/nodes/ParentNode-querySelector-escapes.html", "\"�surrogate\"*", WptDivergence.NeedsTriage),
-        new("dom/nodes/ParentNode-querySelector-escapes.html", "*D800\"", WptDivergence.NeedsTriage),
         new("dom/nodes/ParentNode-querySelector-escapes.html", "*\\\"", WptDivergence.NeedsTriage),
         new("dom/nodes/ParentNode-querySelector-escapes.html", "*ns\"", WptDivergence.NeedsTriage),
 

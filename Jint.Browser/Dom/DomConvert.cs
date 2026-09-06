@@ -20,8 +20,8 @@ namespace Jint.Browser.Dom;
 /// <b>Returns</b> have one decision worth stating. A CLR <c>string</c> maps <see langword="null"/> to the
 /// <b>empty string</b>, because WebIDL's <c>DOMString</c> is not nullable and the overwhelming majority of
 /// these members are reflected content attributes, whose IDL type is <c>DOMString</c> and whose specified
-/// value when the attribute is absent is <c>""</c>. AngleSharp returns <see langword="null"/> for most of
-/// them, which is a divergence from the DOM standard on its side rather than a nullable IDL type on ours.
+/// value when the attribute is absent is <c>""</c>. AngleSharp 1.7.3 fixes many getters that returned
+/// <see langword="null"/>, but that does not change the non-nullable IDL contract this conversion enforces.
 /// The members whose IDL type genuinely <em>is</em> <c>DOMString?</c> — <c>getAttribute</c>,
 /// <c>Node.nodeValue</c>, <c>Element.namespaceURI</c> and the rest — are listed by name in the generator's
 /// <c>overrides.json</c> and emit <see cref="NullableText(string?)"/> instead. That list is the artefact: a member

@@ -82,7 +82,7 @@ None of them is satisfied by editing the thing it checks.
   register; re-verifying against the living documents is `JINT_SPEC_ANCHORS=update`, which is a periodic
   chore rather than a gate. The `!` lines are **debt with a reason**, not configuration, and an update will
   not add one on its own.
-- **`MigrationGuideTests`** — the numbering rule `docs/v5-migration.md` states for itself. Two pull requests
+- **`MigrationGuideTests`** — the numbering rule `docs/guide/migrating-to-v5.md` states for itself. Two pull requests
   that each pick "the next free subsection" append to different parts of one file, so **git merges them
   cleanly** and the duplicate exists only in the rendered document. Gaps are legitimate; duplication and
   disorder are not.

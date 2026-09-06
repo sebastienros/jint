@@ -1,6 +1,7 @@
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
 using Jint.Browser.Accessibility;
+using Jint.Browser.Dom.Views;
 
 namespace Jint.Browser.Layout;
 
@@ -30,7 +31,8 @@ namespace Jint.Browser.Layout;
 /// <b>It is recomputed per query and never cached.</b> A cache would need an invalidation signal, and the
 /// only one available is an AngleSharp <c>MutationObserver</c> over the whole document — which would make
 /// every DOM mutation on every page pay for mutation records whether or not anything ever asks for a box.
-/// The walk is linear in the size of the document and touches no engine state.
+/// One walk shares a cascade so each element's selectors are matched once, not again for every descendant.
+/// The scope ends with the query, so mutations, focus and media changes need no invalidation machinery.
 /// </para>
 /// </remarks>
 internal sealed class FlatLayout
@@ -88,10 +90,11 @@ internal sealed class FlatLayout
         double scrollY)
     {
         var layout = new FlatLayout(viewportWidth, viewportHeight, scrollY);
+        var cascade = visibility.CreateTraversal(document);
 
-        if (document?.DocumentElement is { } root && IsRendered(root, visibility))
+        if (document?.DocumentElement is { } root && IsRendered(root, visibility, cascade))
         {
-            layout.Walk(root, visibility);
+            layout.Walk(root, visibility, cascade);
         }
 
         return layout;
@@ -120,7 +123,7 @@ internal sealed class FlatLayout
     /// hit test depends on.
     /// </para>
     /// </remarks>
-    internal static bool IsRendered(IElement element, ElementVisibility visibility)
+    internal static bool IsRendered(IElement element, ElementVisibility visibility, CssCascade.Traversal? cascade = null)
     {
         if (element is IHtmlHeadElement)
         {
@@ -141,7 +144,7 @@ internal sealed class FlatLayout
                 break;
         }
 
-        return visibility.RenderingReasonFor(element) == AxIgnoredReason.None;
+        return visibility.RenderingReasonFor(element, cascade) == AxIgnoredReason.None;
     }
 
     /// <summary>The ordinal of <paramref name="element"/>, or <c>-1</c> when it is not rendered.</summary>
@@ -218,7 +221,7 @@ internal sealed class FlatLayout
         return row >= 0 && row < _elements.Count ? _elements[(int) row] : null;
     }
 
-    private void Walk(IElement root, ElementVisibility visibility)
+    private void Walk(IElement root, ElementVisibility visibility, CssCascade.Traversal? cascade)
     {
         var stack = new Stack<(IElement Element, int Depth)>();
         stack.Push((root, 0));
@@ -233,11 +236,114 @@ internal sealed class FlatLayout
             for (var i = children.Length - 1; i >= 0; i--)
             {
                 var child = children[i];
-                if (IsRendered(child, visibility))
+                if (IsRendered(child, visibility, cascade))
                 {
                     stack.Push((child, depth + 1));
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// A synchronous size-only query: ancestors decide visibility, and only requested subtrees need rows.
+    /// Measurements and the cascade are shared within the query, never across mutations or callbacks.
+    /// </summary>
+    internal sealed class SizeQuery(
+        IDocument? document,
+        ElementVisibility visibility,
+        double viewportWidth,
+        CssCascade.Traversal? cascade)
+    {
+        private readonly Dictionary<IElement, bool> _rendered = new(ReferenceEqualityComparer.Instance);
+        private readonly Dictionary<IElement, int> _rows = new(ReferenceEqualityComparer.Instance);
+        private readonly Dictionary<IElement, FlatBox> _sizes = new(ReferenceEqualityComparer.Instance);
+
+        internal FlatBox Measure(IElement target)
+        {
+            if (!_sizes.TryGetValue(target, out var size))
+            {
+                size = HasBox(target) ? new FlatBox(0, 0, viewportWidth, CountRows(target) * RowHeight) : FlatBox.Empty;
+                _sizes.Add(target, size);
+            }
+
+            return size;
+        }
+
+        internal bool TryGetSize(IElement target, out FlatBox size) => _sizes.TryGetValue(target, out size);
+
+        private bool HasBox(IElement target)
+        {
+            var ancestors = new Stack<IElement>();
+            var rendered = false;
+            for (IElement? element = target; element is not null; element = element.ParentElement)
+            {
+                if (_rendered.TryGetValue(element, out rendered))
+                {
+                    break;
+                }
+
+                ancestors.Push(element);
+                if (ReferenceEquals(element, document?.DocumentElement))
+                {
+                    rendered = true;
+                    break;
+                }
+            }
+
+            while (ancestors.TryPop(out var ancestor))
+            {
+                rendered = rendered && IsRendered(ancestor, visibility, cascade);
+                _rendered.Add(ancestor, rendered);
+            }
+
+            return rendered;
+        }
+
+        private int CountRows(IElement target)
+        {
+            var pending = new Stack<(IElement Element, bool Visited)>();
+            pending.Push((target, false));
+            while (pending.TryPop(out var item))
+            {
+                var (element, visited) = item;
+                if (_rows.ContainsKey(element))
+                {
+                    continue;
+                }
+
+                if (!visited)
+                {
+                    if (!_rendered.TryGetValue(element, out var rendered))
+                    {
+                        rendered = IsRendered(element, visibility, cascade);
+                        _rendered.Add(element, rendered);
+                    }
+
+                    if (!rendered)
+                    {
+                        _rows.Add(element, 0);
+                        continue;
+                    }
+
+                    pending.Push((element, true));
+                    foreach (var child in element.Children)
+                    {
+                        pending.Push((child, false));
+                    }
+                }
+                else
+                {
+                    var rows = 1;
+                    foreach (var child in element.Children)
+                    {
+                        rows += _rows[child];
+                    }
+
+                    _rows.Add(element, rows);
+                }
+            }
+
+            return _rows[target];
         }
     }
 }

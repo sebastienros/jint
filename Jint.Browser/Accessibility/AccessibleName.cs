@@ -1,6 +1,7 @@
 using System.Text;
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
+using Jint.Browser.Dom;
 
 namespace Jint.Browser.Accessibility;
 
@@ -104,8 +105,8 @@ internal sealed class AccessibleName
 
         try
         {
-            // Step 2A. A hidden node contributes nothing unless it is the direct target of the reference
-            // that reached it, which is what makes an off-screen <span id="label" hidden> a legal label.
+            // Step 2A. A hidden node contributes nothing unless it is the direct target of the ARIA or
+            // native host-language reference that reached it.
             if (!referenced && _visibility.ReasonFor(element) != AxIgnoredReason.None)
             {
                 return string.Empty;
@@ -309,27 +310,14 @@ internal sealed class AccessibleName
     private string LabelElements(IElement element, Context context)
     {
         var builder = new StringBuilder();
-
-        var id = element.Id;
-        var document = element.Owner;
-        if (!string.IsNullOrEmpty(id) && document is not null)
+        if (element is not IHtmlElement control)
         {
-            foreach (var candidate in document.QuerySelectorAll("label[for]"))
-            {
-                if (string.Equals(candidate.GetAttribute("for"), id, StringComparison.Ordinal))
-                {
-                    Append(builder, FromElement(candidate, AriaRoles.Generic, context, referenced: false, descendant: true));
-                }
-            }
+            return string.Empty;
         }
 
-        for (var ancestor = element.ParentElement; ancestor is not null; ancestor = ancestor.ParentElement)
+        foreach (var label in HtmlLabelAssociation.LabelsFor(control))
         {
-            if (string.Equals(ancestor.LocalName, "label", StringComparison.Ordinal) && !ancestor.HasAttribute("for"))
-            {
-                Append(builder, FromElement(ancestor, AriaRoles.Generic, context, referenced: false, descendant: true));
-                break;
-            }
+            Append(builder, FromElement(label, AriaRoles.Generic, context, referenced: true, descendant: true));
         }
 
         return Flatten(builder.ToString());

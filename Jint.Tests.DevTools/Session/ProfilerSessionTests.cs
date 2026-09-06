@@ -48,6 +48,30 @@ public class ProfilerSessionTests
     /// <summary>Enough work to be sampled many times over, and short enough to be a unit test.</summary>
     private const string Workload = "work(200)";
 
+    /// <summary>
+    /// The same work, forty times over. It exists only for
+    /// <see cref="ACpuBoundScriptAttributesMostOfItsTimeToItsHotFunction"/>, whose assertion is a *share* and
+    /// is therefore the one assertion here a loaded machine can move.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A time delta is the gap to the next sample, so an uninterruptible moment is charged whole to the frame
+    /// observed before it — right for a panel, and enough to <b>reorder</b> a small profile when the moment
+    /// lands on <c>outer</c> rather than on <c>inner</c>. That is what this test failed on, at
+    /// <see cref="Workload"/>'s size, with no profiler change in the pull request.
+    /// </para>
+    /// <para>
+    /// <b>Measured, because the size is the whole point.</b> <see cref="Workload"/> records <b>31</b> samples
+    /// over about 35 ms, of which <c>outer</c> holds roughly 430 units against <c>inner</c>'s 34,300: one
+    /// stall of about 34 ms — the length of the whole recording — landing on the single <c>outer</c> sample
+    /// reorders it. This one records <b>1,007</b> samples over about 530 ms with <c>inner</c> at 0.971–0.976,
+    /// so the same reordering needs a stall roughly <b>fifteen times longer</b> and has about thirty times as
+    /// many samples to miss. Forty times the work does not make a hiccup less likely; it makes it
+    /// proportionally negligible, which is the only lever a test has over a scheduler.
+    /// </para>
+    /// </remarks>
+    private const string DominantWorkload = "work(8000)";
+
     [Test]
     public async Task AProfileHasANodeForEveryFunctionThatRan()
     {
@@ -191,7 +215,7 @@ public class ProfilerSessionTests
         await using var session = await AttachedSession.CreateAsync();
         await session.Target.PostAsync(engine => engine.Execute(Source, "main.js"));
 
-        var profile = await RecordAsync(session, Workload);
+        var profile = await RecordAsync(session, DominantWorkload);
 
         var byId = profile.Nodes.ToDictionary(node => node.Id, node => node.CallFrame.FunctionName);
         var byFunction = new Dictionary<string, long>(StringComparer.Ordinal);

@@ -1,5 +1,6 @@
 using AngleSharp.Css.Dom;
 using AngleSharp.Dom;
+using Jint.Browser.Dom.Views;
 
 namespace Jint.Browser.Accessibility;
 
@@ -20,6 +21,9 @@ internal sealed class ElementVisibility
 
     internal ElementVisibility(bool useComputedStyle) => _useComputedStyle = useComputedStyle;
 
+    internal CssCascade.Traversal? CreateTraversal(IDocument? document)
+        => _useComputedStyle && _cascadeAvailable ? CssCascade.Traversal.For(document) : null;
+
     /// <summary>
     /// Whether the CSS cascade answered at least once, so a caller can say which source a verdict came from.
     /// </summary>
@@ -32,7 +36,7 @@ internal sealed class ElementVisibility
     /// Ancestors are not consulted: the tree walk carries an inherited verdict down, which is both cheaper
     /// than walking up per node and the only way <c>hiddenRoot</c> can name the ancestor that did it.
     /// </remarks>
-    internal AxIgnoredReason ReasonFor(IElement element) => ReasonFor(element, ariaHiddenCounts: true);
+    internal AxIgnoredReason ReasonFor(IElement element) => ReasonFor(element, ariaHiddenCounts: true, traversal: null);
 
     /// <summary>
     /// Returns the reason <paramref name="element"/> is not rendered, or <see cref="AxIgnoredReason.None"/>.
@@ -42,9 +46,10 @@ internal sealed class ElementVisibility
     /// changes nothing about the rendering. It is what the text and markdown extractors ask, because a
     /// decorative marker is still text on the page.
     /// </remarks>
-    internal AxIgnoredReason RenderingReasonFor(IElement element) => ReasonFor(element, ariaHiddenCounts: false);
+    internal AxIgnoredReason RenderingReasonFor(IElement element, CssCascade.Traversal? traversal = null)
+        => ReasonFor(element, ariaHiddenCounts: false, traversal);
 
-    private AxIgnoredReason ReasonFor(IElement element, bool ariaHiddenCounts)
+    private AxIgnoredReason ReasonFor(IElement element, bool ariaHiddenCounts, CssCascade.Traversal? traversal)
     {
         if (element.HasAttribute("hidden"))
         {
@@ -56,7 +61,7 @@ internal sealed class ElementVisibility
             return AxIgnoredReason.AriaHiddenElement;
         }
 
-        var (display, visibility) = Style(element);
+        var (display, visibility) = Style(element, traversal);
 
         if (string.Equals(display, "none", StringComparison.OrdinalIgnoreCase))
         {
@@ -76,11 +81,11 @@ internal sealed class ElementVisibility
     /// Reads the element's <c>display</c> and <c>visibility</c>, from the cascade when it is available and
     /// from the <c>style</c> content attribute when it is not.
     /// </summary>
-    internal (string? Display, string? Visibility) Style(IElement element)
+    internal (string? Display, string? Visibility) Style(IElement element, CssCascade.Traversal? traversal = null)
     {
         if (_useComputedStyle && _cascadeAvailable)
         {
-            if (Dom.Views.CssCascade.Of(element) is { } computed
+            if ((traversal is null ? CssCascade.Of(element) : traversal.Of(element)) is { } computed
                 && Dom.Views.CssCascade.ValueOf(computed, "display") is { } display
                 && Dom.Views.CssCascade.ValueOf(computed, "visibility") is { } visibility)
             {

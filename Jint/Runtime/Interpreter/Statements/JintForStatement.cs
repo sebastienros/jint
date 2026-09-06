@@ -769,12 +769,10 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
     /// <summary>
     /// The bare test → body-statements → update cycle. Exceptions propagate to the enclosing
     /// statement list exactly as on the generic path (ForBodyEvaluation catches nothing); the
-    /// loop's Normal completion value is dead by the caller's gate, so Undefined stands in.
-    /// Deferred errors surface as Engine._error instead of a .NET throw; the statement list
-    /// converts them per statement, and so must the tight loop. Under flattening the pooled
-    /// loop environment carries the body's slots: their TDZ is re-established per iteration
-    /// before the body statements run, mirroring the generic flattened arm — skipped when the
-    /// block scan proved every slot initializes before any use (leftovers are unobservable).
+    /// loop's Normal completion value is dead by the caller's gate, so Undefined stands in. Under
+    /// flattening the pooled loop environment carries the body's slots: their TDZ is re-established
+    /// per iteration before the body statements run, mirroring the generic flattened arm — skipped
+    /// when the block scan proved every slot initializes before any use (leftovers are unobservable).
     /// Amortized constraints stay live through the context's shared countdown, driven once per
     /// iteration (a tripped constraint throws and propagates like any other exception); exact
     /// constraints and debug mode never reach this lane by the caller's gate.
@@ -814,10 +812,6 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
             if (single is not null)
             {
                 single.ExecuteDiscarded(context);
-                if (engine._error is not null)
-                {
-                    return JintStatementList.HandleError(engine, single);
-                }
             }
             else if (list is not null)
             {
@@ -825,10 +819,6 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                 {
                     var statement = list.GetStatement(i);
                     statement.ExecuteDiscarded(context);
-                    if (engine._error is not null)
-                    {
-                        return JintStatementList.HandleError(engine, statement);
-                    }
                 }
             }
 

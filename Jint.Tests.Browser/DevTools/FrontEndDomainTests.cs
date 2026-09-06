@@ -45,11 +45,15 @@ public class FrontEndDomainTests
         }
     }
 
-    [Test]
-    public async Task TheComputedStyleTheCssDomainReportsIsTheOneThePageReads()
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task TheComputedStyleTheCssDomainReportsIsTheOneThePageReads(bool cyclicVariables)
     {
         await using var session = await PageSession.CreateAsync();
-        var attachment = await OpenAsync(session, "<html><body><div id='box' style='display: inline; color: rgb(1, 2, 3)'>x</div></body></html>");
+        var style = cyclicVariables
+            ? "--a:var(--b);--b:var(--a);display:inline;color:var(--a,rgb(1,2,3))"
+            : "display:inline;color:rgb(1,2,3)";
+        var attachment = await OpenAsync(session, $"<html><body><div id='box' style='{style}'>x</div></body></html>");
 
         await session.ResultAsync("CSS.enable", null, attachment);
 
@@ -63,6 +67,8 @@ public class FrontEndDomainTests
 
         var display = computed.Single(p => p.GetProperty("name").GetString() == "display").GetProperty("value").GetString();
         display.Should().Be("inline");
+        computed.Single(p => p.GetProperty("name").GetString() == "color").GetProperty("value").GetString()
+            .Should().Be("rgba(1, 2, 3, 1)");
 
         // The same declaration window.getComputedStyle hands the page, so a front end and a script agree.
         var fromScript = (await session.EvaluateAsync(

@@ -1,4 +1,5 @@
 using Jint.Browser.Dom.Views;
+using Jint.Browser.Runtime;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
@@ -38,6 +39,7 @@ public sealed class HostInterfaceDisciplineTests
         "XPathEvaluator",
         "XPathExpression",
         "XPathResult",
+        "PerformanceNavigation",
     ];
 
     /// <summary>The constants each of these interfaces declares, by the names WebIDL gives them.</summary>
@@ -49,6 +51,7 @@ public sealed class HostInterfaceDisciplineTests
     private static readonly Dictionary<string, string[]> _constants = new(StringComparer.Ordinal)
     {
         ["XPathResult"] = [.. XPathEvaluation.ResultConstants.Select(constant => constant.Name)],
+        ["PerformanceNavigation"] = [.. PerformanceNavigation.Constants.Select(constant => constant.Name)],
     };
 
     [Test]

@@ -1,4 +1,5 @@
 using AngleSharp.Dom;
+using AngleSharp.Html.Dom;
 using Jint.Browser.Runtime;
 using Jint.Native;
 using Jint.Native.Object;
@@ -116,6 +117,18 @@ internal class DomHostHooks
         Events.EventHandlerContentAttributes.AttributeChanged(realm, element, name);
     }
 
+    /// <summary>HTML's <c>DOMStringMap</c> view over an element's <c>data-*</c> attributes.</summary>
+    internal virtual JsValue Dataset(DomRealm realm, IHtmlElement element)
+        => realm.WrapStringMap(element, element.Dataset);
+
+    /// <summary>https://html.spec.whatwg.org/multipage/forms.html#dom-lfe-labels</summary>
+    internal virtual JsValue Labels(DomRealm realm, IHtmlElement element)
+        => HtmlLabelAssociation.IsLabelable(element) ? realm.WrapLabels(element) : JsValue.Null;
+
+    /// <summary>https://html.spec.whatwg.org/multipage/forms.html#dom-label-control</summary>
+    internal virtual JsValue LabelControl(DomRealm realm, IHtmlLabelElement label)
+        => realm.WrapNodeValue(HtmlLabelAssociation.ControlFor(label));
+
     /// <summary>https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-insertadjacenthtml</summary>
     /// <remarks>
     /// <para>
@@ -198,6 +211,16 @@ internal class DomHostHooks
     internal virtual JsValue CloneNode(DomRealm realm, INode node, JsValue[] arguments)
         => CustomElements.CustomElementCreation.CloneNode(realm, node, arguments);
 
+    /// <summary>DOM's import steps do not copy a file input's selected files.</summary>
+    internal virtual JsValue ImportNode(DomRealm realm, IDocument document, JsValue[] arguments)
+    {
+        var imported = document.Import(
+            DomBindings.Argument<INode>(arguments, 0, "Document.importNode"),
+            DomConvert.OptionalBool(arguments, 1, true));
+        Files.FileTransferRealm.ResetCopiedInputs(imported);
+        return realm.WrapNodeValue(imported);
+    }
+
     // ------------------------------------------------------------------------------------------------
     // The members whose value the host has and AngleSharp does not. Every one of them used to be an own
     // property written onto the document wrapper, because a getter could not be hooked; they are accessors
@@ -229,8 +252,8 @@ internal class DomHostHooks
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/dom.html#dom-document-currentscript — the script whose text is
-    /// running. AngleSharp answers the head of its <em>deferred</em> script queue, so it is null for exactly
-    /// the case a page uses it in; the parser driver knows which script it is running.
+    /// running. AngleSharp 1.7.3 tracks its own execution path, but the page's parser driver also schedules
+    /// and executes scripts itself, so its current-script scope remains authoritative for a page.
     /// </summary>
     internal virtual JsValue CurrentScript(DomRealm realm, IDocument document)
     {
