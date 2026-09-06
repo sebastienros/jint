@@ -159,6 +159,51 @@ internal sealed partial class PageTarget : IPageNetworkListener
     }
 
     /// <inheritdoc/>
+    async ValueTask<PageNetworkResponseDecision> IPageNetworkListener.ResponseWillBeDeliveredAsync(
+        PageNetworkRequest request,
+        PageNetworkResponse response,
+        CancellationToken cancellationToken)
+    {
+        if (_interceptor is not { } interceptor || !interceptor.WantsResponse(request))
+        {
+            return PageNetworkResponseDecision.Proceed;
+        }
+
+        return await interceptor.PauseResponseAsync(request, response, FrameId, cancellationToken).ConfigureAwait(false);
+    }
+
+    void IPageNetworkListener.WebSocketCreated(string socketId, string url)
+    {
+        foreach (var domain in NetworkDomains())
+        {
+            domain.WebSocketCreated(socketId, url);
+        }
+    }
+
+    void IPageNetworkListener.WebSocketHandshakeRequest(string socketId, IReadOnlyList<PageHeader> headers)
+    {
+        foreach (var domain in NetworkDomains())
+        {
+            domain.WebSocketHandshakeRequest(socketId, headers);
+        }
+    }
+
+    void IPageNetworkListener.WebSocketHandshakeResponse(string socketId, int status, string statusText, IReadOnlyList<PageHeader> headers)
+    {
+        foreach (var domain in NetworkDomains())
+        {
+            domain.WebSocketHandshakeResponse(socketId, status, statusText, headers);
+        }
+    }
+
+    void IPageNetworkListener.WebSocketClosed(string socketId)
+    {
+        foreach (var domain in NetworkDomains())
+        {
+            domain.WebSocketClosed(socketId);
+        }
+    }
+
     void IPageNetworkListener.ResponseReceived(PageNetworkRequest request, PageNetworkResponse response)
     {
         foreach (var domain in NetworkDomains())

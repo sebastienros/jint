@@ -33,6 +33,7 @@ internal sealed class Emitter
             ["DomTypeMap.g.cs"] = EmitTypeMap(),
             ["DomEnums.g.cs"] = EmitEnums(),
             ["DomCollectionAccessors.g.cs"] = EmitAccessors(),
+            ["DomReflected.g.cs"] = EmitReflected(),
         };
 
         foreach (var group in _model.Interfaces.Select(i => i.Group).Distinct().OrderBy(g => g, StringComparer.Ordinal))
@@ -105,6 +106,51 @@ internal sealed class Emitter
 
         return builder.ToString();
     }
+
+    /// <summary>
+    /// The reflected content attributes' descriptors, one static readonly field each, named by the shape
+    /// members the same entries produced.
+    /// </summary>
+    /// <remarks>
+    /// They are here rather than inside the shape builders because a shape is instantiated once per engine
+    /// and a descriptor is process-shared: one field is one allocation for the life of the process, whatever
+    /// how many engines, realms and elements read it.
+    /// </remarks>
+    private string EmitReflected()
+    {
+        var builder = new StringBuilder(Header);
+        builder.Append("""
+            /// <summary>
+            /// HTML §2.6.1's reflected content attributes, from <c>overrides.json</c>'s <c>reflected</c> list:
+            /// one descriptor per IDL attribute, named by the generated accessor pair that reads it.
+            /// </summary>
+            internal static class DomReflected
+            {
+
+            """);
+
+        var first = true;
+        foreach (var reflected in _model.Reflected.OrderBy(r => r.Field, StringComparer.Ordinal))
+        {
+            if (!first)
+            {
+                builder.Append('\n');
+            }
+
+            first = false;
+
+            builder.Append("    /// <summary><c>").Append(reflected.Qualified).Append("</c> reflects <c>")
+                .Append(reflected.Attribute).Append("</c> as ").Append(Article(reflected.Type)).Append(' ')
+                .Append(reflected.Type).Append(".</summary>\n");
+            builder.Append("    internal static readonly ReflectedAttribute ").Append(reflected.Field)
+                .Append(" =\n        ").Append(reflected.Factory).Append(";\n");
+        }
+
+        builder.Append("}\n");
+        return builder.ToString();
+    }
+
+    private static string Article(string type) => type[0] is 'a' or 'e' or 'i' or 'o' or 'u' ? "an" : "a";
 
     private string EmitShapes(string group)
     {

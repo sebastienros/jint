@@ -128,12 +128,10 @@ internal sealed class JintWhileStatement : JintStatement<WhileStatement>
     }
 
     /// <summary>
-    /// The bare per-iteration loop for structurally-Normal bodies: test, discarded body
-    /// statements, deferred-error polls — nothing else. The loop's Normal completion value is
-    /// dead by the caller's gate, so Undefined stands in. Deferred errors surface as
-    /// Engine._error and convert per statement, exactly as JintStatementList would. Amortized
-    /// constraints are driven once per iteration through the context's shared countdown; exact
-    /// constraints and debug mode never reach this lane by the caller's gate.
+    /// The bare per-iteration loop for structurally-Normal bodies: test and discarded body
+    /// statements. The loop's Normal completion value is dead by the caller's gate, so Undefined
+    /// stands in. Amortized constraints are driven once per iteration through the context's shared
+    /// countdown; exact constraints and debug mode never reach this lane by the caller's gate.
     /// </summary>
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
     private Completion TightWhileBody(EvaluationContext context)
@@ -141,7 +139,6 @@ internal sealed class JintWhileStatement : JintStatement<WhileStatement>
         var test = _test;
         var single = _tightSingleStatement;
         var list = _tightBodyList;
-        var engine = context.Engine;
 
         // See JintForStatement.TightForBody: a non-single body costs the generic lane one extra
         // statement-counter charge per iteration (the block, or the bare EmptyStatement body).
@@ -159,10 +156,6 @@ internal sealed class JintWhileStatement : JintStatement<WhileStatement>
             if (single is not null)
             {
                 single.ExecuteDiscarded(context);
-                if (engine._error is not null)
-                {
-                    return JintStatementList.HandleError(engine, single);
-                }
             }
             else if (list is not null)
             {
@@ -170,10 +163,6 @@ internal sealed class JintWhileStatement : JintStatement<WhileStatement>
                 {
                     var statement = list.GetStatement(i);
                     statement.ExecuteDiscarded(context);
-                    if (engine._error is not null)
-                    {
-                        return JintStatementList.HandleError(engine, statement);
-                    }
                 }
             }
         }

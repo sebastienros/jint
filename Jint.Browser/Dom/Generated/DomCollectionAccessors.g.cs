@@ -170,10 +170,8 @@ internal sealed class DomAccessorDOMStringMap : DomCollectionAccessor
         foreach (var entry in (global::System.Collections.Generic.IEnumerable<global::System.Collections.Generic.KeyValuePair<global::System.String, global::System.String>>) target)
         {
             // A null value is filtered out because the projection's three hooks have to agree at the
-            // same instant, and TryGetNamed reads null as an authoritative miss. AngleSharp's
-            // StringMap.Remove leaves the attribute in place with a null value rather than removing it
-            // (reported upstream), so without this a deleted dataset key would still enumerate while
-            // reading as undefined — the exact incoherence host-contract verification catches.
+            // same instant, and TryGetNamed reads null as an authoritative miss. Otherwise a key could
+            // enumerate while reading as undefined — the exact incoherence host verification catches.
             if (entry.Value is not null)
             {
                 names.Add(entry.Key);
@@ -334,6 +332,27 @@ internal sealed class DomAccessorStyleSheetList : DomCollectionAccessor
     internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
     {
         var collection = (global::AngleSharp.Dom.IStyleSheetList) target;
+        if (index >= (uint) collection.Length)
+        {
+            value = global::Jint.Native.JsValue.Undefined;
+            return false;
+        }
+
+        value = realm.Wrap(collection[(int) index]);
+        return true;
+    }
+}
+
+/// <summary>How <c>TextTrackCueList</c> answers indexed and named property lookups.</summary>
+internal sealed class DomAccessorTextTrackCueList : DomCollectionAccessor
+{
+    internal static readonly DomAccessorTextTrackCueList Instance = new();
+
+    internal override uint Length(object target) => (uint) ((global::AngleSharp.Media.Dom.ITextTrackCueList) target).Length;
+
+    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
+    {
+        var collection = (global::AngleSharp.Media.Dom.ITextTrackCueList) target;
         if (index >= (uint) collection.Length)
         {
             value = global::Jint.Native.JsValue.Undefined;

@@ -208,7 +208,12 @@ internal sealed partial class PageTarget : DevToolsTarget, IPageObserver
     /// </remarks>
     internal override bool RunsOffThread(string method) => method switch
     {
-        "Fetch.continueRequest" or "Fetch.failRequest" or "Fetch.fulfillRequest" => true,
+        // continueResponse joins the three for the same reason and it is not a weaker one: a <script src>
+        // a running script inserted is fetched with the loop *blocked* on the whole fetch — ParserDriver's
+        // `fetch.GetAwaiter().GetResult()` — so the loop is held from the request stage through the body
+        // read, and a response-stage pause holds it exactly as a request-stage pause does. All four look one
+        // entry up in a dictionary and complete a promise: no engine, no JsValue, no node.
+        "Fetch.continueRequest" or "Fetch.failRequest" or "Fetch.fulfillRequest" or "Fetch.continueResponse" => true,
         _ => false,
     };
 

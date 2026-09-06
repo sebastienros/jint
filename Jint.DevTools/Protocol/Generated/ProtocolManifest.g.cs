@@ -4,7 +4,7 @@
 //
 //     source:   tools/devtools-protocol/js_protocol.json, browser_protocol.json, jint_protocol.json
 //     protocol: version 1.3, ChromeDevTools/devtools-protocol@ea39a11d80de9a08ce2af03f52125ed2e462cf84 (devtools-protocol@0.0.1687809)
-//     manifest: tools/devtools-protocol/manifest.json, whole file, sha256:9b32516cf85f
+//     manifest: tools/devtools-protocol/manifest.json, whole file, sha256:ff928e6894f7
 //
 // Do not edit. Regenerate instead, and read the diff: it is the upstream change stated in the
 // vocabulary this repository compiles. tools/devtools-protocol/README.md has the command, and
@@ -151,6 +151,7 @@ namespace Jint.DevTools.Protocol
             "Emulation.setUserAgentOverride",
             "Emulation.setVisibleSize",
             "Fetch.continueRequest",
+            "Fetch.continueResponse",
             "Fetch.disable",
             "Fetch.enable",
             "Fetch.failRequest",
@@ -287,6 +288,10 @@ namespace Jint.DevTools.Protocol
             "Network.requestWillBeSentExtraInfo",
             "Network.responseReceived",
             "Network.responseReceivedExtraInfo",
+            "Network.webSocketClosed",
+            "Network.webSocketCreated",
+            "Network.webSocketHandshakeResponseReceived",
+            "Network.webSocketWillSendHandshakeRequest",
             "Page.domContentEventFired",
             "Page.frameNavigated",
             "Page.frameRequestedNavigation",

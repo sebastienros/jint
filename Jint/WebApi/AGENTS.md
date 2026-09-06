@@ -13,6 +13,9 @@ These are owned by WHATWG living standards rather than by ECMA-262, each with it
 
 ### Web APIs
 
+The single-queue descriptions below apply to ordinary `Engine` hosts. Browser task/checkpoint lanes and
+budgets are governed by [`Jint.Browser/Runtime/AGENTS.md`](../../Jint.Browser/Runtime/AGENTS.md).
+
 `Jint/WebApi/` holds the opt-in WHATWG surface — `console`, `DOMException`, and the timers/encoding/URL/fetch features still landing — with one subfolder and matching namespace per feature (`Console/`, `DomException/`, …). It is deliberately *not* under `Jint/Native/`, which mirrors ECMAScript; these are host APIs guided by WinterTC's Minimum Common Web Platform API, they use the BCL only (no new package dependencies), and their JS-facing types are `internal sealed` and authored with the source generator exactly like the built-ins.
 
 Four conventions hold across the subtree:

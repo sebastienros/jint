@@ -120,6 +120,111 @@ public sealed class MediaQueryChangeTests
     }
 
     [Test]
+    public async Task OneMediaChangeReachesListenersAfterAllCascadeInputsHaveMoved()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(
+            """
+            <style>
+              #t { position: relative }
+              @media print and (max-width: 600px) and (prefers-color-scheme: dark) {
+                #t { position: absolute }
+              }
+            </style>
+            <span id="t">text</span>
+            <script>
+              window.changes = [];
+              window.list = matchMedia('print and (max-width: 600px) and (prefers-color-scheme: dark)');
+              window.list.onchange = e => changes.push(e.matches + ':' + getComputedStyle(document.getElementById('t')).position);
+            </script>
+            """);
+
+        await page.RunOnLoopAsync(engine =>
+        {
+            var runtime = PageRuntime.Find(engine)!;
+            var media = runtime.Media with
+            {
+                Viewport = new Viewport(480, 800),
+                MediaType = "print",
+                Features = new Dictionary<string, string> { ["prefers-color-scheme"] = "dark" }
+            };
+            runtime.SetMedia(media);
+            runtime.SetMedia(media);
+            return 0;
+        });
+
+        (await page.EvaluateAsync<string>("changes.join('|')")).Should().Be("true:absolute");
+
+        await page.RunOnLoopAsync(engine =>
+        {
+            PageRuntime.Find(engine)!.SetMedia(PageMediaEnvironment.Default);
+            return 0;
+        });
+
+        (await page.EvaluateAsync<string>("changes.join('|')")).Should().Be("true:absolute|false:relative");
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task TouchPreferencesReachTheCascadeAndExplicitEmulationStillWins()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(
+            """
+            <style>
+              #t { position: relative }
+              @media (hover: none) and (pointer: coarse) { #t { position: absolute } }
+            </style>
+            <span id="t">text</span>
+            """);
+        const string read =
+            """
+            matchMedia('(hover: none) and (pointer: coarse)').matches + ':' +
+              getComputedStyle(document.getElementById('t')).position
+            """;
+        (await page.EvaluateAsync<string>(read)).Should().Be("false:relative");
+
+        await page.RunOnLoopAsync(engine =>
+        {
+            var runtime = PageRuntime.Find(engine)!;
+            runtime.SetMedia(runtime.Media with { CoarsePointer = true });
+            return 0;
+        });
+        (await page.EvaluateAsync<string>(read)).Should().Be("true:absolute");
+
+        await page.RunOnLoopAsync(engine =>
+        {
+            var runtime = PageRuntime.Find(engine)!;
+            runtime.SetMedia(runtime.Media with
+            {
+                Features = new Dictionary<string, string> { ["hover"] = "hover" }
+            });
+            return 0;
+        });
+        (await page.EvaluateAsync<string>(read)).Should().Be("false:relative");
+        page.Errors.Should().BeEmpty();
+    }
+
+    [TestCase("not screen and (min-width: 2000px)", true)]
+    [TestCase("(width)", true)]
+    [TestCase("(height)", true)]
+    [TestCase("(color)", true)]
+    [TestCase("(color: 8)", true)]
+    [TestCase("(color-gamut: srgb)", true)]
+    [TestCase("(dynamic-range: standard)", true)]
+    [TestCase("(width:", false)]
+    [TestCase("not (bogus-feature: 1)", false)]
+    public async Task NativeDelegationMustPreserveTheExistingMediaQuerySemantics(string query, bool expected)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        (await page.EvaluateAsync<bool>($"matchMedia('{query}').matches")).Should().Be(expected);
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
     public async Task ThePreferenceFeaturesAnswerWhatAHeadlessPageReports()
     {
         await using var browser = new Browser();

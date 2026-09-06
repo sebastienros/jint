@@ -105,6 +105,18 @@ public static class BindingGenerator
         builder.Append("  collections        ").Append(model.Interfaces.Count(i => i.Kind is WrapperKind.Collection or WrapperKind.NamedMap)).Append('\n');
         builder.Append("  string enums       ").Append(model.StringEnums.Count).Append('\n');
 
+        // Which reflected attributes corrected a projection and which added a member is the one thing the
+        // `reflected` list cannot say about itself, since the answer is the pinned assemblies' and not the
+        // table's — an AngleSharp release that grows `HTMLElement.autofocus` moves a row from one column to
+        // the other, and this is where a reader sees it.
+        builder.Append("\nReflected attributes (").Append(model.Reflected.Count)
+            .Append(", of which ").Append(model.Reflected.Count(r => r.Replaced)).Append(" replace a projection)\n");
+        foreach (var reflected in model.Reflected.OrderBy(r => r.Qualified, StringComparer.Ordinal))
+        {
+            builder.Append("  ").Append(reflected.Qualified.PadRight(44)).Append(reflected.Replaced ? "replaces  " : "adds      ")
+                .Append(reflected.Attribute.PadRight(20)).Append(reflected.Type).Append('\n');
+        }
+
         builder.Append("\nSkipped members (").Append(model.Skipped.Count).Append(")\n");
         foreach (var skip in model.Skipped.OrderBy(s => s.Interface, StringComparer.Ordinal).ThenBy(s => s.Member, StringComparer.Ordinal))
         {

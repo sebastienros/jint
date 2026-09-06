@@ -477,6 +477,9 @@ internal static partial class DomInterfaces
         => new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("TextTrackCueList")
             .PerRealmSlot("constructor", enumerable: false)
+            .PerRealmSlot(
+                global::Jint.Native.Symbol.GlobalSymbolRegistry.Iterator,
+                global::Jint.Browser.Dom.Collections.DomIterator.ArrayValues)
             .Method("getCueById",
                 global::Jint.Browser.Dom.DomFailures.Guard("TextTrackCueList.getCueById", static (thisObj, args) =>
                 {
@@ -484,12 +487,6 @@ internal static partial class DomInterfaces
                     return self.Realm.Wrap(self.Target.GetCueById(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "TextTrackCueList.getCueById")));
                 }),
                 length: 1)
-            .Accessor("length",
-                global::Jint.Browser.Dom.DomFailures.Guard("TextTrackCueList.length", static (thisObj, args) =>
-                {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCueList>(thisObj, "TextTrackCueList.length");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);
-                }))
             .Build();
 
     /// <summary>The members of <c>TextTrackList</c>.</summary>

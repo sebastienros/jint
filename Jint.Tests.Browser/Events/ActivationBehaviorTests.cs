@@ -518,8 +518,8 @@ public sealed class ActivationBehaviorTests
     /// </summary>
     /// <remarks>
     /// The containing spelling is the one AngleSharp cannot answer — its <c>IHtmlLabelElement.Control</c> is
-    /// <see langword="null"/> for a control the label wraps — so the labeled control is computed here, and
-    /// this is what holds it to the two spellings and to the labelable-element list.
+    /// <see langword="null"/> for a control the label wraps — so the shared label-association algorithm
+    /// supplies it, and this holds activation to the same answer the DOM and accessibility paths use.
     /// </remarks>
     [Test]
     public async Task ClickingInsideALabelForwardsToTheControlItLabels()

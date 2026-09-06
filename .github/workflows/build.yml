@@ -20,8 +20,12 @@ env:
   VSTEST_CONNECTION_TIMEOUT: 300
 
 jobs:
+  browser-tool:
+    uses: ./.github/workflows/browser-tool.yml
+
   build:
 
+    needs: browser-tool
     runs-on: ubuntu-latest
     steps:
 
@@ -42,7 +46,7 @@ jobs:
     # can restore caches from the base branch, but a cache saved inside a PR is scoped to that PR
     # and invisible to other PRs. Restore/save are split (rather than the combined actions/cache)
     # so the suite is cached even when a later step fails. The combined action saves in a post-step
-    # gated on success(); the "Push with dotnet" publish can fail (e.g. MyGet quota) and would then
+    # gated on success(); the "Push with dotnet" publish can fail (e.g. Feedz quota) and would then
     # skip the save, leaving the main-scoped cache empty so no PR ever gets a hit. The explicit save
     # below runs right after the suite is generated, before publishing.
     - name: Restore Test262 generated suite
@@ -81,10 +85,25 @@ jobs:
       run: dotnet pack Jint.Browser.Mcp/Jint.Browser.Mcp.csproj --output artifacts --configuration Release -p:VersionSuffix=preview-$GITHUB_RUN_NUMBER -p:ContinuousIntegrationBuild=True
 
     - name: Pack Jint.Browser.Tool with dotnet
-      run: dotnet pack Jint.Browser.Tool/Jint.Browser.Tool.csproj --output artifacts --configuration Release -p:VersionSuffix=preview-$GITHUB_RUN_NUMBER -p:ContinuousIntegrationBuild=True
+      run: dotnet pack Jint.Browser.Tool/Jint.Browser.Tool.csproj --output artifacts --configuration Release -p:BrowserToolNative=true -p:VersionSuffix="preview-$GITHUB_RUN_NUMBER" -p:ContinuousIntegrationBuild=True
+
+    - name: Collect native tool packages
+      uses: actions/download-artifact@v8
+      with:
+        pattern: browser-tool-packages-*
+        path: artifacts
+        merge-multiple: true
 
     - name: Push with dotnet
-      run: dotnet nuget push artifacts/*.nupkg --api-key ${{ secrets.MYGET_API_KEY }} --skip-duplicate --source https://www.myget.org/F/jint/api/v2/package
+      env:
+        FEEDZ_IO_API_KEY: ${{ secrets.FEEDZ_IO_API_KEY }}
+      run: |
+        for package in artifacts/*.nupkg; do
+          if [[ "$package" != artifacts/Jint.Browser.Tool.[0-9]* ]]; then
+            dotnet nuget push "$package" --api-key "$FEEDZ_IO_API_KEY" --skip-duplicate --source https://f.feedz.io/sebastienros/jint/nuget/index.json
+          fi
+        done
+        dotnet nuget push artifacts/Jint.Browser.Tool.[0-9]*.nupkg --api-key "$FEEDZ_IO_API_KEY" --skip-duplicate --source https://f.feedz.io/sebastienros/jint/nuget/index.json
 
   # The mirror of the PR workflow's "linux - native aot" job, and there for the reason the Test step above is:
   # a merge is not the commit CI ran on. Its own file documents what it verifies; the short version is that

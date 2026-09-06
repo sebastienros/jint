@@ -591,6 +591,7 @@ public sealed partial class Page
         string html;
         string finalUrl;
         PageResponse? response = null;
+        var redirectCount = 0;
 
         if (PageUrl.IsNetworkScheme(target))
         {
@@ -602,6 +603,7 @@ public sealed partial class Page
             // carried none — which is what makes navigating to `page#section` leave `location.hash` set.
             finalUrl = WithFragmentOf(fetched.Url, target);
             response = fetched.Response;
+            redirectCount = fetched.RedirectCount;
         }
         else
         {
@@ -614,7 +616,10 @@ public sealed partial class Page
 
         var commit = _loop.PostAsync(engine => Commit(
             engine,
-            new CommitRequest(finalUrl, html, response, request.History, request.TraversalIndex, referrer, signals.Reached, loaderId)));
+            new CommitRequest(finalUrl, html, response, request.History, request.TraversalIndex, referrer, signals.Reached, loaderId,
+                // Reload also forces a new document for POST and history traversal; those retain their own navigation types.
+                NavigationType: request.History == HistoryMode.Traverse ? 2 : request.Reload && request.Body is null ? 1 : 0,
+                RedirectCount: redirectCount)));
 
         // The signal for the requested phase, so that WaitUntil.Commit really does answer before the load
         // events have run. A commit that fails before its phase arrives wins the race and throws.
@@ -739,6 +744,9 @@ public sealed partial class Page
         }
 
         var engine = _loop.ReplaceEngine(() => BuildEngine(request.Url, request.Referrer));
+        var runtime = PageRuntime.Find(engine)!;
+        runtime.NavigationType = request.NavigationType;
+        runtime.NavigationRedirectCount = request.RedirectCount;
         LoadInto(engine, request.Url, request.Html, request.Response, request.Referrer, request.OnPhase, request.LoaderId);
 
         if (history == HistoryMode.Traverse)
@@ -1112,7 +1120,9 @@ public sealed partial class Page
         int TraversalIndex,
         string Referrer,
         Action<NavigationPhase>? OnPhase,
-        string LoaderId);
+        string LoaderId,
+        int NavigationType = 0,
+        int RedirectCount = 0);
 
     /// <summary>Mints the identifier the next document carries, unique for the life of the page.</summary>
     private string NextLoaderId()

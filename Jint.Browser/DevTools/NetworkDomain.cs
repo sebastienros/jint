@@ -34,8 +34,11 @@ namespace Jint.Browser.DevTools;
 /// was handed over and <c>receiveHeadersStart</c>/<c>receiveHeadersEnd</c> when its headers were in, so a
 /// client reads a real time to first byte, while proxy, DNS, connect, TLS, worker and push are <c>-1</c> —
 /// the protocol's value for a phase that did not happen here — because a document of zeros would read as a
-/// page that loaded instantly. <c>WebSocket</c> and <c>EventSource</c> produce no events either — the engine
-/// deliberately does not observe those two handshakes, and half a report is worse than none.
+/// page that loaded instantly. A <c>WebSocket</c> takes the four events the protocol gives a socket — its
+/// creation, both handshakes and its close — over the engine's own socket observer, and no
+/// <c>webSocketFrame*</c> event, because that observer is never told about a frame. <c>EventSource</c>
+/// produces none of its own: its stream is observed as bytes rather than as the events they decode into, so
+/// its request is in the log as <c>ResourceType: EventSource</c> and its messages are nowhere.
 /// </para>
 /// <para>
 /// See <see href="https://chromedevtools.github.io/devtools-protocol/tot/Network/"/>.

@@ -29,6 +29,9 @@ internal sealed class Overrides
     [JsonPropertyName("additions")]
     public List<AdditionEntry> Additions { get; init; } = [];
 
+    [JsonPropertyName("reflected")]
+    public List<ReflectedEntry> Reflected { get; init; } = [];
+
     [JsonPropertyName("nullableStrings")]
     public List<NullableStringEntry> NullableStrings { get; init; } = [];
 
@@ -186,6 +189,91 @@ internal sealed class Overrides
         /// <summary>Whether this entry hands the builder to a method rather than declaring one member.</summary>
         [JsonIgnore]
         public bool IsExtend => !string.IsNullOrEmpty(Extend);
+    }
+
+    /// <summary>
+    /// One IDL attribute that
+    /// <a href="https://html.spec.whatwg.org/multipage/common-dom-interfaces.html#reflecting-content-attributes-in-idl-attributes">reflects</a>
+    /// a content attribute, and the parameters HTML gives its type.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>This is the one list whose entries are the standard rather than AngleSharp.</b> Everything else in
+    /// this file corrects what the pinned assemblies say; a reflection entry states what HTML says about one
+    /// attribute — its type, its keywords, its invalid and missing value defaults, its range — none of which
+    /// any CLR signature carries. A <c>long</c> and a <c>long</c> limited to only non-negative numbers are the
+    /// same <c>Int32</c> property, and <c>&lt;col span&gt;</c> defaulting to 1 while <c>&lt;select size&gt;</c>
+    /// defaults to 0 is nowhere in the metadata at all.
+    /// </para>
+    /// <para>
+    /// <b>An entry replaces the member AngleSharp projects, and never collides with it.</b> That is the
+    /// opposite of <see cref="AdditionEntry"/>, and deliberate: most reflected attributes <em>are</em> projected
+    /// today, from a CLR property whose getter answers the raw attribute value or a differently-defaulted
+    /// parse of it, so a reflection entry is a correction far more often than an addition. The report says
+    /// which of the two each entry was.
+    /// </para>
+    /// <para>
+    /// The type names are HTML's own, which are also web-platform-tests'
+    /// <c>html/dom/reflection.js</c> type map's: <c>string</c>, <c>url</c>, <c>enum</c>, <c>boolean</c>,
+    /// <c>long</c>, <c>limited long</c>, <c>unsigned long</c>, <c>limited unsigned long</c>,
+    /// <c>limited unsigned long with fallback</c>, <c>clamped unsigned long</c>, <c>double</c> and
+    /// <c>limited double</c>. Sharing the vocabulary is what lets an entry be read straight off the corpus
+    /// table that tests it.
+    /// </para>
+    /// </remarks>
+    internal sealed class ReflectedEntry
+    {
+        [JsonPropertyName("interface")]
+        public string Interface { get; init; } = "";
+
+        /// <summary>The IDL attribute's name — <c>maxLength</c>.</summary>
+        [JsonPropertyName("member")]
+        public string Member { get; init; } = "";
+
+        /// <summary>The content attribute it reflects — <c>maxlength</c>.</summary>
+        [JsonPropertyName("attribute")]
+        public string Attribute { get; init; } = "";
+
+        /// <summary>The reflection type, in HTML's vocabulary.</summary>
+        [JsonPropertyName("type")]
+        public string Type { get; init; } = "";
+
+        /// <summary>An enumerated attribute's keywords, in the canonical case the getter answers.</summary>
+        [JsonPropertyName("keywords")]
+        public List<string> Keywords { get; init; } = [];
+
+        /// <summary>An enumerated attribute's missing value default; the empty string when absent.</summary>
+        [JsonPropertyName("missing")]
+        public string? Missing { get; init; }
+
+        /// <summary>An enumerated attribute's invalid value default; the missing value default when absent.</summary>
+        [JsonPropertyName("invalid")]
+        public string? Invalid { get; init; }
+
+        /// <summary>
+        /// Whether the IDL type is nullable — <c>DOMString?</c> for a string, and for an enumeration the
+        /// nullable kind whose missing value default is <c>null</c> rather than the empty string and whose
+        /// setter therefore takes <c>null</c> as a removal. It is stated rather than inferred from
+        /// <c>missing</c> being JSON <c>null</c>, because a table has to read the same whether a key is
+        /// absent or explicitly null.
+        /// </summary>
+        [JsonPropertyName("nullable")]
+        public bool Nullable { get; init; }
+
+        /// <summary>A numeric attribute's default value, when it is not the type's own.</summary>
+        [JsonPropertyName("default")]
+        public double? Default { get; init; }
+
+        /// <summary>A clamped attribute's lower bound.</summary>
+        [JsonPropertyName("min")]
+        public long? Min { get; init; }
+
+        /// <summary>A clamped attribute's upper bound.</summary>
+        [JsonPropertyName("max")]
+        public long? Max { get; init; }
+
+        [JsonPropertyName("reason")]
+        public string Reason { get; init; } = "";
     }
 
     internal sealed class NullableStringEntry

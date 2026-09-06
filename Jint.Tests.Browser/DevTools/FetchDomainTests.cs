@@ -310,6 +310,168 @@ public class FetchDomainTests
     }
 
     /// <summary>A page, its target, and an attachment ready to intercept.</summary>
+    // ---------------------------------------------------------------- the response stage
+
+    /// <summary>
+    /// A pattern asking for <c>requestStage: "Response"</c> pauses with the response's status and headers,
+    /// and <c>Fetch.continueResponse</c> lets it through —
+    /// https://chromedevtools.github.io/devtools-protocol/tot/Fetch/#method-continueResponse.
+    /// </summary>
+    /// <remarks>
+    /// The whole stage was absent while <c>FetchObserver.OnResponse</c> was a notification an observer could
+    /// not answer (<see href="https://github.com/sebastienros/jint/issues/3701">#3701</see> item 1).
+    /// </remarks>
+    [Test]
+    public async Task AResponseStagePausePresentsTheStatusAndHeadersAndContinueResponseLetsItThrough()
+    {
+        using var server = new LoopbackServer();
+        server.MapHtml("/page", "<html><head><title>Delivered</title></head><body>ok</body></html>");
+
+        await using var fixture = await InterceptionFixture.OpenAsync(server);
+        await fixture.EnableAsync("""{"patterns":[{"urlPattern":"*","requestStage":"Response"}]}""");
+
+        var navigation = fixture.Page.NavigateAsync(server.Url("/page"), new NavigationOptions { WaitUntil = WaitUntilState.Load });
+
+        var paused = await fixture.PausedAsync();
+        paused.GetProperty("responseStatusCode").GetInt32().Should().Be(200);
+        paused.GetProperty("request").GetProperty("url").GetString().Should().Be(server.Url("/page"));
+        paused.TryGetProperty("responseHeaders", out var headers).Should().BeTrue();
+        headers.GetArrayLength().Should().BeGreaterThan(0);
+
+        await fixture.Session.ResultAsync(
+            "Fetch.continueResponse",
+            $$"""{"requestId":"{{paused.GetProperty("requestId").GetString()}}"}""",
+            fixture.Attachment);
+
+        await navigation.WaitAsync(Bound);
+
+        (await fixture.Page.TitleAsync()).Should().Be("Delivered");
+        server.Received.Should().ContainSingle(received => received.Path == "/page");
+    }
+
+    /// <summary>
+    /// And it rewrites: <c>continueResponse</c> with a status and headers changes what the response
+    /// <i>says</i>, while the body the server sent still arrives.
+    /// </summary>
+    [Test]
+    public async Task ContinueResponseCanRewriteTheStatusAndHeadersAndKeepTheBody()
+    {
+        using var server = new LoopbackServer();
+        server.Map("/data", _ => LoopbackResponse.Text("the real body"));
+        server.MapHtml("/page", "<html><body>ok</body></html>");
+
+        await using var fixture = await InterceptionFixture.OpenAsync(server);
+        await fixture.Page.NavigateAsync(server.Url("/page"), new NavigationOptions { WaitUntil = WaitUntilState.Load });
+        await fixture.EnableAsync("""{"patterns":[{"urlPattern":"*/data","requestStage":"Response"}]}""");
+
+        // The answer is parked on the page rather than awaited here: Page.EvaluateAsync converts what the
+        // expression returned, and what this one returns is a promise.
+        await fixture.Page.EvaluateAsync("""
+            window.__answer = null;
+            fetch('/data').then(r => r.text().then(t => {
+              window.__answer = r.status + '|' + r.headers.get('x-rewritten') + '|' + t;
+            }));
+            """);
+
+        var paused = await fixture.PausedAsync();
+        await fixture.Session.ResultAsync(
+            "Fetch.continueResponse",
+            $$"""
+            {"requestId":"{{paused.GetProperty("requestId").GetString()}}","responseCode":203,
+             "responsePhrase":"Rewritten",
+             "responseHeaders":[{"name":"content-type","value":"text/plain"},{"name":"x-rewritten","value":"yes"}]}
+            """,
+            fixture.Attachment);
+
+        (await fixture.Page.WaitForAsync("window.__answer !== null", Bound)).Should().BeTrue();
+        (await fixture.Page.EvaluateAsync<string>("window.__answer")).Should().Be("203|yes|the real body");
+    }
+
+    /// <summary>
+    /// <c>Fetch.fulfillRequest</c> answers a <i>response</i>-stage pause too: the bytes the server sent are
+    /// discarded unread and the client's own response is what the page gets.
+    /// </summary>
+    [Test]
+    public async Task FulfillRequestAnswersAResponseStagePause()
+    {
+        using var server = new LoopbackServer();
+        server.MapHtml("/page", "<html><head><title>Origin</title></head><body>from the server</body></html>");
+
+        await using var fixture = await InterceptionFixture.OpenAsync(server);
+        await fixture.EnableAsync("""{"patterns":[{"urlPattern":"*","requestStage":"Response"}]}""");
+
+        var navigation = fixture.Page.NavigateAsync(server.Url("/page"), new NavigationOptions { WaitUntil = WaitUntilState.Load });
+        var paused = await fixture.PausedAsync();
+
+        var body = Convert.ToBase64String(Encoding.UTF8.GetBytes("<html><head><title>Substituted</title></head><body>from the client</body></html>"));
+        await fixture.Session.ResultAsync(
+            "Fetch.fulfillRequest",
+            $$"""
+            {"requestId":"{{paused.GetProperty("requestId").GetString()}}","responseCode":200,
+             "responseHeaders":[{"name":"Content-Type","value":"text/html; charset=utf-8"}],
+             "body":"{{body}}"}
+            """,
+            fixture.Attachment);
+
+        await navigation.WaitAsync(Bound);
+
+        (await fixture.Page.TitleAsync()).Should().Be("Substituted");
+        (await fixture.Page.ContentAsync()).Should().Contain("from the client");
+
+        // Unlike a request-stage fulfil, the origin *was* reached: the pause is after the response came back.
+        server.Received.Should().ContainSingle(received => received.Path == "/page");
+    }
+
+    /// <summary>And <c>Fetch.failRequest</c> fails one, which the page sees as a navigation failure.</summary>
+    [Test]
+    public async Task FailRequestAnswersAResponseStagePause()
+    {
+        using var server = new LoopbackServer();
+        server.MapHtml("/page", "<html><body>ok</body></html>");
+
+        await using var fixture = await InterceptionFixture.OpenAsync(server);
+        await fixture.EnableAsync("""{"patterns":[{"urlPattern":"*","requestStage":"Response"}]}""");
+
+        var navigate = fixture.Session.SendAsync("Page.navigate", $$"""{"url":"{{server.Url("/page")}}"}""", fixture.Attachment);
+
+        var paused = await fixture.PausedAsync();
+        await fixture.Session.ResultAsync(
+            "Fetch.failRequest",
+            $$"""{"requestId":"{{paused.GetProperty("requestId").GetString()}}","errorReason":"AccessDenied"}""",
+            fixture.Attachment);
+
+        var reply = await navigate.WaitAsync(Bound);
+        reply.GetProperty("result").GetProperty("errorText").GetString().Should().Be("net::ERR_ACCESS_DENIED");
+    }
+
+    /// <summary>
+    /// A client that named no <c>requestStage</c> asked for the protocol's default, which is
+    /// <c>Request</c> — so it is paused once, before the request goes out, and never again after it comes
+    /// back. Pausing both stages for one pattern would double every pause every recorded client expects.
+    /// </summary>
+    [Test]
+    public async Task ADefaultPatternPausesTheRequestStageOnly()
+    {
+        using var server = new LoopbackServer();
+        server.MapHtml("/page", "<html><head><title>Once</title></head><body>ok</body></html>");
+
+        await using var fixture = await InterceptionFixture.OpenAsync(server);
+        await fixture.EnableAsync();
+
+        var navigation = fixture.Page.NavigateAsync(server.Url("/page"), new NavigationOptions { WaitUntil = WaitUntilState.Load });
+
+        var paused = await fixture.PausedAsync();
+        paused.TryGetProperty("responseStatusCode", out var status).Should().BeFalse("a request-stage pause has no response yet");
+        _ = status;
+
+        await fixture.ContinueAsync(paused);
+        await navigation.WaitAsync(Bound);
+
+        fixture.Session.EventsOf("Fetch.requestPaused", fixture.Attachment).Should().HaveCount(
+            1,
+            "the default stage is Request, so the response is never paused at");
+    }
+
     private sealed class InterceptionFixture : IAsyncDisposable
     {
         private InterceptionFixture(PageSession session, Page page, string attachment, string frameId)

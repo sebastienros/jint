@@ -72,20 +72,32 @@ target/runtime split and the manifest are there and none of it is repeated here.
   [`Runtime/AGENTS.md`](../Runtime/AGENTS.md#the-request-log-is-the-protocols-seam-too) argues why moving them
   would deadlock the one fetch a page cannot pump through. **The three commands that release a pause run
   there too**, which is what makes "a pause never blocks the loop's answer" unconditional rather than true
-  with one exception: `PageTarget.RunsOffThread` names `Fetch.continueRequest`, `failRequest` and
-  `fulfillRequest` — they look one entry up and complete a promise, touching no engine, no `JsValue` and no
-  node, which is the bar [`Jint.DevTools/AGENTS.md`](../../Jint.DevTools/AGENTS.md#the-thread-rule) sets —
-  so a `<script src>` a running script inserted, fetched with the loop *blocked* rather than pumping, is
-  released while it blocks. `Fetch.enable` and `disable` are deliberately not named: they are the domain's
+  with one exception: `PageTarget.RunsOffThread` names `Fetch.continueRequest`, `failRequest`,
+  `fulfillRequest` and `continueResponse` — they look one entry up and complete a promise, touching no
+  engine, no `JsValue` and no node, which is the bar
+  [`Jint.DevTools/AGENTS.md`](../../Jint.DevTools/AGENTS.md#the-thread-rule) sets — so a `<script src>` a
+  running script inserted, fetched with the loop *blocked* rather than pumping, is released while it
+  blocks. **`continueResponse` is on that list for a reason no weaker than the other three's**: the loop is
+  blocked on the *whole* fetch (`ParserDriver`'s `fetch.GetAwaiter().GetResult()`), from the request stage
+  through the body read, so a response-stage pause holds it exactly as a request-stage pause does. `Fetch.enable` and `disable` are deliberately not named: they are the domain's
   own state, not a request's. The document's request carries the `loaderId` as its `requestId`, which is how
   every client tells a navigation apart.
 - **What is accepted and not effective says so, in place.** `Network.setCacheDisabled` (there is no cache)
-  and `Audits.enable` are answered because a refusal fails an ordinary connection. Two whole lanes are
-  absent with a reason rather than pending: the `Fetch` **response stage** and with it `IO` (an observer
-  cannot answer `OnResponse`, so a response-stage pause could only continue unchanged), and the **WebSocket**
-  events and `eventSourceMessageReceived` (a socket's handshake is not a fetch and is not observed; a stream
-  *is*, but as bytes rather than as the events they decode into, so its requests are in the log as
-  `ResourceType: EventSource` and its messages are nowhere).
+  and `Audits.enable` are answered because a refusal fails an ordinary connection. The `Fetch` **response stage** is here: a
+  pattern asking for `requestStage: "Response"` pauses with the response's status and headers, and
+  `continueResponse`, `fulfillRequest` and `failRequest` answer one — a default pattern still pauses the
+  request stage only, that being the protocol's own default, and pausing both would double every pause a
+  recorded client expects. **`IO`, `Fetch.getResponseBody` and `takeResponseBodyAsStream` are still absent,
+  for a different reason than they used to be**: the pause has the response's *headers* while its body is
+  still on the socket, so there are no bytes to hand a client without buffering them first, which is a
+  budget decision rather than a hook. Still absent with a reason: `eventSourceMessageReceived` (a stream is
+  observed as bytes rather than as the events they decode into, so its requests are in the log as
+  `ResourceType: EventSource` and its messages are nowhere), and the three `webSocketFrame*` events (the
+  engine's socket observer is told about the two handshakes and the close, and a frame never reaches it).
+  **The other four WebSocket events are here**, over that observer, and a socket is deliberately *not* in
+  the request log: it stays open for as long as the page wants it, so an entry would leave a request
+  outstanding for that whole time and `networkIdle` would never fire. Its identifier is `ws-`-prefixed for
+  the same reason — a client must not be able to ask `getResponseBody` of a socket.
   **`Network`'s timing document is no longer among them, and the shape of the answer is the point**: the
   transport measures the one interval it can see exactly — the hop going out and its headers coming back —
   so `requestTime` and `receiveHeaders*` are real and every phase behind the host's own `HttpClient` (proxy,

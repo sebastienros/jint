@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - 'v*.*.*'
+  release:
+    types: [published]
 
 env:
   DOTNET_NOLOGO: true
@@ -20,12 +22,20 @@ permissions:
   contents: read
 
 jobs:
+  browser-tool:
+    uses: ./.github/workflows/browser-tool.yml
+
   build:
 
+    # Publishing release notes must not push the same NuGet version again.
+    if: github.event_name == 'push'
+    needs: browser-tool
     runs-on: ubuntu-latest
 
     # Must match the Environment field of the nuget.org trusted publishing policy.
     # Also the place to add required reviewers if releases should be approval-gated.
+    # The policy must allow creating Jint.* packages, including the six Jint.Browser.Tool.<rid> IDs;
+    # a policy restricted to new versions of the existing Jint package cannot ship the 5.0 additions.
     environment: nuget
 
     permissions:
@@ -121,14 +131,22 @@ jobs:
 
     # The jint-browser dotnet tool, from the same tag and the same version again: it is a shell over
     # Jint.Browser, referenced by project, so a version of its own would be a second number saying nothing.
-    # PackAsTool means the asset is framework-dependent — there is no PublishAot here and cannot be.
+    # .NET 10 packs the RID-selection manifest here; the six native implementations come from the matrix.
     - name: Pack Jint.Browser.Tool with dotnet
       run: >
         dotnet pack Jint.Browser.Tool/Jint.Browser.Tool.csproj --output artifacts --configuration Release
+        -p:BrowserToolNative=true
         -p:Version=${{ steps.version.outputs.version }}
         -p:AssemblyVersion=${{ steps.version.outputs.numeric }}
         -p:FileVersion=${{ steps.version.outputs.numeric }}
         -p:ContinuousIntegrationBuild=True
+
+    - name: Collect native tool packages
+      uses: actions/download-artifact@v8
+      with:
+        pattern: browser-tool-packages-*
+        path: artifacts
+        merge-multiple: true
 
     # Kept next to the push: the minted key is short-lived, so it must not be requested
     # before the (slow) test and pack steps.
@@ -139,4 +157,37 @@ jobs:
         user: sebastienros
 
     - name: Push with dotnet
-      run: dotnet nuget push artifacts/*.nupkg --api-key ${{ steps.login.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
+      env:
+        NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
+      run: |
+        # Publish implementations before the manifest so a new tool version never points at absent RIDs.
+        for package in artifacts/*.nupkg; do
+          if [[ "$package" != artifacts/Jint.Browser.Tool.[0-9]* ]]; then
+            dotnet nuget push "$package" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
+          fi
+        done
+        dotnet nuget push artifacts/Jint.Browser.Tool.[0-9]*.nupkg --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
+
+  release-downloads:
+    if: github.event_name == 'release'
+    needs: browser-tool
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: browser-tool-binary-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Attach binaries and checksums to the published release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          cd release-assets
+          test "$(find . -maxdepth 1 -type f -name 'jint-browser-*' | wc -l)" -eq 6
+          sha256sum jint-browser-* > SHA256SUMS
+          gh release upload "$RELEASE_TAG" jint-browser-* SHA256SUMS --clobber
