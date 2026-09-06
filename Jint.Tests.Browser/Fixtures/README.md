@@ -47,6 +47,7 @@ React does not) would otherwise read a draft it had already cleared.
 | `todomvc-react` | React 18 with a scheduler and synthetic events: controlled input, keyed list, hash-routed filters | passes |
 | `todomvc-vue` | Vue 3 compiling the document's **own** markup: `v-model`, `v-for`, `:class`, `@keydown.enter`, mustaches | passes |
 | `vue-folder-tree` | A Vue tree mounted while hidden, revealed after fetch, with child rendering gated by `ResizeObserver` height; async folder insertion and shallow root replacement | passes |
+| `monaco-amd` | Orchard's tenant-relative Monaco AMD configuration, the editor bundle's CSS plugin dependency, and creation of an editor model | passes |
 | `todomvc-preact` | Preact hooks writing to the DOM directly, with no scheduler between them | passes |
 | `todomvc-svelte` | Svelte 5 compiled ahead of time: no framework runtime is loaded, only the component's own output | passes |
 | `ssr-hydration` | React `hydrateRoot` over server-rendered markup — the nodes are adopted, not replaced, and `onRecoverableError` stays empty | passes |
@@ -97,6 +98,7 @@ Each directory under `vendor/` holds the library's published bundle and its own 
 | jQuery | 3.7.1 | `unpkg.com/jquery@3.7.1/dist/jquery.min.js` | MIT | `jquery`, `jquery-unsafe-url` |
 | Bootstrap | 5.3.8 | `github.com/twbs/bootstrap/blob/v5.3.8/dist/js/bootstrap.bundle.min.js` | MIT | `jquery-unsafe-url` |
 | Bootstrap-select (CrestApps) | 1.2.4 | `github.com/CrestApps/bootstrap-select/blob/cba208e213b6e61464a07901a9b5438cd7193ce5/docs/dist/js/bootstrap-select.min.js` | MIT | `jquery-unsafe-url` |
+| Monaco / Orchard configuration | 0.52.2 | `OrchardCMS/OrchardCore@ff256e15b720c7c705a4f79743b64f5bb76d22bf`, `src/OrchardCore.Modules/OrchardCore.Resources/wwwroot/Scripts/monaco/` (loader, ocmonaco, editor JS and CSS) | MIT / BSD-3-Clause; bundled third-party notices alongside | `monaco-amd` |
 | htmx | 2.0.10 | `unpkg.com/htmx.org@2.0.10/dist/htmx.min.js` | 0BSD | `htmx` |
 | Alpine.js | 3.17.1 | `unpkg.com/alpinejs@3.17.1/dist/cdn.min.js` | MIT | `alpine` |
 
