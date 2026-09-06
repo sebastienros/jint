@@ -27,7 +27,6 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | --- | --- | --- | --- | --- |
 | `dom/events/` | 56 | 9 | 544 | 20 |
 | `dom/nodes/` | 159 | 0 | 4,796 | 1,331 |
-
 | `dom/collections/` | 8 | 0 | 43 | 18 |
 | `dom/lists/` | 5 | 0 | 189 | 5 |
 | `dom/traversal/` | 13 | 0 | 52 | 7 |

@@ -91,13 +91,19 @@ internal sealed class DomIndexedNodeObject : DomNodeObject
         {
             // A name the object already carries - an expando, or an inherited member shadowed by one - is the
             // base list's, and listing it twice would make Object.getOwnPropertyNames report a duplicate.
-            if (!keys.Contains(JsString.Create(name)))
+            if (!IsArrayIndex(name, out _) && !keys.Contains(JsString.Create(name)))
             {
                 indices.Add(JsString.Create(name));
             }
         }
 
-        indices.AddRange(keys);
+        foreach (var key in keys)
+        {
+            if (!key.IsString() || !IsArrayIndex(key.ToString(), out var index) || index >= length)
+            {
+                indices.Add(key);
+            }
+        }
         return indices;
     }
 

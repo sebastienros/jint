@@ -80,6 +80,17 @@ public sealed class DomIndexedNodeTests
     }
 
     [Test]
+    public void NumericControlNamesDoNotDuplicateOrInventIndexedKeys()
+    {
+        using var fixture = DomTestFixture.Create("<form id='f'><input name='0'><input name='9'></form>");
+
+        fixture.Text("Object.getOwnPropertyNames(document.getElementById('f')).join(',')").Should().Be("0,1");
+        fixture.Bool("Object.hasOwn(document.getElementById('f'), '9')").Should().BeFalse();
+        fixture.Execute("document.getElementById('f')[2] = 'expando'; document.getElementById('f').appendChild(document.createElement('input'));");
+        fixture.Text("Object.getOwnPropertyNames(document.getElementById('f')).join(',')").Should().Be("0,1,2");
+    }
+
+    [Test]
     public void AProjectedNodeIsStillANodeAndAnEventTarget()
     {
         using var fixture = DomTestFixture.Create(Page);
