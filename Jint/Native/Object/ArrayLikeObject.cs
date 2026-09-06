@@ -358,7 +358,10 @@ public abstract class ArrayLikeObject : ObjectInstance, INamedProjection
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private bool TryGetProjectedName(JsValue property, [NotNullWhen(true)] out string? name)
     {
-        if (!_hasNamedProjection)
+        // Length belongs to the indexed collection even when a WebIDL-style host supplies it through
+        // its prototype. A NamedNodeMap may contain an attribute literally named "length"; that supported
+        // name must not shadow the prototype accessor.
+        if (!_hasNamedProjection || CommonProperties.Length.Equals(property))
         {
             name = null;
             return false;

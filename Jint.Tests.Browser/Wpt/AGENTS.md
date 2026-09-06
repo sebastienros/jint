@@ -152,9 +152,9 @@ never a document deleted, and never one left in to hang the lane.
 * **`BrowserOptions.MaxTaskDuration` is `Timeout.InfiniteTimeSpan`.** `PageBudget` brackets every page turn with it and
   reports a `PageErrorKind.BudgetExceeded`; a legitimately slow wpt file would be cut mid-script and the
   failure would read as an engine defect three layers from its cause. The bound here is the **driver's own**
-  per-file deadline (`WptBrowserHarness.Deadline`, 30 s, and no deadline under a debugger because a breakpoint
-  is not a hang), and before that upstream's harness timeout, which is the one that usually fires first and is
-  left exactly as upstream sets it.
+  per-file deadline (30 s normally, 90 s when upstream's metadata grants its harness the 60-second
+  `timeout=long`, and no deadline under a debugger because a breakpoint is not a hang), and before that
+  upstream's harness timeout, which is the one that usually fires first and is left exactly as upstream sets it.
 * **The context's `UrlFilter` is the server's own `Owns`**, so the oldest promise this corpus makes is kept
   here too: no document can open a socket to anything but the loopback port, on the first hop and on every
   redirect.

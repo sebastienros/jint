@@ -79,6 +79,13 @@ internal sealed class FetchObservation
         => await _observer.OnResponseAsync(response, cancellationToken).ConfigureAwait(false);
 
     /// <summary>
+    /// Asks the observer how to answer an authentication challenge. Like <see cref="RequestAsync"/> and
+    /// <see cref="ResponseAsync"/>, a throw is <b>not</b> swallowed.
+    /// </summary>
+    internal async Task<FetchAuthDecision?> AuthRequiredAsync(ObservedFetchAuthChallenge challenge, CancellationToken cancellationToken)
+        => await _observer.OnAuthRequiredAsync(challenge, cancellationToken).ConfigureAwait(false);
+
+    /// <summary>
     /// Reports the final response of an exchange whose body the caller reads itself, then — once those bytes
     /// are counted — <see cref="Completed"/>.
     /// </summary>

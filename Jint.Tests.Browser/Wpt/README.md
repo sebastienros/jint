@@ -26,19 +26,19 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | Suite | Documents | Synthesized | Tests | Not passing |
 | --- | --- | --- | --- | --- |
 | `dom/events/` | 56 | 9 | 544 | 20 |
-| `dom/nodes/` | 165 | 0 | 4,802 | 1,411 |
-| `dom/collections/` | 8 | 0 | 43 | 18 |
+| `dom/nodes/` | 165 | 0 | 4,802 | 1,408 |
+| `dom/collections/` | 8 | 0 | 43 | 11 |
 | `dom/lists/` | 5 | 0 | 189 | 5 |
 | `dom/traversal/` | 13 | 0 | 52 | 7 |
 | `dom/ranges/` | 17 | 0 | 82 | 10 |
-| `html/dom/` | 6 | 0 | 4,962 | 31 |
+| `html/dom/` | 8 | 0 | 20,522 | 69 |
 | `html/webappapis/scripting/events/` | 12 | 0 | 37 | 5 |
 | `html/webappapis/scripting/processing-model-2/` | 25 | 0 | 44 | 12 |
 | `custom-elements/` | 16 | 0 | 510 | 247 |
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 68 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 3 |
-| **total** | **347** | **9** | **11,547** | **1,848** |
+| **total** | **349** | **9** | **27,107** | **1,876** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -207,15 +207,21 @@ Ordered by how many tests each accounts for:
 | 5 | 1 | [#3767](https://github.com/sebastienros/jint/issues/3767) **`DOMTokenList`** was the largest single cause this corpus found — 661 rows across six documents, more than a quarter of everything the DOM suites reported. DOM §7.1's mutating half is `Dom/Collections/DomTokenListMembers` now: the validation steps, `toggle`'s given-versus-not-given `force`, `replace`, `supports`, `item`'s `null`, the update steps and WebIDL's value iterator. What is left is five rows of one document: `sandbox`, `link.sizes` and `output.htmlFor` land on `DOMSettableTokenList`, an interface the standard merged away in 2016 and AngleSharp still carries a `[DomName]` for, and two `a.relList` rows are in namespaces HTML does not reflect `rel` in. `Element-classlist.html` passes all 1,420. |
 | 4 | 2 | **A `MutationObserver` record too few, or too many.** `classList.add` of an existing token reports one record where two are due, and an observer of the document itself never fires — both already recorded as AngleSharp divergences. |
 
-**`html/dom/reflection-misc.html` is the tenth suite's first document, and it passes whole.** HTML §2.6.1's
+**Three of HTML's ten reflection documents are cases, and two of the three pass whole.** HTML §2.6.1's
 reflection algorithms are `Jint.Browser/Dom/ReflectedAttribute.cs` and the members that take them are
-`overrides.json`'s `reflected` list, so all 4,877 of its assertions pass with nothing excluded — where 1,866
-of them failed before. Fifteen rows did it, and most were the **global** attributes every element carries
-(`dir`, `lang`, `tabIndex`, `autofocus`, `inputMode`, `enterKeyHint`), which is why they moved the other nine
-documents so far as well: measured against text, metadata, grouping and sections, 8,773 failing assertions
-became 2,437. What is left in those is element-specific — `align`, `as`, `referrerPolicy`, `compact`,
-`charset` — one `reflected` row each, and [#3770](https://github.com/sebastienros/jint/issues/3770)'s
-remaining work.
+`overrides.json`'s `reflected` list, so `reflection-misc.html` (4,877 assertions, 1,866 of them failing
+before) and `reflection-text.html` (10,202, 3,360 failing before) pass with **nothing** excluded, and
+`reflection-grouping.html` (5,358, 2,006 failing before) has one cause left.
+
+Forty rows did it, and the first fifteen were mostly the **global** attributes every element carries — `dir`,
+`lang`, `tabIndex`, `autofocus`, `inputMode`, `enterKeyHint` — which is why `text` needed only eleven rows of
+its own for 3,360 assertions. The rest are element-specific and that is what the remaining seven documents
+need: `align`, `as`, `referrerPolicy`, `compact`, `charset` and their kind, one `reflected` row each.
+
+**The one cause left in `reflection-grouping.html` is not reflection at all.** `<dl>` has no
+`HTMLDListElement` in the pinned assemblies, so there is no interface for `compact` to be reflected onto;
+the divergence table records it and thirteen rows name the tests. Those thirty-eight are the only failures
+this lane's `html/dom/` figure gained, against 15,560 assertions it did not have before.
 
 **Four documents did not terminate at all, and that was the finding this campaign put first.**
 `TreeWalker-currentNode.html`, `TreeWalker-previousNodeLastChildReject.html`, `TreeWalker-traversal-reject.html`
@@ -223,7 +229,7 @@ and `TreeWalker-traversal-skip.html` each spun forever: AngleSharp's `TreeWalker
 sibling it was reading and never climbed to a parent, so `previousNode()` looped the moment the previous
 sibling was not accepted outright — a filter answering `FILTER_REJECT` or `FILTER_SKIP`, or a `currentNode`
 pointed outside the root beside a node `whatToShow` excludes. Nothing in this lane could bound that —
-`BrowserOptions.MaxTaskDuration` is deliberately infinite, the driver's own 30 s deadline cannot interrupt a
+`BrowserOptions.MaxTaskDuration` is deliberately infinite, the driver's per-file deadline cannot interrupt a
 page thread that never yields, and a node `whatToShow` excludes is `FILTER_SKIP` *without the page's filter
 being called*, so the loop never re-entered the engine for a constraint to fire in — which is why an embedder
 should read [#3765](https://github.com/sebastienros/jint/issues/3765) as a denial of service rather than as a
@@ -282,7 +288,7 @@ costs: half of them are one member reached at file scope.
 | a DOM marker, or not a document | 6 | `.window.js`, `.tentative.html` and `.sub.html` under the six new suites |
 | an XML document | 6 | `.xhtml`, `.xht`, `.svg` and the three `.xml` fixture globs: a page here parses HTML |
 | the WebIDL conformance harness, again | 2 | `html/dom/idlharness.https.html`, and one that needs an `RTCPeerConnection` |
-| HTML's reflection suite, nine of ten | 11 | [#3770](https://github.com/sebastienros/jint/issues/3770); `reflection-misc.html` is a case now and the other nine need the per-element attribute table each of them tests, one `reflected` row per content attribute. **Not** a time problem: 22.5 s for the whole set, 7.3 s for the largest. The exclusion table's own comment carries the per-family measurement |
+| HTML's reflection suite, seven of ten | 9 | [#3770](https://github.com/sebastienros/jint/issues/3770); `reflection-misc.html`, `-text.html` and `-grouping.html` are cases now and the other seven need the per-element attribute table each of them tests, one `reflected` row per content attribute. **Not** a time problem: 22.5 s for the whole set, 7.3 s for the largest. The exclusion table's own comment carries the per-family measurement |
 | a DOM crash test or reftest | 5 | none loads `testharness.js` |
 | a helper document beside its test | 5 | three frames, a fragment and an iframe body; a document under a suite would have to be a case |
 | a DOM frame that runs script | 17 | listed when a frame had neither a document nor a realm; it has a document now ([#3771](https://github.com/sebastienros/jint/issues/3771)) and each row is owed a re-examination against the half that is left — three of them need the frame body above, which a document under a suite cannot be |
@@ -311,6 +317,7 @@ The lane uses one `WptServer`, one `Browser`, and a fresh `BrowserContext` and `
 seconds before the DOM suites, which multiplied the documents by two and a half and the assertions by four.
 The six `NodeList-static-length-getter-tampered*` hot-loop probes are cases now: collection `length` lives on
 the prototype, and redefining or shadowing its getter limits the loop instead of leaving it to scan the full
-static collection. Each still reports inside the driver's 30-second deadline. Nothing in the lane waits on a
+static collection. Their `timeout=long` metadata gives the upstream harness 60 seconds and the driver's
+backstop 90 seconds, so a loaded runner does not cut them off first. Nothing in the lane waits on a
 real clock except upstream's own harness timeout, and no document reaches it: every case reports, which is the
 property `EveryVendoredDocumentIsAccountedFor` and the minimum-test table together keep true.

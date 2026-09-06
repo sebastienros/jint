@@ -5469,7 +5469,45 @@ Page, parser and worker pumps return between tasks. Ordinary `Engine.Tasks.Proce
 existing FIFO and host-owned constraint-reset behavior. The DevTools running-mode dispatcher now answers one
 command per posted job; paused debugging remains inline in the suspended command. No public API was added.
 
-### 4.132 A host array-like can put `length` on its prototype ([#3813](https://github.com/sebastienros/jint/issues/3813))
+### 4.132 A `FetchObserver` can answer an authentication challenge ([#3828](https://github.com/sebastienros/jint/issues/3828))
+
+A `401` carrying a `WWW-Authenticate` used to be delivered and nothing else. `FetchObserver` grows a third
+ask beside `OnRequestAsync` and `OnResponseAsync`:
+
+```csharp
+public override ValueTask<FetchAuthDecision?> OnAuthRequiredAsync(
+    ObservedFetchAuthChallenge challenge,
+    CancellationToken cancellationToken)
+    => new(challenge.CanProvideCredentials
+        ? FetchAuthDecision.ProvideCredentials("ada", "l0velace")   // sends the hop again
+        : null);                                                    // delivers the 401
+```
+
+Nothing has to be done to migrate: the default answers `null`, and an engine whose observer does not override
+it behaves exactly as before.
+
+**Only `Basic` can be answered**, and `CanProvideCredentials` says so before the decision is made. `Digest`
+needs a nonce exchange and `Negotiate` and `NTLM` a handshake bound to the connection; a transport that hands
+the socket back after every response holds neither. Every scheme is still *reported*, because being asked is
+how an observer tells "unsupported" from "never challenged" — and credentials offered for one that cannot be
+answered are refused rather than quietly dropped.
+
+**One retry per request.** An observer has one credential to offer, so a challenge on the retry is delivered
+rather than asked about again. The retry is not a redirect and spends none of `MaxRedirects`, and the
+`Authorization` header it carries is dropped if a later redirect crosses to another origin, which is the Fetch
+Standard's own rule.
+
+A credential retry requires a replayable request body. A `ReadableStream` upload fails as a network error
+before a second request is sent. Quoted authentication realms preserve commas and unescape quoted pairs.
+
+**A `407` is not reported.** The proxy belongs to the `HttpClient` the host supplied, so a challenge's
+`Source` is always `Server`.
+
+Over the protocol this is `Fetch.enable`'s `handleAuthRequests`, the `Fetch.authRequired` event and
+`Fetch.continueWithAuth` — which both Puppeteer and Playwright send unconditionally whenever they intercept,
+and which used to be accepted and do nothing.
+
+### 4.133 A host array-like can put `length` on its prototype ([#3813](https://github.com/sebastienros/jint/issues/3813))
 
 `ArrayLikeObject` now has a protected `OwnsLength` switch. Its default is `true`, preserving the existing
 own, non-writable `length` property for every current host subclass. A WebIDL-style host may override it with
