@@ -214,6 +214,121 @@ public sealed record ObservedFetchResponse
 }
 
 /// <summary>
+/// An authentication challenge a server answered a request with, before it is delivered as a <c>401</c>.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Every challenge is reported, including the ones this engine cannot answer</b>, because the alternative
+/// is the silence this seam exists to remove: an observer that is never asked cannot tell a scheme it does
+/// not support from a server that never challenged. <see cref="CanProvideCredentials"/> is what separates
+/// the two, and it is answered <i>before</i> the observer decides rather than after.
+/// </para>
+/// <para>
+/// <b>Only a server challenge is reported.</b> A <c>407</c> is a proxy's, and the proxy belongs to the
+/// <c>HttpClient</c> the host supplied — setting <c>Proxy-Authorization</c> under a handler that re-frames
+/// the request is not this engine's to do — so <see cref="Source"/> is always <c>Server</c>. The name is
+/// carried anyway, because it is the protocol's own and a client reads it.
+/// </para>
+/// </remarks>
+[Experimental(JintDiagnosticIds.PreviewDiagnostic)]
+public sealed record ObservedFetchAuthChallenge
+{
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ObservedFetchAuthChallenge"/> record.
+    /// </summary>
+    public ObservedFetchAuthChallenge()
+    {
+    }
+
+    /// <summary>Gets the identifier shared by every hop of the request that was challenged.</summary>
+    public required FetchRequestId Id { get; init; }
+
+    /// <summary>Gets the absolute URL of the hop that was challenged.</summary>
+    public required Uri Url { get; init; }
+
+    /// <summary>Gets the status the challenge arrived with, which is always <c>401</c>.</summary>
+    public required int Status { get; init; }
+
+    /// <summary>Gets who is challenging, which is always <c>Server</c> here.</summary>
+    public string Source { get; init; } = "Server";
+
+    /// <summary>
+    /// Gets the authentication scheme, as the server spelled it — <c>Basic</c>, <c>Digest</c>,
+    /// <c>Negotiate</c> and so on.
+    /// </summary>
+    public required string Scheme { get; init; }
+
+    /// <summary>Gets the realm the challenge named, or the empty string when it named none.</summary>
+    public string Realm { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Whether this engine can turn a username and a password into an answer for <see cref="Scheme"/>.
+    /// </summary>
+    /// <remarks>
+    /// <b>True only for <c>Basic</c>.</b> It is the one scheme whose answer is a function of the credentials
+    /// alone — one <c>Authorization</c> header, no state carried between legs — whereas <c>Digest</c> needs
+    /// a nonce exchange and <c>Negotiate</c> and <c>NTLM</c> need a handshake bound to the connection, and
+    /// none of those is something a transport that hands the socket back after every response can hold.
+    /// <b>An observer that answers <see cref="FetchAuthDecision.ProvideCredentials"/> when this is
+    /// <see langword="false"/> has its answer refused and the <c>401</c> delivered</b>, which is deliberate:
+    /// an ask that cannot be honoured must fail visibly, because an ask that silently does nothing is the
+    /// defect this seam exists to remove. A host driving this through a protocol sees that refusal as an
+    /// error on the command it answered with.
+    /// </remarks>
+    public required bool CanProvideCredentials { get; init; }
+}
+
+/// <summary>
+/// What an observer answers an authentication challenge with.
+/// </summary>
+/// <remarks>
+/// Build one with <see cref="ProvideCredentials"/> or <see cref="Cancel"/>; answering <see langword="null"/>
+/// instead is the protocol's <c>Default</c> — the challenge is left alone and the <c>401</c> is delivered to
+/// whoever asked for the resource.
+/// </remarks>
+[Experimental(JintDiagnosticIds.PreviewDiagnostic)]
+public sealed class FetchAuthDecision
+{
+    private FetchAuthDecision()
+    {
+    }
+
+    internal bool HasCredentials { get; private init; }
+
+    internal string Username { get; private init; } = string.Empty;
+
+    internal string Password { get; private init; } = string.Empty;
+
+    /// <summary>
+    /// Answers the challenge and re-sends the request once with the credentials on it.
+    /// </summary>
+    /// <param name="username">The user name.</param>
+    /// <param name="password">The password.</param>
+    /// <remarks>
+    /// <b>Exactly one retry.</b> If the re-sent request is challenged again, that second response is
+    /// delivered rather than asked about: an observer has one credential to offer, so a second ask has
+    /// nothing new to answer with and a loop is worse than a <c>401</c>.
+    /// </remarks>
+    public static FetchAuthDecision ProvideCredentials(string username, string password)
+        => new()
+        {
+            HasCredentials = true,
+            Username = username ?? string.Empty,
+            Password = password ?? string.Empty,
+        };
+
+    /// <summary>
+    /// Declines the challenge, which delivers the <c>401</c> unchanged.
+    /// </summary>
+    /// <remarks>
+    /// The same outcome as answering <see langword="null"/>, and it exists so that a host mapping a protocol
+    /// onto this seam has something to map <c>CancelAuth</c> to — the difference between "I decline" and "I
+    /// am not interested" is worth keeping at the surface even where the bytes agree.
+    /// </remarks>
+    public static FetchAuthDecision Cancel() => new();
+}
+
+/// <summary>
 /// What an observer answers a request with when it does not want the request sent as written.
 /// </summary>
 /// <remarks>
@@ -509,6 +624,43 @@ public abstract class FetchObserver
         ObservedFetchResponse response,
         CancellationToken cancellationToken)
         => new((FetchResponseInterception?) null);
+
+    /// <summary>
+    /// Called when a server answers a hop with <c>401</c> and an authentication challenge; answer
+    /// <see langword="null"/> to leave the challenge alone and let the <c>401</c> be delivered.
+    /// </summary>
+    /// <param name="challenge">What the server asked for.</param>
+    /// <param name="cancellationToken">Cancelled when the fetch is aborted or times out.</param>
+    /// <remarks>
+    /// <para>
+    /// <b>Asked per hop, beside <see cref="OnRequestAsync"/> rather than <see cref="OnResponseAsync"/>.</b>
+    /// A <c>401</c> on a document fetch, on a subresource and on an <c>XMLHttpRequest</c> is exactly the case
+    /// this is for, and only <c>fetch()</c> takes the lane <see cref="OnResponseAsync"/> is asked in — an ask
+    /// placed there would have served the one caller that needed it least.
+    /// </para>
+    /// <para>
+    /// <b>Answering with credentials re-sends that hop once</b>, carrying an <c>Authorization</c> header this
+    /// engine builds. The retry is not a redirect and spends none of <c>MaxRedirects</c>; a challenge on the
+    /// retry is delivered rather than asked about again. The header rides with the request from there on and
+    /// is dropped if a later redirect crosses to another origin, which is
+    /// <see href="https://fetch.spec.whatwg.org/#http-redirect-fetch">HTTP-redirect fetch</see> step 13 and
+    /// costs nothing here because the transport already strips it.
+    /// </para>
+    /// <para>
+    /// <b>Only <c>Basic</c> can be answered</b>, and
+    /// <see cref="ObservedFetchAuthChallenge.CanProvideCredentials"/> says so before the decision is made.
+    /// Every other scheme is still reported — being asked is how an observer tells "unsupported" from "never
+    /// challenged" — and credentials offered for one are refused rather than quietly dropped.
+    /// </para>
+    /// <para>
+    /// Like <see cref="OnRequestAsync"/> and <see cref="OnResponseAsync"/>, a throw here fails the fetch:
+    /// this is a call that was asked to decide.
+    /// </para>
+    /// </remarks>
+    public virtual ValueTask<FetchAuthDecision?> OnAuthRequiredAsync(
+        ObservedFetchAuthChallenge challenge,
+        CancellationToken cancellationToken)
+        => new((FetchAuthDecision?) null);
 
     /// <summary>
     /// Called for each chunk of the final response's body as it is read off the wire.

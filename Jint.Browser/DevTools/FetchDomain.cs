@@ -49,9 +49,17 @@ namespace Jint.Browser.DevTools;
 /// budget decision rather than a hook. <c>Network.getResponseBody</c> is what answers a body here.
 /// </para>
 /// <para>
-/// <b>No authentication challenge exists here.</b> <c>handleAuthRequests</c> is accepted and
-/// <c>Fetch.authRequired</c> is never sent: nothing in this browser answers a <c>401</c> with credentials, so
-/// there is no challenge for a client to be asked about, and <c>continueWithAuth</c> is absent.
+/// <b>Authentication challenges are here.</b> <c>handleAuthRequests</c> turns them on, a <c>401</c> carrying
+/// a <c>WWW-Authenticate</c> pauses as <c>Fetch.authRequired</c>, and <c>continueWithAuth</c> answers one
+/// over the engine's <c>FetchObserver.OnAuthRequiredAsync</c>. <b>Only <c>Basic</c> can be answered</b> — it
+/// is the one scheme whose answer is a function of the credentials alone, while <c>Digest</c> needs a nonce
+/// exchange and <c>Negotiate</c> and <c>NTLM</c> a handshake bound to the connection. Every other scheme is
+/// still <i>reported</i>, because being asked is how a client tells "unsupported" from "never challenged",
+/// and <c>continueWithAuth</c> answering <c>ProvideCredentials</c> for one is refused with an error naming
+/// the scheme rather than accepted and dropped: an ask that cannot be honoured must fail visibly. A
+/// <c>407</c> is a proxy's and is not reported at all, the proxy belonging to the <c>HttpClient</c> the
+/// context was given, so <c>source</c> is always <c>Server</c>
+/// (<see href="https://github.com/sebastienros/jint/issues/3828">#3828</see>).
 /// </para>
 /// <para>
 /// See <see href="https://chromedevtools.github.io/devtools-protocol/tot/Fetch/"/>.
@@ -62,8 +70,10 @@ internal sealed class FetchDomain : FetchDomainBase, IDetachableDomain
     private readonly PageTarget _target;
     private readonly ConcurrentDictionary<string, PausedRequest> _paused = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, PausedResponse> _pausedResponses = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, PausedAuth> _pausedAuth = new(StringComparer.Ordinal);
 
     private volatile RequestPattern[] _patterns = [];
+    private volatile bool _handleAuth;
     private long _lastInterception;
 
     internal FetchDomain(PageTarget target)
@@ -80,6 +90,10 @@ internal sealed class FetchDomain : FetchDomainBase, IDetachableDomain
     {
         _target.ClaimInterception(this);
         _patterns = parameters.Patterns ?? [];
+
+        // Unlike the patterns, this is not a filter over requests: a challenge has no resource type and no
+        // URL pattern to match, so a client either wants every one of them or none.
+        _handleAuth = parameters.HandleAuthRequests ?? false;
 
         await MarkEnabledAsync(context).ConfigureAwait(false);
         return EmptyResult.Instance;
@@ -241,6 +255,115 @@ internal sealed class FetchDomain : FetchDomainBase, IDetachableDomain
         }
     }
 
+    /// <summary>Whether this domain asked to be told about authentication challenges.</summary>
+    /// <remarks>
+    /// <c>handleAuthRequests</c> alone, with no pattern consulted: a challenge is a property of a response
+    /// rather than of a request, so there is nothing for a URL pattern or a resource type to match on, and
+    /// the protocol accordingly makes it one flag rather than a stage.
+    /// </remarks>
+    internal bool WantsAuth => IsEnabled && _handleAuth;
+
+    /// <summary>
+    /// Holds one challenge until the client answers it — https://chromedevtools.github.io/devtools-protocol/tot/Fetch/#event-authRequired.
+    /// </summary>
+    /// <remarks>
+    /// The identifier comes from the same counter the two stages use, because the protocol gives a client one
+    /// identifier space and <c>continueWithAuth</c> names an id out of it exactly as <c>continueRequest</c>
+    /// does. A pause the request's own token ends declines the challenge, which delivers the <c>401</c> — a
+    /// fetch that has been abandoned is about to fail anyway.
+    /// </remarks>
+    internal async ValueTask<PageNetworkAuthDecision> PauseAuthAsync(
+        PageNetworkRequest request,
+        PageNetworkAuthChallenge challenge,
+        string frameId,
+        CancellationToken cancellationToken)
+    {
+        var id = "interception-job-" + Interlocked.Increment(ref _lastInterception).ToString(CultureInfo.InvariantCulture);
+        var paused = new PausedAuth { Challenge = challenge };
+
+        _pausedAuth[id] = paused;
+
+        EmitDetached(ProtocolFetchEvents.AuthRequired(new AuthRequiredEvent
+        {
+            RequestId = id,
+            Request = Describe(request),
+            FrameId = frameId,
+            ResourceType = ResourceTypeOf(request.Kind),
+            AuthChallenge = new AuthChallenge
+            {
+                Source = challenge.Source,
+                Origin = OriginOf(challenge.Url),
+                Scheme = challenge.Scheme,
+                Realm = challenge.Realm,
+            },
+        }));
+
+        try
+        {
+            using var registration = cancellationToken.Register(
+                static state => ((PausedAuth) state!).Answer(PageNetworkAuthDecision.Proceed),
+                paused);
+
+            return await paused.Completion.Task.ConfigureAwait(false);
+        }
+        finally
+        {
+            _pausedAuth.TryRemove(id, out _);
+        }
+    }
+
+    /// <summary>The scheme and authority of a URL, which is what the protocol calls a challenge's origin.</summary>
+    private static string OriginOf(string url)
+        => Uri.TryCreate(url, UriKind.Absolute, out var uri) ? uri.GetLeftPart(UriPartial.Authority) : url;
+
+    /// <inheritdoc/>
+    /// <remarks>
+    /// <para>
+    /// https://chromedevtools.github.io/devtools-protocol/tot/Fetch/#method-continueWithAuth — the three
+    /// answers the protocol admits. <c>Default</c> and <c>CancelAuth</c> both deliver the <c>401</c>: a
+    /// browser tells them apart by whether it puts its own dialog up, and there is no dialog here.
+    /// <c>ProvideCredentials</c> sends the challenged hop again with an <c>Authorization</c> header, once.
+    /// </para>
+    /// <para>
+    /// <b><c>ProvideCredentials</c> for a scheme this browser cannot answer is an error, not a no-op.</b>
+    /// Only <c>Basic</c> can be answered from a username and a password alone; a client that offered
+    /// credentials for a <c>Digest</c> or a <c>Negotiate</c> challenge is told so by name, and the
+    /// <c>401</c> is then delivered. Accepting the command and quietly changing nothing would be the same
+    /// silent discard this whole lane exists to remove.
+    /// </para>
+    /// </remarks>
+    protected override ValueTask<EmptyResult> ContinueWithAuthAsync(ContinueWithAuthRequest parameters, CommandContext context)
+    {
+        if (!_pausedAuth.TryRemove(parameters.RequestId, out var paused))
+        {
+            return Throw.ServerError<ValueTask<EmptyResult>>(
+                "Invalid InterceptionId.",
+                "no authentication challenge is paused under that identifier");
+        }
+
+        var answer = parameters.AuthChallengeResponse;
+        if (!string.Equals(answer.Response, AuthChallengeResponseResponseValues.ProvideCredentials, StringComparison.Ordinal))
+        {
+            paused.Answer(PageNetworkAuthDecision.Proceed);
+            return new ValueTask<EmptyResult>(EmptyResult.Instance);
+        }
+
+        if (!paused.Challenge.CanProvideCredentials)
+        {
+            // Declined first, so the request is released whatever the client does about the error.
+            paused.Answer(PageNetworkAuthDecision.Proceed);
+
+            return Throw.ServerError<ValueTask<EmptyResult>>(
+                string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"Credentials cannot be provided for a '{paused.Challenge.Scheme}' challenge."),
+                "only Basic can be answered from a username and a password alone; the response was delivered unchanged");
+        }
+
+        paused.Answer(PageNetworkAuthDecision.Credentials(answer.Username ?? "", answer.Password ?? ""));
+        return new ValueTask<EmptyResult>(EmptyResult.Instance);
+    }
+
     /// <inheritdoc/>
     /// <remarks>
     /// https://chromedevtools.github.io/devtools-protocol/tot/Fetch/#method-continueResponse — the response
@@ -280,6 +403,14 @@ internal sealed class FetchDomain : FetchDomainBase, IDetachableDomain
             if (_pausedResponses.TryRemove(id, out var paused))
             {
                 paused.Answer(PageNetworkResponseDecision.Proceed);
+            }
+        }
+
+        foreach (var id in _pausedAuth.Keys)
+        {
+            if (_pausedAuth.TryRemove(id, out var paused))
+            {
+                paused.Answer(PageNetworkAuthDecision.Proceed);
             }
         }
     }
@@ -515,5 +646,22 @@ internal sealed class FetchDomain : FetchDomainBase, IDetachableDomain
 
         /// <summary>Answers the pause, ignoring a second answer for the same response.</summary>
         internal void Answer(PageNetworkResponseDecision decision) => Completion.TrySetResult(decision);
+    }
+
+    /// <summary>
+    /// A challenge's own pause, and a third map for the third thing one identifier space can name.
+    /// </summary>
+    /// <remarks>
+    /// It carries the challenge as well as the answer, because <c>continueWithAuth</c> has to refuse
+    /// credentials offered for a scheme this browser cannot answer, and the scheme is only known here.
+    /// </remarks>
+    private sealed class PausedAuth
+    {
+        internal required PageNetworkAuthChallenge Challenge { get; init; }
+
+        internal TaskCompletionSource<PageNetworkAuthDecision> Completion { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        /// <summary>Answers the pause, ignoring a second answer for the same challenge.</summary>
+        internal void Answer(PageNetworkAuthDecision decision) => Completion.TrySetResult(decision);
     }
 }
