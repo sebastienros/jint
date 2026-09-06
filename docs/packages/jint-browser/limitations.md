@@ -15,6 +15,6 @@
 - Playwright and Puppeteer compatibility covers supported public/client paths, not every browser or protocol feature.
 - The package is not currently trim- or AOT-compatible.
 
-Some CSS values come from AngleSharp's declared cascade rather than a computed layout. Media-query emulation is also limited by what AngleSharp.Css can evaluate.
+Some CSS values come from AngleSharp's declared cascade rather than a computed layout. Stylesheet `@media` rules read the same emulated viewport, media type, and supported preferences as `matchMedia`, through AngleSharp.Css 1.1.0. Their evaluators still differ for negated conjunctions, boolean dimensions and colour features, malformed queries, and ordered gamut/dynamic-range preferences; see the [DOM divergence register](https://github.com/sebastienros/jint/blob/main/Jint.Browser/Dom/divergences.md).
 
 Prefer feature detection and handle `NotSupportedException` or protocol errors. Never use synthetic geometry as evidence of real visual placement.
