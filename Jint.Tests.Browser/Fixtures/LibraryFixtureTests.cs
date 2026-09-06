@@ -71,6 +71,34 @@ public class LibraryFixtureTests
         course.ShouldHaveReportedNothing();
     }
 
+    [Test]
+    public async Task JQueryDelegatedClickSubmitsAHiddenForm()
+    {
+        string? method = null;
+        string? body = null;
+        await using var course = await FixtureCourse.OpenAsync("jquery-unsafe-url",
+            server => FixtureRoutes.FormRedirect(server, (seenMethod, seenBody) =>
+            {
+                method = seenMethod;
+                body = seenBody;
+            }));
+
+        course.ShouldHaveReportedNothing();
+        (await course.Page.EvaluateAsync<string>("document.querySelector('.filter-option-inner-inner').textContent"))
+            .Should().Be("Choose a category", "bootstrap-select's placeholder reaches performance.navigation.type");
+        var navigated = course.Page.WaitForNavigationAsync(FixtureCourse.Bound);
+        (await course.Page.ClickAsync("#enable")).Should().BeTrue();
+        course.ShouldHaveReportedNothing();
+        (await navigated).Should().BeTrue();
+        await course.InjectAsync();
+
+        (await course.TextAsync("#method")).Should().Be("arrived by GET at /form-redirect/done.html");
+        method.Should().Be("POST");
+        body.Should().Be("__RequestVerificationToken=test-token&feature=Example");
+        course.Server.Received.Count(request => request.Method == "POST").Should().Be(1);
+        course.ShouldHaveReportedNothing();
+    }
+
     /// <summary>htmx's three entry points: a load trigger, a click that swaps, and a boosted link.</summary>
     /// <remarks>
     /// <b>This is the case DOM XPath bought.</b> htmx 2 evaluates
