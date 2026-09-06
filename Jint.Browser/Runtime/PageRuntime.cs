@@ -35,6 +35,7 @@ internal sealed class PageRuntime
     private CustomElements.CustomElementRegistry? _customElements;
     private Dom.Views.ViewRealm? _views;
     private List<JsMediaQueryList>? _mediaQueryLists;
+    private PerformanceNavigation? _navigation;
 
     private PageRuntime(
         Engine engine,
@@ -98,6 +99,12 @@ internal sealed class PageRuntime
 
     /// <summary>The page's network log, which every document, script and stylesheet load reports to.</summary>
     internal PageNetworkRecorder Requests { get; }
+
+    internal int NavigationType { get; set; }
+
+    internal int NavigationRedirectCount { get; set; }
+
+    internal PerformanceNavigation Navigation => _navigation ??= new PerformanceNavigation(this);
 
     /// <summary>
     /// The module loader this document's module scripts and <c>import()</c> calls resolve against, or

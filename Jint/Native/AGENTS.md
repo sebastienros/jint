@@ -13,7 +13,7 @@ Follow the specification as closely as practical, support both strict and sloppy
 
 1. Read the normative text before writing code, from whichever document currently owns the feature:
    - **merged language features** — the *living* spec, <https://tc39.es/ecma262/>. Not a dated snapshot, not MDN, not a compatibility table.
-   - **stage 2.7/3 proposals not yet in ECMA-262** — that proposal's own spec, `https://tc39.es/proposal-<name>/`. Jint ships a lot of these (the "ECMAScript proposals" list in `README.md` is the current set), and the `ecma262` URL form is simply wrong for them.
+   - **stage 2.7/3 proposals not yet in ECMA-262** — that proposal's own spec, `https://tc39.es/proposal-<name>/`. Jint ships a lot of these ([`docs/reference/ecmascript.md`](../../docs/reference/ecmascript.md) summarizes the current set), and the `ecma262` URL form is simply wrong for them.
    - **internationalization** — ECMA-402, <https://tc39.es/ecma402/>.
 
    Cite the URL you actually read, per the **Spec references** convention above.

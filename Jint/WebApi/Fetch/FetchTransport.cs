@@ -178,8 +178,7 @@ internal sealed class FetchPolicy
 }
 
 /// <summary>
-/// A response whose body has <b>not</b> been read: the message itself, plus the two facts about the request
-/// that produced it which only the redirect loop knows.
+/// A response whose body has <b>not</b> been read, with the request and redirect metadata that produced it.
 /// </summary>
 /// <remarks>
 /// What <see cref="FetchTransport.SendForStreamAsync"/> answers with, for the one consumer that must not have
@@ -206,6 +205,12 @@ internal sealed class FetchExchange : IDisposable
     internal required Uri RequestUri { get; init; }
 
     internal required bool Redirected { get; init; }
+
+    /// <summary>The number of redirects actually followed, excluding an unfollowed terminal redirect.</summary>
+    internal int RedirectCount { get; init; }
+
+    /// <summary>Whether any followed redirect crossed origins, even if the chain later returned to its original origin.</summary>
+    internal bool HasCrossOriginRedirect { get; init; }
 
     /// <summary>Whether a <see cref="FetchObserver"/> answered this hop instead of the network.</summary>
     internal bool FromInterception { get; init; }
@@ -467,6 +472,8 @@ internal static class FetchTransport
                 Url = exchange.Url,
                 RequestUri = exchange.RequestUri,
                 Redirected = exchange.Redirected,
+                RedirectCount = exchange.RedirectCount,
+                HasCrossOriginRedirect = exchange.HasCrossOriginRedirect,
                 FromInterception = true,
 
                 // The hop that produced the response being replaced really was sent, so its timing is kept:
@@ -576,6 +583,7 @@ internal static class FetchTransport
         var headers = new List<HeaderEntry>(request.Headers);
         AppendDefaultAccept(headers);
         var redirectCount = 0;
+        var hasCrossOriginRedirect = false;
 
         // https://fetch.spec.whatwg.org/#concept-main-fetch step 6 is re-run per hop, because a redirect
         // re-enters main fetch: what a hop discloses is computed from what the previous hop settled on, so a
@@ -616,7 +624,7 @@ internal static class FetchTransport
 
                     if (interception.Kind == FetchInterceptionKind.Fulfill)
                     {
-                        return Fulfil(interception, method, url, uri, redirectCount);
+                        return Fulfil(interception, method, url, uri, redirectCount, hasCrossOriginRedirect);
                     }
 
                     // Continue: the rewrites apply to the hop that was answered, and the next hop is computed
@@ -714,7 +722,17 @@ internal static class FetchTransport
                     || string.Equals(request.Redirect, JsRequest.RedirectManual, StringComparison.Ordinal))
                 {
                     handedOver = true;
-                    return new FetchExchange { Response = response, Method = method, Url = url, RequestUri = uri, Redirected = redirectCount > 0, Timing = timing };
+                    return new FetchExchange
+                    {
+                        Response = response,
+                        Method = method,
+                        Url = url,
+                        RequestUri = uri,
+                        Redirected = redirectCount > 0,
+                        RedirectCount = redirectCount,
+                        HasCrossOriginRedirect = hasCrossOriginRedirect,
+                        Timing = timing,
+                    };
                 }
 
                 if (string.Equals(request.Redirect, JsRequest.RedirectError, StringComparison.Ordinal))
@@ -728,7 +746,17 @@ internal static class FetchTransport
                 if (location is null)
                 {
                     handedOver = true;
-                    return new FetchExchange { Response = response, Method = method, Url = url, RequestUri = uri, Redirected = redirectCount > 0, Timing = timing };
+                    return new FetchExchange
+                    {
+                        Response = response,
+                        Method = method,
+                        Url = url,
+                        RequestUri = uri,
+                        Redirected = redirectCount > 0,
+                        RedirectCount = redirectCount,
+                        HasCrossOriginRedirect = hasCrossOriginRedirect,
+                        Timing = timing,
+                    };
                 }
 
                 // The redirect reaches the observer before the hop it causes does, and again on that hop's
@@ -758,6 +786,7 @@ internal static class FetchTransport
                 }
 
                 Rewrite(status, ref method, ref body, ref content, headers, url, location);
+                hasCrossOriginRedirect = hasCrossOriginRedirect || !IsSameOrigin(url, location);
 
                 // "Set request's referrer to the result of invoking determine request's referrer" — the value
                 // this hop computed becomes the next hop's source, which is what makes the narrowing stick.
@@ -1110,7 +1139,7 @@ internal static class FetchTransport
     /// A fulfilled response ends the chain whatever its status: the redirect loop follows what the network
     /// said, and an observer that wants a redirect followed answers the hop after it too.
     /// </remarks>
-    private static FetchExchange Fulfil(FetchInterception interception, string method, UrlRecord url, Uri uri, int redirectCount)
+    private static FetchExchange Fulfil(FetchInterception interception, string method, UrlRecord url, Uri uri, int redirectCount, bool hasCrossOriginRedirect)
     {
         return new FetchExchange
         {
@@ -1119,6 +1148,8 @@ internal static class FetchTransport
             Url = url,
             RequestUri = uri,
             Redirected = redirectCount > 0,
+            RedirectCount = redirectCount,
+            HasCrossOriginRedirect = hasCrossOriginRedirect,
             FromInterception = true,
 
             // Timing stays null on purpose: nothing was sent, so there is no send to time, and a

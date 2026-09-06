@@ -4007,6 +4007,12 @@ internal static partial class DomInterfaces
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSelectElement>(thisObj, "HTMLSelectElement.selectedIndex");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.SelectedIndex);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLSelectElement.selectedIndex", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSelectElement>(thisObj, "HTMLSelectElement.selectedIndex");
+                    self.Target.Options.SelectedIndex = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "HTMLSelectElement.selectedIndex");
+                    return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("selectedOptions",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLSelectElement.selectedOptions", static (thisObj, args) =>

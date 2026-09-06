@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text;
 using Jint.Browser;
 using Jint.Constraints;
@@ -113,6 +114,42 @@ public class PlaywrightCourseTests
         await page.WaitForFunctionAsync("() => document.querySelectorAll('.todo-list li').length === 2");
         (await page.Locator(".todo-list li label").AllTextContentsAsync())
             .Should().Equal("write the fixture", "read the standard");
+
+        await page.CloseAsync();
+    }
+
+    [Test]
+    public async Task PlaywrightLoadsMonacoThroughItsAmdCssPlugin()
+    {
+        await using var lane = await ClientLane.OpenAsync(
+            server => FixtureRoutes.Monaco(server),
+            new BrowserOptions { MaxTaskDuration = TimeSpan.FromSeconds(30) });
+        var page = await lane.Context.NewPageAsync();
+        var errors = new ConcurrentQueue<string>();
+        page.PageError += (_, error) => errors.Enqueue(error);
+        page.Console += (_, message) =>
+        {
+            if (message.Type == "error")
+            {
+                errors.Enqueue(message.Text);
+            }
+        };
+
+        await page.GotoAsync(lane.Url("monaco-amd"));
+        await page.WaitForFunctionAsync("() => document.getElementById('status').textContent === 'query { __typename }'");
+
+        (await page.EvaluateAsync<string>("() => typeof monaco.editor.create")).Should().Be("function");
+        (await page.EvaluateAsync<int>("() => callbackCount")).Should().Be(1);
+        (await page.EvaluateAsync<bool>("() => callbackWasDeferred")).Should().BeTrue();
+        (await page.EvaluateAsync<string>("() => resourceEvents.join(',')")).Should().Be("css:true:true");
+        errors.Should().BeEmpty();
+        foreach (var context in lane.Pages.Contexts)
+        {
+            foreach (var hostPage in context.Pages)
+            {
+                hostPage.Errors.Should().BeEmpty();
+            }
+        }
 
         await page.CloseAsync();
     }
@@ -317,6 +354,35 @@ public class PlaywrightCourseTests
         var redirected = lane.Server.Received.Single(request => request.Path == "/form-redirect/done.html");
         redirected.Method.Should().Be("GET");
         redirected.Body.Should().BeEmpty();
+
+        await page.CloseAsync();
+    }
+
+    [Test]
+    public async Task PlaywrightClickSubmitsAJQueryDelegatedHiddenForm()
+    {
+        string? method = null;
+        string? body = null;
+        await using var lane = await ClientLane.OpenAsync(
+            server => FixtureRoutes.FormRedirect(server, (seenMethod, seenBody) =>
+            {
+                method = seenMethod;
+                body = seenBody;
+            }));
+        var page = await lane.NewPageAsync("jquery-unsafe-url");
+
+        (await page.Locator(".filter-option-inner-inner").TextContentAsync()).Should().Be("Choose a category");
+        await page.Locator("#enable").ClickAsync();
+
+        page.Url.Should().StartWith(lane.Server.Url("/form-redirect/done.html") + "?");
+        (await page.Locator("#method").TextContentAsync()).Should().Be("arrived by GET at /form-redirect/done.html");
+        method.Should().Be("POST");
+        body.Should().Be("__RequestVerificationToken=test-token&feature=Example");
+        lane.Server.Received.Count(request => request.Method == "POST").Should().Be(1);
+        foreach (var hostPage in lane.Pages.Contexts.SelectMany(context => context.Pages))
+        {
+            hostPage.Errors.Should().BeEmpty();
+        }
 
         await page.CloseAsync();
     }

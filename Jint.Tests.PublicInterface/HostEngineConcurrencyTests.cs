@@ -392,7 +392,7 @@ public class HostEngineConcurrencyTests
     private static readonly TimeSpan ContinuationDelay = TimeSpan.FromMilliseconds(50);
 
     /// <summary>
-    /// The window README's Thread-safety section and THREAT_MODEL.md TM-13 promise an authorized callback
+    /// The window docs/guide/thread-safety.md and THREAT_MODEL.md TM-13 promise an authorized callback
     /// may wait in - "such an authorized transfer may wait for the current callback turn" - reached
     /// deterministically. An <c>async</c> host method returns at its first <c>await</c>, so by the time its
     /// captured callback is invoked from another thread the host call it was handed to is long gone; the

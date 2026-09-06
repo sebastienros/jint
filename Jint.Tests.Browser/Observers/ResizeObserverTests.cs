@@ -204,6 +204,60 @@ public class ResizeObserverTests
     }
 
     [Test]
+    public async Task AllObserversUseTheSnapshotTakenBeforeAnyCallback()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(
+            """
+            <div id="first"></div><div id="second"></div><div id="later"></div>
+            <script>
+              window.log = [];
+              const secondTarget = document.getElementById('second');
+              const laterTarget = document.getElementById('later');
+              const second = new ResizeObserver(entries => {
+                log.push(entries.map(e => e.target.id + ':' + e.contentRect.height).join(','));
+              });
+              new ResizeObserver(() => {
+                secondTarget.appendChild(document.createElement('span'));
+                second.observe(laterTarget);
+              }).observe(document.getElementById('first'));
+              second.observe(secondTarget);
+            </script>
+            """);
+
+        (await page.WaitForIdleAsync(TimeSpan.FromSeconds(5))).Should().BeTrue();
+        (await page.EvaluateAsync<string>("log.join('|')")).Should().Be("second:16|second:32,later:16");
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task SizeChecksStayFreshAfterMediaAndSameTurnStyleChanges()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(
+            """
+            <style>@media(max-width:700px) { #parent { display:none } }</style>
+            <div id="parent"><div id="target"></div></div>
+            <script>
+              window.sizes = [];
+              new ResizeObserver(entries => sizes.push(entries[0].contentRect.height))
+                .observe(document.getElementById('target'));
+            </script>
+            """);
+
+        (await page.WaitForIdleAsync(TimeSpan.FromSeconds(5))).Should().BeTrue();
+        await page.SetViewportAsync(new Viewport(640, 480));
+        (await page.WaitForIdleAsync(TimeSpan.FromSeconds(5))).Should().BeTrue();
+        await page.EvaluateAsync(
+            "document.getElementById('parent').style.display = 'none'; document.getElementById('parent').style.display = 'block'");
+        (await page.WaitForIdleAsync(TimeSpan.FromSeconds(5))).Should().BeTrue();
+        (await page.EvaluateAsync<string>("sizes.join(',')")).Should().Be("16,0,16");
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
     public async Task ThrowingCallbacksDoNotStopOtherObserversOrFutureChanges()
     {
         await using var browser = new Browser();
