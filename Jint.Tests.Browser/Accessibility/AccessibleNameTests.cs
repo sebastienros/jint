@@ -26,8 +26,13 @@ public sealed class AccessibleNameTests
         yield return Case("<label for=t>Full name</label><input id=t>", "Full name");
         yield return Case("<label>Full name <input id=t></label>", "Full name");
         yield return Case("<label for=t>A</label><label for=t>B</label><input id=t>", "A B");
+        yield return Case("<label for=t hidden>Hidden</label><label for=t>Visible</label><input id=t>", "Hidden Visible");
+        yield return Case("<label for=t aria-hidden=true>Hidden</label><label for=t>Visible</label><input id=t>", "Hidden Visible");
+        yield return Case("<label for=t style='display:none'>Hidden</label><label for=t>Visible</label><input id=t>", "Hidden Visible");
         yield return Case("<input id=t placeholder='Search the docs'>", "Search the docs");
         yield return Case("<label for=t>Query</label><input id=t placeholder='Search'>", "Query");
+        yield return Case("<label for=t>Native</label><input id=t aria-label='ARIA label'>", "ARIA label");
+        yield return Case("<span id=a hidden>Referenced</span><label for=t>Native</label><input id=t aria-labelledby=a aria-label='ARIA label'>", "Referenced");
         yield return Case("<input id=t type=submit>", "Submit");
         yield return Case("<input id=t type=submit value='Send it'>", "Send it");
         yield return Case("<input id=t type=reset>", "Reset");

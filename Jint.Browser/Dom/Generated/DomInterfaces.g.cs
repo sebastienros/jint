@@ -2094,7 +2094,8 @@ internal static partial class DomInterfaces
             null,
             rootsAtEventTarget: false,
             hasInterfaceObject: true,
-            DomWrapperKind.Object));
+            DomWrapperKind.Collection,
+            collectionAccessor: DomAccessorTextTrackCueList.Instance));
 
         TextTrackList = Add(new DomInterfaceDefinition(
             "TextTrackList",

@@ -16,9 +16,9 @@ namespace Jint.Browser.Events;
 /// design doc §5, "one bus, Jint's".
 /// </para>
 /// <para>
-/// <b>Deliberately absent: <c>DragEvent</c>.</b> Drag and drop is a v1 non-goal (design doc §2), and an
-/// interface with no <c>DataTransfer</c> behind it would be a constructor for an event nothing can ever mean.
-/// <c>ClipboardEvent</c> is absent for the same reason. The legacy <c>initUIEvent</c>, <c>initMouseEvent</c>
+/// <b>Deliberately absent: <c>DragEvent</c>.</b> Drag and drop dispatch and its event-specific state remain
+/// a v1 non-goal (design doc §2), even though the transferable data store is available for file inputs.
+/// <c>ClipboardEvent</c> is absent because there is no clipboard model. The legacy <c>initUIEvent</c>, <c>initMouseEvent</c>
 /// and <c>initKeyboardEvent</c> initializers are absent too: they are the pre-constructor way of building an
 /// event through <c>document.createEvent</c>, which this package does not implement at all.
 /// </para>

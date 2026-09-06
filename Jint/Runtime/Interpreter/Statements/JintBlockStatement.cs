@@ -338,8 +338,7 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
     /// <summary>
     /// Tight-loop entry; see <see cref="JintStatement.ExecuteDiscarded"/>. Valid only for blocks
     /// without lexical declarations (enforced by the enclosing loop's shape predicate), so no block
-    /// environment is created or attached. A statement after a deferred error must not run, so the
-    /// engine error slot is polled between statements; the caller polls after the last one.
+    /// environment is created or attached.
     /// </summary>
     internal void ExecuteDiscardedContents(EvaluationContext context)
     {
@@ -360,10 +359,6 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
         for (var i = 0; i < count; i++)
         {
             list.GetStatement(i).ExecuteDiscarded(context);
-            if (context.Engine._error is not null)
-            {
-                return;
-            }
         }
     }
 
@@ -373,10 +368,6 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
         try
         {
             blockValue = _singleStatement!.Execute(context);
-            if (context.Engine._error is not null)
-            {
-                blockValue = JintStatementList.HandleError(context.Engine, _singleStatement);
-            }
         }
         // The filter is what keeps a single-statement block out of the unwind of an exception it could
         // only rethrow; see JintStatementList.ShouldCatch for why that matters at recursion depth.

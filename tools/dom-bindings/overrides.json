@@ -34,44 +34,10 @@
       "reason": "The same union on the collection, and the same two overloads."
     },
     {
-      "interface": "Document",
-      "member": "querySelector",
-      "reason": "DOM requires a SyntaxError DOMException for a selector that cannot be parsed, and a page has to be able to catch it -- jQuery's own support detection asks for `:has(*,:jqfake)` inside a try. AngleSharp raises a CLR AngleSharp.Dom.DomException instead, which walks through a script's catch and out of the page loop, and AngleSharp.Css NREs outright on that input. Re-declared in `additions` over the same AngleSharp call, wrapped so that the failure is the DOMException the standard names."
-    },
-    {
-      "interface": "Document",
-      "member": "querySelectorAll",
-      "reason": "Re-declared in `additions` for the reason Document.querySelector gives: the refusal has to be a DOMException a page can catch."
-    },
-    {
-      "interface": "DocumentFragment",
-      "member": "querySelector",
-      "reason": "Re-declared in `additions` for the reason Document.querySelector gives: the refusal has to be a DOMException a page can catch."
-    },
-    {
-      "interface": "DocumentFragment",
-      "member": "querySelectorAll",
-      "reason": "Re-declared in `additions` for the reason Document.querySelector gives: the refusal has to be a DOMException a page can catch."
-    },
-    {
-      "interface": "Element",
-      "member": "querySelector",
-      "reason": "Re-declared in `additions` for the reason Document.querySelector gives: the refusal has to be a DOMException a page can catch."
-    },
-    {
-      "interface": "Element",
-      "member": "querySelectorAll",
-      "reason": "Re-declared in `additions` for the reason Document.querySelector gives: the refusal has to be a DOMException a page can catch."
-    },
-    {
-      "interface": "Element",
-      "member": "matches",
-      "reason": "Re-declared in `additions` for the reason Document.querySelector gives: the refusal has to be a DOMException a page can catch."
-    },
-    {
-      "interface": "Element",
-      "member": "closest",
-      "reason": "Re-declared in `additions` for the reason Document.querySelector gives: the refusal has to be a DOMException a page can catch."
+      "interface": "HTMLMetaElement",
+      "member": "charset",
+      "reason": "HTML's meta element has a charset content attribute but no charset IDL attribute (https://html.spec.whatwg.org/multipage/semantics.html#the-meta-element). AngleSharp 1.7.3 adds DomName to its CLR convenience property; do not expose a new nonstandard JavaScript member."
+
     },
     {
       "interface": "Document",
@@ -253,6 +219,21 @@
       "interface": "CharacterData",
       "member": "replaceData",
       "reason": "The offset and the count of the same conversion; see substringData."
+    },
+    {
+      "interface": "HTMLInputElement",
+      "member": "files",
+      "reason": "HTML's selected files are File API File objects held by a live FileList. AngleSharp exposes its own IFileList through a getter only, which cannot hold Jint's File instances and cannot accept the FileList produced by DataTransfer. Re-declared in additions so the getter and setter share the browser runtime's selected-file state."
+    },
+    {
+      "interface": "HTMLInputElement",
+      "member": "type",
+      "reason": "Changing into or out of the file-upload state empties the selected file list. Re-declared in additions so the selected-file sidecar follows that state transition."
+    },
+    {
+      "interface": "HTMLInputElement",
+      "member": "value",
+      "reason": "The file-upload state exposes a fake path for the selected filename, permits only the empty string to be assigned, and clears its selected files when that happens. Re-declared in additions while preserving AngleSharp's behavior for every other input state."
     }
   ],
   "additions": [
@@ -288,94 +269,6 @@
         "return global::Jint.Browser.Dom.DomNodeMembers.GetRootNode(self.Realm, self.Target, args);"
       ],
       "reason": "DOM §4.4: `Node getRootNode(optional GetRootNodeOptions options = {})`. AngleSharp has no [DomName] for it at all, so nothing could generate it -- and it is not a corner: a library asks it to tell a node in the document from one in a shadow tree or in a detached fragment, and Playwright's injected script calls it on every element it touches."
-    },
-    {
-      "interface": "Document",
-      "member": "querySelector",
-      "kind": "operation",
-      "length": 1,
-      "body": [
-        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, \"Document.querySelector\");",
-        "return global::Jint.Browser.Dom.DomSelectorMembers.QuerySelector(self.Realm, self.Target, args, \"Document.querySelector\");"
-      ],
-      "reason": "DOM §4.2.6, re-declared so that an unparseable selector is the SyntaxError DOMException the standard prescribes rather than a CLR exception the page cannot catch. See Dom/DomSelectorMembers."
-    },
-    {
-      "interface": "Document",
-      "member": "querySelectorAll",
-      "kind": "operation",
-      "length": 1,
-      "body": [
-        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, \"Document.querySelectorAll\");",
-        "return global::Jint.Browser.Dom.DomSelectorMembers.QuerySelectorAll(self.Realm, self.Target, args, \"Document.querySelectorAll\");"
-      ],
-      "reason": "DOM §4.2.6, re-declared so that an unparseable selector is the SyntaxError DOMException the standard prescribes rather than a CLR exception the page cannot catch. See Dom/DomSelectorMembers."
-    },
-    {
-      "interface": "DocumentFragment",
-      "member": "querySelector",
-      "kind": "operation",
-      "length": 1,
-      "body": [
-        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocumentFragment>(thisObj, \"DocumentFragment.querySelector\");",
-        "return global::Jint.Browser.Dom.DomSelectorMembers.QuerySelector(self.Realm, self.Target, args, \"DocumentFragment.querySelector\");"
-      ],
-      "reason": "DOM §4.2.6, re-declared so that an unparseable selector is the SyntaxError DOMException the standard prescribes rather than a CLR exception the page cannot catch. See Dom/DomSelectorMembers."
-    },
-    {
-      "interface": "DocumentFragment",
-      "member": "querySelectorAll",
-      "kind": "operation",
-      "length": 1,
-      "body": [
-        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocumentFragment>(thisObj, \"DocumentFragment.querySelectorAll\");",
-        "return global::Jint.Browser.Dom.DomSelectorMembers.QuerySelectorAll(self.Realm, self.Target, args, \"DocumentFragment.querySelectorAll\");"
-      ],
-      "reason": "DOM §4.2.6, re-declared so that an unparseable selector is the SyntaxError DOMException the standard prescribes rather than a CLR exception the page cannot catch. See Dom/DomSelectorMembers."
-    },
-    {
-      "interface": "Element",
-      "member": "querySelector",
-      "kind": "operation",
-      "length": 1,
-      "body": [
-        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, \"Element.querySelector\");",
-        "return global::Jint.Browser.Dom.DomSelectorMembers.QuerySelector(self.Realm, self.Target, args, \"Element.querySelector\");"
-      ],
-      "reason": "DOM §4.2.6, re-declared so that an unparseable selector is the SyntaxError DOMException the standard prescribes rather than a CLR exception the page cannot catch. See Dom/DomSelectorMembers."
-    },
-    {
-      "interface": "Element",
-      "member": "querySelectorAll",
-      "kind": "operation",
-      "length": 1,
-      "body": [
-        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, \"Element.querySelectorAll\");",
-        "return global::Jint.Browser.Dom.DomSelectorMembers.QuerySelectorAll(self.Realm, self.Target, args, \"Element.querySelectorAll\");"
-      ],
-      "reason": "DOM §4.2.6, re-declared so that an unparseable selector is the SyntaxError DOMException the standard prescribes rather than a CLR exception the page cannot catch. See Dom/DomSelectorMembers."
-    },
-    {
-      "interface": "Element",
-      "member": "matches",
-      "kind": "operation",
-      "length": 1,
-      "body": [
-        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, \"Element.matches\");",
-        "return global::Jint.Browser.Dom.DomSelectorMembers.Matches(self.Realm, self.Target, args, \"Element.matches\");"
-      ],
-      "reason": "DOM §4.9, re-declared for the same reason as querySelector: the refusal has to be catchable."
-    },
-    {
-      "interface": "Element",
-      "member": "closest",
-      "kind": "operation",
-      "length": 1,
-      "body": [
-        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, \"Element.closest\");",
-        "return global::Jint.Browser.Dom.DomSelectorMembers.Closest(self.Realm, self.Target, args);"
-      ],
-      "reason": "DOM §4.9, re-declared for the same reason as querySelector: the refusal has to be catchable."
     },
     {
       "interface": "DOMImplementation",
@@ -506,16 +399,6 @@
         "return global::Jint.Browser.Dom.Views.DomViewMembers.RangeRects(self.Realm);"
       ],
       "reason": "The other half of getBoundingClientRect: an empty list, because a range with no layout covers no boxes."
-    },
-    {
-      "interface": "ShadowRoot",
-      "member": "mode",
-      "kind": "attribute",
-      "body": [
-        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IShadowRoot>(thisObj, \"ShadowRoot.mode\");",
-        "return global::Jint.Browser.Dom.DomEnums.FromShadowRootMode(self.Target.Mode);"
-      ],
-      "reason": "DOM §4.8 `readonly attribute ShadowRootMode mode`, and the member a page reads to tell an open root from a closed one. AngleSharp has IShadowRoot.Mode but puts no [DomName] on it — the only member of the interface without one — so nothing in the metadata says it is projected."
     },
     {
       "interface": "HTMLSlotElement",
@@ -1249,7 +1132,7 @@
       "length": 1,
       "body": [
         "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, \"Element.webkitMatchesSelector\");",
-        "return global::Jint.Browser.Dom.DomSelectorMembers.Matches(self.Realm, self.Target, args, \"Element.webkitMatchesSelector\");"
+        "return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Matches(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Element.webkitMatchesSelector\")));"
       ],
       "reason": "DOM §4.9 requires the alias, and it is not decoration: a library that feature-detects `matches` still falls back to this one."
     },
@@ -1326,12 +1209,117 @@
       "reason": "The other half of the skip above; see substringData."
     },
     {
+      "interface": "HTMLInputElement",
+      "member": "files",
+      "kind": "attribute",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, \"HTMLInputElement.files\");",
+        "return global::Jint.Browser.Dom.Files.FileTransferMembers.InputFiles(self.Realm, self.Target);"
+      ],
+      "setter": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, \"HTMLInputElement.files\");",
+        "return global::Jint.Browser.Dom.Files.FileTransferMembers.SetInputFiles(self.Realm, self.Target, args);"
+      ],
+      "reason": "HTML §4.10.5.1.17 exposes the selected files as a nullable FileList and permits assigning another FileList. The binding's list carries Jint's standards-based File objects, so File.text(), FormData and fetch all observe the same bytes."
+    },
+    {
+      "interface": "HTMLInputElement",
+      "member": "type",
+      "kind": "attribute",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, \"HTMLInputElement.type\");",
+        "return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Type);"
+      ],
+      "setter": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, \"HTMLInputElement.type\");",
+        "return global::Jint.Browser.Dom.Files.FileTransferMembers.SetInputType(self.Realm, self.Target, args);"
+      ],
+      "reason": "HTML §4.10.5.3.1 empties selected files when a type change moves into or out of the file-upload state."
+    },
+    {
+      "interface": "HTMLInputElement",
+      "member": "value",
+      "kind": "attribute",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, \"HTMLInputElement.value\");",
+        "return global::Jint.Browser.Dom.Files.FileTransferMembers.InputValue(self.Realm, self.Target);"
+      ],
+      "setter": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInputElement>(thisObj, \"HTMLInputElement.value\");",
+        "return global::Jint.Browser.Dom.Files.FileTransferMembers.SetInputValue(self.Realm, self.Target, args);"
+      ],
+      "reason": "HTML §4.10.5.1.17 defines the file-upload state's filename value, fake path, and empty-string setter."
+    },
+    {
       "interface": "Element",
       "extend": "Jint.Browser.Dom.AriaReflection.ElementAria",
       "reason": "ARIA §10.1's ARIAMixin, which the standard puts on Element: `role` and forty-four `aria-*` IDL attributes, each an identically shaped accessor pair reflecting one content attribute. AngleSharp's IElement has no ARIA member at all, so the member closure yields none, and as member entries they would be ninety near-identical rows; the extend form exists for exactly this. The element-reflection half of the mixin is not here -- see Jint.Browser/Dom/AriaReflection.cs."
     }
   ],
   "hooks": [
+    {
+      "interface": "HTMLElement",
+      "member": "dataset",
+      "half": "getter",
+      "hook": "Dataset",
+      "reason": "HTML 3.2.6 maps DOMStringMap property names between camelCase and data-* attribute names and defines its own SyntaxError and InvalidCharacterError checks. AngleSharp 1.7.3 fixes deletion, but IStringMap still accepts raw attribute suffixes and rejects uppercase ASCII, so the binding retains the standards-shaped map over the associated element."
+    },
+    {
+      "interface": "HTMLButtonElement",
+      "member": "labels",
+      "half": "getter",
+      "hook": "Labels",
+      "reason": "HTML 4.10.6 gives every labelable element a live NodeList of the labels whose labeled control it is. AngleSharp returns an empty collection for explicit for/id associations, so the shared HTML association algorithm supplies the value."
+    },
+    {
+      "interface": "HTMLInputElement",
+      "member": "labels",
+      "half": "getter",
+      "hook": "Labels",
+      "reason": "The input half of the labelable-element labels attribute, and the association Playwright's accessible-name computation reads."
+    },
+    {
+      "interface": "HTMLMeterElement",
+      "member": "labels",
+      "half": "getter",
+      "hook": "Labels",
+      "reason": "The meter half of the labelable-element labels attribute."
+    },
+    {
+      "interface": "HTMLOutputElement",
+      "member": "labels",
+      "half": "getter",
+      "hook": "Labels",
+      "reason": "The output half of the labelable-element labels attribute."
+    },
+    {
+      "interface": "HTMLProgressElement",
+      "member": "labels",
+      "half": "getter",
+      "hook": "Labels",
+      "reason": "The progress half of the labelable-element labels attribute."
+    },
+    {
+      "interface": "HTMLSelectElement",
+      "member": "labels",
+      "half": "getter",
+      "hook": "Labels",
+      "reason": "The select half of the labelable-element labels attribute."
+    },
+    {
+      "interface": "HTMLTextAreaElement",
+      "member": "labels",
+      "half": "getter",
+      "hook": "Labels",
+      "reason": "The textarea half of the labelable-element labels attribute."
+    },
+    {
+      "interface": "HTMLLabelElement",
+      "member": "control",
+      "half": "getter",
+      "hook": "LabelControl",
+      "reason": "HTML 4.10.4 resolves a label's explicit for target or first labelable descendant. AngleSharp returns null for the wrapping-label form, so the shared HTML association algorithm supplies the value."
+    },
     {
       "interface": "Document",
       "member": "currentScript",
@@ -1411,6 +1399,14 @@
       "hook": "CloneNode",
       "returns": true,
       "reason": "The same AngleSharp call, and then the upgrade DOM's clone steps enqueue -- so the node the page is handed is the host's answer rather than AngleSharp's."
+    },
+    {
+      "interface": "Document",
+      "member": "importNode",
+      "half": "operation",
+      "hook": "ImportNode",
+      "returns": true,
+      "reason": "DOM's import steps leave a cloned file input with no selected files. AngleSharp copies its internal filename value, so the host clears copied file controls before exposing the imported tree."
     },
     {
       "interface": "Element",

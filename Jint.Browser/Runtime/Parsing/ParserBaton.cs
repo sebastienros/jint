@@ -28,7 +28,7 @@ namespace Jint.Browser.Runtime.Parsing;
 /// <b>Timers fire exactly where a browser fires them.</b> While the parser is tokenizing it holds the baton
 /// and the loop runs nothing — which is right, because in a browser the parser *is* the task the event loop
 /// is running. While the loop is fetching a parser-blocking script it holds the baton and pumps
-/// <see cref="Engine.TaskOperations.ProcessTasks"/>, so timers, promise jobs and animation frames run while
+/// one task and its microtasks, so timers, promise jobs and animation frames run while
 /// the page waits for the network. That is the browser-correct timing, and it is what
 /// <see cref="PumpUntil(Task)"/> is for.
 /// </para>
@@ -39,7 +39,6 @@ internal sealed class ParserBaton : IDisposable
     private readonly SemaphoreSlim _arrived = new(0);
     private readonly Engine _engine;
     private readonly Engine.TaskOperations _tasks;
-    private readonly PageBudget _budget;
     private readonly TimeSpan _idle;
     private readonly CancellationToken _cancellationToken;
     private readonly Action<Exception> _onPumpError;
@@ -47,11 +46,10 @@ internal sealed class ParserBaton : IDisposable
     private volatile int _parserThreadId;
     private volatile bool _abandoned;
 
-    internal ParserBaton(Engine engine, PageBudget budget, TimeSpan idle, Action<Exception> onPumpError, CancellationToken cancellationToken)
+    internal ParserBaton(Engine engine, TimeSpan idle, Action<Exception> onPumpError, CancellationToken cancellationToken)
     {
         _engine = engine;
         _tasks = engine.Tasks;
-        _budget = budget;
         _idle = idle <= TimeSpan.Zero ? TimeSpan.FromMilliseconds(5) : idle;
         _cancellationToken = cancellationToken;
         _onPumpError = onPumpError;
@@ -303,8 +301,8 @@ internal sealed class ParserBaton : IDisposable
     /// <summary>One drain of the engine's job queue, bracketed and reported the way the page loop does it.</summary>
     /// <remarks>
     /// <para>
-    /// <b>A drain is a turn</b>, which is <c>PageLoop.Pump</c>'s rule and has to be this pump's too: these
-    /// drains happen <i>inside</i> the mailbox request that is parsing the document, so without a bracket a
+    /// <b>A task and its checkpoint are one turn</b>, just as in <c>PageLoop.Pump</c>: these
+    /// tasks run <i>inside</i> the mailbox request that is parsing the document, so without a bracket a
     /// timer callback firing while a parser-blocking script is on its way would run with no budget at all —
     /// and the enclosing turn's deadline would go stale across a slow fetch. A nested turn re-arms it and
     /// hands the enclosing turn a full budget back, which is exactly what <see cref="PageBudget"/> is for.
@@ -319,10 +317,8 @@ internal sealed class ParserBaton : IDisposable
     {
         try
         {
-            using (_budget.BeginTurn())
-            {
-                _tasks.ProcessTasks();
-            }
+            _tasks.ProcessTask();
+            PageRuntime.Find(_engine)?.UpdateRendering();
         }
         catch (Exception exception)
         {

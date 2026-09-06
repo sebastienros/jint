@@ -454,7 +454,7 @@ public sealed partial class Page : IAsyncDisposable
     /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
     public Task<bool> WaitForIdleAsync(TimeSpan timeout)
     {
-        // Not bracketed as one turn: the request is a pump, so it brackets each drain itself. Bracketing the
+        // Not bracketed as one turn: the engine brackets each task and its microtasks. Bracketing the
         // whole wait would charge every drain and every park to one turn's budget and fail a wait longer than
         // BrowserOptions.MaxTaskDuration for no reason at all.
         return _loop.PostAsync(engine => PumpUntilIdle(engine, timeout), bracketed: false);
@@ -595,7 +595,7 @@ public sealed partial class Page : IAsyncDisposable
     /// <para>
     /// The one thing on <see cref="Page"/> that is <b>not</b> a mailbox request: it is a volatile read of a
     /// number the loop publishes, safe from any thread and costing the loop nothing to be asked. A turn is a
-    /// bracketed mailbox request or a <c>ProcessTasks</c> drain — <see cref="PageLoop.Turns"/> is the
+    /// bracketed mailbox request or a single-task pump pass — <see cref="PageLoop.Turns"/> is the
     /// definition, including what a navigation and a pump each count as.
     /// </para>
     /// <para>
@@ -729,18 +729,13 @@ public sealed partial class Page : IAsyncDisposable
     {
         var started = Stopwatch.GetTimestamp();
         var closing = _loop.Closing;
-        var budget = PageRuntime.Find(engine)?.Budget;
 
         while (!closing.IsCancellationRequested)
         {
             try
             {
-                // One drain, one turn — the same bracket the page loop puts around its own drains, taken
-                // here because this request is the pump for as long as it holds the thread.
-                using (budget?.BeginTurn() ?? default)
-                {
-                    engine.Tasks.ProcessTasks();
-                }
+                engine.Tasks.ProcessTask();
+                PageRuntime.Find(engine)?.UpdateRendering();
             }
             catch (Exception exception) when (PageBudget.IsBudgetFailure(exception))
             {

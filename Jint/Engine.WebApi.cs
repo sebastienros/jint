@@ -203,11 +203,10 @@ public partial class Engine
     }
 
     /// <summary>
-    /// Whether the event loop still has jobs queued behind the one running now. Only the web-API scheduler
-    /// reads it, to keep a task from overtaking the microtasks of the turn it was posted in — see
-    /// <see cref="Runtime.EventLoop.HasPendingJobs"/>.
+    /// Whether a deferred task must yield to a pending checkpoint. On an ordinary engine this is its FIFO;
+    /// on a browser engine it is only the microtask lane, never another task waiting for its own turn.
     /// </summary>
-    internal bool HasPendingEventLoopJobs => _eventLoop.HasPendingJobs;
+    internal bool HasPendingEventLoopJobs => _eventLoop.HasPendingCheckpointJobs;
 }
 
 /// <summary>
@@ -775,7 +774,7 @@ internal sealed class WebApiEngineState
     /// The order is the priority: a due timer is a task, and idle callbacks are what a browser runs in the
     /// slack after the tasks are done, so nothing idle may overtake a timer that is already due.
     /// </remarks>
-    internal bool TryPromoteDeferredWork()
+    internal bool TryPromoteDeferredWork(bool includeIdleCallbacks)
     {
         var timers = Timers;
         if (timers is not null && timers.TryTakeDue(out var entry))
@@ -787,7 +786,7 @@ internal sealed class WebApiEngineState
             return true;
         }
 
-        return IdleCallbacks is { } idle && idle.TryRunIdleCallback();
+        return includeIdleCallbacks && IdleCallbacks is { } idle && idle.TryRunIdleCallback();
     }
 
     /// <summary>

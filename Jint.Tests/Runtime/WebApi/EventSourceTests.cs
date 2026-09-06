@@ -923,6 +923,37 @@ public class EventSourceTests
     }
 
     [Test]
+    public void ARelativeUrlIsResolvedAgainstTheBaseUrl()
+    {
+        // Constructor step 3: "let urlRecord be the result of encoding-parsing a URL given url, relative to
+        // settings". Options.WebApi.Fetch.BaseUrl is what stands in for the settings object here, and it is
+        // what Request and WebSocket already resolve against - so all three interfaces read one relative URL
+        // the same way, and a document embedding this engine can write the URL it would write in a browser.
+        var handler = new StubHandler();
+        var (engine, _) = SseEngine(handler, net => net.BaseUrl = new Uri("https://example.org/pages/one.html"));
+
+        engine.Execute("var source = new EventSource('../stream');");
+        Pump(engine, () => handler.Requests.Count > 0, "the connection to be attempted");
+
+        handler.Requests[0].Url.Should().Be(StreamUrl);
+        engine.Execute("source.close();");
+    }
+
+    [Test]
+    public void AnEngineWithNoBaseUrlStillRequiresAnAbsoluteUrl()
+    {
+        // The other half of the same rule: with nothing to resolve against, a relative URL is a failure and
+        // step 4's SyntaxError is what a script gets - not a request to a host nobody named.
+        var handler = new StubHandler();
+        var (engine, _) = SseEngine(handler);
+
+        engine.Evaluate("(() => { try { new EventSource('../stream'); } catch (e) { return e.name; } })()")
+            .AsString().Should().Be("SyntaxError");
+
+        handler.Requests.Should().BeEmpty();
+    }
+
+    [Test]
     public void WithCredentialsIsRememberedAndChangesNothing()
     {
         var handler = new StubHandler { Responder = _ => Answer("data: ok\n\n") };

@@ -53,7 +53,7 @@ fraction of Chromium's CPU and memory per page, at some multiple of its wall-clo
 
 | v1 delivers | Out of v1 (absent, so feature detection is honest) |
 | --- | --- |
-| Full HTML5 parse with inline, external, `defer`, `async` and module scripts, import maps, `document.write`; generated DOM and CSSOM bindings; tree event dispatch; forms, history, cookies, storage, workers, `fetch`/`XMLHttpRequest`/`WebSocket`/`EventSource`; `MutationObserver`; stub `IntersectionObserver`/`ResizeObserver`; deterministic coordinate input; accessibility tree and markdown snapshots; CDP for Puppeteer/Playwright `connect`; a WPT lane; constraints per page | Layout-dependent APIs (`offsetWidth` is synthetic, `cssom-view`), rendering, screenshots, PDF, WebGL, canvas 2D, media, IndexedDB, WebAssembly, CSP enforcement, TLS-fingerprint stealth, iframe scripting (v1.1), `WindowProxy`, SharedWorker/ServiceWorker, drag and drop, real isolated worlds (v1.1) |
+| Full HTML5 parse with inline, external, `defer`, `async` and module scripts, import maps, `document.write`; generated DOM and CSSOM bindings; tree event dispatch; forms, history, cookies, storage, workers, `fetch`/`XMLHttpRequest`/`WebSocket`/`EventSource`; `MutationObserver`; stub `IntersectionObserver`/`ResizeObserver`; deterministic coordinate input; accessibility tree and markdown snapshots; CDP for Puppeteer/Playwright `connect`; a WPT lane; constraints per page | Layout-dependent APIs (`offsetWidth` is synthetic, `cssom-view`), rendering, screenshots, PDF, WebGL, canvas 2D, media, IndexedDB, `caches` (the engine has it; a page has no origin-partitioned provider to grant it on), WebAssembly, CSP enforcement, TLS-fingerprint stealth, iframe scripting (v1.1), `WindowProxy`, SharedWorker/ServiceWorker, drag and drop, real isolated worlds (v1.1) |
 
 `Page.captureScreenshot` answers a CDP error with a sentence, the way Lightpanda does.
 
@@ -75,7 +75,7 @@ fraction of Chromium's CPU and memory per page, at some multiple of its wall-clo
   in v1. The previous engine receives `beforeunload`, `pagehide` and `unload`, its cancellation token is
   cancelled, its pending fetches abandoned, and it is disposed on the page loop.
 - **One `PageLoop` thread per page**, owning the engine and the DOM: it drains a mailbox of host and protocol
-  work, calls `Tasks.ProcessTasks()`, runs the animation-frame lane, and sleeps by
+  work, runs one engine task and its microtask checkpoint, runs the animation-frame lane, and sleeps by
   `Tasks.TimeUntilNextScheduledWork` — the `WptHarness.PumpWorker` shape. Every public `Page` API and every CDP
   command posts to the mailbox and awaits a completion; nothing else touches the engine or the DOM. Workers come
   from a `ThreadPerWorkerProvider` (the package is a host, so it may start threads; the engine still never does).
@@ -181,8 +181,10 @@ frame's document — AngleSharp opens it into the nested browsing context it alr
 The constraints gotcha in the root `AGENTS.md` applies twice over: a page is a host-driven sequence of entries,
 and its event loop is pumped. So a page's budget is built only from what survives the per-entry reset.
 `BrowserOptions.MaxTaskDuration` brackets each **turn** with `OperationDeadlineConstraint.Begin`/`End`, and a
-turn is one mailbox request, one `ProcessTasks` drain (every due timer callback, microtask, promise reaction
-and animation-frame batch together) or one inline `<script>`. A request that runs out of budget fails its own
+turn is one mailbox request, one task (timer callback, observer/rendering task, animation-frame batch or
+protocol command) and its complete microtask checkpoint, or one inline `<script>`. Browser engines separate
+task and microtask lanes so recursive reactions stay in their originating task's budget even when another
+task was already queued; ordinary engine hosts retain their existing FIFO. A request that runs out of budget fails its own
 task with `TimeoutException`; a drain's and a script's are recorded as a `PageErrorKind.BudgetExceeded` entry
 and the page survives. `BrowserOptions.MemoryLimit` arms a per-page `MemoryLimitConstraint` over the same turn,
 and a worker's pump takes the same bracket over the constraint factories its parent replayed. `Page.Close` and
@@ -300,18 +302,22 @@ What is accepted and not yet effective is accepted because refusing it fails an 
 each says which campaign item makes it real: `Network.setCacheDisabled` (there is no cache to bypass) and
 `Audits.enable` (nothing to report).
 
-**The network domains are real, and three lanes of them are absent with a reason rather than pending.**
-`Network` reports every request the page makes and `Fetch` pauses one at the **request** stage, both over
-the page's own request log, which is the engine's `FetchObserver`; the document's request carries the
-`loaderId` as its `requestId`, which is what makes a client's `goto` answer a response object. What is not
-there: the `Fetch` **response** stage and with it the `IO` domain, because `FetchObserver.OnResponse` is a
-notification an observer cannot answer, so a response-stage pause could only ever continue unchanged and a
-client that fulfilled from one would be ignored; the **WebSocket and EventSource** events, because the
-engine deliberately does not observe those two handshakes and a socket reported as a request that never
-finishes would also stop `networkIdle` firing; and `Network`'s **timing** document, because no phase of a
-request is measured and a document of zeros reads as a page that loaded instantly. A paused request holds
-the transport thread it is being sent on and never the page loop — the one exception is a `<script src>` a
-running script inserted, which blocks the loop by design.
+**The network domains are real, and what is still absent is absent with a reason rather than pending.**
+`Network` reports every request the page makes, and `Fetch` pauses one at the **request** stage or the
+**response** stage, all over the page's own request log, which is the engine's `FetchObserver`; the
+document's request carries the `loaderId` as its `requestId`, which is what makes a client's `goto` answer a
+response object. A page's `WebSocket` takes the four events the protocol gives a socket — its creation, both
+handshakes and its close — over the engine's own `WebSocketObserver`, and is deliberately *not* in the
+request log, because a socket stays open for as long as the page wants it and an entry would stop
+`networkIdle` firing. What is not there: `Fetch.getResponseBody` and `takeResponseBodyAsStream` and with
+them the `IO` domain, because a response-stage pause has the response's *headers* while its body is still on
+the socket, so handing a client bytes means buffering them first — a budget decision, and
+`Network.getResponseBody` is what answers a body here; the three `webSocketFrame*` events and
+`eventSourceMessageReceived`, because the socket observer is never told about a frame and a stream is
+observed as bytes rather than as the events they decode into; and `Network`'s **timing** document, because
+no phase of a request is measured and a document of zeros reads as a page that loaded instantly. A paused
+request holds the transport thread it is being sent on and never the page loop — the one exception is a
+`<script src>` a running script inserted, which blocks the loop by design.
 
 **`Emulation` is effective, and the question each command answers is *when*.** The viewport, the emulated
 media type and its Level 5 preference features, touch, focus, geolocation, the user agent and the hardware
@@ -454,8 +460,11 @@ planned. A blank last column means the section above describes what exists.
 | 10 | `Jint.Browser.Mcp`, the Model Context Protocol server, and `jint-browser mcp` serving it on stdio | [#3717](https://github.com/sebastienros/jint/pull/3717) | **`--http` did not ship** — the protocol's 2026-07-28 revision removed the session header from streamable HTTP, and the two ways to hold per-session state either need an `[Experimental]` handler or put an ASP.NET Core framework reference in a `dotnet tool`; and a `ref=` is the accessibility tree's own identifier rather than a `backendNodeId`, which belongs to a protocol target an MCP session has none of |
 
 Two decisions in the v1/not-v1 table of §2 turned out differently and are worth naming here rather than
-leaving a reader to compare tables. `IntersectionObserver` and `ResizeObserver` are no longer stubs, since
-§8's model gives them numbers to report. And `getComputedStyle` answers a *resolved* value for the ten
+leaving a reader to compare tables. §8's model gives both observers numbers to report.
+`IntersectionObserver` still reports each target once, fully intersecting. `ResizeObserver` also reports
+subsequent synthetic size changes, including hidden-to-visible transitions, from page-turn checkpoints;
+its entries preserve the measured size. Callback-induced changes are deferred to another task rather than
+processed through a depth-limited rendering loop. And `getComputedStyle` answers a *resolved* value for the ten
 properties an automation client reads to decide whether an element can be interacted with
 ([#3716](https://github.com/sebastienros/jint/pull/3716)) — the smallest exception to the standing decision
 against an initial-value table of our own, made because without it no supported client can drive a page.
