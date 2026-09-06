@@ -94,16 +94,27 @@ would be a report on the profile.
 
 ### Packaging
 
-`PackAsTool` with `ToolCommandName` `jint-browser`, `net8.0;net10.0`, and the first tool package in the
-repository. Three things about it are decisions:
+`PackAsTool` with `ToolCommandName` `jint-browser`. Ordinary builds keep `net8.0;net10.0` for the
+in-process tests; **distribution sets `BrowserToolNative=true`**, selects `net10.0` and uses .NET 10's
+platform-specific Native AOT tool format. Installation requires the .NET 10 SDK, execution no runtime.
 
-- **`IsAotCompatible=false`, and the reason is AngleSharp's** rather than this project's — the same reason
-  `Jint.Browser/Jint.Browser.csproj` argues at length. `PackAsTool` and `PublishAot` cannot both be true
-  anyway, so nothing is lost by saying so out loud.
-- **It packs from `build.yml` and `release.yml` beside `Jint`, `Jint.DevTools`, `Jint.Browser`, `Jint.Browser.Playwright` and `Jint.Browser.Mcp`**, at the
-  same version and from the same tag, because it references them by project. `pr.yml` packs nothing but
-  `Jint`, so a packaging change is verified by running `dotnet pack Jint.Browser.Tool/Jint.Browser.Tool.csproj`
-  before the pull request, not by CI.
+- **Publish AOT on this executable, not as a global MSBuild property.** A global `PublishAot=true`
+  reaches Jint's downlevel targets and its source generators and fails before compiling the tool.
+  No assembly is rooted wholesale and no new IL diagnostic is suppressed. `IlcTreatWarningsAsErrors=false`
+  keeps the core engine's standing inventory visible, as in `Jint.AotExample`; the distribution workflow
+  rejects diagnostics outside that core-engine inventory. This closed program's native run is not a
+  general `IsAotCompatible` claim for the browser libraries.
+- **`browser-tool.yml` is reused by PR, build and release workflows.** Each of the six OS/architecture
+  legs packs a RID implementation and the selection manifest, installs from a source-mapped local feed,
+  and runs `Tool/PublishedToolTests` against the installed executable. The tests cover extraction, scripts,
+  CSS, XML, XPath, globalization, CDP and MCP. Set `JINT_BROWSER_TOOL` and `JINT_BROWSER_TOOL_VERSION` to
+  reproduce; without them those process tests are skipped rather than passed.
+- **`build.yml` and `release.yml` publish the same seven tool packages**, at the libraries' version:
+  six RID packages first, then `Jint.Browser.Tool`'s manifest. The manifest alone is not an installable
+  distribution. Publishing a GitHub release attaches the six single executables and `SHA256SUMS`, without
+  publishing NuGet again. The nuget.org trusted-publishing policy for `release.yml` / environment `nuget`
+  must permit creating the new `Jint.*` IDs, not only updating `Jint`. Symbols and reference documentation
+  are not runtime files.
 - **`README.md` here is the package README NuGet shows.** It is written for somebody who found the tool
   rather than the engine: it must keep saying that this renders nothing, and it must keep the exit-code
   table in step with `ExitCode`. `Jint.Browser.Mcp/README.md` is the other one, for the other audience.
