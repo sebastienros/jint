@@ -1,4 +1,4 @@
-﻿# Agent instructions: the page-level protocol
+# Agent instructions: the page-level protocol
 
 > **Read this when:** You are touching `Jint.Browser/DevTools/` — a page target, a page-level domain (`Page`, `DOM`,
 > `Network`, `Fetch`, `Input`, `Emulation`, `Accessibility`, `Jint`), or the request log the protocol reads.
@@ -83,7 +83,13 @@ target/runtime split and the manifest are there and none of it is repeated here.
   own state, not a request's. The document's request carries the `loaderId` as its `requestId`, which is how
   every client tells a navigation apart.
 - **What is accepted and not effective says so, in place.** `Network.setCacheDisabled` (there is no cache)
-  and `Audits.enable` are answered because a refusal fails an ordinary connection. The `Fetch` **response stage** is here: a
+  and `Audits.enable` are answered because a refusal fails an ordinary connection. **Authentication is here**:
+  `handleAuthRequests` turns it on, a `401` carrying a `WWW-Authenticate` pauses as `Fetch.authRequired`, and
+  `continueWithAuth` answers it over `FetchObserver.OnAuthRequiredAsync`. Only `Basic` can be answered, every
+  other scheme is still *reported* — being asked is how a client tells "unsupported" from "never challenged" —
+  and `ProvideCredentials` for one of those is refused with an error naming the scheme rather than accepted
+  and dropped. A `407` is a proxy's and is not reported, the proxy belonging to the context's `HttpClient`, so
+  `source` is always `Server`. The `Fetch` **response stage** is here: a
   pattern asking for `requestStage: "Response"` pauses with the response's status and headers, and
   `continueResponse`, `fulfillRequest` and `failRequest` answer one — a default pattern still pauses the
   request stage only, that being the protocol's own default, and pausing both would double every pause a

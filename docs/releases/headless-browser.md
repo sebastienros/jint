@@ -83,14 +83,14 @@ than written from here.
 | [#1315](https://github.com/AngleSharp/AngleSharp/pull/1315) | The HTML parser tracks an exception escaping host code instead of throwing it or dropping it |
 | [#1309](https://github.com/AngleSharp/AngleSharp/issues/1309) | Host-owned navigation and parsing: a `location` setter navigates on the caller's thread, a sync-parse script exception is dropped, and `ReadyState` cannot be set by a host — the issue behind the parser driver's own `readyState` shadow |
 
-**AngleSharp.Css** — merged:
+**AngleSharp.Css** — shipped in 1.1.0 and consumed by [#3861](https://github.com/sebastienros/jint/pull/3861):
 
 | | |
 | --- | --- |
 | [#228](https://github.com/AngleSharp/AngleSharp.Css/pull/228) | `matchMedia`'s media query list is evaluated against the render device instead of answering `false` for every query |
 | [#229](https://github.com/AngleSharp/AngleSharp.Css/pull/229) | An opt-in switch for CSSOM-compliant colour serialization, for [#227](https://github.com/AngleSharp/AngleSharp.Css/issues/227) — an opaque colour serializes as `rgba(r, g, b, 1)` where CSSOM says `rgb(r, g, b)` |
 
-**AngleSharp.Css** — issues, each one a divergence this work measured; all five are fixed on `devel` (#230–#233 by the maintainer, #234 by our [#235](https://github.com/AngleSharp/AngleSharp.Css/pull/235), which adds `IRenderDevicePreferences`) and wait for a release, which is #3726's job to consume:
+**AngleSharp.Css** — resolved upstream divergences, also consumed from 1.1.0 (#230–#233 by the maintainer, #234 by our [#235](https://github.com/AngleSharp/AngleSharp.Css/pull/235), which adds `IRenderDevicePreferences`):
 
 | | |
 | --- | --- |
@@ -98,7 +98,15 @@ than written from here.
 | [#231](https://github.com/AngleSharp/AngleSharp.Css/issues/231) | `not <known media type>` is always false |
 | [#232](https://github.com/AngleSharp/AngleSharp.Css/issues/232) | `Is()` never matches a `CssConstantValue`, so `orientation` and `scan` evaluate wrongly |
 | [#233](https://github.com/AngleSharp/AngleSharp.Css/issues/233) | The `scripting` media feature is registered with the `scan` validator |
-| [#234](https://github.com/AngleSharp/AngleSharp.Css/issues/234) | `IRenderDevice` has no Media Queries Level 5 user-preference features, which is why the browser answers them itself |
+| [#234](https://github.com/AngleSharp/AngleSharp.Css/issues/234) | `IRenderDevicePreferences` supplies the page's defaults and live emulated preferences to the stylesheet cascade |
+
+The dependency upgrade synchronized the DOM binding pin and regenerated its output. `PageRenderDevice`
+now supplies the same preference values to stylesheet `@media` rules and `matchMedia`, including explicit
+overrides, clearing overrides, and touch state. The regression tests cover those transitions and isolation
+between browsing contexts. The local `matchMedia` evaluator remains because 1.1.0 still differs on negated
+conjunctions, boolean dimensions and colour features, malformed query text, and ordered gamut/dynamic-range
+preferences; [the divergence register](https://github.com/sebastienros/jint/blob/main/Jint.Browser/Dom/divergences.md) records those limits. The page
+continues to own preference-change notifications and their scheduling.
 
 The divergences that are *not* upstream contributions — because they are decisions AngleSharp is entitled to
 and this package works within — are the two tables at the end of
