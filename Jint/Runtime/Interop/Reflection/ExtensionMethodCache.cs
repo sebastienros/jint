@@ -59,7 +59,7 @@ internal sealed class ExtensionMethodCache
     /// being scanned for. The requirement is stated where a host can act on it instead:
     /// <c>Options.AddExtensionMethods(params Type[])</c> carries <c>[RequiresUnreferencedCode]</c> saying
     /// exactly this and naming the fix (root the declaring types), and
-    /// <c>docs/v5-migration.md</c> §6.3 repeats it. Suppressed rather than left to the csproj's
+    /// <c>docs/guide/migrating-to-v5.md</c> §6.3 repeats it. Suppressed rather than left to the csproj's
     /// <c>NoWarn</c>, which reaches Jint's own compilation and no embedder's.
     /// </remarks>
     [UnconditionalSuppressMessage("Trimming", "IL2067:UnrecognizedReflectionPattern",

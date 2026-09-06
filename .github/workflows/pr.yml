@@ -26,6 +26,9 @@ concurrency:
 
 jobs:
 
+  browser-tool:
+    uses: ./.github/workflows/browser-tool.yml
+
   test:
 
     name: ${{ matrix.os.name }}

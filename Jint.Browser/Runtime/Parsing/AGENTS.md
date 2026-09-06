@@ -99,6 +99,17 @@ is the shape AngleSharp's own processors already test for; the `load` and `error
 dispatched through Jint's dispatcher, because AngleSharp's go into its own listener lists. `integrity` and
 `crossorigin` are accepted and ignored, and say so here rather than in a sentence nobody reads.
 
+**A linked stylesheet completes after CSS processing, not after its fetch.** `PageStylingService` delegates
+the parse to AngleSharp.Css, then hands the completion to the driver. Both `load` and `error` are engine
+tasks: an inserting script and its microtasks finish first, and the processor has assigned `link.sheet`
+before a load listener reads it. Parsing failures are reported and rethrown to AngleSharp's processor,
+never converted into success. The driver drains outstanding stylesheet events before window `load`,
+including sheets inserted by those handlers; each event keeps the task budget and document cancellation.
+Queuing at the fetch instead would let a parser-time network pump deliver before the CSSOM exists.
+`Engine.Execute` also drains tasks for nested script elements, so a delivery reached while `currentScript`
+is set is deferred and re-posted after the outermost element restores it. Otherwise a stylesheet callback
+could run in the middle of the AMD loader's inserting script even though it was queued as a task.
+
 **A frame's document is fetched, and the nested browsing context is AngleSharp's.**
 `HtmlFrameElementBase.SetupElement` already makes a child context per frame element and asks the loader for
 the document to put in it; refusing that request was the whole of why `contentDocument` was `null` and

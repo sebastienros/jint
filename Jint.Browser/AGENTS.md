@@ -151,7 +151,9 @@ and nothing belonging to an engine — a `JsValue`, an AngleSharp node — may b
 - **`ResizeObserver` tracks changes in the flat model**, not just the initial size. A target mounted under
   `display: none` must hear its later visible size, or a component that gates rendering on that measurement
   stays empty forever. `ResizeObserverLane` checks at page-turn boundaries and in both nested pumps, shares
-  one layout per check/delivery, and schedules a task only for changed dimensions. No mutation observer is
+  one size-only query per check/delivery, and schedules a task only for changed dimensions. That query
+  visits observed subtrees and their visibility ancestors, not unrelated document branches; all delivery
+  measurements are captured before any callback, and no cascade or measurement survives into another query. No mutation observer is
   installed: ancestor `classList`, CSSOM writes and viewport changes must work too. Idle wakes do not scan,
   and a page with no resize observers allocates no lane. Entries retain measured sizes; the active list
   retains observers only while they have targets. Callback-caused changes wait for another task rather than
@@ -315,7 +317,7 @@ diff. **Nothing public takes or answers an AngleSharp node**, which is why `Page
 selector; R2 reaches the same algorithm through the internal `FormSubmitter.Submit` from inside the loop.
 Everything else is internal, and that is a decision with a date on it. `DomBindings`, `DomRealm`,
 `DomInterfaceDefinition` and `DomHostHooks` are the four most likely to be promoted next, each with XML docs
-and a `docs/v5-migration.md` row. Until then `Jint.Tests.Browser` is the only consumer, which is why it is
+and a `docs/guide/migrating-to-v5.md` row. Until then `Jint.Tests.Browser` is the only consumer, which is why it is
 named in `InternalsVisibleTo` and why every test of the binding is written against the internal surface
 rather than around it.
 

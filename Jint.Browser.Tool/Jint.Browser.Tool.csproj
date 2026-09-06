@@ -4,9 +4,8 @@
     <NeutralLanguage>en-US</NeutralLanguage>
     <OutputType>Exe</OutputType>
 
-    <!-- The package's own two target frameworks, for the same reason Jint.Browser has them: this is host
-         surface on the modern BCL, and a tool package carries one asset per framework so that whichever
-         runtime the user has installed is the one `dotnet tool install` resolves. -->
+    <!-- Keep both frameworks for the in-process command tests. Distribution below uses the .NET 10
+         platform-specific tool format, which requires the .NET 10 SDK to install. -->
     <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
 
     <AssemblyOriginatorKeyFile>..\Jint\Jint.snk</AssemblyOriginatorKeyFile>
@@ -26,16 +25,36 @@
     <AnalysisLevel>latest-Recommended</AnalysisLevel>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
 
-    <!--
-      Trim and AOT analysis is off for the same reason Jint.Browser's is, and it is that package's reason
-      rather than this one's: AngleSharp resolves services, element factories and attribute handlers by
-      reflection over its own assembly and carries no DynamicallyAccessedMembers claim, so a native binary
-      built from this project would fail at run time in code no analyzer here can see. A tool package is
-      framework-dependent anyway — PackAsTool and PublishAot cannot both be true — so nothing is lost by
-      saying so.
-    -->
+    <!-- Do not assert that the browser library is generally trim-safe. The closed native tool is
+         published and exercised separately, including its AngleSharp, CDP and MCP paths. -->
     <IsAotCompatible>false</IsAotCompatible>
   </PropertyGroup>
+
+  <!-- Scope AOT to this executable: a command-line PublishAot=true would propagate to Jint's
+       downlevel targets and its netstandard source generators, where AOT is unsupported. -->
+  <PropertyGroup Condition="'$(BrowserToolNative)' == 'true'">
+    <TargetFrameworks>net10.0</TargetFrameworks>
+    <AssemblyName>jint-browser</AssemblyName>
+    <ToolPackageRuntimeIdentifiers>linux-x64;linux-arm64;osx-x64;osx-arm64;win-x64;win-arm64</ToolPackageRuntimeIdentifiers>
+    <PublishAot>true</PublishAot>
+    <SelfContained>true</SelfContained>
+    <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
+    <IncludeSymbols>false</IncludeSymbols>
+    <!-- The same standing Jint interop inventory as Jint.AotExample. Keep the diagnostics visible;
+         the distribution workflow rejects diagnostics outside the core engine and runs the binary. -->
+    <IlcTreatWarningsAsErrors>false</IlcTreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <Target Name="RemoveNativeToolReferenceDocumentation"
+          AfterTargets="ComputeFilesToPublish"
+          Condition="'$(BrowserToolNative)' == 'true'">
+    <ItemGroup>
+      <!-- Project-reference PDBs and XML documentation are not inputs at run time. Native symbols stay
+           in the intermediate directory; both the RID package and the download contain one executable. -->
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)"
+                            Condition="'%(Extension)' == '.pdb' or '%(Extension)' == '.xml'" />
+    </ItemGroup>
+  </Target>
 
   <ItemGroup>
     <ProjectReference Include="..\Jint.Browser\Jint.Browser.csproj" />

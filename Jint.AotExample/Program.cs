@@ -15,7 +15,7 @@
 //                     because the member was trimmed and nothing reported it. Checked in both
 //                     directions for the same reason, and it is the only entry here whose native
 //                     expectation is a WRONG ANSWER rather than a failure - which is precisely the
-//                     failure mode docs/v5-migration.md section 6.4 says to plan for, because no
+//                     failure mode docs/guide/migrating-to-v5.md section 6.4 says to plan for, because no
 //                     diagnostic anywhere reports it.
 //
 // Every known gap is one shape: a generic instantiation over a VALUE TYPE built at run time, either
@@ -43,7 +43,7 @@
 //     a closed generic type the SCRIPT named, constructed through importNamespace
 //
 // Each of the four that throw can be closed by the embedder rather than by Jint, by making the
-// instantiation reachable from their own code; docs/v5-migration.md section 6.2 says how. Jint cannot
+// instantiation reachable from their own code; docs/guide/migrating-to-v5.md section 6.2 says how. Jint cannot
 // do it for them: no signature anywhere in Jint predicts which value types a host's members and a
 // script's arguments will produce, and rooting a guessed set would cost every AOT consumer binary size
 // for instantiations they never use.
@@ -473,7 +473,7 @@ Probe("unrooted host type through SetValue<T>: the annotation preserves its memb
 
     // T is inferred as PreservedByAnnotation, so the type parameter's [DynamicallyAccessedMembers] names
     // exactly this type and the trimmer keeps its public property, field and method. This is the claim
-    // docs/v5-migration.md section 6.3 makes when it points an embedder away from SetValue(string, object?).
+    // docs/guide/migrating-to-v5.md section 6.3 makes when it points an embedder away from SetValue(string, object?).
     engine.SetValue("h", new PreservedByAnnotation());
 
     Expect("preserved", engine.Evaluate("h.name"));

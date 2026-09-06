@@ -74,6 +74,11 @@
       "reason": "Form reset fires a cancelable reset event whose default action resets the controls; AngleSharp's Reset() is only the default action's second half and fires nothing. The events bridge re-declares reset() in `additions` and calls AngleSharp's Reset() from it."
     },
     {
+      "interface": "HTMLSelectElement",
+      "member": "selectedIndex",
+      "reason": "HTML declares a writable selectedIndex. AngleSharp's select exposes only the getter, although its Options.SelectedIndex has the setter. Re-declared in additions to expose both halves over the same option selection state."
+    },
+    {
       "interface": "Document",
       "member": "activeElement",
       "reason": "AngleSharp never assigns IDocument.ActiveElement — not on DoFocus, not on parse — so the generated accessor answers null for the whole life of a document, where HTML says the body element. The events bridge owns focus and re-declares activeElement in `additions`."
@@ -468,6 +473,21 @@
         "return global::Jint.Native.JsValue.Undefined;"
       ],
       "reason": "AngleSharp's [DomName(\"submit\")] sits on SubmitAsync(), whose Task return has no conversion-table entry. HTML's submit() skips both the interactive validation and the submit event, which is the whole of what distinguishes it from requestSubmit()."
+    },
+    {
+      "interface": "HTMLSelectElement",
+      "member": "selectedIndex",
+      "kind": "attribute",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSelectElement>(thisObj, \"HTMLSelectElement.selectedIndex\");",
+        "return global::Jint.Browser.Dom.DomConvert.Number(self.Target.SelectedIndex);"
+      ],
+      "setter": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSelectElement>(thisObj, \"HTMLSelectElement.selectedIndex\");",
+        "self.Target.Options.SelectedIndex = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"HTMLSelectElement.selectedIndex\");",
+        "return global::Jint.Native.JsValue.Undefined;"
+      ],
+      "reason": "https://html.spec.whatwg.org/multipage/form-elements.html#dom-select-selectedindex: selects the indexed option and clears the rest, or clears all for an out-of-range index. Reuse the writable options collection rather than maintaining a second selectedness model."
     },
     {
       "interface": "HTMLFormElement",
