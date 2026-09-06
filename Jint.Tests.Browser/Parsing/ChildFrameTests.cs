@@ -214,7 +214,51 @@ public class ChildFrameTests
     }
 
     [Test]
-    public async Task ContentWindowIsNullBecauseAFrameHasNoRealm()
+    public async Task AFrameHasAWindowOfItsOwnOnThePagesRealm()
+    {
+        await using var loopback = await LoopbackPage.CreateAsync(server => server
+            .MapHtml("/child.html", "<!doctype html><html><body><p id=inner>child</p></body></html>")
+            .MapHtml("/", "<!doctype html><html><body><iframe id=f name=side src=\"/child.html\"></iframe></body></html>"));
+
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+
+        // A window of its own — the property the corpus tests, and the reason a frame gets an object at all.
+        (await loopback.Page.EvaluateAsync<bool>("document.getElementById('f').contentWindow !== window"))
+            .Should().BeTrue();
+        (await loopback.Page.EvaluateAsync<bool>(
+            "document.getElementById('f').contentWindow === document.getElementById('f').contentWindow"))
+            .Should().BeTrue("a frame answers the same window every time");
+
+        // Its document, and the same object `contentDocument` answers.
+        (await loopback.Page.EvaluateAsync<bool>(
+            "document.getElementById('f').contentWindow.document === document.getElementById('f').contentDocument"))
+            .Should().BeTrue();
+        (await loopback.Page.EvaluateAsync<string>(
+            "document.getElementById('f').contentWindow.document.getElementById('inner').textContent"))
+            .Should().Be("child");
+
+        // The three names that mean "this window", and the two that mean "the one above".
+        (await loopback.Page.EvaluateAsync<bool>(
+            "var w = document.getElementById('f').contentWindow; w.window === w && w.self === w && w.frames === w"))
+            .Should().BeTrue();
+        (await loopback.Page.EvaluateAsync<bool>(
+            "var w = document.getElementById('f').contentWindow; w.parent === window && w.top === window"))
+            .Should().BeTrue();
+        (await loopback.Page.EvaluateAsync<bool>(
+            "document.getElementById('f').contentWindow.frameElement === document.getElementById('f')"))
+            .Should().BeTrue();
+
+        // Indexed and named access on the page's own window reach the same object.
+        (await loopback.Page.EvaluateAsync<bool>("frames[0] === document.getElementById('f').contentWindow"))
+            .Should().BeTrue();
+        (await loopback.Page.EvaluateAsync<bool>("window.side === document.getElementById('f').contentWindow"))
+            .Should().BeTrue("HTML answers a named frame's window, not its element");
+        (await loopback.Page.EvaluateAsync<double>("window.length")).Should().Be(1);
+        (await loopback.Page.EvaluateAsync<bool>("frames[1] === undefined")).Should().BeTrue();
+    }
+
+    [Test]
+    public async Task AFrameDocumentHasThatWindowAsItsDefaultView()
     {
         await using var loopback = await LoopbackPage.CreateAsync(server => server
             .MapHtml("/child.html", "<!doctype html><html><body>child</body></html>")
@@ -222,12 +266,76 @@ public class ChildFrameTests
 
         await loopback.Page.NavigateAsync(loopback.Url("/"));
 
-        // Null rather than absent: `'contentWindow' in frame` and `if (frame.contentWindow)` disagree about a
-        // member that is missing and one that is null, and a page tests both.
-        (await loopback.Page.EvaluateAsync<bool>("document.getElementById('f').contentWindow === null"))
+        (await loopback.Page.EvaluateAsync<bool>(
+            "document.getElementById('f').contentDocument.defaultView === document.getElementById('f').contentWindow"))
             .Should().BeTrue();
-        (await loopback.Page.EvaluateAsync<bool>("'contentWindow' in document.getElementById('f')"))
+
+        // What a large part of the DOM corpus reaches `defaultView` for: a constructor to compare a refusal
+        // against. It is the page's, because there is one realm — Runtime/FrameWindows argues it and
+        // Dom/divergences.md records it.
+        (await loopback.Page.EvaluateAsync<bool>(
+            "document.getElementById('f').contentDocument.defaultView.DOMException === DOMException"))
             .Should().BeTrue();
+    }
+
+    [Test]
+    public async Task AFramesLocationReadsItsOwnUrlAndRefusesAWriteOutLoud()
+    {
+        await using var loopback = await LoopbackPage.CreateAsync(server => server
+            .MapHtml("/child.html", "<!doctype html><html><body>child</body></html>")
+            .MapHtml("/", "<!doctype html><html><body><iframe id=f src=\"/child.html?q=1#h\"></iframe></body></html>"));
+
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+
+        // The frame's URL, not the page's — the reason `location` is shadowed rather than inherited.
+        (await loopback.Page.EvaluateAsync<bool>(
+            "document.getElementById('f').contentWindow.location.href.indexOf('/child.html') !== -1"))
+            .Should().BeTrue();
+        (await loopback.Page.EvaluateAsync<string>(
+            "document.getElementById('f').contentWindow.location.pathname")).Should().Be("/child.html");
+        (await loopback.Page.EvaluateAsync<string>(
+            "document.getElementById('f').contentWindow.location.search")).Should().Be("?q=1");
+        (await loopback.Page.EvaluateAsync<bool>(
+            "document.getElementById('f').contentWindow.location.href !== location.href")).Should().BeTrue();
+
+        // And a write throws rather than doing nothing. A silent no-op is what turned a wpt document that
+        // navigates a frame into one that times out; a refusal a page can see fails it fast instead.
+        (await loopback.Page.EvaluateAsync<string>(
+            "(function () { try { document.getElementById('f').contentWindow.location.href = '/other'; return 'no throw'; } "
+            + "catch (e) { return e.constructor.name; } })()"))
+            .Should().Be("TypeError");
+    }
+
+    [Test]
+    public async Task TheCustomElementCorpusHelperResolvesWithAWindowWhoseConstructorsAreThePages()
+    {
+        // `create_window_in_test` out of wpt's own `custom-elements/resources/custom-elements-helpers.js`,
+        // in the shape that file uses it: a frame made in script, `srcdoc`, and the window read out of
+        // `onload`. Thirty-seven `custom-elements/` documents are built on it, and the reason they are in the
+        // not-vendored table was that it resolved with nothing. It resolves now — and the last line is why
+        // that is not the same as those documents reporting: what they compare across the frame is a
+        // *constructor*, and a frame shares the page's realm, so it is the page's constructor. That is the
+        // realm half of #3771, and `Dom/divergences.md` records the identity it makes true.
+        const string page = """
+            <!doctype html><html><body><script>
+            window.result = 'pending';
+            var f = document.createElement('iframe');
+            f.srcdoc = '<p id=inner>frame</p>';
+            f.onload = function () {
+              var w = f.contentWindow;
+              window.result = !w ? 'no window'
+                : w.document.getElementById('inner') === null ? 'no document'
+                : w.HTMLElement === HTMLElement ? 'same constructor' : 'own constructor';
+            };
+            document.body.appendChild(f);
+            </script></body></html>
+            """;
+
+        await using var loopback = await LoopbackPage.CreateAsync(server => server.MapHtml("/", page));
+
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+
+        (await loopback.Page.EvaluateAsync<string>("window.result")).Should().Be("same constructor");
     }
 
     [Test]
