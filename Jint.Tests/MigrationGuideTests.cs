@@ -6,7 +6,7 @@ using System.Text.RegularExpressions;
 namespace Jint.Tests;
 
 /// <summary>
-/// <c>docs/v5-migration.md</c> held to the numbering rule it states for itself.
+/// <c>docs/guide/migrating-to-v5.md</c> held to the numbering rule it states for itself.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -98,7 +98,7 @@ public class MigrationGuideTests
 
     private static List<Section> ReadSections()
     {
-        var path = Path.Combine(AgentInstructionFiles.RepositoryRoot, "docs", "v5-migration.md");
+        var path = Path.Combine(AgentInstructionFiles.RepositoryRoot, "docs", "guide", "migrating-to-v5.md");
         File.Exists(path).Should().BeTrue($"the migration guide is expected at {path}");
 
         var sections = new List<Section>();

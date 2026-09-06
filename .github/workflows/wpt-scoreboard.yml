@@ -268,7 +268,7 @@ jobs:
     # published: everything on the page can be recomputed from it by anybody who downloads it.
     - name: Upload wptreport.json
       if: always()
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v7
       with:
         name: wptreport
         path: ${{ runner.temp }}/wptreport.json

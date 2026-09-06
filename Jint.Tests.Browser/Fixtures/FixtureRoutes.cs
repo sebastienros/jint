@@ -12,6 +12,17 @@ namespace Jint.Tests.Browser.Fixtures;
 /// </remarks>
 internal static class FixtureRoutes
 {
+    /// <summary>The tenant-relative paths configured by Orchard's unmodified ocmonaco.js.</summary>
+    internal static LoopbackServer Monaco(LoopbackServer server)
+    {
+        const string prefix = "/monaco-amd/tenant/OrchardCore.Resources/Scripts/monaco/";
+        server.Map(prefix + "vs/editor/editor.main.js",
+            _ => LoopbackResponse.Script(FixtureCorpus.Read("vendor/monaco-0.52.2/vs/editor/editor.main.js")));
+        server.Map(prefix + "vs/editor/editor.main.css",
+            _ => LoopbackResponse.Css(FixtureCorpus.Read("vendor/monaco-0.52.2/vs/editor/editor.main.css")));
+        return server;
+    }
+
     /// <summary>
     /// The <c>cookie-login</c> fixture's origin: a sign-in that answers <c>Set-Cookie</c> on a <c>303</c>,
     /// and a protected page that reads the cookie back off the request.

@@ -1,0 +1,35 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Monaco AMD stylesheet dependency</title>
+  <script src="/vendor/monaco-0.52.2/vs/loader.js"></script>
+  <script src="/vendor/monaco-0.52.2/ocmonaco.js" data-tenant-prefix="/monaco-amd/tenant"></script>
+</head>
+<body>
+  <p id="status">Waiting for AMD</p>
+  <script>
+    window.callbackCount = 0;
+    window.requireReturned = false;
+    window.resourceEvents = [];
+    document.addEventListener('load', function (event) {
+      if (event.target.tagName === 'LINK') {
+        resourceEvents.push('css:' + !!event.target.sheet + ':' + event.isTrusted);
+      }
+    }, true);
+    require(['vs/editor/editor.main'], function (api) {
+      window.monaco = api;
+      callbackCount++;
+      window.callbackWasDeferred = requireReturned && document.currentScript === null;
+      // A model exercises the actual editor API without asking for a rendered canvas or a worker.
+      var model = api.editor.createModel('query { __typename }', 'plaintext');
+      document.getElementById('status').textContent = model.getValue();
+      model.dispose();
+    }, function (error) {
+      document.getElementById('status').textContent = 'AMD error: ' + error;
+      console.error(error);
+    });
+    requireReturned = true;
+  </script>
+</body>
+</html>

@@ -60,6 +60,10 @@ internal sealed class PageLayout
     /// <summary>How far the page is scrolled down, in CSS pixels.</summary>
     internal double ScrollY => _scrollY;
 
+    /// <summary>Starts a fresh size-only query without laying out unrelated document branches.</summary>
+    internal FlatLayout.SizeQuery MeasureSizes()
+        => new(_runtime.Document, Visibility, _runtime.Viewport.Width, Visibility.CreateTraversal(_runtime.Document));
+
     /// <summary>The layout of the document as it stands, with the current viewport and scroll offset.</summary>
     internal FlatLayout Current()
     {
