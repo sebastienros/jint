@@ -190,9 +190,10 @@ internal sealed class DomRealm
     /// <remarks>
     /// This is the general entry, reached when a value arrives from outside a generated member — a host
     /// handing over a document, or a member whose declared type is a base of what it returned. A generated
-    /// member whose declared return type is already precise calls a typed overload instead.
+    /// member whose declared return type is already precise calls a typed overload instead. An explicit
+    /// definition selects a <c>DomReturnType</c> projection when the object implements multiple IDL interfaces.
     /// </remarks>
-    internal JsValue Wrap(object? value)
+    internal JsValue Wrap(object? value, DomInterfaceDefinition? definition = null)
     {
         if (value is null)
         {
@@ -204,7 +205,7 @@ internal sealed class DomRealm
             return cached;
         }
 
-        var definition = DomTypeMap.For(value.GetType());
+        definition ??= DomTypeMap.For(value.GetType());
         if (definition is null)
         {
             Throw.TypeError(
@@ -245,23 +246,15 @@ internal sealed class DomRealm
             return cached;
         }
 
-        var definition = DomTypeMap.For(collection.GetType()) ?? DomInterfaces.HTMLCollection;
-        return Cache(collection, new DomHtmlCollectionObject<T>(this, definition, collection));
-    }
-
-    /// <summary>
-    /// Projects the <c>IHtmlCollection&lt;IElement&gt;</c> AngleSharp returns from <c>querySelectorAll</c> as
-    /// the static <c>NodeList</c> DOM specifies.
-    /// </summary>
-    internal JsValue WrapStaticNodeList(IHtmlCollection<IElement> nodes)
-    {
-        if (_wrappers.TryGetValue(nodes, out var cached))
+        var definition = DomTypeMap.For(collection.GetType());
+        if (definition?.WrapperKind != DomWrapperKind.HtmlCollection)
         {
-            return cached;
+            // AngleSharp's QueryCollection also implements INodeList. The member's IDL return type,
+            // not that extra CLR interface, decides whether named properties belong on this result.
+            definition = DomInterfaces.HTMLCollection;
         }
 
-        var target = new DomStaticNodeList(nodes);
-        return Cache(nodes, new DomCollectionObject(this, DomInterfaces.NodeList, target, DomAccessorNodeList.Instance));
+        return Cache(collection, new DomHtmlCollectionObject<T>(this, definition, collection));
     }
 
     /// <summary>Projects the live <c>NodeList</c> of labels associated with a labelable element.</summary>

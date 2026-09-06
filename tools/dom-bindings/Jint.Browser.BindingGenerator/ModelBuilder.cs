@@ -816,7 +816,13 @@ internal sealed class ModelBuilder
             ? ExtensionCall(method, "self.Target", [.. arguments])
             : "self.Target." + method.Name + "(" + string.Join(", ", arguments) + ")";
 
-        if (!_conversions.TryReturn(method.ReturnType, call, "self.Realm", IsNullableString(model, domName), out var body, out var returnReason))
+        var projectedReturnType = ReturnTypeOf(method);
+        if (projectedReturnType is not null)
+        {
+            call = "(" + CSharpNames.Render(projectedReturnType) + ") (" + call + ")";
+        }
+
+        if (!_conversions.TryReturn(projectedReturnType ?? method.ReturnType, call, "self.Realm", IsNullableString(model, domName), out var body, out var returnReason, exactInterface: projectedReturnType is not null))
         {
             _model.Skipped.Add(new SkipRecord(model.DomName, domName, returnReason));
             return;

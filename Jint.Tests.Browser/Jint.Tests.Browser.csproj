@@ -134,7 +134,7 @@
     a fixture that needed an image would be a fixture about a rendering, and this browser has none.
   -->
   <ItemGroup>
-    <EmbeddedResource Include="Fixtures\**\*.html;Fixtures\**\*.js;Fixtures\**\*.mjs;Fixtures\**\*.css;Fixtures\**\*.json;Fixtures\**\*.svelte;Fixtures\**\*.md;Fixtures\**\LICENSE">
+    <EmbeddedResource Include="Fixtures\**\*.html;Fixtures\**\*.js;Fixtures\**\*.mjs;Fixtures\**\*.css;Fixtures\**\*.json;Fixtures\**\*.svelte;Fixtures\**\*.md;Fixtures\**\*.txt;Fixtures\**\LICENSE">
       <LogicalName>browser-fixtures/%(RecursiveDir)%(Filename)%(Extension)</LogicalName>
     </EmbeddedResource>
   </ItemGroup>

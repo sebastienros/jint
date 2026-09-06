@@ -33,7 +33,7 @@ internal sealed class Conversions
     /// The expression that turns <paramref name="value"/> — a C# expression of type <paramref name="type"/> —
     /// into a <c>JsValue</c>. <paramref name="realm"/> names the realm variable a wrapping conversion needs.
     /// </summary>
-    internal bool TryReturn(Type type, string value, string realm, bool nullableString, out string code, out string reason)
+    internal bool TryReturn(Type type, string value, string realm, bool nullableString, out string code, out string reason, bool exactInterface = false)
     {
         code = "";
         reason = "";
@@ -117,6 +117,8 @@ internal sealed class Conversions
         {
             code = target.Kind == WrapperKind.Node
                 ? realm + ".WrapNodeValue(" + value + ")"
+                : exactInterface
+                ? realm + ".Wrap(" + value + ", global::Jint.Browser.Dom.DomInterfaces." + target.FieldName + ")"
                 : realm + ".Wrap(" + value + ")";
             return true;
         }

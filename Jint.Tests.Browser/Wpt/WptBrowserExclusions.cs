@@ -1235,8 +1235,6 @@ internal static class WptBrowserExclusions
         new("dom/nodes/Element-closest.html", "*scope)'", WptDivergence.NeedsTriage),
         new("dom/nodes/ParentNode-querySelector-escapes.html", "\"ab*", WptDivergence.NeedsTriage),
         new("dom/nodes/ParentNode-querySelector-escapes.html", "\"�\"*", WptDivergence.NeedsTriage),
-        new("dom/nodes/ParentNode-querySelector-escapes.html", "\"�surrogate\"*", WptDivergence.NeedsTriage),
-        new("dom/nodes/ParentNode-querySelector-escapes.html", "*D800\"", WptDivergence.NeedsTriage),
         new("dom/nodes/ParentNode-querySelector-escapes.html", "*\\\"", WptDivergence.NeedsTriage),
         new("dom/nodes/ParentNode-querySelector-escapes.html", "*ns\"", WptDivergence.NeedsTriage),
 

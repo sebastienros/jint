@@ -129,7 +129,7 @@ public class PublicApiDocumentationTest
 
         Section(report, gone, "named by the allowlist but no longer in the public API surface", """
             The declaration was removed or made internal. Re-run with JINT_PUBLIC_API_DOCS=update, and check
-            that the removal is in docs/v5-migration.md.
+            that the removal is in docs/guide/migrating-to-v5.md.
             """);
 
         if (allowed.Stated != allowed.Entries.Count)

@@ -456,7 +456,7 @@ public static class OptionsExtensions
     /// <remarks>
     /// Script names the types it wants as strings, so nothing in the host statically references what this
     /// exposes and a trimmed build is free to remove all of it. Native AOT is a different question and a
-    /// milder one — most of what CLR interop does works there; see <c>docs/v5-migration.md</c>.
+    /// milder one — most of what CLR interop does works there; see <c>docs/guide/migrating-to-v5.md</c>.
     /// </remarks>
     [RequiresUnreferencedCode(AllowClrRequiresUnreferencedCodeMessage)]
     public static Options AllowClr(this Options options)

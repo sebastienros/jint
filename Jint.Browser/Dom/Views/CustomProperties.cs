@@ -6,8 +6,9 @@ using AngleSharp.Text;
 namespace Jint.Browser.Dom.Views;
 
 /// <summary>
-/// https://drafts.csswg.org/css-variables-1/#cycles - resolve each element's dependency graph before
-/// AngleSharp computes any property. Its recursive resolver has no cycle guard (#3851).
+/// https://drafts.csswg.org/css-variables-1/#cycles - the cycle-safe custom-property environment used by
+/// <see cref="CssCascade.Traversal"/> (#3851). AngleSharp.Css 1.1.0 owns resolution for individual computed
+/// style queries, but its cached-parent computation and resolver are not public.
 /// </summary>
 internal sealed class CustomProperties
 {

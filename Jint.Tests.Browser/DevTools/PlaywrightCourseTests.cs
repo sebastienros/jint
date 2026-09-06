@@ -1,5 +1,7 @@
+using System.Collections.Concurrent;
 using System.Text;
 using Jint.Browser;
+using Jint.Constraints;
 using Jint.DevTools;
 using Jint.Tests.Browser.Fixtures;
 using Jint.Tests.Browser.Layout;
@@ -117,6 +119,42 @@ public class PlaywrightCourseTests
     }
 
     [Test]
+    public async Task PlaywrightLoadsMonacoThroughItsAmdCssPlugin()
+    {
+        await using var lane = await ClientLane.OpenAsync(
+            server => FixtureRoutes.Monaco(server),
+            new BrowserOptions { MaxTaskDuration = TimeSpan.FromSeconds(30) });
+        var page = await lane.Context.NewPageAsync();
+        var errors = new ConcurrentQueue<string>();
+        page.PageError += (_, error) => errors.Enqueue(error);
+        page.Console += (_, message) =>
+        {
+            if (message.Type == "error")
+            {
+                errors.Enqueue(message.Text);
+            }
+        };
+
+        await page.GotoAsync(lane.Url("monaco-amd"));
+        await page.WaitForFunctionAsync("() => document.getElementById('status').textContent === 'query { __typename }'");
+
+        (await page.EvaluateAsync<string>("() => typeof monaco.editor.create")).Should().Be("function");
+        (await page.EvaluateAsync<int>("() => callbackCount")).Should().Be(1);
+        (await page.EvaluateAsync<bool>("() => callbackWasDeferred")).Should().BeTrue();
+        (await page.EvaluateAsync<string>("() => resourceEvents.join(',')")).Should().Be("css:true:true");
+        errors.Should().BeEmpty();
+        foreach (var context in lane.Pages.Contexts)
+        {
+            foreach (var hostPage in context.Pages)
+            {
+                hostPage.Errors.Should().BeEmpty();
+            }
+        }
+
+        await page.CloseAsync();
+    }
+
+    [Test]
     public async Task PlaywrightCreatesAFolderInATreeMountedWhileHidden()
     {
         await using var lane = await ClientLane.OpenAsync();
@@ -137,6 +175,70 @@ public class PlaywrightCourseTests
             }
         }
 
+        await page.CloseAsync();
+    }
+
+    [Test]
+    public async Task PlaywrightUpdatesTheVueTreeAfterSeparateQueuedTasks()
+    {
+        var clock = new TaskBudgetClock();
+        var options = new BrowserOptions().ConfigureEngine(options =>
+        {
+            // Only the page's host-owned deadline uses the fake clock; timers and promise waits do not.
+            options.RemoveConstraints(static constraint => constraint is OperationDeadlineConstraint);
+            options.AddConstraint(() => new OperationDeadlineConstraint(clock));
+            options.Configure(engine =>
+            {
+                engine.SetValue("__checkTaskBudget", () => engine.Constraints.Check());
+                engine.SetValue("__queueBudgetedTasks", () =>
+                {
+                    for (var i = 0; i < 2; i++)
+                    {
+                        engine.Tasks.Post(() =>
+                        {
+                            engine.Execute(
+                                "Vue.nextTick(() => { __checkTaskBudget(); globalThis.__budgetedReactions++; });");
+                            clock.Advance(TimeSpan.FromSeconds(4));
+                        });
+                    }
+                });
+            });
+        });
+        options.MaxTaskDuration.Should().Be(TimeSpan.FromSeconds(5));
+
+        await using var lane = await ClientLane.OpenAsync(options: options);
+        var page = await lane.NewPageAsync("vue-folder-tree");
+        await page.EvaluateAsync(
+            """
+            () => {
+              globalThis.__budgetedReactions = 0;
+              for (const id of ['load', 'create']) {
+                document.getElementById(id).addEventListener(
+                  'click', () => __queueBudgetedTasks(), { capture: true, once: true });
+              }
+            }
+            """);
+
+        // Both tasks are queued by the actual input dispatch, before either can run. Each costs four
+        // seconds, including its Vue reaction; only a drain-wide five-second deadline rejects the pair.
+        // Advancing after Execute leaves the old FIFO's pending Vue nextTick jobs to discover the expiry.
+        // The reaction checks explicitly rather than depending on the interpreter's amortized cadence.
+        await page.Locator("#load").ClickAsync();
+        await page.Locator("#children").WaitForAsync();
+        await page.Locator("#create").ClickAsync();
+        await page.Locator(".folder-name").Nth(1).WaitForAsync();
+
+        (await page.Locator(".folder-name").AllTextContentsAsync()).Should().Equal("Files", "TestFolder");
+        foreach (var context in lane.Pages.Contexts)
+        {
+            foreach (var hostPage in context.Pages)
+            {
+                hostPage.Errors.Should().BeEmpty();
+            }
+        }
+
+        (await page.EvaluateAsync<int>("() => globalThis.__budgetedReactions")).Should().Be(4);
+        (await page.EvaluateAsync<bool>("() => resizeHeights.some(height => height > 40)")).Should().BeTrue();
         await page.CloseAsync();
     }
 
@@ -252,6 +354,35 @@ public class PlaywrightCourseTests
         var redirected = lane.Server.Received.Single(request => request.Path == "/form-redirect/done.html");
         redirected.Method.Should().Be("GET");
         redirected.Body.Should().BeEmpty();
+
+        await page.CloseAsync();
+    }
+
+    [Test]
+    public async Task PlaywrightClickSubmitsAJQueryDelegatedHiddenForm()
+    {
+        string? method = null;
+        string? body = null;
+        await using var lane = await ClientLane.OpenAsync(
+            server => FixtureRoutes.FormRedirect(server, (seenMethod, seenBody) =>
+            {
+                method = seenMethod;
+                body = seenBody;
+            }));
+        var page = await lane.NewPageAsync("jquery-unsafe-url");
+
+        (await page.Locator(".filter-option-inner-inner").TextContentAsync()).Should().Be("Choose a category");
+        await page.Locator("#enable").ClickAsync();
+
+        page.Url.Should().StartWith(lane.Server.Url("/form-redirect/done.html") + "?");
+        (await page.Locator("#method").TextContentAsync()).Should().Be("arrived by GET at /form-redirect/done.html");
+        method.Should().Be("POST");
+        body.Should().Be("__RequestVerificationToken=test-token&feature=Example");
+        lane.Server.Received.Count(request => request.Method == "POST").Should().Be(1);
+        foreach (var hostPage in lane.Pages.Contexts.SelectMany(context => context.Pages))
+        {
+            hostPage.Errors.Should().BeEmpty();
+        }
 
         await page.CloseAsync();
     }
@@ -494,6 +625,17 @@ public class PlaywrightCourseTests
         await page.CloseAsync();
     }
 
+    private sealed class TaskBudgetClock : TimeProvider
+    {
+        private long _ticks = 1;
+
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+
+        public override long GetTimestamp() => _ticks;
+
+        internal void Advance(TimeSpan elapsed) => _ticks += elapsed.Ticks;
+    }
+
     /// <summary>A server serving the course, a browser, a protocol server and a connected Playwright.</summary>
     private sealed class ClientLane : IAsyncDisposable
     {
@@ -525,12 +667,14 @@ public class PlaywrightCourseTests
 
         internal IBrowserContext Context { get; }
 
-        internal static async Task<ClientLane> OpenAsync(Action<LoopbackServer>? routes = null)
+        internal static async Task<ClientLane> OpenAsync(
+            Action<LoopbackServer>? routes = null,
+            BrowserOptions? options = null)
         {
             var server = FixtureOrigin.Serve(new LoopbackServer());
             routes?.Invoke(server);
 
-            var pages = new global::Jint.Browser.Browser();
+            var pages = new global::Jint.Browser.Browser(options);
             await pages.NewContextAsync(new PageContextOptions { UrlFilter = server.Owns }).ConfigureAwait(false);
 
             var protocol = new DevToolsServer();

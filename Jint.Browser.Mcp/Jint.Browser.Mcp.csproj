@@ -26,8 +26,9 @@
 
     <!-- Off for the reason Jint.Browser's is off, and it is that package's reason rather than this one's:
          AngleSharp is not trim-annotated. The Model Context Protocol packages are IsAotCompatible and
-         everything this serializes goes through a source-generated System.Text.Json context, so nothing here
-         is what would stop a native build; the DOM under it is. -->
+         everything this serializes goes through a source-generated System.Text.Json context. The closed
+         Jint.Browser.Tool program is exercised natively, including MCP, without asserting a general
+         trimming contract for another host's dependency graph. -->
     <IsAotCompatible>false</IsAotCompatible>
   </PropertyGroup>
 

@@ -343,6 +343,27 @@ internal sealed class DomAccessorStyleSheetList : DomCollectionAccessor
     }
 }
 
+/// <summary>How <c>TextTrackCueList</c> answers indexed and named property lookups.</summary>
+internal sealed class DomAccessorTextTrackCueList : DomCollectionAccessor
+{
+    internal static readonly DomAccessorTextTrackCueList Instance = new();
+
+    internal override uint Length(object target) => (uint) ((global::AngleSharp.Media.Dom.ITextTrackCueList) target).Length;
+
+    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
+    {
+        var collection = (global::AngleSharp.Media.Dom.ITextTrackCueList) target;
+        if (index >= (uint) collection.Length)
+        {
+            value = global::Jint.Native.JsValue.Undefined;
+            return false;
+        }
+
+        value = realm.Wrap(collection[(int) index]);
+        return true;
+    }
+}
+
 /// <summary>How <c>TextTrackList</c> answers indexed and named property lookups.</summary>
 internal sealed class DomAccessorTextTrackList : DomCollectionAccessor
 {

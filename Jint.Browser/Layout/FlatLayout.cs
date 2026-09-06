@@ -243,6 +243,109 @@ internal sealed class FlatLayout
             }
         }
     }
+
+    /// <summary>
+    /// A synchronous size-only query: ancestors decide visibility, and only requested subtrees need rows.
+    /// Measurements and the cascade are shared within the query, never across mutations or callbacks.
+    /// </summary>
+    internal sealed class SizeQuery(
+        IDocument? document,
+        ElementVisibility visibility,
+        double viewportWidth,
+        CssCascade.Traversal? cascade)
+    {
+        private readonly Dictionary<IElement, bool> _rendered = new(ReferenceEqualityComparer.Instance);
+        private readonly Dictionary<IElement, int> _rows = new(ReferenceEqualityComparer.Instance);
+        private readonly Dictionary<IElement, FlatBox> _sizes = new(ReferenceEqualityComparer.Instance);
+
+        internal FlatBox Measure(IElement target)
+        {
+            if (!_sizes.TryGetValue(target, out var size))
+            {
+                size = HasBox(target) ? new FlatBox(0, 0, viewportWidth, CountRows(target) * RowHeight) : FlatBox.Empty;
+                _sizes.Add(target, size);
+            }
+
+            return size;
+        }
+
+        internal bool TryGetSize(IElement target, out FlatBox size) => _sizes.TryGetValue(target, out size);
+
+        private bool HasBox(IElement target)
+        {
+            var ancestors = new Stack<IElement>();
+            var rendered = false;
+            for (IElement? element = target; element is not null; element = element.ParentElement)
+            {
+                if (_rendered.TryGetValue(element, out rendered))
+                {
+                    break;
+                }
+
+                ancestors.Push(element);
+                if (ReferenceEquals(element, document?.DocumentElement))
+                {
+                    rendered = true;
+                    break;
+                }
+            }
+
+            while (ancestors.TryPop(out var ancestor))
+            {
+                rendered = rendered && IsRendered(ancestor, visibility, cascade);
+                _rendered.Add(ancestor, rendered);
+            }
+
+            return rendered;
+        }
+
+        private int CountRows(IElement target)
+        {
+            var pending = new Stack<(IElement Element, bool Visited)>();
+            pending.Push((target, false));
+            while (pending.TryPop(out var item))
+            {
+                var (element, visited) = item;
+                if (_rows.ContainsKey(element))
+                {
+                    continue;
+                }
+
+                if (!visited)
+                {
+                    if (!_rendered.TryGetValue(element, out var rendered))
+                    {
+                        rendered = IsRendered(element, visibility, cascade);
+                        _rendered.Add(element, rendered);
+                    }
+
+                    if (!rendered)
+                    {
+                        _rows.Add(element, 0);
+                        continue;
+                    }
+
+                    pending.Push((element, true));
+                    foreach (var child in element.Children)
+                    {
+                        pending.Push((child, false));
+                    }
+                }
+                else
+                {
+                    var rows = 1;
+                    foreach (var child in element.Children)
+                    {
+                        rows += _rows[child];
+                    }
+
+                    _rows.Add(element, rows);
+                }
+            }
+
+            return _rows[target];
+        }
+    }
 }
 
 /// <summary>One element's rectangle, in whichever coordinate space the caller asked for.</summary>

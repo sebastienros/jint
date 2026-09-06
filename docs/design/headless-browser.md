@@ -7,7 +7,7 @@ the longer form: the mechanisms each decision rests on, named so that a reader c
 is [`devtools-protocol.md`](devtools-protocol.md), and
 [§12](#12-what-shipped-and-where-it-differs) is the index of what was built against this design and the one
 line in which each item differs from it. For what the package does rather than why, read
-[the README](../../README.md#headless-browser-opt-in-package) instead of this file.
+[the Jint.Browser package guide](../packages/jint-browser/index.md) instead of this file.
 
 Everything normative here was read from the [DOM](https://dom.spec.whatwg.org/), [HTML](https://html.spec.whatwg.org/multipage/),
 [Fetch](https://fetch.spec.whatwg.org/), [XMLHttpRequest](https://xhr.spec.whatwg.org/) and
@@ -75,7 +75,7 @@ fraction of Chromium's CPU and memory per page, at some multiple of its wall-clo
   in v1. The previous engine receives `beforeunload`, `pagehide` and `unload`, its cancellation token is
   cancelled, its pending fetches abandoned, and it is disposed on the page loop.
 - **One `PageLoop` thread per page**, owning the engine and the DOM: it drains a mailbox of host and protocol
-  work, calls `Tasks.ProcessTasks()`, runs the animation-frame lane, and sleeps by
+  work, runs one engine task and its microtask checkpoint, runs the animation-frame lane, and sleeps by
   `Tasks.TimeUntilNextScheduledWork` — the `WptHarness.PumpWorker` shape. Every public `Page` API and every CDP
   command posts to the mailbox and awaits a completion; nothing else touches the engine or the DOM. Workers come
   from a `ThreadPerWorkerProvider` (the package is a host, so it may start threads; the engine still never does).
@@ -181,8 +181,10 @@ frame's document — AngleSharp opens it into the nested browsing context it alr
 The constraints gotcha in the root `AGENTS.md` applies twice over: a page is a host-driven sequence of entries,
 and its event loop is pumped. So a page's budget is built only from what survives the per-entry reset.
 `BrowserOptions.MaxTaskDuration` brackets each **turn** with `OperationDeadlineConstraint.Begin`/`End`, and a
-turn is one mailbox request, one `ProcessTasks` drain (every due timer callback, microtask, promise reaction
-and animation-frame batch together) or one inline `<script>`. A request that runs out of budget fails its own
+turn is one mailbox request, one task (timer callback, observer/rendering task, animation-frame batch or
+protocol command) and its complete microtask checkpoint, or one inline `<script>`. Browser engines separate
+task and microtask lanes so recursive reactions stay in their originating task's budget even when another
+task was already queued; ordinary engine hosts retain their existing FIFO. A request that runs out of budget fails its own
 task with `TimeoutException`; a drain's and a script's are recorded as a `PageErrorKind.BudgetExceeded` entry
 and the page survives. `BrowserOptions.MemoryLimit` arms a per-page `MemoryLimitConstraint` over the same turn,
 and a worker's pump takes the same bracket over the constraint factories its parent replayed. `Page.Close` and
@@ -347,7 +349,8 @@ and `.sub.html` substitution; a `testharnessreport.js` overlay posts results thr
 `.any.js` files run again inside a real `Window` realm through synthesized `.any.html` wrappers.
 
 **What was built** is `Jint.Tests.Browser/Wpt/`, and four things about it differ from the paragraph above, each
-for a reason its own [`AGENTS.md`](../../Jint.Tests.Browser/Wpt/AGENTS.md) argues. The corpus is **not** vendored
+for a reason its own [`AGENTS.md`](https://github.com/sebastienros/jint/blob/main/Jint.Tests.Browser/Wpt/AGENTS.md)
+argues. The corpus is **not** vendored
 twice: `Jint.Tests.Browser` references `Jint.Tests` and runs the same tree at the same pin, so there is one
 corpus and one pin. The overlay posts **strings** through a host function the driver installs on every page
 engine, not values through a binding, because a page's engine belongs to a thread the driver is not on. Only the
@@ -377,7 +380,8 @@ census does not have is a suite nobody has vendored yet, never a disagreement.
 `chromedriver`, and speaks WebDriver classic — its CDP is tunnelled through `chromedriver`'s
 `goog/cdp/execute` extension command, and no `debuggerAddress` capability exists anywhere in the wpt tree.
 Lightpanda ships a WebDriver front end beside its CDP for exactly this reason. What is here instead is a
-**wptrunner product plugin**, [`tools/wpt-scoreboard/`](../../tools/wpt-scoreboard/README.md), registered
+**wptrunner product plugin**,
+[`tools/wpt-scoreboard/`](https://github.com/sebastienros/jint/tree/main/tools/wpt-scoreboard), registered
 through upstream's `wptrunner.products` entry-point group so that no fork of wpt is needed: its executor
 navigates a page over CDP and reads the results upstream's own `testharnessreport.js` posts, through a
 `Runtime.addBinding` binding, and every judgement about whether a subtest passed stays upstream's.
@@ -415,7 +419,8 @@ about them differ from the paragraph above. The course runs on all four legs, as
 **Playwright** suite does not: its driver is a Node process the package carries, so the suite reads
 `JINT_BROWSER_CLIENTS` and a `browser-clients` CI leg sets it, while PuppeteerSharp's stays on every leg
 because it costs nothing. A fixture that does not pass is a **`needs triage` row** in
-[`Fixtures/README.md`](../../Jint.Tests.Browser/Fixtures/README.md) with the failing assertion and a
+[`Fixtures/README.md`](https://github.com/sebastienros/jint/blob/main/Jint.Tests.Browser/Fixtures/README.md)
+with the failing assertion and a
 one-line diagnosis, and `FixtureInventoryTests` fails unless that set is exactly the set of cases marked
 `[Explicit]` — the discipline the web-platform-tests exclusion table is under, for the same reason. Both
 rows that were ever written have since been retired by the pull request that paid them: `htmx` was owed
