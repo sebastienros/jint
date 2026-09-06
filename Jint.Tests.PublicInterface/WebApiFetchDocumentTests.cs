@@ -898,6 +898,51 @@ public class WebApiFetchDocumentTests
         observer.Events.Should().Contain(entry => entry.Contains("Basic realm=the vault answerable=True", StringComparison.Ordinal));
     });
 
+    [TestCase("Basic realm=\"east, west\"", "east, west")]
+    [TestCase("Basic realm=\"say \\\"hello\\\"\"", "say \"hello\"")]
+    [TestCase("Basic charset=\"UTF-8\", ReAlM = \"vault\"", "vault")]
+    [TestCase("Basic realm=vault", "vault")]
+    public Task AuthenticationRealmsFollowHttpQuotedStringSyntax(string challenge, string expected) => DedicatedThread.RunAsync(() =>
+    {
+        string? realm = null;
+        var observer = new RecordingObserver
+        {
+            OnAuthHandler = observed =>
+            {
+                realm = observed.Realm;
+                return FetchAuthDecision.Cancel();
+            },
+        };
+        var engine = WebEngine(Challenging(challenge), f => f.Observer = observer);
+
+        engine.Evaluate("fetch('https://a.test/private').then(r => r.status)")
+            .UnwrapIfPromise(TransportSignalCeiling).AsNumber().Should().Be(401);
+
+        realm.Should().Be(expected);
+    });
+
+    [Test]
+    public Task AuthenticationDoesNotReplayAStreamedRequestBody() => DedicatedThread.RunAsync(() =>
+    {
+        var handler = Challenging("Basic realm=\"vault\"");
+        var observer = new RecordingObserver
+        {
+            OnAuthHandler = _ => FetchAuthDecision.ProvideCredentials("ada", "password"),
+        };
+        var engine = WebEngine(handler, f => f.Observer = observer);
+
+        engine.Evaluate("""
+            fetch('https://a.test/private', {
+                method: 'POST',
+                duplex: 'half',
+                body: new ReadableStream({ start(c) { c.enqueue(new Uint8Array([104])); c.close(); } }),
+            }).then(() => 'resolved', e => e.constructor.name)
+            """)
+            .UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("TypeError");
+
+        handler.Requests.Should().HaveCount(1, "the stream has no replayable source");
+    });
+
     /// <summary>
     /// A challenge the observer declines, and one it is simply not interested in, both deliver the
     /// <c>401</c> — which is the protocol's <c>CancelAuth</c> and its <c>Default</c>.

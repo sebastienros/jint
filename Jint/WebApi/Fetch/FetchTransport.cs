@@ -714,6 +714,15 @@ internal static class FetchTransport
                     // Not a redirect and not counted as one: the same URL is asked again, once, with the
                     // Authorization header now in `headers` so every later hop carries it - until one crosses
                     // to another origin, where _crossOriginHeaderNames strips it as the standard asks.
+                    // https://fetch.spec.whatwg.org/#http-network-or-cache-fetch:
+                    // a ReadableStream body has no source from which to recreate the upload.
+                    if (content is not null)
+                    {
+                        throw new FetchFailureException(
+                            FetchFailureKind.Network,
+                            $"'{uri}' requires authentication but its ReadableStream request body cannot be sent again.");
+                    }
+
                     authRetried = true;
                     continue;
                 }
@@ -856,21 +865,56 @@ internal static class FetchTransport
             return string.Empty;
         }
 
-        foreach (var part in parameter!.Split(','))
+        // RFC 9110 sections 11.3 and 5.6.4: a comma in a quoted realm is not a separator,
+        // and a quoted-pair contributes only its escaped character.
+        var start = 0;
+        var quoted = false;
+        for (var i = 0; i <= parameter.Length; i++)
         {
-            var trimmed = part.Trim();
-            if (!trimmed.StartsWith("realm=", StringComparison.OrdinalIgnoreCase))
+            if (i < parameter.Length)
+            {
+                if (quoted && parameter[i] == '\\')
+                {
+                    i++;
+                    continue;
+                }
+
+                if (parameter[i] == '"')
+                {
+                    quoted = !quoted;
+                }
+
+                if (quoted || parameter[i] != ',')
+                {
+                    continue;
+                }
+            }
+
+            var part = parameter.AsSpan(start, i - start).Trim();
+            start = i + 1;
+            var equals = part.IndexOf('=');
+            if (equals < 0 || !part[..equals].Trim().Equals("realm", StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
 
-            var value = trimmed.Substring("realm=".Length).Trim();
-            if (value.Length >= 2 && value[0] == '"' && value[value.Length - 1] == '"')
+            var value = part[(equals + 1)..].Trim();
+            if (value.Length < 2 || value[0] != '"' || value[^1] != '"')
             {
-                value = value.Substring(1, value.Length - 2);
+                return value.ToString();
             }
 
-            return value;
+            value = value[1..^1];
+            var result = new System.Text.StringBuilder(value.Length);
+            for (var j = 0; j < value.Length; j++)
+            {
+                if (value[j] == '\\' && j + 1 < value.Length)
+                {
+                    j++;
+                }
+                result.Append(value[j]);
+            }
+            return result.ToString();
         }
 
         return string.Empty;

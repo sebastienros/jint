@@ -5497,6 +5497,9 @@ rather than asked about again. The retry is not a redirect and spends none of `M
 `Authorization` header it carries is dropped if a later redirect crosses to another origin, which is the Fetch
 Standard's own rule.
 
+A credential retry requires a replayable request body. A `ReadableStream` upload fails as a network error
+before a second request is sent. Quoted authentication realms preserve commas and unescape quoted pairs.
+
 **A `407` is not reported.** The proxy belongs to the `HttpClient` the host supplied, so a challenge's
 `Source` is always `Server`.
 
