@@ -99,9 +99,34 @@ jobs:
             --tool-path artifacts/browser-tool-installed \
             --configfile .github/browser-tool.nuget.config
 
+      - name: Resolve and exercise the Windows native tool installation
+        if: runner.os == 'Windows'
+        id: windows-tool
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          # Native tools get a .cmd launcher on Windows, not a managed tool's .exe shim.
+          $command = Join-Path $env:GITHUB_WORKSPACE 'artifacts/browser-tool-installed/jint-browser.cmd'
+          $version = & $command --version
+          if ($LASTEXITCODE -ne 0 -or $version.Trim().Split('+')[0] -ne $env:VERSION) {
+            throw "The installed command did not report package version $env:VERSION"
+          }
+          $result = & $command eval about:blank '6 * 7' --timeout 10s
+          if ($LASTEXITCODE -ne 0 -or $result.Trim() -ne '42') {
+            throw 'The installed command did not evaluate the expression'
+          }
+
+          # Drive the installed payload without cmd.exe reparsing multiline JavaScript arguments.
+          $executables = @(Get-ChildItem artifacts/browser-tool-installed -Recurse -Force -File -Filter jint-browser.exe)
+          if ($executables.Count -ne 1) {
+            throw "Expected one installed native executable, found $($executables.Count)"
+          }
+          "executable=$($executables[0].FullName)" >> $env:GITHUB_OUTPUT
+
       - name: Exercise the installed native tool
         env:
-          JINT_BROWSER_TOOL: ${{ github.workspace }}/artifacts/browser-tool-installed/jint-browser${{ matrix.extension }}
+          JINT_BROWSER_TOOL: ${{ steps.windows-tool.outputs.executable || format('{0}/artifacts/browser-tool-installed/jint-browser', github.workspace) }}
           JINT_BROWSER_TOOL_VERSION: ${{ steps.version.outputs.version }}
         run: |
           dotnet test Jint.Tests.Browser/Jint.Tests.Browser.csproj -c Release -f net10.0 \

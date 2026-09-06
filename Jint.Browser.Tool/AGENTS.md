@@ -109,6 +109,10 @@ platform-specific Native AOT tool format. Installation requires the .NET 10 SDK,
   and runs `Tool/PublishedToolTests` against the installed executable. The tests cover extraction, scripts,
   CSS, XML, XPath, globalization, CDP and MCP. Set `JINT_BROWSER_TOOL` and `JINT_BROWSER_TOOL_VERSION` to
   reproduce; without them those process tests are skipped rather than passed.
+  On Windows the SDK installs a **`.cmd` launcher**, not an `.exe` shim. The workflow checks that
+  launcher's version and argument forwarding, then discovers the native `.exe` inside the installation
+  for the process tests, so `cmd.exe` does not reparse their multiline JavaScript. The standalone download
+  is still an `.exe`; its extension is not the installed command's extension.
 - **`build.yml` and `release.yml` publish the same seven tool packages**, at the libraries' version:
   six RID packages first, then `Jint.Browser.Tool`'s manifest. The manifest alone is not an installable
   distribution. Publishing a GitHub release attaches the six single executables and `SHA256SUMS`, without
