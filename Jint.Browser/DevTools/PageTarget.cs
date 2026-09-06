@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using Jint.Browser.Runtime;
 using Jint.DevTools;
 using Jint.DevTools.Domains;
@@ -189,7 +189,7 @@ internal sealed partial class PageTarget : DevToolsTarget, IPageObserver
     /// <inheritdoc/>
     /// <remarks>
     /// <para>
-    /// <b>Three commands, and they are the three that release a paused request.</b>
+    /// <b>The commands that release a paused request.</b>
     /// <c>FetchDomain.ContinueRequestAsync</c>, <c>FailRequestAsync</c> and <c>FulfillRequestAsync</c> look
     /// one entry up in a <c>ConcurrentDictionary</c> and complete a <c>TaskCompletionSource</c>; between
     /// them they touch no engine, no <c>JsValue</c> and no node, which is the bar the base class sets.
@@ -212,8 +212,11 @@ internal sealed partial class PageTarget : DevToolsTarget, IPageObserver
         // a running script inserted is fetched with the loop *blocked* on the whole fetch — ParserDriver's
         // `fetch.GetAwaiter().GetResult()` — so the loop is held from the request stage through the body
         // read, and a response-stage pause holds it exactly as a request-stage pause does. All four look one
-        // entry up in a dictionary and complete a promise: no engine, no JsValue, no node.
-        "Fetch.continueRequest" or "Fetch.failRequest" or "Fetch.fulfillRequest" or "Fetch.continueResponse" => true,
+        // entry up in a dictionary and complete a promise: no engine, no JsValue, no node. continueWithAuth
+        // is the fifth, and its pause is the same one held at the same point: the challenge arrives on the
+        // hop's own response, with the loop blocked on that fetch if a running script started it.
+        "Fetch.continueRequest" or "Fetch.failRequest" or "Fetch.fulfillRequest" or "Fetch.continueResponse"
+            or "Fetch.continueWithAuth" => true,
         _ => false,
     };
 

@@ -18,6 +18,10 @@ Puppeteer and Playwright attach with their **connect** APIs, not launch APIs. Ex
 
 The implementation covers the page, DOM, input, network, fetch interception, storage, accessibility, and selected emulation paths needed by supported clients. Unsupported protocol commands report protocol errors rather than silently succeeding.
 
+With `Fetch.enable`'s `handleAuthRequests`, a `401` pauses as `Fetch.authRequired`, and
+`Fetch.continueWithAuth` answers it. Basic credentials are supported; other schemes are reported and
+credentials offered for them are refused with an error naming the scheme.
+
 The custom `Jint` domain provides DOM-based answers where a graphical browser would provide pixels:
 
 - `Jint.getMarkdown`
