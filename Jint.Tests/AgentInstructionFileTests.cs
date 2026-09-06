@@ -201,6 +201,30 @@ public class AgentInstructionFileTests
     }
 
     /// <summary>
+    /// A rebase can commit conflict markers into any Markdown document, including README files and design
+    /// notes. Checking only instruction files missed the WPT README conflict repaired by #3812.
+    /// </summary>
+    [Test]
+    public void NoMarkdownFileCarriesAConflictMarker()
+    {
+        var offending = new List<string>();
+
+        foreach (var path in AgentInstructionFiles.MarkdownFilesIn(AgentInstructionFiles.RepositoryRoot))
+        {
+            var lines = File.ReadAllLines(path);
+            for (var i = 0; i < lines.Length; i++)
+            {
+                if (lines[i].StartsWith("<<<<<<< ", StringComparison.Ordinal) || lines[i].StartsWith(">>>>>>> ", StringComparison.Ordinal))
+                {
+                    offending.Add($"  {AgentInstructionFiles.Relative(path)}:{i + 1}: {lines[i]}");
+                }
+            }
+        }
+
+        offending.Should().BeEmpty("a committed conflict marker leaves a document unresolved:" + Environment.NewLine + string.Join(Environment.NewLine, offending));
+    }
+
+    /// <summary>
     /// The budgets this test enforces are the ones the root file states in prose.
     /// </summary>
     /// <remarks>
@@ -208,31 +232,6 @@ public class AgentInstructionFileTests
     /// allowance is the smaller one. A constant that quietly disagreed with it would enforce a rule nobody had
     /// read, so the two are held together rather than merely written twice.
     /// </remarks>
-    /// <summary>
-    /// A rebase resolved by hand can commit its own markers, and nothing else here reads the file closely enough
-    /// to notice: #3709 landed with a `&lt;&lt;&lt;&lt;&lt;&lt;&lt;` block in the middle of the browser package's file and every other
-    /// test stayed green, because links, anchors and sizes were all still in order.
-    /// </summary>
-    [Test]
-    public void NoInstructionFileCarriesAConflictMarker()
-    {
-        var offending = new List<string>();
-
-        foreach (var file in AgentInstructionFiles.All)
-        {
-            var lines = File.ReadAllLines(file.FullPath);
-            for (var i = 0; i < lines.Length; i++)
-            {
-                if (lines[i].StartsWith("<<<<<<< ", StringComparison.Ordinal) || lines[i].StartsWith(">>>>>>> ", StringComparison.Ordinal))
-                {
-                    offending.Add($"  {file.RelativePath}:{i + 1}: {lines[i]}");
-                }
-            }
-        }
-
-        offending.Should().BeEmpty("a committed conflict marker is a sentence no agent can follow:" + Environment.NewLine + string.Join(Environment.NewLine, offending));
-    }
-
     [Test]
     public void TheRootFileStatesTheBudgetsThisTestEnforces()
     {
@@ -277,7 +276,7 @@ internal static class AgentInstructionFiles
     /// </summary>
     private static readonly string[] NotSourceDirectories =
     [
-        ".git", ".vs", "artifacts", "bin", "obj", "node_modules", "packages"
+        ".git", ".vs", ".idea", "artifacts", "bin", "obj", "node_modules", "packages", "TestResults"
     ];
 
     private static readonly Regex LinkTarget = new(@"\]\(([^)\s]+)\)", RegexOptions.Compiled);
@@ -469,28 +468,32 @@ internal static class AgentInstructionFiles
 
     private static IReadOnlyList<InstructionFile> Discover()
     {
-        var found = new List<InstructionFile>();
-        Collect(RepositoryRoot, found);
-
-        return found
+        return MarkdownFilesIn(RepositoryRoot)
+            .Where(path => Path.GetFileName(path).Equals("AGENTS.md", StringComparison.Ordinal))
+            .Select(path => Describe(path, budget: Path.GetDirectoryName(path) == RepositoryRoot ? RootBudget : CoLocatedBudget))
             .OrderBy(file => file.IsRoot ? 0 : 1)
             .ThenBy(file => file.RelativePath, StringComparer.Ordinal)
             .ToList();
     }
 
-    private static void Collect(string directory, List<InstructionFile> found)
+    internal static IEnumerable<string> MarkdownFilesIn(string directory)
     {
-        var candidate = Path.Combine(directory, "AGENTS.md");
-        if (File.Exists(candidate))
+        foreach (var path in Directory.EnumerateFiles(directory))
         {
-            found.Add(Describe(candidate, budget: directory == RepositoryRoot ? RootBudget : CoLocatedBudget));
+            if (Path.GetExtension(path).Equals(".md", StringComparison.OrdinalIgnoreCase))
+            {
+                yield return path;
+            }
         }
 
         foreach (var child in Directory.GetDirectories(directory))
         {
-            if (Array.IndexOf(NotSourceDirectories, Path.GetFileName(child)) < 0)
+            if (!NotSourceDirectories.Contains(Path.GetFileName(child), StringComparer.OrdinalIgnoreCase))
             {
-                Collect(child, found);
+                foreach (var path in MarkdownFilesIn(child))
+                {
+                    yield return path;
+                }
             }
         }
     }
@@ -510,7 +513,7 @@ internal static class AgentInstructionFiles
         return new InstructionFile(Relative(path), path, MeasureAsCrlf(File.ReadAllBytes(path)), budget);
     }
 
-    private static string Relative(string path)
+    internal static string Relative(string path)
     {
         return path.Length > RepositoryRoot.Length && path.StartsWith(RepositoryRoot, StringComparison.OrdinalIgnoreCase)
             ? path.Substring(RepositoryRoot.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Replace('\\', '/')
