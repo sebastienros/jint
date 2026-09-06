@@ -148,6 +148,33 @@ public sealed class FormTests
     }
 
     [Test]
+    public async Task AMultipartSubmissionCarriesTheSelectedFiles()
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(server => WithEcho(server).MapHtml(
+            "/form.html",
+            "<form id='f' action='/echo' method='post' enctype='multipart/form-data'>"
+            + "<input type='file' name='upload' multiple></form>"));
+
+        await fixture.Page.NavigateAsync(fixture.Url("/form.html"));
+        await fixture.Page.EvaluateAsync(
+            """
+            const transfer = new DataTransfer();
+            transfer.items.add(new File(['alpha'], 'a.txt', { type: 'text/plain' }));
+            transfer.items.add(new File(['{"b":2}'], 'b.json', { type: 'application/json' }));
+            document.querySelector('input').files = transfer.files;
+            """);
+        await fixture.Page.SubmitFormAsync("#f");
+
+        var body = fixture.Server.Received.Single(request => request.Path == "/echo").Body;
+        body.Should().Contain("name=\"upload\"; filename=\"a.txt\"");
+        body.Should().Contain("Content-Type: text/plain");
+        body.Should().Contain("alpha");
+        body.Should().Contain("name=\"upload\"; filename=\"b.json\"");
+        body.Should().Contain("Content-Type: application/json");
+        body.Should().Contain("{\"b\":2}");
+    }
+
+    [Test]
     public async Task APostSubmissionCanBeTextPlain()
     {
         await using var fixture = await LoopbackPage.CreateAsync(server => WithEcho(server).MapHtml(

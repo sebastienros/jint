@@ -1,3 +1,4 @@
+using System.Globalization;
 using AngleSharp;
 using AngleSharp.Dom;
 using AngleSharp.Xml.Parser;
@@ -7,7 +8,7 @@ using Jint.Native.Object;
 namespace Jint.Browser.Dom;
 
 /// <summary>
-/// The generated interfaces a script may really call <c>new</c> on.
+/// The generated interfaces and legacy factory functions a script may really call <c>new</c> on.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -27,6 +28,12 @@ namespace Jint.Browser.Dom;
 /// interface at all — see <see cref="DomStaticRange"/>.
 /// </para>
 /// <para>
+/// HTML's <c>Image</c> is the other shape represented here: a
+/// <c>[LegacyFactoryFunction]</c> for the generated <c>HTMLImageElement</c> interface, rather than that
+/// interface's own constructor. It therefore gets its own global function while sharing the generated
+/// prototype and wrapper.
+/// </para>
+/// <para>
 /// <b>Every one of them says "the current global object's associated <c>Document</c>".</b> That is the page's
 /// when there is a page runtime behind the binding, and an empty XML document of this call's own when there
 /// is not — the same answer <c>DocumentFragment</c> already gave, for the same reason: a node nothing else
@@ -41,6 +48,12 @@ namespace Jint.Browser.Dom;
 /// </remarks>
 internal static class DomConstructors
 {
+    /// <summary>The legacy factory functions installed beside the generated interface objects.</summary>
+    internal static readonly DomLegacyFactoryDefinition[] LegacyFactories =
+    [
+        new("Image", DomInterfaces.HTMLImageElement, 0, ConstructImage),
+    ];
+
     /// <summary>
     /// Builds the instance for a <c>new</c> on <paramref name="definition"/>, or answers
     /// <see langword="false"/> for an interface WebIDL gives no constructor.
@@ -91,6 +104,28 @@ internal static class DomConstructors
 
         instance = null!;
         return false;
+    }
+
+    /// <summary>https://html.spec.whatwg.org/multipage/embedded-content.html#dom-image.</summary>
+    private static DomNodeObject ConstructImage(DomRealm realm, JsValue[] arguments)
+    {
+        var image = NodeDocument(realm).CreateElement(NamespaceNames.HtmlUri, "img");
+
+        if (arguments.Length > 0)
+        {
+            image.SetAttribute(
+                "width",
+                DomConvert.RequiredUInt32(arguments, 0, "Image").ToString(CultureInfo.InvariantCulture));
+        }
+
+        if (arguments.Length > 1)
+        {
+            image.SetAttribute(
+                "height",
+                DomConvert.RequiredUInt32(arguments, 1, "Image").ToString(CultureInfo.InvariantCulture));
+        }
+
+        return realm.WrapNode(image);
     }
 
     /// <summary>The current global object's associated <c>Document</c>, or an empty one when there is none.</summary>

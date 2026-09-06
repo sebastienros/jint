@@ -9,8 +9,8 @@
 
 ### How AngleSharp's attributes are read as WebIDL
 
-`[DomName]` is the whole surface: an interface or member without one is not projected. Five refinements are
-worth knowing before changing the model builder, because none of them is stated by AngleSharp.
+`[DomName]` is the whole surface: an interface or member without one is not projected. These refinements are
+worth knowing before changing the model builder.
 
 - **`[DomNoInterfaceObject]` does not mean "mixin".** An interface carrying it is a mixin only when it *also*
   has no `[DomName]` base of its own **and** at least one other `[DomName]` interface extends it — that is
@@ -33,6 +33,10 @@ worth knowing before changing the model builder, because none of them is stated 
   `ELEMENT_NODE = 1`. `overrides.json`'s `stringEnums` corrects a wrong answer. Numeric-enum constants attach
   to the interface that **returns** the enum, which is what puts `ELEMENT_NODE` on `Node` and not on everything
   that mentions a node type; `constants.add` / `constants.skip` fix the rest.
+- **`[DomReturnType]` takes precedence over an operation's CLR return signature.** Since 1.8.0,
+  `querySelectorAll` returns an object implementing both `IHtmlCollection<IElement>` and `INodeList`.
+  Its annotation selects the NodeList projection without an adapter. Do not infer that brand for every
+  HTMLCollection-returning call from the runtime type: it would remove that call's named properties.
 
 ### The override table
 
@@ -44,7 +48,7 @@ version of AngleSharp nobody references.
 | --- | --- |
 | `excludedInterfaces` | An interface the runtime owns instead. Today: `IWindow` (campaign item R1). |
 | `manual` | An interface whose shape is hand-written in `DomManualShapes`. Today: `IHtmlCollection<T>`, whose generic invariance keeps a member body from naming its receiver. A manual interface contributes no members to any closure — its children inherit them through the prototype chain. |
-| `skip` | A member whose AngleSharp implementation must not be projected: navigation (`location.assign`, `location.href`'s setter), the parser (`document.open`/`close`/`load`), `document.createEvent` whose AngleSharp `Event` must never reach script, `DOMImplementation.createHTMLDocument` whose title AngleSharp makes required, and the six the events bridge re-declares because AngleSharp's own do nothing — see the divergence table. Every one of them is re-declared in `additions`, so a skip here is a *replacement* and not an absence. `half: "setter"` skips the write half only. |
+| `skip` | A member whose AngleSharp implementation must not be projected: navigation (`location.assign`, `location.href`'s setter), the parser (`document.open`/`close`/`load`), `document.createEvent` whose AngleSharp `Event` must never reach script, `DOMImplementation.createHTMLDocument` whose title AngleSharp makes required, and the six the events bridge re-declares because AngleSharp's own do nothing — see the divergence table. These are re-declared in `additions`. A nonstandard member such as `HTMLMetaElement.charset` is instead omitted: a CLR annotation cannot add a member HTML's IDL does not declare. `half: "setter"` skips the write half only. |
 | `hooks` | A member routed through `DomHostHooks` so the package can replace its body: the `innerHTML` and `outerHTML` setters, `insertAdjacentHTML`, `document.write`/`writeln`, and `setAttribute`/`removeAttribute` — the one write of an attribute this package can see, and therefore where a handler content attribute takes its position in the element's listener list. The default implementations *are* the AngleSharp call, so the seam costs nothing until R3 uses it. `"half": "getter"` replaces the *read* of an attribute, which is what a member whose value the host has and AngleSharp does not needs: `document.currentScript`, `readyState`, `URL`, `documentURI`, `referrer`, `cookie` and `Node.baseURI` are accessors on their prototypes because of it, where they used to be own properties written onto the document wrapper. `"returns": true` is the form for a member whose *answer* belongs to the host rather than its effect, which is `document.createElement`, `createElementNS` and `Node.cloneNode`: with the synchronous custom elements flag set the element a defined name produces is the constructor's and not AngleSharp's. **Reach for it before `skip` + `additions`** — a hook stands in front of a generated member, so the member keeps its arity and its name, and a member AngleSharp later grows under that name is still reported rather than shadowed. The same class carries `WrapperCreated`, which is the other direction — a member the generator could not emit at all, added to one wrapper; it is also where the events bridge registers an element's handler content attributes. |
 | `additions` | A member the **standard** puts on a generated interface and AngleSharp's metadata cannot express: a callback parameter, a stringifier with no `[DomName]`, a Shadow DOM v0 spelling, a missing `[DomName]`, the whole of CSSOM View's box model (`getBoundingClientRect` and its `client*`/`scroll*`/`offset*` family, answered from the flat layout — [`../Runtime/AGENTS.md`](../Runtime/AGENTS.md)), the legacy event-creation surface (`document.createEvent`), and the operations whose body is an event rather than a DOM call (`click`/`focus`/`blur`, `form.submit`/`requestSubmit`/`reset`, `document.activeElement`/`hasFocus`). Two forms, and an entry uses exactly one: **reach for the member form**, which names one member and goes through the model like any projected member, so the generated file names it and a member AngleSharp later grows under that name is reported rather than shadowed; the `"extend"` form hands the builder to a method and exists only for a *family* whose member list is computed, which today is HTML's event handler IDL attributes. `Overrides.AdditionEntry` has the whole of why, including what the extend form gives up. Either way it adds rather than replaces, so the interface stays **one** shape — the only way to add a member to a class rather than to one object without costing the prototype its shape. |
 | `reflected` | The **standard's** half of the table rather than AngleSharp's: which of [HTML §2.6.1](https://html.spec.whatwg.org/multipage/common-dom-interfaces.html#reflecting-content-attributes-in-idl-attributes)'s thirteen reflection algorithms one IDL attribute takes, plus its keywords, its invalid and missing value defaults and its range. None of that is in a CLR signature — a `long` and a `long` limited to only non-negative numbers are the same `Int32` property, and `<col span>` defaulting to 1 while `<select size>` defaults to 0 is nowhere in the metadata — which is why it is a table and not a heuristic. An entry **replaces** the member AngleSharp projects under that name, the opposite of `additions`, because most reflected attributes *are* projected already, from a property that hands back the raw attribute value or parses it with the wrong default; neither presence nor absence is an error, and the generated report says which each entry was. The bodies are one shared `ReflectedAttribute` descriptor per member in `DomReflected.g.cs`, process-shared and immutable, so HTML's rules for parsing integers, non-negative integers and floating-point number values exist once rather than once per emitted member. |
@@ -80,8 +84,9 @@ for decisions, the report is for consequences.
 One decision is worth stating in full, because it is the one a page notices. **A CLR `string` return maps
 `null` to the empty string**, because WebIDL's `DOMString` is not nullable and the overwhelming majority of
 these members are reflected content attributes whose specified value when the attribute is absent is `""`.
-AngleSharp returns `null` for most of them, which is its divergence rather than a nullable IDL type on ours.
-The members whose IDL type genuinely *is* `DOMString?` are listed in `overrides.json`'s `nullableStrings` and
+AngleSharp 1.7.3 fixes many absent-attribute getters that returned `null`, but the conversion is still the non-nullable IDL
+contract rather than a promise about every CLR implementation. The members whose IDL type genuinely *is*
+`DOMString?` are listed in `overrides.json`'s `nullableStrings` and
 emit `null` instead. **That list is the artefact**: a member missing from it answers `""` where a browser
 answers `null`, and one wrongly in it does the reverse.
 
@@ -147,17 +152,19 @@ AngleSharp's `DomException` as the `DOMException` its `DomError` names, an `Argu
 behaviour**, which [`Jint/Runtime/Interop/AGENTS.md`](../../Jint/Runtime/Interop/AGENTS.md) says is frozen —
 so a `JavaScriptException` a body raised itself, and every constraint and cancellation signal, are outside
 the filter. A member the standard gives a *different* name to is written by hand and calls
-`DomFailures.Refuse`, which is the same door `DomSelectorMembers` uses; the register in [`divergences.md`](divergences.md) is what
-says which those are.
+`DomFailures.Refuse`; the register in [`divergences.md`](divergences.md) is what says which those are.
+Selectors use the generated guard too: the old selector-only `NullReferenceException` translation was
+removed after the upstream parser stopped dereferencing the invalid `:has()` branch.
 
 Divergences that are **AngleSharp's** — where it answers differently from the standard and the binding has to
 work around it — are the register in [`divergences.md`](divergences.md), which is data rather than instruction
 and so is not budgeted here. **Add a row there for every one you find**, and never work around a divergence
 silently; never open an issue on the AngleSharp repositories without being asked to.
 
-The `dataset` one has a visible consequence inside the binding, and the one place a workaround is legitimate:
-the generated `SupportedNames` filters out a `null` value, because the projection's three hooks must agree at
-the same instant or host-contract verification fails. That is keeping *our* contract, not mending AngleSharp's.
+The `dataset` one has a visible consequence inside the binding: AngleSharp exposes a CLR string map over raw
+attribute suffixes, while HTML and Web IDL expose a named-property object whose keys are converted. The
+`HTMLElement.dataset` getter hook therefore projects `DomStringMapAdapter` over the associated element; it owns
+the camelCase conversion, named setter validation and real attribute deletion that the CLR surface cannot state.
 
 ### DOM §7's XPath, and CSSOM's `CSS` are in the package file
 
@@ -173,6 +180,10 @@ choice buys the browsers' wrapper-preservation rule: a node in the tree keeps it
 expandos alive (React and Vue rely on that), and a node dropped by both the tree and script collects with its
 wrapper. It is on the engine through a `ConditionalWeakTable<Engine, DomRealm>` rather than in
 `Engine.HostDefined`, because that slot belongs to the embedder.
+
+`[DomSameObject]` is an upstream metadata promise, not a cache. Keep wrapper identity keyed on the underlying
+object, and do not mistake a fresh `querySelectorAll` result for a violation: that operation returns a new
+static NodeList each time.
 
 **Everything that creates an object reads `DomRealm.PrincipalRealm`, never `Engine.Realm`.** The latter
 answers the realm currently *executing*, so a wrapper first reached from inside a `ShadowRealm` callback would
@@ -218,4 +229,3 @@ declared — the sanctioned in-place slot replacement, and the only kind a shape
 `WebIdlPropertyAttributeTests` holds every emitted member to its kind's attributes, which are WebIDL's and not
 ECMAScript's: an operation is **enumerable**. The same rule `Jint/WebApi/AGENTS.md` states, checked the same
 way, and it is the mistake a generator makes by default.
-

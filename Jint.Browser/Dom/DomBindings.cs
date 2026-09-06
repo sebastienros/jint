@@ -8,8 +8,8 @@ using Jint.WebApi;
 namespace Jint.Browser.Dom;
 
 /// <summary>
-/// The two doors onto the DOM binding: install the interface objects on an engine, and move a value across
-/// the boundary in either direction.
+/// The two doors onto the DOM binding: install the interface objects and legacy factory functions on an
+/// engine, and move a value across the boundary in either direction.
 /// </summary>
 internal static class DomBindings
 {
@@ -68,6 +68,19 @@ internal static class DomBindings
             global.SetProperty(
                 definition.Name,
                 new LazyPropertyDescriptor<DomRealm>(realm, r => r.InterfaceObjectOf(captured), PropertyFlag.NonEnumerable));
+        }
+
+        foreach (var factory in DomConstructors.LegacyFactories)
+        {
+            if (global.HasOwnProperty(WebApiRegistration.NameOf(factory.Name)))
+            {
+                continue;
+            }
+
+            var captured = factory;
+            global.SetProperty(
+                factory.Name,
+                new LazyPropertyDescriptor<DomRealm>(realm, r => captured.Create(r), PropertyFlag.NonEnumerable));
         }
     }
 

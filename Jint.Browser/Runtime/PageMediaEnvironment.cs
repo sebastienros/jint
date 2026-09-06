@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Frozen;
 
 namespace Jint.Browser.Runtime;
@@ -14,13 +15,9 @@ namespace Jint.Browser.Runtime;
 /// next state. <see cref="PageRuntime.SetMedia"/> is the one writer.
 /// </para>
 /// <para>
-/// <b>The Level 5 preference features are the page's own answer, not AngleSharp.Css's.</b> AngleSharp.Css
-/// models a render device and evaluates <c>width</c>, <c>height</c> and their kind, and has no notion of
-/// <c>prefers-color-scheme</c>, <c>prefers-reduced-motion</c>, <c>forced-colors</c>, <c>hover</c> or
-/// <c>pointer</c> at all — and its own <c>CssMediaQueryList.ComputeMatched</c> is a stub that answers
-/// <see langword="false"/> for every query. So the answers live here, where <c>Emulation.setEmulatedMedia</c>
-/// can move them; the day AngleSharp.Css grows the preference features, this is the table that delegates to
-/// it and nothing else moves.
+/// <b>The preference values belong to the page; their CSS evaluation belongs to AngleSharp.Css.</b>
+/// <see cref="PageRenderDevice"/> exposes this value as its preference dictionary, so the cascade reads
+/// the same defaults and emulated values as <c>matchMedia</c>, including touch and scripting state.
 /// </para>
 /// <para>
 /// A feature a client emulated wins over the value this would compute, whatever the name: Chrome's
@@ -28,8 +25,31 @@ namespace Jint.Browser.Runtime;
 /// answerable once a client has said what it should be.
 /// </para>
 /// </remarks>
-internal sealed record PageMediaEnvironment
+internal sealed record PageMediaEnvironment : IReadOnlyDictionary<string, string>
 {
+    private static readonly FrozenDictionary<string, string> _defaults = new Dictionary<string, string>(StringComparer.Ordinal)
+    {
+        ["hover"] = "hover",
+        ["any-hover"] = "hover",
+        ["pointer"] = "fine",
+        ["any-pointer"] = "fine",
+        ["scripting"] = "enabled",
+        ["prefers-color-scheme"] = "light",
+        ["prefers-reduced-motion"] = "no-preference",
+        ["prefers-reduced-transparency"] = "no-preference",
+        ["prefers-reduced-data"] = "no-preference",
+        ["prefers-contrast"] = "no-preference",
+        ["forced-colors"] = "none",
+        ["inverted-colors"] = "none",
+        ["color-gamut"] = "srgb",
+        ["dynamic-range"] = "standard",
+        ["video-dynamic-range"] = "standard",
+        ["display-mode"] = "browser",
+        ["update"] = "fast",
+        ["overflow-block"] = "scroll",
+        ["overflow-inline"] = "scroll",
+    }.ToFrozenDictionary(StringComparer.Ordinal);
+
     /// <summary>The features a client emulated, keyed by the name a query writes them under.</summary>
     private static readonly FrozenDictionary<string, string> _noFeatures =
         FrozenDictionary<string, string>.Empty;
@@ -83,23 +103,33 @@ internal sealed record PageMediaEnvironment
             "hover" or "any-hover" => CoarsePointer ? "none" : "hover",
             "pointer" or "any-pointer" => CoarsePointer ? "coarse" : "fine",
             "scripting" => ScriptingEnabled ? "enabled" : "none",
-            "prefers-color-scheme" => "light",
-            "prefers-reduced-motion" => "no-preference",
-            "prefers-reduced-transparency" => "no-preference",
-            "prefers-reduced-data" => "no-preference",
-            "prefers-contrast" => "no-preference",
-            "forced-colors" => "none",
-            "inverted-colors" => "none",
-            "color-gamut" => "srgb",
-            "dynamic-range" or "video-dynamic-range" => "standard",
-            "display-mode" => "browser",
-            "update" => "fast",
-
-            // There is no rendering, so nothing is ever paged and nothing is ever clipped: a page taller
-            // than the viewport scrolls, which is what the virtual scroll offset already models.
-            "overflow-block" => "scroll",
-            "overflow-inline" => "scroll",
-            _ => null,
+            _ => _defaults.GetValueOrDefault(feature),
         };
     }
+
+    string IReadOnlyDictionary<string, string>.this[string key]
+        => ValueOf(key) ?? throw new KeyNotFoundException(key);
+
+    IEnumerable<string> IReadOnlyDictionary<string, string>.Keys
+        => _defaults.Keys.Concat(Features.Keys).Distinct(StringComparer.Ordinal);
+
+    IEnumerable<string> IReadOnlyDictionary<string, string>.Values
+        => ((IReadOnlyDictionary<string, string>) this).Keys.Select(name => ValueOf(name)!);
+
+    int IReadOnlyCollection<KeyValuePair<string, string>>.Count
+        => ((IReadOnlyDictionary<string, string>) this).Keys.Count();
+
+    bool IReadOnlyDictionary<string, string>.ContainsKey(string key) => ValueOf(key) is not null;
+
+    bool IReadOnlyDictionary<string, string>.TryGetValue(string key, out string value)
+    {
+        value = ValueOf(key)!;
+        return value is not null;
+    }
+
+    IEnumerator<KeyValuePair<string, string>> IEnumerable<KeyValuePair<string, string>>.GetEnumerator()
+        => ((IReadOnlyDictionary<string, string>) this).Keys
+            .Select(name => new KeyValuePair<string, string>(name, ValueOf(name)!)).GetEnumerator();
+
+    IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable<KeyValuePair<string, string>>) this).GetEnumerator();
 }

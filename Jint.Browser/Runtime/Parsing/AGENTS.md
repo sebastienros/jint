@@ -29,10 +29,10 @@ property**, and it is why nothing else in the driver needs a lock.
 
 **Timers fire exactly where a browser fires them.** While the parser is tokenizing it holds the baton and the
 loop runs nothing, which is right — in a browser the parser *is* the task the event loop is running. While the
-loop is fetching a parser-blocking script it holds the baton and pumps `ProcessTasks`, so timers, promise jobs
+loop is fetching a parser-blocking script it holds the baton and pumps one task plus its microtasks, so timers, promise jobs
 and animation frames run while the page waits for the network. `ParserBaton.PumpUntil` is that pump, and
 `DocumentLoadTests.TimersFireWhileAParserBlockingScriptIsOnItsWay` is the proof (it reads zero without it).
-What that pump swallows it reports: a job erupting out of `ProcessTasks` must not end the load, and it must
+What that pump swallows it reports: a job erupting out of `ProcessTask` must not end the load, and it must
 not vanish either, so it goes to the page recorder — which is the only way an execution constraint aborting
 a timer mid-parse is visible at all.
 
@@ -46,8 +46,8 @@ the token every subresource fetch is linked to: the fetch in flight fails, the p
 **Every turn inside the parse is a turn.** A document load is *one* mailbox request, so `PageLoop` opens one
 budget turn around the whole of it — and that turn's deadline is wall-clock, so by the time a slow
 `<script src>` has come back it is long gone. Each script therefore takes a nested turn of its own
-(`ParserDriver.Execute`, `RunModule`), and so does **each drain of the job queue** the pump runs
-(`ParserBaton.Drain`), which is the same rule `PageLoop.Pump` follows for the drains it runs itself. Without
+(`ParserDriver.Execute`, `RunModule`), and so does **each task and its microtask checkpoint** the pump runs
+(`ParserBaton.Drain`), through the engine's `PageBudget` hook, just as in `PageLoop.Pump`. Without
 that last one a timer callback that fires late in a slow load is killed for the enclosing turn's exhaustion
 rather than its own — `DocumentLoadTests.ATimerThatFiresLateInASlowLoadGetsABudgetOfItsOwn` is that case, and
 it fails without the bracket. A budget running out is a `PageErrorKind.BudgetExceeded` and the load goes on,
@@ -56,7 +56,7 @@ can read.
 
 **The residual, stated because it is the one thing a budget does not reach.** `Serve` holds the loop for the
 whole parse, so while the baton is in the parser's hands the loop runs nothing and an execution constraint
-cannot fire. Every fetch is bounded by `BrowserOptions.SubresourceTimeout` and every script and every drain
+cannot fire. Every fetch is bounded by `BrowserOptions.SubresourceTimeout` and every script and every task
 takes a turn, which leaves AngleSharp's tokenizer as the only unbounded step. There is still no *total*
 budget on the parse — `PageLoop`'s turn is the enclosing one, and nothing re-arms it for the parse as a whole
 — so what a wedged parser thread costs is bounded by the page's own token instead: closing the page ends
