@@ -316,7 +316,8 @@ internal static class DomConvert
         return dictionary is ObjectInstance instance ? instance.Get(name) : JsValue.Undefined;
     }
 
-    private static void Require(JsValue[] arguments, int index, string member)
+    /// <summary>Checks a required argument exists without running its conversion.</summary>
+    internal static void Require(JsValue[] arguments, int index, string member)
     {
         if (index < arguments.Length)
         {
