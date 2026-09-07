@@ -339,7 +339,8 @@ the first call. Everything a client is told about a page is one of its calls; no
   document did not change. Each is prefixed per page, so two pages never mint the same.
 - **`Phase` is the driver's three, composed with the caller's.** `LoadInto` wraps whatever `onPhase` a
   navigation passed, so a watcher hears `Committed`, `DomContentLoaded` and `Loaded` at exactly the points
-  `WaitUntilState` answers at — on the loop, because that is where the driver raises them.
+  `WaitUntilState` answers at — on the loop, because that is where the driver raises them. Notify the
+  observer before completing the caller's phase signal, so its continuation cannot outrun publication.
 - **`DialogOpening` runs before the host's own `Page.DialogOpened` handler and `DialogClosed` after it.** A
   watcher answers from a decision it already holds — the page has no thread to block, and the thread a
   protocol client's answer would arrive on is the one inside the script that called `alert` — and the host,
