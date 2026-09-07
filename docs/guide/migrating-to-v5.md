@@ -5507,6 +5507,21 @@ Over the protocol this is `Fetch.enable`'s `handleAuthRequests`, the `Fetch.auth
 `Fetch.continueWithAuth` — which both Puppeteer and Playwright send unconditionally whenever they intercept,
 and which used to be accepted and do nothing.
 
+### 4.133 A host array-like can put `length` on its prototype ([#3813](https://github.com/sebastienros/jint/issues/3813))
+
+`ArrayLikeObject` now has a protected `OwnsLength` switch. Its default is `true`, preserving the existing
+own, non-writable `length` property for every current host subclass. A WebIDL-style host may override it with
+`false` and supply a numeric `length` accessor on its prototype instead:
+
+```csharp
+protected override bool OwnsLength => false;
+```
+
+When opted out, `hasOwnProperty('length')` answers `false`, and array generics, iteration and JSON
+serialization read the prototype accessor through JavaScript `[[Get]]`. The host must install the accessor;
+without one those operations observe length zero. Jint's DOM collection wrappers opt out, matching browser
+prototype placement and making a redefined `NodeList.prototype.length` visible to every consuming lane.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

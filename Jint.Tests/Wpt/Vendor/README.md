@@ -380,7 +380,7 @@ corpus.
 | `html/webappapis/scripting/processing-model-2/` | 25 `.html` | `window.onerror` and `<body onerror>` over every way a script can fail |
 | `html/webappapis/scripting/processing-model-2/support/` | 2 `.js` | The two failing scripts those documents load |
 | `dom/nodes/Document-createEvent.js` | 1 | The alias table `dom/events/EventTarget-dispatchEvent.html` loads by absolute path — once vendored alone, because without it that document silently reported **one** of its twenty-five tests |
-| `dom/nodes/` | 159 `.html`/`.htm`, 15 `.js`, 1 `.xml` | The DOM standard's node suite, and the biggest thing this lane runs: 4,364 tests |
+| `dom/nodes/` | 165 `.html`/`.htm`, 16 `.js`, 1 `.xml` | The DOM standard's node suite, and the biggest thing this lane runs: 4,370 tests |
 | `dom/collections/`, `dom/lists/` | 13 `.html` | `HTMLCollection`, `NamedNodeMap`, `DOMStringMap` and `DOMTokenList` |
 | `dom/traversal/` | 13 `.html` | `NodeIterator` and `TreeWalker`; four of them are the walks that used to run forever ([#3765](https://github.com/sebastienros/jint/issues/3765)) |
 | `dom/traversal/support/` | 1 `.html`, 1 `.js` | An empty document a filter's realm comes from, and the node assertions |
@@ -1608,7 +1608,7 @@ SHA=$(grep -oE '\b[0-9a-f]{40}\b' README.md | head -1)
 # every extension the corpus vendors, so a bump that brings a new one in is walked rather than skipped
 TYPES='-name *.asis -o -name *.headers -o -name *.htm -o -name *.html -o -name *.js -o -name *.json -o -name *.txt -o -name *.xhtml -o -name *.xml'
 
-# one call per directory that holds a vendored file (78 at this pin)
+# one call per directory that holds a vendored file (79 at this pin)
 for d in $(find . -type f \( $TYPES \) -printf '%h\n' | sort -u | sed 's|^\./||'); do
   gh api "repos/web-platform-tests/wpt/contents/$d?ref=$SHA" \
      --jq '.[] | select(.type=="file") | "\(.sha) \(.path)"'
@@ -1622,8 +1622,8 @@ find . -type f \( $TYPES \) | sort | while read -r f; do
 done
 ```
 
-Silence is a clean corpus, and at this pin there are 873 files in 78 directories to be silent
-about — 351 of them the documents the browser lane navigates to, the rest the scripts, payloads and
+Silence is a clean corpus, and at this pin there are 880 files in 79 directories to be silent
+about — 357 of them the documents the browser lane navigates to, the rest the scripts, payloads and
 sidecars every lane reads.
 
 <!-- end generated -->

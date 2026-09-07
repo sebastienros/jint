@@ -57,6 +57,27 @@ public sealed class DomCollectionTests
     }
 
     [Test]
+    public void ACollectionLengthIsAConfigurablePrototypeAccessorObservedByArrayOperations()
+    {
+        using var fixture = DomTestFixture.Create("<i></i><i></i>");
+
+        fixture.Execute("var nodes = document.querySelectorAll('i');");
+        fixture.Bool("nodes.hasOwnProperty('length')").Should().BeFalse();
+        fixture.Bool("NodeList.prototype.hasOwnProperty('length')").Should().BeTrue();
+        fixture.Text("""
+            var descriptor = Object.getOwnPropertyDescriptor(NodeList.prototype, 'length');
+            [typeof descriptor.get, descriptor.set, descriptor.enumerable, descriptor.configurable].join(',');
+            """).Should().Be("function,,true,true");
+
+        fixture.Execute("Object.defineProperty(NodeList.prototype, 'length', { configurable: true, get: () => 0 });");
+
+        fixture.Number("nodes.length").Should().Be(0);
+        fixture.Number("Array.prototype.indexOf.call(nodes, nodes[0])").Should().Be(-1);
+        fixture.Number("[...nodes].length").Should().Be(0);
+        fixture.Text("JSON.stringify(nodes)").Should().Be("[]");
+    }
+
+    [Test]
     public void AChildNodeListStaysLive()
     {
         using var fixture = DomTestFixture.Create("<div id='host'><b></b></div>");

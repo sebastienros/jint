@@ -532,6 +532,12 @@ internal static partial class DomInterfaces
                     return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Item(self.Target, args);
                 }),
                 length: 1)
+            .Accessor("length",
+                global::Jint.Browser.Dom.DomFailures.Guard("DOMTokenList.length", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITokenList>(thisObj, "DOMTokenList.length");
+                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);
+                }))
             .Method("remove",
                 global::Jint.Browser.Dom.DomFailures.Guard("DOMTokenList.remove", static (thisObj, args) =>
                 {
@@ -612,6 +618,12 @@ internal static partial class DomInterfaces
                     return global::Jint.Browser.Dom.DomConvert.Text(((global::System.Collections.Generic.IReadOnlyList<global::System.String>) self.Target)[global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "DOMStringList.item")]);
                 }),
                 length: 1)
+            .Accessor("length",
+                global::Jint.Browser.Dom.DomFailures.Guard("DOMStringList.length", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IStringList>(thisObj, "DOMStringList.length");
+                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);
+                }))
             .Build();
 
     /// <summary>The members of <c>DOMStringMap</c>.</summary>
@@ -2077,6 +2089,12 @@ internal static partial class DomInterfaces
                     return self.Realm.WrapNodeValue(self.Target[global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "NamedNodeMap.item")]);
                 }),
                 length: 1)
+            .Accessor("length",
+                global::Jint.Browser.Dom.DomFailures.Guard("NamedNodeMap.length", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INamedNodeMap>(thisObj, "NamedNodeMap.length");
+                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);
+                }))
             .Method("removeNamedItem",
                 global::Jint.Browser.Dom.DomFailures.Guard("NamedNodeMap.removeNamedItem", static (thisObj, args) =>
                 {
@@ -2186,7 +2204,13 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INodeList>(thisObj, "NodeList.item");
                     return self.Realm.WrapNodeValue(self.Target[global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "NodeList.item")]);
                 }),
-                length: 1);
+                length: 1)
+            .Accessor("length",
+                global::Jint.Browser.Dom.DomFailures.Guard("NodeList.length", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INodeList>(thisObj, "NodeList.length");
+                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);
+                }));
 
         global::Jint.Browser.Dom.Collections.DomIterableMembers.ValueIterator(builder);
         return builder.Build();
@@ -2495,6 +2519,12 @@ internal static partial class DomInterfaces
                     return self.Realm.Wrap(self.Target[global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "StyleSheetList.item")]);
                 }),
                 length: 1)
+            .Accessor("length",
+                global::Jint.Browser.Dom.DomFailures.Guard("StyleSheetList.length", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IStyleSheetList>(thisObj, "StyleSheetList.length");
+                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);
+                }))
             .Build();
 
     /// <summary>The members of <c>Text</c>.</summary>

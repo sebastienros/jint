@@ -5258,6 +5258,12 @@ internal static partial class DomInterfaces
                     return self.Realm.Wrap(self.Target[global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "TouchList.item")]);
                 }),
                 length: 1)
+            .Accessor("length",
+                global::Jint.Browser.Dom.DomFailures.Guard("TouchList.length", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.Events.ITouchList>(thisObj, "TouchList.length");
+                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);
+                }))
             .Build();
 
     /// <summary>The members of <c>ValidityState</c>.</summary>

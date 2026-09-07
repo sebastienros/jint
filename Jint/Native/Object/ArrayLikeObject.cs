@@ -17,7 +17,7 @@ namespace Jint.Native.Object;
 /// </summary>
 /// <remarks>
 /// <para>
-/// A subclass supplies exactly two members — <see cref="Length"/> and <see cref="TryGetIndex"/> — and this class
+/// A subclass supplies two members — <see cref="Length"/> and <see cref="TryGetIndex"/> — and this class
 /// derives the whole JS-visible property model from them, keeping <c>GetOwnProperty</c>,
 /// <c>TryGetOwnPropertyValue</c>, <c>ProbeOwnProperty</c>, the key enumerations, <c>Set</c>, <c>Delete</c> and
 /// <c>DefineOwnProperty</c> mutually consistent. Both members are re-consulted on every operation, so a
@@ -33,21 +33,18 @@ namespace Jint.Native.Object;
 /// <para>
 /// <b>The JS-visible model.</b> Canonical array indices below <see cref="Length"/> for which
 /// <see cref="TryGetIndex"/> answers are own data properties
-/// <c>{ writable: false, enumerable: true, configurable: true }</c>; <c>length</c> is
-/// <c>{ writable: false, enumerable: false, configurable: true }</c>. Writes to either are ignored in sloppy
-/// mode and raise <c>TypeError</c> in strict mode, and <c>delete</c> / <c>Object.defineProperty</c> against an
-/// index key or <c>length</c> are refused — the WebIDL platform-object shape.
+/// <c>{ writable: false, enumerable: true, configurable: true }</c>. With the default <see cref="OwnsLength"/>,
+/// <c>length</c> is <c>{ writable: false, enumerable: false, configurable: true }</c>. Writes to those own
+/// properties are ignored in sloppy mode and raise <c>TypeError</c> in strict mode; <c>delete</c> and
+/// <c>Object.defineProperty</c> are refused.
 /// </para>
 /// <para>
-/// <b>Where <c>length</c> lives</b> is a known deviation. Here it is an <em>own</em> property, so
+/// <b>Where <c>length</c> lives.</b> By default it is an <em>own</em> property, so
 /// <c>list.hasOwnProperty('length')</c> is <c>true</c> and <c>Object.getOwnPropertyNames(list)</c> contains
-/// <c>"length"</c>; a browser puts it on <c>NodeList.prototype</c> as a WebIDL attribute and answers
-/// <c>false</c>. There is deliberately no opt-out in this version: the engine reads the length of an array-like
-/// through <c>[[Get]]("length")</c> in places that do not go through this type's operations
-/// (<c>JSON.stringify</c>'s array serialization, and every write-mode <c>Array.prototype</c> generic), so a
-/// collection that stopped owning the property would silently behave as empty unless it also installed an
-/// accessor on its prototype. Owning it keeps that impossible to get wrong, and moving it later is an additive
-/// change.
+/// <c>"length"</c>. Override <see cref="OwnsLength"/> to put the property on a prototype instead, as WebIDL does
+/// for DOM collections. That prototype must expose a numeric <c>length</c> accessor; array generics and iteration
+/// then read it through <c>[[Get]]</c>, so redefining the accessor has the same observable effect as it does in a
+/// browser.
 /// </para>
 /// <para>
 /// <b>What it deliberately is NOT: an Array.</b> <c>Array.isArray</c> answers <c>false</c>,
@@ -72,9 +69,8 @@ namespace Jint.Native.Object;
 /// <see cref="NameAt"/> and <see cref="TryGetNamedValue"/>, refined by <see cref="HasName"/>,
 /// <see cref="IsNameEnumerable"/>, <see cref="IsNameWritable"/>, <see cref="TrySetNamedValue"/> and
 /// <see cref="TryDeleteName"/>. All eight default to "the projection carries nothing", so a collection with no
-/// named state declares nothing and is not asked. The indexed collection owns every canonical array index and
-/// <c>length</c>, which are answered before the projection is ever consulted, so a projected name may not spell
-/// one of those.
+/// named state declares nothing and is not asked. Canonical array indices and <c>length</c> are reserved from the
+/// named projection, so a projected name may not spell one of those.
 /// </para>
 /// <para>
 /// <b>Extending it.</b> Every member this class derives is sealed, including
@@ -139,6 +135,16 @@ public abstract class ArrayLikeObject : ObjectInstance, INamedProjection
     /// collection. Implementations should be O(1) and allocation-free.
     /// </summary>
     public abstract uint Length { get; }
+
+    /// <summary>
+    /// Whether <c>length</c> is an own property backed by <see cref="Length"/>. Defaults to
+    /// <see langword="true"/>.
+    /// </summary>
+    /// <remarks>
+    /// Override with <see langword="false"/> only when the object's prototype supplies a numeric
+    /// <c>length</c> accessor. Array generics and iteration then read that accessor through <c>[[Get]]</c>.
+    /// </remarks>
+    protected virtual bool OwnsLength => true;
 
     /// <summary>
     /// Reads the element at <paramref name="index"/>. Return <see langword="true"/> with the value; return
@@ -352,7 +358,10 @@ public abstract class ArrayLikeObject : ObjectInstance, INamedProjection
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private bool TryGetProjectedName(JsValue property, [NotNullWhen(true)] out string? name)
     {
-        if (!_hasNamedProjection)
+        // Length belongs to the indexed collection even when a WebIDL-style host supplies it through
+        // its prototype. A NamedNodeMap may contain an attribute literally named "length"; that supported
+        // name must not shadow the prototype accessor.
+        if (!_hasNamedProjection || CommonProperties.Length.Equals(property))
         {
             name = null;
             return false;
@@ -370,8 +379,8 @@ public abstract class ArrayLikeObject : ObjectInstance, INamedProjection
     public sealed override JsValue Get(JsValue property, JsValue receiver) => base.Get(property, receiver);
 
     /// <summary>
-    /// Index, <c>length</c> and projected-name reads resolve straight out of the host with no descriptor at
-    /// all; every other key falls through to the ordinary property bag.
+    /// Index, an owned <c>length</c> and projected-name reads resolve straight out of the host with no descriptor;
+    /// every other key falls through to the ordinary property bag and prototype chain.
     /// </summary>
     protected internal sealed override bool TryGetOwnPropertyValue(JsValue property, JsValue receiver, out JsValue value)
     {
@@ -380,7 +389,7 @@ public abstract class ArrayLikeObject : ObjectInstance, INamedProjection
             return ReadIndex(index, out value);
         }
 
-        if (CommonProperties.Length.Equals(property))
+        if (OwnsLength && CommonProperties.Length.Equals(property))
         {
             value = JsNumber.Create(Length);
             return true;
@@ -404,7 +413,7 @@ public abstract class ArrayLikeObject : ObjectInstance, INamedProjection
                 : PropertyDescriptor.Undefined;
         }
 
-        if (CommonProperties.Length.Equals(property))
+        if (OwnsLength && CommonProperties.Length.Equals(property))
         {
             return new PropertyDescriptor(JsNumber.Create(Length), LengthFlags);
         }
@@ -431,7 +440,7 @@ public abstract class ArrayLikeObject : ObjectInstance, INamedProjection
             return ProbeIndex(index) ? OwnPropertyProbe.Enumerable : OwnPropertyProbe.Missing;
         }
 
-        if (CommonProperties.Length.Equals(property))
+        if (OwnsLength && CommonProperties.Length.Equals(property))
         {
             return OwnPropertyProbe.NonEnumerable;
         }
@@ -445,9 +454,9 @@ public abstract class ArrayLikeObject : ObjectInstance, INamedProjection
     }
 
     /// <summary>
-    /// Ordinary <c>[[OwnPropertyKeys]]</c> order: the present indices ascending, then <c>length</c>, then the
-    /// projected names in <see cref="NameAt"/> order, then the property bag's string keys in insertion order,
-    /// then symbols.
+    /// Ordinary <c>[[OwnPropertyKeys]]</c> order: the present indices ascending, an owned <c>length</c>, the
+    /// projected names in <see cref="NameAt"/> order, the property bag's string keys in insertion order, then
+    /// symbols.
     /// </summary>
     public sealed override List<JsValue> GetOwnPropertyKeys(Types types = Types.String | Types.Symbol)
     {
@@ -457,7 +466,7 @@ public abstract class ArrayLikeObject : ObjectInstance, INamedProjection
         }
 
         var length = CheckedLength();
-        var keys = new List<JsValue>((int) length + 1);
+        var keys = new List<JsValue>((int) length + (OwnsLength ? 1 : 0));
         for (uint i = 0; i < length; i++)
         {
             if (i > 0 && i % Engine.ConstraintCheckInterval == 0)
@@ -471,7 +480,10 @@ public abstract class ArrayLikeObject : ObjectInstance, INamedProjection
             }
         }
 
-        keys.Add(CommonProperties.Length);
+        if (OwnsLength)
+        {
+            keys.Add(CommonProperties.Length);
+        }
 
         var names = CollectNames();
         keys.AddRange(names);
@@ -491,14 +503,13 @@ public abstract class ArrayLikeObject : ObjectInstance, INamedProjection
 
     /// <summary>
     /// Routes an assignment to a name <see cref="IsNameWritable"/> claims to <see cref="TrySetNamedValue"/>.
-    /// Indices and <c>length</c> never reach it — they are non-writable, so the ordinary path refuses them with
-    /// the spec-shaped answer (sloppy mode: ignored; strict mode: <c>TypeError</c>).
+    /// Indices and <c>length</c> never reach it. The ordinary path applies their own or inherited descriptors.
     /// </summary>
     public sealed override bool Set(JsValue property, JsValue value, JsValue receiver)
     {
-        // The collection owns every index and `length`, and both are non-writable, so neither ever reaches the
-        // projection: base.Set finds the non-writable descriptor this class reports and refuses in the ordinary
-        // way. What is left is a name, offered to the projection ahead of the prototype chain and only when the
+        // Indices and `length` are reserved from the named projection. base.Set applies this class's indexed
+        // descriptor and either the default own length descriptor or the opt-out host's prototype descriptor.
+        // What is left is a name, offered to the projection ahead of the prototype chain and only when the
         // receiver is this object — the WebIDL named-property-setter shape.
         if (ReferenceEquals(this, receiver)
             && !ArrayInstance.IsArrayIndex(property, out _)
@@ -513,10 +524,9 @@ public abstract class ArrayLikeObject : ObjectInstance, INamedProjection
     }
 
     /// <summary>
-    /// Refuses <c>delete</c> of an index the collection currently has and of <c>length</c> (sloppy mode: the
-    /// expression evaluates to <c>false</c>; strict mode: <c>TypeError</c>) — the WebIDL platform-object shape.
+    /// Refuses <c>delete</c> of an index the collection currently has and of the default owned <c>length</c>.
     /// An index the collection does not have deletes vacuously, like any absent property. A projected name is
-    /// offered to <see cref="TryDeleteName"/>, whose default refuses.
+    /// offered to <see cref="TryDeleteName"/>, whose default refuses; all other keys use ordinary deletion.
     /// </summary>
     public sealed override bool Delete(JsValue property)
     {
@@ -525,7 +535,7 @@ public abstract class ArrayLikeObject : ObjectInstance, INamedProjection
             return !ProbeIndex(index);
         }
 
-        if (CommonProperties.Length.Equals(property))
+        if (OwnsLength && CommonProperties.Length.Equals(property))
         {
             return false;
         }
@@ -539,8 +549,8 @@ public abstract class ArrayLikeObject : ObjectInstance, INamedProjection
     }
 
     /// <summary>
-    /// Refuses <c>[[DefineOwnProperty]]</c> on <c>length</c>, on <b>every</b> canonical array-index key,
-    /// in range or not, and on a projected name.
+    /// Refuses <c>[[DefineOwnProperty]]</c> on the default owned <c>length</c>, every canonical array-index key,
+    /// in range or not, and a projected name.
     /// </summary>
     /// <remarks>
     /// Refusing out-of-range indices as well is stricter than WebIDL, which lets an ordinary expando live at an
@@ -551,7 +561,7 @@ public abstract class ArrayLikeObject : ObjectInstance, INamedProjection
     /// </remarks>
     public sealed override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
     {
-        if (ArrayInstance.IsArrayIndex(property, out _) || CommonProperties.Length.Equals(property))
+        if (ArrayInstance.IsArrayIndex(property, out _) || (OwnsLength && CommonProperties.Length.Equals(property)))
         {
             return false;
         }
@@ -566,7 +576,11 @@ public abstract class ArrayLikeObject : ObjectInstance, INamedProjection
 
     internal sealed override bool IsArrayLike => true;
 
-    internal sealed override uint GetLength() => Length;
+    internal sealed override uint GetLength() => OwnsLength ? Length : base.GetLength();
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal ulong GetLongLength()
+        => OwnsLength ? Length : TypeConverter.ToLength(Get(CommonProperties.Length));
 
     // Identity-compare the resolved @@iterator against the realm's captured %Array.prototype.values%, exactly as
     // ArrayInstance does: a host that wired the original array iterator gets the destructuring fast path, one

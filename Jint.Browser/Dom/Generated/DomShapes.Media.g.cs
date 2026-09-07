@@ -71,6 +71,12 @@ internal static partial class DomInterfaces
                     return self.Realm.Wrap(self.Target.GetTrackById(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "AudioTrackList.getTrackById")));
                 }),
                 length: 1)
+            .Accessor("length",
+                global::Jint.Browser.Dom.DomFailures.Guard("AudioTrackList.length", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IAudioTrackList>(thisObj, "AudioTrackList.length");
+                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);
+                }))
             .Build();
 
     /// <summary>The members of <c>RenderingContext</c>.</summary>
@@ -487,6 +493,12 @@ internal static partial class DomInterfaces
                     return self.Realm.Wrap(self.Target.GetCueById(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "TextTrackCueList.getCueById")));
                 }),
                 length: 1)
+            .Accessor("length",
+                global::Jint.Browser.Dom.DomFailures.Guard("TextTrackCueList.length", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCueList>(thisObj, "TextTrackCueList.length");
+                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);
+                }))
             .Build();
 
     /// <summary>The members of <c>TextTrackList</c>.</summary>
@@ -497,6 +509,12 @@ internal static partial class DomInterfaces
             .PerRealmSlot(
                 global::Jint.Native.Symbol.GlobalSymbolRegistry.Iterator,
                 global::Jint.Browser.Dom.Collections.DomIterator.ArrayValues)
+            .Accessor("length",
+                global::Jint.Browser.Dom.DomFailures.Guard("TextTrackList.length", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackList>(thisObj, "TextTrackList.length");
+                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);
+                }))
             .Build();
 
     /// <summary>The members of <c>TimeRanges</c>.</summary>
@@ -583,6 +601,12 @@ internal static partial class DomInterfaces
                     return self.Realm.Wrap(self.Target.GetTrackById(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "VideoTrackList.getTrackById")));
                 }),
                 length: 1)
+            .Accessor("length",
+                global::Jint.Browser.Dom.DomFailures.Guard("VideoTrackList.length", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IVideoTrackList>(thisObj, "VideoTrackList.length");
+                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);
+                }))
             .Accessor("selectedIndex",
                 global::Jint.Browser.Dom.DomFailures.Guard("VideoTrackList.selectedIndex", static (thisObj, args) =>
                 {
