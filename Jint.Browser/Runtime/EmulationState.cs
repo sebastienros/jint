@@ -58,8 +58,9 @@ internal sealed class EmulationState
 
     /// <summary>Whether <c>Emulation.setTouchEmulationEnabled</c> asked for touch.</summary>
     /// <remarks>
-    /// It reaches <c>navigator.maxTouchPoints</c>, the presence of <c>ontouchstart</c> on <c>window</c> and
-    /// <c>document</c>, and <c>(hover: none)</c> / <c>(pointer: coarse)</c> in the media environment.
+    /// It reaches <c>navigator.maxTouchPoints</c>, the presence of <c>ontouchstart</c> on <c>window</c>,
+    /// <c>document</c> and <c>Element.prototype</c>, and <c>(hover: none)</c> / <c>(pointer: coarse)</c> in the
+    /// media environment.
     /// </remarks>
     internal bool TouchEnabled { get; set; }
 

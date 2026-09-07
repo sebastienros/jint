@@ -21,14 +21,11 @@ namespace Jint.Browser.Runtime;
 /// <c>setHardwareConcurrencyOverride</c> and <c>setGeolocationOverride</c> become observable.
 /// </para>
 /// <para>
-/// <b>They are own properties of the <c>navigator</c> object rather than accessors on
-/// <c>Navigator.prototype</c></b>, which is where a browser has them and where WebIDL puts them. The engine's
-/// prototype is a <em>shaped</em> object shared by every realm's, and a property it did not declare would
-/// deoptimize it and lose the prototype-method inline cache with it; one instance per document takes the
-/// own properties instead, exactly as <c>document</c> does for <c>defaultView</c> and <c>currentScript</c>
-/// (<see cref="WindowInstaller.AttachDocumentMembers"/> argues it at length). They are non-enumerable for
-/// the same reason those two are: a browser answers <c>[]</c> to <c>Object.keys(navigator)</c> because its
-/// members are inherited, and an own enumerable accessor would put every one of them in an object spread.
+/// <b>They are accessors on <c>Navigator.prototype</c></b>, where WebIDL puts them. The engine's prototype is
+/// a shaped object, and its hybrid addition lane keeps the fixed shared layout serving the engine's own
+/// <c>userAgent</c> slot while these browser members follow it in a per-realm side dictionary. They therefore
+/// carry WebIDL's enumerable/configurable attributes without making <c>Object.keys(navigator)</c> or an object
+/// spread report inherited members, and without giving up the prototype-method inline cache.
 /// </para>
 /// <para>
 /// <b><c>userAgent</c> is the exception, and it is left to the prototype.</b> The page's user agent is
@@ -68,7 +65,7 @@ internal static class NavigatorInstaller
             static e =>
             {
                 var navigator = e._mainRealm.Intrinsics.NavigatorObject;
-                Attach(e, navigator);
+                Attach(e, navigator.Prototype!);
                 return navigator;
             },
             PropertyFlag.ConfigurableEnumerableWritable);
@@ -95,45 +92,45 @@ internal static class NavigatorInstaller
         return culture.Name.Length != 0 ? culture.Name : "en-US";
     }
 
-    private static void Attach(Engine engine, ObjectInstance navigator)
+    private static void Attach(Engine engine, ObjectInstance navigatorPrototype)
     {
         // userAgent is deliberately absent: it is the one member the engine's own Navigator already declares,
         // and Engine.WebApi.UserAgent is what carries the page's string to it.
-        Accessor(engine, navigator, "language", static runtime => JsString.Create(LanguageOf(runtime)));
-        Accessor(engine, navigator, "languages", static runtime => Languages(runtime));
-        Accessor(engine, navigator, "platform", static runtime => JsString.Create(runtime.Emulation.Platform ?? ""));
+        Accessor(engine, navigatorPrototype, "language", static runtime => JsString.Create(LanguageOf(runtime)));
+        Accessor(engine, navigatorPrototype, "languages", static runtime => Languages(runtime));
+        Accessor(engine, navigatorPrototype, "platform", static runtime => JsString.Create(runtime.Emulation.Platform ?? ""));
 
         // https://w3c.github.io/pointerevents/#dom-navigator-maxtouchpoints — zero is what a device with no
         // touch screen reports, and it is the second half of the `'ontouchstart' in window` test every
         // responsive framework writes.
-        Accessor(engine, navigator, "maxTouchPoints", static runtime =>
+        Accessor(engine, navigatorPrototype, "maxTouchPoints", static runtime =>
             JsNumber.Create(runtime.Emulation.TouchEnabled ? runtime.Emulation.MaxTouchPoints : 0));
 
         // https://html.spec.whatwg.org/multipage/workers.html#dom-navigator-hardwareconcurrency — the host's
         // own processor count unless a client overrode it, because a library sizing a worker pool from it
         // wants a number that means something.
-        Accessor(engine, navigator, "hardwareConcurrency", static runtime =>
+        Accessor(engine, navigatorPrototype, "hardwareConcurrency", static runtime =>
             JsNumber.Create(runtime.Emulation.HardwareConcurrency ?? Environment.ProcessorCount));
 
         // Both are true and neither is a guess: every request goes out over the context's own HttpClient, and
         // the context's cookie jar stores what a page sets. Emulation.setDocumentCookieDisabled does not move
         // the second, and says so.
-        Accessor(engine, navigator, "onLine", static _ => JsBoolean.True);
-        Accessor(engine, navigator, "cookieEnabled", static _ => JsBoolean.True);
+        Accessor(engine, navigatorPrototype, "onLine", static _ => JsBoolean.True);
+        Accessor(engine, navigatorPrototype, "cookieEnabled", static _ => JsBoolean.True);
 
-        Accessor(engine, navigator, "geolocation", static runtime => runtime.Views.Geolocation);
+        Accessor(engine, navigatorPrototype, "geolocation", static runtime => runtime.Views.Geolocation);
     }
 
-    private static void Accessor(Engine engine, ObjectInstance navigator, string name, Func<PageRuntime, JsValue> read)
+    private static void Accessor(Engine engine, ObjectInstance navigatorPrototype, string name, Func<PageRuntime, JsValue> read)
     {
         var member = name;
 
-        navigator.DefineOwnPropertyUnchecked(
+        navigatorPrototype.DefineOwnProperty(
             name,
             new GetSetPropertyDescriptor(
                 new ClrFunction(engine, "get " + name, (thisObject, _) => read(Runtime(thisObject, member))),
                 set: null,
-                PropertyFlag.OnlyConfigurable));
+                PropertyFlag.Configurable | PropertyFlag.Enumerable));
     }
 
     /// <summary>
