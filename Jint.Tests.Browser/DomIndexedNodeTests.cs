@@ -158,4 +158,27 @@ public sealed class DomIndexedNodeTests
         fixture.Text("(() => { const f = new DocumentFragment(); f.append('in a fragment'); return f.textContent; })()")
             .Should().Be("in a fragment");
     }
+
+    [Test]
+    public void BeforeAndAfterReturnWhenTheReceiverHasNoParent()
+    {
+        using var fixture = DomTestFixture.Create("<p>attached</p>");
+
+        fixture.Text(
+            """
+            (() => {
+              const detached = [
+                document.createElement('div'),
+                document.createTextNode('text'),
+                document.implementation.createDocumentType('html', '', '')
+              ];
+              for (const node of detached) {
+                node.before('before', document.createElement('i'));
+                node.after('after', document.createElement('b'));
+              }
+              return detached.every(node => node.parentNode === null) ? 'returned' : 'inserted';
+            })()
+            """)
+            .Should().Be("returned", "DOM returns before converting arguments when the receiver has no parent");
+    }
 }
