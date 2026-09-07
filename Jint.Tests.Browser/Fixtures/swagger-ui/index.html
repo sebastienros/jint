@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>OrchardCore OpenAPI Documentation</title>
+  <link rel="stylesheet" href="/vendor/swagger-ui-5.32.7/swagger-ui.css">
+</head>
+<body>
+  <div id="swagger-ui"></div>
+  <script src="/vendor/swagger-ui-5.32.7/swagger-ui-bundle.js"></script>
+  <script src="/vendor/swagger-ui-5.32.7/swagger-ui-standalone-preset.js"></script>
+  <script>
+    window.onload = function () {
+      window.ui = SwaggerUIBundle({
+        urls: [{ url: "/swagger-ui/schema.json", name: "OpenApi V1" }],
+        dom_id: "#swagger-ui",
+        presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+        layout: "StandaloneLayout",
+        validatorUrl: null,
+        requestInterceptor: function (req) {
+          if (req.url && req.url.includes("/api/")) req.credentials = "omit";
+          return req;
+        }
+      });
+      ui.initOAuth({});
+    };
+  </script>
+</body>
+</html>

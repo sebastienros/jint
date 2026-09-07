@@ -48,6 +48,7 @@ React does not) would otherwise read a draft it had already cleared.
 | `todomvc-vue` | Vue 3 compiling the document's **own** markup: `v-model`, `v-for`, `:class`, `@keydown.enter`, mustaches | passes |
 | `vue-folder-tree` | A Vue tree mounted while hidden, revealed after fetch, with child rendering gated by `ResizeObserver` height; async folder insertion and shallow root replacement | passes |
 | `monaco-amd` | Orchard's tenant-relative Monaco AMD configuration, the editor bundle's CSS plugin dependency, and creation of an editor model | passes |
+| `swagger-ui` | Orchard's Swagger UI bundle over CDP: schema loading, expanding operations, try-out controls and executing a request | net8 CDP requires #3884 |
 | `todomvc-preact` | Preact hooks writing to the DOM directly, with no scheduler between them | passes |
 | `todomvc-svelte` | Svelte 5 compiled ahead of time: no framework runtime is loaded, only the component's own output | passes |
 | `ssr-hydration` | React `hydrateRoot` over server-rendered markup — the nodes are adopted, not replaced, and `onRecoverableError` stays empty | passes |
@@ -99,11 +100,37 @@ Each directory under `vendor/` holds the library's published bundle and its own 
 | Bootstrap | 5.3.8 | `github.com/twbs/bootstrap/blob/v5.3.8/dist/js/bootstrap.bundle.min.js` | MIT | `jquery-unsafe-url` |
 | Bootstrap-select (CrestApps) | 1.2.4 | `github.com/CrestApps/bootstrap-select/blob/cba208e213b6e61464a07901a9b5438cd7193ce5/docs/dist/js/bootstrap-select.min.js` | MIT | `jquery-unsafe-url` |
 | Monaco / Orchard configuration | 0.52.2 | `OrchardCMS/OrchardCore@ff256e15b720c7c705a4f79743b64f5bb76d22bf`, `src/OrchardCore.Modules/OrchardCore.Resources/wwwroot/Scripts/monaco/` (loader, ocmonaco, editor JS and CSS) | MIT / BSD-3-Clause; bundled third-party notices alongside | `monaco-amd` |
+| Swagger UI | 5.32.7 | Embedded bundle, standalone preset and CSS from `Swashbuckle.AspNetCore.SwaggerUI` NuGet 10.2.3, as used by OrchardCore | Apache-2.0; bundled NOTICE alongside | `swagger-ui` |
 | htmx | 2.0.10 | `unpkg.com/htmx.org@2.0.10/dist/htmx.min.js` | 0BSD | `htmx` |
 | Alpine.js | 3.17.1 | `unpkg.com/alpinejs@3.17.1/dist/cdn.min.js` | MIT | `alpine` |
 
 React 18 rather than 19, and Preact's UMD build, because React 19 publishes no UMD asset: a fixture must be a
 `<script src>` a page loads, not a bundle this repository builds.
+
+### The Swagger reproduction
+
+`swagger-ui/schema.json` is the complete Blog-tenant schema captured from OrchardCore's
+`OpenApiGenerationRecipe` test, unchanged (SHA-256
+`e3396cef8f4d49580d4b63464c7d7dfc209a01b8f69bd506fc7e6c0d4e691be3`).
+The bundle, preset, CSS, LICENSE and NOTICE were extracted from the cached Swashbuckle 10.2.3
+assembly's embedded resources and gzip-decoded, as its resource provider does. They are not rebuilt.
+The page retains Orchard's URLs configuration, standalone layout and synchronous request interceptor;
+only routing is local to the fixture. The full schema's server remains `/`.
+
+The public-page case and Microsoft.Playwright 1.62 CDP case click the **summary wrapper**, not a substitute
+button. The latter expands `GetEndpoint/ApiGetContentItem`, enables try-out, fills the parameter, executes
+a local 404 JSON response, observes that response in Swagger's DOM, waits for network idle and asserts no
+page, console, request or host errors. Failure diagnostics include the operation DOM and requests. Its
+printed duration, process working set and process-wide allocation delta are diagnostic observations, not
+benchmarks or pass/fail thresholds.
+
+This deliberately omits Orchard feature enablement, login and the OIDC silent-auth iframe. They are not
+needed to reproduce the missing try-out controls: with the schema already rendered, incorrect synthetic
+scrolling and flex geometry sent the summary click to the wrong DOM node.
+
+The strict CDP case also exposed the independent macOS net8 page-thread stack defect tracked in #3884:
+the same React commit traversal exhausts the default stack in the published, unmodified browser package.
+That is a prerequisite runtime fix, not a reason to bypass the summary selector or relax error assertions.
 
 ### The two files that were produced rather than downloaded
 
