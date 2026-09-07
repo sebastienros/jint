@@ -58,6 +58,8 @@ internal sealed class PageNetworkRecorder : FetchObserver
     private readonly Dictionary<long, Declaration> _declared = [];
     private readonly Dictionary<long, Entry> _entries = [];
     private readonly Dictionary<string, Entry> _byRequestId = new(StringComparer.Ordinal);
+    // Request-age history, including empty or disabled captures: eviction also retires the request-id
+    // mapping and post data. Keep that order across disable/re-enable, not just entries holding bytes.
     private readonly Queue<Entry> _captureOrder = new();
     private readonly System.Threading.Lock _gate = new();
     private readonly int _max;

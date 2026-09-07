@@ -73,6 +73,31 @@ public sealed class NetworkCaptureBudgetTests
     }
 
     [Test]
+    public async Task PressureAfterReenablingCaptureRetiresRequestHistoryInAgeOrder()
+    {
+        var recorder = Recorder();
+        await Start(recorder, 1);
+        recorder.OnData(new(1), "aaaaaaaa"u8);
+        recorder.CaptureBodies = false;
+        recorder.CaptureBodies = true;
+        recorder.OnCompleted(new(1), 8);
+        recorder.Knows("1").Should().BeTrue("disabling drops bytes but preserves request history");
+
+        await Start(recorder, 2);
+        recorder.OnData(new(2), "bbbbbbbb"u8);
+        recorder.OnCompleted(new(2), 8);
+        await Start(recorder, 3);
+        recorder.OnData(new(3), "cccccccc"u8);
+        recorder.OnCompleted(new(3), 8);
+
+        recorder.Knows("1").Should().BeFalse("pressure retires older request history even when its capture is empty");
+        recorder.Knows("2").Should().BeFalse();
+        recorder.Knows("3").Should().BeTrue();
+        recorder.Body("3")!.Value.Bytes.ToArray().Should().Equal("cccccccc"u8.ToArray());
+        recorder.Requests.Should().HaveCount(3, "capture eviction does not erase the page's request log");
+    }
+
+    [Test]
     public async Task FailedResponsesDoNotPublishTheirPrefixAsACompleteBody()
     {
         var recorder = Recorder();
