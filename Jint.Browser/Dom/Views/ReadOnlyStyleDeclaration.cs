@@ -36,6 +36,11 @@ namespace Jint.Browser.Dom.Views;
 /// why no more.
 /// </para>
 /// <para>
+/// Named reads keep native resolved values. The explicit-inherit compatibility cascade is deferred until
+/// an unresolved property, a shorthand or the complete declaration is requested; an unrelated inherited
+/// decoration must not make every geometry or visibility read compute all ancestor declarations.
+/// </para>
+/// <para>
 /// <b><c>length</c> and <c>item(i)</c> stay the declared set.</b> CSSOM enumerates every supported longhand
 /// there, which is some three hundred names a browser answers and this has no values for; publishing ten of
 /// them as if they were the list would be a worse answer than the honest short one. A page reads a resolved
@@ -53,6 +58,9 @@ internal sealed class ReadOnlyStyleDeclaration : ICssStyleDeclaration
     private readonly Engine _engine;
     private readonly IElement _element;
     private readonly PageRuntime _runtime;
+    private readonly bool _hasUnresolvedInheritance;
+    private ICssStyleDeclaration? _complete;
+    private bool _completeResolved;
 
     internal ReadOnlyStyleDeclaration(PageRuntime runtime, IElement element, ICssStyleDeclaration? computed)
     {
@@ -60,24 +68,25 @@ internal sealed class ReadOnlyStyleDeclaration : ICssStyleDeclaration
         _engine = runtime.Engine;
         _element = element;
         _computed = computed;
+        _hasUnresolvedInheritance = computed?.Any(static property => property.IsInherited && !property.CanBeInherited) == true;
     }
 
     /// <inheritdoc />
-    public string this[int index] => _computed is null ? "" : _computed[index];
+    public string this[int index] => Complete is { } computed ? computed[index] : "";
 
     /// <inheritdoc />
     public string this[string name] => GetPropertyValue(name);
 
     /// <inheritdoc />
-    public int Length => _computed?.Length ?? 0;
+    public int Length => Complete?.Length ?? 0;
 
     /// <inheritdoc />
-    public ICssRule? Parent => _computed?.Parent;
+    public ICssRule? Parent => Complete?.Parent;
 
     /// <inheritdoc />
     public string CssText
     {
-        get => _computed?.CssText ?? "";
+        get => Complete?.CssText ?? "";
         set => Refuse("cssText");
     }
 
@@ -95,15 +104,27 @@ internal sealed class ReadOnlyStyleDeclaration : ICssStyleDeclaration
     /// exception. That file says which read fails and why.
     /// </remarks>
     public string GetPropertyValue(string propertyName)
-        => Resolve(
-            propertyName,
-            _computed is null ? null : CssCascade.ValueOf(_computed, propertyName));
+    {
+        var declared = _computed is null ? null : CssCascade.ValueOf(_computed, propertyName);
+        // Unrelated unresolved inheritance must not turn each visibility or size read into a
+        // complete ancestor cascade. Shorthands and the unresolved property still take that path.
+        if (_hasUnresolvedInheritance && !string.IsNullOrEmpty(declared) && _computed is { } computed)
+        {
+            var property = computed.GetProperty(propertyName);
+            if (property is null or { IsInherited: true, CanBeInherited: false })
+            {
+                declared = Complete is { } complete ? CssCascade.ValueOf(complete, propertyName) : null;
+            }
+        }
+
+        return Resolve(propertyName, declared);
+    }
 
     /// <inheritdoc />
-    public ICssProperty GetProperty(string propertyName) => _computed?.GetProperty(propertyName)!;
+    public ICssProperty GetProperty(string propertyName) => Complete?.GetProperty(propertyName)!;
 
     /// <inheritdoc />
-    public string GetPropertyPriority(string propertyName) => _computed?.GetPropertyPriority(propertyName) ?? "";
+    public string GetPropertyPriority(string propertyName) => Complete?.GetPropertyPriority(propertyName) ?? "";
 
     /// <inheritdoc />
     public void SetProperty(string propertyName, string propertyValue, string? priority = null) => Refuse("setProperty");
@@ -124,13 +145,32 @@ internal sealed class ReadOnlyStyleDeclaration : ICssStyleDeclaration
     public void Update(string value) => Refuse("cssText");
 
     /// <inheritdoc />
-    public void ToCss(TextWriter writer, IStyleFormatter formatter) => _computed?.ToCss(writer, formatter);
+    public void ToCss(TextWriter writer, IStyleFormatter formatter) => Complete?.ToCss(writer, formatter);
 
     /// <inheritdoc />
     public IEnumerator<ICssProperty> GetEnumerator()
-        => _computed?.GetEnumerator() ?? Enumerable.Empty<ICssProperty>().GetEnumerator();
+        => Complete?.GetEnumerator() ?? Enumerable.Empty<ICssProperty>().GetEnumerator();
 
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+    private ICssStyleDeclaration? Complete
+    {
+        get
+        {
+            if (!_hasUnresolvedInheritance)
+            {
+                return _computed;
+            }
+
+            if (!_completeResolved)
+            {
+                _complete = CssCascade.Of(_element);
+                _completeResolved = true;
+            }
+
+            return _complete;
+        }
+    }
 
     /// <summary>
     /// The cascade's answer, or the resolved value where the cascade declared nothing.

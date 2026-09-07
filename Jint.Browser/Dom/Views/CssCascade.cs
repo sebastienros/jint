@@ -53,14 +53,14 @@ internal static class CssCascade
     /// The computed cascade for <paramref name="element"/>, or <see langword="null"/> when AngleSharp.Css
     /// cannot compute one.
     /// </summary>
-    internal static ICssStyleDeclaration? Of(IElement element)
+    internal static ICssStyleDeclaration? Of(IElement element, bool resolveInheritance = true)
     {
         try
         {
             var computed = element.ComputeCurrentStyle();
             // The native computed-parent path can leave an explicit inherit unresolved when the
             // parent declares no value. Retain the existing ancestor-walk compatibility path.
-            if (computed.Any(static property => property.IsInherited && !property.CanBeInherited)
+            if (resolveInheritance && computed.Any(static property => property.IsInherited && !property.CanBeInherited)
                 && Traversal.For(element.Owner) is { } traversal)
             {
                 return traversal.Of(element);
@@ -101,12 +101,15 @@ internal static class CssCascade
     /// uses directly. Its parent-computed overload is internal, so a traversal still needs this path to
     /// avoid rematching every ancestor for every element.
     /// </remarks>
-    internal sealed class Traversal(IStyleCollection styles)
+    internal sealed class Traversal(IStyleCollection styles, bool visibilityOnly = false, bool includeVariables = false)
     {
+        private readonly IStyleCollection _styles = visibilityOnly ? new VisibilityStyles(styles, includeVariables) : styles;
         private readonly Dictionary<IElement, Cascade> _cascaded = new();
         private readonly Stack<IElement> _pending = new();
+        private Traversal? _variableTraversal;
+        private Traversal? _completeTraversal;
 
-        internal static Traversal? For(IDocument? document)
+        internal static Traversal? For(IDocument? document, bool visibilityOnly = false)
         {
             if (document?.DefaultView is not { } window)
             {
@@ -114,8 +117,12 @@ internal static class CssCascade
             }
 
             var device = document.Context.GetService<IRenderDevice>() ?? new DefaultRenderDevice();
-            return new Traversal(window.GetStyleCollection(device));
+            var styles = window.GetStyleCollection(device);
+            return new Traversal(styles, visibilityOnly);
         }
+
+        internal ICssStyleDeclaration? CompleteOf(IElement element)
+            => visibilityOnly ? (_completeTraversal ??= new Traversal(styles)).Of(element) : Of(element);
 
         internal ICssStyleDeclaration? Of(IElement element)
         {
@@ -135,8 +142,20 @@ internal static class CssCascade
                 {
                     // Capture local variables before inheritance. A rule matching both parent and
                     // child shares property objects, so reference identity cannot identify inheritance.
-                    var cascade = styles.ComputeExplicitStyle(current);
-                    var variables = new CustomProperties(cascade, parent?.Variables);
+                    var cascade = _styles.ComputeExplicitStyle(current);
+                    if (visibilityOnly && !includeVariables)
+                    {
+                        RetainVisibility(cascade);
+                    }
+
+                    var variables = parent is not null && !cascade.Any(static property => property.Name.StartsWith("--", StringComparison.Ordinal))
+                        ? parent.Variables
+                        : new CustomProperties(cascade, parent?.Variables);
+                    if (visibilityOnly)
+                    {
+                        RetainVisibility(cascade);
+                    }
+
                     if (parent is not null)
                     {
                         Inherit(cascade, parent.Raw);
@@ -147,10 +166,19 @@ internal static class CssCascade
                     if (current.ParentElement is not null
                         && cascade.Any(static property => property.IsInherited && !property.CanBeInherited))
                     {
-                        cascade = styles.GetDeclarations(current);
+                        cascade = _styles.GetDeclarations(current);
+                        if (visibilityOnly)
+                        {
+                            RetainVisibility(cascade);
+                        }
                     }
 
-                    parent = new Cascade(cascade, variables, Compute(current, cascade, variables, parent?.Computed));
+                    // Most boxes use literal display/visibility. Resolve a variable-dependent value
+                    // through the complete environment only when one actually consumes it.
+                    var computed = visibilityOnly && !includeVariables && cascade.Any(static property => property.RawValue is CssReferenceValue)
+                        ? (_variableTraversal ??= new Traversal(styles, visibilityOnly: true, includeVariables: true)).Of(current)
+                        : Compute(current, cascade, variables, parent?.Computed);
+                    parent = new Cascade(cascade, variables, computed);
                     _cascaded.Add(current, parent);
                 }
 
@@ -194,9 +222,13 @@ internal static class CssCascade
         {
             try
             {
-                var context = new ComputeContext(styles.Device, element.Owner?.Context, properties);
+                var context = new ComputeContext(_styles.Device, element.Owner?.Context, properties);
                 var computed = declarations.Compute(context);
-                properties.ApplyTo(computed);
+                if (!visibilityOnly)
+                {
+                    properties.ApplyTo(computed);
+                }
+
                 foreach (var property in declarations)
                 {
                     if (!property.Name.StartsWith("--", StringComparison.Ordinal)
@@ -225,6 +257,35 @@ internal static class CssCascade
         }
 
         private sealed record Cascade(ICssStyleDeclaration Raw, CustomProperties Variables, ICssStyleDeclaration? Computed);
+
+        private static void RetainVisibility(ICssStyleDeclaration declarations)
+        {
+            for (var index = declarations.Length - 1; index >= 0; index--)
+            {
+                var name = declarations[index];
+                if (name is not ("display" or "visibility" or "all"))
+                {
+                    declarations.RemoveProperty(name);
+                }
+            }
+        }
+
+        // Visibility asks only whether a box exists. Keep native matching, specificity and inheritance,
+        // but do not match paint-only rules or compute unrelated (possibly unsupported) CSS values.
+        // This collection lives for one synchronous query, never across a DOM or CSSOM write.
+        private sealed class VisibilityStyles(IStyleCollection styles, bool includeVariables) : IStyleCollection
+        {
+            private readonly ICssStyleRule[] _rules = styles.Where(includeVariables
+                ? static rule => rule.Style.Any(static property => property.Name is "display" or "visibility" or "all"
+                    || property.Name.StartsWith("--", StringComparison.Ordinal))
+                : static rule => rule.Style.Any(static property => property.Name is "display" or "visibility" or "all")).ToArray();
+
+            public IRenderDevice Device => styles.Device;
+
+            public IEnumerator<ICssStyleRule> GetEnumerator() => ((IEnumerable<ICssStyleRule>) _rules).GetEnumerator();
+
+            System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+        }
     }
 
     /// <summary>The device and cycle-free variables AngleSharp's own value computation resolves against.</summary>

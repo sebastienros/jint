@@ -104,12 +104,13 @@ internal static class ResolvedStyle
     /// <summary>The element's box in one axis, or <c>auto</c> when it has none.</summary>
     private static string Extent(IElement element, PageRuntime runtime, bool horizontal)
     {
-        if (runtime.Layout.Current().DocumentBoxOf(element) is not { } box)
+        var sizes = runtime.Layout.MeasureSizes();
+        if (!sizes.HasBox(element))
         {
             return "auto";
         }
 
-        var value = horizontal ? box.Width : box.Height;
+        var value = horizontal ? sizes.Width(element) : sizes.Measure(element).Height;
         return value.ToString("0.####", CultureInfo.InvariantCulture) + "px";
     }
 }

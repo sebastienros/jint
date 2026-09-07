@@ -118,6 +118,82 @@ public partial class PlaywrightCourseTests
         await page.CloseAsync();
     }
 
+    [TestCase("")]
+    [TestCase("/tenant")]
+    public async Task PlaywrightRendersScalarOperations(string prefix)
+    {
+        await using var lane = await ClientLane.OpenAsync(
+            server => FixtureRoutes.Scalar(server),
+            new BrowserOptions { MaxTaskDuration = TimeSpan.FromSeconds(30) });
+        var page = await lane.Context.NewPageAsync();
+        var errors = new ConcurrentQueue<string>();
+        var events = new ConcurrentQueue<string>();
+        page.PageError += (_, error) => errors.Enqueue("page: " + error);
+        page.Console += (_, message) =>
+        {
+            if (message.Type == "error")
+            {
+                errors.Enqueue("console: " + message.Text);
+            }
+        };
+        page.Request += (_, request) => events.Enqueue("request: " + request.Url);
+        page.RequestFinished += (_, request) => events.Enqueue("finished: " + request.Url);
+        page.RequestFailed += (_, request) => errors.Enqueue("failed: " + request.Url + " " + request.Failure);
+        page.DOMContentLoaded += (_, _) => events.Enqueue("DOMContentLoaded");
+        page.Load += (_, _) => events.Enqueue("load");
+        var completed = false;
+        try
+        {
+            await page.GotoAsync(lane.Server.Url(prefix + "/scalar/v1"));
+            var navigation = page.GetByRole(AriaRole.Navigation, new() { Name = "Sidebar for OpenApi V1", Exact = true });
+            var operation = navigation.GetByRole(AriaRole.Button, new() { Name = "Open Group GetEndpoint", Exact = true });
+            await operation.WaitForAsync();
+            await operation.ClickAsync();
+            await navigation.GetByRole(AriaRole.Button, new() { Name = "/api/content/{contentItemId}HTTP Method: GET", Exact = true }).ClickAsync();
+            await page.WaitForFunctionAsync("() => document.body.textContent.includes('/api/content/{contentItemId}')");
+            await page.Locator("section[id='v1/tag/getendpoint/GET/api/content/{contentItemId}']")
+                .GetByRole(AriaRole.Button, new() { Name = "Test Request" }).ClickAsync();
+            var client = page.GetByRole(AriaRole.Dialog, new() { Name = "API Client", Exact = true });
+            await client.WaitForAsync();
+            var send = client.Locator("button").Filter(new() { HasText = "Send get request to " });
+            await send.WaitForAsync();
+            (await send.TextContentAsync()).Should().Contain("get request to ").And.Contain("/api/content/{contentItemId}");
+            (await page.Locator("body").TextContentAsync()).Should().Contain("/api/content/{contentItemId}");
+            errors.Should().BeEmpty();
+            events.Should().Contain("DOMContentLoaded").And.Contain("load");
+            events.Should().Contain("finished: " + lane.Server.Url(prefix + "/swagger/v1/swagger.json"));
+            foreach (var hostPage in lane.Pages.Contexts.SelectMany(context => context.Pages))
+            {
+                hostPage.Errors.Should().BeEmpty();
+                hostPage.Requests.Should().HaveCount(4);
+                hostPage.Requests.Should().OnlyContain(request => request.Status == 200 && !request.Failed && request.BodyLength > 0);
+            }
+
+            completed = true;
+        }
+        finally
+        {
+            if (!completed)
+            {
+                TestContext.Out.WriteLine(await page.EvaluateAsync<string>(
+                    """
+                    () => JSON.stringify({
+                      url: location.href, readyState: document.readyState,
+                      controls: Array.from(document.querySelectorAll('[role=navigation] button, [role=dialog]'))
+                        .slice(0, 30).map(e => [e.tagName, e.getAttribute('aria-label'), e.getAttribute('aria-expanded'), e.textContent.slice(0, 200)])
+                    })
+                    """));
+            }
+            TestContext.Out.WriteLine(string.Join(Environment.NewLine, events));
+            TestContext.Out.WriteLine(string.Join(Environment.NewLine, errors));
+            foreach (var hostPage in lane.Pages.Contexts.SelectMany(context => context.Pages))
+            {
+                TestContext.Out.WriteLine(string.Join(Environment.NewLine, hostPage.Errors));
+                TestContext.Out.WriteLine(string.Join(Environment.NewLine, hostPage.Requests));
+            }
+        }
+    }
+
     [Test]
     public async Task PlaywrightLoadsMonacoThroughItsAmdCssPlugin()
     {

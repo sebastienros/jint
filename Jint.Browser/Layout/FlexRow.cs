@@ -12,16 +12,21 @@ internal static class FlexRow
 {
     internal static bool IsHorizontal(IElement element, CssCascade.Traversal? cascade)
     {
-        var style = cascade?.Of(element);
+        if (cascade?.Of(element) is not { } visibility
+            || CssCascade.ValueOf(visibility, "display") is not ("flex" or "inline-flex"))
+        {
+            return false;
+        }
+
+        var style = cascade.CompleteOf(element);
         return style is not null
-            && CssCascade.ValueOf(style, "display") is "flex" or "inline-flex"
             && CssCascade.ValueOf(style, "flex-direction") is not ("column" or "column-reverse")
             && CssCascade.ValueOf(style, "flex-wrap") is not ("wrap" or "wrap-reverse");
     }
 
     internal static bool IsReversed(IElement element, CssCascade.Traversal? cascade)
     {
-        var style = cascade?.Of(element);
+        var style = cascade?.CompleteOf(element);
         return style is not null
             && ((CssCascade.ValueOf(style, "flex-direction") == "row-reverse")
                 != (CssCascade.ValueOf(style, "direction") == "rtl"));
@@ -29,11 +34,11 @@ internal static class FlexRow
 
     internal static string Alignment(IElement child, IElement parent, CssCascade.Traversal? cascade)
     {
-        var style = cascade?.Of(child);
+        var style = cascade?.CompleteOf(child);
         var alignment = style is null ? null : CssCascade.ValueOf(style, "align-self");
         if (alignment is null or "" or "auto")
         {
-            style = cascade?.Of(parent);
+            style = cascade?.CompleteOf(parent);
             alignment = style is null ? null : CssCascade.ValueOf(style, "align-items");
         }
 
@@ -51,7 +56,7 @@ internal static class FlexRow
         var shrinkageTotal = 0d;
         for (var i = 0; i < children.Length; i++)
         {
-            var style = cascade?.Of(children[i]);
+            var style = cascade?.CompleteOf(children[i]);
             var basis = style is null ? null : CssCascade.ValueOf(style, "flex-basis");
             var width = style is null ? null : CssCascade.ValueOf(style, "width");
             widths[i] = Length(basis, available) ?? Length(width, available) ?? FlatLayout.RowHeight;

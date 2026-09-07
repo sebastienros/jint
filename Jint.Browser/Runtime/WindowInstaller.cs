@@ -514,7 +514,7 @@ internal static class WindowInstaller
         return runtime.Dom.Wrap(new Dom.Views.ReadOnlyStyleDeclaration(
             runtime,
             element,
-            Dom.Views.CssCascade.Of(element)));
+            Dom.Views.CssCascade.Of(element, resolveInheritance: false)));
     }
 
     private static JsValue PostMessage(PageRuntime runtime, JsValue[] arguments)

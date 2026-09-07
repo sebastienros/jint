@@ -22,7 +22,7 @@ internal sealed class ElementVisibility
     internal ElementVisibility(bool useComputedStyle) => _useComputedStyle = useComputedStyle;
 
     internal CssCascade.Traversal? CreateTraversal(IDocument? document)
-        => _useComputedStyle && _cascadeAvailable ? CssCascade.Traversal.For(document) : null;
+        => _useComputedStyle && _cascadeAvailable ? CssCascade.Traversal.For(document, visibilityOnly: true) : null;
 
     /// <summary>
     /// Whether the CSS cascade answered at least once, so a caller can say which source a verdict came from.

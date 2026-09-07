@@ -12,6 +12,23 @@ namespace Jint.Tests.Browser.Fixtures;
 /// </remarks>
 internal static class FixtureRoutes
 {
+    internal static LoopbackServer Scalar(LoopbackServer server)
+    {
+        var html = FixtureCorpus.Read("scalar-openapi/index.html");
+        server.MapHtml("/scalar-openapi/index.html",
+            html.Replace("%2Fscalar%2Fv1", "%2Fscalar-openapi%2Findex.html", StringComparison.Ordinal));
+        foreach (var prefix in new[] { "", "/tenant" })
+        {
+            server.MapHtml(prefix + "/scalar/v1", html);
+            server.Map(prefix + "/swagger/v1/swagger.json", _ => new LoopbackResponse
+            {
+                Body = FixtureCorpus.Read("scalar-openapi/schema.json"),
+            }.With("Content-Type", "application/json"));
+        }
+
+        return server;
+    }
+
     /// <summary>The tenant-relative paths configured by Orchard's unmodified ocmonaco.js.</summary>
     internal static LoopbackServer Monaco(LoopbackServer server)
     {

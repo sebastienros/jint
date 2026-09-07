@@ -70,11 +70,17 @@ public class FlatLayoutTests
             $$"""
             (() => {
               const target = document.getElementById('target');
+              const dimensions = () => [
+                target.clientWidth, target.clientHeight, target.offsetWidth, target.offsetHeight,
+                target.scrollWidth, target.scrollHeight, getComputedStyle(target).width, getComputedStyle(target).height,
+                target.offsetParent !== null
+              ].join(',');
               const before = target.getBoundingClientRect().height;
+              const sizesBefore = dimensions();
               {{mutation}};
-              return before + ',' + target.getBoundingClientRect().height;
+              return before + ',' + target.getBoundingClientRect().height + '|' + sizesBefore + '|' + dimensions();
             })()
-            """)).Should().Be("16,0");
+            """)).Should().Be("16,0|1280,16,1280,16,1280,16,1280px,16px,true|0,0,0,0,0,0,auto,auto,false");
         page.Errors.Should().BeEmpty();
     }
 
@@ -125,6 +131,39 @@ public class FlatLayoutTests
         (await Rect(page, "document.body")).Should().Be($"0,{Row},1280,{3 * Row}");
         (await Rect(page, "document.getElementById('outer')")).Should().Be($"0,{2 * Row},1280,{2 * Row}");
         (await Rect(page, "document.getElementById('inner')")).Should().Be($"0,{3 * Row},1280,{Row}");
+    }
+
+    [Test]
+    public async Task SizeOnlyQueriesMeasureLiveSubtreesAndZeroWidthViewports()
+    {
+        await using var browser = new global::Jint.Browser.Browser(new BrowserOptions { Viewport = new Viewport(800, 64) });
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<div id='target'><span>first</span></div><aside><p>unrelated</p></aside>");
+
+        (await page.EvaluateAsync<string>(
+            """
+            (() => {
+              const target = document.getElementById('target');
+              const sizes = () => [
+                target.clientWidth, target.clientHeight, target.offsetWidth, target.offsetHeight,
+                target.scrollWidth, target.scrollHeight, getComputedStyle(target).width, getComputedStyle(target).height
+              ].join(',');
+              const before = sizes();
+              target.appendChild(document.createElement('span'));
+              const appended = sizes();
+              target.firstChild.style.display = 'none';
+              return [before, appended, sizes()].join('|');
+            })()
+            """)).Should().Be(
+                "800,32,800,32,800,32,800px,32px|800,48,800,48,800,48,800px,48px|800,32,800,32,800,32,800px,32px");
+
+        await page.RunOnLoopAsync(engine =>
+        {
+            PageRuntime.Find(engine)!.SetViewport(new Viewport(0, 64));
+            return 0;
+        });
+        (await page.EvaluateAsync<string>("getComputedStyle(document.getElementById('target')).width")).Should().Be("0px");
+        page.Errors.Should().BeEmpty();
     }
 
     [Test]

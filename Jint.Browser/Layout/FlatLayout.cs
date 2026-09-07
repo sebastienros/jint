@@ -367,6 +367,8 @@ internal sealed class FlatLayout
 
         internal bool TryGetSize(IElement target, out FlatBox size) => _sizes.TryGetValue(target, out size);
 
+        internal double Width(IElement target) => HasBox(target) ? WidthOf(target) : 0;
+
         internal bool HasBox(IElement target)
         {
             var ancestors = new Stack<IElement>();

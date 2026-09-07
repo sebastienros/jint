@@ -160,6 +160,8 @@ public sealed class CascadeTraversalTests
         var target = document.GetElementById("target")!;
         var sidebar = document.GetElementById("sidebar")!;
 
+        sizes.Width(sidebar).Should().Be(1280);
+        styles.Matches.Should().Be(3, "a width query needs only html, body and the sidebar, not its descendants");
         sizes.Measure(leaf).Should().Be(new FlatBox(0, 0, 1280, 16));
         sizes.Measure(sidebar).Should().Be(new FlatBox(0, 0, 1280, 48));
         sizes.Measure(target).Should().Be(new FlatBox(0, 0, 1280, 32));
@@ -174,6 +176,36 @@ public sealed class CascadeTraversalTests
             var expected = layout.ClientBoxOf(element)!.Value;
             sizes.Measure(element).Should().Be(new FlatBox(0, 0, expected.Width, expected.Height));
         }
+    }
+
+    [Test]
+    public async Task VisibilityQueriesKeepNativeCascadeAndVariablesWithoutComputingPaint()
+    {
+        using var context = BrowsingContext.New(Configuration.Default.WithCss());
+        using var document = await context.OpenAsync(response => response.Content(
+            """
+            <style>
+              :root { --shown: block; --hidden: none; --bad: var(--bad) }
+              .parent { display: var(--shown); visibility: hidden; width: 20ch }
+              .parent > span { display: inherit; visibility: var(--bad); color: red }
+              #visible { display: var(--hidden); visibility: visible }
+              .parent > #visible { display: var(--shown) !important }
+              .paint-only { color: red; width: 20ch }
+            </style>
+            <div class="parent"><span id="inherited"></span><span id="visible" class="paint-only"></span></div>
+            """));
+        var styles = new CountingStyles(document.DefaultView!.GetStyleCollection(new DefaultRenderDevice()));
+        var traversal = new CssCascade.Traversal(styles, visibilityOnly: true);
+
+        var inherited = traversal.Of(document.GetElementById("inherited")!)!;
+        inherited.GetPropertyValue("display").Should().Be("block");
+        inherited.GetPropertyValue("visibility").Should().Be("hidden");
+        inherited.GetPropertyValue("width").Should().BeEmpty();
+        inherited.GetPropertyValue("color").Should().BeEmpty();
+        var visible = traversal.Of(document.GetElementById("visible")!)!;
+        visible.GetPropertyValue("display").Should().Be("block");
+        visible.GetPropertyValue("visibility").Should().Be("visible");
+        styles.Matches.Should().Be(2, "the literal and variable-dependent cascades each filter active rules once, not once per element");
     }
 
     [Test]

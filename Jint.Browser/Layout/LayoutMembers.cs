@@ -51,11 +51,11 @@ internal static class LayoutMembers
 
     /// <summary>https://drafts.csswg.org/cssom-view/#dom-element-clientwidth.</summary>
     internal static JsValue ClientWidth(DomRealm realm, IElement element)
-        => JsNumber.Create(IsScrollingElement(element) ? Viewport(realm).Width : Round(ClientBox(realm, element).Width));
+        => JsNumber.Create(IsScrollingElement(element) ? Viewport(realm).Width : Round(Extent(realm, element, horizontal: true)));
 
     /// <summary>https://drafts.csswg.org/cssom-view/#dom-element-clientheight.</summary>
     internal static JsValue ClientHeight(DomRealm realm, IElement element)
-        => JsNumber.Create(IsScrollingElement(element) ? Viewport(realm).Height : Round(ClientBox(realm, element).Height));
+        => JsNumber.Create(IsScrollingElement(element) ? Viewport(realm).Height : Round(Extent(realm, element, horizontal: false)));
 
     /// <summary>https://drafts.csswg.org/cssom-view/#dom-element-scrollwidth.</summary>
     /// <remarks>Horizontal overflow is not measured by the synthetic model.</remarks>
@@ -67,7 +67,7 @@ internal static class LayoutMembers
     {
         if (!IsScrollingElement(element))
         {
-            return JsNumber.Create(Round(ClientBox(realm, element).Height));
+            return JsNumber.Create(Round(Extent(realm, element, horizontal: false)));
         }
 
         var layout = Layout(realm);
@@ -117,11 +117,11 @@ internal static class LayoutMembers
 
     /// <summary>https://drafts.csswg.org/cssom-view/#dom-htmlelement-offsetwidth.</summary>
     internal static JsValue OffsetWidth(DomRealm realm, IElement element)
-        => JsNumber.Create(Round(ClientBox(realm, element).Width));
+        => JsNumber.Create(Round(Extent(realm, element, horizontal: true)));
 
     /// <summary>https://drafts.csswg.org/cssom-view/#dom-htmlelement-offsetheight.</summary>
     internal static JsValue OffsetHeight(DomRealm realm, IElement element)
-        => JsNumber.Create(Round(ClientBox(realm, element).Height));
+        => JsNumber.Create(Round(Extent(realm, element, horizontal: false)));
 
     /// <summary>https://drafts.csswg.org/cssom-view/#dom-htmlelement-offsetleft.</summary>
     internal static JsValue OffsetLeft(DomRealm realm, IElement element)
@@ -162,7 +162,7 @@ internal static class LayoutMembers
     /// </remarks>
     internal static JsValue OffsetParent(DomRealm realm, IElement element)
     {
-        if (Layout(realm)?.DocumentBoxOf(element) is null)
+        if (PageOf(realm)?.Layout.MeasureSizes().HasBox(element) != true)
         {
             return JsValue.Null;
         }
@@ -227,6 +227,12 @@ internal static class LayoutMembers
     /// <summary>The element's viewport-relative box, or the empty one when it has none.</summary>
     private static FlatBox ClientBox(DomRealm realm, IElement element)
         => Layout(realm)?.ClientBoxOf(element) ?? FlatBox.Empty;
+
+    private static double Extent(DomRealm realm, IElement element, bool horizontal)
+    {
+        var sizes = PageOf(realm)?.Layout.MeasureSizes();
+        return sizes is null ? 0 : horizontal ? sizes.Width(element) : sizes.Measure(element).Height;
+    }
 
     /// <summary>The layout of the page this realm belongs to, or <see langword="null"/> when there is none.</summary>
     private static FlatLayout? Layout(DomRealm realm) => PageOf(realm)?.Layout.Current();
