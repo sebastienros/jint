@@ -26,7 +26,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | Suite | Documents | Synthesized | Tests | Not passing |
 | --- | --- | --- | --- | --- |
 | `dom/events/` | 56 | 9 | 544 | 15 |
-| `dom/nodes/` | 165 | 0 | 4,802 | 1,026 |
+| `dom/nodes/` | 165 | 0 | 4,802 | 992 |
 | `dom/collections/` | 8 | 0 | 43 | 11 |
 | `dom/lists/` | 5 | 0 | 189 | 5 |
 | `dom/traversal/` | 13 | 0 | 52 | 0 |
@@ -38,7 +38,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 52 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 3 |
-| **total** | **349** | **9** | **27,107** | **1,439** |
+| **total** | **349** | **9** | **27,107** | **1,405** |
 
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
@@ -189,7 +189,7 @@ patterns match — `JINT_WPT_DOCUMENT` over every document those groups name, th
 Every failing test in this corpus is claimed by exactly one group, which is what makes the sum mean
 anything. **Nothing checks it, though**, unlike the census table above, which is why it had gone as far out
 of date as the diff that restored it shows; making it a generated table beside that one is the follow-up.
-The rows sum to **1,516** rather than 1,532 because two groups also reach a `custom-elements/reactions/`
+The rows sum to **1,476** rather than 1,532 because two groups also reach a `custom-elements/reactions/`
 document the same cause covers — 80 of `AriaMixin-string-attributes.html` and 4 of `Element.html`.
 Ordered by how many tests each accounts for:
 
@@ -197,7 +197,7 @@ Ordered by how many tests each accounts for:
 | ---: | ---: | --- |
 | 540 | 13 | [#3771](https://github.com/sebastienros/jint/issues/3771) **A frame is never given a realm.** It has a **document** now — its `src` is fetched and parsed, `contentDocument` answers it same origin and `load` arrives at the element — and none of these 540 moved, which is the measurement that says what they were really waiting for. 488 of them are one line: `Document-createElement*.html` runs its whole table three times and two of the three documents are an **XML** and an **XHTML** one, which is [#3766](https://github.com/sebastienros/jint/issues/3766) and not this row; each of those runs then asks `doc.defaultView.DOMException`, and a frame with no realm has no `defaultView`. The rest are `node-realm-*`, `node-creation-realm` and the two cross-realm `TreeWalker` documents, whose whole subject is the second realm. `NeedsIframeScripting`, the category this lane already had. |
 | 378 | 9 | [#3766](https://github.com/sebastienros/jint/issues/3766) **An XML document, and the two members that make one.** Both members exist now, and what they uncovered is larger than what they hid: `DOMImplementation-createDocument.html` builds its own table of 434 cases *inside its first test* and the builder called the missing one, so the file used to register **two** tests. It registers them all now and **250** of them fail. The document has its `XMLDocument` interface and cloning preserves that brand; what remains is metadata AngleSharp does not expose — no location, an ASCII-upper-cased encoding name and a content type taken from the namespace. `processing-instruction-attributes.html` is 137 more of the same. `NeedsXmlDocuments`, a scope decision rather than debt, and the largest cause in this table after the frames. |
-| 107 | 28 | [#3772](https://github.com/sebastienros/jint/issues/3772) **A collection's named and indexed properties, and its liveness.** An empty name is a supported property name (`HTMLCollection-empty-name.html`, 7 rows), `getElementsByTagName` matches where the standard matches nothing (23 rows), and `namednodemap-supported-property-names.html` sees names a browser does not. The six `NodeList-static-length-getter-tampered*` documents are the same interface from a seventh angle and are not vendored, because a static `NodeList` re-reads its tampered `length` getter and each of them takes between 5.9 s and 18.8 s. |
+| 67 | 28 | [#3772](https://github.com/sebastienros/jint/issues/3772) **A collection's named and indexed properties.** `getElementsByTagName` is live and applies HTML's qualified-name case rules now, removing 34 rows from this cause; the same collection host hook also makes six own-property assertions pass. What remains is the empty supported name (`HTMLCollection-empty-name.html`, 7 rows), the names `namednodemap-supported-property-names.html` sees, and the six `NodeList-static-length-getter-tampered*` documents: a static `NodeList` re-reads its tampered `length` getter and each spends between 5.9 s and 18.8 s. |
 | 101 | 5 | [#3712](https://github.com/sebastienros/jint/issues/3712) **A nullable `DOMString` answers the string `"null"`.** `createElementNS(null, …)` gives an element whose `namespaceURI` is `"http://www.w3.org/1999/xhtml"` and `node.nodeValue = null` reads back `"null"`, because the binding converts a `DOMString?` parameter with `TypeConverter.ToString`. It is the same conversion the custom-element corpus records for `getAttributeNS`, from the other side, and 80 of the 101 are that document — `custom-elements/reactions/AriaMixin-string-attributes.html`. |
 | 87 | 18 | One assertion each: `Node.isEqualNode` compares data it should not, `Element.removeAttribute` removes one attribute of two, an attribute's order in `element.attributes` differs, `cloneNode` copies a `value` a browser leaves behind. |
 | 80 | 5 | [#3769](https://github.com/sebastienros/jint/issues/3769) **A `(Node or DOMString)` union parameter takes only a `Node`.** `before`, `after`, `append`, `prepend` and `replaceWith` all accept a string in DOM §4.2.7; here a string is "parameter 1 is not of the expected type". `replaceWith` joined the row when the member arrived: eighteen of its twenty-four remaining assertions are the union and nothing else. |

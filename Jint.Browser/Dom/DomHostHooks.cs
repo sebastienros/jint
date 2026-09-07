@@ -1,5 +1,6 @@
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
+using Jint.Browser.Dom.Collections;
 using Jint.Browser.Runtime;
 using Jint.Native;
 using Jint.Native.Object;
@@ -124,6 +125,88 @@ internal class DomHostHooks
     /// <summary>https://html.spec.whatwg.org/multipage/forms.html#dom-lfe-labels</summary>
     internal virtual JsValue Labels(DomRealm realm, IHtmlElement element)
         => HtmlLabelAssociation.IsLabelable(element) ? realm.WrapLabels(element) : JsValue.Null;
+
+    /// <summary>https://dom.spec.whatwg.org/#concept-getelementsbytagname</summary>
+    internal virtual JsValue GetElementsByTagName(DomRealm realm, INode root, JsValue[] arguments)
+    {
+        var qualifiedName = DomConvert.RequiredText(arguments, 0, Member(root, "getElementsByTagName"));
+        var htmlDocument = (root as IDocument ?? root.Owner) is IHtmlDocument;
+        var htmlName = AsciiLowercase(qualifiedName);
+
+        return realm.WrapCollection<IElement>(new DomLiveHtmlCollection(() =>
+            root.Descendants<IElement>().Where(element =>
+            {
+                if (qualifiedName == "*")
+                {
+                    return true;
+                }
+
+                var candidate = QualifiedName(element);
+                return htmlDocument && string.Equals(element.NamespaceUri, NamespaceNames.HtmlUri, StringComparison.Ordinal)
+                    ? string.Equals(candidate, htmlName, StringComparison.Ordinal)
+                    : string.Equals(candidate, qualifiedName, StringComparison.Ordinal);
+            })));
+    }
+
+    /// <summary>https://dom.spec.whatwg.org/#concept-getelementsbynamespacename</summary>
+    internal virtual JsValue GetElementsByTagNameNS(DomRealm realm, INode root, JsValue[] arguments)
+    {
+        var member = Member(root, "getElementsByTagNameNS");
+        var namespaceUri = DomConvert.NullableText(arguments, 0);
+        if (namespaceUri is { Length: 0 })
+        {
+            namespaceUri = null;
+        }
+
+        var localName = DomConvert.RequiredText(arguments, 1, member);
+        IEnumerable<IElement> Current()
+        {
+            // AngleSharp preserves information unavailable through IElement for exact names it created in
+            // the HTML namespace. Re-running that query keeps its answer live; the binding owns the wildcard
+            // and null-namespace cases its query does not implement.
+            if (namespaceUri is not null and not "*" && localName != "*")
+            {
+                return root switch
+                {
+                    IDocument document => document.GetElementsByTagName(namespaceUri, localName),
+                    IElement element => element.GetElementsByTagNameNS(namespaceUri, localName),
+                    _ => [],
+                };
+            }
+
+            return root.Descendants<IElement>().Where(element =>
+                (namespaceUri == "*" || string.Equals(NullIfEmpty(element.NamespaceUri), namespaceUri, StringComparison.Ordinal))
+                && (localName == "*" || string.Equals(element.LocalName, localName, StringComparison.Ordinal)));
+        }
+
+        return realm.WrapCollection<IElement>(new DomLiveHtmlCollection(Current));
+    }
+
+    private static string Member(INode root, string operation)
+        => (root is IDocument ? "Document." : "Element.") + operation;
+
+    private static string QualifiedName(IElement element)
+        => string.IsNullOrEmpty(element.Prefix) ? element.LocalName : element.Prefix + ":" + element.LocalName;
+
+    private static string? NullIfEmpty(string? value) => string.IsNullOrEmpty(value) ? null : value;
+
+    private static string AsciiLowercase(string value)
+    {
+        char[]? copy = null;
+        for (var i = 0; i < value.Length; i++)
+        {
+            var character = value[i];
+            if (character is < 'A' or > 'Z')
+            {
+                continue;
+            }
+
+            copy ??= value.ToCharArray();
+            copy[i] = (char) (character | 0x20);
+        }
+
+        return copy is null ? value : new string(copy);
+    }
 
     /// <summary>https://html.spec.whatwg.org/multipage/forms.html#dom-label-control</summary>
     internal virtual JsValue LabelControl(DomRealm realm, IHtmlLabelElement label)
