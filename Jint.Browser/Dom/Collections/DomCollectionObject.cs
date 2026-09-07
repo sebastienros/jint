@@ -1,3 +1,4 @@
+using Jint.Browser.Runtime;
 using Jint.Native;
 
 namespace Jint.Browser.Dom.Collections;
@@ -45,7 +46,22 @@ internal sealed class DomCollectionObject : DomCollectionBase
                 return 0;
             }
 
-            _names = _accessor.SupportedNames(DomTarget);
+            var names = _accessor.SupportedNames(DomTarget);
+            if (ReferenceEquals(Definition, DomInterfaces.NamedNodeMap))
+            {
+                var visible = new List<string>(names.Count);
+                foreach (var name in names)
+                {
+                    if (IsNamedPropertyVisible(name))
+                    {
+                        visible.Add(name);
+                    }
+                }
+
+                names = visible;
+            }
+
+            _names = names;
             return _names.Count;
         }
     }
@@ -62,7 +78,46 @@ internal sealed class DomCollectionObject : DomCollectionBase
             return false;
         }
 
-        return _accessor.TryGetNamed(DomRealm, DomTarget, name, out value);
+        // The supported-name check comes first, before a prototype (possibly a Proxy) can observe a probe.
+        if (!_accessor.TryGetNamed(DomRealm, DomTarget, name, out value))
+        {
+            return false;
+        }
+
+        if (ReferenceEquals(Definition, DomInterfaces.NamedNodeMap) && !IsNamedPropertyVisible(name))
+        {
+            value = JsValue.Undefined;
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// https://webidl.spec.whatwg.org/#dfn-named-property-visibility. NamedNodeMap declares
+    /// LegacyUnenumerableNamedProperties, but not LegacyOverrideBuiltIns: an ordinary own property or a
+    /// prototype property hides an attribute from both lookup and enumeration. The explicit getNamedItem
+    /// operation and the indexed getter do not use this filter.
+    /// </summary>
+    private bool IsNamedPropertyVisible(string name)
+    {
+        // Read only the ordinary property bag. GetOwnProperty would call the named projection again.
+        if (base.TryGetProperty(name, out _))
+        {
+            return false;
+        }
+
+        for (var prototype = Prototype; prototype is not null; prototype = prototype.Prototype)
+        {
+            // WebIDL skips named properties objects, such as the one behind Window.prototype.
+            // HasOwnProperty inspects the descriptor without invoking an accessor's getter.
+            if (prototype is not WindowNamedProperties && prototype.HasOwnProperty(name))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <inheritdoc />

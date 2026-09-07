@@ -1154,8 +1154,6 @@ internal static class WptBrowserExclusions
         new("dom/nodes/Element-getElementsByTagNameNS.html", "*namespace", WptDivergence.NeedsTriage),
         new("dom/nodes/Element-getElementsByTagNameNS.html", "BODY*", WptDivergence.NeedsTriage),
         new("dom/nodes/Node-childNodes.html", "*.", WptDivergence.NeedsTriage),
-        new("dom/nodes/attributes-namednodemap.html", "*names", WptDivergence.NeedsTriage),
-        new("dom/nodes/attributes-namednodemap.html", "setting an attribute should not overwrite the methods*", WptDivergence.NeedsTriage),
         new("dom/nodes/case.html", "createElementNS http://www.w3.org/1999*ABC", WptDivergence.NeedsTriage),
         new("dom/nodes/case.html", "createElementNS http://www.w3.org/1999*Abc", WptDivergence.NeedsTriage),
         new("dom/nodes/getElementsByClassName-14.htm", "*)", WptDivergence.NeedsTriage),
