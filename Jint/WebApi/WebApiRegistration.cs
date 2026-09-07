@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using Jint.Native;
 using Jint.Native.Object;
+using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
 using Jint.WebApi.Idle;
@@ -155,7 +156,8 @@ internal static class WebApiRegistration
         // The PRINCIPAL realm, deliberately, and not Engine.Realm: during construction the two are the same,
         // but the live door can be called from anywhere — including a host callback running inside a
         // ShadowRealm — and these globals belong to the engine's own realm and to no other.
-        var global = engine._mainRealm.GlobalObject;
+        var realm = engine._mainRealm;
+        var global = realm.GlobalObject;
 
         if (features == WebApiFeatures.None)
         {
@@ -168,7 +170,7 @@ internal static class WebApiRegistration
         // DOMException has no feature flag of its own: it is how every other web API reports a failure, so it
         // exists whenever any of them does. As a WebIDL interface object it is writable and configurable but
         // NOT enumerable — https://webidl.spec.whatwg.org/#es-interfaces.
-        Install(global, engine, "DOMException", static e => e.Realm.Intrinsics.DomException, PropertyFlag.NonEnumerable);
+        Install(global, realm, "DOMException", static r => r.Intrinsics.DomException, PropertyFlag.NonEnumerable);
 
         // And its one derived interface, https://webidl.spec.whatwg.org/#quotaexceedederror, for the same
         // reason and under the same (absent) flag: several of the features below refuse a request for want of
@@ -176,78 +178,78 @@ internal static class WebApiRegistration
         // how a script — and web-platform-tests' own assert_throws_quotaexceedederror — tells the interface
         // apart from a plain DOMException wearing the name, so the interface object has to be reachable
         // wherever one can be thrown.
-        Install(global, engine, "QuotaExceededError", static e => e.Realm.Intrinsics.QuotaExceededError, PropertyFlag.NonEnumerable);
+        Install(global, realm, "QuotaExceededError", static r => r.Intrinsics.QuotaExceededError, PropertyFlag.NonEnumerable);
 
         if ((features & WebApiFeatures.Console) != WebApiFeatures.None)
         {
             // A WebIDL namespace object is exposed through an accessor pair; installing it as an ordinary
             // enumerable data property is a deliberate simplification, documented on ConsoleInstance.
-            Install(global, engine, "console", static e => e.Realm.Intrinsics.Console, PropertyFlag.ConfigurableEnumerableWritable);
+            Install(global, realm, "console", static r => r.Intrinsics.Console, PropertyFlag.ConfigurableEnumerableWritable);
         }
 
         if ((features & WebApiFeatures.Timers) != WebApiFeatures.None)
         {
             // WebIDL operations on the global: writable, enumerable and configurable —
             // https://webidl.spec.whatwg.org/#es-operations.
-            Install(global, engine, "setTimeout", static e => e.Realm.Intrinsics.Timers.SetTimeout, PropertyFlag.ConfigurableEnumerableWritable);
-            Install(global, engine, "setInterval", static e => e.Realm.Intrinsics.Timers.SetInterval, PropertyFlag.ConfigurableEnumerableWritable);
-            Install(global, engine, "clearTimeout", static e => e.Realm.Intrinsics.Timers.ClearTimeout, PropertyFlag.ConfigurableEnumerableWritable);
-            Install(global, engine, "clearInterval", static e => e.Realm.Intrinsics.Timers.ClearInterval, PropertyFlag.ConfigurableEnumerableWritable);
-            Install(global, engine, "queueMicrotask", static e => e.Realm.Intrinsics.Timers.QueueMicrotask, PropertyFlag.ConfigurableEnumerableWritable);
+            Install(global, realm, "setTimeout", static r => r.Intrinsics.Timers.SetTimeout, PropertyFlag.ConfigurableEnumerableWritable);
+            Install(global, realm, "setInterval", static r => r.Intrinsics.Timers.SetInterval, PropertyFlag.ConfigurableEnumerableWritable);
+            Install(global, realm, "clearTimeout", static r => r.Intrinsics.Timers.ClearTimeout, PropertyFlag.ConfigurableEnumerableWritable);
+            Install(global, realm, "clearInterval", static r => r.Intrinsics.Timers.ClearInterval, PropertyFlag.ConfigurableEnumerableWritable);
+            Install(global, realm, "queueMicrotask", static r => r.Intrinsics.Timers.QueueMicrotask, PropertyFlag.ConfigurableEnumerableWritable);
         }
 
         if ((features & WebApiFeatures.Encoding) != WebApiFeatures.None)
         {
-            Install(global, engine, "TextDecoder", static e => e.Realm.Intrinsics.TextDecoder, PropertyFlag.NonEnumerable);
-            Install(global, engine, "TextEncoder", static e => e.Realm.Intrinsics.TextEncoder, PropertyFlag.NonEnumerable);
+            Install(global, realm, "TextDecoder", static r => r.Intrinsics.TextDecoder, PropertyFlag.NonEnumerable);
+            Install(global, realm, "TextEncoder", static r => r.Intrinsics.TextEncoder, PropertyFlag.NonEnumerable);
         }
 
         if ((features & WebApiFeatures.Base64) != WebApiFeatures.None)
         {
             // Operations of a WebIDL interface mixin on the global are enumerable, unlike interface
             // objects — https://webidl.spec.whatwg.org/#es-operations.
-            Install(global, engine, "atob", static e => e.Realm.Intrinsics.Atob, PropertyFlag.ConfigurableEnumerableWritable);
-            Install(global, engine, "btoa", static e => e.Realm.Intrinsics.Btoa, PropertyFlag.ConfigurableEnumerableWritable);
+            Install(global, realm, "atob", static r => r.Intrinsics.Atob, PropertyFlag.ConfigurableEnumerableWritable);
+            Install(global, realm, "btoa", static r => r.Intrinsics.Btoa, PropertyFlag.ConfigurableEnumerableWritable);
         }
 
         if ((features & WebApiFeatures.StructuredClone) != WebApiFeatures.None)
         {
             // A WebIDL operation on the global is a writable, enumerable, configurable data property —
             // https://webidl.spec.whatwg.org/#es-operations.
-            Install(global, engine, "structuredClone", static e => e.Realm.Intrinsics.StructuredClone, PropertyFlag.ConfigurableEnumerableWritable);
+            Install(global, realm, "structuredClone", static r => r.Intrinsics.StructuredClone, PropertyFlag.ConfigurableEnumerableWritable);
         }
 
         if ((features & WebApiFeatures.Files) != WebApiFeatures.None)
         {
-            Install(global, engine, "Blob", static e => e.Realm.Intrinsics.Blob, PropertyFlag.NonEnumerable);
-            Install(global, engine, "File", static e => e.Realm.Intrinsics.File, PropertyFlag.NonEnumerable);
-            Install(global, engine, "FormData", static e => e.Realm.Intrinsics.FormData, PropertyFlag.NonEnumerable);
-            Install(global, engine, "FileReader", static e => e.Realm.Intrinsics.FileReader, PropertyFlag.NonEnumerable);
+            Install(global, realm, "Blob", static r => r.Intrinsics.Blob, PropertyFlag.NonEnumerable);
+            Install(global, realm, "File", static r => r.Intrinsics.File, PropertyFlag.NonEnumerable);
+            Install(global, realm, "FormData", static r => r.Intrinsics.FormData, PropertyFlag.NonEnumerable);
+            Install(global, realm, "FileReader", static r => r.Intrinsics.FileReader, PropertyFlag.NonEnumerable);
 
             // FileReader fires ProgressEvents, which the XHR standard declares and which therefore arrives
             // with whichever feature brings the first interface that fires one. Installed non-clobbering like
             // everything else, so an engine that enabled both features installs the one interface object once.
-            Install(global, engine, "ProgressEvent", static e => e.Realm.Intrinsics.ProgressEvent, PropertyFlag.NonEnumerable);
+            Install(global, realm, "ProgressEvent", static r => r.Intrinsics.ProgressEvent, PropertyFlag.NonEnumerable);
         }
 
         if ((features & WebApiFeatures.Url) != WebApiFeatures.None)
         {
-            Install(global, engine, "URL", static e => e.Realm.Intrinsics.WebApiUrl, PropertyFlag.NonEnumerable);
-            Install(global, engine, "URLSearchParams", static e => e.Realm.Intrinsics.WebApiUrlSearchParams, PropertyFlag.NonEnumerable);
+            Install(global, realm, "URL", static r => r.Intrinsics.WebApiUrl, PropertyFlag.NonEnumerable);
+            Install(global, realm, "URLSearchParams", static r => r.Intrinsics.WebApiUrlSearchParams, PropertyFlag.NonEnumerable);
 
             // URLPattern rides this flag rather than carrying one of its own: it is the same standard family, it
             // is defined entirely in terms of the URL parser and its component canonicalization, and a pattern is
             // matched against a URL — so an engine that has no URL has nothing for it to be useful on.
-            Install(global, engine, "URLPattern", static e => e.Realm.Intrinsics.WebApiUrlPattern, PropertyFlag.NonEnumerable);
+            Install(global, realm, "URLPattern", static r => r.Intrinsics.WebApiUrlPattern, PropertyFlag.NonEnumerable);
         }
 
         if ((features & WebApiFeatures.Events) != WebApiFeatures.None)
         {
-            Install(global, engine, "Event", static e => e.Realm.Intrinsics.Event, PropertyFlag.NonEnumerable);
-            Install(global, engine, "CustomEvent", static e => e.Realm.Intrinsics.CustomEvent, PropertyFlag.NonEnumerable);
-            Install(global, engine, "EventTarget", static e => e.Realm.Intrinsics.EventTarget, PropertyFlag.NonEnumerable);
-            Install(global, engine, "AbortController", static e => e.Realm.Intrinsics.AbortController, PropertyFlag.NonEnumerable);
-            Install(global, engine, "AbortSignal", static e => e.Realm.Intrinsics.AbortSignal, PropertyFlag.NonEnumerable);
+            Install(global, realm, "Event", static r => r.Intrinsics.Event, PropertyFlag.NonEnumerable);
+            Install(global, realm, "CustomEvent", static r => r.Intrinsics.CustomEvent, PropertyFlag.NonEnumerable);
+            Install(global, realm, "EventTarget", static r => r.Intrinsics.EventTarget, PropertyFlag.NonEnumerable);
+            Install(global, realm, "AbortController", static r => r.Intrinsics.AbortController, PropertyFlag.NonEnumerable);
+            Install(global, realm, "AbortSignal", static r => r.Intrinsics.AbortSignal, PropertyFlag.NonEnumerable);
         }
 
         if ((features & WebApiFeatures.GlobalEvents) != WebApiFeatures.None)
@@ -256,9 +258,9 @@ internal static class WebApiRegistration
             // https://webidl.spec.whatwg.org/#es-operations. A browser's Window inherits these three from
             // EventTarget.prototype instead, because its global implements EventTarget; ours does not, and
             // GlobalEventTarget says why.
-            Install(global, engine, "addEventListener", static e => e.Realm.Intrinsics.GlobalEventFunctions.AddEventListener, PropertyFlag.ConfigurableEnumerableWritable);
-            Install(global, engine, "removeEventListener", static e => e.Realm.Intrinsics.GlobalEventFunctions.RemoveEventListener, PropertyFlag.ConfigurableEnumerableWritable);
-            Install(global, engine, "dispatchEvent", static e => e.Realm.Intrinsics.GlobalEventFunctions.DispatchEvent, PropertyFlag.ConfigurableEnumerableWritable);
+            Install(global, realm, "addEventListener", static r => r.Intrinsics.GlobalEventFunctions.AddEventListener, PropertyFlag.ConfigurableEnumerableWritable);
+            Install(global, realm, "removeEventListener", static r => r.Intrinsics.GlobalEventFunctions.RemoveEventListener, PropertyFlag.ConfigurableEnumerableWritable);
+            Install(global, realm, "dispatchEvent", static r => r.Intrinsics.GlobalEventFunctions.DispatchEvent, PropertyFlag.ConfigurableEnumerableWritable);
 
             // HTML exposes `self` through a [Replaceable] accessor pair on Window; an ordinary enumerable data
             // property is the same simplification console, crypto and navigator are installed with. The
@@ -277,15 +279,15 @@ internal static class WebApiRegistration
             // Recorded only when the install actually happened, never unconditionally: ApplyLive re-runs this
             // whole method for an engine that already has `self`, and writing back the null that second call
             // returns would erase a record a worker still needs.
-            if (Install(global, engine, "self", static e => e._mainRealm.GlobalObject, PropertyFlag.ConfigurableEnumerableWritable) is { } installedSelf)
+            if (Install(global, realm, "self", static r => r.GlobalObject, PropertyFlag.ConfigurableEnumerableWritable) is { } installedSelf)
             {
                 engine._webApi!.InstalledSelf = installedSelf;
             }
 
             // The two event interfaces the engine fires at that target. Ordinary WebIDL interface objects:
             // writable and configurable but not enumerable — https://webidl.spec.whatwg.org/#es-interfaces.
-            Install(global, engine, "ErrorEvent", static e => e.Realm.Intrinsics.ErrorEvent, PropertyFlag.NonEnumerable);
-            Install(global, engine, "PromiseRejectionEvent", static e => e.Realm.Intrinsics.PromiseRejectionEvent, PropertyFlag.NonEnumerable);
+            Install(global, realm, "ErrorEvent", static r => r.Intrinsics.ErrorEvent, PropertyFlag.NonEnumerable);
+            Install(global, realm, "PromiseRejectionEvent", static r => r.Intrinsics.PromiseRejectionEvent, PropertyFlag.NonEnumerable);
         }
 
         if ((features & WebApiFeatures.FetchEvents) != WebApiFeatures.None)
@@ -296,48 +298,48 @@ internal static class WebApiRegistration
             // at top level works without the host having had to register anything first.
             InstallFetchModel(engine);
 
-            Install(global, engine, "FetchEvent", static e => e.Realm.Intrinsics.FetchEvent, PropertyFlag.NonEnumerable);
+            Install(global, realm, "FetchEvent", static r => r.Intrinsics.FetchEvent, PropertyFlag.NonEnumerable);
         }
 
         if ((features & WebApiFeatures.Crypto) != WebApiFeatures.None)
         {
             // WebIDL exposes crypto through a [Replaceable] accessor pair; an ordinary enumerable data
             // property is the same simplification console is installed with, documented on CryptoPrototype.
-            Install(global, engine, "crypto", static e => e.Realm.Intrinsics.CryptoObject, PropertyFlag.ConfigurableEnumerableWritable);
+            Install(global, realm, "crypto", static r => r.Intrinsics.CryptoObject, PropertyFlag.ConfigurableEnumerableWritable);
 
             // The two interface objects behind those, so that `crypto instanceof Crypto` and
             // `crypto.subtle instanceof SubtleCrypto` are writable — WinterTC §5.1 lists both, and neither is
             // constructible, which is what their own IDL says. SubtleCrypto is [SecureContext] in a browser and
             // is exposed unconditionally here for the reason SubtleCryptoConstructor gives: an embedded engine
             // has no origin and no transport for the bit to describe.
-            Install(global, engine, "Crypto", static e => e.Realm.Intrinsics.Crypto, PropertyFlag.NonEnumerable);
-            Install(global, engine, "SubtleCrypto", static e => e.Realm.Intrinsics.SubtleCrypto, PropertyFlag.NonEnumerable);
+            Install(global, realm, "Crypto", static r => r.Intrinsics.Crypto, PropertyFlag.NonEnumerable);
+            Install(global, realm, "SubtleCrypto", static r => r.Intrinsics.SubtleCrypto, PropertyFlag.NonEnumerable);
 
             // The interface object of the keys crypto.subtle hands out, so that `key instanceof CryptoKey`
             // works. It is not constructible, which is what its own IDL says.
-            Install(global, engine, "CryptoKey", static e => e.Realm.Intrinsics.CryptoKey, PropertyFlag.NonEnumerable);
+            Install(global, realm, "CryptoKey", static r => r.Intrinsics.CryptoKey, PropertyFlag.NonEnumerable);
         }
 
         if ((features & WebApiFeatures.Performance) != WebApiFeatures.None)
         {
-            Install(global, engine, "performance", static e => e.Realm.Intrinsics.PerformanceObject, PropertyFlag.ConfigurableEnumerableWritable);
+            Install(global, realm, "performance", static r => r.Intrinsics.PerformanceObject, PropertyFlag.ConfigurableEnumerableWritable);
 
             // Its interface object, which WinterTC §5.1 lists and which `performance instanceof Performance`
             // needs. Not constructible, and — see PerformanceConstructor — it does not claim the EventTarget
             // this interface inherits from in the specification, because nothing here fires an event at it.
-            Install(global, engine, "Performance", static e => e.Realm.Intrinsics.Performance, PropertyFlag.NonEnumerable);
+            Install(global, realm, "Performance", static r => r.Intrinsics.Performance, PropertyFlag.NonEnumerable);
 
             // The entry types are ordinary WebIDL interface objects — a script holds a mark and asks
             // `entry instanceof PerformanceMark`, which only works if the interface object is reachable.
-            Install(global, engine, "PerformanceEntry", static e => e.Realm.Intrinsics.PerformanceEntry, PropertyFlag.NonEnumerable);
-            Install(global, engine, "PerformanceMark", static e => e.Realm.Intrinsics.PerformanceMark, PropertyFlag.NonEnumerable);
-            Install(global, engine, "PerformanceMeasure", static e => e.Realm.Intrinsics.PerformanceMeasure, PropertyFlag.NonEnumerable);
+            Install(global, realm, "PerformanceEntry", static r => r.Intrinsics.PerformanceEntry, PropertyFlag.NonEnumerable);
+            Install(global, realm, "PerformanceMark", static r => r.Intrinsics.PerformanceMark, PropertyFlag.NonEnumerable);
+            Install(global, realm, "PerformanceMeasure", static r => r.Intrinsics.PerformanceMeasure, PropertyFlag.NonEnumerable);
 
             // The observer half of the timeline. Both interface objects are reachable because a callback is
             // handed one and checks it — `entries instanceof PerformanceObserverEntryList` — and because
             // `PerformanceObserver.supportedEntryTypes` is what a script reads before it observes anything.
-            Install(global, engine, "PerformanceObserver", static e => e.Realm.Intrinsics.PerformanceObserver, PropertyFlag.NonEnumerable);
-            Install(global, engine, "PerformanceObserverEntryList", static e => e.Realm.Intrinsics.PerformanceObserverEntryList, PropertyFlag.NonEnumerable);
+            Install(global, realm, "PerformanceObserver", static r => r.Intrinsics.PerformanceObserver, PropertyFlag.NonEnumerable);
+            Install(global, realm, "PerformanceObserverEntryList", static r => r.Intrinsics.PerformanceObserverEntryList, PropertyFlag.NonEnumerable);
         }
 
         if ((features & WebApiFeatures.Navigator) != WebApiFeatures.None)
@@ -345,13 +347,13 @@ internal static class WebApiRegistration
             // WebIDL exposes navigator through a [Replaceable] accessor pair; an ordinary enumerable data
             // property is the same simplification console and crypto are installed with, documented on
             // NavigatorPrototype.
-            Install(global, engine, "navigator", static e => e.Realm.Intrinsics.NavigatorObject, PropertyFlag.ConfigurableEnumerableWritable);
+            Install(global, realm, "navigator", static r => r.Intrinsics.NavigatorObject, PropertyFlag.ConfigurableEnumerableWritable);
 
             // Its interface object, which `navigator instanceof Navigator` needs and which is where
             // `userAgent` actually lives. HTML declares it [Exposed=Window] with no constructor operation, so
             // it is a function that refuses to construct; NavigatorConstructor says why an engine whose global
             // is not a Window carries the name anyway, and Node 24 — whose global is not one either — agrees.
-            Install(global, engine, "Navigator", static e => e.Realm.Intrinsics.Navigator, PropertyFlag.NonEnumerable);
+            Install(global, realm, "Navigator", static r => r.Intrinsics.Navigator, PropertyFlag.NonEnumerable);
         }
 
         if ((features & WebApiFeatures.Fetch) != WebApiFeatures.None)
@@ -360,7 +362,7 @@ internal static class WebApiRegistration
 
             // A WebIDL operation on the global is a writable, enumerable, configurable data property, unlike
             // the interface objects above — https://webidl.spec.whatwg.org/#es-operations.
-            Install(global, engine, "fetch", static e => e.Realm.Intrinsics.Fetch, PropertyFlag.ConfigurableEnumerableWritable);
+            Install(global, realm, "fetch", static r => r.Intrinsics.Fetch, PropertyFlag.ConfigurableEnumerableWritable);
         }
 
         if ((features & WebApiFeatures.XmlHttpRequest) != WebApiFeatures.None)
@@ -370,15 +372,15 @@ internal static class WebApiRegistration
             // not granting the network — see WebApiFeatures.XmlHttpRequest for what does.
             InstallFetchModel(engine);
 
-            Install(global, engine, "XMLHttpRequest", static e => e.Realm.Intrinsics.XmlHttpRequest, PropertyFlag.NonEnumerable);
-            Install(global, engine, "XMLHttpRequestUpload", static e => e.Realm.Intrinsics.XmlHttpRequestUpload, PropertyFlag.NonEnumerable);
-            Install(global, engine, "XMLHttpRequestEventTarget", static e => e.Realm.Intrinsics.XmlHttpRequestEventTarget, PropertyFlag.NonEnumerable);
+            Install(global, realm, "XMLHttpRequest", static r => r.Intrinsics.XmlHttpRequest, PropertyFlag.NonEnumerable);
+            Install(global, realm, "XMLHttpRequestUpload", static r => r.Intrinsics.XmlHttpRequestUpload, PropertyFlag.NonEnumerable);
+            Install(global, realm, "XMLHttpRequestEventTarget", static r => r.Intrinsics.XmlHttpRequestEventTarget, PropertyFlag.NonEnumerable);
 
             // ProgressEvent is declared by the XHR standard rather than by DOM, so it arrives with this flag
             // and not with WebApiFeatures.Events — its file sits under Events/ because the interface is shared
             // (a browser fires one at an image element and at a Worker too) and the next API to need it should
             // find it there rather than reach into Xhr/.
-            Install(global, engine, "ProgressEvent", static e => e.Realm.Intrinsics.ProgressEvent, PropertyFlag.NonEnumerable);
+            Install(global, realm, "ProgressEvent", static r => r.Intrinsics.ProgressEvent, PropertyFlag.NonEnumerable);
         }
 
         if ((features & WebApiFeatures.Streams) != WebApiFeatures.None)
@@ -392,27 +394,27 @@ internal static class WebApiRegistration
             // ReadableStreamDefaultReader` unwritable while the object it would have named was sitting right
             // there. Each is a lazy descriptor like every other global here, so the widening costs an engine
             // that never mentions one exactly eight property slots and no object at all.
-            Install(global, engine, "ReadableStream", static e => e.Realm.Intrinsics.ReadableStream, PropertyFlag.NonEnumerable);
-            Install(global, engine, "WritableStream", static e => e.Realm.Intrinsics.WritableStream, PropertyFlag.NonEnumerable);
-            Install(global, engine, "TransformStream", static e => e.Realm.Intrinsics.TransformStream, PropertyFlag.NonEnumerable);
-            Install(global, engine, "ByteLengthQueuingStrategy", static e => e.Realm.Intrinsics.ByteLengthQueuingStrategy, PropertyFlag.NonEnumerable);
-            Install(global, engine, "CountQueuingStrategy", static e => e.Realm.Intrinsics.CountQueuingStrategy, PropertyFlag.NonEnumerable);
+            Install(global, realm, "ReadableStream", static r => r.Intrinsics.ReadableStream, PropertyFlag.NonEnumerable);
+            Install(global, realm, "WritableStream", static r => r.Intrinsics.WritableStream, PropertyFlag.NonEnumerable);
+            Install(global, realm, "TransformStream", static r => r.Intrinsics.TransformStream, PropertyFlag.NonEnumerable);
+            Install(global, realm, "ByteLengthQueuingStrategy", static r => r.Intrinsics.ByteLengthQueuingStrategy, PropertyFlag.NonEnumerable);
+            Install(global, realm, "CountQueuingStrategy", static r => r.Intrinsics.CountQueuingStrategy, PropertyFlag.NonEnumerable);
 
             // Constructible, because the Streams Standard gives all three a constructor operation taking the
             // stream to lock — https://streams.spec.whatwg.org/#default-reader-constructor and its siblings.
-            Install(global, engine, "ReadableStreamDefaultReader", static e => e.Realm.Intrinsics.ReadableStreamDefaultReader, PropertyFlag.NonEnumerable);
-            Install(global, engine, "ReadableStreamBYOBReader", static e => e.Realm.Intrinsics.ReadableStreamBYOBReader, PropertyFlag.NonEnumerable);
-            Install(global, engine, "WritableStreamDefaultWriter", static e => e.Realm.Intrinsics.WritableStreamDefaultWriter, PropertyFlag.NonEnumerable);
+            Install(global, realm, "ReadableStreamDefaultReader", static r => r.Intrinsics.ReadableStreamDefaultReader, PropertyFlag.NonEnumerable);
+            Install(global, realm, "ReadableStreamBYOBReader", static r => r.Intrinsics.ReadableStreamBYOBReader, PropertyFlag.NonEnumerable);
+            Install(global, realm, "WritableStreamDefaultWriter", static r => r.Intrinsics.WritableStreamDefaultWriter, PropertyFlag.NonEnumerable);
 
             // Not constructible: an interface that declares no constructor operation still has an interface
             // object, and that object refuses to construct — https://webidl.spec.whatwg.org/#es-interface-call.
             // ReadableStreamBYOBRequest joined them in whatwg/streams#870, which took away a constructor that
             // could build a request out of step with its stream.
-            Install(global, engine, "ReadableStreamDefaultController", static e => e.Realm.Intrinsics.ReadableStreamDefaultController, PropertyFlag.NonEnumerable);
-            Install(global, engine, "ReadableByteStreamController", static e => e.Realm.Intrinsics.ReadableByteStreamController, PropertyFlag.NonEnumerable);
-            Install(global, engine, "ReadableStreamBYOBRequest", static e => e.Realm.Intrinsics.ReadableStreamBYOBRequest, PropertyFlag.NonEnumerable);
-            Install(global, engine, "WritableStreamDefaultController", static e => e.Realm.Intrinsics.WritableStreamDefaultController, PropertyFlag.NonEnumerable);
-            Install(global, engine, "TransformStreamDefaultController", static e => e.Realm.Intrinsics.TransformStreamDefaultController, PropertyFlag.NonEnumerable);
+            Install(global, realm, "ReadableStreamDefaultController", static r => r.Intrinsics.ReadableStreamDefaultController, PropertyFlag.NonEnumerable);
+            Install(global, realm, "ReadableByteStreamController", static r => r.Intrinsics.ReadableByteStreamController, PropertyFlag.NonEnumerable);
+            Install(global, realm, "ReadableStreamBYOBRequest", static r => r.Intrinsics.ReadableStreamBYOBRequest, PropertyFlag.NonEnumerable);
+            Install(global, realm, "WritableStreamDefaultController", static r => r.Intrinsics.WritableStreamDefaultController, PropertyFlag.NonEnumerable);
+            Install(global, realm, "TransformStreamDefaultController", static r => r.Intrinsics.TransformStreamDefaultController, PropertyFlag.NonEnumerable);
         }
 
         if ((features & WebApiFeatures.Scheduler) != WebApiFeatures.None)
@@ -420,28 +422,28 @@ internal static class WebApiRegistration
             // WebIDL exposes scheduler through a [Replaceable] accessor pair; an ordinary enumerable data
             // property is the same simplification console, crypto and performance are installed with, and it
             // is documented on SchedulerPrototype.
-            Install(global, engine, "scheduler", static e => e.Realm.Intrinsics.SchedulerObject, PropertyFlag.ConfigurableEnumerableWritable);
+            Install(global, realm, "scheduler", static r => r.Intrinsics.SchedulerObject, PropertyFlag.ConfigurableEnumerableWritable);
 
             // The interface object of that singleton, alongside the three this API already exposed. Not
             // constructible: https://wicg.github.io/scheduling-apis/#sec-scheduler declares no constructor
             // operation, unlike TaskController and TaskPriorityChangeEvent below.
-            Install(global, engine, "Scheduler", static e => e.Realm.Intrinsics.Scheduler, PropertyFlag.NonEnumerable);
+            Install(global, realm, "Scheduler", static r => r.Intrinsics.Scheduler, PropertyFlag.NonEnumerable);
 
-            Install(global, engine, "TaskController", static e => e.Realm.Intrinsics.TaskController, PropertyFlag.NonEnumerable);
-            Install(global, engine, "TaskSignal", static e => e.Realm.Intrinsics.TaskSignal, PropertyFlag.NonEnumerable);
-            Install(global, engine, "TaskPriorityChangeEvent", static e => e.Realm.Intrinsics.TaskPriorityChangeEvent, PropertyFlag.NonEnumerable);
+            Install(global, realm, "TaskController", static r => r.Intrinsics.TaskController, PropertyFlag.NonEnumerable);
+            Install(global, realm, "TaskSignal", static r => r.Intrinsics.TaskSignal, PropertyFlag.NonEnumerable);
+            Install(global, realm, "TaskPriorityChangeEvent", static r => r.Intrinsics.TaskPriorityChangeEvent, PropertyFlag.NonEnumerable);
         }
 
         if ((features & WebApiFeatures.Messaging) != WebApiFeatures.None)
         {
-            Install(global, engine, "MessageChannel", static e => e.Realm.Intrinsics.MessageChannel, PropertyFlag.NonEnumerable);
-            Install(global, engine, "MessagePort", static e => e.Realm.Intrinsics.MessagePort, PropertyFlag.NonEnumerable);
-            Install(global, engine, "MessageEvent", static e => e.Realm.Intrinsics.MessageEvent, PropertyFlag.NonEnumerable);
+            Install(global, realm, "MessageChannel", static r => r.Intrinsics.MessageChannel, PropertyFlag.NonEnumerable);
+            Install(global, realm, "MessagePort", static r => r.Intrinsics.MessagePort, PropertyFlag.NonEnumerable);
+            Install(global, realm, "MessageEvent", static r => r.Intrinsics.MessageEvent, PropertyFlag.NonEnumerable);
 
             // BroadcastChannel rides this flag rather than carrying one of its own: it is the same section of
             // the same standard, it delivers the same MessageEvent, and it is the same structured clone across
             // the same event loop — the only difference is that it addresses a name instead of a peer.
-            Install(global, engine, "BroadcastChannel", static e => e.Realm.Intrinsics.BroadcastChannel, PropertyFlag.NonEnumerable);
+            Install(global, realm, "BroadcastChannel", static r => r.Intrinsics.BroadcastChannel, PropertyFlag.NonEnumerable);
         }
 
         if ((features & WebApiFeatures.Workers) != WebApiFeatures.None && engine._webApi?.Workers is not null)
@@ -450,7 +452,7 @@ internal static class WebApiRegistration
             // the feature on and no provider there is no execution resource for a worker to run on, so the
             // constructor could do nothing but throw. Absent rather than throwing is this family's convention,
             // and it is what lets a script feature-detect with `typeof Worker`.
-            Install(global, engine, "Worker", static e => e.Realm.Intrinsics.Worker, PropertyFlag.NonEnumerable);
+            Install(global, realm, "Worker", static r => r.Intrinsics.Worker, PropertyFlag.NonEnumerable);
         }
 
         if ((features & WebApiFeatures.Reporting) != WebApiFeatures.None)
@@ -458,27 +460,27 @@ internal static class WebApiRegistration
             // A WebIDL operation on the global — https://webidl.spec.whatwg.org/#es-operations. Installed
             // whether or not a sink exists to hear it, so that feature detection sees the same surface either
             // way and a script written for a browser does not have to guard the call.
-            Install(global, engine, "reportError", static e => e.Realm.Intrinsics.ReportError, PropertyFlag.ConfigurableEnumerableWritable);
+            Install(global, realm, "reportError", static r => r.Intrinsics.ReportError, PropertyFlag.ConfigurableEnumerableWritable);
         }
 
         if ((features & WebApiFeatures.Storage) != WebApiFeatures.None)
         {
-            Install(global, engine, "Storage", static e => e.Realm.Intrinsics.Storage, PropertyFlag.NonEnumerable);
+            Install(global, realm, "Storage", static r => r.Intrinsics.Storage, PropertyFlag.NonEnumerable);
 
             // WebIDL exposes both of these through a [Replaceable] accessor pair on Window; an ordinary
             // enumerable data property is the same simplification console and crypto are installed with.
-            Install(global, engine, "localStorage", static e => e.Realm.Intrinsics.LocalStorage, PropertyFlag.ConfigurableEnumerableWritable);
-            Install(global, engine, "sessionStorage", static e => e.Realm.Intrinsics.SessionStorage, PropertyFlag.ConfigurableEnumerableWritable);
+            Install(global, realm, "localStorage", static r => r.Intrinsics.LocalStorage, PropertyFlag.ConfigurableEnumerableWritable);
+            Install(global, realm, "sessionStorage", static r => r.Intrinsics.SessionStorage, PropertyFlag.ConfigurableEnumerableWritable);
         }
 
         if ((features & WebApiFeatures.EventSource) != WebApiFeatures.None)
         {
-            Install(global, engine, "EventSource", static e => e.Realm.Intrinsics.EventSource, PropertyFlag.NonEnumerable);
+            Install(global, realm, "EventSource", static r => r.Intrinsics.EventSource, PropertyFlag.NonEnumerable);
 
             // MessageEvent is the interface an event source dispatches with, so it exists wherever one does.
             // The messaging feature installs the same intrinsic; Install is non-clobbering, so an engine with
             // both flags gets one object either way.
-            Install(global, engine, "MessageEvent", static e => e.Realm.Intrinsics.MessageEvent, PropertyFlag.NonEnumerable);
+            Install(global, realm, "MessageEvent", static r => r.Intrinsics.MessageEvent, PropertyFlag.NonEnumerable);
         }
 
         // The transform streams other standards define need two flags each, because each of them is one
@@ -488,25 +490,25 @@ internal static class WebApiRegistration
         const WebApiFeatures TextTransforms = WebApiFeatures.Encoding | WebApiFeatures.Streams;
         if ((features & TextTransforms) == TextTransforms)
         {
-            Install(global, engine, "TextDecoderStream", static e => e.Realm.Intrinsics.TextDecoderStream, PropertyFlag.NonEnumerable);
-            Install(global, engine, "TextEncoderStream", static e => e.Realm.Intrinsics.TextEncoderStream, PropertyFlag.NonEnumerable);
+            Install(global, realm, "TextDecoderStream", static r => r.Intrinsics.TextDecoderStream, PropertyFlag.NonEnumerable);
+            Install(global, realm, "TextEncoderStream", static r => r.Intrinsics.TextEncoderStream, PropertyFlag.NonEnumerable);
         }
 
         const WebApiFeatures CompressionTransforms = WebApiFeatures.Compression | WebApiFeatures.Streams;
         if ((features & CompressionTransforms) == CompressionTransforms)
         {
-            Install(global, engine, "CompressionStream", static e => e.Realm.Intrinsics.CompressionStream, PropertyFlag.NonEnumerable);
-            Install(global, engine, "DecompressionStream", static e => e.Realm.Intrinsics.DecompressionStream, PropertyFlag.NonEnumerable);
+            Install(global, realm, "CompressionStream", static r => r.Intrinsics.CompressionStream, PropertyFlag.NonEnumerable);
+            Install(global, realm, "DecompressionStream", static r => r.Intrinsics.DecompressionStream, PropertyFlag.NonEnumerable);
         }
 
         if ((features & WebApiFeatures.WebSocket) != WebApiFeatures.None)
         {
-            Install(global, engine, "WebSocket", static e => e.Realm.Intrinsics.WebSocket, PropertyFlag.NonEnumerable);
-            Install(global, engine, "CloseEvent", static e => e.Realm.Intrinsics.CloseEvent, PropertyFlag.NonEnumerable);
+            Install(global, realm, "WebSocket", static r => r.Intrinsics.WebSocket, PropertyFlag.NonEnumerable);
+            Install(global, realm, "CloseEvent", static r => r.Intrinsics.CloseEvent, PropertyFlag.NonEnumerable);
 
             // MessageEvent is the HTML Standard's; the messaging and event-source features install the same
             // intrinsic, and Install is non-clobbering, so an engine with any combination gets one object.
-            Install(global, engine, "MessageEvent", static e => e.Realm.Intrinsics.MessageEvent, PropertyFlag.NonEnumerable);
+            Install(global, realm, "MessageEvent", static r => r.Intrinsics.MessageEvent, PropertyFlag.NonEnumerable);
         }
 
         if ((features & WebApiFeatures.CacheApi) != WebApiFeatures.None)
@@ -515,26 +517,26 @@ internal static class WebApiRegistration
             // too — without it a script has nothing it could put in a cache. The network function is not part
             // of that and stays behind its own flag; these three are installed by the block above as well
             // when it ran, and Install leaves a name that already exists alone.
-            Install(global, engine, "Headers", static e => e.Realm.Intrinsics.Headers, PropertyFlag.NonEnumerable);
-            Install(global, engine, "Request", static e => e.Realm.Intrinsics.Request, PropertyFlag.NonEnumerable);
-            Install(global, engine, "Response", static e => e.Realm.Intrinsics.Response, PropertyFlag.NonEnumerable);
+            Install(global, realm, "Headers", static r => r.Intrinsics.Headers, PropertyFlag.NonEnumerable);
+            Install(global, realm, "Request", static r => r.Intrinsics.Request, PropertyFlag.NonEnumerable);
+            Install(global, realm, "Response", static r => r.Intrinsics.Response, PropertyFlag.NonEnumerable);
 
-            Install(global, engine, "Cache", static e => e.Realm.Intrinsics.Cache, PropertyFlag.NonEnumerable);
-            Install(global, engine, "CacheStorage", static e => e.Realm.Intrinsics.CacheStorage, PropertyFlag.NonEnumerable);
+            Install(global, realm, "Cache", static r => r.Intrinsics.Cache, PropertyFlag.NonEnumerable);
+            Install(global, realm, "CacheStorage", static r => r.Intrinsics.CacheStorage, PropertyFlag.NonEnumerable);
 
             // WebIDL exposes caches through a [SameObject] accessor pair; an ordinary enumerable data
             // property is the same simplification console, crypto and performance are installed with.
-            Install(global, engine, "caches", static e => e.Realm.Intrinsics.Caches, PropertyFlag.ConfigurableEnumerableWritable);
+            Install(global, realm, "caches", static r => r.Intrinsics.Caches, PropertyFlag.ConfigurableEnumerableWritable);
         }
 
         if ((features & WebApiFeatures.IdleCallback) != WebApiFeatures.None)
         {
-            Install(global, engine, "requestIdleCallback", static e => e.Realm.Intrinsics.IdleCallbacks.RequestIdleCallback, PropertyFlag.ConfigurableEnumerableWritable);
-            Install(global, engine, "cancelIdleCallback", static e => e.Realm.Intrinsics.IdleCallbacks.CancelIdleCallback, PropertyFlag.ConfigurableEnumerableWritable);
+            Install(global, realm, "requestIdleCallback", static r => r.Intrinsics.IdleCallbacks.RequestIdleCallback, PropertyFlag.ConfigurableEnumerableWritable);
+            Install(global, realm, "cancelIdleCallback", static r => r.Intrinsics.IdleCallbacks.CancelIdleCallback, PropertyFlag.ConfigurableEnumerableWritable);
 
             // Exposed even though nothing but the engine can create one: it is what makes
             // `deadline instanceof IdleDeadline` and feature detection work.
-            Install(global, engine, "IdleDeadline", static e => e.Realm.Intrinsics.IdleDeadline, PropertyFlag.NonEnumerable);
+            Install(global, realm, "IdleDeadline", static r => r.Intrinsics.IdleDeadline, PropertyFlag.NonEnumerable);
         }
     }
 
@@ -551,10 +553,11 @@ internal static class WebApiRegistration
     /// </remarks>
     internal static void InstallFetchModel(Engine engine)
     {
-        var global = engine._mainRealm.GlobalObject;
-        Install(global, engine, "Headers", static e => e.Realm.Intrinsics.Headers, PropertyFlag.NonEnumerable);
-        Install(global, engine, "Request", static e => e.Realm.Intrinsics.Request, PropertyFlag.NonEnumerable);
-        Install(global, engine, "Response", static e => e.Realm.Intrinsics.Response, PropertyFlag.NonEnumerable);
+        var realm = engine._mainRealm;
+        var global = realm.GlobalObject;
+        Install(global, realm, "Headers", static r => r.Intrinsics.Headers, PropertyFlag.NonEnumerable);
+        Install(global, realm, "Request", static r => r.Intrinsics.Request, PropertyFlag.NonEnumerable);
+        Install(global, realm, "Response", static r => r.Intrinsics.Response, PropertyFlag.NonEnumerable);
     }
 
     /// <summary>
@@ -887,11 +890,11 @@ internal static class WebApiRegistration
     /// Every caller but one ignores it; <c>self</c> needs it, because that descriptor is the only thing
     /// <see cref="WorkerGlobalScope.Install"/> is allowed to replace.
     /// </returns>
-    private static LazyPropertyDescriptor<Engine>? Install(
+    private static LazyPropertyDescriptor<Realm>? Install(
         ObjectInstance global,
-        Engine engine,
+        Realm realm,
         string name,
-        Func<Engine, JsValue> valueFactory,
+        Func<Realm, JsValue> valueFactory,
         PropertyFlag flags)
     {
         if (global.HasOwnProperty(NameOf(name)))
@@ -899,7 +902,9 @@ internal static class WebApiRegistration
             return null;
         }
 
-        var descriptor = new LazyPropertyDescriptor<Engine>(engine, valueFactory, flags);
+        // WebIDL creates an interface object in its owning realm, irrespective of which realm first
+        // reads the lazy global: https://webidl.spec.whatwg.org/#dfn-interface-object.
+        var descriptor = new LazyPropertyDescriptor<Realm>(realm, valueFactory, flags);
         global.SetProperty(name, descriptor);
         return descriptor;
     }

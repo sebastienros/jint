@@ -5522,6 +5522,17 @@ serialization read the prototype accessor through JavaScript `[[Get]]`. The host
 without one those operations observe length zero. Jint's DOM collection wrappers opt out, matching browser
 prototype placement and making a redefined `NodeList.prototype.length` visible to every consuming lane.
 
+### 4.134 Lazy Web API globals keep their owning realm ([#3916](https://github.com/sebastienros/jint/issues/3916))
+
+A host callback running in a `ShadowRealm` can read a captured reference to the principal global object.
+If that is the first read of a Web API global such as `Response`, `Event` or `DOMException`, it now
+materializes the principal realm's constructor. Previously it could permanently install the reader's
+shadow-realm constructor on the principal global, with the wrong `Function.prototype` identity. The same
+rule applies after restoring a snapshot taken before materialization.
+
+No host code change is needed. Web APIs remain opt-in and installed only on the principal global;
+`ShadowRealm` receives no additional globals, and host-provided lazy factories keep their existing behavior.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
