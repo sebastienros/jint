@@ -84,6 +84,15 @@ script runs before a module script that precedes it in the document, because the
 HTML's one; and the first import map found anywhere applies to every module, because none of them could have
 resolved before the parse ended anyway.
 
+**A frame served XML gets an XML document, and only a frame can.** `Configuration` carries AngleSharp.Xml's
+document factory, so a response whose content type is an XML MIME type is parsed by the XML parser rather
+than wrapped in an HTML skeleton — without it `<foo>x</foo>` served as `text/xml` came back with
+`documentElement.tagName === "HTML"` and every XML rule a page then asked about was the wrong document's.
+The page's own document cannot reach it: `Parse` states `text/html` for what a navigation produces, and a
+navigation to an XML content type is refused by `DocumentFetch` before a parser sees it. `application/xhtml+xml`
+is **still** routed to the HTML parser — that is AngleSharp's own content-type mapping, not this file's, and
+it is what `NeedsXmlDocuments` covers in the browser lane.
+
 **`document.readyState` is the page's shadow.** `PageRuntime.ReadyState` moves `loading` → `interactive` →
 `complete` and `ParserDriver.SetReadyState` fires the `readystatechange` that goes with each, because
 `Document.ReadyState`'s setter is protected and unreachable from outside AngleSharp's assembly. AngleSharp's

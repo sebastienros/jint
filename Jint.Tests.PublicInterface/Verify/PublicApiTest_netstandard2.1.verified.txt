@@ -73,7 +73,9 @@ namespace Jint
         public Jint.Engine SetValue(string name, string? value) { }
         public Jint.Engine SetValue<T>(string name, T? obj) { }
         public Jint.Engine SetValue<T>(string name, T[]? obj) { }
+        public static Jint.Prepared<Acornima.Ast.Module> PrepareModule(Acornima.Ast.Module module, Jint.ModulePreparationOptions? options = null) { }
         public static Jint.Prepared<Acornima.Ast.Module> PrepareModule(string code, string? source = null, Jint.ModulePreparationOptions? options = null) { }
+        public static Jint.Prepared<Acornima.Ast.Script> PrepareScript(Acornima.Ast.Script script, Jint.ScriptPreparationOptions? options = null) { }
         public static Jint.Prepared<Acornima.Ast.Script> PrepareScript(string code, string? source = null, bool strict = false, Jint.ScriptPreparationOptions? options = null) { }
         public sealed class AdvancedOperations
         {
