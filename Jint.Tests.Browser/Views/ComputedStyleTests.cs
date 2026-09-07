@@ -1,3 +1,5 @@
+using Jint.Browser.Runtime;
+
 namespace Jint.Tests.Browser.Views;
 
 // The test namespace sits under Jint.Tests.Browser, so the bare name Browser binds to that namespace rather
@@ -356,9 +358,8 @@ public sealed class ComputedStyleTests
     /// <remarks>
     /// Half of <see href="https://github.com/sebastienros/jint/issues/3707">#3707</see>: the cascade is
     /// evaluated against the page's own render device, so a dimension query in a style sheet and the same
-    /// query through <c>matchMedia</c> read one viewport. The preference features are still not among them
-    /// — AngleSharp.Css has no member for <c>prefers-color-scheme</c>, so a rule naming one never matches
-    /// while <c>matchMedia</c> answers it from <c>Runtime/PageMediaEnvironment</c>.
+    /// query through <c>matchMedia</c> read one viewport. Supported preference features use the same
+    /// environment through <c>IRenderDevicePreferences</c>.
     /// </remarks>
     [TestCase(1280, "absolute")]
     [TestCase(400, "relative")]
@@ -382,6 +383,95 @@ public sealed class ComputedStyleTests
             .Should().Be(expected == "absolute", "the page's own matchMedia reads the same viewport");
 
         page.Errors.Should().BeEmpty();
+    }
+
+    [TestCase("prefers-color-scheme", "dark", false)]
+    [TestCase("prefers-color-scheme", "light", true)]
+    [TestCase("prefers-reduced-motion", "reduce", false)]
+    [TestCase("prefers-reduced-transparency", "reduce", false)]
+    [TestCase("prefers-reduced-data", "reduce", false)]
+    [TestCase("prefers-contrast", "more", false)]
+    [TestCase("forced-colors", "active", false)]
+    [TestCase("display-mode", "standalone", false)]
+    [TestCase("hover", "none", false)]
+    [TestCase("any-hover", "none", false)]
+    [TestCase("pointer", "coarse", false)]
+    [TestCase("any-pointer", "coarse", false)]
+    public async Task PreferenceRulesReadThePagesDefaultsAndLiveEmulatedValues(string feature, string value, bool defaultMatch)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(
+            $$"""
+            <style>
+              #t { position: relative }
+              @media ({{feature}}: {{value}}) { #t { position: absolute } }
+            </style>
+            <div id="t">text</div>
+            """);
+        var matches = $"matchMedia('({feature}: {value})').matches";
+
+        (await Read(page, "position")).Should().Be(defaultMatch ? "absolute" : "relative");
+        (await page.EvaluateAsync<bool>(matches)).Should().Be(defaultMatch);
+
+        await page.RunOnLoopAsync(engine =>
+        {
+            var runtime = PageRuntime.Find(engine)!;
+            runtime.SetMedia(runtime.Media with { Features = new Dictionary<string, string> { [feature] = value } });
+            return 0;
+        });
+
+        (await Read(page, "position")).Should().Be("absolute");
+        (await page.EvaluateAsync<bool>(matches)).Should().BeTrue();
+
+        await page.RunOnLoopAsync(engine =>
+        {
+            var runtime = PageRuntime.Find(engine)!;
+            runtime.SetMedia(runtime.Media with { Features = PageMediaEnvironment.Default.Features });
+            return 0;
+        });
+
+        (await Read(page, "position")).Should().Be(defaultMatch ? "absolute" : "relative");
+        (await page.EvaluateAsync<bool>(matches)).Should().Be(defaultMatch);
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task PreferenceCascadesStayLocalToTheirBrowsingContextAndObserveStylesheetWrites()
+    {
+        await using var browser = new Browser();
+        await using var firstContext = await browser.NewContextAsync();
+        await using var secondContext = await browser.NewContextAsync();
+        var first = await firstContext.NewPageAsync();
+        var second = await secondContext.NewPageAsync();
+        const string content =
+            """
+            <style>
+              #t { position: relative }
+              @media (prefers-color-scheme: dark) { #t { position: absolute } }
+            </style>
+            <span id="t">text</span>
+            """;
+        await first.SetContentAsync(content);
+        await second.SetContentAsync(content);
+        await first.RunOnLoopAsync(engine =>
+        {
+            var runtime = PageRuntime.Find(engine)!;
+            runtime.SetMedia(runtime.Media with
+            {
+                Features = new Dictionary<string, string> { ["prefers-color-scheme"] = "dark" }
+            });
+            return 0;
+        });
+
+        (await Read(first, "position")).Should().Be("absolute");
+        (await Read(second, "position")).Should().Be("relative");
+
+        await first.EvaluateAsync("document.styleSheets[0].cssRules[1].cssRules[0].style.position = 'fixed'");
+        (await Read(first, "position")).Should().Be("fixed");
+        (await Read(second, "position")).Should().Be("relative");
+        first.Errors.Should().BeEmpty();
+        second.Errors.Should().BeEmpty();
     }
 
     private static async Task<string> Read(global::Jint.Browser.Page page, string property)

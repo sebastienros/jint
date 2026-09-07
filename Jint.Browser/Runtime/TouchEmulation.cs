@@ -1,6 +1,7 @@
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime.Descriptors;
+using Jint.Browser.Dom;
 
 namespace Jint.Browser.Runtime;
 
@@ -18,10 +19,10 @@ namespace Jint.Browser.Runtime;
 /// touch emulation off.
 /// </para>
 /// <para>
-/// <b>It is not added to <c>Element.prototype</c>, which a browser also carries it on.</b> The DOM
-/// prototypes are generated shaped objects shared with the inline caches, and a property the shape did not
-/// declare deoptimizes the prototype for the whole document — a real cost for a test almost nothing writes
-/// (<c>'ontouchstart' in document.documentElement</c>). It is a stated gap rather than an oversight.
+/// It is also added to <c>Element.prototype</c>, where HTML's event-handler mixin puts it. That prototype's
+/// shared shape serves its generated slots while the conditional property lives in the shape's hybrid side
+/// dictionary, so enabling touch does not give up prototype-method inline caching. Disabling touch removes
+/// that side entry directly and likewise keeps the shared layout intact.
 /// </para>
 /// <para>
 /// <b>No touch event is ever dispatched.</b> There is no touch input in this browser — <c>Input</c> is the
@@ -64,6 +65,15 @@ internal static class TouchEmulation
         if (runtime.DocumentWrapper is { } document)
         {
             ApplyTo(document, enabled);
+        }
+
+        if (enabled)
+        {
+            ApplyTo(runtime.Dom.PrototypeOf(DomInterfaces.Element), enabled: true);
+        }
+        else if (runtime.Dom.ExistingPrototypeOf(DomInterfaces.Element) is { } elementPrototype)
+        {
+            ApplyTo(elementPrototype, enabled: false);
         }
     }
 

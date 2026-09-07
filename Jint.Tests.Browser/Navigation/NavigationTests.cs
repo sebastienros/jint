@@ -57,17 +57,67 @@ public sealed class NavigationTests
             .Should().Be("line one\n<not markup>", "a plain-text document is the text inside a <pre>, not markup");
     }
 
-    [Test]
-    public async Task AContentTypeAPageCannotRenderIsRefusedWithTheTypeInTheMessage()
+    [TestCase("application/json")]
+    [TestCase("Application/Json; charset=\"utf-8\"")]
+    [TestCase("text/json")]
+    [TestCase("application/problem+json")]
+    [TestCase("application/vnd.api+json")]
+    [TestCase("text/plain")]
+    [TestCase("text/css")]
+    [TestCase("text/vtt")]
+    [TestCase("text/javascript")]
+    [TestCase("application/javascript")]
+    [TestCase("application/x-javascript")]
+    public async Task ATextDocumentPreservesItsTextWithoutParsingMarkupOrRunningScripts(string contentType)
     {
+        const string body = "\n{\"text\":\"</pre><script>globalThis.ran = true</script>&amp; caf\u00e9\"}\n";
         await using var fixture = await LoopbackPage.CreateAsync(server => server.Map(
             "/data.json",
-            _ => LoopbackResponse.Json("{\"a\":1}")));
+            _ => LoopbackResponse.Bytes(body, contentType)));
 
-        var act = async () => await fixture.Page.NavigateAsync(fixture.Url("/data.json"));
+        var response = await fixture.Page.NavigateAsync(fixture.Url("/data.json"));
+
+        response!.Status.Should().Be(200);
+        response.Header("content-type").Should().Be(contentType);
+        (await fixture.Page.EvaluateAsync<string>("document.body.textContent")).Should().Be(body);
+        (await fixture.Page.EvaluateAsync<string>("document.querySelector('pre').textContent")).Should().Be(body);
+        (await fixture.Page.EvaluateAsync<string>("typeof globalThis.ran")).Should().Be("undefined");
+        (await fixture.Page.EvaluateAsync<int>("document.scripts.length")).Should().Be(0);
+        (await fixture.Page.EvaluateAsync<string>("document.compatMode")).Should().Be("CSS1Compat");
+        (await fixture.Page.EvaluateAsync<string>("document.readyState")).Should().Be("complete");
+        fixture.Page.Errors.Should().BeEmpty();
+    }
+
+    [TestCase("")]
+    [TestCase("{not valid JSON")]
+    public async Task AJsonDocumentDoesNotRequireAValidJsonBody(string body)
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(server => server.Map(
+            "/data.json", _ => LoopbackResponse.Json(body)));
+
+        var response = await fixture.Page.NavigateAsync(fixture.Url("/data.json"));
+
+        response!.Ok.Should().BeTrue();
+        (await fixture.Page.EvaluateAsync<string>("document.body.textContent")).Should().Be(body);
+        fixture.Page.Errors.Should().BeEmpty();
+    }
+
+    [TestCase("application/octet-stream")]
+    [TestCase("application/pdf")]
+    [TestCase("image/png")]
+    [TestCase("application/xml")]
+    [TestCase("text/xml")]
+    [TestCase("application/json-seq")]
+    public async Task AContentTypeAPageCannotRenderIsRefusedWithTheTypeInTheMessage(string contentType)
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(server => server.Map(
+            "/data",
+            _ => LoopbackResponse.Bytes("unsupported", contentType)));
+
+        var act = async () => await fixture.Page.NavigateAsync(fixture.Url("/data"));
 
         (await act.Should().ThrowAsync<NavigationFailedException>())
-            .WithMessage("*application/json*");
+            .WithMessage("*" + contentType + "*");
     }
 
     [Test]

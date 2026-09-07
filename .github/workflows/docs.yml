@@ -1,0 +1,106 @@
+name: Documentation
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'docs/**'
+      - 'README.md'
+      - 'Jint.DevTools/README.md'
+      - 'Jint.Browser/README.md'
+      - 'Jint.Browser.Playwright/README.md'
+      - 'Jint.Browser.Tool/README.md'
+      - 'Jint.Browser.Mcp/README.md'
+      - '.github/workflows/docs.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'docs/**'
+      - 'README.md'
+      - 'Jint.DevTools/README.md'
+      - 'Jint.Browser/README.md'
+      - 'Jint.Browser.Playwright/README.md'
+      - 'Jint.Browser.Tool/README.md'
+      - 'Jint.Browser.Mcp/README.md'
+      - '.github/workflows/docs.yml'
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      DOCS_BASE: /jint/
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: docs
+
+      - name: Test documentation tools
+        run: npm run test:tools
+        working-directory: docs
+
+      - name: Verify compiled snippets
+        run: npm run samples:check
+        working-directory: docs
+
+      - name: Build documentation samples
+        run: dotnet build snippets/Jint.Documentation.Samples/Jint.Documentation.Samples.csproj -c Release
+        working-directory: docs
+
+      - name: Build documentation
+        run: npm run build
+        working-directory: docs
+
+      - name: Check links and anchors
+        run: npm run check-links
+        working-directory: docs
+
+      - name: Lint Markdown
+        run: npm run lint
+        working-directory: docs
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: docs/.vitepress/dist
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Configure Pages
+        uses: actions/configure-pages@v6
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

@@ -102,6 +102,8 @@ publish/
 # NuGet Packages Directory
 ## TODO: If you have NuGet Package Restore enabled, uncomment the next line
 packages/
+!docs/packages/
+!docs/packages/**
 .nuget/
 
 # Windows Azure Build Output
@@ -166,6 +168,11 @@ BenchmarkDotNet.Artifacts*
 # generated code
 Jint.Tests.Test262/Generated
 /artifacts
+
+# VitePress
+docs/node_modules/
+docs/.vitepress/cache/
+docs/.vitepress/dist/
 
 # Verify.SourceGenerators received snapshots — local-only diffs to inspect, never committed
 *.received.*

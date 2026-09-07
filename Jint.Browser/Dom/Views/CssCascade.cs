@@ -57,8 +57,16 @@ internal static class CssCascade
     {
         try
         {
-            var traversal = Traversal.For(element.Owner);
-            return traversal is null ? element.ComputeCurrentStyle() : traversal.Of(element);
+            var computed = element.ComputeCurrentStyle();
+            // The native computed-parent path can leave an explicit inherit unresolved when the
+            // parent declares no value. Retain the existing ancestor-walk compatibility path.
+            if (computed.Any(static property => property.IsInherited && !property.CanBeInherited)
+                && Traversal.For(element.Owner) is { } traversal)
+            {
+                return traversal.Of(element);
+            }
+
+            return computed;
         }
         catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or NullReferenceException)
         {
@@ -88,6 +96,11 @@ internal static class CssCascade
     /// https://drafts.csswg.org/css-cascade/#inheritance - a cascade shared only by one synchronous tree
     /// walk, never across DOM or CSSOM writes. Matching and ordinary inheritance remain AngleSharp's.
     /// </summary>
+    /// <remarks>
+    /// AngleSharp.Css 1.1.0 resolves custom properties in its computed-style APIs, which <see cref="Of"/>
+    /// uses directly. Its parent-computed overload is internal, so a traversal still needs this path to
+    /// avoid rematching every ancestor for every element.
+    /// </remarks>
     internal sealed class Traversal(IStyleCollection styles)
     {
         private readonly Dictionary<IElement, Cascade> _cascaded = new();
@@ -181,24 +194,24 @@ internal static class CssCascade
         {
             try
             {
-                var computed = declarations.Compute(new ComputeContext(styles.Device, element.Owner?.Context, properties));
+                var context = new ComputeContext(styles.Device, element.Owner?.Context, properties);
+                var computed = declarations.Compute(context);
                 properties.ApplyTo(computed);
                 foreach (var property in declarations)
                 {
                     if (!property.Name.StartsWith("--", StringComparison.Ordinal)
+                        && property.CanBeInherited
+                        && inherited is not null
                         && property.RawValue is CssReferenceValue
-                        && string.IsNullOrEmpty(computed.GetPropertyValue(property.Name)))
+                        && property.Compute(context).RawValue is null)
                     {
-                        // Invalid at computed-value time behaves as unset, not as a lower-priority
-                        // declaration. Keep the existing initial-value policy for non-inherited values.
-                        computed.RemoveProperty(property.Name);
-                        if (property.CanBeInherited && inherited is not null)
+                        // Native Compute fills initial values now, but reading its parent value needs
+                        // its private context. Restore inheritance through this traversal's context.
+                        var value = inherited.GetPropertyValue(property.Name);
+                        if (value.Length != 0)
                         {
-                            var value = inherited.GetPropertyValue(property.Name);
-                            if (value.Length != 0)
-                            {
-                                computed.SetProperty(property.Name, value);
-                            }
+                            computed.RemoveProperty(property.Name);
+                            computed.SetProperty(property.Name, value, property.IsImportant ? "important" : null);
                         }
                     }
                 }

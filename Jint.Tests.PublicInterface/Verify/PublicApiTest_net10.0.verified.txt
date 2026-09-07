@@ -75,7 +75,9 @@ namespace Jint
         public Jint.Engine SetValue(string name, string? value) { }
         public Jint.Engine SetValue<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.None | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicParameterlessConstructor | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicMethods | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicFields | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicProperties | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicEvents | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.Interfaces)]  T>(string name, T? obj) { }
         public Jint.Engine SetValue<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.None | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicParameterlessConstructor | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicMethods | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicFields | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicProperties | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicEvents | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.Interfaces)]  T>(string name, T[]? obj) { }
+        public static Jint.Prepared<Acornima.Ast.Module> PrepareModule(Acornima.Ast.Module module, Jint.ModulePreparationOptions? options = null) { }
         public static Jint.Prepared<Acornima.Ast.Module> PrepareModule(string code, string? source = null, Jint.ModulePreparationOptions? options = null) { }
+        public static Jint.Prepared<Acornima.Ast.Script> PrepareScript(Acornima.Ast.Script script, Jint.ScriptPreparationOptions? options = null) { }
         public static Jint.Prepared<Acornima.Ast.Script> PrepareScript(string code, string? source = null, bool strict = false, Jint.ScriptPreparationOptions? options = null) { }
         public sealed class AdvancedOperations
         {
@@ -3061,6 +3063,12 @@ namespace Jint.WebApi.Fetch
         public abstract string? GetCookieHeader(System.Uri url);
         public abstract void StoreResponseCookies(System.Uri url, System.Collections.Generic.IReadOnlyList<string> setCookieHeaders);
     }
+    [System.Diagnostics.CodeAnalysis.Experimental("JINT0002")]
+    public sealed class FetchAuthDecision
+    {
+        public static Jint.WebApi.Fetch.FetchAuthDecision Cancel() { }
+        public static Jint.WebApi.Fetch.FetchAuthDecision ProvideCredentials(string username, string password) { }
+    }
     public sealed class FetchHandlerOperation
     {
         public System.Exception? Error { get; }
@@ -3094,6 +3102,7 @@ namespace Jint.WebApi.Fetch
     {
         protected FetchObserver() { }
         public virtual int RequestBodyPreviewBytes { get; }
+        public virtual System.Threading.Tasks.ValueTask<Jint.WebApi.Fetch.FetchAuthDecision?> OnAuthRequiredAsync(Jint.WebApi.Fetch.ObservedFetchAuthChallenge challenge, System.Threading.CancellationToken cancellationToken) { }
         public virtual void OnCompleted(Jint.WebApi.Fetch.FetchRequestId id, long bodyLength) { }
         public virtual void OnData(Jint.WebApi.Fetch.FetchRequestId id, System.ReadOnlySpan<byte> chunk) { }
         public virtual void OnFailed(Jint.WebApi.Fetch.FetchRequestId id, string reason, System.Exception? exception) { }
@@ -3120,6 +3129,18 @@ namespace Jint.WebApi.Fetch
         public System.DateTimeOffset HeadersAt { get; }
         public System.DateTimeOffset SentAt { get; init; }
         public System.TimeSpan TimeToHeaders { get; init; }
+    }
+    [System.Diagnostics.CodeAnalysis.Experimental("JINT0002")]
+    public sealed class ObservedFetchAuthChallenge : System.IEquatable<Jint.WebApi.Fetch.ObservedFetchAuthChallenge>
+    {
+        public ObservedFetchAuthChallenge() { }
+        public required bool CanProvideCredentials { get; init; }
+        public required Jint.WebApi.Fetch.FetchRequestId Id { get; init; }
+        public string Realm { get; init; }
+        public required string Scheme { get; init; }
+        public string Source { get; init; }
+        public required int Status { get; init; }
+        public required System.Uri Url { get; init; }
     }
     [System.Diagnostics.CodeAnalysis.Experimental("JINT0002")]
     public sealed class ObservedFetchRequest : System.IEquatable<Jint.WebApi.Fetch.ObservedFetchRequest>

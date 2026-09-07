@@ -18,6 +18,7 @@ internal static class Inventory
 
     internal const string DomName = "DomNameAttribute";
     internal const string DomAccessor = "DomAccessorAttribute";
+    internal const string DomReturnType = "DomReturnTypeAttribute";
     internal const string DomConstructor = "DomConstructorAttribute";
     internal const string DomNoInterfaceObject = "DomNoInterfaceObjectAttribute";
     internal const string DomPutForwards = "DomPutForwardsAttribute";
@@ -57,6 +58,9 @@ internal static class Inventory
 
     internal static string? FirstDomName(MemberInfo member)
         => DomAttributes(member).FirstOrDefault(a => a.AttributeType.Name == DomName)?.ConstructorArguments[0].Value as string;
+
+    internal static Type? ReturnTypeOf(MethodInfo method)
+        => DomAttributes(method).FirstOrDefault(a => a.AttributeType.Name == DomReturnType)?.ConstructorArguments[0].Value as Type;
 
     internal static Accessors AccessorsOf(MemberInfo member)
     {

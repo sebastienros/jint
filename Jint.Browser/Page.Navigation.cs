@@ -591,6 +591,7 @@ public sealed partial class Page
         string html;
         string finalUrl;
         PageResponse? response = null;
+        var redirectCount = 0;
 
         if (PageUrl.IsNetworkScheme(target))
         {
@@ -602,6 +603,7 @@ public sealed partial class Page
             // carried none — which is what makes navigating to `page#section` leave `location.hash` set.
             finalUrl = WithFragmentOf(fetched.Url, target);
             response = fetched.Response;
+            redirectCount = fetched.RedirectCount;
         }
         else
         {
@@ -614,7 +616,10 @@ public sealed partial class Page
 
         var commit = _loop.PostAsync(engine => Commit(
             engine,
-            new CommitRequest(finalUrl, html, response, request.History, request.TraversalIndex, referrer, signals.Reached, loaderId)));
+            new CommitRequest(finalUrl, html, response, request.History, request.TraversalIndex, referrer, signals.Reached, loaderId,
+                // Reload also forces a new document for POST and history traversal; those retain their own navigation types.
+                NavigationType: request.History == HistoryMode.Traverse ? 2 : request.Reload && request.Body is null ? 1 : 0,
+                RedirectCount: redirectCount)));
 
         // The signal for the requested phase, so that WaitUntil.Commit really does answer before the load
         // events have run. A commit that fails before its phase arrives wins the race and throws.
@@ -739,6 +744,9 @@ public sealed partial class Page
         }
 
         var engine = _loop.ReplaceEngine(() => BuildEngine(request.Url, request.Referrer));
+        var runtime = PageRuntime.Find(engine)!;
+        runtime.NavigationType = request.NavigationType;
+        runtime.NavigationRedirectCount = request.RedirectCount;
         LoadInto(engine, request.Url, request.Html, request.Response, request.Referrer, request.OnPhase, request.LoaderId);
 
         if (history == HistoryMode.Traverse)
@@ -823,25 +831,32 @@ public sealed partial class Page
         // where a protocol target replaces its engine, re-installs the bindings a client added and runs the
         // scripts it asked to be evaluated on every new document -- all of which have to be in place before
         // the first inline script of the document runs.
-        _observer?.DocumentCreated(runtime, loaderId);
-
-        // Before the parse, and the order is load-bearing rather than tidy. Every phase signal a caller of
-        // NavigateAsync may be awaiting is raised *inside* the parse, so signalling afterwards would let a
-        // navigation the caller has already finished awaiting satisfy a WaitForNavigationAsync armed on the
-        // line after it — the wait would answer for the wrong navigation and the page would still be showing
-        // the previous document. Waking here means every waiter is woken before any caller can arm one.
-        // What a woken waiter then posts queues behind this request, so it still observes the parsed document.
-        SignalNavigation();
-
-        var load = PageDocument.Load(runtime, html, url, phase =>
+        try
         {
-            onPhase?.Invoke(phase);
-            Reached(runtime, phase, loaderId);
-        });
+            _observer?.DocumentCreated(runtime, loaderId);
 
-        _load = load;
-        _mainFrame = Frame.Build(this, load.Document, url);
-        return null;
+            // Before the parse, and the order is load-bearing rather than tidy. Every phase signal a caller of
+            // NavigateAsync may be awaiting is raised *inside* the parse, so signalling afterwards would let a
+            // navigation the caller has already finished awaiting satisfy a WaitForNavigationAsync armed on the
+            // line after it — the wait would answer for the wrong navigation and the page would still be showing
+            // the previous document. Waking here means every waiter is woken before any caller can arm one.
+            // What a woken waiter then posts queues behind this request, so it still observes the parsed document.
+            SignalNavigation();
+
+            var load = PageDocument.Load(runtime, html, url, phase =>
+            {
+                Reached(runtime, phase, loaderId);
+                onPhase?.Invoke(phase);
+            });
+
+            _load = load;
+            _mainFrame = Frame.Build(this, load.Document, url);
+            return null;
+        }
+        finally
+        {
+            _observer?.DocumentLoadFinished();
+        }
     }
 
     /// <summary>Tells the watcher how far the load got, and arms the quiet period once it is loaded.</summary>
@@ -1112,7 +1127,9 @@ public sealed partial class Page
         int TraversalIndex,
         string Referrer,
         Action<NavigationPhase>? OnPhase,
-        string LoaderId);
+        string LoaderId,
+        int NavigationType = 0,
+        int RedirectCount = 0);
 
     /// <summary>Mints the identifier the next document carries, unique for the life of the page.</summary>
     private string NextLoaderId()

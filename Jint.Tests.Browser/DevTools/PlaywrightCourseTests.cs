@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text;
 using Jint.Browser;
 using Jint.Constraints;
@@ -44,7 +45,7 @@ namespace Jint.Tests.Browser.DevTools;
 /// </para>
 /// </remarks>
 [NonParallelizable]
-public class PlaywrightCourseTests
+public partial class PlaywrightCourseTests
 {
     /// <summary>The switch the <c>browser-clients</c> leg sets. Any non-empty value turns the suite on.</summary>
     internal const string Gate = "JINT_BROWSER_CLIENTS";
@@ -113,6 +114,42 @@ public class PlaywrightCourseTests
         await page.WaitForFunctionAsync("() => document.querySelectorAll('.todo-list li').length === 2");
         (await page.Locator(".todo-list li label").AllTextContentsAsync())
             .Should().Equal("write the fixture", "read the standard");
+
+        await page.CloseAsync();
+    }
+
+    [Test]
+    public async Task PlaywrightLoadsMonacoThroughItsAmdCssPlugin()
+    {
+        await using var lane = await ClientLane.OpenAsync(
+            server => FixtureRoutes.Monaco(server),
+            new BrowserOptions { MaxTaskDuration = TimeSpan.FromSeconds(30) });
+        var page = await lane.Context.NewPageAsync();
+        var errors = new ConcurrentQueue<string>();
+        page.PageError += (_, error) => errors.Enqueue(error);
+        page.Console += (_, message) =>
+        {
+            if (message.Type == "error")
+            {
+                errors.Enqueue(message.Text);
+            }
+        };
+
+        await page.GotoAsync(lane.Url("monaco-amd"));
+        await page.WaitForFunctionAsync("() => document.getElementById('status').textContent === 'query { __typename }'");
+
+        (await page.EvaluateAsync<string>("() => typeof monaco.editor.create")).Should().Be("function");
+        (await page.EvaluateAsync<int>("() => callbackCount")).Should().Be(1);
+        (await page.EvaluateAsync<bool>("() => callbackWasDeferred")).Should().BeTrue();
+        (await page.EvaluateAsync<string>("() => resourceEvents.join(',')")).Should().Be("css:true:true");
+        errors.Should().BeEmpty();
+        foreach (var context in lane.Pages.Contexts)
+        {
+            foreach (var hostPage in context.Pages)
+            {
+                hostPage.Errors.Should().BeEmpty();
+            }
+        }
 
         await page.CloseAsync();
     }
@@ -321,6 +358,122 @@ public class PlaywrightCourseTests
         await page.CloseAsync();
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task PlaywrightClickCommitsTheParsedPostRedirectBeforeReturning(bool delegated)
+    {
+        using var release = new ManualResetEventSlim();
+        var scriptRequested = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var lane = await ClientLane.OpenAsync(server =>
+        {
+            server.MapHtml("/admin-post/index.html", """
+                <!doctype html><html><body>
+                <form method="post" action="/save" enctype="multipart/form-data" class="no-multisubmit">
+                  <input name="GroupId" value="settings" type="hidden">
+                  <label><input id="allow" name="AllowAnonymous" type="checkbox" value="true">Allow anonymous</label>
+                  <button type="submit" class="btn save">Save</button>
+                  <input name="__RequestVerificationToken" value="fixture-token" type="hidden">
+                  <input name="AllowAnonymous" value="false" type="hidden">
+                </form>
+                <a id="enable" href="/save" data-url-af="UnsafeUrl">Enable</a>
+                <script src="/vendor/jquery-3.7.1/jquery.min.js"></script>
+                <script>
+                  $("body").on("click", "a[data-url-af]", function () {
+                    var form = $('<form method="post">').attr("action", this.href);
+                    form.append($("input[name=__RequestVerificationToken]").first().clone());
+                    form.css({ position: "absolute", left: "-9999em" });
+                    $("body").append(form);
+                    form.submit();
+                    return false;
+                  });
+                  $("body").on("submit", "form.no-multisubmit", function (event) {
+                    if ($(this).hasClass("submitting")) event.preventDefault();
+                    $(this).addClass("submitting");
+                  });
+                </script>
+                </body></html>
+                """);
+            server.Map("/save", _ => LoopbackResponse.Redirect(302, "/saved"));
+            server.MapHtml("/saved", """
+                <!doctype html><html><head><script src="/parse-gate.js"></script></head>
+                <body><div class="message-success">Settings saved</div></body></html>
+                """);
+            server.Map("/parse-gate.js", _ =>
+            {
+                scriptRequested.TrySetResult();
+                release.Wait(TimeSpan.FromSeconds(30));
+                return LoopbackResponse.Script("");
+            });
+        });
+        var page = await lane.NewPageAsync("admin-post");
+        if (!delegated)
+        {
+            await page.Locator("#allow").CheckAsync();
+        }
+
+        var clicking = page.Locator(delegated ? "#enable" : ".save").ClickAsync();
+        try
+        {
+            await scriptRequested.Task.WaitAsync(TimeSpan.FromSeconds(30));
+            (await page.EvaluateAsync<string>("() => document.readyState")).Should().Be("loading");
+            clicking.IsCompleted.Should().BeFalse(
+                "the redirected bytes arrived, but the parser has not committed an observable document");
+        }
+        finally
+        {
+            release.Set();
+        }
+
+        await clicking;
+        page.Url.Should().Be(lane.Server.Url("/saved"));
+        (await page.EvaluateAsync<string>("() => document.querySelector('.message-success')?.textContent"))
+            .Should().Be("Settings saved");
+        await page.WaitForLoadStateAsync(LoadState.Load);
+        var post = lane.Server.Received.Single(request => request.Method == "POST");
+        post.Body.Should().Contain("fixture-token");
+        if (!delegated)
+        {
+            post.Header("Content-Type").Should().StartWith("multipart/form-data; boundary=");
+            post.Body.Should().Contain("name=\"AllowAnonymous\"\r\n\r\ntrue")
+                .And.Contain("name=\"AllowAnonymous\"\r\n\r\nfalse");
+        }
+
+        lane.Server.Received.Single(request => request.Path == "/saved").Method.Should().Be("GET");
+        foreach (var host in lane.Pages.Contexts.SelectMany(context => context.Pages))
+        {
+            host.Errors.Should().BeEmpty();
+        }
+    }
+
+    [Test]
+    public async Task PlaywrightClickSubmitsAJQueryDelegatedHiddenForm()
+    {
+        string? method = null;
+        string? body = null;
+        await using var lane = await ClientLane.OpenAsync(
+            server => FixtureRoutes.FormRedirect(server, (seenMethod, seenBody) =>
+            {
+                method = seenMethod;
+                body = seenBody;
+            }));
+        var page = await lane.NewPageAsync("jquery-unsafe-url");
+
+        (await page.Locator(".filter-option-inner-inner").TextContentAsync()).Should().Be("Choose a category");
+        await page.Locator("#enable").ClickAsync();
+
+        page.Url.Should().StartWith(lane.Server.Url("/form-redirect/done.html") + "?");
+        (await page.Locator("#method").TextContentAsync()).Should().Be("arrived by GET at /form-redirect/done.html");
+        method.Should().Be("POST");
+        body.Should().Be("__RequestVerificationToken=test-token&feature=Example");
+        lane.Server.Received.Count(request => request.Method == "POST").Should().Be(1);
+        foreach (var hostPage in lane.Pages.Contexts.SelectMany(context => context.Pages))
+        {
+            hostPage.Errors.Should().BeEmpty();
+        }
+
+        await page.CloseAsync();
+    }
+
     [Test]
     public async Task PlaywrightSavesANestedAdminFormWithoutRetryingThePost()
     {
@@ -363,6 +516,57 @@ public class PlaywrightCourseTests
 
         page.Url.Should().Be(lane.Url("blocked-link"));
         await page.CloseAsync();
+    }
+
+    /// <summary>Textual navigations commit and keep the original response, not the HTML text wrapper.</summary>
+    [TestCase("application/json", 200)]
+    [TestCase("Application/Json; charset=utf-8", 200)]
+    [TestCase("text/json", 200)]
+    [TestCase("application/vnd.api+json", 200)]
+    [TestCase("application/problem+json", 400)]
+    [TestCase("text/plain; charset=utf-8", 200)]
+    public async Task PlaywrightNavigatesToATextDocumentAndReadsTheOriginalResponse(string contentType, int status)
+    {
+        const string body = """{"openapi":"3.0.0","info":{"title":"Repro","version":"1.0"}}""";
+        await using var lane = await ClientLane.OpenAsync(server => server
+            .Map("/swagger.json", _ => new LoopbackResponse
+            {
+                Status = status,
+                Reason = status == 200 ? "OK" : "Bad Request",
+                Body = body,
+            }.With("Content-Type", contentType).With("X-Document", "original"))
+            .MapHtml("/after.html", "<!doctype html><title>After JSON</title>"));
+        var context = await lane.Client.NewContextAsync();
+        var page = await context.NewPageAsync();
+        var failed = new ConcurrentQueue<string>();
+        page.RequestFailed += (_, request) => failed.Enqueue(request.Url);
+        await page.AddInitScriptAsync(
+            """
+            window.lifecycle = [];
+            window.addEventListener('DOMContentLoaded', () => lifecycle.push('DOMContentLoaded'));
+            window.addEventListener('load', () => lifecycle.push('load'));
+            """);
+
+        var response = await page.GotoAsync(lane.Server.Url("/swagger.json"));
+
+        response.Should().NotBeNull();
+        response!.Status.Should().Be(status);
+        response.Ok.Should().Be(status == 200);
+        response.Url.Should().Be(lane.Server.Url("/swagger.json"));
+        response.Headers["content-type"].Should().Be(contentType);
+        response.Headers["x-document"].Should().Be("original");
+        response.Headers["content-length"].Should().Be(Encoding.UTF8.GetByteCount(body).ToString(System.Globalization.CultureInfo.InvariantCulture));
+        (await response.TextAsync()).Should().Be(body);
+        (await response.BodyAsync()).Should().Equal(Encoding.UTF8.GetBytes(body));
+        (await response.JsonAsync())!.Value.GetProperty("openapi").GetString().Should().Be("3.0.0");
+        (await page.EvaluateAsync<string>("() => document.body.textContent")).Should().Be(body);
+        (await page.EvaluateAsync<string>("() => document.readyState")).Should().Be("complete");
+        (await page.EvaluateAsync<string[]>("() => lifecycle")).Should().Equal("DOMContentLoaded", "load");
+        failed.Should().BeEmpty();
+
+        await page.GotoAsync(lane.Server.Url("/after.html"));
+        (await page.TitleAsync()).Should().Be("After JSON");
+        await context.CloseAsync();
     }
 
     /// <summary>A route the client fulfils itself, and the cookies its context reads afterwards.</summary>

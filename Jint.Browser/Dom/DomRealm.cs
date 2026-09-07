@@ -46,6 +46,7 @@ internal sealed class DomRealm
     private readonly ObjectInstance?[] _prototypes;
     private readonly DomInterfaceObject?[] _interfaceObjects;
     private readonly ConditionalWeakTable<object, ObjectInstance> _wrappers = new();
+    private readonly ConditionalWeakTable<IElement, AriaElementReflection.Cache> _ariaCaches = new();
     private int _nodes;
 
     private DomRealm(Engine engine)
@@ -122,6 +123,21 @@ internal sealed class DomRealm
     /// </remarks>
     internal JsEventTarget? WindowTarget { get; set; }
 
+    /// <summary>
+    /// The frozen arrays this engine last answered for one element's ARIA element-reflecting members,
+    /// created on first use.
+    /// </summary>
+    /// <remarks>
+    /// <b>Only the cache is here.</b> The relationships themselves are engine-free and live in
+    /// <see cref="AriaElementReferences"/>, which says why; what belongs to a realm is the array object a
+    /// getter handed to script, because WebIDL's <c>FrozenArray</c> identity is per engine. A table of its own
+    /// rather than a field on the wrapper: the members that need it are eight of the two thousand a document's
+    /// elements carry, so an element that never has an ARIA relationship must not pay a reference for one.
+    /// Keyed on the AngleSharp element and never on the wrapper, so it dies with the element rather than with
+    /// whichever wrapper happened to reach it first.
+    /// </remarks>
+    internal AriaElementReflection.Cache AriaCacheFor(IElement element) => _ariaCaches.GetOrCreateValue(element);
+
     /// <summary>The binding state of <paramref name="engine"/>, created on first use.</summary>
     internal static DomRealm Of(Engine engine) => _realms.GetValue(engine, static e => new DomRealm(e));
 
@@ -172,6 +188,13 @@ internal sealed class DomRealm
     }
 
     /// <summary>
+    /// The interface prototype when it has already been created, without making a page that never reached
+    /// the interface pay for it. Conditional installers use this when taking a member away again.
+    /// </summary>
+    internal ObjectInstance? ExistingPrototypeOf(DomInterfaceDefinition definition)
+        => _prototypes[definition.Index];
+
+    /// <summary>
     /// The interface object — the global <c>HTMLDivElement</c> — in this engine, created on first use.
     /// </summary>
     /// <remarks>
@@ -190,9 +213,10 @@ internal sealed class DomRealm
     /// <remarks>
     /// This is the general entry, reached when a value arrives from outside a generated member — a host
     /// handing over a document, or a member whose declared type is a base of what it returned. A generated
-    /// member whose declared return type is already precise calls a typed overload instead.
+    /// member whose declared return type is already precise calls a typed overload instead. An explicit
+    /// definition selects a <c>DomReturnType</c> projection when the object implements multiple IDL interfaces.
     /// </remarks>
-    internal JsValue Wrap(object? value)
+    internal JsValue Wrap(object? value, DomInterfaceDefinition? definition = null)
     {
         if (value is null)
         {
@@ -204,7 +228,7 @@ internal sealed class DomRealm
             return cached;
         }
 
-        var definition = DomTypeMap.For(value.GetType());
+        definition ??= DomTypeMap.For(value.GetType());
         if (definition is null)
         {
             Throw.TypeError(
@@ -260,23 +284,15 @@ internal sealed class DomRealm
             return cached;
         }
 
-        var definition = DomTypeMap.For(collection.GetType()) ?? DomInterfaces.HTMLCollection;
-        return Cache(collection, new DomHtmlCollectionObject<T>(this, definition, collection));
-    }
-
-    /// <summary>
-    /// Projects the <c>IHtmlCollection&lt;IElement&gt;</c> AngleSharp returns from <c>querySelectorAll</c> as
-    /// the static <c>NodeList</c> DOM specifies.
-    /// </summary>
-    internal JsValue WrapStaticNodeList(IHtmlCollection<IElement> nodes)
-    {
-        if (_wrappers.TryGetValue(nodes, out var cached))
+        var definition = DomTypeMap.For(collection.GetType());
+        if (definition?.WrapperKind != DomWrapperKind.HtmlCollection)
         {
-            return cached;
+            // AngleSharp's QueryCollection also implements INodeList. The member's IDL return type,
+            // not that extra CLR interface, decides whether named properties belong on this result.
+            definition = DomInterfaces.HTMLCollection;
         }
 
-        var target = new DomStaticNodeList(nodes);
-        return Cache(nodes, new DomCollectionObject(this, DomInterfaces.NodeList, target, DomAccessorNodeList.Instance));
+        return Cache(collection, new DomHtmlCollectionObject<T>(this, definition, collection));
     }
 
     /// <summary>Projects the live <c>NodeList</c> of labels associated with a labelable element.</summary>

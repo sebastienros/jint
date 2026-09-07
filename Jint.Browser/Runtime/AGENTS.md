@@ -22,6 +22,13 @@ is that thread: it drains a mailbox of requests, processes one engine task and i
 engine-owning operations, and a navigation replaces the engine from inside a mailbox request rather than from
 outside. Jint starts no thread of its own; this is what makes a page's timers fire at all.
 
+**The page thread explicitly requests an 8 MiB native stack through `Thread(ThreadStart, int)`.**
+The platform default can be only about 512 KiB on macOS, where a finite framework traversal exhausts it
+before its JavaScript work is finished (#3884). The runtime/OS governs the actual reservation, rounding and
+commitment; the request is not 8 MiB of managed allocation per page. `StackOverflowGuard` and configured
+recursion limits stay in force. All public and protocol page creation, including the test fixtures, uses
+this same `PageLoop` constructor; never compensate with a larger stack only in a test host.
+
 Five rules follow, and each of them is a way to break the package silently:
 
 - **Every public `Page` member is a mailbox request, and the request is what holds the engine.** A new member
@@ -229,30 +236,41 @@ fall out of the row rule and every one of them is load-bearing:
   `visibility: hidden`, whose `visibility: visible` descendant CSS lets escape. A model whose boxes are rows
   cannot give a descendant a row inside a parent that has none, and the nesting is what the hit test rests on.
 
+**Single-line horizontal flex rows partition their containing width.** `Layout/FlexRow` reads AngleSharp's
+computed display, direction, basis, growth, shrinkage and cross-axis alignment. The synthetic intrinsic
+size is still a row, not measured text; wrapping, gaps, margins, min/max sizes, main-axis justification, ordering and positioned
+layout remain unmodeled. A row shares vertical space instead of stacking full-width controls, so a trailing
+button no longer owns its parent's centre. DOM rectangles, hit testing, offsets and resize measurements
+use the same boxes. Documents without these rows keep the existing ordinal hit-test path.
+
 **It is recomputed per query and never cached across queries.** A cache needs an invalidation signal, and the only one
 available is an AngleSharp `MutationObserver` over the whole document — which would make every DOM mutation on
 every page pay for mutation records whether or not anything ever asks for a box. Within that synchronous
 walk, `CssCascade.Traversal` shares the style collection and raw parent cascades: calling
 `ComputeCurrentStyle` separately for every element rematches every ancestor, which made a nested admin form
 expensive at every step of Playwright's actionability checks. AngleSharp still owns matching, specificity,
-inheritance and value computation. Raw ordinary declarations preserve the existing child-relative lengths
-and `var()` resolution; custom properties alone inherit resolved values, with dependency cycles invalidated
-before AngleSharp can recurse (`Dom/Views/CustomProperties`, #3851). Unresolved explicit `inherit` takes
-AngleSharp's ancestor-walk fallback. Nothing survives the
-query, so even same-turn CSSOM writes, `classList`, control state and media changes need no invalidation.
+inheritance and value computation. Individual style queries use Css 1.1.0's native computed-style API,
+including its cycle-safe custom-property resolution. **The traversal still needs `Dom/Views/CustomProperties`
+(#3851)**: the native computed-parent overload is internal, and calling the public entry per element would
+rematch every ancestor. The public bulk renderer instead eagerly recurses through the whole document and
+cannot accept this traversal's style collection or isolate per-element failures. Raw ordinary declarations
+preserve the existing child-relative lengths; custom properties inherit resolved values. Invalid inherited
+consumers use the parent's computed value rather than the native initial fallback. Unresolved explicit
+`inherit` retains the ancestor-walk compatibility path. Nothing survives the query, so same-turn CSSOM
+writes, `classList`, control state and media changes need no invalidation.
 
 **The scroll is virtual, and it is the only state.** `Layout/PageLayout` holds a `scrollY` clamped to the
-document, and every viewport-relative answer subtracts it; `scrollX` is zero and stays zero, because every box
-is exactly as wide as the viewport. `window.scrollTo`/`scrollBy`/`scroll`, `element.scrollIntoView`,
+document, and every viewport-relative answer subtracts it; `scrollX` stays zero because horizontal overflow
+has no scroll range in this model. `window.scrollTo`/`scrollBy`/`scroll`, `element.scrollIntoView`,
 `DOM.scrollIntoViewIfNeeded` and a wheel event all set it, and `window.scrollY`, `pageYOffset` and
 `document.scrollingElement.scrollTop` read it. That is what lets a client whose click path insists on "scroll
 it into view, then check the box is inside the viewport" — Playwright's does — succeed on a long page. A
 change queues one `scroll` at the document per turn, on the engine's own queue.
 
 **Only the scrolling element scrolls**: `scrollTop` on `document.scrollingElement` is the page's offset and
-writing it moves the page; on anything else it reads zero and a write is ignored. `scrollIntoView` aligns an
-element's **first row** and never its whole box, because a container's box spans its subtree and centring
-*that* would scroll past everything in it.
+writing it moves the page; on anything else it reads zero and a write is ignored. `scrollIntoView` aligns
+the **whole bounding box**, not only its first row: exposing only that row can leave every actionable
+descendant outside the viewport. `nearest` leaves a box spanning both viewport edges in place.
 
 **The DOM-side members are `overrides.json` `additions` entries**, with their bodies in `Layout/LayoutMembers`
 — `getBoundingClientRect`, `getClientRects`, the `client*`/`scroll*` metrics, `scrollIntoView`, `HTMLElement`'s
@@ -335,7 +353,8 @@ the first call. Everything a client is told about a page is one of its calls; no
   document did not change. Each is prefixed per page, so two pages never mint the same.
 - **`Phase` is the driver's three, composed with the caller's.** `LoadInto` wraps whatever `onPhase` a
   navigation passed, so a watcher hears `Committed`, `DomContentLoaded` and `Loaded` at exactly the points
-  `WaitUntilState` answers at — on the loop, because that is where the driver raises them.
+  `WaitUntilState` answers at — on the loop, because that is where the driver raises them. Notify the
+  observer before completing the caller's phase signal, so its continuation cannot outrun publication.
 - **`DialogOpening` runs before the host's own `Page.DialogOpened` handler and `DialogClosed` after it.** A
   watcher answers from a decision it already holds — the page has no thread to block, and the thread a
   protocol client's answer would arrive on is the one inside the script that called `alert` — and the host,

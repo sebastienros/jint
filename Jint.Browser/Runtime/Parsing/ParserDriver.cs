@@ -58,6 +58,9 @@ internal sealed class ParserDriver : IDisposable
     private IHtmlScriptElement? _importMapElement;
     private IBrowsingContext? _context;
     private int _frameDocuments;
+    private int _pendingStyleSheetEvents;
+    private TaskCompletionSource? _styleSheetEventsCompleted;
+    private Queue<(IHtmlLinkElement Link, string Type)>? _deferredStyleSheetEvents;
 
     private ParserDriver(PageRuntime runtime, string url, CancellationToken cancellationToken)
     {
@@ -100,6 +103,17 @@ internal sealed class ParserDriver : IDisposable
         // service rather than replacing one, so AngleSharp's own observer keeps working.
         var configuration = Configuration.Default
             .WithCss()
+            // https://html.spec.whatwg.org/multipage/document-lifecycle.html#read-xml — a document whose
+            // content type is an XML MIME type is parsed by the XML parser, and without the factory
+            // AngleSharp.Xml supplies there is no XML document for it to produce: `<foo>Dummy</foo>` served
+            // as `text/xml` came back as an *HTML* document with the text inside an `<html><body>` skeleton,
+            // so `documentElement.tagName` was `HTML` and every XML rule a page then asked about was the
+            // wrong document's. Only a *frame* can reach this: `Parse` states `text/html` for the page's own
+            // document, which is what the navigate rules already decided. AngleSharp.Xml is referenced for
+            // `DOMParser` either way, so this costs a service registration and no dependency.
+            .WithXml()
+            .WithOnly<AngleSharp.Css.IStylingService>(new PageStylingService(this))
+
             .With(new PageResourceLoader(this))
             .With<AngleSharp.Css.IRenderDevice>(_ => new PageRenderDevice(_runtime))
             .With<AngleSharp.Dom.IAttributeObserver>(_ => new CustomElements.CustomElementAttributeObserver(_runtime))
@@ -303,6 +317,69 @@ internal sealed class ParserDriver : IDisposable
 
             return Fetch(url, link, "stylesheet", PageRequestKind.Stylesheet, handedOver);
         });
+    }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/semantics.html#link-type-stylesheet — queue the resource
+    /// event after processing the stylesheet, not when its bytes arrive.
+    /// </summary>
+    internal void StyleSheetProcessed(IHtmlLinkElement link, Exception? error = null)
+    {
+        Serve<object?>(() =>
+        {
+            if (error is null)
+            {
+                QueueStyleSheetEvent(link, "load");
+            }
+            else if (!_cancellationToken.IsCancellationRequested)
+            {
+                FailSubresource(link, link.Href ?? _url, "The stylesheet could not be processed: " + error.Message);
+            }
+
+            return null;
+        });
+    }
+
+    private void QueueStyleSheetEvent(IHtmlLinkElement link, string type)
+    {
+        if (_cancellationToken.IsCancellationRequested)
+        {
+            return;
+        }
+
+        if (_pendingStyleSheetEvents++ == 0)
+        {
+            _styleSheetEventsCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        }
+
+        // The processor assigns link.Sheet after the styling service returns, before the next hand-off.
+        _runtime.Engine.Tasks.Post(() => DeliverStyleSheetEvent(link, type));
+    }
+
+    private void DeliverStyleSheetEvent(IHtmlLinkElement link, string type)
+    {
+        // Engine.Execute drains tasks even for a script inserted by another script. Resource events must
+        // wait for the outermost script element to return and restore document.currentScript first.
+        if (_runtime.CurrentScript is not null)
+        {
+            (_deferredStyleSheetEvents ??= new()).Enqueue((link, type));
+            return;
+        }
+
+        try
+        {
+            if (!_cancellationToken.IsCancellationRequested)
+            {
+                FireAt(link, type);
+            }
+        }
+        finally
+        {
+            if (--_pendingStyleSheetEvents == 0)
+            {
+                _styleSheetEventsCompleted!.TrySetResult();
+            }
+        }
     }
 
     /// <summary>Records a script a frame's document asked for and this browser will not run.</summary>
@@ -520,7 +597,14 @@ internal sealed class ParserDriver : IDisposable
     private void FailSubresource(IElement source, string url, string message)
     {
         Report(PageErrorKind.ReportedError, message, url);
-        FireAt(source, "error");
+        if (source is IHtmlLinkElement link)
+        {
+            QueueStyleSheetEvent(link, "error");
+        }
+        else
+        {
+            FireAt(source, "error");
+        }
     }
 
     /// <summary>Dispatches a simple event at an element through Jint's dispatcher.</summary>
@@ -641,6 +725,13 @@ internal sealed class ParserDriver : IDisposable
         finally
         {
             _runtime.CurrentScript = previous;
+            if (previous is null && _deferredStyleSheetEvents is { } deferred)
+            {
+                while (deferred.TryDequeue(out var entry))
+                {
+                    _runtime.Engine.Tasks.Post(() => DeliverStyleSheetEvent(entry.Link, entry.Type));
+                }
+            }
         }
 
         // https://html.spec.whatwg.org/multipage/scripting.html#execute-the-script-element: load fires at an
@@ -739,6 +830,13 @@ internal sealed class ParserDriver : IDisposable
         // load lands here — after DOMContentLoaded, before readyState becomes "complete" and before the
         // window's load.
         FireFrameLoads(document);
+
+        // Stylesheet completion handlers can insert further stylesheets. Keep their load-event delay
+        // until the entire chain has delivered, with each event on its own budgeted task.
+        while (_pendingStyleSheetEvents > 0 && !_cancellationToken.IsCancellationRequested)
+        {
+            _baton.PumpUntil(_styleSheetEventsCompleted!.Task);
+        }
 
         // Step 9: readiness becomes "complete" and only then does load fire, which is why a load listener
         // reads "complete" rather than "interactive".

@@ -84,6 +84,15 @@ script runs before a module script that precedes it in the document, because the
 HTML's one; and the first import map found anywhere applies to every module, because none of them could have
 resolved before the parse ended anyway.
 
+**A frame served XML gets an XML document, and only a frame can.** `Configuration` carries AngleSharp.Xml's
+document factory, so a response whose content type is an XML MIME type is parsed by the XML parser rather
+than wrapped in an HTML skeleton — without it `<foo>x</foo>` served as `text/xml` came back with
+`documentElement.tagName === "HTML"` and every XML rule a page then asked about was the wrong document's.
+The page's own document cannot reach it: `Parse` states `text/html` for what a navigation produces, and a
+navigation to an XML content type is refused by `DocumentFetch` before a parser sees it. `application/xhtml+xml`
+is **still** routed to the HTML parser — that is AngleSharp's own content-type mapping, not this file's, and
+it is what `NeedsXmlDocuments` covers in the browser lane.
+
 **`document.readyState` is the page's shadow.** `PageRuntime.ReadyState` moves `loading` → `interactive` →
 `complete` and `ParserDriver.SetReadyState` fires the `readystatechange` that goes with each, because
 `Document.ReadyState`'s setter is protected and unreachable from outside AngleSharp's assembly. AngleSharp's
@@ -98,6 +107,17 @@ no socket is opened. A refusal and a failure are both a download that completes 
 is the shape AngleSharp's own processors already test for; the `load` and `error` a *page* hears are
 dispatched through Jint's dispatcher, because AngleSharp's go into its own listener lists. `integrity` and
 `crossorigin` are accepted and ignored, and say so here rather than in a sentence nobody reads.
+
+**A linked stylesheet completes after CSS processing, not after its fetch.** `PageStylingService` delegates
+the parse to AngleSharp.Css, then hands the completion to the driver. Both `load` and `error` are engine
+tasks: an inserting script and its microtasks finish first, and the processor has assigned `link.sheet`
+before a load listener reads it. Parsing failures are reported and rethrown to AngleSharp's processor,
+never converted into success. The driver drains outstanding stylesheet events before window `load`,
+including sheets inserted by those handlers; each event keeps the task budget and document cancellation.
+Queuing at the fetch instead would let a parser-time network pump deliver before the CSSOM exists.
+`Engine.Execute` also drains tasks for nested script elements, so a delivery reached while `currentScript`
+is set is deferred and re-posted after the outermost element restores it. Otherwise a stylesheet callback
+could run in the middle of the AMD loader's inserting script even though it was queued as a task.
 
 **A frame's document is fetched, and the nested browsing context is AngleSharp's.**
 `HtmlFrameElementBase.SetupElement` already makes a child context per frame element and asks the loader for

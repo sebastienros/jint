@@ -34,6 +34,12 @@ namespace Jint.Browser.Runtime;
 /// </remarks>
 internal sealed class PageLoop : IDisposable
 {
+    // A platform-default stack can be only ~512 KiB (macOS), too small for finite framework
+    // traversals through the interpreter. Request 8 MiB through .NET's portable thread API;
+    // the runtime/OS controls rounding and commitment. This is not a JavaScript recursion limit:
+    // StackOverflowGuard and any configured MaxRecursionDepth still bound execution.
+    private const int StackSize = 8 * 1024 * 1024;
+
     private readonly Channel<LoopRequest> _mailbox = Channel.CreateUnbounded<LoopRequest>(
         new UnboundedChannelOptions { SingleReader = true, AllowSynchronousContinuations = false });
 
@@ -81,7 +87,7 @@ internal sealed class PageLoop : IDisposable
         _engineFactory = engineFactory;
         _onPumpError = onPumpError;
         _onTurnEnd = onTurnEnd;
-        _thread = new Thread(Run) { IsBackground = true, Name = name };
+        _thread = new Thread(Run, maxStackSize: StackSize) { IsBackground = true, Name = name };
         _closingToken = _closing.Token;
     }
 

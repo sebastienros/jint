@@ -1,7 +1,8 @@
-﻿using System.Globalization;
+using System.Globalization;
 using Jint.Browser.Runtime;
 using Jint.DevTools;
 using Jint.DevTools.Domains;
+using Jint.DevTools.Protocol;
 using Jint.DevTools.Session;
 using Jint.Runtime;
 
@@ -35,6 +36,18 @@ internal sealed partial class PageTarget : DevToolsTarget, IPageObserver
     private readonly Action<PageTarget>? _closed;
 
     private PageDomain[] _domains = [];
+    private string? _uncommittedUrl;
+    private List<PendingNavigation>? _pendingNavigations;
+    private TaskCompletionSource? _navigationPublished;
+
+    /// <summary>How many navigation notices the current parse has deferred, read on the loop.</summary>
+    internal int PendingNavigationCount => _pendingNavigations?.Count ?? 0;
+
+    /// <summary>Keep an action's reply behind any navigation notices it queued during the parse.</summary>
+    internal Task? NavigationPublicationAfter(int previousCount)
+        => PendingNavigationCount > previousCount
+            ? (_navigationPublished ??= new(TaskCreationOptions.RunContinuationsAsynchronously)).Task
+            : null;
 
     private PageTarget(Page page, string? browserContextId, bool waitForDebuggerOnStart, Action<PageTarget>? closed)
         : base(
@@ -189,7 +202,7 @@ internal sealed partial class PageTarget : DevToolsTarget, IPageObserver
     /// <inheritdoc/>
     /// <remarks>
     /// <para>
-    /// <b>Three commands, and they are the three that release a paused request.</b>
+    /// <b>The commands that release a paused request.</b>
     /// <c>FetchDomain.ContinueRequestAsync</c>, <c>FailRequestAsync</c> and <c>FulfillRequestAsync</c> look
     /// one entry up in a <c>ConcurrentDictionary</c> and complete a <c>TaskCompletionSource</c>; between
     /// them they touch no engine, no <c>JsValue</c> and no node, which is the bar the base class sets.
@@ -212,8 +225,11 @@ internal sealed partial class PageTarget : DevToolsTarget, IPageObserver
         // a running script inserted is fetched with the loop *blocked* on the whole fetch — ParserDriver's
         // `fetch.GetAwaiter().GetResult()` — so the loop is held from the request stage through the body
         // read, and a response-stage pause holds it exactly as a request-stage pause does. All four look one
-        // entry up in a dictionary and complete a promise: no engine, no JsValue, no node.
-        "Fetch.continueRequest" or "Fetch.failRequest" or "Fetch.fulfillRequest" or "Fetch.continueResponse" => true,
+        // entry up in a dictionary and complete a promise: no engine, no JsValue, no node. continueWithAuth
+        // is the fifth, and its pause is the same one held at the same point: the challenge arrives on the
+        // hop's own response, with the loop blocked on that fetch if a running script started it.
+        "Fetch.continueRequest" or "Fetch.failRequest" or "Fetch.fulfillRequest" or "Fetch.continueResponse"
+            or "Fetch.continueWithAuth" => true,
         _ => false,
     };
 
@@ -241,6 +257,17 @@ internal sealed partial class PageTarget : DevToolsTarget, IPageObserver
     /// <inheritdoc/>
     void IPageObserver.NavigationRequested(string url, PageNavigationReason reason)
     {
+        if (_uncommittedUrl is not null)
+        {
+            (_pendingNavigations ??= []).Add(new PendingNavigation(url, LoaderId: null, reason));
+            return;
+        }
+
+        NavigationRequested(url, reason);
+    }
+
+    private void NavigationRequested(string url, PageNavigationReason reason)
+    {
         foreach (var domain in Snapshot())
         {
             domain.NavigationRequested(url, reason);
@@ -258,20 +285,15 @@ internal sealed partial class PageTarget : DevToolsTarget, IPageObserver
 
     /// <inheritdoc/>
     /// <remarks>
-    /// The order here is the whole of a commit as a client sees it: <c>frameNavigated</c> first, because the
-    /// document's URL is settled and nothing of it has been parsed; then the engine swap, which is what
-    /// clears every handle and announces the new execution context; then the bindings the base class
-    /// re-installs, and finally the client's own new-document scripts — every one of which has to be in place
-    /// before the document's first inline script runs.
+    /// The engine swap clears handles and installs the new contexts, bindings and new-document scripts
+    /// before the first inline script runs. It is not yet the navigation commit: the parser has not made
+    /// the document observable. Announcing the frame here would release a client's click navigation barrier
+    /// while the parser can still be blocked before the response's body.
     /// </remarks>
     void IPageObserver.DocumentCreated(PageRuntime runtime, string loaderId)
     {
+        _uncommittedUrl = runtime.DocumentUrl;
         Publish(title: null, runtime.DocumentUrl);
-
-        foreach (var domain in Snapshot())
-        {
-            domain.FrameNavigated(runtime.DocumentUrl, loaderId);
-        }
 
         // Before the swap, because the swap is what tells every DOM domain to announce documentUpdated and a
         // client that acted on it must find the identifiers already gone rather than resolving one more time.
@@ -283,10 +305,69 @@ internal sealed partial class PageTarget : DevToolsTarget, IPageObserver
 
     /// <inheritdoc/>
     /// <remarks>
-    /// The first moment the document exists and the parse is over, which is when a client's view of the tree
-    /// can start being kept current. Idempotent, and a no-op while nobody has enabled the <c>DOM</c> domain.
+    /// Arms the node tracker and publishes the frame commit after the parser has produced the document.
     /// </remarks>
-    void IPageObserver.DocumentParsed(PageRuntime runtime, string loaderId) => Nodes.Watch(runtime);
+    void IPageObserver.DocumentParsed(PageRuntime runtime, string loaderId)
+    {
+        Nodes.Watch(runtime);
+
+        foreach (var domain in Snapshot())
+        {
+            domain.FrameNavigated(_uncommittedUrl ?? runtime.DocumentUrl, loaderId);
+        }
+
+        _uncommittedUrl = null;
+
+        // Scripts can already have requested the next navigation or moved within this document. Publish
+        // those after this commit, or a client's navigation barrier consumes this frame for the next one.
+        if (_pendingNavigations is { } pending)
+        {
+            _pendingNavigations = null;
+            foreach (var navigation in pending)
+            {
+                if (navigation.LoaderId is { } sameDocumentLoader)
+                {
+                    SameDocumentNavigated(navigation.Url, sameDocumentLoader);
+                }
+                else
+                {
+                    NavigationRequested(navigation.Url, navigation.Reason);
+                }
+            }
+        }
+
+        _navigationPublished?.TrySetResult();
+        _navigationPublished = null;
+    }
+
+    /// <inheritdoc/>
+    void IPageObserver.DocumentLoadFinished()
+    {
+        if (_uncommittedUrl is null)
+        {
+            return;
+        }
+
+        _uncommittedUrl = null;
+        var pending = _pendingNavigations;
+        _pendingNavigations = null;
+
+        // A failed parse must not replay its history changes over the next document. Cross-document
+        // requests are still queued on the page, however, and their clients must hear about them.
+        if (pending is not null)
+        {
+            foreach (var navigation in pending)
+            {
+                if (navigation.LoaderId is null)
+                {
+                    NavigationRequested(navigation.Url, navigation.Reason);
+                }
+            }
+        }
+
+        _navigationPublished?.TrySetException(new ProtocolException("The document failed to commit during the input action."));
+        _navigationPublished = null;
+    }
 
     /// <inheritdoc/>
     void IPageObserver.Phase(NavigationPhase phase, string loaderId)
@@ -302,6 +383,17 @@ internal sealed partial class PageTarget : DevToolsTarget, IPageObserver
     {
         Publish(title: null, url);
 
+        if (_uncommittedUrl is not null)
+        {
+            (_pendingNavigations ??= []).Add(new PendingNavigation(url, loaderId, default));
+            return;
+        }
+
+        SameDocumentNavigated(url, loaderId);
+    }
+
+    private void SameDocumentNavigated(string url, string loaderId)
+    {
         foreach (var domain in Snapshot())
         {
             domain.SameDocumentNavigated(url, loaderId);
@@ -361,6 +453,8 @@ internal sealed partial class PageTarget : DevToolsTarget, IPageObserver
     }
 
     private PageDomain[] Snapshot() => Volatile.Read(ref _domains);
+
+    private readonly record struct PendingNavigation(string Url, string? LoaderId, PageNavigationReason Reason);
 }
 
 /// <summary>What a client decided about the next dialog the page opens.</summary>

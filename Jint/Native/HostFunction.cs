@@ -116,7 +116,10 @@ public abstract class HostFunction : Function.Function
     /// Sealed: <see cref="Invoke"/> is the hook. See the class remarks for why.
     /// </summary>
     protected internal sealed override JsValue Call(JsValue thisObject, JsCallArguments arguments)
-        => _bubbleExceptions ? Invoke(thisObject, arguments) : CallGuarded(thisObject, arguments);
+    {
+        _engine._stackGuard.EnsureNativeStackHeadroom();
+        return _bubbleExceptions ? Invoke(thisObject, arguments) : CallGuarded(thisObject, arguments);
+    }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
     private JsValue CallGuarded(JsValue thisObject, JsCallArguments arguments)

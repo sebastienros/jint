@@ -178,8 +178,7 @@ internal sealed class FetchPolicy
 }
 
 /// <summary>
-/// A response whose body has <b>not</b> been read: the message itself, plus the two facts about the request
-/// that produced it which only the redirect loop knows.
+/// A response whose body has <b>not</b> been read, with the request and redirect metadata that produced it.
 /// </summary>
 /// <remarks>
 /// What <see cref="FetchTransport.SendForStreamAsync"/> answers with, for the one consumer that must not have
@@ -206,6 +205,12 @@ internal sealed class FetchExchange : IDisposable
     internal required Uri RequestUri { get; init; }
 
     internal required bool Redirected { get; init; }
+
+    /// <summary>The number of redirects actually followed, excluding an unfollowed terminal redirect.</summary>
+    internal int RedirectCount { get; init; }
+
+    /// <summary>Whether any followed redirect crossed origins, even if the chain later returned to its original origin.</summary>
+    internal bool HasCrossOriginRedirect { get; init; }
 
     /// <summary>Whether a <see cref="FetchObserver"/> answered this hop instead of the network.</summary>
     internal bool FromInterception { get; init; }
@@ -467,6 +472,8 @@ internal static class FetchTransport
                 Url = exchange.Url,
                 RequestUri = exchange.RequestUri,
                 Redirected = exchange.Redirected,
+                RedirectCount = exchange.RedirectCount,
+                HasCrossOriginRedirect = exchange.HasCrossOriginRedirect,
                 FromInterception = true,
 
                 // The hop that produced the response being replaced really was sent, so its timing is kept:
@@ -576,12 +583,17 @@ internal static class FetchTransport
         var headers = new List<HeaderEntry>(request.Headers);
         AppendDefaultAccept(headers);
         var redirectCount = 0;
+        var hasCrossOriginRedirect = false;
 
         // https://fetch.spec.whatwg.org/#concept-main-fetch step 6 is re-run per hop, because a redirect
         // re-enters main fetch: what a hop discloses is computed from what the previous hop settled on, so a
         // policy that has already narrowed the referrer to an origin never widens it again.
         var referrer = request.Referrer;
         ObservedFetchResponse? redirectResponse = null;
+
+        // One retry per request, not per hop: an observer has one credential to offer, so a second ask has
+        // nothing new to answer with and a loop is worse than delivering the 401.
+        var authRetried = false;
 
         while (true)
         {
@@ -612,7 +624,7 @@ internal static class FetchTransport
 
                     if (interception.Kind == FetchInterceptionKind.Fulfill)
                     {
-                        return Fulfil(interception, method, url, uri, redirectCount);
+                        return Fulfil(interception, method, url, uri, redirectCount, hasCrossOriginRedirect);
                     }
 
                     // Continue: the rewrites apply to the hop that was answered, and the next hop is computed
@@ -687,11 +699,49 @@ internal static class FetchTransport
                 // all, rather than a browser's opaque-redirect filtered response — which exists to hide a
                 // cross-origin redirect from a page, a concern an embedded engine with no origin does not have.
                 var status = (int) response.StatusCode;
+
+                // The challenge is offered before the response is handed anywhere, because answering it
+                // re-sends this hop rather than producing one. It is asked here, in the core, beside the
+                // per-hop request ask and not beside the final-response one: a 401 on a document fetch, on a
+                // subresource and on an XMLHttpRequest all pass through here, and only fetch() takes the lane
+                // AnswerResponseAsync is asked in.
+                if (status == UnauthorizedStatus
+                    && !authRetried
+                    && observation is not null
+                    && ReadChallenge(response) is { } challenge
+                    && await AuthorizeAsync(observation, challenge, uri, headers, cancellationToken).ConfigureAwait(false))
+                {
+                    // Not a redirect and not counted as one: the same URL is asked again, once, with the
+                    // Authorization header now in `headers` so every later hop carries it - until one crosses
+                    // to another origin, where _crossOriginHeaderNames strips it as the standard asks.
+                    // https://fetch.spec.whatwg.org/#http-network-or-cache-fetch:
+                    // a ReadableStream body has no source from which to recreate the upload.
+                    if (content is not null)
+                    {
+                        throw new FetchFailureException(
+                            FetchFailureKind.Network,
+                            $"'{uri}' requires authentication but its ReadableStream request body cannot be sent again.");
+                    }
+
+                    authRetried = true;
+                    continue;
+                }
+
                 if (!FetchValues.IsRedirectStatus(status)
                     || string.Equals(request.Redirect, JsRequest.RedirectManual, StringComparison.Ordinal))
                 {
                     handedOver = true;
-                    return new FetchExchange { Response = response, Method = method, Url = url, RequestUri = uri, Redirected = redirectCount > 0, Timing = timing };
+                    return new FetchExchange
+                    {
+                        Response = response,
+                        Method = method,
+                        Url = url,
+                        RequestUri = uri,
+                        Redirected = redirectCount > 0,
+                        RedirectCount = redirectCount,
+                        HasCrossOriginRedirect = hasCrossOriginRedirect,
+                        Timing = timing,
+                    };
                 }
 
                 if (string.Equals(request.Redirect, JsRequest.RedirectError, StringComparison.Ordinal))
@@ -705,7 +755,17 @@ internal static class FetchTransport
                 if (location is null)
                 {
                     handedOver = true;
-                    return new FetchExchange { Response = response, Method = method, Url = url, RequestUri = uri, Redirected = redirectCount > 0, Timing = timing };
+                    return new FetchExchange
+                    {
+                        Response = response,
+                        Method = method,
+                        Url = url,
+                        RequestUri = uri,
+                        Redirected = redirectCount > 0,
+                        RedirectCount = redirectCount,
+                        HasCrossOriginRedirect = hasCrossOriginRedirect,
+                        Timing = timing,
+                    };
                 }
 
                 // The redirect reaches the observer before the hop it causes does, and again on that hop's
@@ -735,6 +795,7 @@ internal static class FetchTransport
                 }
 
                 Rewrite(status, ref method, ref body, ref content, headers, url, location);
+                hasCrossOriginRedirect = hasCrossOriginRedirect || !IsSameOrigin(url, location);
 
                 // "Set request's referrer to the result of invoking determine request's referrer" — the value
                 // this hop computed becomes the next hop's source, which is what makes the narrowing stick.
@@ -749,6 +810,161 @@ internal static class FetchTransport
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// The one authentication scheme this transport can answer from a username and a password alone.
+    /// </summary>
+    /// <remarks>
+    /// <c>Digest</c> needs a nonce exchange and <c>Negotiate</c> and <c>NTLM</c> a handshake bound to the
+    /// connection; a transport that hands the socket back after every response holds neither. Both are still
+    /// <i>reported</i> — see <see cref="ObservedFetchAuthChallenge.CanProvideCredentials"/>.
+    /// </remarks>
+    private const string BasicScheme = "Basic";
+
+    /// <summary>The status a server challenges with. A <c>407</c> is a proxy's and is not this engine's.</summary>
+    private const int UnauthorizedStatus = 401;
+
+    /// <summary>
+    /// The first <c>WWW-Authenticate</c> challenge on a response, or <see langword="null"/> when it carried
+    /// none.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The first, not the strongest.</b> A server may offer several and a browser picks the one it likes
+    /// best; there is only one this engine can answer, so choosing between them would be a choice with one
+    /// outcome. What a client is told is what the server said first, and if that is a scheme this engine
+    /// cannot answer, that is the honest report.
+    /// </para>
+    /// <para>
+    /// The realm comes from the challenge's <c>Parameter</c>, which is the whole
+    /// <c>auth-param</c> list; only <c>realm</c> is read out of it, unquoted, because that is the one
+    /// parameter the protocol's own challenge type carries.
+    /// </para>
+    /// </remarks>
+    private static (string Scheme, string Realm)? ReadChallenge(HttpResponseMessage response)
+    {
+        foreach (var header in response.Headers.WwwAuthenticate)
+        {
+            if (string.IsNullOrEmpty(header.Scheme))
+            {
+                continue;
+            }
+
+            return (header.Scheme, ReadRealm(header.Parameter));
+        }
+
+        return null;
+    }
+
+    /// <summary>Pulls <c>realm="…"</c> out of a challenge's parameter list.</summary>
+    private static string ReadRealm(string? parameter)
+    {
+        if (string.IsNullOrEmpty(parameter))
+        {
+            return string.Empty;
+        }
+
+        // RFC 9110 sections 11.3 and 5.6.4: a comma in a quoted realm is not a separator,
+        // and a quoted-pair contributes only its escaped character.
+        var start = 0;
+        var quoted = false;
+        for (var i = 0; i <= parameter.Length; i++)
+        {
+            if (i < parameter.Length)
+            {
+                if (quoted && parameter[i] == '\\')
+                {
+                    i++;
+                    continue;
+                }
+
+                if (parameter[i] == '"')
+                {
+                    quoted = !quoted;
+                }
+
+                if (quoted || parameter[i] != ',')
+                {
+                    continue;
+                }
+            }
+
+            var part = parameter.AsSpan(start, i - start).Trim();
+            start = i + 1;
+            var equals = part.IndexOf('=');
+            if (equals < 0 || !part[..equals].Trim().Equals("realm", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var value = part[(equals + 1)..].Trim();
+            if (value.Length < 2 || value[0] != '"' || value[^1] != '"')
+            {
+                return value.ToString();
+            }
+
+            value = value[1..^1];
+            var result = new System.Text.StringBuilder(value.Length);
+            for (var j = 0; j < value.Length; j++)
+            {
+                if (value[j] == '\\' && j + 1 < value.Length)
+                {
+                    j++;
+                }
+                result.Append(value[j]);
+            }
+            return result.ToString();
+        }
+
+        return string.Empty;
+    }
+
+    /// <summary>
+    /// Asks the observer about a challenge and, when it answers with credentials this engine can use, puts
+    /// them on <paramref name="headers"/> for the retry.
+    /// </summary>
+    /// <returns>
+    /// <see langword="true"/> when the hop should be sent again; <see langword="false"/> to deliver the
+    /// <c>401</c> as it is — which covers a declined challenge, an uninterested observer, and credentials
+    /// offered for a scheme this engine cannot answer.
+    /// </returns>
+    private static async Task<bool> AuthorizeAsync(
+        FetchObservation observation,
+        (string Scheme, string Realm) challenge,
+        Uri uri,
+        List<HeaderEntry> headers,
+        CancellationToken cancellationToken)
+    {
+        var basic = string.Equals(challenge.Scheme, BasicScheme, StringComparison.OrdinalIgnoreCase);
+
+        var decision = await observation.AuthRequiredAsync(
+            new ObservedFetchAuthChallenge
+            {
+                Id = observation.Id,
+                Url = uri,
+                Status = UnauthorizedStatus,
+                Scheme = challenge.Scheme,
+                Realm = challenge.Realm,
+                CanProvideCredentials = basic,
+            },
+            cancellationToken).ConfigureAwait(false);
+
+        if (decision is not { HasCredentials: true } || !basic)
+        {
+            return false;
+        }
+
+        // https://www.rfc-editor.org/rfc/rfc7617 - the user-pass is joined by a colon and encoded as UTF-8,
+        // which is what the "charset" parameter asks for and what every server that omits it expects anyway.
+        var credentials = Convert.ToBase64String(
+            System.Text.Encoding.UTF8.GetBytes(decision.Username + ":" + decision.Password));
+
+        // The script's own Authorization header, if it wrote one, has already failed against this server -
+        // the challenge is the proof - so the answer replaces it rather than joining it.
+        headers.RemoveAll(static entry => string.Equals(entry.LowerName, "authorization", StringComparison.OrdinalIgnoreCase));
+        headers.Add(new HeaderEntry("authorization", BasicScheme + " " + credentials));
+        return true;
     }
 
     /// <summary>
@@ -967,7 +1183,7 @@ internal static class FetchTransport
     /// A fulfilled response ends the chain whatever its status: the redirect loop follows what the network
     /// said, and an observer that wants a redirect followed answers the hop after it too.
     /// </remarks>
-    private static FetchExchange Fulfil(FetchInterception interception, string method, UrlRecord url, Uri uri, int redirectCount)
+    private static FetchExchange Fulfil(FetchInterception interception, string method, UrlRecord url, Uri uri, int redirectCount, bool hasCrossOriginRedirect)
     {
         return new FetchExchange
         {
@@ -976,6 +1192,8 @@ internal static class FetchTransport
             Url = url,
             RequestUri = uri,
             Redirected = redirectCount > 0,
+            RedirectCount = redirectCount,
+            HasCrossOriginRedirect = hasCrossOriginRedirect,
             FromInterception = true,
 
             // Timing stays null on purpose: nothing was sent, so there is no send to time, and a

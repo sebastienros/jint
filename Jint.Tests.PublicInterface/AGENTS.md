@@ -123,7 +123,7 @@ All four checks together cost about a second, so they are not gated on an enviro
 
 ### What counts as a public contract
 
-**A change to any of it is a row in [`docs/v5-migration.md`](../docs/v5-migration.md), written in the same pull request.**
+**A change to any of it is a row in [`docs/guide/migrating-to-v5.md`](../docs/guide/migrating-to-v5.md), written in the same pull request.**
 That includes a change that breaks nothing at compile time — a flipped default, a narrowed lane, a message that stops
 being detailed. A compiler cannot find those, so the guide is the only place an embedder can.
 
@@ -132,6 +132,7 @@ being detailed. A compiler cannot find those, so the guide is the only place an 
 | `Options.AddLazyGlobal` — extension method on `OptionsExtensions` — and its per-engine counterpart `Engine.AddLazyGlobal`, whose `<TState>` overload takes the state so a `static` factory can serve it without a closure | `Jint/Options.Extensions.cs`, `Jint/Engine.Globals.cs` |
 | `Engine.HostDefined` — the `[[HostDefined]]` field of the engine's **principal** realm (`Realm.HostDefined`), reachable from an `Engine`; an opaque `object?` the engine never reads, so host code handed nothing but an `Engine` can get back to per-request state. Principal, not current: it does not move inside a `ShadowRealm`, whose own slot the spec starts empty and `Host.InitializeShadowRealm` exists to fill | `Jint/Engine.Globals.cs`, `Jint/Runtime/Realm.cs` |
 | `ReferencedGlobals` + `Prepared<T>.ReferencedGlobals` + `{Script,Module}PreparationOptions.CollectReferencedGlobals` | `Jint/ReferencedGlobals.cs`, `Jint/Prepared.cs`, `Jint/PreparationOptions.cs` |
+| `Engine.PrepareScript(Script, ...)` / `PrepareModule(Module, ...)` — direct-AST ownership, parser-dependent option refusals, limits and sharing | `Jint/Engine.Ast.cs`, `Jint.Tests.PublicInterface/HostAstPreparationTests.cs` |
 | `{Script,Module}PreparationOptions.StaticAnalysis` — the opt-out from the prepare-time analysis pass, plus the promise that the parse-only tree it returns is *still* safe to share across engines | `Jint/PreparationOptions.cs` |
 | `GlobalSnapshot` + `Engine.Advanced.CaptureGlobalSnapshot` / `RestoreGlobalSnapshot` / `WithRestoredGlobals` | `Jint/Engine.GlobalSnapshot.cs` |
 | `ResultLimits` + `ResultLimit` + `ResultLimitExceededException` + `Engine.ConvertResult` + the `JsonSerializer` constructor that takes them / `JavaScriptException.GetJavaScriptErrorString` | `Jint/ResultLimits.cs`, `Jint/Runtime/ResultLimitExceededException.cs`, `Jint/Engine.cs`, `Jint/Native/Json/JsonSerializer.cs`, `Jint/Runtime/JavaScriptException.cs` |

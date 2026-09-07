@@ -416,6 +416,8 @@ public sealed class JsonSerializer
 
     private void EnterContainer(ObjectInstance value)
     {
+        _engine._stackGuard.EnsureNativeStackHeadroom();
+
         var observed = _depth + 1;
         if (observed > _limits.MaxDepth)
         {

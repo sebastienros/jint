@@ -20,8 +20,8 @@ namespace Jint.Browser.Layout;
 /// document taller than its window.
 /// </para>
 /// <para>
-/// <b>Horizontal scrolling does not exist.</b> Every box is exactly as wide as the viewport, so there is
-/// never anything to the side; <c>scrollX</c> and <c>pageXOffset</c> are zero and stay zero.
+/// <b>Horizontal scrolling does not exist.</b> Flex rows partition the containing width, but horizontal
+/// overflow still has no scroll range; <c>scrollX</c> and <c>pageXOffset</c> are zero and stay zero.
 /// </para>
 /// <para>
 /// <b>One <c>scroll</c> event per turn.</b> A change queues one job on the engine's own queue and further
@@ -59,6 +59,10 @@ internal sealed class PageLayout
 
     /// <summary>How far the page is scrolled down, in CSS pixels.</summary>
     internal double ScrollY => _scrollY;
+
+    /// <summary>Starts a fresh size-only query without laying out unrelated document branches.</summary>
+    internal FlatLayout.SizeQuery MeasureSizes()
+        => new(_runtime.Document, Visibility, _runtime.Viewport.Width, Visibility.CreateTraversal(_runtime.Document));
 
     /// <summary>The layout of the document as it stands, with the current viewport and scroll offset.</summary>
     internal FlatLayout Current()
@@ -98,7 +102,7 @@ internal sealed class PageLayout
 
     /// <summary>
     /// https://drafts.csswg.org/cssom-view/#dom-element-scrollintoview — brings
-    /// <paramref name="element"/>'s first row into the viewport.
+    /// <paramref name="element"/>'s bounding box into the viewport.
     /// </summary>
     /// <param name="element">The element to reveal.</param>
     /// <param name="block">
@@ -106,11 +110,9 @@ internal sealed class PageLayout
     /// is <c>start</c>, which is what the enumeration's own default is for the argument-less call.
     /// </param>
     /// <remarks>
-    /// <b>Only the element's first row is aligned, never its whole box.</b> A container's box spans its
-    /// subtree, so aligning the box of a page's <c>&lt;body&gt;</c> to the centre of the window would scroll
-    /// past everything in it; the first row is the element itself, which is the part a client asked to see.
-    /// <c>nearest</c> scrolls only when the row is outside the viewport, which is what makes it the
-    /// alignment a client's "scroll into view if needed" wants.
+    /// The alignment uses the same bounding box as client rectangles and hit testing. Revealing only the
+    /// first row can leave every descendant outside the viewport, so a client clicks the container's empty
+    /// row instead of its contents. With <c>nearest</c>, a box spanning both viewport edges stays put.
     /// </remarks>
     internal void ScrollIntoView(IElement element, string block)
     {
@@ -121,13 +123,13 @@ internal sealed class PageLayout
         }
 
         var top = box.Y;
-        var bottom = top + FlatLayout.RowHeight;
+        var bottom = box.Bottom;
         var height = layout.ViewportHeight;
 
         switch (block)
         {
             case "center":
-                ScrollTo(top - ((height - FlatLayout.RowHeight) / 2));
+                ScrollTo(box.CenterY - (height / 2));
                 return;
 
             case "end":
@@ -135,11 +137,18 @@ internal sealed class PageLayout
                 return;
 
             case "nearest":
-                if (top < _scrollY)
+                if (top < _scrollY && bottom > _scrollY + height)
+                {
+                    return;
+                }
+
+                if ((top < _scrollY && box.Height <= height)
+                    || (bottom > _scrollY + height && box.Height > height))
                 {
                     ScrollTo(top);
                 }
-                else if (bottom > _scrollY + height)
+                else if ((bottom > _scrollY + height && box.Height <= height)
+                    || (top < _scrollY && box.Height > height))
                 {
                     ScrollTo(bottom - height);
                 }

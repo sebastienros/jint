@@ -6,7 +6,7 @@ using Jint.Browser.Dom.Views;
 namespace Jint.Browser.Layout;
 
 /// <summary>
-/// The flat renderer: one deterministic box per rendered element, computed from tree order alone.
+/// The flat renderer: deterministic boxes from tree order, with horizontal single-line flex rows.
 /// <para>
 /// Design doc §8, "Input without layout".
 /// </para>
@@ -28,6 +28,13 @@ namespace Jint.Browser.Layout;
 /// what a browser does — and the click bubbles back up through the container.
 /// </para>
 /// <para>
+/// <b>Single-line flex rows partition their width.</b> Stacking their children at viewport width makes a
+/// trailing icon own the centre of a toolbar. <see cref="FlexRow"/> distributes the available width using
+/// computed bases, growth and shrinkage; the row's height is its tallest child plus its own row. The same
+/// rectangles answer hit tests, offsets and resize measurements. Other formatting remains the flat model:
+/// no text measurement, wrapping, gaps, margins, min/max sizing, main-axis justification, ordering or positioned layout.
+/// </para>
+/// <para>
 /// <b>It is recomputed per query and never cached.</b> A cache would need an invalidation signal, and the
 /// only one available is an AngleSharp <c>MutationObserver</c> over the whole document — which would make
 /// every DOM mutation on every page pay for mutation records whether or not anything ever asks for a box.
@@ -47,6 +54,7 @@ internal sealed class FlatLayout
 
     private readonly List<IElement> _elements = [];
     private readonly List<int> _depths = [];
+    private List<FlatBox>? _boxes;
 
     private FlatLayout(double viewportWidth, double viewportHeight, double scrollY)
     {
@@ -55,7 +63,7 @@ internal sealed class FlatLayout
         ScrollY = scrollY;
     }
 
-    /// <summary>The width every box is given, which is the viewport's.</summary>
+    /// <summary>The width available to the root box.</summary>
     internal double ViewportWidth { get; }
 
     /// <summary>The height of the window the boxes are seen through.</summary>
@@ -64,11 +72,11 @@ internal sealed class FlatLayout
     /// <summary>How far the page is scrolled, which every viewport-relative answer subtracts.</summary>
     internal double ScrollY { get; }
 
-    /// <summary>How many elements are rendered, which is also how many rows the document has.</summary>
+    /// <summary>How many elements are rendered, including children sharing a flex row.</summary>
     internal int Count => _elements.Count;
 
-    /// <summary>The height of the whole document, which is one row per rendered element.</summary>
-    internal double ContentHeight => _elements.Count * RowHeight;
+    /// <summary>The height of the whole document, sharing vertical space inside flex rows.</summary>
+    internal double ContentHeight => _boxes is { Count: > 0 } ? _boxes[0].Height : _elements.Count * RowHeight;
 
     /// <summary>The largest <c>scrollY</c> the document admits, which is zero for a document that fits.</summary>
     internal double MaxScrollY => Math.Max(0, ContentHeight - ViewportHeight);
@@ -79,7 +87,7 @@ internal sealed class FlatLayout
     /// What <c>hidden</c> means, which is R7's — the <c>hidden</c> content attribute and the cascade's
     /// <c>display</c> and <c>visibility</c>. The instance is the page's, because its cascade probe latches.
     /// </param>
-    /// <param name="viewportWidth">The viewport width, which is every box's width.</param>
+    /// <param name="viewportWidth">The viewport width, partitioned between children of flex rows.</param>
     /// <param name="viewportHeight">The viewport height, which bounds a hit test.</param>
     /// <param name="scrollY">How far the page is scrolled.</param>
     internal static FlatLayout Of(
@@ -94,7 +102,10 @@ internal sealed class FlatLayout
 
         if (document?.DocumentElement is { } root && IsRendered(root, visibility, cascade))
         {
-            layout.Walk(root, visibility, cascade);
+            if (layout.Walk(root, visibility, cascade))
+            {
+                layout.Arrange(root, new SizeQuery(document, visibility, viewportWidth, cascade), cascade);
+            }
         }
 
         return layout;
@@ -191,7 +202,7 @@ internal sealed class FlatLayout
     }
 
     /// <summary>The box of row <paramref name="ordinal"/> in document coordinates.</summary>
-    internal FlatBox DocumentBoxAt(int ordinal) => new(
+    internal FlatBox DocumentBoxAt(int ordinal) => _boxes is not null ? _boxes[ordinal] : new(
         0,
         ordinal * RowHeight,
         ViewportWidth,
@@ -206,8 +217,9 @@ internal sealed class FlatLayout
     /// <paramref name="x"/>, <paramref name="y"/> in viewport coordinates, or <see langword="null"/>.
     /// </summary>
     /// <remarks>
-    /// The deepest box containing a point is always the owner of the row the point falls in, so a hit test
-    /// is one division and one lookup rather than a walk. A point outside the viewport hits nothing, which
+    /// Without flex rows, the deepest box containing a point is the owner of its row: one division and
+    /// one lookup. Flex rows require checking both coordinates against their assigned rectangles, in
+    /// reverse tree order so descendants win. A point outside the viewport hits nothing, which
     /// is what CSSOM View says.
     /// </remarks>
     internal IElement? ElementFromPoint(double x, double y)
@@ -217,12 +229,90 @@ internal sealed class FlatLayout
             return null;
         }
 
+        if (_boxes is not null)
+        {
+            var documentY = y + ScrollY;
+            for (var i = _boxes.Count - 1; i >= 0; i--)
+            {
+                var box = _boxes[i];
+                if (x >= box.X && x < box.Right && documentY >= box.Y && documentY < box.Bottom)
+                {
+                    return _elements[i];
+                }
+            }
+
+            return null;
+        }
+
         var row = (y + ScrollY) / RowHeight;
         return row >= 0 && row < _elements.Count ? _elements[(int) row] : null;
     }
 
-    private void Walk(IElement root, ElementVisibility visibility, CssCascade.Traversal? cascade)
+    private void Arrange(IElement root, SizeQuery sizes, CssCascade.Traversal? cascade)
     {
+        _boxes = new List<FlatBox>(_elements.Count);
+        var pending = new Stack<(IElement Element, double X, double Y)>();
+        pending.Push((root, 0, 0));
+        while (pending.TryPop(out var item))
+        {
+            var (element, x, y) = item;
+            var size = sizes.Measure(element);
+            _boxes.Add(size with { X = x, Y = y });
+            var horizontal = FlexRow.IsHorizontal(element, cascade);
+            var reverse = horizontal && FlexRow.IsReversed(element, cascade);
+            var children = element.Children;
+            var extent = 0d;
+            foreach (var child in children)
+            {
+                if (sizes.HasBox(child))
+                {
+                    var childSize = sizes.Measure(child);
+                    extent += horizontal ? childSize.Width : childSize.Height;
+                }
+            }
+
+            var offset = horizontal ? (reverse ? size.Width - extent : extent) : RowHeight + extent;
+            for (var i = children.Length - 1; i >= 0; i--)
+            {
+                var child = children[i];
+                if (!sizes.HasBox(child))
+                {
+                    continue;
+                }
+
+                var childSize = sizes.Measure(child);
+                if (horizontal)
+                {
+                    if (!reverse)
+                    {
+                        offset -= childSize.Width;
+                    }
+
+                    var space = size.Height - RowHeight - childSize.Height;
+                    var cross = FlexRow.Alignment(child, element, cascade) switch
+                    {
+                        "center" => space / 2,
+                        "flex-end" or "end" => space,
+                        _ => 0,
+                    };
+                    pending.Push((child, x + offset, y + RowHeight + cross));
+                    if (reverse)
+                    {
+                        offset += childSize.Width;
+                    }
+                }
+                else
+                {
+                    offset -= childSize.Height;
+                    pending.Push((child, x, y + offset));
+                }
+            }
+        }
+    }
+
+    private bool Walk(IElement root, ElementVisibility visibility, CssCascade.Traversal? cascade)
+    {
+        var hasFlexRows = false;
         var stack = new Stack<(IElement Element, int Depth)>();
         stack.Push((root, 0));
 
@@ -231,6 +321,7 @@ internal sealed class FlatLayout
             var (element, depth) = stack.Pop();
             _elements.Add(element);
             _depths.Add(depth);
+            hasFlexRows = hasFlexRows || FlexRow.IsHorizontal(element, cascade);
 
             var children = element.Children;
             for (var i = children.Length - 1; i >= 0; i--)
@@ -242,14 +333,190 @@ internal sealed class FlatLayout
                 }
             }
         }
+
+        return hasFlexRows;
+    }
+
+    /// <summary>
+    /// A synchronous size-only query: ancestors decide visibility and width; flex siblings also determine
+    /// distributed widths and stretched heights. Unrelated document branches need no rows.
+    /// Measurements and the cascade are shared within the query, never across mutations or callbacks.
+    /// </summary>
+    internal sealed class SizeQuery(
+        IDocument? document,
+        ElementVisibility visibility,
+        double viewportWidth,
+        CssCascade.Traversal? cascade)
+    {
+        private readonly Dictionary<IElement, bool> _rendered = new(ReferenceEqualityComparer.Instance);
+        private readonly Dictionary<IElement, int> _rows = new(ReferenceEqualityComparer.Instance);
+        private readonly Dictionary<IElement, double> _widths = new(ReferenceEqualityComparer.Instance);
+        private readonly Dictionary<IElement, double> _heights = new(ReferenceEqualityComparer.Instance);
+        private readonly Dictionary<IElement, FlatBox> _sizes = new(ReferenceEqualityComparer.Instance);
+
+        internal FlatBox Measure(IElement target)
+        {
+            if (!_sizes.TryGetValue(target, out var size))
+            {
+                size = HasBox(target) ? new FlatBox(0, 0, WidthOf(target), HeightOf(target)) : FlatBox.Empty;
+                _sizes.Add(target, size);
+            }
+
+            return size;
+        }
+
+        internal bool TryGetSize(IElement target, out FlatBox size) => _sizes.TryGetValue(target, out size);
+
+        internal bool HasBox(IElement target)
+        {
+            var ancestors = new Stack<IElement>();
+            var rendered = false;
+            for (IElement? element = target; element is not null; element = element.ParentElement)
+            {
+                if (_rendered.TryGetValue(element, out rendered))
+                {
+                    break;
+                }
+
+                ancestors.Push(element);
+                if (ReferenceEquals(element, document?.DocumentElement))
+                {
+                    rendered = true;
+                    break;
+                }
+            }
+
+            while (ancestors.TryPop(out var ancestor))
+            {
+                rendered = rendered && IsRendered(ancestor, visibility, cascade);
+                _rendered.Add(ancestor, rendered);
+            }
+
+            return rendered;
+        }
+
+        private double WidthOf(IElement target)
+        {
+            var ancestors = new Stack<IElement>();
+            for (var element = target; !_widths.ContainsKey(element); element = element.ParentElement!)
+            {
+                if (ReferenceEquals(element, document?.DocumentElement))
+                {
+                    _widths.Add(element, viewportWidth);
+                    break;
+                }
+
+                ancestors.Push(element);
+            }
+
+            while (ancestors.TryPop(out var element))
+            {
+                if (_widths.ContainsKey(element))
+                {
+                    continue;
+                }
+
+                var parent = element.ParentElement!;
+                var width = _widths[parent];
+                if (FlexRow.IsHorizontal(parent, cascade))
+                {
+                    var children = parent.Children.Where(HasBox).ToArray();
+                    var widths = FlexRow.Widths(children, width, cascade);
+                    for (var i = 0; i < children.Length; i++)
+                    {
+                        _widths.Add(children[i], widths[i]);
+                    }
+                }
+                else
+                {
+                    _widths.Add(element, width);
+                }
+            }
+
+            return _widths[target];
+        }
+
+        private double HeightOf(IElement target)
+        {
+            var ancestors = new Stack<IElement>();
+            var element = target;
+            while (!_heights.ContainsKey(element))
+            {
+                if (element.ParentElement is not { } parent
+                    || !FlexRow.IsHorizontal(parent, cascade)
+                    || FlexRow.Alignment(element, parent, cascade) != "stretch")
+                {
+                    _heights.Add(element, CountRows(element) * RowHeight);
+                    break;
+                }
+
+                ancestors.Push(element);
+                element = parent;
+            }
+
+            while (ancestors.TryPop(out element))
+            {
+                _heights.Add(element, _heights[element.ParentElement!] - RowHeight);
+            }
+
+            return _heights[target];
+        }
+
+        private int CountRows(IElement target)
+        {
+            var pending = new Stack<(IElement Element, bool Visited)>();
+            pending.Push((target, false));
+            while (pending.TryPop(out var item))
+            {
+                var (element, visited) = item;
+                if (_rows.ContainsKey(element))
+                {
+                    continue;
+                }
+
+                if (!visited)
+                {
+                    if (!_rendered.TryGetValue(element, out var rendered))
+                    {
+                        rendered = IsRendered(element, visibility, cascade);
+                        _rendered.Add(element, rendered);
+                    }
+
+                    if (!rendered)
+                    {
+                        _rows.Add(element, 0);
+                        continue;
+                    }
+
+                    pending.Push((element, true));
+                    foreach (var child in element.Children)
+                    {
+                        pending.Push((child, false));
+                    }
+                }
+                else
+                {
+                    var rows = 0;
+                    var horizontal = FlexRow.IsHorizontal(element, cascade);
+                    foreach (var child in element.Children)
+                    {
+                        rows = horizontal ? Math.Max(rows, _rows[child]) : rows + _rows[child];
+                    }
+
+                    _rows.Add(element, rows + 1);
+                }
+            }
+
+            return _rows[target];
+        }
     }
 }
 
 /// <summary>One element's rectangle, in whichever coordinate space the caller asked for.</summary>
-/// <param name="X">The left edge, which is always zero: nothing here lays out horizontally.</param>
+/// <param name="X">The left edge, including a flex item's horizontal offset.</param>
 /// <param name="Y">The top edge.</param>
-/// <param name="Width">The width, which is the viewport's.</param>
-/// <param name="Height">The height, which is one row per element of the subtree.</param>
+/// <param name="Width">The containing width, partitioned between flex items.</param>
+/// <param name="Height">The synthetic subtree height, sharing rows between flex items.</param>
 [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Auto)]
 internal readonly record struct FlatBox(double X, double Y, double Width, double Height)
 {

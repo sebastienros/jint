@@ -1,4 +1,4 @@
-﻿# Agent instructions: the page-level protocol
+# Agent instructions: the page-level protocol
 
 > **Read this when:** You are touching `Jint.Browser/DevTools/` — a page target, a page-level domain (`Page`, `DOM`,
 > `Network`, `Fetch`, `Input`, `Emulation`, `Accessibility`, `Jint`), or the request log the protocol reads.
@@ -27,6 +27,16 @@ target/runtime split and the manifest are there and none of it is repeated here.
   document's first inline script. `DocumentParsed` is the commit, with the runtime: it is the first moment
   there is a tree, so it is where anything that watches a document arms itself, and why the mutation bridge
   needs no field remembering an engine from before the parse.
+- **Frame commit is not engine creation.** Publish `lifecycleEvent(init)` and `frameNavigated` at
+  `DocumentParsed`, before fulfilling the host's commit signal. Publishing the frame before the parse
+  releases Playwright's click barrier while a parser-blocking script can still hide the success DOM.
+  Context replacement and new-document scripts still happen at `DocumentCreated`. Buffer navigation and
+  history notices raised during that parse until after its frame commit, or that commit consumes the next
+  navigation or masks its URL. Chromium can commit a streaming document earlier; Jint's commit is the
+  parsed-document boundary, not a promise to await unrelated later redirects or asynchronous scripts.
+  Input delivered during the parse must await publication of notices it creates before replying, without
+  blocking the loop. A failed parse discards its history notices, still publishes queued cross-document
+  requests, and fails waiting input replies; none may leak into the next document's commit.
 - **Every command runs on the page loop**, so it may touch the DOM directly — and one that waits
   (`Page.navigate`) waits by `await`ing, never by blocking: the loop it is on runs the commit it waits for.
 - **`DOM` and `Input` are where a client stops evaluating and starts driving.** A node reaches a client as a
@@ -83,7 +93,13 @@ target/runtime split and the manifest are there and none of it is repeated here.
   own state, not a request's. The document's request carries the `loaderId` as its `requestId`, which is how
   every client tells a navigation apart.
 - **What is accepted and not effective says so, in place.** `Network.setCacheDisabled` (there is no cache)
-  and `Audits.enable` are answered because a refusal fails an ordinary connection. The `Fetch` **response stage** is here: a
+  and `Audits.enable` are answered because a refusal fails an ordinary connection. **Authentication is here**:
+  `handleAuthRequests` turns it on, a `401` carrying a `WWW-Authenticate` pauses as `Fetch.authRequired`, and
+  `continueWithAuth` answers it over `FetchObserver.OnAuthRequiredAsync`. Only `Basic` can be answered, every
+  other scheme is still *reported* — being asked is how a client tells "unsupported" from "never challenged" —
+  and `ProvideCredentials` for one of those is refused with an error naming the scheme rather than accepted
+  and dropped. A `407` is a proxy's and is not reported, the proxy belonging to the context's `HttpClient`, so
+  `source` is always `Server`. The `Fetch` **response stage** is here: a
   pattern asking for `requestStage: "Response"` pauses with the response's status and headers, and
   `continueResponse`, `fulfillRequest` and `failRequest` answer one — a default pattern still pauses the
   request stage only, that being the protocol's own default, and pausing both would double every pause a

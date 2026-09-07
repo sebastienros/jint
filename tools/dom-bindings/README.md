@@ -12,6 +12,12 @@ actually loaded, so a pin cannot drift from the reference.
 Nothing about AngleSharp is vendored here: the assemblies come from the package reference, and the generator
 is pointed at whatever the build resolved.
 
+`DomReturnType` supplies an operation's IDL return type when its CLR signature cannot change. For example,
+AngleSharp 1.8.0's `querySelectorAll` still declares `IHtmlCollection<IElement>`, but its result also implements
+`INodeList`. The generator casts to that annotated type and selects the NodeList projection explicitly;
+ordinary HTMLCollection-returning members retain their named properties. `DomSameObject` is only a metadata
+promise, not an identity implementation: the wrapper cache still depends on the object AngleSharp returns.
+
 ## A bump is a code change
 
 Re-pointing the pin is not a configuration edit that lands on its own. AngleSharp adds interfaces, renames

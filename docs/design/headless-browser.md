@@ -7,7 +7,7 @@ the longer form: the mechanisms each decision rests on, named so that a reader c
 is [`devtools-protocol.md`](devtools-protocol.md), and
 [§12](#12-what-shipped-and-where-it-differs) is the index of what was built against this design and the one
 line in which each item differs from it. For what the package does rather than why, read
-[the README](../../README.md#headless-browser-opt-in-package) instead of this file.
+[the Jint.Browser package guide](../packages/jint-browser/index.md) instead of this file.
 
 Everything normative here was read from the [DOM](https://dom.spec.whatwg.org/), [HTML](https://html.spec.whatwg.org/multipage/),
 [Fetch](https://fetch.spec.whatwg.org/), [XMLHttpRequest](https://xhr.spec.whatwg.org/) and
@@ -216,11 +216,19 @@ accessibility layer's `ElementVisibility` calls not rendered (`hidden`, `display
 `visibility: hidden|collapse`); `aria-hidden` does not remove a box. An element with no box answers zeros in
 script and `-32000` over the protocol, because a client reads zeros as a real box at the origin.
 
+**Single-line horizontal flex rows refine that model.** Computed flex bases, growth and shrinkage partition
+the containing width; direct children share vertical space, with stretch/start/center/end cross-axis
+alignment. Their synthetic intrinsic sizes still come from rows, not fonts. DOM and protocol rectangles,
+offsets, hit testing and resize observations share those boxes. Wrapping, gaps, margins, min/max sizing, main-axis justification,
+ordering and positioned layout remain outside this model. The original ordinal fast path remains for
+documents without horizontal flex rows.
+
 **Scrolling is virtual and is the only state the model keeps.** A page holds a `scrollY` clamped to its
 document; `window.scrollTo`/`scrollBy`/`scroll`, `element.scrollIntoView`, `DOM.scrollIntoViewIfNeeded` and a
 wheel event set it, `window.scrollY`/`pageYOffset` and `document.scrollingElement.scrollTop` read it, and
-every client rectangle subtracts it. `scrollX` is always zero, because every box is exactly as wide as the
-viewport. That is what lets a client whose click path insists on "scroll it into view, then check the box is
+every client rectangle subtracts it. Alignment uses the whole bounding box, not just its first row;
+`nearest` does not move an oversized box spanning both viewport edges. `scrollX` remains zero: horizontal
+overflow has no scroll range. That is what lets a client whose click path insists on "scroll it into view, then check the box is
 inside the viewport" — Playwright's does — succeed on a document taller than its window.
 
 `dispatchMouseEvent` is the pointer/mouse event sequence with focus and click activation (`<a>` navigates,
@@ -328,8 +336,10 @@ from and a page constructs one per navigation, so those two — and script execu
 — take effect on the next document, which is where every client sets them. The rest are accepted no-ops
 whose summaries say what there is none of: no renderer for auto dark mode, a background colour, a scrollbar
 or a CPU throttle; no idle detector; no touch event interface for a mouse event to be translated into. The
-preference features are the page's own answer rather than AngleSharp.Css's, which models none of them, so
-when that library grows them there is one table to delegate from. The user agent is one setting for two
+preference values belong to the page. Since AngleSharp.Css 1.1.0, `PageRenderDevice` exposes that same
+environment through `IRenderDevicePreferences`, so supported stylesheet `@media` features follow live
+emulation too. The local `matchMedia` evaluator remains for semantics the native evaluator still lacks,
+and the page owns change-event scheduling. The user agent is one setting for two
 commands — `Emulation`'s and `Network`'s — kept on the page, because `navigator.userAgent` has to answer the
 same string every request carries.
 
@@ -349,7 +359,8 @@ and `.sub.html` substitution; a `testharnessreport.js` overlay posts results thr
 `.any.js` files run again inside a real `Window` realm through synthesized `.any.html` wrappers.
 
 **What was built** is `Jint.Tests.Browser/Wpt/`, and four things about it differ from the paragraph above, each
-for a reason its own [`AGENTS.md`](../../Jint.Tests.Browser/Wpt/AGENTS.md) argues. The corpus is **not** vendored
+for a reason its own [`AGENTS.md`](https://github.com/sebastienros/jint/blob/main/Jint.Tests.Browser/Wpt/AGENTS.md)
+argues. The corpus is **not** vendored
 twice: `Jint.Tests.Browser` references `Jint.Tests` and runs the same tree at the same pin, so there is one
 corpus and one pin. The overlay posts **strings** through a host function the driver installs on every page
 engine, not values through a binding, because a page's engine belongs to a thread the driver is not on. Only the
@@ -379,7 +390,8 @@ census does not have is a suite nobody has vendored yet, never a disagreement.
 `chromedriver`, and speaks WebDriver classic — its CDP is tunnelled through `chromedriver`'s
 `goog/cdp/execute` extension command, and no `debuggerAddress` capability exists anywhere in the wpt tree.
 Lightpanda ships a WebDriver front end beside its CDP for exactly this reason. What is here instead is a
-**wptrunner product plugin**, [`tools/wpt-scoreboard/`](../../tools/wpt-scoreboard/README.md), registered
+**wptrunner product plugin**,
+[`tools/wpt-scoreboard/`](https://github.com/sebastienros/jint/tree/main/tools/wpt-scoreboard), registered
 through upstream's `wptrunner.products` entry-point group so that no fork of wpt is needed: its executor
 navigates a page over CDP and reads the results upstream's own `testharnessreport.js` posts, through a
 `Runtime.addBinding` binding, and every judgement about whether a subtest passed stays upstream's.
@@ -417,7 +429,8 @@ about them differ from the paragraph above. The course runs on all four legs, as
 **Playwright** suite does not: its driver is a Node process the package carries, so the suite reads
 `JINT_BROWSER_CLIENTS` and a `browser-clients` CI leg sets it, while PuppeteerSharp's stays on every leg
 because it costs nothing. A fixture that does not pass is a **`needs triage` row** in
-[`Fixtures/README.md`](../../Jint.Tests.Browser/Fixtures/README.md) with the failing assertion and a
+[`Fixtures/README.md`](https://github.com/sebastienros/jint/blob/main/Jint.Tests.Browser/Fixtures/README.md)
+with the failing assertion and a
 one-line diagnosis, and `FixtureInventoryTests` fails unless that set is exactly the set of cases marked
 `[Explicit]` — the discipline the web-platform-tests exclusion table is under, for the same reason. Both
 rows that were ever written have since been retired by the pull request that paid them: `htmx` was owed
@@ -453,7 +466,7 @@ planned. A blank last column means the section above describes what exists.
 | 8a | `PageTarget`, `AddBrowser`, `BrowserTargetHost` and the lifecycle events of a navigation | [#3680](https://github.com/sebastienros/jint/pull/3680), the target split [#3678](https://github.com/sebastienros/jint/pull/3678) | A **`tab` target** is published in front of every page, found by driving Puppeteer rather than by reading the protocol; and `frameNavigated` precedes the engine swap where Chrome interleaves it between the two context events |
 | 8a | A domain of Jint's own — `Jint.getMarkdown`, `getText`, `getAccessibilitySnapshot` — and the screenshot refusal that names it | [#3681](https://github.com/sebastienros/jint/pull/3681), the extractors [#3657](https://github.com/sebastienros/jint/pull/3657) | — |
 | 8a | `Network` reporting every request, and `Fetch` pausing one at the request stage | [#3700](https://github.com/sebastienros/jint/pull/3700) | The notifications and the interception run on the **transport thread**, not the page loop: moving them would deadlock the one fetch a page cannot pump through. The three absent lanes are [#3701](https://github.com/sebastienros/jint/issues/3701) |
-| 8a | `Emulation` effective rather than accepted, and `Accessibility` in Chrome's `AXNode` shape | [#3704](https://github.com/sebastienros/jint/pull/3704) | A page's `@media` rules are not re-evaluated against the emulated preferences, because the render device models none of them, so a themed page reads `matchMedia` rather than `getComputedStyle` ([#3707](https://github.com/sebastienros/jint/issues/3707)). The viewport and media-type half of that was closed by [#3731](https://github.com/sebastienros/jint/pull/3731) |
+| 8a | `Emulation` effective rather than accepted, and `Accessibility` in Chrome's `AXNode` shape | [#3704](https://github.com/sebastienros/jint/pull/3704), cascade integration [#3731](https://github.com/sebastienros/jint/pull/3731) and [#3861](https://github.com/sebastienros/jint/pull/3861) | Stylesheet `@media` rules now share the viewport, media type, and supported emulated preferences with `matchMedia`. The local query evaluator remains for the native semantic gaps recorded in [the divergence register](https://github.com/sebastienros/jint/blob/main/Jint.Browser/Dom/divergences.md) |
 | 9 | The web-platform-tests browser lane, and the eleven defects it first recorded | [#3685](https://github.com/sebastienros/jint/pull/3685), fixes [#3699](https://github.com/sebastienros/jint/pull/3699) | The four differences §9 already records — one corpus and one pin, strings through a host function rather than values through a binding, only the window wrapper synthesized, and an uncaught exception left to upstream's harness |
 | 9 | The obstacle course: eighteen offline fixtures through the `Page` API, three of them again over the protocol | [#3710](https://github.com/sebastienros/jint/pull/3710) | The Playwright suite is gated on `JINT_BROWSER_CLIENTS` because its driver is a Node process; PuppeteerSharp's runs on every leg. Two fixtures are `needs triage` rather than passing |
 | 10 | The `jint-browser` command line: `serve`, `fetch`, `eval`, `version` | [#3715](https://github.com/sebastienros/jint/pull/3715) | It takes no `InternalsVisibleTo` grant, so the three seams it needed were promoted onto the package rather than reached around |

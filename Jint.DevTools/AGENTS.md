@@ -193,7 +193,7 @@ for how one is accepted.
 **None of that surface carries `[Experimental]`, and that is a decision.** `JINTDT001` says *the shape of
 this member follows a living upstream document rather than this repository's compatibility contract*, which
 is true of a generated data transfer object and false of a server, a target and an options bag: those keep
-Jint's own contract, with a `docs/v5-migration.md` row when they change. The first member that really does
+Jint's own contract, with a `docs/guide/migrating-to-v5.md` row when they change. The first member that really does
 publish a protocol shape is the one that carries the attribute; putting it on the entry point would make
 every host write a `#pragma` to use the package at all. It is separate from Jint's `JINT0001` because the
 two say different things.
@@ -202,7 +202,7 @@ two say different things.
 published engine API and nothing else, which is the point: a protocol server that could only be written
 from inside the engine assembly is one no third party could have written. Every seam it turns out to need
 is a seam the engine should expose — as public API with a row in
-[`docs/v5-migration.md`](../docs/v5-migration.md), on the terms
+[`docs/guide/migrating-to-v5.md`](../docs/guide/migrating-to-v5.md), on the terms
 [`Jint/AGENTS.md`](../Jint/AGENTS.md#what-counts-as-a-public-contract) sets. `Jint.DevTools` does grant
 `InternalsVisibleTo` to `Jint.Tests.DevTools`, `Jint.Browser` and `Jint.Tests.Browser`.
 

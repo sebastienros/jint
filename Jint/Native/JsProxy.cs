@@ -82,6 +82,8 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     JsValue ICallable.Call(JsValue thisObject, params JsCallArguments arguments)
     {
+        _engine._stackGuard.EnsureNativeStackHeadroom();
+
         AssertNotRevoked(TrapApply);
 
         // a proxy only has [[Call]] if its target does - emulate the missing internal
@@ -129,6 +131,8 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     ObjectInstance IConstructor.Construct(JsCallArguments arguments, JsValue newTarget)
     {
+        _engine._stackGuard.EnsureNativeStackHeadroom();
+
         AssertNotRevoked(TrapConstruct);
 
         if (!_isConstructor)
