@@ -547,10 +547,11 @@ internal enum WptDivergence
     /// <c>&lt;iframe&gt;</c>, an <c>&lt;object&gt;</c>, a <c>&lt;frameset&gt;</c>, or a window it opened. A
     /// child frame <i>has a document</i> here since
     /// <a href="https://github.com/sebastienros/jint/issues/3771">#3771</a> — its <c>src</c> is fetched and
-    /// parsed, <c>contentDocument</c> answers it same-origin and <c>load</c> arrives at the element — and it
-    /// has no <b>realm</b>: <c>contentWindow</c> is <see langword="null"/>, <c>window.frames[i]</c> is
-    /// undefined and nothing in the frame runs, because one realm per top-level navigation is what lets
-    /// "per document" and "per engine" coincide and needs no <c>WindowProxy</c>.
+    /// parsed, <c>contentDocument</c> answers it same-origin and <c>load</c> arrives at the element — and a
+    /// <i>window</i>, on the page's own realm, so <c>contentWindow</c>, <c>defaultView</c> and
+    /// <c>frames[i]</c> all answer. What it has no <b>realm</b> of its own: nothing in a frame runs, and every
+    /// constructor it reaches is the page's, because one realm per top-level navigation is what lets "per
+    /// document" and "per engine" coincide.
     /// </para>
     /// <para>
     /// So a file whose subject is a second realm — an event dispatched across two documents, a cross-realm
