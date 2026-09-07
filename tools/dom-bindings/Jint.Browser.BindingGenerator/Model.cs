@@ -7,6 +7,7 @@ internal enum WrapperKind
 {
     Object,
     Node,
+    IndexedNode,
     Collection,
     NamedMap,
     HtmlCollection,
