@@ -79,3 +79,10 @@ analyzer-free.
 A member the generator simply could not convert is **not** in `overrides.json`. It is skipped with the reason
 the generator worked out, and that reason is in the report. The split is deliberate: the table is for
 decisions, the report is for consequences.
+
+## Adoption by another host
+
+The [X6 adoption proposal](../../docs/integration/upstream-adoption.md#proposal-for-anglesharpjs) inventories
+the generator, runtime and event bridge, including the internal APIs that currently prevent independent
+consumption. It describes a small AngleSharp.Js integration experiment and its acceptance conditions;
+it is a review draft, not a published binding-only package or a delivered upstream offer.
