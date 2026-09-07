@@ -18,16 +18,16 @@ this proposal claims no measured speedup over reflection bindings.
 
 | Artifact | What can be reused | Current boundary |
 | --- | --- | --- |
-| [Metadata reader and emitter](../../tools/dom-bindings/Jint.Browser.BindingGenerator/) | Read AngleSharp attributes with `MetadataLoadContext`; emit static interface calls and checked-in shapes | Generator output currently names `Jint.Browser.Dom` helpers; namespace and runtime targeting need an explicit extraction design |
-| [Pin and overrides](../../tools/dom-bindings/README.md) | Versioned input assemblies, WebIDL corrections, diagnostics and skipped-member reports | Some overrides are browser services, such as navigation, parser insertion and custom-element reactions; adopting every override would also adopt those obligations |
-| [Generated output](../../Jint.Browser/Dom/Generated/) | Interface shapes, constants, inheritance, conversion call sites and collection accessors | It is source to review, not a standalone consumer library |
-| [Binding runtime](../../Jint.Browser/Dom/DomBindings.cs) and [realm](../../Jint.Browser/Dom/DomRealm.cs) | Receiver brands, wrapping, per-engine identity, lazy prototypes and constructors | Both are internal; global installation and principal-realm capture reach `Engine._mainRealm` |
-| [Node wrapper](../../Jint.Browser/Dom/DomNodeObject.cs) and [tree dispatcher](../../Jint/WebApi/Events/EventDispatch.cs) | DOM event paths, retargeting and listener dispatch over host-provided tree relationships | `JsEventTarget`, the dispatch entry and tree overrides are internal; this is not a public event adapter today |
-| [Host hooks](../../Jint.Browser/Dom/DomHostHooks.cs) | A place for the host to supply lifecycle operations behind generated members | Internal hooks already call browser event/custom-element services; they need separation before another host can implement them |
+| [Metadata reader and emitter](https://github.com/sebastienros/jint/tree/main/tools/dom-bindings/Jint.Browser.BindingGenerator/) | Read AngleSharp attributes with `MetadataLoadContext`; emit static interface calls and checked-in shapes | Generator output currently names `Jint.Browser.Dom` helpers; namespace and runtime targeting need an explicit extraction design |
+| [Pin and overrides](https://github.com/sebastienros/jint/blob/main/tools/dom-bindings/README.md) | Versioned input assemblies, WebIDL corrections, diagnostics and skipped-member reports | Some overrides are browser services, such as navigation, parser insertion and custom-element reactions; adopting every override would also adopt those obligations |
+| [Generated output](https://github.com/sebastienros/jint/tree/main/Jint.Browser/Dom/Generated/) | Interface shapes, constants, inheritance, conversion call sites and collection accessors | It is source to review, not a standalone consumer library |
+| [Binding runtime](https://github.com/sebastienros/jint/blob/main/Jint.Browser/Dom/DomBindings.cs) and [realm](https://github.com/sebastienros/jint/blob/main/Jint.Browser/Dom/DomRealm.cs) | Receiver brands, wrapping, per-engine identity, lazy prototypes and constructors | Both are internal; global installation and principal-realm capture reach `Engine._mainRealm` |
+| [Node wrapper](https://github.com/sebastienros/jint/blob/main/Jint.Browser/Dom/DomNodeObject.cs) and [tree dispatcher](https://github.com/sebastienros/jint/blob/main/Jint/WebApi/Events/EventDispatch.cs) | DOM event paths, retargeting and listener dispatch over host-provided tree relationships | `JsEventTarget`, the dispatch entry and tree overrides are internal; this is not a public event adapter today |
+| [Host hooks](https://github.com/sebastienros/jint/blob/main/Jint.Browser/Dom/DomHostHooks.cs) | A place for the host to supply lifecycle operations behind generated members | Internal hooks already call browser event/custom-element services; they need separation before another host can implement them |
 
-The engine's [JsObjectShape](../../Jint/Native/JsObjectShape.cs),
-[ArrayLikeObject](../../Jint/Native/Object/ArrayLikeObject.cs) and
-[NamedPropertyObject](../../Jint/Native/Object/NamedPropertyObject.cs) are public building blocks. That does
+The engine's [JsObjectShape](https://github.com/sebastienros/jint/blob/main/Jint/Native/JsObjectShape.cs),
+[ArrayLikeObject](https://github.com/sebastienros/jint/blob/main/Jint/Native/Object/ArrayLikeObject.cs) and
+[NamedPropertyObject](https://github.com/sebastienros/jint/blob/main/Jint/Native/Object/NamedPropertyObject.cs) are public building blocks. That does
 not make the complete binding runtime public. Referencing today's `Jint.Browser` package also brings its
 page runtime and `Jint.DevTools` dependency; there is no supported binding-only installation entry point.
 
@@ -45,37 +45,37 @@ page runtime and `Jint.DevTools` dependency; there is no supported binding-only 
    by a consumer without `InternalsVisibleTo`. A blanket friendship grant or making every helper public
    would hide the boundary rather than establish it. No new API signature is promised by this document.
 4. Let the adopter own script execution, navigation, parser callbacks and document lifetime. Map each
-   selected [host hook](../../Jint.Browser/Dom/DomHostHooks.cs) to that owner's operation. Integrate the tree
+   selected [host hook](https://github.com/sebastienros/jint/blob/main/Jint.Browser/Dom/DomHostHooks.cs) to that owner's operation. Integrate the tree
    dispatcher only after specifying parent/shadow relationships, listener exceptions, microtask checkpoints
    and activation/default actions; avoid delivering each event through two independent event systems.
 5. Compare the fixture against the adopter's existing behavior, then expand interface coverage. Decide
    whether shared source or a separate package is maintainable only after the fixture exposes its true
-   dependencies. Carry Jint's [BSD-2-Clause notice](../../LICENSE.txt) with reused source; review packaging
+   dependencies. Carry Jint's [BSD-2-Clause notice](https://github.com/sebastienros/jint/blob/main/LICENSE.txt) with reused source; review packaging
    and upstream license requirements before transferring it.
 
 ### Evidence and acceptance conditions
 
 Use the existing suites as executable examples, not as a claim that they validate an extracted package:
 
-- [DomBindingsPinTests](../../Jint.Tests.Browser/DomBindingsPinTests.cs) and
-  [DomBindingsStalenessTests](../../Jint.Tests.Browser/DomBindingsStalenessTests.cs): input versions agree;
+- [DomBindingsPinTests](https://github.com/sebastienros/jint/blob/main/Jint.Tests.Browser/DomBindingsPinTests.cs) and
+  [DomBindingsStalenessTests](https://github.com/sebastienros/jint/blob/main/Jint.Tests.Browser/DomBindingsStalenessTests.cs): input versions agree;
   regeneration has no unexplained changes or diagnostics.
-- [DomCollectionTests](../../Jint.Tests.Browser/DomCollectionTests.cs): collection brands, indexed/named
+- [DomCollectionTests](https://github.com/sebastienros/jint/blob/main/Jint.Tests.Browser/DomCollectionTests.cs): collection brands, indexed/named
   reads, prototype descriptors and liveness survive the boundary.
-- [DomEventTests](../../Jint.Tests.Browser/DomEventTests.cs): listener ordering and tree behavior use the
+- [DomEventTests](https://github.com/sebastienros/jint/blob/main/Jint.Tests.Browser/DomEventTests.cs): listener ordering and tree behavior use the
   adopter's document, including mutation during dispatch.
-- [SharedShapeTests](../../Jint.Tests.PublicInterface/SharedShapeTests.cs): use the public-consumer model
+- [SharedShapeTests](https://github.com/sebastienros/jint/blob/main/Jint.Tests.PublicInterface/SharedShapeTests.cs): use the public-consumer model
   to prove the extraction needs no friend assembly. Add two-engine identity/isolation and disposal cases
   to the proposed fixture, including a wrapped object first reached from a callback.
 - Run the relevant vendored DOM WPT cases in the adopting host; preserve documented
-  [AngleSharp divergences](../../Jint.Browser/Dom/divergences.md) rather than implementing a second DOM.
-  Consult [the browser lane](../../Jint.Tests.Browser/Wpt/README.md) for the distinction between passing,
+  [AngleSharp divergences](https://github.com/sebastienros/jint/blob/main/Jint.Browser/Dom/divergences.md) rather than implementing a second DOM.
+  Consult [the browser lane](https://github.com/sebastienros/jint/blob/main/Jint.Tests.Browser/Wpt/README.md) for the distinction between passing,
   excluded and untriaged results.
 
 The experiment must compile and pass behavior checks through public APIs before calling it adoptable.
 Measure cold installation, warmed access and allocations separately using #3898's isolated harness before
 making performance claims. Generated interface calls avoid reflection in the member body, but that does
-not establish a general AOT contract: [Jint.Browser's project](../../Jint.Browser/Jint.Browser.csproj) explicitly
+not establish a general AOT contract: [Jint.Browser's project](https://github.com/sebastienros/jint/blob/main/Jint.Browser/Jint.Browser.csproj) explicitly
 sets `IsAotCompatible` to false, and a native tool smoke test covers only that closed executable.
 
 The maintainer review should resolve the desired ownership location, minimum target frameworks, selected
@@ -96,18 +96,18 @@ projects' current support status or claim their existing adapters run unchanged.
 
 | Integration concern | Current Jint path | Evidence to start from |
 | --- | --- | --- |
-| Pause on exceptions | `DebugHandler.PauseOnExceptions` and the exception pause event; preserve the caught/uncaught distinction | [DebuggerExceptionPauseTests](../../Jint.Tests.DevTools/Session/DebuggerExceptionPauseTests.cs) |
-| Discover executable breakpoint positions | `DebugHandler.GetStepLocations(Program)` and its range overload | [StepLocationTests](../../Jint.Tests/Runtime/Debugger/StepLocationTests.cs), which compare enumeration against runtime pauses |
-| Evaluate an older stack frame | `DebugHandler.Evaluate(sourceText, CallFrame, ...)` | [DebuggerFrameEvaluationTests](../../Jint.Tests.DevTools/Session/DebuggerFrameEvaluationTests.cs) |
-| Associate source and stack positions | `Advanced.TryGetSourceText(Program)` and `CallFrame.Program`; source names alone are not identities | [DebuggerScriptIdentityTests](../../Jint.Tests.DevTools/Session/DebuggerScriptIdentityTests.cs) |
-| Accept protocol work without concurrent engine access | `Engine.Tasks.Post(Action)`; a host pumps work on its engine thread, including a defined pause loop | [OffThreadCommandTests](../../Jint.Tests.DevTools/Session/OffThreadCommandTests.cs) and [DebuggerPauseLoopTests](../../Jint.Tests.DevTools/Session/DebuggerPauseLoopTests.cs) |
-| Inspect remote values | Public `ValueInspector` (experimental); inspect descriptors without invoking accessors | [ValueInspectorTests](../../Jint.Tests.PublicInterface/ValueInspectorTests.cs) |
+| Pause on exceptions | `DebugHandler.PauseOnExceptions` and the exception pause event; preserve the caught/uncaught distinction | [DebuggerExceptionPauseTests](https://github.com/sebastienros/jint/blob/main/Jint.Tests.DevTools/Session/DebuggerExceptionPauseTests.cs) |
+| Discover executable breakpoint positions | `DebugHandler.GetStepLocations(Program)` and its range overload | [StepLocationTests](https://github.com/sebastienros/jint/blob/main/Jint.Tests/Runtime/Debugger/StepLocationTests.cs), which compare enumeration against runtime pauses |
+| Evaluate an older stack frame | `DebugHandler.Evaluate(sourceText, CallFrame, ...)` | [DebuggerFrameEvaluationTests](https://github.com/sebastienros/jint/blob/main/Jint.Tests.DevTools/Session/DebuggerFrameEvaluationTests.cs) |
+| Associate source and stack positions | `Advanced.TryGetSourceText(Program)` and `CallFrame.Program`; source names alone are not identities | [DebuggerScriptIdentityTests](https://github.com/sebastienros/jint/blob/main/Jint.Tests.DevTools/Session/DebuggerScriptIdentityTests.cs) |
+| Accept protocol work without concurrent engine access | `Engine.Tasks.Post(Action)`; a host pumps work on its engine thread, including a defined pause loop | [OffThreadCommandTests](https://github.com/sebastienros/jint/blob/main/Jint.Tests.DevTools/Session/OffThreadCommandTests.cs) and [DebuggerPauseLoopTests](https://github.com/sebastienros/jint/blob/main/Jint.Tests.DevTools/Session/DebuggerPauseLoopTests.cs) |
+| Inspect remote values | Public `ValueInspector` (experimental); inspect descriptors without invoking accessors | [ValueInspectorTests](https://github.com/sebastienros/jint/blob/main/Jint.Tests.PublicInterface/ValueInspectorTests.cs) |
 
-For a CDP integration, begin with [Jint.DevTools' engine-only example](../../Jint.DevTools/README.md) and the
-[public EngineTarget](../../Jint.DevTools/EngineTarget.cs). `Jint.DevTools` consumes public Jint APIs without a
+For a CDP integration, begin with [Jint.DevTools' engine-only example](https://github.com/sebastienros/jint/blob/main/Jint.DevTools/README.md) and the
+[public EngineTarget](https://github.com/sebastienros/jint/blob/main/Jint.DevTools/EngineTarget.cs). `Jint.DevTools` consumes public Jint APIs without a
 friend grant. The host still owns engine construction, execution and pumping; protocol socket callbacks
 must not execute script directly. Consult the [protocol design](../design/devtools-protocol.md) and
-[manifest](../../tools/devtools-protocol/manifest.json) for implemented commands and explicit unsupported
+[manifest](https://github.com/sebastienros/jint/blob/main/tools/devtools-protocol/manifest.json) for implemented commands and explicit unsupported
 responses. A working CDP example is not evidence that an old adapter's transport or debugger assumptions
 are compatible.
 
