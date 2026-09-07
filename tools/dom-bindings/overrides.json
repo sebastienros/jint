@@ -1294,6 +1294,22 @@
   "hooks": [
     {
       "interface": "Document",
+      "member": "getElementsByClassName",
+      "half": "operation",
+      "hook": "GetElementsByClassName",
+      "returns": true,
+      "reason": "DOM's class-name collection algorithm returns a live HTMLCollection. AngleSharp returns a snapshot, so the binding re-runs its class matching through DomLiveHtmlCollection on each read."
+    },
+    {
+      "interface": "Element",
+      "member": "getElementsByClassName",
+      "half": "operation",
+      "hook": "GetElementsByClassName",
+      "returns": true,
+      "reason": "DOM's class-name collection algorithm returns a live HTMLCollection. AngleSharp returns a snapshot, so the binding re-runs its class matching through DomLiveHtmlCollection on each read."
+    },
+    {
+      "interface": "Document",
       "member": "getElementsByTagName",
       "half": "operation",
       "hook": "GetElementsByTagName",

@@ -7,8 +7,8 @@ namespace Jint.Browser.Dom.Collections;
 /// An <see cref="IHtmlCollection{T}"/> whose filter is evaluated against the current tree for every read.
 /// </summary>
 /// <remarks>
-/// DOM collections are live unless their defining algorithm says otherwise. AngleSharp's tag-name queries
-/// materialize a snapshot, so the binding supplies this small adapter for those four operations. Keeping the
+/// DOM collections are live unless their defining algorithm says otherwise. AngleSharp's tag-name and
+/// class-name queries materialize a snapshot, so the binding supplies this small adapter for those operations. Keeping the
 /// target as an <see cref="IHtmlCollection{T}"/> lets the ordinary HTMLCollection wrapper retain the one
 /// indexed and named-property implementation used by every other collection.
 /// </remarks>
