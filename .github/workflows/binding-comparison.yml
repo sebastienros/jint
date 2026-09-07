@@ -1,0 +1,52 @@
+name: Binding comparison verification
+
+on:
+  pull_request:
+    paths:
+      - 'Jint/**'
+      - 'Jint.SourceGenerators/**'
+      - 'Jint.Benchmark/**'
+      - 'Directory.*.props'
+      - 'Directory.*.targets'
+      - 'global.json'
+      - '.github/workflows/binding-comparison.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'Jint/**'
+      - 'Jint.SourceGenerators/**'
+      - 'Jint.Benchmark/**'
+      - 'Directory.*.props'
+      - 'Directory.*.targets'
+      - 'global.json'
+      - '.github/workflows/binding-comparison.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+      - name: Verify isolated binding lanes (no measurements)
+        run: python3 Jint.Benchmark/BindingComparison/run.py --output "${{ runner.temp }}/binding-verification"
+      - name: Check comparison failure handling
+        run: python3 -m unittest discover -s Jint.Benchmark/BindingComparison -p test_run.py
+      - name: Discover benchmark methods
+        run: |
+          dotnet run -c Release --project Jint.Benchmark/BindingComparison/Baseline -- --list flat
+          dotnet run -c Release --project Jint.Benchmark/BindingComparison/Candidate -- --list flat
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: binding-verification
+          path: ${{ runner.temp }}/binding-verification
