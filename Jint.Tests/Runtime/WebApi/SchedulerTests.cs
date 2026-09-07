@@ -822,7 +822,7 @@ public class SchedulerTests
         // scheduler is an ordinary enumerable data property — the documented simplification of the
         // [Replaceable] accessor pair, the same one console, crypto and performance carry.
         var scheduler = global.GetOwnProperty("scheduler");
-        scheduler.Should().BeOfType<LazyPropertyDescriptor<Engine>>();
+        scheduler.Should().BeOfType<LazyPropertyDescriptor<Realm>>();
         scheduler.Enumerable.Should().BeTrue();
         scheduler.Writable.Should().BeTrue();
         scheduler.Configurable.Should().BeTrue();
@@ -834,7 +834,7 @@ public class SchedulerTests
         foreach (var name in new[] { "Scheduler", "TaskController", "TaskSignal", "TaskPriorityChangeEvent" })
         {
             var descriptor = global.GetOwnProperty(name);
-            descriptor.Should().BeOfType<LazyPropertyDescriptor<Engine>>();
+            descriptor.Should().BeOfType<LazyPropertyDescriptor<Realm>>();
             descriptor.Enumerable.Should().BeFalse();
             descriptor.Writable.Should().BeTrue();
             descriptor.Configurable.Should().BeTrue();

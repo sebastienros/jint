@@ -1,6 +1,7 @@
 #if NET8_0_OR_GREATER
 #nullable enable
 
+using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
 using Jint.WebApi;
@@ -29,7 +30,7 @@ public class LiveEnableTests
 
         var descriptor = engine.Realm.GlobalObject.GetOwnProperty("console");
 
-        descriptor.Should().BeOfType<LazyPropertyDescriptor<Engine>>();
+        descriptor.Should().BeOfType<LazyPropertyDescriptor<Realm>>();
         // CustomJsValue is what routes the read through the resolver; it is cleared the moment the value
         // materializes, which is also what admits the descriptor to the global-binding inline cache.
         (descriptor._flags & PropertyFlag.CustomJsValue).Should().NotBe(PropertyFlag.None);
