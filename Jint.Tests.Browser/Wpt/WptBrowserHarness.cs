@@ -47,7 +47,7 @@ using Browser = global::Jint.Browser.Browser;
 /// <para>
 /// <b>The deadline is the driver's own.</b> <see cref="BrowserOptions.MaxTaskDuration"/> is
 /// <see cref="Timeout.InfiniteTimeSpan"/>, so a legitimately slow wpt file is bounded by
-/// <see cref="Deadline"/> rather than cut mid-script into a <c>PageErrorKind.BudgetExceeded</c> that would
+    /// the per-file driver deadline rather than cut mid-script into a <c>PageErrorKind.BudgetExceeded</c> that would
 /// look like an engine defect. Upstream's own harness timeout is untouched and is the one that usually fires
 /// first: it is what turns a test waiting on something that never happens into a <c>TIMEOUT</c> row rather
 /// than into a file with no report at all.
@@ -59,16 +59,20 @@ internal sealed class WptBrowserHarness : IDisposable
     /// How long one file may take before the driver gives up on it, which is a harness error for the file.
     /// </summary>
     /// <remarks>
-    /// Upstream's harness times a file out at 10 s (60 s for <c>// META: timeout=long</c>) and reports it, so
+    /// Upstream's harness times a file out at 10 s (60 s for <c>timeout=long</c> metadata) and reports it, so
     /// this is the backstop for the case where the harness itself never reports — a document that failed to
     /// parse, a script that never ran, a page wedged before <c>testharness.js</c> loaded. Infinite under a
     /// debugger, because a breakpoint is not a hang.
     /// </remarks>
-    internal static TimeSpan Deadline { get; } =
-        Debugger.IsAttached ? Timeout.InfiniteTimeSpan : TimeSpan.FromSeconds(30);
+    private static TimeSpan DefaultDeadline { get; } = TimeSpan.FromSeconds(30);
 
     /// <summary>
-    /// The same ceiling as <see cref="Deadline"/>, expressed as something
+    /// The backstop for a file whose metadata grants upstream's harness its 60-second long timeout.
+    /// </summary>
+    private static TimeSpan LongDeadline { get; } = TimeSpan.FromSeconds(90);
+
+    /// <summary>
+    /// The selected per-file ceiling, expressed as something
     /// <see cref="NavigationOptions.Timeout"/> accepts.
     /// </summary>
     /// <remarks>
@@ -76,8 +80,8 @@ internal sealed class WptBrowserHarness : IDisposable
     /// call an automation host can never get back from — so the debugger's "no deadline" is spelled here as a
     /// day rather than as <see cref="Timeout.InfiniteTimeSpan"/>. Nothing else about the wait is clamped.
     /// </remarks>
-    private static TimeSpan NavigationTimeout =>
-        Deadline > TimeSpan.Zero ? Deadline : TimeSpan.FromDays(1);
+    private static TimeSpan NavigationTimeout(TimeSpan deadline) =>
+        deadline > TimeSpan.Zero ? deadline : TimeSpan.FromDays(1);
 
     /// <summary>
     /// How long the driver waits between asking the page whether it has gone idle, while it waits for the
@@ -177,6 +181,7 @@ internal sealed class WptBrowserHarness : IDisposable
     {
         var started = Stopwatch.GetTimestamp();
         var url = _server.UrlFor(path);
+        var deadline = DeadlineFor(path);
 
         try
         {
@@ -187,7 +192,7 @@ internal sealed class WptBrowserHarness : IDisposable
                 // has already been given. Waiting for the navigation to commit is only waiting for the engine
                 // the results will come from to exist.
                 WaitUntil = WaitUntilState.Commit,
-                Timeout = NavigationTimeout,
+                Timeout = NavigationTimeout(deadline),
             }).ConfigureAwait(false);
         }
         catch (Exception exception)
@@ -197,10 +202,10 @@ internal sealed class WptBrowserHarness : IDisposable
 
         while (!collector.IsComplete)
         {
-            if (Remaining(started) is not { } remaining)
+            if (Remaining(started, deadline) is not { } remaining)
             {
                 return WptBrowserOutcome.Failed(
-                    $"the harness did not report completion within {Deadline.TotalSeconds:N0}s"
+                    $"the harness did not report completion within {deadline.TotalSeconds:N0}s"
                     + Describe(page, collector));
             }
 
@@ -265,14 +270,51 @@ internal sealed class WptBrowserHarness : IDisposable
         return described.Append(')').ToString();
     }
 
-    private static TimeSpan? Remaining(long started)
+    private static TimeSpan DeadlineFor(string path)
     {
-        if (Deadline == Timeout.InfiniteTimeSpan)
+        if (Debugger.IsAttached)
         {
             return Timeout.InfiniteTimeSpan;
         }
 
-        var remaining = Deadline - Stopwatch.GetElapsedTime(started);
+        var sourcePath = WptServerWrappers.IsWrapperPath(path)
+            ? WptServerWrappers.UnderlyingFile(path)
+            : path;
+        var source = WptCorpus.Read(sourcePath);
+
+        if (WptServerWrappers.IsWrapperPath(path))
+        {
+            foreach (var (key, value) in WptServerWrappers.ReadScriptMetadata(source))
+            {
+                if (string.Equals(key, "timeout", StringComparison.Ordinal)
+                    && string.Equals(value, "long", StringComparison.Ordinal))
+                {
+                    return LongDeadline;
+                }
+            }
+
+            return DefaultDeadline;
+        }
+
+        // The vendored HTML documents currently use upstream's canonical unquoted spelling. Accept quoted
+        // attribute values too, so a future corpus bump does not silently shorten the driver's ceiling.
+        var hasTimeoutName = source.Contains("name=timeout", StringComparison.OrdinalIgnoreCase)
+            || source.Contains("name=\"timeout\"", StringComparison.OrdinalIgnoreCase)
+            || source.Contains("name='timeout'", StringComparison.OrdinalIgnoreCase);
+        var hasLongContent = source.Contains("content=long", StringComparison.OrdinalIgnoreCase)
+            || source.Contains("content=\"long\"", StringComparison.OrdinalIgnoreCase)
+            || source.Contains("content='long'", StringComparison.OrdinalIgnoreCase);
+        return hasTimeoutName && hasLongContent ? LongDeadline : DefaultDeadline;
+    }
+
+    private static TimeSpan? Remaining(long started, TimeSpan deadline)
+    {
+        if (deadline == Timeout.InfiniteTimeSpan)
+        {
+            return Timeout.InfiniteTimeSpan;
+        }
+
+        var remaining = deadline - Stopwatch.GetElapsedTime(started);
         return remaining > TimeSpan.Zero ? remaining : null;
     }
 

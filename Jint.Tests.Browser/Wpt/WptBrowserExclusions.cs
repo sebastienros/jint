@@ -404,15 +404,6 @@ internal static class WptBrowserExclusions
         ("dom/nodes/MutationObserver-attributes.html", "thirty-four of its tests report and one waits forever for a record the observer never delivers"),
         ("dom/nodes/MutationObserver-childList.html", "the same, after thirty-eight"),
 
-        // ------------------------------------------------------------ too slow to be a case
-        // A static NodeList's length is re-read rather than snapshotted, so a test that tampers with the getter
-        // to answer a huge number is believed: the six documents take 5.9 s, 8.0 s, 9.3 s, 17.5 s, 17.9 s and
-        // 18.8 s on an idle machine and one of them crossed the driver's 30 s deadline on a loaded one. A case
-        // whose outcome depends on the machine is the thing the census exists to keep out, so they are rows here
-        // with the measurement rather than a flake in the run. The re-read is the defect and it is worth fixing;
-        // the two `-indexOf-` shapes also answer 0 where Array.prototype.indexOf should answer -1.
-        ("dom/nodes/NodeList-static-length-getter-tampered-*.html", "a static NodeList re-reads its tampered length getter, so the document spends between 5.9 s and 18.8 s and one of the six crossed the driver's 30 s deadline under load"),
-        ("dom/nodes/support/NodeList-static-length-tampered.js", "the helper the six documents above share"),
     ];
 
     /// <summary>
@@ -584,6 +575,12 @@ internal static class WptBrowserExclusions
         ["dom/nodes/DocumentFragment-constructor.html"] = 2,
         ["dom/nodes/DocumentFragment-getElementById.html"] = 5,
         ["dom/nodes/DocumentFragment-querySelectorAll-after-modification.html"] = 1,
+        ["dom/nodes/NodeList-static-length-getter-tampered-1.html"] = 1,
+        ["dom/nodes/NodeList-static-length-getter-tampered-2.html"] = 1,
+        ["dom/nodes/NodeList-static-length-getter-tampered-3.html"] = 1,
+        ["dom/nodes/NodeList-static-length-getter-tampered-indexOf-1.html"] = 1,
+        ["dom/nodes/NodeList-static-length-getter-tampered-indexOf-2.html"] = 1,
+        ["dom/nodes/NodeList-static-length-getter-tampered-indexOf-3.html"] = 1,
         ["dom/nodes/DocumentType-literal.html"] = 1,
         ["dom/nodes/Element-childElement-null.html"] = 1,
         ["dom/nodes/Element-childElementCount-dynamic-add.html"] = 1,
@@ -1141,16 +1138,13 @@ internal static class WptBrowserExclusions
 
         // ---------------------------------------------------------------- a collection's named and indexed properties, and its liveness
         // a collection's named and indexed properties
-        new("dom/collections/HTMLCollection-as-prototype.html", "*", WptDivergence.NeedsTriage),
+        new("dom/collections/HTMLCollection-as-prototype.html", "HTMLCollection as a prototype and setting own properties", WptDivergence.NeedsTriage),
         new("dom/collections/HTMLCollection-own-props.html", "Setting non-array index while named property doesn't exist (loose)", WptDivergence.NeedsTriage),
         new("dom/collections/HTMLCollection-own-props.html", "Setting non-array index while named property doesn't exist (strict)", WptDivergence.NeedsTriage),
         new("dom/collections/HTMLCollection-supported-property-names.html", "*later", WptDivergence.NeedsTriage),
-        new("dom/collections/HTMLCollection-supported-property-names.html", "Object*", WptDivergence.NeedsTriage),
-        new("dom/collections/namednodemap-supported-property-names.html", "*", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-getElementById.html", "*string argument.", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-getElementsByClassName.html", "*", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-getElementsByTagName.html", "HTML*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-getElementsByTagName.html", "hasOwnProperty*", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-getElementsByTagNameNS.html", "*namespace", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-getElementsByTagNameNS.html", "BODY*", WptDivergence.NeedsTriage),
         new("dom/nodes/DocumentFragment-getElementById.html", "Empty*", WptDivergence.NeedsTriage),
@@ -1158,7 +1152,6 @@ internal static class WptBrowserExclusions
         new("dom/nodes/Element-getElementsByClassName.html", "*collection", WptDivergence.NeedsTriage),
         new("dom/nodes/Element-getElementsByTagName-change-document-HTMLNess.html", "*", WptDivergence.NeedsTriage),
         new("dom/nodes/Element-getElementsByTagName.html", "HTML*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Element-getElementsByTagName.html", "hasOwnProperty*", WptDivergence.NeedsTriage),
         new("dom/nodes/Element-getElementsByTagNameNS.html", "*namespace", WptDivergence.NeedsTriage),
         new("dom/nodes/Element-getElementsByTagNameNS.html", "BODY*", WptDivergence.NeedsTriage),
         new("dom/nodes/Node-childNodes.html", "*.", WptDivergence.NeedsTriage),
@@ -1356,9 +1349,11 @@ internal static class WptBrowserExclusions
         new("dom/nodes/Node-nodeName.html", "*tagName.", WptDivergence.NeedsTriage),
         new("dom/nodes/Node-replaceChild.html", "*node", WptDivergence.NeedsTriage),
         new("dom/nodes/Node-replaceChild.html", "If*work.", WptDivergence.NeedsTriage),
-        new("dom/nodes/attributes.html", "* HTML document", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "First*", WptDivergence.NeedsTriage),
-        new("dom/nodes/attributes.html", "Own property correctness*", WptDivergence.NeedsTriage),
+        new("dom/nodes/attributes.html", "Own property correctness with non-namespaced attribute before same-name namespaced one", WptDivergence.NeedsTriage),
+        new("dom/nodes/attributes.html", "Own property correctness with namespaced attribute before same-name non-namespaced one", WptDivergence.NeedsTriage),
+        new("dom/nodes/attributes.html", "Own property correctness with two namespaced attributes with the same name-with-prefix", WptDivergence.NeedsTriage),
+        new("dom/nodes/attributes.html", "Own property names should only include all-lowercase qualified names for an HTML element in an HTML document", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "Setting*", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "setAttribute*name", WptDivergence.NeedsTriage),
         new("html/dom/access-key-label.html", "*invalid", WptDivergence.NeedsTriage),

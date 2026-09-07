@@ -115,8 +115,9 @@ because the interface is excluded and a window has no wrapper to be: the global 
 
 Divergences from a browser that are **ours** and deliberate:
 
-- **`length` on a collection is an own property**, not a prototype accessor, because `ArrayLikeObject` owns
-  it; `list.hasOwnProperty('length')` answers `true`. `Jint/Native/Object/AGENTS.md` says why it cannot move.
+- **`length` on a collection is a prototype accessor**, as WebIDL requires. `DomCollectionBase` opts out of
+  `ArrayLikeObject`'s compatible default own property, and every length-consuming lane must therefore observe
+  `[[Get]]`; bypassing the prototype makes a redefined getter appear to succeed while iteration ignores it.
 - **`Symbol.iterator` is declared by the interface that *supports* indexed properties**, never by one that
   merely inherits the getter, which is where a browser has it too: `NodeList.prototype` and
   `HTMLCollection.prototype` carry it, `HTMLOptionsCollection.prototype` does not. The value is a per-realm
