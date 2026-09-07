@@ -575,6 +575,25 @@ public class HostPrototypeShapeTests
     }
 
     [Test]
+    public void AHostCanAddAndRemoveALateDescriptorWithoutLosingTheSharedLayout()
+    {
+        var engine = EngineWithPrototype(out var prototype);
+
+        prototype.DefineOwnPropertyUnchecked(
+            "late",
+            new PropertyDescriptor(new JsString("value"), PropertyFlag.Configurable | PropertyFlag.Enumerable));
+
+        engine.Evaluate("proto.late").Should().Be("value");
+        engine.Evaluate("Object.getOwnPropertyNames(proto).at(-1)").Should().Be("late");
+        engine.Diagnostics.GetObjectRepresentation(prototype).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
+
+        prototype.RemoveOwnProperty("late");
+
+        engine.Evaluate("'late' in proto").Should().Be(false);
+        engine.Diagnostics.GetObjectRepresentation(prototype).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
+    }
+
+    [Test]
     public void AddingAnIntegerLikeKeyFallsBackToTheDictionary()
     {
         var engine = EngineWithPrototype(out var prototype);
