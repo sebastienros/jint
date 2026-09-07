@@ -17,6 +17,50 @@ public sealed class DomConstructorTests
         """;
 
     /// <summary>
+    /// https://dom.spec.whatwg.org/#xmldocument: XML parses and <c>createDocument</c> use the manual
+    /// <c>XMLDocument</c> interface, while the constructor named <c>Document</c> keeps that plain brand.
+    /// Cloning preserves whichever brand the source wrapper carried.
+    /// </summary>
+    [Test]
+    public async Task XmlDocumentIsASeparateNonConstructibleInterface()
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(Page);
+
+        (await page.EvaluateAsync<string>("""
+            (function () {
+              const plain = new Document();
+              const plainClone = plain.cloneNode();
+              const parsed = new DOMParser().parseFromString('<root/>', 'application/xml');
+              const parsedClone = parsed.cloneNode();
+              const created = document.implementation.createDocument(null, 'root');
+              let error;
+              try { new XMLDocument(); } catch (e) { error = e.name; }
+              return [
+                typeof XMLDocument,
+                XMLDocument.name,
+                XMLDocument.length,
+                XMLDocument.prototype.constructor === XMLDocument,
+                Object.getPrototypeOf(XMLDocument.prototype) === Document.prototype,
+                plain instanceof Document,
+                plain instanceof XMLDocument,
+                Object.prototype.toString.call(plain),
+                plainClone instanceof Document,
+                plainClone instanceof XMLDocument,
+                parsed instanceof XMLDocument,
+                parsed instanceof Document,
+                Object.prototype.toString.call(parsed),
+                parsedClone instanceof XMLDocument,
+                created instanceof XMLDocument,
+                error,
+              ].join('|');
+            })()
+            """)).Should().Be(
+            "function|XMLDocument|0|true|true|true|false|[object Document]|true|false|true|true|[object XMLDocument]|true|true|TypeError");
+    }
+
+    /// <summary>
     /// https://html.spec.whatwg.org/multipage/embedded-content.html#dom-image and
     /// https://webidl.spec.whatwg.org/#legacy-factory-functions: <c>Image</c> is the legacy factory function
     /// for <c>HTMLImageElement</c>, with that interface's prototype rather than a prototype of its own.

@@ -228,7 +228,9 @@ internal sealed class DomRealm
             return cached;
         }
 
-        definition ??= DomTypeMap.For(value.GetType());
+        definition ??= value is INode node
+            ? DomManualInterfaces.For(node) ?? DomTypeMap.For(value.GetType())
+            : DomTypeMap.For(value.GetType());
         if (definition is null)
         {
             Throw.TypeError(

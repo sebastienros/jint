@@ -1062,15 +1062,12 @@ internal static class WptBrowserExclusions
         // This document's table is built inside its first test, and the builder calls createDocument — so
         // while the member was absent the file reported *two* tests and the rest were never registered at
         // all. They are registered now, and what they say is that the document a browser gets back is an
-        // XMLDocument with no location, an ASCII-upper-cased encoding name and a content type taken from the
-        // namespace, and that none of the three is reachable from what AngleSharp exposes. See Wpt/README.md.
+        // XMLDocument has its own interface now. What remains is metadata AngleSharp does not expose: no
+        // location, an ASCII-upper-cased encoding name, and a content type taken from the namespace.
+        // See Wpt/README.md.
         new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: metadata for*", WptDivergence.NeedsXmlDocuments),
         new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: characterSet aliases for*", WptDivergence.NeedsXmlDocuments),
-        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: *,null", WptDivergence.NeedsXmlDocuments),
-        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: null,\"\",DocumentType node*", WptDivergence.NeedsXmlDocuments),
-        new("dom/nodes/Document-constructor.html", "*interfaces", WptDivergence.NeedsXmlDocuments),
         new("dom/nodes/Element-tagName.html", "*)", WptDivergence.NeedsXmlDocuments),
-        new("dom/nodes/Node-cloneNode-XMLDocument.html", "*", WptDivergence.NeedsXmlDocuments),
         new("dom/nodes/Node-cloneNode.html", "*createDocument", WptDivergence.NeedsXmlDocuments),
         new("dom/nodes/Node-isEqualNode.html", "documents*", WptDivergence.NeedsXmlDocuments),
         new("dom/nodes/attributes.html", "*-HTML document", WptDivergence.NeedsXmlDocuments),
@@ -1195,6 +1192,20 @@ internal static class WptBrowserExclusions
         new("dom/nodes/Document-createElementNS.html", "* XML document: null,\"foo}\",null", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElementNS.html", "* XML document: null,\"f}oo\",null", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElementNS.html", "* XML document: null,\";foo\",null", WptDivergence.NeedsTriage),
+        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: null,\";foo\",null,null", WptDivergence.NeedsTriage),
+        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: null,\"f}oo\",null,null", WptDivergence.NeedsTriage),
+        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: null,\"foo}\",null,null", WptDivergence.NeedsTriage),
+        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: null,\"\\ufffffoo\",null,null", WptDivergence.NeedsTriage),
+        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: null,\"f\\uffffoo\",null,null", WptDivergence.NeedsTriage),
+        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: null,\"foo\\uffff\",null,null", WptDivergence.NeedsTriage),
+        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: null,\"f<oo\",null,null", WptDivergence.NeedsTriage),
+        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: \"http://example.com/\",\"fo<o\",null,null", WptDivergence.NeedsTriage),
+        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: \"http://example.com/\",\"f:o:o\",null,null", WptDivergence.NeedsTriage),
+        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: \"http://example.com/\",\"0:a\",null,null", WptDivergence.NeedsTriage),
+        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: \"http://example.com/\",\"a:;\",null,null", WptDivergence.NeedsTriage),
+        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: \"http://example.com/\",\"a:̀\",null,null", WptDivergence.NeedsTriage),
+        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: \"http://example.com/\",\"̀:a\",null,null", WptDivergence.NeedsTriage),
+        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: \"http://example.com/\",\";:a\",null,null", WptDivergence.NeedsTriage),
 
         // ---------------------------------------------------------------- a nullable DOMString answers the string "null"
         // a DOMString? parameter or attribute answers the string "null"
