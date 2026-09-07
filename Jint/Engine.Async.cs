@@ -55,7 +55,7 @@ public partial class Engine
     /// </para>
     /// <para>
     /// There is deliberately no <see cref="ScriptParsingOptions"/> parameter here: parse the source once
-    /// with <see cref="PrepareScript"/> and pass the result to
+    /// with <see cref="PrepareScript(string, string, bool, ScriptPreparationOptions)"/> and pass the result to
     /// <see cref="EvaluateAsync(in Prepared{Script}, CancellationToken)"/>, which is both the way to reach
     /// custom parsing options and the cheaper thing to do when the source is evaluated more than once.
     /// </para>
@@ -177,7 +177,7 @@ public partial class Engine
     /// </para>
     /// <para>
     /// There is deliberately no <see cref="ScriptParsingOptions"/> parameter here: parse the source once
-    /// with <see cref="PrepareScript"/> and pass the result to
+    /// with <see cref="PrepareScript(string, string, bool, ScriptPreparationOptions)"/> and pass the result to
     /// <see cref="ExecuteAsync(in Prepared{Script}, CancellationToken)"/>.
     /// </para>
     /// </remarks>

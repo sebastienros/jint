@@ -227,7 +227,7 @@ internal static class WindowInstaller
     /// <para>
     /// <c>ontouchstart</c> stays, and is not an interface member at all: it is a presence test a responsive
     /// page writes (<c>'ontouchstart' in document</c>), and what it must answer depends on the emulation a
-    /// client set. See <c>TouchEmulation</c> for why <c>Element.prototype</c> deliberately does not get one.
+    /// client set. <c>TouchEmulation</c> also places the inherited copy on <c>Element.prototype</c>.
     /// </para>
     /// </remarks>
     internal static void AttachDocumentMembers(PageRuntime runtime, ObjectInstance wrapper)

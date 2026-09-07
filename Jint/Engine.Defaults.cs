@@ -66,7 +66,7 @@ public partial class Engine
         /// <remarks>
         /// Preparation is what produces <see langword="null"/>: there is no engine at prepare time, and
         /// baking Jint's own ten-second default in instead meant a host that had tightened the constraint
-        /// for security and then adopted <see cref="PrepareScript"/> silently ran at ten seconds
+        /// for security and then adopted <see cref="PrepareScript(string, string, bool, ScriptPreparationOptions)"/> silently ran at ten seconds
         /// (sebastienros/jint#3442). A <see cref="TimeSpan"/> resolved per engine at the point of use keeps
         /// this object — which is published onto a shared AST — engine-neutral.
         /// </remarks>

@@ -5087,6 +5087,7 @@ public sealed partial class Engine : IDisposable
             return Call(functionInstance, thisObject, arguments, expression);
         }
 
+        _stackGuard.EnsureNativeStackHeadroom();
         return callable.Call(thisObject, arguments);
     }
 
@@ -5129,6 +5130,7 @@ public sealed partial class Engine : IDisposable
             return Construct(functionInstance, arguments, newTarget, expression);
         }
 
+        _stackGuard.EnsureNativeStackHeadroom();
         return ((IConstructor) constructor).Construct(arguments, newTarget);
     }
 
@@ -5157,7 +5159,7 @@ public sealed partial class Engine : IDisposable
         {
             result = function is ScriptFunction scriptFunction
                 ? scriptFunction.CallWithStackFrame(thisObject, arguments)
-                : function.Call(thisObject, arguments);
+                : CallNativeFunction(function, thisObject, arguments);
         }
         finally
         {
@@ -5166,6 +5168,13 @@ public sealed partial class Engine : IDisposable
         }
 
         return result;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private JsValue CallNativeFunction(Function function, JsValue thisObject, JsCallArguments arguments)
+    {
+        _stackGuard.EnsureNativeStackHeadroom();
+        return function.Call(thisObject, arguments);
     }
 
     private ObjectInstance Construct(
@@ -5190,7 +5199,7 @@ public sealed partial class Engine : IDisposable
         {
             result = function is ScriptFunction scriptFunction
                 ? scriptFunction.ConstructWithStackFrame(arguments, newTarget)
-                : ((IConstructor) function).Construct(arguments, newTarget);
+                : ConstructNativeFunction((IConstructor) function, arguments, newTarget);
         }
         finally
         {
@@ -5199,6 +5208,13 @@ public sealed partial class Engine : IDisposable
         }
 
         return result;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private ObjectInstance ConstructNativeFunction(IConstructor function, JsCallArguments arguments, JsValue newTarget)
+    {
+        _stackGuard.EnsureNativeStackHeadroom();
+        return function.Construct(arguments, newTarget);
     }
 
     [DoesNotReturn]
