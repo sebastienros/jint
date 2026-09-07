@@ -34,6 +34,10 @@ public class JsonPoolingInternalsTests
 
         Assert.Throws<JavaScriptException>(() => engine.Evaluate("JSON.parse('{\"a\":1}', reviver)"));
 
-        pool.RentArray(3).Should().BeSameAs(primed);
+        // BindFunction now returns its own combined-arguments buffer on the exceptional path too, so the
+        // pool contains that buffer and the parser's. Pool order is deliberately not part of the contract.
+        var first = pool.RentArray(3);
+        var second = pool.RentArray(3);
+        (ReferenceEquals(first, primed) || ReferenceEquals(second, primed)).Should().BeTrue();
     }
 }

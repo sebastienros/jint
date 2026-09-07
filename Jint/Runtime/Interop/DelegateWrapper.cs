@@ -110,6 +110,8 @@ internal sealed class DelegateWrapper : Function
 
     protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {
+        _engine._stackGuard.EnsureNativeStackHeadroom();
+
         return Invoke(BindArguments(arguments));
     }
 
@@ -152,6 +154,8 @@ internal sealed class DelegateWrapper : Function
     /// </remarks>
     internal override JsValue CallFast(JsValue thisObject, JsValue arg0, JsValue arg1)
     {
+        _engine._stackGuard.EnsureNativeStackHeadroom();
+
         var parameterMetadata = _metadata.Parameters;
         var count = parameterMetadata.Length;
         if (count == 0)

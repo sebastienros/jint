@@ -741,6 +741,10 @@ public sealed class JsonSerializer
             return;
         }
 
+        // Recursing one container deeper is a native frame the interpreter's own guards never see:
+        // JSON.stringify walks the graph itself. Probing here is the 4.x placement of main's
+        // EnterContainer, which this branch has no counterpart for (#3877).
+        _engine._stackGuard.EnsureNativeStackHeadroom();
         _stack.Enter(value);
         var stepback = _indent;
         if (_gap.Length > 0)
@@ -833,6 +837,10 @@ public sealed class JsonSerializer
             return;
         }
 
+        // Recursing one container deeper is a native frame the interpreter's own guards never see:
+        // JSON.stringify walks the graph itself. Probing here is the 4.x placement of main's
+        // EnterContainer, which this branch has no counterpart for (#3877).
+        _engine._stackGuard.EnsureNativeStackHeadroom();
         _stack.Enter(value);
         var stepback = _indent;
         if (_gap.Length > 0)
@@ -938,6 +946,10 @@ public sealed class JsonSerializer
             return true;
         }
 
+        // Recursing one container deeper is a native frame the interpreter's own guards never see:
+        // JSON.stringify walks the graph itself. Probing here is the 4.x placement of main's
+        // EnterContainer, which this branch has no counterpart for (#3877).
+        _engine._stackGuard.EnsureNativeStackHeadroom();
         _stack.Enter(value);
         var stepback = _indent;
         if (_gap.Length > 0)
