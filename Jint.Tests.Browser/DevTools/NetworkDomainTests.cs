@@ -241,6 +241,63 @@ public class NetworkDomainTests
     }
 
     [Test]
+    public async Task OverlappingBodiesShareTheBudgetWithoutTruncatingPageResponses()
+    {
+        using var server = new LoopbackServer();
+        var releaseFirst = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseSecond = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        server.MapHtml("/page", "<body>ready</body>");
+        server.Map("/first.txt", _ => GatedBody("aaaaaaaaaa", releaseFirst.Task));
+        server.Map("/second.txt", _ => GatedBody("bbbbbbbbbb", releaseSecond.Task));
+
+        await using var fixture = await NetworkFixture.OpenAsync(server, new BrowserOptions { MaxCapturedResponseBytes = 10 });
+        await fixture.NavigateAsync("/page");
+        try
+        {
+            await fixture.Page.EvaluateAsync("globalThis.firstBody = null; fetch('/first.txt').then(r => r.text()).then(t => firstBody = t); void 0");
+            await fixture.WaitForDataAsync("/first.txt", 8);
+            await fixture.Page.EvaluateAsync("globalThis.secondBody = null; fetch('/second.txt').then(r => r.text()).then(t => secondBody = t); void 0");
+            await fixture.WaitForDataAsync("/second.txt", 8);
+
+            releaseFirst.SetResult();
+            await fixture.Page.WaitForAsync("firstBody !== null", TimeSpan.FromSeconds(30));
+            (await fixture.Page.EvaluateAsync<string>("firstBody")).Should().Be("aaaaaaaaaa");
+
+            // The newer response is still unfinished: its prefix already spends the shared budget.
+            var requestId = await fixture.RequestIdAsync("/first.txt");
+            var error = await fixture.Session.ErrorAsync(
+                "Network.getResponseBody", $$"""{"requestId":"{{requestId}}"}""", fixture.Attachment);
+            error.GetProperty("code").GetInt32().Should().Be(-32000);
+            error.GetProperty("message").GetString().Should().Be("No data found for resource with given identifier");
+
+            releaseSecond.SetResult();
+            await fixture.Page.WaitForAsync("secondBody !== null", TimeSpan.FromSeconds(30));
+            (await fixture.Page.EvaluateAsync<string>("secondBody")).Should().Be("bbbbbbbbbb");
+            var body = await fixture.BodyAsync("/second.txt");
+            body.GetProperty("body").GetString().Should().Be("bbbbbbbbbb");
+        }
+        finally
+        {
+            releaseFirst.TrySetResult();
+            releaseSecond.TrySetResult();
+        }
+
+        static LoopbackResponse GatedBody(string text, Task release)
+            => new LoopbackResponse
+            {
+                Body = text,
+                WriteBodyAsync = async (stream, cancellationToken) =>
+                {
+                    var bytes = System.Text.Encoding.UTF8.GetBytes(text);
+                    await stream.WriteAsync(bytes.AsMemory(0, 8), cancellationToken);
+                    await stream.FlushAsync(cancellationToken);
+                    await release.WaitAsync(cancellationToken);
+                    await stream.WriteAsync(bytes.AsMemory(8), cancellationToken);
+                },
+            }.With("Content-Type", "text/plain; charset=utf-8");
+    }
+
+    [Test]
     public async Task ABlockedUrlIsRefusedBeforeASocketIsOpened()
     {
         using var server = new LoopbackServer();
@@ -668,6 +725,27 @@ public class NetworkDomainTests
 
             Assert.Fail($"no requestWillBeSent named '{url}' arrived within 30 seconds.");
             return "";
+        }
+
+        internal async Task WaitForDataAsync(string path, int bytes)
+        {
+            var requestId = await RequestIdAsync(path);
+            var deadline = Environment.TickCount64 + 30_000L;
+            while (Environment.TickCount64 < deadline)
+            {
+                var received = Session.EventsOf("Network.dataReceived", Attachment)
+                    .Select(entry => entry.GetProperty("params"))
+                    .Where(entry => entry.GetProperty("requestId").GetString() == requestId)
+                    .Sum(entry => entry.GetProperty("dataLength").GetInt32());
+                if (received >= bytes)
+                {
+                    return;
+                }
+
+                await Task.Delay(10);
+            }
+
+            Assert.Fail($"fewer than {bytes} response bytes arrived for '{path}' within 30 seconds");
         }
 
         internal async Task<JsonElement> BodyAsync(string path)
