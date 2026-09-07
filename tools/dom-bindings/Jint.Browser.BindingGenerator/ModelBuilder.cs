@@ -847,12 +847,22 @@ internal sealed class ModelBuilder
             DomName = domName,
             Kind = MemberKind.Operation,
             Length = DeclaredLength(method),
-            Body = Bind(model, qualified) + (method.ReturnType.FullName == "System.Void"
+            Body = Bind(model, qualified) + DetachedChildGuard(declaring, method) + (method.ReturnType.FullName == "System.Void"
                 ? body + "; return global::Jint.Native.JsValue.Undefined;"
                 : "return " + body + ";"),
             Origin = declaring.Name + "." + method.Name,
         });
     }
+
+    /// <summary>
+    /// DOM §4.2.7 returns before converting arguments when <c>before</c> or <c>after</c>'s receiver has no
+    /// parent. AngleSharp instead enters its insertion helper and raises a not-found exception, so the
+    /// generated binding performs the standard's early return before calling it.
+    /// </summary>
+    private static string DetachedChildGuard(Type declaring, MethodInfo method)
+        => declaring.FullName == "AngleSharp.Dom.IChildNode" && method.Name is "Before" or "After"
+            ? "if (self.Target.Parent is null) { return global::Jint.Native.JsValue.Undefined; }\n"
+            : "";
 
     private void BuildPropertyAsOperation(InterfaceModel model, Type declaring, PropertyInfo property, string domName, string qualified)
     {
