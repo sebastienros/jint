@@ -83,10 +83,11 @@ internal sealed class EmulationDomain : EmulationDomainBase
 
     /// <summary>Makes the page report itself as touch-capable, and re-evaluates its media queries.</summary>
     /// <remarks>
-    /// It reaches <c>navigator.maxTouchPoints</c>, the presence of <c>ontouchstart</c> on <c>window</c> and
-    /// <c>document</c>, and <c>(hover: none)</c> / <c>(pointer: coarse)</c>. <b>No touch event is ever
-    /// dispatched</b>: <c>Input</c> is the mouse and the keyboard, so what this changes is what a page
-    /// detects rather than what it receives — <c>Runtime/TouchEmulation</c> states the trade.
+    /// It reaches <c>navigator.maxTouchPoints</c>, the presence of <c>ontouchstart</c> on <c>window</c>,
+    /// <c>document</c> and <c>Element.prototype</c>, and <c>(hover: none)</c> / <c>(pointer: coarse)</c>.
+    /// <b>No touch event is ever dispatched</b>: <c>Input</c> is the mouse and the keyboard, so what this
+    /// changes is what a page detects rather than what it receives — <c>Runtime/TouchEmulation</c> states the
+    /// trade.
     /// </remarks>
     protected override ValueTask<EmptyResult> SetTouchEmulationEnabledAsync(SetTouchEmulationEnabledRequest parameters, CommandContext context)
     {
