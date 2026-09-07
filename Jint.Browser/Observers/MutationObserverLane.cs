@@ -1,3 +1,4 @@
+using AngleSharp.Dom;
 using Jint.Browser.Runtime;
 using Jint.Runtime;
 
@@ -28,6 +29,7 @@ internal sealed class MutationObserverLane
     private readonly PageRuntime _runtime;
     private readonly List<JsMutationObserver> _notify = [];
     private readonly Action _notifyJob;
+    private readonly Stack<ReplaceAllScope> _replaceAll = [];
     private bool _scheduled;
 
     internal MutationObserverLane(PageRuntime runtime)
@@ -56,6 +58,61 @@ internal sealed class MutationObserverLane
     /// <summary>Takes <paramref name="observer"/> out of the notify set; its queue is empty.</summary>
     internal void Withdraw(JsMutationObserver observer) => _notify.Remove(observer);
 
+    /// <summary>
+    /// Starts one replace-all operation. AngleSharp queues one record for every remove and insert; DOM queues
+    /// one record containing both snapshots, so the target's raw records are held until the operation ends.
+    /// </summary>
+    internal void BeginReplaceAll(INode target) => _replaceAll.Push(new ReplaceAllScope(target));
+
+    /// <summary>Consumes a raw target record while replace-all is in progress.</summary>
+    internal bool CaptureReplaceAll(JsMutationObserver observer, IMutationRecord record)
+    {
+        if (record.Type != "childList")
+        {
+            return false;
+        }
+
+        foreach (var scope in _replaceAll)
+        {
+            if (ReferenceEquals(record.Target, scope.Target))
+            {
+                scope.Observers.Add(observer);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Queues the one record DOM assigns to a completed replace-all operation.</summary>
+    internal void CompleteReplaceAll(INode target, INode[] added, INode[] removed)
+    {
+        var scope = TakeReplaceAll(target);
+        foreach (var observer in scope.Observers)
+        {
+            observer.Queue(new ReplaceAllMutationRecord(target, added, removed));
+        }
+    }
+
+    /// <summary>Clears a failed replace-all operation without replacing its records.</summary>
+    internal void CancelReplaceAll(INode target) => _ = TakeReplaceAll(target);
+
+    private ReplaceAllScope TakeReplaceAll(INode target)
+    {
+        if (_replaceAll.Count == 0)
+        {
+            throw new InvalidOperationException("No replace-all operation is active.");
+        }
+
+        var scope = _replaceAll.Peek();
+        if (!ReferenceEquals(scope.Target, target))
+        {
+            throw new InvalidOperationException("A different replace-all operation is active.");
+        }
+
+        return _replaceAll.Pop();
+    }
+
     private void Notify()
     {
         _scheduled = false;
@@ -74,5 +131,12 @@ internal sealed class MutationObserverLane
         {
             observer.Deliver();
         }
+    }
+
+    private sealed class ReplaceAllScope(INode target)
+    {
+        internal INode Target { get; } = target;
+
+        internal HashSet<JsMutationObserver> Observers { get; } = [];
     }
 }
