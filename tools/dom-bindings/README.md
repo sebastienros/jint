@@ -82,7 +82,7 @@ decisions, the report is for consequences.
 
 ## Adoption by another host
 
-The [X6 adoption proposal](../../docs/integration/upstream-adoption.md#proposal-for-anglesharpjs) inventories
+The [X6 adoption proposal](../../docs/integration/upstream-adoption.md#proposal-for-anglesharp-js) inventories
 the generator, runtime and event bridge, including the internal APIs that currently prevent independent
 consumption. It describes a small AngleSharp.Js integration experiment and its acceptance conditions;
 it is a review draft, not a published binding-only package or a delivered upstream offer.

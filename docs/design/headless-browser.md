@@ -107,7 +107,7 @@ call the AngleSharp interface member directly without reflection in that call. T
 cost improvement; the isolated comparison in [#3898](https://github.com/sebastienros/jint/issues/3898) must
 measure it. Generated calls alone do not establish trimming or AOT compatibility for an adopting host.
 This is the proposed upstream contribution. The current runtime still uses internal realm and event APIs;
-[the adoption proposal](../integration/upstream-adoption.md#proposal-for-anglesharpjs) identifies the public
+[the adoption proposal](../integration/upstream-adoption.md#proposal-for-anglesharp-js) identifies the public
 seams and extraction experiment needed to use it independently of the browser runtime.
 
 **What was built also owns HTML §4.13**, which AngleSharp has nothing of: `Jint.Browser/CustomElements/` is

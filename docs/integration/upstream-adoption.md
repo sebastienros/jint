@@ -5,7 +5,7 @@ tracked by [#3904](https://github.com/sebastienros/jint/issues/3904). They descr
 review and revise. They have **not been delivered** to AngleSharp.Js or Jither, and no adoption agreement is
 implied. Source observations below were checked against Jint main `3744d58324216d5674c88738b8d94e56bc743086`.
 
-## Proposal for AngleSharp.Js
+## Proposal for AngleSharp Js
 
 Jint's browser work uses AngleSharp for the parser, DOM and CSSOM. We would like to make the generated
 binding work useful to AngleSharp.Js while preserving its choice of scripting services and host lifecycle.
