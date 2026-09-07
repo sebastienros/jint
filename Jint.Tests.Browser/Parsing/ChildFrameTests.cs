@@ -173,6 +173,47 @@ public class ChildFrameTests
     }
 
     [Test]
+    public async Task AFrameServedXmlGetsAnXmlDocument()
+    {
+        await using var loopback = await LoopbackPage.CreateAsync(server => server
+            .Map("/dummy.xml", _ => LoopbackResponse.Bytes("<foo>Dummy XML document</foo>", "text/xml"))
+            .MapHtml("/", "<!doctype html><html><body><iframe id=f src=\"/dummy.xml\"></iframe></body></html>"));
+
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+
+        // https://html.spec.whatwg.org/multipage/document-lifecycle.html#read-xml — a document whose content
+        // type is an XML MIME type is parsed by the XML parser. Without AngleSharp.Xml's factory registered
+        // the response came back as an *HTML* document with the text inside an <html><body> skeleton, so the
+        // root element was HTML and every XML rule a page then asked about was the wrong document's.
+        (await loopback.Page.EvaluateAsync<string>(
+            "document.getElementById('f').contentDocument.documentElement.tagName")).Should().Be("foo");
+
+        (await loopback.Page.EvaluateAsync<string>(
+            "document.getElementById('f').contentDocument.contentType")).Should().Be("text/xml");
+
+        (await loopback.Page.EvaluateAsync<string>(
+            "document.getElementById('f').contentDocument.documentElement.textContent"))
+            .Should().Be("Dummy XML document");
+
+        loopback.Page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task RegisteringTheXmlFactoryDoesNotMakeAPageNavigableToXml()
+    {
+        // The XML factory is registered on the whole browsing context, so this is the half that says only a
+        // *frame* can reach it. A top-level navigation to an XML content type is refused before any parser
+        // sees it — `DocumentFetch` decides that, and registering a document factory does not change it.
+        await using var loopback = await LoopbackPage.CreateAsync(server => server
+            .Map("/", _ => LoopbackResponse.Bytes("<foo>not a page</foo>", "text/xml")));
+
+        var navigate = async () => await loopback.Page.NavigateAsync(loopback.Url("/"));
+
+        (await navigate.Should().ThrowAsync<NavigationFailedException>())
+            .Which.Message.Should().Contain("text/xml");
+    }
+
+    [Test]
     public async Task ContentWindowIsNullBecauseAFrameHasNoRealm()
     {
         await using var loopback = await LoopbackPage.CreateAsync(server => server

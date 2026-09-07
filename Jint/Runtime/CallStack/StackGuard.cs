@@ -30,13 +30,13 @@ internal sealed class StackGuard
     // specific request, so it wins.
     private readonly bool _backstopEnabled;
 
-    // The same snapshot without that exclusion, for the recursions that are not on a call path at all.
+    // The same snapshot without that exclusion, for recursions that cannot take the call-path hop.
     // The exclusion above is about ordering between two probes a few native frames apart on one path;
     // MaxExecutionStackCount's lane is TryEnterOnCurrentStack, which nothing but a call expression
     // reaches, so on the module pipeline there is nothing for it to win against — and honouring the
     // exclusion there would leave an engine that asked for a call-depth limit with no protection at all
     // for a deep import.
-    private readonly bool _graphGuardEnabled;
+    private readonly bool _nativeBackstopEnabled;
 
     public StackGuard(Engine engine)
     {
@@ -44,7 +44,7 @@ internal sealed class StackGuard
         _maxExecutionStackCount = engine.Options.Constraints.MaxExecutionStackCount;
         _enabled = _maxExecutionStackCount != Disabled;
         _backstopEnabled = !_enabled && engine.Options.Constraints.StackOverflowGuard;
-        _graphGuardEnabled = engine.Options.Constraints.StackOverflowGuard;
+        _nativeBackstopEnabled = engine.Options.Constraints.StackOverflowGuard;
     }
 
     /// <summary>
@@ -114,13 +114,30 @@ internal sealed class StackGuard
     /// </para>
     /// <para>
     /// It is gated on <see cref="Options.ConstraintOptions.StackOverflowGuard"/> alone — see
-    /// <c>_graphGuardEnabled</c> — and costs one predictable branch plus, when armed, one comparison
+    /// <c>_nativeBackstopEnabled</c> — and costs one predictable branch plus, when armed, one comparison
     /// against the thread's stack limit, per module of the graph. A graph is linked once.
     /// </para>
     /// </remarks>
     public bool HasGraphRecursionHeadroom()
     {
-        return !_graphGuardEnabled || RuntimeHelpers.TryEnsureSufficientExecutionStack();
+        return !_nativeBackstopEnabled || RuntimeHelpers.TryEnsureSufficientExecutionStack();
+    }
+
+    /// <summary>
+    /// Protects a recursive native traversal or forwarding call that cannot move to the stack-hopping lane.
+    /// </summary>
+    /// <remarks>
+    /// Native paths may hold ref structs, pooled arrays, or state whose identity the continuation must preserve,
+    /// so <see cref="Options.ConstraintOptions.MaxExecutionStackCount"/> cannot move them to another thread.
+    /// The default backstop therefore remains active for these paths even when interpreted calls use that lane.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void EnsureNativeStackHeadroom()
+    {
+        if (_nativeBackstopEnabled)
+        {
+            ProbeStackHeadroom();
+        }
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]

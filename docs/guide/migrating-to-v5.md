@@ -6559,6 +6559,27 @@ parameter, so a call passing a bare `null` literal for the name — `Method(null
 Write `Method((string) null, impl)`, or, as any real call already does, pass the name.
 
 
+### 5.32 A host can prepare an existing Acornima syntax tree ([#2124](https://github.com/sebastienros/jint/pull/2124))
+
+`Engine.PrepareScript(Script, ScriptPreparationOptions?)` and
+`Engine.PrepareModule(Module, ModulePreparationOptions?)` accept a tree produced or transformed by a host and
+return the same reusable `Prepared<>` form as source-based preparation:
+
+```c#
+var ast = myTypeScriptFrontend.ParseAndEraseTypes(source);
+var prepared = Engine.PrepareScript(ast);
+var result = new Engine().Evaluate(prepared);
+```
+
+Preparation takes ownership of the tree's `Node.UserData` slots; do not mutate or prepare the tree concurrently.
+`RetainFunctionSourceText` and `CollectReferencedGlobals` are rejected because both require state available only
+during parsing. A node-count limit is checked against the supplied tree, while a source-length limit applies to
+later parsing such as `eval`; there is no source string to measure for the supplied tree itself.
+
+Code compiled later by `eval`, dynamic import, function constructors or shadow realms still uses Jint's parser
+and the parser options carried by the preparation. A host supplying syntax from another frontend is responsible
+for applying compatible JavaScript semantics to the initial tree.
+
 ## 6. AOT and trimming
 
 Jint 4.16 asserted Native AOT compatibility with the `IsAotCompatible` property and nothing else. In

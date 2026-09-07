@@ -33,7 +33,7 @@ public sealed class ModuleBuilder
     }
 
     /// <summary>
-    /// Uses a module the host prepared with <see cref="Engine.PrepareModule"/> instead of source text.
+    /// Uses a module the host prepared with <see cref="Engine.PrepareModule(string, string, ModulePreparationOptions)"/> instead of source text.
     /// </summary>
     /// <remarks>
     /// A prepared module keeps the name it was given at prepare time: the AST is the host's, already parsed,

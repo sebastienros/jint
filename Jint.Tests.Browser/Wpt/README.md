@@ -26,7 +26,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | Suite | Documents | Synthesized | Tests | Not passing |
 | --- | --- | --- | --- | --- |
 | `dom/events/` | 56 | 9 | 544 | 20 |
-| `dom/nodes/` | 165 | 0 | 4,802 | 1,409 |
+| `dom/nodes/` | 165 | 0 | 4,802 | 1,338 |
 | `dom/collections/` | 8 | 0 | 43 | 11 |
 | `dom/lists/` | 5 | 0 | 189 | 5 |
 | `dom/traversal/` | 13 | 0 | 52 | 7 |
@@ -38,7 +38,8 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 52 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 3 |
-| **total** | **349** | **9** | **27,107** | **1,837** |
+| **total** | **349** | **9** | **27,107** | **1,766** |
+
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -192,7 +193,7 @@ Ordered by how many tests each accounts for:
 | ---: | ---: | --- |
 | 540 | 13 | [#3771](https://github.com/sebastienros/jint/issues/3771) **A frame is never given a realm.** It has a **document** now — its `src` is fetched and parsed, `contentDocument` answers it same origin and `load` arrives at the element — and none of these 540 moved, which is the measurement that says what they were really waiting for. 488 of them are one line: `Document-createElement*.html` runs its whole table three times and two of the three documents are an **XML** and an **XHTML** one, which is [#3766](https://github.com/sebastienros/jint/issues/3766) and not this row; each of those runs then asks `doc.defaultView.DOMException`, and a frame with no realm has no `defaultView`. The rest are `node-realm-*`, `node-creation-realm` and the two cross-realm `TreeWalker` documents, whose whole subject is the second realm. `NeedsIframeScripting`, the category this lane already had. |
 | 478 | 10 | [#3766](https://github.com/sebastienros/jint/issues/3766) **An XML document, and the two members that make one.** Both members exist now, and what they uncovered is larger than what they hid: `DOMImplementation-createDocument.html` builds its own table of 434 cases *inside its first test* and the builder called the missing one, so the file used to register **two** tests. It registers them all now and **348** of them fail — the document a browser gets back is an `XMLDocument` with no location, an ASCII-upper-cased encoding name and a content type taken from the namespace, and none of the three is reachable from what AngleSharp exposes. `processing-instruction-attributes.html` is 137 more of the same. `NeedsXmlDocuments`, a scope decision rather than debt, and the largest cause in this table after the frames. |
-| 107 | 28 | [#3772](https://github.com/sebastienros/jint/issues/3772) **A collection's named and indexed properties, and its liveness.** An empty name is a supported property name (`HTMLCollection-empty-name.html`, 7 rows), `getElementsByTagName` matches where the standard matches nothing (23 rows), and `namednodemap-supported-property-names.html` sees names a browser does not. |
+| 107 | 28 | [#3772](https://github.com/sebastienros/jint/issues/3772) **A collection's named and indexed properties, and its liveness.** An empty name is a supported property name (`HTMLCollection-empty-name.html`, 7 rows), `getElementsByTagName` matches where the standard matches nothing (23 rows), and `namednodemap-supported-property-names.html` sees names a browser does not. The six `NodeList-static-length-getter-tampered*` documents are the same interface from a seventh angle and are cases now: collection `length` lives on the prototype, so redefining or shadowing its getter limits the loop. |
 | 101 | 5 | [#3712](https://github.com/sebastienros/jint/issues/3712) **A nullable `DOMString` answers the string `"null"`.** `createElementNS(null, …)` gives an element whose `namespaceURI` is `"http://www.w3.org/1999/xhtml"` and `node.nodeValue = null` reads back `"null"`, because the binding converts a `DOMString?` parameter with `TypeConverter.ToString`. It is the same conversion the custom-element corpus records for `getAttributeNS`, from the other side, and 80 of the 101 are that document — `custom-elements/reactions/AriaMixin-string-attributes.html`. |
 | 87 | 18 | One assertion each: `Node.isEqualNode` compares data it should not, `Element.removeAttribute` removes one attribute of two, an attribute's order in `element.attributes` differs, `cloneNode` copies a `value` a browser leaves behind. |
 | 80 | 5 | [#3769](https://github.com/sebastienros/jint/issues/3769) **A `(Node or DOMString)` union parameter takes only a `Node`.** `before`, `after`, `append`, `prepend` and `replaceWith` all accept a string in DOM §4.2.7; here a string is "parameter 1 is not of the expected type". `replaceWith` joined the row when the member arrived: eighteen of its twenty-four remaining assertions are the union and nothing else. |
@@ -229,7 +230,7 @@ and `TreeWalker-traversal-skip.html` each spun forever: AngleSharp's `TreeWalker
 sibling it was reading and never climbed to a parent, so `previousNode()` looped the moment the previous
 sibling was not accepted outright — a filter answering `FILTER_REJECT` or `FILTER_SKIP`, or a `currentNode`
 pointed outside the root beside a node `whatToShow` excludes. Nothing in this lane could bound that —
-`BrowserOptions.MaxTaskDuration` is deliberately infinite, the driver's per-file deadline cannot interrupt a
+`BrowserOptions.MaxTaskDuration` is deliberately infinite, the driver's own 30 s deadline cannot interrupt a
 page thread that never yields, and a node `whatToShow` excludes is `FILTER_SKIP` *without the page's filter
 being called*, so the loop never re-entered the engine for a constraint to fire in — which is why an embedder
 should read [#3765](https://github.com/sebastienros/jint/issues/3765) as a denial of service rather than as a

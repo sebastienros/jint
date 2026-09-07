@@ -58,6 +58,42 @@ public partial class Engine
     }
 
     /// <summary>
+    /// Prepares an existing script syntax tree for execution.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The returned preparation is reusable and thread-safe. Preparation takes ownership of the supplied tree's
+    /// <see cref="Node.UserData"/> slots, and callers must not prepare or mutate that tree concurrently.
+    /// </para>
+    /// <para>
+    /// Source compiled later by <c>eval</c>, dynamic imports, function constructors or shadow realms uses Jint's
+    /// parser with the supplied preparation options. The AST producer must apply compatible syntax semantics.
+    /// </para>
+    /// <para>
+    /// <see cref="IParsingOptions.RetainFunctionSourceText"/> and
+    /// <see cref="ScriptPreparationOptions.CollectReferencedGlobals"/> require parser input and are unsupported.
+    /// </para>
+    /// <para>
+    /// A configured node limit is applied to the tree. A source-length limit applies only to source parsed later,
+    /// because the syntax tree carries no source string whose length can be checked.
+    /// </para>
+    /// </remarks>
+    /// <param name="script">The script syntax tree.</param>
+    /// <param name="options">The preparation and later parsing options.</param>
+    public static Prepared<Script> PrepareScript(Script script, ScriptPreparationOptions? options = null)
+    {
+        if (script is null)
+        {
+            Throw.ArgumentNullException(nameof(script));
+        }
+
+        options ??= ScriptPreparationOptions.Default;
+        ValidateAstPreparationOptions(options.ParsingOptions, options.CollectReferencedGlobals, nameof(options));
+
+        return PrepareProgram(script, options, options.GetParserOptions(), options.StaticAnalysis);
+    }
+
+    /// <summary>
     /// Prepares a module for the engine that includes static analysis data to speed up execution during run-time.
     /// </summary>
     /// <remarks>
@@ -96,6 +132,120 @@ public partial class Engine
             }
 
             throw new ScriptPreparationException("Could not prepare script: " + e.Message, e);
+        }
+    }
+
+    /// <summary>
+    /// Prepares an existing module syntax tree for execution.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The returned preparation is reusable and thread-safe. Preparation takes ownership of the supplied tree's
+    /// <see cref="Node.UserData"/> slots, and callers must not prepare or mutate that tree concurrently.
+    /// </para>
+    /// <para>
+    /// Source compiled later by <c>eval</c>, dynamic imports, function constructors or shadow realms uses Jint's
+    /// parser with the supplied preparation options. The AST producer must apply compatible syntax semantics.
+    /// </para>
+    /// <para>
+    /// <see cref="IParsingOptions.RetainFunctionSourceText"/> and
+    /// <see cref="ModulePreparationOptions.CollectReferencedGlobals"/> require parser input and are unsupported.
+    /// </para>
+    /// <para>
+    /// A configured node limit is applied to the tree. A source-length limit applies only to source parsed later,
+    /// because the syntax tree carries no source string whose length can be checked.
+    /// </para>
+    /// </remarks>
+    /// <param name="module">The module syntax tree.</param>
+    /// <param name="options">The preparation and later parsing options.</param>
+    public static Prepared<Module> PrepareModule(Module module, ModulePreparationOptions? options = null)
+    {
+        if (module is null)
+        {
+            Throw.ArgumentNullException(nameof(module));
+        }
+
+        options ??= ModulePreparationOptions.Default;
+        ValidateAstPreparationOptions(options.ParsingOptions, options.CollectReferencedGlobals, nameof(options));
+
+        return PrepareProgram(module, options, options.GetParserOptions(), options.StaticAnalysis);
+    }
+
+    private static Prepared<TProgram> PrepareProgram<TProgram>(
+        TProgram program,
+        IPreparationOptions<IParsingOptions> options,
+        ParserOptions parserOptions,
+        bool staticAnalysis)
+        where TProgram : Program
+    {
+        var constraints = ParsingConstraints.From(options.ParsingOptions);
+
+        try
+        {
+            if (constraints.MaxNodeCount is int maxNodeCount)
+            {
+                new SuppliedAstNodeCounter(maxNodeCount).Visit(program);
+            }
+
+            var analyzer = staticAnalysis ? new AstAnalyzer(options, null) : null;
+            new SuppliedAstVisitor(analyzer).Visit(program);
+            return new Prepared<TProgram>(program, parserOptions, parsingConstraints: constraints);
+        }
+        catch (Exception e)
+        {
+            if (e is ParsingLimitException)
+            {
+                throw;
+            }
+
+            throw new ScriptPreparationException("Could not prepare script: " + e.Message, e);
+        }
+    }
+
+    private static void ValidateAstPreparationOptions(
+        IParsingOptions parsingOptions,
+        bool collectReferencedGlobals,
+        string paramName)
+    {
+        if (parsingOptions.RetainFunctionSourceText)
+        {
+            Throw.ArgumentException(
+                "Source-text retention cannot be used when preparing an existing syntax tree.",
+                paramName);
+        }
+
+        if (collectReferencedGlobals)
+        {
+            Throw.ArgumentException(
+                "Referenced globals cannot be collected when preparing an existing syntax tree.",
+                paramName);
+        }
+    }
+
+    private sealed class SuppliedAstNodeCounter(int maxNodeCount) : AstVisitor
+    {
+        private long _nodeCount;
+
+        public override object? Visit(Node node)
+        {
+            var count = ++_nodeCount;
+            if (count > maxNodeCount)
+            {
+                throw new ParsingLimitException(ParsingLimitKind.NodeCount, maxNodeCount, count);
+            }
+
+            return base.Visit(node);
+        }
+    }
+
+    private sealed class SuppliedAstVisitor(AstAnalyzer? analyzer) : AstVisitor
+    {
+        public override object? Visit(Node node)
+        {
+            node.UserData = null;
+            var result = base.Visit(node);
+            analyzer?.Analyze(node, null);
+            return result;
         }
     }
 
@@ -185,6 +335,9 @@ public partial class Engine
         }
 
         private void NodeVisitor(Node node, in OnNodeContext ctx)
+            => Analyze(node, _retainSourceText ? ctx.Input : null);
+
+        public void Analyze(Node node, string? sourceText)
         {
             switch (node.Type)
             {
@@ -220,7 +373,7 @@ public partial class Engine
                 case NodeType.ArrowFunctionExpression:
                 case NodeType.FunctionDeclaration:
                 case NodeType.FunctionExpression:
-                    node.UserData = JintFunctionDefinition.BuildState((IFunction) node, _retainSourceText ? ctx.Input : null);
+                    node.UserData = JintFunctionDefinition.BuildState((IFunction) node, sourceText);
                     break;
 
                 case NodeType.ClassDeclaration:
@@ -229,7 +382,7 @@ public partial class Engine
                     // production, and a class with no explicit constructor has no function node carrying it.
                     if (_retainSourceText)
                     {
-                        node.UserData = ctx.Input;
+                        node.UserData = sourceText;
                     }
                     break;
 
