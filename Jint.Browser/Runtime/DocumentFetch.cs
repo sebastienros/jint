@@ -32,9 +32,9 @@ internal sealed record FetchedDocument(string Html, string Url, PageResponse Res
 /// deliberately does not run it twice.
 /// </para>
 /// <para>
-/// <b>What a document may be.</b> <c>text/html</c> is parsed as markup and <c>text/plain</c> is wrapped in
-/// HTML's own plain-text document — a <c>&lt;pre&gt;</c> holding the text, which is what makes
-/// <c>document.body.textContent</c> the file. Anything else is refused with a
+/// <b>What a document may be.</b> <c>text/html</c> is parsed as markup; JSON, JavaScript,
+/// <c>text/plain</c>, <c>text/css</c> and <c>text/vtt</c> use HTML's text document — a <c>&lt;pre&gt;</c>
+/// holding the text, which is what makes <c>document.body.textContent</c> the file. Anything else is refused with a
 /// <see cref="NavigationFailedException"/> naming the type, because a page showing a PDF or an image as if
 /// it were markup would be worse than a page saying it cannot.
 /// </para>
@@ -209,7 +209,12 @@ internal static class DocumentFetch
             return text;
         }
 
-        if (string.Equals(essence, "text/plain", StringComparison.OrdinalIgnoreCase))
+        // https://html.spec.whatwg.org/multipage/browsing-the-web.html#loading-a-document
+        // https://mimesniff.spec.whatwg.org/#json-mime-type
+        // MIME essences are already lowercased. These types are text documents, not markup or scripts.
+        if (essence is "text/plain" or "text/css" or "text/vtt" or "application/json" or "text/json"
+            || essence.EndsWith("+json", StringComparison.Ordinal)
+            || AngleSharp.Io.MimeTypeNames.IsJavaScript(essence))
         {
             return PlainTextDocument(text);
         }
@@ -217,12 +222,13 @@ internal static class DocumentFetch
         throw new NavigationFailedException(
             url,
             "Navigation to '" + url + "' produced a '" + essence + "' response, and a page can render only "
-            + "text/html and text/plain in this version. Fetch it with fetch() or XMLHttpRequest instead.");
+            + "HTML and text documents (plain text, JSON, JavaScript, CSS and WebVTT) in this version. "
+            + "Fetch it with fetch() or XMLHttpRequest instead.");
     }
 
     /// <summary>
-    /// HTML's plain-text document: the text inside a <c>&lt;pre&gt;</c>, so that
-    /// <c>document.body.textContent</c> is the file and the DOM is a real one.
+    /// https://html.spec.whatwg.org/multipage/document-lifecycle.html#read-text — the text inside a
+    /// <c>&lt;pre&gt;</c>, so that <c>document.body.textContent</c> is the file and the DOM is a real one.
     /// </summary>
     private static string PlainTextDocument(string text)
     {
@@ -231,7 +237,9 @@ internal static class DocumentFetch
             .Replace("<", "&lt;", StringComparison.Ordinal)
             .Replace(">", "&gt;", StringComparison.Ordinal);
 
-        return "<html><head></head><body><pre>" + escaped + "</pre></body></html>";
+        // Text documents use no-quirks mode. The synthetic newline is the one the HTML parser discards
+        // after <pre>, so a leading newline in the response remains part of the document's text.
+        return "<!doctype html><html><head></head><body><pre>\n" + escaped + "</pre></body></html>";
     }
 
     private static bool LooksLikeMarkup(string text)

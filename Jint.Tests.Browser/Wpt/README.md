@@ -26,19 +26,19 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | Suite | Documents | Synthesized | Tests | Not passing |
 | --- | --- | --- | --- | --- |
 | `dom/events/` | 56 | 9 | 544 | 20 |
-| `dom/nodes/` | 165 | 0 | 4,802 | 1,408 |
+| `dom/nodes/` | 165 | 0 | 4,802 | 1,409 |
 | `dom/collections/` | 8 | 0 | 43 | 11 |
 | `dom/lists/` | 5 | 0 | 189 | 5 |
 | `dom/traversal/` | 13 | 0 | 52 | 7 |
 | `dom/ranges/` | 17 | 0 | 82 | 10 |
-| `html/dom/` | 8 | 0 | 20,522 | 69 |
+| `html/dom/` | 8 | 0 | 20,522 | 45 |
 | `html/webappapis/scripting/events/` | 12 | 0 | 37 | 5 |
 | `html/webappapis/scripting/processing-model-2/` | 25 | 0 | 44 | 12 |
 | `custom-elements/` | 16 | 0 | 510 | 247 |
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
-| `custom-elements/reactions/` | 14 | 0 | 255 | 68 |
+| `custom-elements/reactions/` | 14 | 0 | 255 | 52 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 3 |
-| **total** | **349** | **9** | **27,107** | **1,876** |
+| **total** | **349** | **9** | **27,107** | **1,837** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
