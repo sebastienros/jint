@@ -59,7 +59,6 @@ public class HostNativeRecursionGuardTests
     [TestCaseSource(nameof(NativeForwardingChains))]
     public void NativeForwardingChainRaisesACatchableErrorAndTheEngineRecovers(string route, string script)
     {
-        _ = route;
         DedicatedThread.Run(() =>
         {
             using var engine = new Engine();
@@ -70,7 +69,21 @@ public class HostNativeRecursionGuardTests
                 } catch (error) { caught = error; }
                 caught === undefined ? 'none' : caught.name + ':' + caught.message;
                 """).AsString();
+#if NETFRAMEWORK
+            // The .NET Framework JIT turns the empty proxy-forwarding call into a tail call, so this one
+            // route can consume no stack and legitimately complete. Modern runtimes retain the forwarding
+            // frames, and construct forwarding still does on every target.
+            if (route == "proxy call")
+            {
+                outcome.Should().BeOneOf("none", "RangeError:Maximum call stack size exceeded");
+            }
+            else
+            {
+                outcome.Should().Be("RangeError:Maximum call stack size exceeded");
+            }
+#else
             outcome.Should().Be("RangeError:Maximum call stack size exceeded");
+#endif
 
             engine.Evaluate("6 * 7").AsNumber().Should().Be(42);
         }, maxStackSize: 1024 * 1024);
