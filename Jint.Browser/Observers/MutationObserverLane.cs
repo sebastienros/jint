@@ -76,7 +76,11 @@ internal sealed class MutationObserverLane
         {
             if (ReferenceEquals(record.Target, scope.Target))
             {
-                scope.Observers.Add(observer);
+                if (!scope.Observers.Contains(observer))
+                {
+                    scope.Observers.Add(observer);
+                }
+
                 return true;
             }
         }
@@ -137,6 +141,6 @@ internal sealed class MutationObserverLane
     {
         internal INode Target { get; } = target;
 
-        internal HashSet<JsMutationObserver> Observers { get; } = [];
+        internal List<JsMutationObserver> Observers { get; } = [];
     }
 }
