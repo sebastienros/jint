@@ -188,6 +188,13 @@ internal sealed class DomRealm
     }
 
     /// <summary>
+    /// The interface prototype when it has already been created, without making a page that never reached
+    /// the interface pay for it. Conditional installers use this when taking a member away again.
+    /// </summary>
+    internal ObjectInstance? ExistingPrototypeOf(DomInterfaceDefinition definition)
+        => _prototypes[definition.Index];
+
+    /// <summary>
     /// The interface object — the global <c>HTMLDivElement</c> — in this engine, created on first use.
     /// </summary>
     /// <remarks>

@@ -57,11 +57,18 @@ public sealed class NavigatorTests
         (await fixture.Page.EvaluateAsync<bool>("Object.getOwnPropertyNames(navigator).includes('userAgent')"))
             .Should().BeFalse("WebIDL puts a readonly attribute on the interface prototype object");
 
-        // The members the engine's Navigator does not have are still the page's own, and still hidden from
-        // Object.keys the way an inherited member would be.
+        // The members the engine's Navigator does not have join that same interface prototype.
         (await fixture.Page.EvaluateAsync<bool>("Object.getOwnPropertyNames(navigator).includes('platform')"))
+            .Should().BeFalse();
+        (await fixture.Page.EvaluateAsync<bool>("Object.getOwnPropertyNames(Navigator.prototype).includes('platform')"))
             .Should().BeTrue();
         (await fixture.Page.EvaluateAsync<double>("Object.keys(navigator).length")).Should().Be(0);
+        (await fixture.Page.EvaluateAsync<bool>("Object.keys(Navigator.prototype).includes('platform')"))
+            .Should().BeTrue("WebIDL attributes are enumerable on their interface prototype");
+
+        (await fixture.Page.RunOnLoopAsync(engine =>
+                engine.Advanced.HasSharedShape(engine.Evaluate("Navigator.prototype").AsObject())))
+            .Should().BeTrue("late browser members must keep the engine's shared prototype layout");
     }
 
     /// <summary>

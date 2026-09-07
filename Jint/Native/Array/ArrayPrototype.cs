@@ -750,6 +750,8 @@ public sealed partial class ArrayPrototype : ArrayInstance
         ICallable? mapperFunction = null,
         JsValue? thisArg = null)
     {
+        _engine._stackGuard.EnsureNativeStackHeadroom();
+
         var targetIndex = start;
         ulong sourceIndex = 0;
 
@@ -824,6 +826,8 @@ public sealed partial class ArrayPrototype : ArrayInstance
         ICallable? mapperFunction = null,
         JsValue? thisArg = null)
     {
+        _engine._stackGuard.EnsureNativeStackHeadroom();
+
         ulong sourceIndex = 0;
 
         var invoker = mapperFunction is not null
@@ -1835,6 +1839,8 @@ public sealed partial class ArrayPrototype : ArrayInstance
     [JsFunction(Length = 1, FastCall = true)]
     private JsValue Join(JsValue thisObject, JsValue arg0)
     {
+        _engine._stackGuard.EnsureNativeStackHeadroom();
+
         var separator = arg0;
         var o = ArrayOperations.For(_realm, thisObject, forWrite: false);
         var len = o.GetLongLength();
@@ -1918,6 +1924,8 @@ public sealed partial class ArrayPrototype : ArrayInstance
     [JsFunction]
     private JsValue ToLocaleString(JsValue thisObject, JsCallArguments arguments)
     {
+        _engine._stackGuard.EnsureNativeStackHeadroom();
+
         const string Separator = ",";
 
         var array = ArrayOperations.For(_realm, thisObject, forWrite: false);

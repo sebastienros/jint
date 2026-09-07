@@ -202,7 +202,8 @@ public class EmulationDomainTests
     public async Task TouchEmulationReachesTheNavigatorTheHandlerAndTheMediaEnvironment()
     {
         await using var session = await PageSession.CreateAsync();
-        var attachment = await session.OpenPageAsync();
+        var page = await session.NewPageAsync();
+        var attachment = await session.AttachAsync(await session.TargetForAsync(page));
 
         (await Number(session, attachment, "navigator.maxTouchPoints")).Should().Be(0);
         (await Flag(session, attachment, "'ontouchstart' in window")).Should().BeFalse();
@@ -215,6 +216,11 @@ public class EmulationDomainTests
         (await Number(session, attachment, "navigator.maxTouchPoints")).Should().Be(5);
         (await Flag(session, attachment, "'ontouchstart' in window")).Should().BeTrue();
         (await Flag(session, attachment, "'ontouchstart' in document")).Should().BeTrue();
+        (await Flag(session, attachment, "Element.prototype.hasOwnProperty('ontouchstart')")).Should().BeTrue();
+        (await Flag(session, attachment, "'ontouchstart' in document.documentElement")).Should().BeTrue();
+        (await page.RunOnLoopAsync(engine =>
+                engine.Advanced.HasSharedShape(engine.Evaluate("Element.prototype").AsObject())))
+            .Should().BeTrue("the conditional member must use the shared shape's side dictionary");
         (await Flag(session, attachment, "matchMedia('(pointer: coarse)').matches")).Should().BeTrue();
         (await Flag(session, attachment, "matchMedia('(hover: none)').matches")).Should().BeTrue();
         (await Flag(session, attachment, "matchMedia('(hover)').matches")).Should().BeFalse();
@@ -223,6 +229,12 @@ public class EmulationDomainTests
 
         (await Number(session, attachment, "navigator.maxTouchPoints")).Should().Be(0);
         (await Flag(session, attachment, "'ontouchstart' in window")).Should().BeFalse();
+        (await Flag(session, attachment, "'ontouchstart' in document")).Should().BeFalse();
+        (await Flag(session, attachment, "'ontouchstart' in Element.prototype")).Should().BeFalse();
+        (await Flag(session, attachment, "'ontouchstart' in document.documentElement")).Should().BeFalse();
+        (await page.RunOnLoopAsync(engine =>
+                engine.Advanced.HasSharedShape(engine.Evaluate("Element.prototype").AsObject())))
+            .Should().BeTrue("removing a hybrid addition must keep the shared shape too");
         (await Flag(session, attachment, "matchMedia('(pointer: fine)').matches")).Should().BeTrue();
     }
 
