@@ -358,6 +358,93 @@ public class PlaywrightCourseTests
         await page.CloseAsync();
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task PlaywrightClickCommitsTheParsedPostRedirectBeforeReturning(bool delegated)
+    {
+        using var release = new ManualResetEventSlim();
+        var scriptRequested = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var lane = await ClientLane.OpenAsync(server =>
+        {
+            server.MapHtml("/admin-post/index.html", """
+                <!doctype html><html><body>
+                <form method="post" action="/save" enctype="multipart/form-data" class="no-multisubmit">
+                  <input name="GroupId" value="settings" type="hidden">
+                  <label><input id="allow" name="AllowAnonymous" type="checkbox" value="true">Allow anonymous</label>
+                  <button type="submit" class="btn save">Save</button>
+                  <input name="__RequestVerificationToken" value="fixture-token" type="hidden">
+                  <input name="AllowAnonymous" value="false" type="hidden">
+                </form>
+                <a id="enable" href="/save" data-url-af="UnsafeUrl">Enable</a>
+                <script src="/vendor/jquery-3.7.1/jquery.min.js"></script>
+                <script>
+                  $("body").on("click", "a[data-url-af]", function () {
+                    var form = $('<form method="post">').attr("action", this.href);
+                    form.append($("input[name=__RequestVerificationToken]").first().clone());
+                    form.css({ position: "absolute", left: "-9999em" });
+                    $("body").append(form);
+                    form.submit();
+                    return false;
+                  });
+                  $("body").on("submit", "form.no-multisubmit", function (event) {
+                    if ($(this).hasClass("submitting")) event.preventDefault();
+                    $(this).addClass("submitting");
+                  });
+                </script>
+                </body></html>
+                """);
+            server.Map("/save", _ => LoopbackResponse.Redirect(302, "/saved"));
+            server.MapHtml("/saved", """
+                <!doctype html><html><head><script src="/parse-gate.js"></script></head>
+                <body><div class="message-success">Settings saved</div></body></html>
+                """);
+            server.Map("/parse-gate.js", _ =>
+            {
+                scriptRequested.TrySetResult();
+                release.Wait(TimeSpan.FromSeconds(30));
+                return LoopbackResponse.Script("");
+            });
+        });
+        var page = await lane.NewPageAsync("admin-post");
+        if (!delegated)
+        {
+            await page.Locator("#allow").CheckAsync();
+        }
+
+        var clicking = page.Locator(delegated ? "#enable" : ".save").ClickAsync();
+        try
+        {
+            await scriptRequested.Task.WaitAsync(TimeSpan.FromSeconds(30));
+            (await page.EvaluateAsync<string>("() => document.readyState")).Should().Be("loading");
+            clicking.IsCompleted.Should().BeFalse(
+                "the redirected bytes arrived, but the parser has not committed an observable document");
+        }
+        finally
+        {
+            release.Set();
+        }
+
+        await clicking;
+        page.Url.Should().Be(lane.Server.Url("/saved"));
+        (await page.EvaluateAsync<string>("() => document.querySelector('.message-success')?.textContent"))
+            .Should().Be("Settings saved");
+        await page.WaitForLoadStateAsync(LoadState.Load);
+        var post = lane.Server.Received.Single(request => request.Method == "POST");
+        post.Body.Should().Contain("fixture-token");
+        if (!delegated)
+        {
+            post.Header("Content-Type").Should().StartWith("multipart/form-data; boundary=");
+            post.Body.Should().Contain("name=\"AllowAnonymous\"\r\n\r\ntrue")
+                .And.Contain("name=\"AllowAnonymous\"\r\n\r\nfalse");
+        }
+
+        lane.Server.Received.Single(request => request.Path == "/saved").Method.Should().Be("GET");
+        foreach (var host in lane.Pages.Contexts.SelectMany(context => context.Pages))
+        {
+            host.Errors.Should().BeEmpty();
+        }
+    }
+
     [Test]
     public async Task PlaywrightClickSubmitsAJQueryDelegatedHiddenForm()
     {

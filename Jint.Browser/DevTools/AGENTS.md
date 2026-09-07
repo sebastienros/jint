@@ -27,6 +27,16 @@ target/runtime split and the manifest are there and none of it is repeated here.
   document's first inline script. `DocumentParsed` is the commit, with the runtime: it is the first moment
   there is a tree, so it is where anything that watches a document arms itself, and why the mutation bridge
   needs no field remembering an engine from before the parse.
+- **Frame commit is not engine creation.** Publish `lifecycleEvent(init)` and `frameNavigated` at
+  `DocumentParsed`, before fulfilling the host's commit signal. Publishing the frame before the parse
+  releases Playwright's click barrier while a parser-blocking script can still hide the success DOM.
+  Context replacement and new-document scripts still happen at `DocumentCreated`. Buffer navigation and
+  history notices raised during that parse until after its frame commit, or that commit consumes the next
+  navigation or masks its URL. Chromium can commit a streaming document earlier; Jint's commit is the
+  parsed-document boundary, not a promise to await unrelated later redirects or asynchronous scripts.
+  Input delivered during the parse must await publication of notices it creates before replying, without
+  blocking the loop. A failed parse discards its history notices, still publishes queued cross-document
+  requests, and fails waiting input replies; none may leak into the next document's commit.
 - **Every command runs on the page loop**, so it may touch the DOM directly — and one that waits
   (`Page.navigate`) waits by `await`ing, never by blocking: the loop it is on runs the commit it waits for.
 - **`DOM` and `Input` are where a client stops evaluating and starts driving.** A node reaches a client as a

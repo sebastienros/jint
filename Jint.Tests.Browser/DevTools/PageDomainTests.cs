@@ -22,7 +22,157 @@ namespace Jint.Tests.Browser.DevTools;
 public class PageDomainTests
 {
     [Test]
-    public async Task ANavigationEmitsChromesEventsInChromesOrder()
+    public async Task AFrameCommitsOnlyWhenItsParsedDocumentIsObservable()
+    {
+        using var release = new ManualResetEventSlim();
+        var requested = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var server = new LoopbackServer();
+        server.MapHtml("/next", "<!doctype html><head><script src='/gate.js'></script></head><body>Saved</body>");
+        server.Map("/gate.js", _ =>
+        {
+            requested.TrySetResult();
+            release.Wait(TimeSpan.FromSeconds(30));
+            return LoopbackResponse.Script("");
+        });
+
+        await using var session = await PageSession.CreateAsync(Options(server));
+        var attachment = await session.OpenPageAsync();
+        await session.EnablePageAsync(attachment);
+        var navigating = session.ResultAsync("Page.navigate", $$"""{"url":"{{server.Url("/next")}}"}""", attachment);
+        try
+        {
+            await requested.Task.WaitAsync(TimeSpan.FromSeconds(30));
+            session.EventsOf("Page.frameNavigated", attachment).Should().BeEmpty(
+                "creating an engine before a parser-blocking script is not a committed document");
+            session.EventsOf("Page.lifecycleEvent", attachment).Should().BeEmpty(
+                "init belongs to the document commit, not to its fetch");
+            navigating.IsCompleted.Should().BeFalse();
+        }
+        finally
+        {
+            release.Set();
+        }
+
+        var response = await navigating;
+        var committed = await session.EventAsync("Page.frameNavigated", sessionId: attachment);
+        committed.GetProperty("frame").GetProperty("loaderId").GetString().Should()
+            .Be(response.GetProperty("loaderId").GetString());
+        (await session.EvaluateAsync("document.body.textContent", attachment)).GetProperty("value").GetString()
+            .Should().Be("Saved");
+    }
+
+    [TestCase("location.href = '/next'", "Page.frameRequestedNavigation")]
+    [TestCase("history.pushState(null, '', '#saved')", "Page.navigatedWithinDocument")]
+    public async Task AParserScriptsNavigationIsPublishedAfterItsOwnDocumentCommit(string script, string expectedEvent)
+    {
+        using var server = new LoopbackServer();
+        server.MapHtml("/start", "<!doctype html><body><script>" + script + "</script>Start</body>");
+        server.MapHtml("/next", "<!doctype html><body>Next</body>");
+        await using var session = await PageSession.CreateAsync(Options(server));
+        var attachment = await session.OpenPageAsync();
+        await session.EnablePageAsync(attachment);
+
+        await session.ResultAsync("Page.navigate", $$"""{"url":"{{server.Url("/start")}}"}""", attachment);
+        var notice = await session.EventAsync(expectedEvent, sessionId: attachment);
+
+        session.Ordinal("Page.frameNavigated").Should().BeLessThan(session.Ordinal(expectedEvent),
+            "the parser's next navigation must not be satisfied or overwritten by its own document's commit");
+        var first = await session.EventAsync("Page.frameNavigated", sessionId: attachment);
+        first.GetProperty("frame").GetProperty("url").GetString().Should().Be(server.Url("/start"));
+        if (expectedEvent == "Page.frameRequestedNavigation")
+        {
+            var next = await session.EventAsync("Page.frameNavigated", index: 1, sessionId: attachment);
+            next.GetProperty("frame").GetProperty("url").GetString().Should().Be(server.Url("/next"));
+            next.GetProperty("frame").GetProperty("loaderId").GetString().Should()
+                .NotBe(first.GetProperty("frame").GetProperty("loaderId").GetString());
+            session.Ordinal(expectedEvent).Should().BeLessThan(session.Ordinal("Page.frameNavigated", index: 1));
+        }
+        else
+        {
+            notice.GetProperty("url").GetString().Should().Be(server.Url("/start#saved"));
+            (await session.EvaluateAsync("location.href", attachment)).GetProperty("value").GetString()
+                .Should().Be(notice.GetProperty("url").GetString());
+        }
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task AFailedParseDoesNotPublishItsHistoryOverTheNextDocument(bool scriptNavigates)
+    {
+        using var server = new LoopbackServer();
+        server.MapHtml("/bad", "<!doctype html><script>history.pushState(null, '', '#stale');"
+            + (scriptNavigates ? "location.href = '/good';" : "") + "</script>"
+            + string.Concat(Enumerable.Repeat("<p>too many</p>", 100)));
+        server.MapHtml("/good", "<!doctype html><body>Good</body>");
+        await using var session = await PageSession.CreateAsync(Options(server), new BrowserOptions { MaxDomNodes = 40 });
+        var attachment = await session.OpenPageAsync();
+        await session.EnablePageAsync(attachment);
+
+        var failed = await session.ResultAsync("Page.navigate", $$"""{"url":"{{server.Url("/bad")}}"}""", attachment);
+        failed.GetProperty("errorText").GetString().Should().NotBeNullOrEmpty();
+        if (!scriptNavigates)
+        {
+            await session.ResultAsync("Page.navigate", $$"""{"url":"{{server.Url("/good")}}"}""", attachment);
+        }
+
+        session.EventsOf("Page.navigatedWithinDocument", attachment).Should().BeEmpty();
+        var committed = await session.EventAsync("Page.frameNavigated", sessionId: attachment);
+        committed.GetProperty("frame").GetProperty("url").GetString().Should().Be(server.Url("/good"));
+        session.EventsOf("Page.frameRequestedNavigation", attachment).Should().HaveCount(scriptNavigates ? 1 : 0);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task AnInputNavigationDuringTheParseIsPublishedBeforeTheInputReply(bool parseFails)
+    {
+        using var release = new ManualResetEventSlim();
+        var requested = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var server = new LoopbackServer();
+        server.MapHtml("/parsing", """
+            <!doctype html><body><form action="/next" onsubmit="window.submitted = true">
+              <input><button>Go</button></form><script src="/gate.js"></script></body>
+            """ + (parseFails ? string.Concat(Enumerable.Repeat("<p>too many</p>", 100)) : ""));
+        server.MapHtml("/next", "<!doctype html><body>Next</body>");
+        server.Map("/gate.js", _ =>
+        {
+            requested.TrySetResult();
+            release.Wait(TimeSpan.FromSeconds(30));
+            return LoopbackResponse.Script("");
+        });
+        await using var session = await PageSession.CreateAsync(Options(server), new BrowserOptions { MaxDomNodes = 40 });
+        var attachment = await session.OpenPageAsync();
+        await session.EnablePageAsync(attachment);
+        var navigating = session.ResultAsync("Page.navigate", $$"""{"url":"{{server.Url("/parsing")}}"}""", attachment);
+        Task<System.Text.Json.JsonElement> input;
+        try
+        {
+            await requested.Task.WaitAsync(TimeSpan.FromSeconds(30));
+            await session.EvaluateAsync("document.querySelector('input').focus()", attachment);
+            input = session.SendAsync("Input.dispatchKeyEvent",
+                """{"type":"keyDown","key":"Enter","code":"Enter"}""", attachment);
+            (await session.EvaluateAsync("window.submitted", attachment)).GetProperty("value").GetBoolean().Should().BeTrue();
+            input.IsCompleted.Should().BeFalse("the input reply must not overtake its buffered navigation signal");
+        }
+        finally
+        {
+            release.Set();
+        }
+
+        var navigation = await navigating;
+        navigation.TryGetProperty("errorText", out _).Should().Be(parseFails);
+        var reply = await input;
+        reply.TryGetProperty("error", out var error).Should().Be(parseFails,
+            "a failed parse must answer the input instead of leaving it waiting or reporting success");
+        if (parseFails)
+        {
+            error.GetProperty("code").GetInt32().Should().Be(-32000);
+            error.GetProperty("message").GetString().Should().Contain("failed to commit");
+        }
+        session.EventsOf("Page.frameRequestedNavigation", attachment).Should().ContainSingle();
+    }
+
+    [Test]
+    public async Task ANavigationEmitsTheLifecycleInOrderAtTheParsedDocumentCommit()
     {
         using var server = new LoopbackServer();
         server.MapHtml("/one", "<html><head><title>One</title></head><body><p>one</p></body></html>");
@@ -35,10 +185,10 @@ public class PageDomainTests
 
         await session.EventAsync("Page.frameStoppedLoading", sessionId: attachment);
 
-        // The order the recordings show, which is what a client's own bookkeeping is written against.
+        // Context creation precedes the parsed-document commit in this browser, unlike Chromium streaming.
         session.Ordinal("Page.frameStartedNavigating").Should().BeLessThan(session.Ordinal("Page.frameStartedLoading"));
         session.Ordinal("Page.frameStartedLoading").Should().BeLessThan(session.Ordinal("Page.frameNavigated"));
-        session.Ordinal("Page.frameNavigated").Should().BeLessThan(session.Ordinal("Runtime.executionContextsCleared"));
+        session.Ordinal("Runtime.executionContextsCleared").Should().BeLessThan(session.Ordinal("Page.frameNavigated"));
         session.Ordinal("Runtime.executionContextsCleared").Should().BeLessThan(session.Ordinal("Page.domContentEventFired"));
         session.Ordinal("Page.domContentEventFired").Should().BeLessThan(session.Ordinal("Page.loadEventFired"));
         session.Ordinal("Page.loadEventFired").Should().BeLessThan(session.Ordinal("Page.frameStoppedLoading"));
@@ -56,12 +206,12 @@ public class PageDomainTests
         names.Should().ContainInOrder("init", "commit", "DOMContentLoaded", "load");
 
         var loaderIds = lifecycle
-            .Where(p => p.GetProperty("name").GetString() != "init")
             .Select(p => p.GetProperty("loaderId").GetString())
             .Distinct()
             .ToArray();
 
         loaderIds.Should().HaveCount(1, "every signal of one document carries one loader identifier");
+        loaderIds[0].Should().Be(navigated.GetProperty("frame").GetProperty("loaderId").GetString());
     }
 
     [Test]
