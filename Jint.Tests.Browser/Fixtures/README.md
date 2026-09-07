@@ -48,7 +48,7 @@ React does not) would otherwise read a draft it had already cleared.
 | `todomvc-vue` | Vue 3 compiling the document's **own** markup: `v-model`, `v-for`, `:class`, `@keydown.enter`, mustaches | passes |
 | `vue-folder-tree` | A Vue tree mounted while hidden, revealed after fetch, with child rendering gated by `ResizeObserver` height; async folder insertion and shallow root replacement | passes |
 | `monaco-amd` | Orchard's tenant-relative Monaco AMD configuration, the editor bundle's CSS plugin dependency, and creation of an editor model | passes |
-| `swagger-ui` | Orchard's Swagger UI bundle over CDP: schema loading, expanding operations, try-out controls and executing a request | net8 CDP requires #3884 |
+| `swagger-ui` | Orchard's Swagger UI bundle over CDP: schema loading, expanding operations, try-out controls and executing a request | passes |
 | `todomvc-preact` | Preact hooks writing to the DOM directly, with no scheduler between them | passes |
 | `todomvc-svelte` | Svelte 5 compiled ahead of time: no framework runtime is loaded, only the component's own output | passes |
 | `ssr-hydration` | React `hydrateRoot` over server-rendered markup — the nodes are adopted, not replaced, and `onRecoverableError` stays empty | passes |
@@ -128,9 +128,10 @@ This deliberately omits Orchard feature enablement, login and the OIDC silent-au
 needed to reproduce the missing try-out controls: with the schema already rendered, incorrect synthetic
 scrolling and flex geometry sent the summary click to the wrong DOM node.
 
-The strict CDP case also exposed the independent macOS net8 page-thread stack defect tracked in #3884:
+The fixture also exposed the independent macOS net8 page-thread stack defect tracked in #3884:
 the same React commit traversal exhausts the default stack in the published, unmodified browser package.
-That is a prerequisite runtime fix, not a reason to bypass the summary selector or relax error assertions.
+The production page-thread fix landed separately in #3886. Neither the summary selector nor the error
+assertions are bypassed to accommodate that defect.
 
 ### The two files that were produced rather than downloaded
 
