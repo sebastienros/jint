@@ -104,8 +104,8 @@ internal static class DomManualInterfaces
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Two nodes need an answer here rather than from the CLR type, and the second is HTML's rule for a
-    /// custom element name.
+    /// Three node kinds need an answer here rather than from generated CLR metadata. XML documents have an
+    /// unannotated CLR interface; the other two are HTML's rules for a frameset and a custom element name.
     /// <a href="https://html.spec.whatwg.org/multipage/dom.html#htmlunknownelement">The element interface
     /// for a name in the HTML namespace</a> is <c>HTMLElement</c> when the name is a valid custom element
     /// name and <c>HTMLUnknownElement</c> otherwise — so an undefined <c>&lt;my-el&gt;</c> is an

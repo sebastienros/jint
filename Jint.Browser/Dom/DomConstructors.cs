@@ -62,7 +62,7 @@ internal static class DomConstructors
     {
         if (ReferenceEquals(definition, DomInterfaces.Document))
         {
-            instance = realm.WrapNode(NewXmlDocument(), DomInterfaces.Document);
+            instance = (ObjectInstance) realm.Wrap(NewXmlDocument(), DomInterfaces.Document);
             return true;
         }
 
