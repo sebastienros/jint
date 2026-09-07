@@ -69,6 +69,13 @@ upgrade, so a client that guessed is told rather than left holding a socket:
 - `/devtools/page/<targetId>` is a `TargetSession` on the root node itself — no `sessionId` on any message —
   carrying `Runtime` and no `Target` domain at all, because one engine has no target tree.
 
+**The browser is also an explicitly discoverable target.** The default Target filter excludes `browser`
+and `tab`, but a discovery filter admitting `browser` must announce the server's `BrowserId`, and an explicit
+`attachToTarget` for that identifier creates an engine-free browser conversation on a flattened child node.
+It registers the same browser and host domains as the root, owns its own discovery and attachments, and
+receives subsequent target notices. Detaching it removes its owned sessions without closing the connection
+or touching any target's engine. Never manufacture an engine to represent the browser (#3905).
+
 Three decisions worth not relitigating:
 
 - **Flattened sessions only.** `Target.attachToTarget` and `Target.setAutoAttach` refuse `flatten: false`

@@ -34,6 +34,29 @@ public class PuppeteerSharpPageTests
     private static readonly TimeSpan Bound = TimeSpan.FromSeconds(120);
 
     [Test]
+    public async Task PuppeteerBrowserSessionCoexistsWithPageAutomation()
+    {
+        await using var pages = new global::Jint.Browser.Browser();
+        await using var server = new DevToolsServer();
+        await server.AddBrowser(pages);
+        await server.StartAsync();
+        await using var browser = await Puppeteer.ConnectAsync(new ConnectOptions
+        {
+            BrowserWSEndpoint = server.BrowserWebSocketUrl,
+            DefaultViewport = null,
+        }).WaitAsync(Bound);
+
+        var session = await browser.CreateCDPSessionAsync().WaitAsync(Bound);
+        var version = await session.SendAsync("Browser.getVersion").WaitAsync(Bound);
+        version!.Value.GetProperty("product").GetString().Should().StartWith("Jint/");
+        await using var page = await browser.NewPageAsync().WaitAsync(Bound);
+        await session.DetachAsync().WaitAsync(Bound);
+        (await page.EvaluateExpressionAsync<int>("6 * 7").WaitAsync(Bound)).Should().Be(42);
+        await page.CloseAsync().WaitAsync(Bound);
+        browser.Disconnect();
+    }
+
+    [Test]
     public async Task PuppeteerOpensAPageNavigatesEvaluatesAndCloses()
     {
         using var origin = new LoopbackServer();
