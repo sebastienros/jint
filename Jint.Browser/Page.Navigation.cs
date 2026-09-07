@@ -831,25 +831,32 @@ public sealed partial class Page
         // where a protocol target replaces its engine, re-installs the bindings a client added and runs the
         // scripts it asked to be evaluated on every new document -- all of which have to be in place before
         // the first inline script of the document runs.
-        _observer?.DocumentCreated(runtime, loaderId);
-
-        // Before the parse, and the order is load-bearing rather than tidy. Every phase signal a caller of
-        // NavigateAsync may be awaiting is raised *inside* the parse, so signalling afterwards would let a
-        // navigation the caller has already finished awaiting satisfy a WaitForNavigationAsync armed on the
-        // line after it — the wait would answer for the wrong navigation and the page would still be showing
-        // the previous document. Waking here means every waiter is woken before any caller can arm one.
-        // What a woken waiter then posts queues behind this request, so it still observes the parsed document.
-        SignalNavigation();
-
-        var load = PageDocument.Load(runtime, html, url, phase =>
+        try
         {
-            onPhase?.Invoke(phase);
-            Reached(runtime, phase, loaderId);
-        });
+            _observer?.DocumentCreated(runtime, loaderId);
 
-        _load = load;
-        _mainFrame = Frame.Build(this, load.Document, url);
-        return null;
+            // Before the parse, and the order is load-bearing rather than tidy. Every phase signal a caller of
+            // NavigateAsync may be awaiting is raised *inside* the parse, so signalling afterwards would let a
+            // navigation the caller has already finished awaiting satisfy a WaitForNavigationAsync armed on the
+            // line after it — the wait would answer for the wrong navigation and the page would still be showing
+            // the previous document. Waking here means every waiter is woken before any caller can arm one.
+            // What a woken waiter then posts queues behind this request, so it still observes the parsed document.
+            SignalNavigation();
+
+            var load = PageDocument.Load(runtime, html, url, phase =>
+            {
+                Reached(runtime, phase, loaderId);
+                onPhase?.Invoke(phase);
+            });
+
+            _load = load;
+            _mainFrame = Frame.Build(this, load.Document, url);
+            return null;
+        }
+        finally
+        {
+            _observer?.DocumentLoadFinished();
+        }
     }
 
     /// <summary>Tells the watcher how far the load got, and arms the quiet period once it is loaded.</summary>

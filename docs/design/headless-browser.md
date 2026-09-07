@@ -216,11 +216,19 @@ accessibility layer's `ElementVisibility` calls not rendered (`hidden`, `display
 `visibility: hidden|collapse`); `aria-hidden` does not remove a box. An element with no box answers zeros in
 script and `-32000` over the protocol, because a client reads zeros as a real box at the origin.
 
+**Single-line horizontal flex rows refine that model.** Computed flex bases, growth and shrinkage partition
+the containing width; direct children share vertical space, with stretch/start/center/end cross-axis
+alignment. Their synthetic intrinsic sizes still come from rows, not fonts. DOM and protocol rectangles,
+offsets, hit testing and resize observations share those boxes. Wrapping, gaps, margins, min/max sizing, main-axis justification,
+ordering and positioned layout remain outside this model. The original ordinal fast path remains for
+documents without horizontal flex rows.
+
 **Scrolling is virtual and is the only state the model keeps.** A page holds a `scrollY` clamped to its
 document; `window.scrollTo`/`scrollBy`/`scroll`, `element.scrollIntoView`, `DOM.scrollIntoViewIfNeeded` and a
 wheel event set it, `window.scrollY`/`pageYOffset` and `document.scrollingElement.scrollTop` read it, and
-every client rectangle subtracts it. `scrollX` is always zero, because every box is exactly as wide as the
-viewport. That is what lets a client whose click path insists on "scroll it into view, then check the box is
+every client rectangle subtracts it. Alignment uses the whole bounding box, not just its first row;
+`nearest` does not move an oversized box spanning both viewport edges. `scrollX` remains zero: horizontal
+overflow has no scroll range. That is what lets a client whose click path insists on "scroll it into view, then check the box is
 inside the viewport" — Playwright's does — succeed on a document taller than its window.
 
 `dispatchMouseEvent` is the pointer/mouse event sequence with focus and click activation (`<a>` navigates,

@@ -65,6 +65,7 @@ internal sealed class InputDomain : InputDomainBase
     /// </remarks>
     protected override ValueTask<EmptyResult> DispatchMouseEventAsync(DispatchMouseEventRequest parameters, CommandContext context)
     {
+        var pending = _target.PendingNavigationCount;
         if (PageRuntime.Find(_target.Runtime.Engine) is { } runtime)
         {
             InputDispatcher.DispatchMouse(runtime, new MouseInput(
@@ -79,7 +80,7 @@ internal sealed class InputDomain : InputDomainBase
                 parameters.DeltaY ?? 0));
         }
 
-        return new ValueTask<EmptyResult>(EmptyResult.Instance);
+        return CompleteAsync(pending);
     }
 
     /// <summary>
@@ -96,6 +97,7 @@ internal sealed class InputDomain : InputDomainBase
     /// </remarks>
     protected override ValueTask<EmptyResult> DispatchKeyEventAsync(DispatchKeyEventRequest parameters, CommandContext context)
     {
+        var pending = _target.PendingNavigationCount;
         if (PageRuntime.Find(_target.Runtime.Engine) is { } runtime)
         {
             InputDispatcher.DispatchKey(
@@ -111,7 +113,7 @@ internal sealed class InputDomain : InputDomainBase
                 KeyKind(parameters.Type));
         }
 
-        return new ValueTask<EmptyResult>(EmptyResult.Instance);
+        return CompleteAsync(pending);
     }
 
     /// <summary>
@@ -120,12 +122,23 @@ internal sealed class InputDomain : InputDomainBase
     /// </summary>
     protected override ValueTask<EmptyResult> InsertTextAsync(InsertTextRequest parameters, CommandContext context)
     {
+        var pending = _target.PendingNavigationCount;
         if (PageRuntime.Find(_target.Runtime.Engine) is { } runtime)
         {
             InputDispatcher.InsertText(runtime, parameters.Text);
         }
 
-        return new ValueTask<EmptyResult>(EmptyResult.Instance);
+        return CompleteAsync(pending);
+    }
+
+    private async ValueTask<EmptyResult> CompleteAsync(int pending)
+    {
+        if (_target.NavigationPublicationAfter(pending) is { } published)
+        {
+            await published.ConfigureAwait(false);
+        }
+
+        return EmptyResult.Instance;
     }
 
     /// <summary>

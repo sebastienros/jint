@@ -10,23 +10,26 @@ namespace Jint.Browser.DevTools;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The order is Chrome's, taken from the recordings rather than from the specification.</b> For a
+/// <b>The lifecycle follows Chrome's recorded sequence, at this parser's commit boundary.</b> For a
 /// renderer-initiated cross-document navigation it is <c>frameRequestedNavigation</c>,
 /// <c>frameStartedNavigating</c>, <c>frameStartedLoading</c>,
-/// <c>lifecycleEvent(init)</c>, <c>frameNavigated</c>, then the engine swap the base target performs
+/// the engine swap the base target performs
 /// (<c>Runtime.executionContextsCleared</c> and <c>executionContextCreated</c>),
+/// <c>lifecycleEvent(init)</c>, <c>frameNavigated</c>,
 /// <c>lifecycleEvent(commit)</c>, <c>domContentEventFired</c> + <c>lifecycleEvent(DOMContentLoaded)</c>,
 /// <c>loadEventFired</c> + <c>lifecycleEvent(load)</c>, <c>frameStoppedLoading</c>, and — once the network
 /// has been quiet for half a second — <c>lifecycleEvent(networkAlmostIdle)</c> and
 /// <c>lifecycleEvent(networkIdle)</c>. <c>Jint.Tests.Browser</c> pins it.
 /// </para>
 /// <para>
-/// One divergence from the recording, and it comes from where the commit is announced: Chrome interleaves
-/// <c>frameNavigated</c> between <c>executionContextsCleared</c> and <c>executionContextCreated</c>, and here
-/// both the frame and the engine swap are one <see cref="Jint.Browser.Runtime.IPageObserver.DocumentCreated"/>
-/// call — the moment the next document's engine exists and nothing of it has been parsed — so
-/// <c>frameNavigated</c> is emitted just before the swap rather than inside it. Every other relative order is
-/// the recording's.
+/// The contexts precede <c>frameNavigated</c> here, whereas Chrome interleaves that event between context
+/// destruction and creation. The engine must exist before scripts run, but this parser's commit is
+/// <see cref="IPageObserver.DocumentParsed"/>: announcing a committed frame at engine creation would let
+/// clients finish a click before the response's DOM exists. <c>init</c> belongs to that commit too, not to
+/// the fetch that can still fail or overlap the outgoing document's lifecycle.
+/// Chrome can commit a streaming document before its parse finishes; this browser's host navigation
+/// contract instead commits the parsed document. Neither commit promises completion of unrelated later
+/// script navigations or of deferred and asynchronous work.
 /// </para>
 /// <para>
 /// <b>A lifecycle event goes out only while <c>setLifecycleEventsEnabled</c> is on</b>, which is the
@@ -91,10 +94,9 @@ internal sealed partial class PageDomain
         }));
 
         EmitDetached(ProtocolPageEvents.FrameStartedLoading(new FrameStartedLoadingEvent { FrameId = _target.FrameId }));
-        Lifecycle(Init, loaderId);
     }
 
-    /// <summary>The document has committed: its URL is settled and nothing of it has been parsed.</summary>
+    /// <summary>The document has committed and its parsed tree is observable.</summary>
     internal void FrameNavigated(string url, string loaderId)
     {
         if (!IsEnabled)
@@ -102,6 +104,7 @@ internal sealed partial class PageDomain
             return;
         }
 
+        Lifecycle(Init, loaderId);
         EmitDetached(ProtocolPageEvents.FrameNavigated(new FrameNavigatedEvent
         {
             Frame = Frame(url, loaderId),
