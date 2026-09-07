@@ -431,6 +431,57 @@ public class PlaywrightCourseTests
         await page.CloseAsync();
     }
 
+    /// <summary>Textual navigations commit and keep the original response, not the HTML text wrapper.</summary>
+    [TestCase("application/json", 200)]
+    [TestCase("Application/Json; charset=utf-8", 200)]
+    [TestCase("text/json", 200)]
+    [TestCase("application/vnd.api+json", 200)]
+    [TestCase("application/problem+json", 400)]
+    [TestCase("text/plain; charset=utf-8", 200)]
+    public async Task PlaywrightNavigatesToATextDocumentAndReadsTheOriginalResponse(string contentType, int status)
+    {
+        const string body = """{"openapi":"3.0.0","info":{"title":"Repro","version":"1.0"}}""";
+        await using var lane = await ClientLane.OpenAsync(server => server
+            .Map("/swagger.json", _ => new LoopbackResponse
+            {
+                Status = status,
+                Reason = status == 200 ? "OK" : "Bad Request",
+                Body = body,
+            }.With("Content-Type", contentType).With("X-Document", "original"))
+            .MapHtml("/after.html", "<!doctype html><title>After JSON</title>"));
+        var context = await lane.Client.NewContextAsync();
+        var page = await context.NewPageAsync();
+        var failed = new ConcurrentQueue<string>();
+        page.RequestFailed += (_, request) => failed.Enqueue(request.Url);
+        await page.AddInitScriptAsync(
+            """
+            window.lifecycle = [];
+            window.addEventListener('DOMContentLoaded', () => lifecycle.push('DOMContentLoaded'));
+            window.addEventListener('load', () => lifecycle.push('load'));
+            """);
+
+        var response = await page.GotoAsync(lane.Server.Url("/swagger.json"));
+
+        response.Should().NotBeNull();
+        response!.Status.Should().Be(status);
+        response.Ok.Should().Be(status == 200);
+        response.Url.Should().Be(lane.Server.Url("/swagger.json"));
+        response.Headers["content-type"].Should().Be(contentType);
+        response.Headers["x-document"].Should().Be("original");
+        response.Headers["content-length"].Should().Be(Encoding.UTF8.GetByteCount(body).ToString(System.Globalization.CultureInfo.InvariantCulture));
+        (await response.TextAsync()).Should().Be(body);
+        (await response.BodyAsync()).Should().Equal(Encoding.UTF8.GetBytes(body));
+        (await response.JsonAsync())!.Value.GetProperty("openapi").GetString().Should().Be("3.0.0");
+        (await page.EvaluateAsync<string>("() => document.body.textContent")).Should().Be(body);
+        (await page.EvaluateAsync<string>("() => document.readyState")).Should().Be("complete");
+        (await page.EvaluateAsync<string[]>("() => lifecycle")).Should().Equal("DOMContentLoaded", "load");
+        failed.Should().BeEmpty();
+
+        await page.GotoAsync(lane.Server.Url("/after.html"));
+        (await page.TitleAsync()).Should().Be("After JSON");
+        await context.CloseAsync();
+    }
+
     /// <summary>A route the client fulfils itself, and the cookies its context reads afterwards.</summary>
     [Test]
     public async Task PlaywrightFulfilsARouteAndReadsTheCookies()
