@@ -968,7 +968,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.getElementsByClassName", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.getElementsByClassName");
-                    return self.Realm.WrapCollection<global::AngleSharp.Dom.IElement>(self.Target.GetElementsByClassName(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.getElementsByClassName")));
+                    return self.Realm.Hooks.GetElementsByClassName(self.Realm, self.Target, args);
                 }),
                 length: 1)
             .Method("getElementsByName",
@@ -1522,7 +1522,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.getElementsByClassName", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.getElementsByClassName");
-                    return self.Realm.WrapCollection<global::AngleSharp.Dom.IElement>(self.Target.GetElementsByClassName(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Element.getElementsByClassName")));
+                    return self.Realm.Hooks.GetElementsByClassName(self.Realm, self.Target, args);
                 }),
                 length: 1)
             .Method("getElementsByTagName",
