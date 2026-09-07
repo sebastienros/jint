@@ -22,6 +22,13 @@ is that thread: it drains a mailbox of requests, processes one engine task and i
 engine-owning operations, and a navigation replaces the engine from inside a mailbox request rather than from
 outside. Jint starts no thread of its own; this is what makes a page's timers fire at all.
 
+**The page thread explicitly requests an 8 MiB native stack through `Thread(ThreadStart, int)`.**
+The platform default can be only about 512 KiB on macOS, where a finite framework traversal exhausts it
+before its JavaScript work is finished (#3884). The runtime/OS governs the actual reservation, rounding and
+commitment; the request is not 8 MiB of managed allocation per page. `StackOverflowGuard` and configured
+recursion limits stay in force. All public and protocol page creation, including the test fixtures, uses
+this same `PageLoop` constructor; never compensate with a larger stack only in a test host.
+
 Five rules follow, and each of them is a way to break the package silently:
 
 - **Every public `Page` member is a mailbox request, and the request is what holds the engine.** A new member
