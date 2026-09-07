@@ -23,7 +23,7 @@ public static class ModuleFactory
     /// <see cref="ModuleRecord.Location"/> and therefore the <c>referencingModuleLocation</c> echoed back into
     /// <see cref="ModuleLoader.Resolve"/> for the module's own imports, so a mismatch breaks relative-import
     /// resolution with no error to point at. Pass this as the <c>source</c> argument of
-    /// <see cref="Engine.PrepareModule"/> and a shared prepared AST carries the same identity the
+    /// <see cref="Engine.PrepareModule(string, string, ModulePreparationOptions)"/> and a shared prepared AST carries the same identity the
     /// string-loading overloads of this factory would have produced.
     /// </para>
     /// <para>
