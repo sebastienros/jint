@@ -1,0 +1,18 @@
+{
+  "rounds": 6,
+  "adapters": [
+    {
+      "name": "jint",
+      "kind": "jint",
+      "executable": "/absolute/path/to/dotnet",
+      "arguments": ["/absolute/path/to/artifacts/bin/Jint.Browser.Tool/release_net10.0/Jint.Browser.Tool.dll"],
+      "versionLabel": "main at FULL_COMMIT_SHA; framework-dependent Release"
+    },
+    {
+      "name": "chromium",
+      "kind": "chromium",
+      "executable": "/absolute/path/to/chromium",
+      "versionLabel": "installed Chromium build"
+    }
+  ]
+}
