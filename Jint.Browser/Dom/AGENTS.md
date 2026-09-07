@@ -120,13 +120,16 @@ Divergences from a browser that are **ours** and deliberate:
   [WebIDL](https://webidl.spec.whatwg.org/#js-iterable), so `NodeList.prototype[Symbol.iterator] ===
   Array.prototype[Symbol.iterator]`. `DomIterator.ArrayValues` is the factory the emitter names, and it reads
   `DomRealm.PrincipalRealm` for the reason everything else here does.
-- **The ARIA mixin's element-reflection half is not projected.** `role` and the forty-three `aria-*`
-  IDL attributes are, through `AriaReflection` and the `additions` extend form, and each is a view of
-  its content attribute rather than stored state — which is what makes the two directions agree by
-  construction and what makes `[CEReactions]` come free. `ariaActiveDescendantElement`,
-  `ariaControlsElements` and their five siblings reflect an element or a frozen array of elements and
-  carry an explicitly-set value that survives the target leaving the tree; that is bookkeeping, not a
-  view, and it is [#3773](https://github.com/sebastienros/jint/issues/3773)'s remainder.
+- **A content attribute set to the empty string by hand keeps an ARIA element relationship** where a browser
+  drops it. The mixin's two halves are `AriaReflection` and `AriaElementReflection`, both declared onto the one
+  `Element` shape through the `additions` extend form. The string half is a view of its content attribute and
+  holds nothing, which is what makes the two directions agree by construction and `[CEReactions]` come free;
+  the element half has to hold an *explicitly set attr-element*, because a page may point at an element with no
+  `id` at all. HTML drops that reference in the content attribute's *attribute change steps*, and this reads
+  the attribute's value instead of an observer, so it drops it for every write path AngleSharp reports one for
+  and for the several it does not — a namespaced write, an `Attr` node's value, the parser. The value it
+  cannot tell apart is the empty string, which is what the IDL setter itself writes, so `el.setAttribute(
+  'aria-owns', '')` over an explicit reference keeps it. Both spellings answer no elements from the ids.
 - **`el.tabIndex` answers 0 when the attribute is absent**, where HTML's default is −1 for anything not
   inherently focusable. It was AngleSharp's answer and is this binding's now, because `reflected` took the
   member over to get HTML's integer parsing (`tabindex="5%"` is 5, not 0); what is still missing is a
