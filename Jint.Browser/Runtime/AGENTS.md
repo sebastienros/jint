@@ -236,6 +236,13 @@ fall out of the row rule and every one of them is load-bearing:
   `visibility: hidden`, whose `visibility: visible` descendant CSS lets escape. A model whose boxes are rows
   cannot give a descendant a row inside a parent that has none, and the nesting is what the hit test rests on.
 
+**Single-line horizontal flex rows partition their containing width.** `Layout/FlexRow` reads AngleSharp's
+computed display, direction, basis, growth, shrinkage and cross-axis alignment. The synthetic intrinsic
+size is still a row, not measured text; wrapping, gaps, margins, min/max sizes, main-axis justification, ordering and positioned
+layout remain unmodeled. A row shares vertical space instead of stacking full-width controls, so a trailing
+button no longer owns its parent's centre. DOM rectangles, hit testing, offsets and resize measurements
+use the same boxes. Documents without these rows keep the existing ordinal hit-test path.
+
 **It is recomputed per query and never cached across queries.** A cache needs an invalidation signal, and the only one
 available is an AngleSharp `MutationObserver` over the whole document — which would make every DOM mutation on
 every page pay for mutation records whether or not anything ever asks for a box. Within that synchronous
@@ -253,17 +260,17 @@ consumers use the parent's computed value rather than the native initial fallbac
 writes, `classList`, control state and media changes need no invalidation.
 
 **The scroll is virtual, and it is the only state.** `Layout/PageLayout` holds a `scrollY` clamped to the
-document, and every viewport-relative answer subtracts it; `scrollX` is zero and stays zero, because every box
-is exactly as wide as the viewport. `window.scrollTo`/`scrollBy`/`scroll`, `element.scrollIntoView`,
+document, and every viewport-relative answer subtracts it; `scrollX` stays zero because horizontal overflow
+has no scroll range in this model. `window.scrollTo`/`scrollBy`/`scroll`, `element.scrollIntoView`,
 `DOM.scrollIntoViewIfNeeded` and a wheel event all set it, and `window.scrollY`, `pageYOffset` and
 `document.scrollingElement.scrollTop` read it. That is what lets a client whose click path insists on "scroll
 it into view, then check the box is inside the viewport" — Playwright's does — succeed on a long page. A
 change queues one `scroll` at the document per turn, on the engine's own queue.
 
 **Only the scrolling element scrolls**: `scrollTop` on `document.scrollingElement` is the page's offset and
-writing it moves the page; on anything else it reads zero and a write is ignored. `scrollIntoView` aligns an
-element's **first row** and never its whole box, because a container's box spans its subtree and centring
-*that* would scroll past everything in it.
+writing it moves the page; on anything else it reads zero and a write is ignored. `scrollIntoView` aligns
+the **whole bounding box**, not only its first row: exposing only that row can leave every actionable
+descendant outside the viewport. `nearest` leaves a box spanning both viewport edges in place.
 
 **The DOM-side members are `overrides.json` `additions` entries**, with their bodies in `Layout/LayoutMembers`
 — `getBoundingClientRect`, `getClientRects`, the `client*`/`scroll*` metrics, `scrollIntoView`, `HTMLElement`'s

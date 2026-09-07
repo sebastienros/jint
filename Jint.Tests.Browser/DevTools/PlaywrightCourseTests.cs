@@ -45,7 +45,7 @@ namespace Jint.Tests.Browser.DevTools;
 /// </para>
 /// </remarks>
 [NonParallelizable]
-public class PlaywrightCourseTests
+public partial class PlaywrightCourseTests
 {
     /// <summary>The switch the <c>browser-clients</c> leg sets. Any non-empty value turns the suite on.</summary>
     internal const string Gate = "JINT_BROWSER_CLIENTS";
