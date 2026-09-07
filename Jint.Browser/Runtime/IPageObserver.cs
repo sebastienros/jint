@@ -79,6 +79,12 @@ internal interface IPageObserver
     {
     }
 
+    /// <summary>The document load left the parser, including when it failed before committing.</summary>
+    /// <remarks>Runs on the page loop, in the load's cleanup path; it does not imply success.</remarks>
+    void DocumentLoadFinished()
+    {
+    }
+
     /// <summary>The load reached one of its three points.</summary>
     /// <param name="phase">How far it got.</param>
     /// <param name="loaderId">The document that reached it.</param>
