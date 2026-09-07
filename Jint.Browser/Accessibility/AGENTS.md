@@ -11,7 +11,14 @@
 
 `Accessibility/` computes an accessibility tree over AngleSharp's DOM and `Extraction/` renders the same
 document as text or CommonMark. Both are pure C# over `IDocument`/`IElement`; neither touches an engine, and
-that is why they were built before the page runtime existed. The consumers are the CDP `Accessibility` domain,
+that is why they were built before the page runtime existed. **Two helpers under `Dom/` are read from here and
+neither breaks that**, because both take an `IElement` and nothing else: `Dom/Views/CssCascade`, and
+`Dom/AriaElementReferences`, which is the *engine-free half* of ARIA's element reflection — a relationship a
+page made with `el.ariaLabelledByElements` writes the empty string to the content attribute and holds the
+elements by reference, so an accessible name computed from the attribute alone would miss exactly the case a
+page went out of its way to express. What that file must never grow is a realm: `DomRealm.Of(engine)` creates
+one if there is none, so asking the binding proper would let a name computation **construct a realm**, and
+`Jint.Tests.Browser/Accessibility/PageFixture` has no engine on purpose. The consumers are the CDP `Accessibility` domain,
 the custom `Jint.getMarkdown`/`getText`/`getAccessibilitySnapshot` domain, and the MCP server's `snapshot`.
 
 **Three things a browser answers from its layout tree are answered from somewhere else, and every one is a
