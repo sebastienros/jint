@@ -66,10 +66,9 @@ internal sealed partial class PageDomain : PageDomainBase, IDetachableDomain
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Chrome answers there too, which is why every client that wants the load waits for a lifecycle event
-    /// afterwards rather than for this reply. Waiting here for the parse would make <c>Page.navigate</c> and
-    /// <c>Page.lifecycleEvent</c> say the same thing and leave a client with no way to ask for the earlier
-    /// one.
+    /// A client that wants the load waits for its lifecycle event rather than just this reply. Unlike
+    /// Chromium's streaming commit, this browser's commit follows the parse; deferred and asynchronous
+    /// work still belongs to the later lifecycle phases. Frame publication precedes this reply.
     /// </para>
     /// <para>
     /// <b>A status is not a failure.</b> A <c>404</c> navigates and its body is the document, so it answers a
