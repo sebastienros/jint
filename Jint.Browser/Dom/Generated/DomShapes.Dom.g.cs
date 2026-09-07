@@ -354,6 +354,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("CharacterData.after", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ICharacterData>(thisObj, "CharacterData.after");
+                    if (self.Target.Parent is null) { return global::Jint.Native.JsValue.Undefined; }
                     self.Target.After(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, "CharacterData.after")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
@@ -368,6 +369,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("CharacterData.before", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ICharacterData>(thisObj, "CharacterData.before");
+                    if (self.Target.Parent is null) { return global::Jint.Native.JsValue.Undefined; }
                     self.Target.Before(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, "CharacterData.before")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
@@ -1302,6 +1304,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("DocumentType.after", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocumentType>(thisObj, "DocumentType.after");
+                    if (self.Target.Parent is null) { return global::Jint.Native.JsValue.Undefined; }
                     self.Target.After(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, "DocumentType.after")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
@@ -1309,6 +1312,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("DocumentType.before", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocumentType>(thisObj, "DocumentType.before");
+                    if (self.Target.Parent is null) { return global::Jint.Native.JsValue.Undefined; }
                     self.Target.Before(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, "DocumentType.before")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
@@ -1356,6 +1360,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.after", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.after");
+                    if (self.Target.Parent is null) { return global::Jint.Native.JsValue.Undefined; }
                     self.Target.After(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, "Element.after")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
@@ -1389,6 +1394,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.before", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.before");
+                    if (self.Target.Parent is null) { return global::Jint.Native.JsValue.Undefined; }
                     self.Target.Before(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, "Element.before")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
