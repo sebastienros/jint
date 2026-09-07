@@ -970,14 +970,14 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.getElementsByTagName", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.getElementsByTagName");
-                    return self.Realm.WrapCollection<global::AngleSharp.Dom.IElement>(self.Target.GetElementsByTagName(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.getElementsByTagName")));
+                    return self.Realm.Hooks.GetElementsByTagName(self.Realm, self.Target, args);
                 }),
                 length: 1)
             .Method("getElementsByTagNameNS",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.getElementsByTagNameNS", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.getElementsByTagNameNS");
-                    return self.Realm.WrapCollection<global::AngleSharp.Dom.IElement>(self.Target.GetElementsByTagName(global::Jint.Browser.Dom.DomConvert.NullableText(args, 0), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Document.getElementsByTagNameNS")));
+                    return self.Realm.Hooks.GetElementsByTagNameNS(self.Realm, self.Target, args);
                 }),
                 length: 2)
             .Method("getSelection",
@@ -1517,14 +1517,14 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.getElementsByTagName", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.getElementsByTagName");
-                    return self.Realm.WrapCollection<global::AngleSharp.Dom.IElement>(self.Target.GetElementsByTagName(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Element.getElementsByTagName")));
+                    return self.Realm.Hooks.GetElementsByTagName(self.Realm, self.Target, args);
                 }),
                 length: 1)
             .Method("getElementsByTagNameNS",
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.getElementsByTagNameNS", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.getElementsByTagNameNS");
-                    return self.Realm.WrapCollection<global::AngleSharp.Dom.IElement>(self.Target.GetElementsByTagNameNS(global::Jint.Browser.Dom.DomConvert.NullableText(args, 0), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Element.getElementsByTagNameNS")));
+                    return self.Realm.Hooks.GetElementsByTagNameNS(self.Realm, self.Target, args);
                 }),
                 length: 2)
             .Method("hasAttribute",
