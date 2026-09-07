@@ -1326,6 +1326,38 @@
   ],
   "hooks": [
     {
+      "interface": "Document",
+      "member": "getElementsByTagName",
+      "half": "operation",
+      "hook": "GetElementsByTagName",
+      "returns": true,
+      "reason": "DOM 4.4 makes this a live HTMLCollection and applies ASCII case folding only to HTML-namespace elements in an HTML document. AngleSharp returns a snapshot and folds every namespace through one comparison."
+    },
+    {
+      "interface": "Document",
+      "member": "getElementsByTagNameNS",
+      "half": "operation",
+      "hook": "GetElementsByTagNameNS",
+      "returns": true,
+      "reason": "DOM 4.4 makes this a live HTMLCollection and defines independent namespace and local-name wildcards. AngleSharp returns a snapshot and does not implement the wildcard combinations."
+    },
+    {
+      "interface": "Element",
+      "member": "getElementsByTagName",
+      "half": "operation",
+      "hook": "GetElementsByTagName",
+      "returns": true,
+      "reason": "The Element spelling invokes the same live qualified-name collection algorithm as Document, with the element excluded because the filter covers descendants."
+    },
+    {
+      "interface": "Element",
+      "member": "getElementsByTagNameNS",
+      "half": "operation",
+      "hook": "GetElementsByTagNameNS",
+      "returns": true,
+      "reason": "The Element spelling invokes the same live namespace/local-name collection algorithm as Document."
+    },
+    {
       "interface": "HTMLElement",
       "member": "dataset",
       "half": "getter",
