@@ -64,10 +64,13 @@ internal static class CustomElementCreation
     /// </remarks>
     internal static JsValue CloneNode(DomRealm realm, INode node, JsValue[] arguments)
     {
+        // `new Document()` and an XML parse share AngleSharp's IXmlDocument runtime type, while WebIDL gives
+        // only the parse the XMLDocument brand. Carry the source wrapper's choice through DOM's clone steps.
+        var documentDefinition = node is IDocument ? realm.WrapNode(node).Definition : null;
         var clone = node.Clone(DomConvert.OptionalBool(arguments, 0, true));
         Dom.Files.FileTransferRealm.ResetCopiedInputs(clone);
         CustomElementRegistry.SubtreeCreated(realm, clone);
-        return realm.WrapNodeValue(clone);
+        return documentDefinition is null ? realm.WrapNodeValue(clone) : realm.WrapNode(clone, documentDefinition);
     }
 
     /// <summary>

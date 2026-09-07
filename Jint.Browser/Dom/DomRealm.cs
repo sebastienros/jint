@@ -231,6 +231,21 @@ internal sealed class DomRealm
     }
 
     /// <summary>
+    /// Projects a node under an explicitly chosen interface. This is the one exception to runtime type
+    /// selection: DOM's <c>new Document()</c> produces the same AngleSharp XML-document type as
+    /// <c>DOMParser</c>, while WebIDL requires the former to keep the plain <c>Document</c> brand.
+    /// </summary>
+    internal DomNodeObject WrapNode(INode node, DomInterfaceDefinition definition)
+    {
+        if (_wrappers.TryGetValue(node, out var cached))
+        {
+            return (DomNodeObject) cached;
+        }
+
+        return (DomNodeObject) Cache(node, new DomNodeObject(this, definition, node));
+    }
+
+    /// <summary>
     /// Projects an <c>IHtmlCollection&lt;T&gt;</c>, whose element type the calling generated member knows.
     /// </summary>
     internal JsValue WrapCollection<T>(IHtmlCollection<T>? collection) where T : class, IElement

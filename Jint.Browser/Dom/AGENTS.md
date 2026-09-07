@@ -56,11 +56,11 @@ version of AngleSharp nobody references.
 worked out, and the reason is in the report the regeneration prints. That split is deliberate: this file is
 for decisions, the report is for consequences.
 
-### The two interfaces the generator cannot see
+### The interfaces the generator cannot see
 
 `DomManualInterfaces` and `DomConstructors` are the whole of what the override table cannot express.
 
-- **`DomManualInterfaces.For` answers two questions, and the second is HTML's element interface rule**: a
+- **`DomManualInterfaces.For` answers three questions, including HTML's element interface rule**: a
   name in the HTML namespace that is a valid custom element name is an `HTMLElement`, and only a name that is
   not is an `HTMLUnknownElement`. AngleSharp builds the same `HtmlUnknownElement` for both.
 - **`HTMLFrameSetElement` is declared by name and selected by local name.** AngleSharp models `<frameset>`
@@ -69,6 +69,10 @@ for decisions, the report is for consequences.
   `<div>`. Its shape is empty: HTML gives the interface no members beyond `WindowEventHandlers`, which this
   package puts on `HTMLElement`. Its index continues `DomInterfaces`' own, which is what keeps `DomRealm`'s
   per-engine arrays a dense array.
+- **`XMLDocument` is declared here and selected by `IXmlDocument`.** AngleSharp exposes that CLR interface
+  but gives it no `[DomName]`, so the generator cannot emit the WebIDL interface. `new Document()` uses the
+  same concrete XML type and is the explicit exception: `DomConstructors` wraps it as `Document`, and the
+  clone hook carries either source brand to the clone.
 - **`Document` and `DocumentFragment` are the interface objects a script may call `new` on.** AngleSharp
   puts `[DomConstructor]` on no `[DomName]` interface at all, so the generator can never learn that an
   interface is constructible and `DomInterfaceObject` refuses every `new` — which is also what a browser

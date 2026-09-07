@@ -1,5 +1,6 @@
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
+using AngleSharp.Xml.Dom;
 using Jint.Native;
 
 namespace Jint.Browser.Dom;
@@ -10,10 +11,11 @@ namespace Jint.Browser.Dom;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>There are two, and they are here for opposite reasons.</b> <c>HTMLFrameSetElement</c> is a node
+/// <b>There are three, and they answer three different gaps.</b> <c>HTMLFrameSetElement</c> is a node
 /// AngleSharp builds and cannot name, so it is chosen by <em>local name</em> where everything else is chosen
-/// by CLR type; <c>StaticRange</c> is not AngleSharp's at all, so it is chosen by a CLR type of this
-/// package's own that no node ever takes. The first is the harder one to see, and is this: AngleSharp models
+/// by CLR type; <c>XMLDocument</c> has a CLR interface but no <c>[DomName]</c>, so it is declared here and
+/// chosen by that interface; <c>StaticRange</c> is not AngleSharp's at all, so it is chosen by a CLR type of
+/// this package's own that no node ever takes. The first is the harder one to see, and is this: AngleSharp models
 /// <c>&lt;frameset&gt;</c> with the plain <c>IHtmlElement</c> — there is no <c>IHtmlFrameSetElement</c> and no
 /// <c>[DomName("HTMLFrameSetElement")]</c> anywhere in the pinned assemblies — so <c>DomTypeMap</c>, which
 /// keys on the CLR type, cannot tell a frameset from a <c>&lt;div&gt;</c>. The events bridge already makes the
@@ -53,6 +55,27 @@ internal static class DomManualInterfaces
     };
 
     /// <summary>
+    /// https://dom.spec.whatwg.org/#xmldocument. AngleSharp exposes <see cref="IXmlDocument"/> but gives it
+    /// no <c>[DomName]</c>, so the generated interface table cannot see the WebIDL interface. The explicit
+    /// wrapper selected by <c>new Document()</c> remains <c>Document</c>; every other XML document and its
+    /// clones take this interface.
+    /// </summary>
+    internal static readonly DomInterfaceDefinition XMLDocument = new(
+        "XMLDocument",
+        typeof(IXmlDocument),
+        static () => new JsObjectShape.Builder()
+            .PerRealmSlot("constructor", enumerable: false)
+            .ToStringTag("XMLDocument")
+            .Build(),
+        DomInterfaces.Document,
+        rootsAtEventTarget: true,
+        hasInterfaceObject: true,
+        DomWrapperKind.Node)
+    {
+        Index = DomInterfaces.All.Length + 1,
+    };
+
+    /// <summary>
     /// https://dom.spec.whatwg.org/#staticrange. AngleSharp has no <c>StaticRange</c> and no
     /// <c>AbstractRange</c> — the interface is four values a page hands over, so there is nothing for it to
     /// model — which is why this one is declared by CLR type where <c>HTMLFrameSetElement</c> is declared by
@@ -69,11 +92,11 @@ internal static class DomManualInterfaces
         DomWrapperKind.Object,
         constructorLength: DomStaticRange.ConstructorLength)
     {
-        Index = DomInterfaces.All.Length + 1,
+        Index = DomInterfaces.All.Length + 2,
     };
 
     /// <summary>Every manual interface, in index order.</summary>
-    internal static readonly DomInterfaceDefinition[] All = [HTMLFrameSetElement, StaticRange];
+    internal static readonly DomInterfaceDefinition[] All = [HTMLFrameSetElement, XMLDocument, StaticRange];
 
     /// <summary>
     /// The interface a node takes when its CLR type does not decide it, or <see langword="null"/> when
@@ -96,6 +119,11 @@ internal static class DomManualInterfaces
     /// </remarks>
     internal static DomInterfaceDefinition? For(INode node)
     {
+        if (node is IXmlDocument)
+        {
+            return XMLDocument;
+        }
+
         if (node is IHtmlElement { LocalName: "frameset" })
         {
             return HTMLFrameSetElement;
