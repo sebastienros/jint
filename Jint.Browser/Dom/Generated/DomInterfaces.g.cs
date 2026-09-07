@@ -1314,7 +1314,8 @@ internal static partial class DomInterfaces
             HTMLElement,
             rootsAtEventTarget: true,
             hasInterfaceObject: true,
-            DomWrapperKind.Node));
+            DomWrapperKind.IndexedNode,
+            collectionAccessor: DomAccessorHTMLFormElement.Instance));
 
         HTMLHRElement = Add(new DomInterfaceDefinition(
             "HTMLHRElement",
@@ -1611,7 +1612,8 @@ internal static partial class DomInterfaces
             HTMLElement,
             rootsAtEventTarget: true,
             hasInterfaceObject: true,
-            DomWrapperKind.Node));
+            DomWrapperKind.IndexedNode,
+            collectionAccessor: DomAccessorHTMLSelectElement.Instance));
 
         HTMLSlotElement = Add(new DomInterfaceDefinition(
             "HTMLSlotElement",
