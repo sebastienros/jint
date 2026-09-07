@@ -307,6 +307,49 @@ public class FlatLayoutTests
         (await page.EvaluateAsync<string>("window.log.join('|')")).Should().Be("scroll:true");
     }
 
+    [TestCase("start", 0)]
+    [TestCase("center", 32)]
+    [TestCase("end", 64)]
+    [TestCase("nearest", 64)]
+    public async Task ScrollingAlignsTheWholeContainerRatherThanOnlyItsFirstRow(string block, int top)
+    {
+        await using var browser = new global::Jint.Browser.Browser(
+            new BrowserOptions { Viewport = new Viewport(800, 128) });
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(Rows(20)
+            + "<div id='container'><button id='control'><span>A</span><span>B</span></button></div>"
+            + Rows(20));
+
+        await page.EvaluateAsync($"document.getElementById('container').scrollIntoView({{block:'{block}'}})");
+        (await page.EvaluateAsync<string>(
+            """
+            (() => {
+              const r = document.getElementById('container').getBoundingClientRect();
+              return r.top + ',' + r.bottom;
+            })()
+            """)).Should().Be($"{top},{top + 64}");
+        (await page.EvaluateAsync<string>(
+            $"document.elementFromPoint(400, {top + 32}).closest('button').id")).Should().Be("control");
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task NearestDoesNotMoveAnOversizedContainerSpanningBothViewportEdges()
+    {
+        await using var browser = new global::Jint.Browser.Browser(
+            new BrowserOptions { Viewport = new Viewport(800, 64) });
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(Rows(10) + "<div id='container'>" + Rows(10) + "</div>" + Rows(10));
+        await page.EvaluateAsync(
+            """
+            window.scrollTo(0, document.getElementById('container').getBoundingClientRect().top + 32);
+            window.before = window.scrollY;
+            document.getElementById('container').scrollIntoView({block:'nearest'});
+            """);
+        (await page.EvaluateAsync<bool>("window.scrollY === window.before")).Should().BeTrue();
+        page.Errors.Should().BeEmpty();
+    }
+
     [Test]
     public async Task OffsetMetricsAreMeasuredFromTheBodyAndDoNotMoveWithTheScroll()
     {

@@ -26,7 +26,7 @@ namespace Jint.Browser.Layout;
 /// <b>Only the scrolling element scrolls.</b> <c>scrollTop</c> on <c>document.scrollingElement</c> is the
 /// page's virtual scroll offset and writing it scrolls the page; on anything else it reads zero and a write
 /// is ignored, because no element here has content larger than its own box. <c>scrollLeft</c> is zero
-/// everywhere: every box is exactly as wide as the viewport.
+/// everywhere: horizontal overflow has no scroll range in the synthetic model.
 /// </para>
 /// </remarks>
 internal static class LayoutMembers
@@ -58,7 +58,7 @@ internal static class LayoutMembers
         => JsNumber.Create(IsScrollingElement(element) ? Viewport(realm).Height : Round(ClientBox(realm, element).Height));
 
     /// <summary>https://drafts.csswg.org/cssom-view/#dom-element-scrollwidth.</summary>
-    /// <remarks>Never wider than the viewport: nothing here lays out horizontally.</remarks>
+    /// <remarks>Horizontal overflow is not measured by the synthetic model.</remarks>
     internal static JsValue ScrollWidth(DomRealm realm, IElement element)
         => ClientWidth(realm, element);
 
@@ -90,7 +90,7 @@ internal static class LayoutMembers
     }
 
     /// <summary>https://drafts.csswg.org/cssom-view/#dom-element-scrollleft, which is always zero.</summary>
-    /// <remarks>Every box is exactly as wide as the viewport, so nothing ever overflows sideways.</remarks>
+    /// <remarks>The synthetic model has no horizontal scroll range.</remarks>
     internal static JsValue ScrollLeft(DomRealm realm, IElement element) => JsNumber.PositiveZero;
 
     /// <summary>The other half of <see cref="ScrollLeft"/>, which changes nothing.</summary>
@@ -123,8 +123,18 @@ internal static class LayoutMembers
     internal static JsValue OffsetHeight(DomRealm realm, IElement element)
         => JsNumber.Create(Round(ClientBox(realm, element).Height));
 
-    /// <summary>https://drafts.csswg.org/cssom-view/#dom-htmlelement-offsetleft, which is always zero.</summary>
-    internal static JsValue OffsetLeft(DomRealm realm, IElement element) => JsNumber.PositiveZero;
+    /// <summary>https://drafts.csswg.org/cssom-view/#dom-htmlelement-offsetleft.</summary>
+    internal static JsValue OffsetLeft(DomRealm realm, IElement element)
+    {
+        if (Layout(realm) is not { } layout || layout.DocumentBoxOf(element) is not { } box)
+        {
+            return JsNumber.PositiveZero;
+        }
+
+        var parent = OffsetParentOf(element);
+        var origin = parent is not null && layout.DocumentBoxOf(parent) is { } parentBox ? parentBox.X : 0;
+        return JsNumber.Create(Round(box.X - origin));
+    }
 
     /// <summary>
     /// https://drafts.csswg.org/cssom-view/#dom-htmlelement-offsettop — the distance from the top of the
