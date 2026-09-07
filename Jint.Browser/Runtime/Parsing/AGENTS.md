@@ -148,6 +148,15 @@ frame's own frames, comes back here. Four things follow and each is load-bearing
   document has `contentWindow === null` rather than absent: `'contentWindow' in frame` and
   `if (frame.contentWindow)` disagree about a member that is missing and one that is null.
 
+**A frame's window is an object on the page's realm, not a realm of its own.** `Runtime/FrameWindows` builds
+one object per frame whose `[[Prototype]]` is the page's global, so every interface object and intrinsic is
+inherited and only what a frame answers differently is an own property — itself for `window`/`self`/`frames`,
+the page for `parent`/`top`, its own `document`, `frameElement`, `length`, `name`, `origin` and `location`.
+`contentWindow !== window` and `frames[0] === contentWindow` hold; `contentWindow.DOMException ===
+DOMException` also holds, which is the divergence one realm buys and `Dom/divergences.md` records. A write to
+a frame's `location` throws rather than doing nothing, and the class says which corpus document taught it
+that a silent no-op is a hang.
+
 **`document.write` after the parse is refused.** During one it is AngleSharp's own call and it is right — its
 writable text source inserts at the parser's index and the script processor restores the index afterwards, so
 the written markup is the next thing the tokenizer reads. Afterwards HTML implies `document.open()`, which

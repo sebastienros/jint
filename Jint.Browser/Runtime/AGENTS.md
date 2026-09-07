@@ -154,15 +154,6 @@ tree order — and an `<iframe name=x>` gives that frame's window and not the el
 `Runtime/FrameWindows`. One divergence is stated on the class: a name several elements answer to gives the
 first rather than an `HTMLCollection`.
 
-**A frame's window is an object on the page's realm, not a realm of its own.** `Runtime/FrameWindows` builds
-one object per frame whose `[[Prototype]]` is the page's global, so every interface object and intrinsic is
-inherited and only what a frame answers differently is an own property — itself for `window`/`self`/`frames`,
-the page for `parent`/`top`, its own `document`, `frameElement`, `length`, `name`, `origin` and `location`.
-`contentWindow !== window` and `frames[0] === contentWindow` hold; `contentWindow.DOMException ===
-DOMException` also holds, which is the divergence one realm buys and `Dom/divergences.md` records. A write to
-a frame's `location` throws rather than doing nothing, and the class says which corpus document taught it
-that a silent no-op is a hang.
-
 **`window.event` is the one member that is an own property of the global** rather than an accessor on the
 shaped prototype, because WebIDL's `[Global]` puts an interface's members on the global object itself and
 `event` is the one a page can tell apart (`assert_own_property(window, "event")`). The slot it reads is the
