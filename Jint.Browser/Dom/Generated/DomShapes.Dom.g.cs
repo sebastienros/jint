@@ -354,7 +354,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("CharacterData.after", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ICharacterData>(thisObj, "CharacterData.after");
-                    self.Target.After(global::Jint.Browser.Dom.DomConvert.ObjectRest<global::AngleSharp.Dom.INode>(args, 0, "CharacterData.after")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.After(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, "CharacterData.after")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Method("appendData",
@@ -368,7 +368,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("CharacterData.before", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ICharacterData>(thisObj, "CharacterData.before");
-                    self.Target.Before(global::Jint.Browser.Dom.DomConvert.ObjectRest<global::AngleSharp.Dom.INode>(args, 0, "CharacterData.before")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.Before(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, "CharacterData.before")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Accessor("data",
@@ -432,7 +432,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("CharacterData.replaceWith", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ICharacterData>(thisObj, "CharacterData.replaceWith");
-                    self.Target.Replace(global::Jint.Browser.Dom.DomConvert.ObjectRest<global::AngleSharp.Dom.INode>(args, 0, "CharacterData.replaceWith")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.Replace(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, "CharacterData.replaceWith")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Method("substringData",
@@ -673,7 +673,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.append", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.append");
-                    self.Target.Append(global::Jint.Browser.Dom.DomConvert.ObjectRest<global::AngleSharp.Dom.INode>(args, 0, "Document.append")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.Append(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, "Document.append")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Accessor("body",
@@ -1092,7 +1092,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.prepend", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.prepend");
-                    self.Target.Prepend(global::Jint.Browser.Dom.DomConvert.ObjectRest<global::AngleSharp.Dom.INode>(args, 0, "Document.prepend")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.Prepend(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, "Document.prepend")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Method("queryCommandEnabled",
@@ -1236,7 +1236,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("DocumentFragment.append", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocumentFragment>(thisObj, "DocumentFragment.append");
-                    self.Target.Append(global::Jint.Browser.Dom.DomConvert.ObjectRest<global::AngleSharp.Dom.INode>(args, 0, "DocumentFragment.append")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.Append(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, "DocumentFragment.append")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Accessor("childElementCount",
@@ -1274,7 +1274,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("DocumentFragment.prepend", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocumentFragment>(thisObj, "DocumentFragment.prepend");
-                    self.Target.Prepend(global::Jint.Browser.Dom.DomConvert.ObjectRest<global::AngleSharp.Dom.INode>(args, 0, "DocumentFragment.prepend")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.Prepend(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, "DocumentFragment.prepend")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Method("querySelector",
@@ -1302,14 +1302,14 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("DocumentType.after", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocumentType>(thisObj, "DocumentType.after");
-                    self.Target.After(global::Jint.Browser.Dom.DomConvert.ObjectRest<global::AngleSharp.Dom.INode>(args, 0, "DocumentType.after")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.After(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, "DocumentType.after")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Method("before",
                 global::Jint.Browser.Dom.DomFailures.Guard("DocumentType.before", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocumentType>(thisObj, "DocumentType.before");
-                    self.Target.Before(global::Jint.Browser.Dom.DomConvert.ObjectRest<global::AngleSharp.Dom.INode>(args, 0, "DocumentType.before")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.Before(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, "DocumentType.before")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Accessor("name",
@@ -1335,7 +1335,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("DocumentType.replaceWith", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocumentType>(thisObj, "DocumentType.replaceWith");
-                    self.Target.Replace(global::Jint.Browser.Dom.DomConvert.ObjectRest<global::AngleSharp.Dom.INode>(args, 0, "DocumentType.replaceWith")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.Replace(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, "DocumentType.replaceWith")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Accessor("systemId",
@@ -1356,14 +1356,14 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.after", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.after");
-                    self.Target.After(global::Jint.Browser.Dom.DomConvert.ObjectRest<global::AngleSharp.Dom.INode>(args, 0, "Element.after")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.After(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, "Element.after")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Method("append",
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.append", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.append");
-                    self.Target.Append(global::Jint.Browser.Dom.DomConvert.ObjectRest<global::AngleSharp.Dom.INode>(args, 0, "Element.append")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.Append(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, "Element.append")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Accessor("assignedSlot",
@@ -1389,7 +1389,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.before", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.before");
-                    self.Target.Before(global::Jint.Browser.Dom.DomConvert.ObjectRest<global::AngleSharp.Dom.INode>(args, 0, "Element.before")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.Before(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, "Element.before")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Accessor("childElementCount",
@@ -1660,7 +1660,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.prepend", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.prepend");
-                    self.Target.Prepend(global::Jint.Browser.Dom.DomConvert.ObjectRest<global::AngleSharp.Dom.INode>(args, 0, "Element.prepend")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.Prepend(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, "Element.prepend")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Accessor("previousElementSibling",
@@ -1715,7 +1715,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.replaceWith", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.replaceWith");
-                    self.Target.Replace(global::Jint.Browser.Dom.DomConvert.ObjectRest<global::AngleSharp.Dom.INode>(args, 0, "Element.replaceWith")); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.Replace(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, "Element.replaceWith")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Accessor("scrollHeight",
