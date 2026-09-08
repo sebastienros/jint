@@ -36,7 +36,8 @@ So: AngleSharp is the parser, the DOM and the CSSOM; nothing here re-implements 
 what nobody else has — a binding layer built on Jint's own shape and layout machinery instead of a reflection
 trampoline, a page runtime that wires Jint's timers, fetch, storage and workers into a `Window` under Jint's
 execution constraints, and the automation protocol. The generated bindings and the tree-aware event dispatcher
-are designed so that AngleSharp.Js can adopt them, and the offer is made as soon as they work; every AngleSharp
+are intended for adoption by AngleSharp.Js; the [X6 review drafts](../integration/upstream-adoption.md)
+record the current extraction blockers and delivery status; every AngleSharp
 or AngleSharp.Js divergence the conformance lane finds is recorded (in the PR that found it and in
 `Jint.Browser/AGENTS.md`'s divergence table) and presented to the maintainer, who decides what is raised
 upstream — an agent never opens an issue on a neighbouring project on its own. In every document and README
@@ -102,10 +103,12 @@ protocol layer: reviewable diffs, an analyzer-free build, and swapping later is 
 
 Why generated on Jint shapes rather than AngleSharp.Js's reflection bindings: a shape-mode prototype per
 interface is what the inline caches and the prototype-method cache want, member bodies are static lambdas that
-call the AngleSharp interface member directly (interface dispatch, zero reflection), the output is AOT-safe, and
-it is the answer to the one actionable question Starling's "we will not embed Jint" poses — host-object cost.
-This is the piece offered upstream: AngleSharp.Js can adopt the generated bindings without adopting anything
-else here.
+call the AngleSharp interface member directly without reflection in that call. This is the intended host-object
+cost improvement; the isolated comparison in [#3898](https://github.com/sebastienros/jint/issues/3898) must
+measure it. Generated calls alone do not establish trimming or AOT compatibility for an adopting host.
+This is the proposed upstream contribution. The current runtime still uses internal realm and event APIs;
+[the adoption proposal](../integration/upstream-adoption.md#proposal-for-anglesharp-js) identifies the public
+seams and extraction experiment needed to use it independently of the browser runtime.
 
 **What was built also owns HTML §4.13**, which AngleSharp has nothing of: `Jint.Browser/CustomElements/` is
 the `CustomElementRegistry`, the element state (a side table keyed on the AngleSharp element), the
