@@ -32,10 +32,11 @@ public sealed class DomBindingsPinTests
     {
         var pinned = ReadPin();
 
-        // The assembly version drops the patch component for a prerelease suffix, so this compares the three
-        // numeric parts rather than the whole string.
-        Major(typeof(IElement).Assembly.GetName().Version!.ToString()).Should().Be(Major(pinned["AngleSharp"]));
-        Major(typeof(ICssStyleDeclaration).Assembly.GetName().Version!.ToString()).Should().Be(Major(pinned["AngleSharp.Css"]));
+        // An assembly version carries a fourth revision component a package version never states, and it
+        // carries no prerelease suffix at all — AngleSharp.Css 1.1.1-beta.308 is assembly 1.1.1.0 — so this
+        // compares the three numeric parts of the release portion rather than the whole string.
+        Release(typeof(IElement).Assembly.GetName().Version!.ToString()).Should().Be(Release(pinned["AngleSharp"]));
+        Release(typeof(ICssStyleDeclaration).Assembly.GetName().Version!.ToString()).Should().Be(Release(pinned["AngleSharp.Css"]));
     }
 
     private static SortedDictionary<string, string> ReadPin()
@@ -72,9 +73,10 @@ public sealed class DomBindingsPinTests
         return versions;
     }
 
-    private static string Major(string version)
+    /// <summary>Major.minor.patch, with any prerelease suffix and any revision component dropped.</summary>
+    private static string Release(string version)
     {
-        var parts = version.Split('.');
-        return string.Join('.', parts.Take(3));
+        var release = version.Split('-')[0];
+        return string.Join('.', release.Split('.').Take(3));
     }
 }
