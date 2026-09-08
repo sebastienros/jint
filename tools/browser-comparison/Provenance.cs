@@ -4,34 +4,60 @@ using System.Security.Cryptography;
 namespace BrowserComparison;
 
 internal sealed record BinaryIdentity(string? VersionLabel, string? Executable,
-    string[] Arguments, IReadOnlyDictionary<string, string> FileSha256)
+    string[] Arguments, IReadOnlyDictionary<string, string> FileSha256, string[] DependencyRoots, string DependencyCoverage)
 {
     internal static async Task<BinaryIdentity> ReadAsync(AdapterOptions options)
     {
-        var hashes = new Dictionary<string, string>(StringComparer.Ordinal);
-        var paths = new[] { options.Executable }.Concat(options.Arguments ?? []).Where(path => path is not null).Cast<string>().ToList();
-        // A framework-dependent Jint executable is identified by all neighboring managed dependencies,
-        // not just the dotnet host or entry assembly. Hash before starting any measured lifecycle.
-        if (options.Kind == "jint")
+        var roots = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var entry in new[] { options.Executable }.Concat(options.Arguments ?? []).OfType<string>())
         {
-            foreach (var entry in paths.ToArray())
-            {
-                if (File.Exists(entry))
-                {
-                    paths.AddRange(Directory.EnumerateFiles(Path.GetDirectoryName(Path.GetFullPath(entry))!, "*.dll"));
-                }
-            }
+            if (!File.Exists(entry)) continue;
+            var file = new FileInfo(Path.GetFullPath(entry));
+            var resolved = file.ResolveLinkTarget(true)?.FullName ?? file.FullName;
+            var directory = Path.GetDirectoryName(resolved)!;
+            // A Chromium macOS executable depends on sibling Frameworks, resources and helper apps.
+            var app = directory.IndexOf(".app" + Path.DirectorySeparatorChar, StringComparison.Ordinal);
+            roots.Add(app < 0 ? directory : directory[..(app + 4)]);
         }
-        foreach (var path in paths.Distinct(StringComparer.Ordinal))
+        foreach (var root in options.DependencyRoots ?? []) roots.Add(Path.GetFullPath(root));
+        // Native loaders and libraries can live outside a browser installation. Hash the complete
+        // system library trees, not just ldd's startup subset (dlopen and child helpers matter too).
+        if (OperatingSystem.IsLinux())
+            foreach (var root in new[] { "/lib", "/lib64", "/usr/lib", "/usr/lib64" })
+                if (Directory.Exists(root)) roots.Add(root);
+        var hashes = await HashRootsAsync(roots);
+        if (options.Executable is not null)
         {
-            if (path is not null && File.Exists(path))
-            {
-                await using var file = File.OpenRead(path);
-                hashes[Path.GetFullPath(path)] = Convert.ToHexString(await SHA256.HashDataAsync(file));
-            }
+            await using var executable = File.OpenRead(options.Executable);
+            hashes[options.Executable] = Convert.ToHexString(await SHA256.HashDataAsync(executable));
         }
-        return new BinaryIdentity(options.VersionLabel, options.Executable, options.Arguments ?? [], hashes);
+        return new BinaryIdentity(options.VersionLabel, options.Executable, options.Arguments ?? [], hashes,
+            roots.Order(StringComparer.Ordinal).ToArray(), OperatingSystem.IsLinux()
+                ? "installation-and-system-library-trees" : "installation-trees; OS shared runtime is diagnostic-only");
     }
+    internal static async Task<Dictionary<string, string>> HashRootsAsync(IEnumerable<string> roots)
+    {
+        var hashes = new Dictionary<string, string>(StringComparer.Ordinal);
+        var visited = new HashSet<string>(StringComparer.Ordinal);
+        var pending = new Stack<string>(roots);
+        while (pending.TryPop(out var path))
+        {
+            FileSystemInfo info = Directory.Exists(path) ? new DirectoryInfo(path) : new FileInfo(path);
+            var actual = info.ResolveLinkTarget(true)?.FullName ?? info.FullName;
+            if (!visited.Add(actual)) continue;
+            if (Directory.Exists(actual))
+            {
+                foreach (var child in Directory.EnumerateFileSystemEntries(actual)) pending.Push(child);
+            }
+            else
+            {
+                await using var file = File.OpenRead(actual); // A missing/unreadable dependency invalidates provenance.
+                hashes[actual] = Convert.ToHexString(await SHA256.HashDataAsync(file));
+            }
+        }
+        return hashes;
+    }
+
 }
 
 /// <summary>

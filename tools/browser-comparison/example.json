@@ -1,18 +1,31 @@
 {
   "rounds": 6,
+  "workload": "mutate-query",
+  "lane": "cold",
   "adapters": [
     {
       "name": "jint",
       "kind": "jint",
       "executable": "/absolute/path/to/dotnet",
       "arguments": ["/absolute/path/to/artifacts/bin/Jint.Browser.Tool/release_net10.0/Jint.Browser.Tool.dll"],
-      "versionLabel": "main at FULL_COMMIT_SHA; framework-dependent Release"
+      "versionLabel": "FULL_JINT_COMMIT_SHA; framework-dependent Release"
     },
     {
       "name": "chromium",
       "kind": "chromium",
       "executable": "/absolute/path/to/chromium",
-      "versionLabel": "installed Chromium build"
+      "versionLabel": "EXACT_INSTALLED_CHROMIUM_BUILD"
+    },
+    {
+      "name": "lightpanda",
+      "kind": "lightpanda",
+      "executable": "/absolute/path/to/lightpanda",
+      "versionLabel": "EXACT_LIGHTPANDA_VERSION_OUTPUT",
+      "releaseAsset": {
+        "id": 0,
+        "url": "https://api.github.com/repos/lightpanda-io/browser/releases/assets/REPLACE_WITH_ASSET_ID",
+        "sha256": "REPLACE_WITH_VERIFIED_RELEASE_ASSET_SHA256"
+      }
     }
   ]
 }

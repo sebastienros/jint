@@ -6,10 +6,12 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="BrowserComparison.Tests" />
     <PackageReference Include="PuppeteerSharp" />
+    <PackageReference Include="BenchmarkDotNet" />
+    <Compile Include="../../Jint.Benchmark/MachineStateValidator.cs" Link="MachineStateValidator.cs" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <Using Remove="Acornima" />
     <Using Remove="Acornima.Ast" />
-    <None Include="fixture.html" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

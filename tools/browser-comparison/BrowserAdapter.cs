@@ -1,93 +1,133 @@
 using System.Diagnostics;
+using System.Text.RegularExpressions;
 using PuppeteerSharp;
 
 namespace BrowserComparison;
 
-/// <summary>Owns fresh Jint/Chromium processes; only borrows an external Lightpanda connection.</summary>
-internal sealed class BrowserAdapter(AdapterOptions options) : IAsyncDisposable
+/// <summary>Owns each fresh browser process, or explicitly borrows a diagnostic-only endpoint.</summary>
+internal sealed class BrowserAdapter(AdapterOptions options, Func<string, CancellationToken, Task<IBrowser?>>? connect = null, TimeSpan? connectionTimeout = null) : IAsyncDisposable
 {
     internal IBrowser? Browser { get; private set; }
     internal Process? Process { get; private set; }
     internal int? ProcessId { get; private set; }
+    internal bool ForcedTermination { get; private set; }
+    internal string[] EffectiveArguments { get; private set; } = [];
     private bool _disposed;
+    private string? _profile;
+    private readonly List<Task> _drains = [];
 
-    internal async Task StartAsync()
+    internal async Task StartAsync(CancellationToken cancellationToken = default)
     {
-        if (options.Kind == "chromium")
+        var endpoint = options.Endpoint;
+        if (!options.Borrowed)
         {
-            Browser = await Puppeteer.LaunchAsync(new LaunchOptions
+            var arguments = new List<string>(options.Arguments ?? []);
+            if (options.Kind == "chromium")
             {
-                ExecutablePath = options.Executable,
-                Headless = true,
-                DefaultViewport = null,
-                Args = options.Arguments ?? [],
-                Timeout = 30000,
-            });
-            Process = Browser.Process;
+                _profile = Path.Combine(Path.GetTempPath(), "jint-comparison-" + Guid.NewGuid().ToString("N"));
+                Directory.CreateDirectory(_profile);
+                arguments.AddRange(["--headless=new", "--remote-debugging-port=0", "--user-data-dir=" + _profile,
+                    "--no-first-run", "--no-default-browser-check", "--disable-background-networking",
+                    "--disable-component-update", "--disable-sync", "about:blank"]);
+            }
+            else
+            {
+                arguments.AddRange(["serve", "--host", "127.0.0.1", "--port", "0"]);
+                if (options.Kind == "jint")
+                {
+                    // Jint uses --bind, not Lightpanda's --host; default is already loopback.
+                    arguments.RemoveRange(arguments.Count - 4, 2);
+                }
+            }
+            EffectiveArguments = arguments.ToArray();
+            var start = CreateStartInfo(options, arguments);
+            Process = System.Diagnostics.Process.Start(start) ?? throw new InvalidOperationException("Browser did not start.");
+            ProcessId = Process.Id;
+            var ready = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _drains.Add(DrainAsync(Process.StandardOutput, ready));
+            _drains.Add(DrainAsync(Process.StandardError, ready));
+            var exited = Process.WaitForExitAsync();
+            var winner = await Task.WhenAny(ready.Task, exited).WaitAsync(TimeSpan.FromSeconds(30), cancellationToken);
+            if (winner == exited)
+            {
+                throw new InvalidOperationException($"{options.Name} exited before endpoint readiness (exit {Process.ExitCode}).");
+            }
+            endpoint = await ready.Task;
         }
-        else
+        else if (options.ProcessId is { } id)
         {
-            var endpoint = options.Endpoint;
-            if (options.Kind == "jint")
-            {
-                var start = new ProcessStartInfo(options.Executable!)
-                {
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                };
-                foreach (var argument in options.Arguments ?? [])
-                {
-                    start.ArgumentList.Add(argument);
-                }
-                start.ArgumentList.Add("serve");
-                start.ArgumentList.Add("--port");
-                start.ArgumentList.Add("0");
-                Process = System.Diagnostics.Process.Start(start)
-                    ?? throw new InvalidOperationException("Jint did not start.");
-                using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-                while (await Process.StandardOutput.ReadLineAsync(timeout.Token) is { } line)
-                {
-                    if (line.Trim().StartsWith("browser: ", StringComparison.Ordinal))
-                    {
-                        endpoint = line.Trim()["browser: ".Length..];
-                        break;
-                    }
-                }
-                if (endpoint is null)
-                {
-                    throw new InvalidOperationException("Jint exited without announcing a browser endpoint.");
-                }
-                // Drain subsequent diagnostics so a full pipe cannot stall the browser.
-                _ = DrainAsync(Process.StandardOutput);
-            }
-            else if (options.ProcessId is { } id)
-            {
-                Process = System.Diagnostics.Process.GetProcessById(id);
-            }
-            Browser = await Puppeteer.ConnectAsync(new ConnectOptions
-            {
-                BrowserWSEndpoint = endpoint,
-                DefaultViewport = null,
-            }).WaitAsync(TimeSpan.FromSeconds(30));
+            Process = System.Diagnostics.Process.GetProcessById(id);
+            ProcessId = id;
         }
-        ProcessId = Process?.Id;
+        if (connect is not null)
+        {
+            Browser = await connect(endpoint!, cancellationToken).WaitAsync(connectionTimeout ?? TimeSpan.FromSeconds(30), cancellationToken);
+            return;
+        }
+        Browser = await Puppeteer.ConnectAsync(new ConnectOptions
+        {
+            BrowserWSEndpoint = endpoint,
+            DefaultViewport = null,
+        }).WaitAsync(TimeSpan.FromSeconds(30), cancellationToken);
     }
 
-    private static async Task DrainAsync(StreamReader output)
+    internal static ProcessStartInfo CreateStartInfo(AdapterOptions options, IEnumerable<string> arguments)
+    {
+        var start = new ProcessStartInfo(options.AccountingDirectory is null ? options.Executable! : "/bin/sh")
+        {
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
+        if (options.AccountingDirectory is { } scope)
+        {
+            // Positional arguments are data. The browser exec happens only after kernel scope entry.
+            start.ArgumentList.Add("-c");
+            start.ArgumentList.Add("printf '%s\\n' \"$$\" > \"$1/cgroup.procs\" || exit; shift; exec \"$@\"");
+            start.ArgumentList.Add("jint-accounted-browser");
+            start.ArgumentList.Add(scope);
+            start.ArgumentList.Add(options.Executable!);
+        }
+        foreach (var argument in arguments)
+        {
+            start.ArgumentList.Add(argument);
+        }
+        if (options.Kind == "lightpanda")
+        {
+            start.Environment["LIGHTPANDA_DISABLE_TELEMETRY"] = "true";
+        }
+        return start;
+    }
+
+    internal static string? ParseEndpoint(string line)
+    {
+        var match = Regex.Match(line, @"(?:browser: |DevTools listening on )(ws://[^\s]+)");
+        if (match.Success)
+        {
+            return match.Groups[1].Value;
+        }
+        // Official Lightpanda nightly: $msg="server running" address=127.0.0.1:PORT.
+        match = Regex.Match(line, @"address=127\.0\.0\.1:(\d+)");
+        return line.Contains("server running", StringComparison.Ordinal) && match.Success
+            ? "ws://127.0.0.1:" + match.Groups[1].Value : null;
+    }
+
+    private async Task DrainAsync(StreamReader output, TaskCompletionSource<string> ready)
     {
         try
         {
-            while (await output.ReadLineAsync() is not null)
+            while (await output.ReadLineAsync() is { } line)
             {
+                Console.Error.WriteLine($"[{options.Name}] {line}");
+                if (ParseEndpoint(line) is { } endpoint)
+                {
+                    ready.TrySetResult(endpoint);
+                }
             }
         }
-        catch (ObjectDisposedException)
+        catch (Exception exception) when (exception is ObjectDisposedException or IOException)
         {
-            // Process disposal closes the pipe after termination.
-        }
-        catch (IOException)
-        {
-            // The owned process may terminate while its output is draining.
+            // Disposing the owned process closes diagnostic pipes.
         }
     }
 
@@ -102,26 +142,52 @@ internal sealed class BrowserAdapter(AdapterOptions options) : IAsyncDisposable
         {
             if (Browser is not null)
             {
-                if (options.Kind == "chromium")
+                if (options.Borrowed)
                 {
-                    await Browser.CloseAsync().WaitAsync(TimeSpan.FromSeconds(10));
+                    Browser.Disconnect();
                 }
                 else
                 {
-                    Browser.Disconnect();
+                    try
+                    {
+                        await Browser.CloseAsync().WaitAsync(TimeSpan.FromSeconds(10));
+                    }
+                    catch (Exception exception) when (exception is PuppeteerException or TimeoutException or IOException)
+                    {
+                        ForcedTermination = true;
+                    }
                 }
             }
         }
         finally
         {
-            if (Process is not null)
+            if (!options.Borrowed)
             {
-                if (options.Kind != "lightpanda" && !Process.HasExited)
+                if (options.AccountingDirectory is { } scope)
                 {
+                    ForcedTermination |= File.ReadAllText(Path.Combine(scope, "cgroup.events")).Contains("populated 1", StringComparison.Ordinal);
+                    await File.WriteAllTextAsync(Path.Combine(scope, "cgroup.kill"), "1");
+                    using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                    while (File.ReadAllText(Path.Combine(scope, "cgroup.events")).Contains("populated 1", StringComparison.Ordinal))
+                    {
+                        await Task.Delay(20, timeout.Token);
+                    }
+                }
+                else if (Process is not null && !Process.HasExited)
+                {
+                    ForcedTermination = true;
                     Process.Kill(entireProcessTree: true);
+                }
+                if (Process is not null)
+                {
                     await Process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(10));
                 }
-                Process.Dispose();
+            }
+            Process?.Dispose();
+            await Task.WhenAll(_drains).WaitAsync(TimeSpan.FromSeconds(10));
+            if (_profile is not null)
+            {
+                Directory.Delete(_profile, recursive: true);
             }
         }
     }
