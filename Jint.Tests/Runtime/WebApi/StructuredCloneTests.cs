@@ -1,6 +1,8 @@
 #if NET8_0_OR_GREATER
 #nullable enable
 
+using Jint.Runtime;
+
 namespace Jint.Tests.Runtime.WebApi;
 
 /// <summary>
@@ -305,7 +307,7 @@ public class StructuredCloneTests
         var engine = WebEngine();
         var descriptor = engine.Realm.GlobalObject.GetOwnProperty("structuredClone");
 
-        descriptor.Should().BeOfType<Jint.Runtime.Descriptors.Specialized.LazyPropertyDescriptor<Engine>>();
+        descriptor.Should().BeOfType<Jint.Runtime.Descriptors.Specialized.LazyPropertyDescriptor<Realm>>();
         descriptor._value.Should().BeNull();
 
         // A WebIDL operation on the global is writable, enumerable and configurable.

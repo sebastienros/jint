@@ -2,6 +2,7 @@
 #nullable enable
 
 using Jint.Native;
+using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
 
@@ -60,7 +61,7 @@ public class InterfaceObjectExposureTests
         engine.Evaluate("typeof " + name).AsString().Should().Be("function");
 
         var descriptor = engine.Realm.GlobalObject.GetOwnProperty(name);
-        descriptor.Should().BeOfType<LazyPropertyDescriptor<Engine>>();
+        descriptor.Should().BeOfType<LazyPropertyDescriptor<Realm>>();
         descriptor.Enumerable.Should().BeFalse();
         descriptor.Writable.Should().BeTrue();
         descriptor.Configurable.Should().BeTrue();
@@ -290,7 +291,7 @@ public class InterfaceObjectExposureTests
         engine.Advanced.RestoreGlobalSnapshot(snapshot);
 
         var descriptor = engine.Realm.GlobalObject.GetOwnProperty("ReadableStreamDefaultReader");
-        descriptor.Should().BeOfType<LazyPropertyDescriptor<Engine>>();
+        descriptor.Should().BeOfType<LazyPropertyDescriptor<Realm>>();
         descriptor._value.Should().BeNull();
 
         engine.Evaluate("new ReadableStream().getReader() instanceof ReadableStreamDefaultReader").AsBoolean().Should().BeTrue();
