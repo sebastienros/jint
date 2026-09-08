@@ -934,6 +934,19 @@ space so `clearInterval` cancels a timeout, an interval cleared from its own cal
 behaving as `0`, a negative delay clamping to `0`, and `2**32` wrapping to `0` through WebIDL's `long`
 conversion. Four of them are `setup({single_test: true})` files, which the shim did not previously implement.
 
+`negative-setinterval.any.js` has a separate pre-completion scheduling hazard: a host that does not pump
+for its one-second watchdog can report `Timer: reached unreachable code` before the twenty callbacks
+complete ([#3937](https://github.com/sebastienros/jint/issues/3937)). That is distinct from the late-error
+boundary described below. The harness now admits this exact file and shim by source hash to controlled
+**timer** time, advancing to the real queue's next due timer only after draining queued work and
+microtasks. Its reviewed path has no Date/performance reads, META dependencies, workers, Atomics deadlines
+or I/O, so no independent clock is compared or asynchronous producer skipped. `performance` shares the
+timer provider and must stay unused in this lane; Date and execution constraints retain separate clocks.
+A source change refuses admission until reviewed. All other files retain their existing clocks. Real
+execution/harness deadlines, pre-completion error reporting, the shipped TimerQueue and these vendored bytes remain unchanged; pump
+counts and timer/host elapsed time accompany a controlled run's outcome. Deterministic tests model host
+starvation and verify that an incorrectly delayed interval still loses to the unchanged watchdog.
+
 **The tenth file was a defect rather than a decline, and it is fixed.**
 `queue-microtask-exceptions.any.js` throws from a `queueMicrotask` callback and expects to observe it as an
 `error` event at the global scope. [HTML's `queueMicrotask`](https://html.spec.whatwg.org/multipage/timers-and-user-prompts.html#dom-queuemicrotask)

@@ -990,7 +990,8 @@ public class WptHarnessTests
     [Test]
     public void ACallbackThatThrowsAfterASingleTestFileIsDoneIsNotAHarnessError()
     {
-        // Upstream's completion boundary, and the reason the four `single_test` timer files are deterministic:
+        // Upstream's completion boundary protects a guard that fires after done(), not a pre-completion
+        // watchdog lost to host starvation (covered separately by WptTimerDeadlineTests):
         // `testharness.js`'s global error handler returns without recording anything once the file's one test
         // has a result (`tests.tests[0].phase >= HAS_RESULT`). Three of those four arm a guard timer —
         // `setTimeout(assert_unreached, 10)` in negative-settimeout.any.js — that a browser lets fire and

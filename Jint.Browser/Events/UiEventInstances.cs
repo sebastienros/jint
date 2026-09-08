@@ -252,10 +252,12 @@ internal class JsMouseEvent : JsUiEvent
 
         if (Target is Dom.DomNodeObject { Node: AngleSharp.Dom.IElement element } wrapper &&
             Runtime.PageRuntime.Find(wrapper.DomRealm.Engine) is { } runtime &&
-            runtime.Layout.Current().ClientBoxOf(element) is { } box)
+            runtime.Layout.Current().DocumentBoxOf(element) is { } box)
         {
-            _offsetX = ClientX - box.X;
-            _offsetY = ClientY - box.Y;
+            // The event occurred at the captured document position. A listener may have scrolled
+            // before this first read, so the current viewport-relative box would move the answer.
+            _offsetX = _pageX - box.X;
+            _offsetY = _pageY - box.Y;
         }
     }
 
