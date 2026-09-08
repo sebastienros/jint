@@ -91,6 +91,8 @@ internal static class WindowInstaller
         var realm = engine._mainRealm;
         var global = realm.GlobalObject;
 
+        FormDataConstruction.Install(runtime);
+
         // https://html.spec.whatwg.org/multipage/nav-history-apis.html#named-access-on-the-window-object —
         // WebIDL's named properties object sits between the interface prototype object and its parent, which
         // is what makes named access a *miss* path: `document`, `alert` and every other name the global owns

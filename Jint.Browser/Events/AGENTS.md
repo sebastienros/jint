@@ -90,6 +90,14 @@ distinguishes it from `form.requestSubmit()` and from a submit button. Constrain
 readonly control and a control inside a disabled fieldset — without it every `<button type=button>` in the
 form would be examined.
 
+**An image input is a fallback submit button here, not an available displayed image.** HTML allows explicit
+coordinate selection only when `src` identifies an available image the user agent displays. This browser
+does not fetch/render images, so pointer and synthetic activation retain the initial (0, 0); a flat hit-test
+box must not manufacture a selected image coordinate. `Runtime/FormSubmitter` still appends x then y, with a
+name prefix only when nonempty. Its inventory is submittable controls, not `form.elements`, which excludes
+image inputs: AngleSharp's tree traversal and form-owner properties supply tree order and external
+association. Nonzero image coordinates require a real image availability/presentation model first.
+
 ### The keyboard, and the editor under it
 
 The other half of the events bridge, and what a protocol client reaches it through: every one of these
@@ -117,4 +125,3 @@ something structural and wrong. The caret is the document's own `Selection`, so 
 `getSelection().focusOffset` is told where typing goes. AngleSharp's `IsContentEditable` cannot be used for
 any of it — it answers `false` for `<div contenteditable>` — and the divergence table in
 [`../Accessibility/AGENTS.md`](../Accessibility/AGENTS.md) records why.
-
