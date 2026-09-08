@@ -29,9 +29,10 @@ namespace Jint.WebApi;
 /// </para>
 /// <para>
 /// <b>That is not the same as rebuilding the object, and this file used to say it was.</b> A restore reverts
-/// the <i>descriptor</i>; the next read therefore runs the value factory a second time — but every factory
-/// here is <c>e =&gt; e.Realm.Intrinsics.Something</c>, and those intrinsics memoize per realm, so the second
-/// run hands back the object the previous cycle had, monkey-patches and all. It is exactly what
+/// the <i>descriptor</i>; the next read therefore runs the value factory a second time — but each descriptor
+/// captures its owning <c>Realm</c>, every factory here reads <c>r =&gt; r.Intrinsics.Something</c>, and those
+/// intrinsics memoize per realm, so the second run hands back the object the previous cycle had,
+/// monkey-patches and all. It is exactly what
 /// <c>globalThis.Math</c> and <c>globalThis.JSON</c> do, and for exactly the same reason: they are installed
 /// by the same emitted lazy descriptor over the same memo (see <c>GlobalObject.Properties.cs</c>). Reverting
 /// them would mean re-creating the realm, which is <c>new Engine</c> — and would not even isolate, since a
