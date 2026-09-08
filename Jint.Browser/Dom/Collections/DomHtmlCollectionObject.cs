@@ -31,6 +31,9 @@ internal sealed class DomHtmlCollectionObject<T> : DomCollectionBase where T : c
     public override uint Length => (uint) _collection.Length;
 
     /// <inheritdoc />
+    protected override bool IgnoreNamedPropertiesInSet => true;
+
+    /// <inheritdoc />
     public override bool TryGetIndex(uint index, out JsValue value)
     {
         if (index >= (uint) _collection.Length)

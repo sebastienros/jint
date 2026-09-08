@@ -1790,9 +1790,13 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
 
     [MethodImpl(MethodImplOptions.NoInlining)]
     private bool SetUnlikely(JsValue property, JsValue value, JsValue receiver)
-    {
-        var ownDesc = GetOwnProperty(property);
+        => OrdinarySetWithOwnDescriptor(property, value, receiver, GetOwnProperty(property));
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-ordinarysetwithowndescriptor
+    /// </summary>
+    internal bool OrdinarySetWithOwnDescriptor(JsValue property, JsValue value, JsValue receiver, PropertyDescriptor ownDesc)
+    {
         if (ownDesc == PropertyDescriptor.Undefined)
         {
             var parent = GetPrototypeOf();
