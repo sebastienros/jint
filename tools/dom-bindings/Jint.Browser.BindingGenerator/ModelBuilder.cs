@@ -596,7 +596,8 @@ internal sealed class ModelBuilder
 
         if (entry.Type == "url")
         {
-            factory = "ReflectedAttribute.Url(" + qualified + ", " + attribute + ")";
+            factory = "ReflectedAttribute.Url(" + qualified + ", " + attribute
+                + (entry.DocumentUrlWhenEmpty ? ", documentUrlWhenEmpty: true" : "") + ")";
             return true;
         }
 
@@ -612,6 +613,14 @@ internal sealed class ModelBuilder
         {
             factory = "ReflectedAttribute.Nonce(" + qualified + ", " + attribute + ")";
             return true;
+        }
+
+        if (entry.DocumentUrlWhenEmpty)
+        {
+            _model.Diagnostics.Add(
+                "overrides.json reflects " + model.DomName + "." + entry.Member + " (" + entry.Reason
+                + ") as '" + entry.Type + "' with documentUrlWhenEmpty, which HTML only puts on a URL attribute.");
+            return false;
         }
 
         if (entry.LegacyNullToEmptyString)

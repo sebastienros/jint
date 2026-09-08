@@ -268,6 +268,13 @@ internal sealed class Overrides
         public bool LegacyNullToEmptyString { get; init; }
 
         /// <summary>
+        /// HTML §4.10.18.6's exception on a URL attribute: a missing or empty content attribute answers the
+        /// element's node document's URL. Only <c>form.action</c> and <c>formAction</c> have it.
+        /// </summary>
+        [JsonPropertyName("documentUrlWhenEmpty")]
+        public bool DocumentUrlWhenEmpty { get; init; }
+
+        /// <summary>
         /// Which element the content attribute lives on, when it is not the one the IDL attribute was read
         /// from: <c>documentElement</c> or <c>body</c>. HTML has six such members and all six are on
         /// <c>Document</c>.

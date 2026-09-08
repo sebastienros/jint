@@ -1899,6 +1899,89 @@
       "reason": "HTML \u00a716.2: `htmlFor` reflects `for`, the one member of this group whose IDL name and content attribute name differ. AngleSharp has no member for it."
     },
     {
+      "interface": "HTMLInputElement",
+      "member": "formAction",
+      "attribute": "formaction",
+      "type": "url",
+      "documentUrlWhenEmpty": true,
+      "reason": "HTML \u00a74.10.18.6: `formAction` reflects the content attribute as a URL, EXCEPT that a missing or empty attribute answers the element's node document's URL instead. AngleSharp's FormAction is the raw attribute value, so `input.formAction` answered \"\" where every browser answers the page's address -- which is what a form posting to itself reads."
+    },
+    {
+      "interface": "HTMLInputElement",
+      "member": "formEnctype",
+      "attribute": "formenctype",
+      "type": "enum",
+      "keywords": ["application/x-www-form-urlencoded", "multipart/form-data", "text/plain"],
+      "invalid": "application/x-www-form-urlencoded",
+      "reason": "HTML \u00a74.10.18.6: an enumerated attribute whose invalid value default is the URL-encoded form and whose missing value default is the empty string -- the two differ, which is the whole reason the row carries both. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLInputElement",
+      "member": "formMethod",
+      "attribute": "formmethod",
+      "type": "enum",
+      "keywords": ["get", "post"],
+      "invalid": "get",
+      "reason": "HTML \u00a74.10.18.6: an enumerated attribute with an invalid value default of `get` and an empty missing value default. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLInputElement",
+      "member": "maxLength",
+      "attribute": "maxlength",
+      "type": "limited long",
+      "reason": "HTML \u00a74.10.5.3.1: `maxLength` is a long limited to only non-negative numbers, so its default is -1 and a negative IDL set is an IndexSizeError. AngleSharp types it as an Int32 with .NET's own parse and no refusal."
+    },
+    {
+      "interface": "HTMLInputElement",
+      "member": "minLength",
+      "attribute": "minlength",
+      "type": "limited long",
+      "reason": "HTML \u00a74.10.5.3.2: the same algorithm as maxLength. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLInputElement",
+      "member": "size",
+      "attribute": "size",
+      "type": "limited unsigned long",
+      "default": 20,
+      "reason": "HTML \u00a74.10.5.3.5: `size` is an unsigned long limited to only positive numbers, with a default of 20 -- so zero is an IndexSizeError on setting and anything unparseable or out of range reads back as 20. AngleSharp types it as an Int32 whose default is 0."
+    },
+    {
+      "interface": "HTMLInputElement",
+      "member": "src",
+      "attribute": "src",
+      "type": "url",
+      "reason": "HTML \u00a74.10.5.1.19 reflects `src` as a URL, so it answers the absolute URL the attribute resolves to. AngleSharp's Source is the raw attribute value, the same divergence script.src had."
+    },
+    {
+      "interface": "HTMLInputElement",
+      "member": "height",
+      "attribute": "height",
+      "type": "unsigned long",
+      "reason": "HTML \u00a74.10.5.1.20: the GETTER is the rendered height of the image and is not reflection, but the SETTER is -- \"on setting, they must reflect the respective content attributes of the same name\". This package renders no image, so the getter answers the content attribute either way; what the row fixes is the setter, which AngleSharp implements as an Int32 write, so `input.height = 4294967295` wrote \"-1\"."
+    },
+    {
+      "interface": "HTMLInputElement",
+      "member": "width",
+      "attribute": "width",
+      "type": "unsigned long",
+      "reason": "HTML \u00a74.10.5.1.20 again, and the same halves: the setter reflects and the getter is the rendered width, which there is none of here."
+    },
+    {
+      "interface": "HTMLInputElement",
+      "member": "align",
+      "attribute": "align",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLInputElement",
+      "member": "useMap",
+      "attribute": "usemap",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: an obsolete attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
       "interface": "HTMLModElement",
       "member": "cite",
       "attribute": "cite",
