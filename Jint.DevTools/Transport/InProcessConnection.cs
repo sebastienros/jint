@@ -49,6 +49,14 @@ internal sealed class InProcessConnection : IDevToolsConnection
         return default;
     }
 
+    /// <inheritdoc/>
+    /// <remarks>
+    /// There is no queue and no socket here, so a message has already left by the time
+    /// <see cref="SendAsync"/> returns and the tracked form is the same call.
+    /// </remarks>
+    public ValueTask SendTrackedAsync(string message, CancellationToken cancellationToken = default)
+        => SendAsync(message, cancellationToken);
+
     /// <summary>Delivers one message as if a client had sent it.</summary>
     internal ValueTask PostAsync(string message, CancellationToken cancellationToken = default)
     {

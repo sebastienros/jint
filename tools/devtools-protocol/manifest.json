@@ -154,10 +154,15 @@
   //
   // The Fetch response stage is here now, over FetchObserver.OnResponseAsync: a pattern asking for
   // requestStage "Response" pauses, and continueResponse, fulfillRequest and failRequest answer one.
-  // Fetch.getResponseBody, Fetch.takeResponseBodyAsStream and the whole IO domain are still absent, and for
-  // a different reason than they used to be: the pause has the response's *headers* while its body is still
-  // on the socket, so there are no bytes to hand a client without buffering them first, which is a budget
-  // decision rather than a hook. Network.getResponseBody is what answers a body here.
+  // Fetch.getResponseBody is here now, over the engine's FetchResponseInterceptionContext: a response-stage
+  // pause can be asked for the whole body, base64 always, and reading it is invisible to the page because
+  // what was read is replayed ahead of the unread remainder. It is the only thing that ever buffers a paused
+  // body - a pattern that pauses responses copies nothing until a client asks - and both the bytes and the
+  // encoded reply are charged to BrowserOptions.MaxCapturedResponseBytes, the same allowance Network's
+  // captured bodies spend. A body that does not fit is a -32000 error and not a resolved pause.
+  // Fetch.takeResponseBodyAsStream and the whole IO domain stay absent: a stream handle is a second
+  // lifetime to bound for a shape no recorded client sends, and the whole IO domain exists for
+  // Page.printToPDF and Tracing, neither of which this browser has.
   //
   // Fetch.authRequired and continueWithAuth are here now, over FetchObserver.OnAuthRequiredAsync: a 401
   // carrying a WWW-Authenticate pauses when the client asked for handleAuthRequests, and continueWithAuth
@@ -303,6 +308,7 @@
     "Fetch.enable",
     "Fetch.failRequest",
     "Fetch.fulfillRequest",
+    "Fetch.getResponseBody",
     "Input.dispatchKeyEvent",
     "Input.dispatchMouseEvent",
     "Input.imeSetComposition",
