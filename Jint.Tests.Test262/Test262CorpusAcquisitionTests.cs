@@ -100,16 +100,14 @@ public sealed class Test262CorpusAcquisitionTests
             (actualSha, stagingDirectory) => Stage(actualSha, stagingDirectory, "second", waitForRelease: true),
             _ => Task.CompletedTask,
             TinyCorpusDigest);
-        Test262Stream? firstStream = null;
-        Test262Stream? secondStream = null;
+        var firstTask = first.LoadAsync(sha, cacheDirectory);
+        var secondTask = second.LoadAsync(sha, cacheDirectory);
 
         try
         {
-            var firstTask = first.LoadAsync(sha, cacheDirectory);
-            var secondTask = second.LoadAsync(sha, cacheDirectory);
-            firstStream = await firstTask;
+            await firstTask;
             releaseSecondDownload.SetResult();
-            secondStream = await secondTask;
+            await secondTask;
 
             Assert.That(File.Exists(Path.Combine(cacheDirectory, $"test262-{sha}.zip")), Is.True);
             Assert.That(Directory.EnumerateDirectories(cacheDirectory), Is.Empty);
@@ -124,11 +122,6 @@ public sealed class Test262CorpusAcquisitionTests
                 Assert.That(offlineStream, Is.Not.Null);
             }
 
-            firstStream.Options.FileSystem.Dispose();
-            firstStream = null;
-            secondStream.Options.FileSystem.Dispose();
-            secondStream = null;
-
             var archive = Path.Combine(cacheDirectory, $"test262-{sha}.zip");
             using var zip = ZipFile.OpenRead(archive);
             Assert.That(zip.GetEntry("first"), Is.Not.Null);
@@ -136,9 +129,28 @@ public sealed class Test262CorpusAcquisitionTests
         }
         finally
         {
+            bothDownloadsReady.TrySetResult();
             releaseSecondDownload.TrySetResult();
-            firstStream?.Options.FileSystem.Dispose();
-            secondStream?.Options.FileSystem.Dispose();
+            try
+            {
+                await Task.WhenAll(firstTask, secondTask);
+            }
+            catch
+            {
+                // The test's awaits report acquisition failures. Cleanup must still join both tasks
+                // and close every successful reader before removing the shared cache.
+            }
+
+            if (firstTask.IsCompletedSuccessfully)
+            {
+                firstTask.Result.Options.FileSystem.Dispose();
+            }
+
+            if (secondTask.IsCompletedSuccessfully)
+            {
+                secondTask.Result.Options.FileSystem.Dispose();
+            }
+
             Directory.Delete(cacheDirectory, recursive: true);
         }
     }
