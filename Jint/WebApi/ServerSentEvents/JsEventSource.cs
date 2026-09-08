@@ -372,6 +372,7 @@ internal sealed class JsEventSource : JsEventTarget
 
         var entry = new TimerEntry(
             timers,
+            _realm,
             new ReconnectAlgorithm(this),
             [],
             ReconnectionTime,

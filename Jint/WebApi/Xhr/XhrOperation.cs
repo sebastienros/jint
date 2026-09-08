@@ -468,6 +468,7 @@ internal sealed class XhrOperation : IDisposable
         // It does occupy a slot while it waits.
         var entry = new TimerEntry(
             timers,
+            _realm,
             new TimeoutAlgorithm(this),
             [],
             delay,

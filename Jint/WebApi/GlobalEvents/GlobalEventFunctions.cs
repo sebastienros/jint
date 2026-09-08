@@ -85,10 +85,10 @@ internal sealed class GlobalEventFunctions
             JsBoolean.Create(EventTargetArguments.DispatchEvent(_engine, _realm, Target, arguments.At(0))));
 
     /// <summary>
-    /// The engine's synthetic global target, created on the first of these calls — so an engine that enabled
-    /// the feature and never registered a listener has still allocated nothing.
+    /// This realm's synthetic global target, created on the first of these calls — so an installed realm that
+    /// never registered a listener has still allocated no target.
     /// </summary>
-    private GlobalEventTarget Target => _engine._webApi!.GlobalEventTarget;
+    private GlobalEventTarget Target => _engine._webApi!.GlobalEventTargetFor(_realm);
 
     /// <summary>
     /// A WebIDL operation: <c>length</c> counts the required arguments only and is configurable but neither

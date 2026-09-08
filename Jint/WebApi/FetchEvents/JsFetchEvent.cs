@@ -209,7 +209,7 @@ internal sealed class JsFetchEvent : JsEvent
 
             if (announce)
             {
-                _engine._webApi?.ReportPromiseRejection(promise, PromiseRejectionOperation.Reject);
+                _engine._webApi?.ReportPromiseRejection(promise.Realm, promise, PromiseRejectionOperation.Reject);
             }
 
             return Undefined;

@@ -90,9 +90,9 @@ internal sealed partial class EventTargetPrototype : Prototype
     /// <c>addEventListener</c> working and the borrowed one refusing the very receiver a browser hands it.
     /// </para>
     /// <para>
-    /// The principal realm's global object and no other: the synthetic target belongs to that realm, and web
-    /// APIs are installed nowhere else, so a <c>ShadowRealm</c>'s global is not an <c>EventTarget</c> by any
-    /// route. Gated on the feature because the target exists to back globals the feature installs — an
+    /// An installed realm's global object and no other: each synthetic target belongs to that realm, so an
+    /// ordinary <c>ShadowRealm</c>'s global is not an <c>EventTarget</c> by any route. Gated on the feature
+    /// because the target exists to back globals the feature installs — an
     /// engine that enabled <see cref="WebApiFeatures.Events"/> alone has no <c>addEventListener</c> on its
     /// global and nothing that fires an event at it, so a listener list reached this way would be one nothing
     /// could ever invoke.
@@ -107,9 +107,9 @@ internal sealed partial class EventTargetPrototype : Prototype
 
         if (_engine._webApi is { } webApi
             && (_engine._webApiFeatures & WebApiFeatures.GlobalEvents) != WebApiFeatures.None
-            && ReferenceEquals(thisObject, _engine._mainRealm.GlobalObject))
+            && WebApiRegistration.TryGetInstalledRealm(_engine, thisObject, out var realm))
         {
-            return webApi.GlobalEventTarget;
+            return webApi.GlobalEventTargetFor(realm);
         }
 
         Throw.TypeError(_realm, "Illegal invocation: receiver is not an EventTarget");
