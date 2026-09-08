@@ -23,12 +23,14 @@ recorded by `tools/cdp-histogram/` into `tools/devtools-protocol/handshakes/`.
 Jint has had a debugger since 3.x (`Jint/Runtime/Debugger/`): breakpoints with conditions, step in/over/out,
 return-point stepping, a call stack with per-frame `this` and a scope chain whose `DebugScopeType` was written to
 mirror the protocol's `Debugger.Scope` types, expression evaluation in the paused context, and a `BeforeEvaluate`
-event per script. What it never had was a way for a tool to reach it. Two community attempts exist and both are
-dead: `Jither/Jint.DevToolsProtocol` (CDP `Debugger`/`Runtime`, built against a private branch, never worked,
-last push 2024-02) and `Jither/Jint.DebugAdapter` (Debug Adapter Protocol, "not ready for production use — at
-all", last push 2024-01). Their author's notes list the engine gaps that stopped them: no pause on exception, no
-way to enumerate breakpoint locations, a fresh `DebugInformation` per execution point. Those gaps are closed by
-the engine work in §5, inside Jint, where they belong.
+event per script. Two community projects informed the protocol design:
+[Jither/Jint.DevToolsProtocol](https://github.com/Jither/Jint.DevToolsProtocol)
+(CDP) and [Jither/Jint.DebugAdapter](https://github.com/Jither/Jint.DebugAdapter) (DAP). The original campaign
+identified exception pauses, breakpoint-location enumeration and per-step allocation as integration concerns.
+The engine work in §5 provides the first two capabilities; allocation claims require measurement against the
+actual integration. The [X6 integration note](../integration/upstream-adoption.md#integration-note-for-jither)
+maps today's public seams to examples and tests, without assuming those adapters work unchanged or that a
+note has been delivered.
 
 The protocol is CDP because every client that matters speaks it — Puppeteer, Playwright on Chromium,
 PuppeteerSharp, Playwright for .NET, chrome-remote-interface, chromedp, and the Chrome DevTools frontend itself.

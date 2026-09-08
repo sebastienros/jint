@@ -104,11 +104,13 @@ platform-specific Native AOT tool format. Installation requires the .NET 10 SDK,
   keeps the core engine's standing inventory visible, as in `Jint.AotExample`; the distribution workflow
   rejects diagnostics outside that core-engine inventory. This closed program's native run is not a
   general `IsAotCompatible` claim for the browser libraries.
-- **`browser-tool.yml` is reused by PR, build and release workflows.** Each of the six OS/architecture
+- **`browser-tool.yml` is reused by the build and release publishing workflows.** Each of the six OS/architecture
   legs packs a RID implementation and the selection manifest, installs from a source-mapped local feed,
   and runs `Tool/PublishedToolTests` against the installed executable. The tests cover extraction, scripts,
   CSS, XML, XPath, globalization, CDP and MCP. Set `JINT_BROWSER_TOOL` and `JINT_BROWSER_TOOL_VERSION` to
   reproduce; without them those process tests are skipped rather than passed.
+  Pull requests do not run this six-leg native distribution matrix; publishing workflows validate the
+  packages and executables before they are pushed.
   On Windows the SDK installs a **`.cmd` launcher**, not an `.exe` shim. The workflow checks that
   launcher's version and argument forwarding, then discovers the native `.exe` inside the installation
   for the process tests, so `cmd.exe` does not reparse their multiline JavaScript. The standalone download

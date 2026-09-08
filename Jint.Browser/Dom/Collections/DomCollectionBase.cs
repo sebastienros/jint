@@ -54,7 +54,7 @@ internal abstract class DomCollectionBase : ArrayLikeObject, IDomWrapper
     /// https://html.spec.whatwg.org/multipage/common-dom-interfaces.html#dom-htmlcollection-nameditem answers
     /// for a name the collection does not support.
     /// </summary>
-    internal Jint.Native.JsValue NamedItem(string name)
+    internal virtual Jint.Native.JsValue NamedItem(string name)
         => TryGetNamedValue(name, out var value) ? value : Jint.Native.JsValue.Null;
 
     public override string ToString() => "[object " + Definition.Name + "]";
