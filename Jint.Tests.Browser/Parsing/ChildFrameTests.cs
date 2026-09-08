@@ -295,8 +295,26 @@ public class ChildFrameTests
             "document.getElementById('f').contentWindow.location.pathname")).Should().Be("/child.html");
         (await loopback.Page.EvaluateAsync<string>(
             "document.getElementById('f').contentWindow.location.search")).Should().Be("?q=1");
+        (await loopback.Page.EvaluateAsync<string>(
+            "document.getElementById('f').contentWindow.location.hash")).Should().Be("#h");
         (await loopback.Page.EvaluateAsync<bool>(
             "document.getElementById('f').contentWindow.location.href !== location.href")).Should().BeTrue();
+
+        // Fetch strips a fragment before the HTTP request, but the nested document keeps it as its URL.
+        // HTML selects one indicated element from the document tree: duplicate IDs and the shadow tree do
+        // not make extra targets merely because each candidate has the same owner document and ID.
+        (await loopback.Page.EvaluateAsync<bool>(
+            "var d = document.getElementById('f').contentDocument; "
+            + "var target = d.createElement('p'); target.id = 'h'; d.body.appendChild(target); "
+            + "var duplicate = d.body.appendChild(target.cloneNode()); "
+            + "var host = d.body.appendChild(d.createElement('div')); "
+            + "var shadowTarget = host.attachShadow({ mode: 'open' }).appendChild(target.cloneNode()); "
+            + "target.matches(':target') && !duplicate.matches(':target') && !shadowTarget.matches(':target') "
+            + "&& d.querySelector(':target') === target "
+            + "&& d.querySelectorAll(':target').length === 1 "
+            + "&& !target.cloneNode().matches(':target') "
+            + "&& !d.createDocumentFragment().appendChild(target.cloneNode()).matches(':target')"))
+            .Should().BeTrue();
 
         // And a write throws rather than doing nothing. A silent no-op is what turned a wpt document that
         // navigates a frame into one that times out; a refusal a page can see fails it fast instead.
@@ -304,6 +322,22 @@ public class ChildFrameTests
             "(function () { try { document.getElementById('f').contentWindow.location.href = '/other'; return 'no throw'; } "
             + "catch (e) { return e.constructor.name; } })()"))
             .Should().Be("TypeError");
+    }
+
+    [TestCase("/child.html", "#requested")]
+    [TestCase("/child.html#redirected", "#redirected")]
+    [TestCase("/child.html#", "#")]
+    public async Task AFrameDocumentUsesTheRedirectChainsFinalFragment(string location, string expectedSuffix)
+    {
+        await using var loopback = await LoopbackPage.CreateAsync(server => server
+            .Map("/start", _ => LoopbackResponse.Redirect(302, location))
+            .MapHtml("/child.html", "<!doctype html><html><body>child</body></html>")
+            .MapHtml("/", "<!doctype html><html><body><iframe id=f src=\"/start#requested\"></iframe></body></html>"));
+
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+
+        (await loopback.Page.EvaluateAsync<string>("document.getElementById('f').contentWindow.location.href"))
+            .Should().EndWith(expectedSuffix);
     }
 
     [Test]

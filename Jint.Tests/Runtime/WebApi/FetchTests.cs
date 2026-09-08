@@ -461,6 +461,18 @@ public class FetchTests
             .AsString().Should().Be("https://example.org/b?q");
     }
 
+    [TestCase("https://example.org/b", "https://example.org/b#requested")]
+    [TestCase("https://example.org/b#redirected", "https://example.org/b#redirected")]
+    [TestCase("https://example.org/b#", "https://example.org/b#")]
+    public async Task ARedirectPreservesReplacesOrEmptiesTheCurrentFragment(string location, string expected)
+    {
+        using var handler = Redirecting(location);
+        using var client = new HttpClient(handler);
+        using var exchange = await SendForStreamAsync(client, url: "https://example.org/a#requested");
+
+        exchange.Url.Serialize().Should().Be(expected);
+    }
+
     [Test]
     public void RewritesPostToGetOnA303AndDropsTheBody()
     {
@@ -786,12 +798,16 @@ public class FetchTests
             => new(Response?.Invoke(response));
     }
 
-    private static Task<FetchExchange> SendForStreamAsync(HttpClient client, string redirect = "follow", FetchObserver? observer = null)
+    private static Task<FetchExchange> SendForStreamAsync(
+        HttpClient client,
+        string redirect = "follow",
+        FetchObserver? observer = null,
+        string url = "https://example.org/0")
     {
         var request = new FetchRequestSnapshot
         {
             Method = "GET",
-            Url = UrlParser.Parse("https://example.org/0")!,
+            Url = UrlParser.Parse(url)!,
             Headers = [],
             Body = null,
             Redirect = redirect,
