@@ -281,6 +281,96 @@ public class ScriptLoadingTests
     }
 
     [Test]
+    public async Task ADataUrlScriptIsFetchedFromItsOwnBytesAndRuns()
+    {
+        await using var loopback = await LoopbackPage.CreateAsync(server => server
+            .MapHtml("/", """
+                <!doctype html><html><head>
+                <script>window.log = [];</script>
+                <script src="data:text/javascript,window.log.push('percent%20decoded')"></script>
+                <script src="data:text/javascript;base64,d2luZG93LmxvZy5wdXNoKCdiYXNlNjQnKQ=="></script>
+                </head><body>done</body></html>
+                """));
+
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+
+        // https://fetch.spec.whatwg.org/#data-urls step 10 percent-decodes the body and step 11 base64-decodes
+        // it, so both of these are source text a page runs without a socket ever being opened.
+        (await loopback.Page.EvaluateAsync<string>("window.log.join(',')")).Should().Be("percent decoded,base64");
+        loopback.Page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task ADataUrlScriptsExceptionIsReportedAgainstTheDataUrl()
+    {
+        await using var loopback = await LoopbackPage.CreateAsync(server => server
+            .MapHtml("/", """
+                <!doctype html><html><head>
+                <script>
+                  window.reported = null;
+                  window.onerror = function (message, url) { window.reported = url; return true; };
+                </script>
+                <script src="data:text/javascript,undefined_variable;"></script>
+                </head><body>done</body></html>
+                """));
+
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+
+        // https://html.spec.whatwg.org/multipage/webappapis.html#report-an-exception: the filename is the
+        // script's own URL, which for a data: URL is the whole of it.
+        (await loopback.Page.EvaluateAsync("window.reported")).Should().Be("data:text/javascript,undefined_variable;");
+    }
+
+    [Test]
+    public async Task ADataUrlWithNoMimeTypeAtAllStillRunsAsAClassicScript()
+    {
+        await using var loopback = await LoopbackPage.CreateAsync(server => server
+            .MapHtml("/", """
+                <!doctype html><html><head>
+                <script>window.ran = []; window.failed = [];</script>
+                <script src="data:,window.ran.push('bare')" onerror="window.failed.push('bare')"></script>
+                <script src="data:text/plain,window.ran.push('plain')" onerror="window.failed.push('plain')"></script>
+                <script src="data:text/javascript" onerror="window.failed.push('no-comma')"></script>
+                </head><body>done</body></html>
+                """));
+
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+
+        // https://html.spec.whatwg.org/multipage/scripting.html#fetch-a-classic-script never looks at the
+        // response's MIME type -- only a module script does -- so both of the first two run. The third is
+        // https://fetch.spec.whatwg.org/#data-url-processor step 7's failure: no comma, so no body, so a
+        // network error the element hears as `error`.
+        (await loopback.Page.EvaluateAsync<string>("window.ran.join(',')")).Should().Be("bare,plain");
+        (await loopback.Page.EvaluateAsync<string>("window.failed.join(',')")).Should().Be("no-comma");
+    }
+
+    [Test]
+    public async Task AnExternalScriptsFragmentSurvivesIntoTheErrorReport()
+    {
+        await using var loopback = await LoopbackPage.CreateAsync(server => server
+            .Map("/boom.js", _ => LoopbackResponse.Script("undefined_variable;"))
+            .MapHtml("/", """
+                <!doctype html><html><head>
+                <script>
+                  window.reported = [];
+                  window.onerror = function (message, url) { window.reported.push(url); return true; };
+                </script>
+                <script src="/boom.js#"></script>
+                <script src="/boom.js#frag"></script>
+                </head><body>done</body></html>
+                """));
+
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+
+        // https://url.spec.whatwg.org/#concept-url-serializer keeps an empty fragment, and Fetch's response
+        // URL is the request URL fragment and all -- so what onerror reports is what script.src reflects.
+        (await loopback.Page.EvaluateAsync<string>("window.reported.join(',')"))
+            .Should().Be(loopback.Url("/boom.js") + "#," + loopback.Url("/boom.js") + "#frag");
+        (await loopback.Page.EvaluateAsync("document.querySelector('script[src=\"/boom.js#\"]').src"))
+            .Should().Be(loopback.Url("/boom.js") + "#");
+    }
+
+    [Test]
     public async Task DocumentWriteAfterTheParseIsRefusedWithAReason()
     {
         await using var loopback = await LoopbackPage.CreateAsync(server => server

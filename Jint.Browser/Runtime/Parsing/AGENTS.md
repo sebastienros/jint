@@ -115,6 +115,24 @@ is the shape AngleSharp's own processors already test for; the `load` and `error
 dispatched through Jint's dispatcher, because AngleSharp's go into its own listener lists. `integrity` and
 `crossorigin` are accepted and ignored, and say so here rather than in a sentence nobody reads.
 
+**Two schemes reach no socket, and one of them carries a body.** `about:blank` is answered as the empty HTML
+document a frame's `src` most often names. A `data:` URL is answered by
+[Fetch §5.2's processor](https://fetch.spec.whatwg.org/#data-url-processor) — `Jint/WebApi/Fetch/DataUrl.cs`,
+the *only* implementation of it in the repository, which `Page.Navigation` also uses so that a navigation and
+a `<script src="data:…">` cannot disagree about the same URL. It runs before the network-scheme check and
+therefore before the `UrlFilter`, the jar and the redirect budget, because there is nothing there for any of
+them to decide — the same order `fetch`'s `blob` arm takes. **`MaxSubresourceBytes` still applies**: a page
+may not escape a size ceiling by inlining, and nothing is written to `Page.Requests`, because a page that
+opened no socket made no request. Forgiving-base64 and percent-decoding are what the processor uses and the
+BCL's stricter pair is not it: `data:;base64,YQ` decodes in a browser and throws in `Convert`.
+
+**A response URL carries its fragment, and that includes a script's.**
+[Fetch's response URL](https://fetch.spec.whatwg.org/#concept-response-url) is the request's — the fragment
+is left out of the request-target and of nothing else — so `ParserDriver.ResponseUrl` puts
+`SubresourceFetch`'s separately-carried fragment back on every answer rather than only a nested document's.
+It is what [report an exception](https://html.spec.whatwg.org/multipage/webappapis.html#report-an-exception)
+names, so without it `<script src="a.js#">` reported a URL its own `src` did not reflect.
+
 **A linked stylesheet completes after CSS processing, not after its fetch.** `PageStylingService` delegates
 the parse to AngleSharp.Css, then hands the completion to the driver. Both `load` and `error` are engine
 tasks: an inserting script and its microtasks finish first, and the processor has assigned `link.sheet`

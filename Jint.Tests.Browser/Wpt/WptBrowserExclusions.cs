@@ -823,34 +823,6 @@ internal static class WptBrowserExclusions
         new("dom/events/EventTarget-dispatchEvent.html", "If the event's initialized flag is not set, an InvalidStateError must be thrown (StorageEvent).", WptDivergence.NeedsMoreEventInterfaces),
     ];
 
-    // ---------------------------------------------------------------- 2. a `data:` URL subresource
-    private static readonly WptExclusion[] _2ADataURLSubresource =
-    [
-        // A page navigates to a `data:` URL and cannot fetch one as a subresource, so a
-        // `<script src="data:text/javascript,…">` is never run — which is what "ran expected true got false"
-        // says here. The report site these documents are about works; what is missing is the scheme, and
-        // adding it is `Runtime/SubresourceFetch`'s change rather than this one.
-        new("html/webappapis/scripting/processing-model-2/compile-error-data-url.html", "*", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/processing-model-2/runtime-error-data-url.html", "*", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/processing-model-2/body-onerror-compile-error-data-url.html", "<body onerror> - compile error in <script src=data:...>", WptDivergence.NeedsTriage),
-    ];
-
-    // ---------------------------------------------------------------- 3. a URL's fragment is dropped
-    private static readonly WptExclusion[] _3AURLSFragmentIsDropped =
-    [
-        // This group used to be four rows and the cause was `script.src` not reflecting a URL: HTML says the
-        // `src` IDL attribute reflects the content attribute AS A URL, so it answers the resolved absolute
-        // one, and AngleSharp's `IHtmlScriptElement.Source` answered the raw attribute value. #3770's
-        // reflection machinery took the member over and two of the four are cases now.
-        // The two that remain are a different defect wearing the same shape: each loads
-        // `<script src="support/syntax-error.js#">` and the URL `onerror` reports has lost the trailing `#`,
-        // so what goes missing is the (empty) FRAGMENT and not the resolution. That happens on the
-        // script-loading path — the URL is re-serialized between the element and the error report — and is a
-        // change to `Runtime/`, not to the binding.
-        new("html/webappapis/scripting/processing-model-2/compile-error-same-origin-with-hash.html", "window.onerror - compile error in <script src=...> with hash", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/processing-model-2/runtime-error-same-origin-with-hash.html", "window.onerror - runtime error in <script src=...> with hash", WptDivergence.NeedsTriage),
-    ];
-
     // ------------------------------------------- 4. an obsolete element interface AngleSharp does not have
     private static readonly WptExclusion[] _4AnObsoleteElementInterfaceAngleSharpDoesNotHave =
     [
@@ -1583,8 +1555,6 @@ internal static class WptBrowserExclusions
     internal static readonly WptCause[] Causes =
     [
         new("1. an event interface this browser has not built", _1AnEventInterfaceThisBrowserHasNotBuilt),
-        new("2. a `data:` URL subresource", _2ADataURLSubresource),
-        new("3. a URL's fragment is dropped", _3AURLSFragmentIsDropped),
         new("4. an obsolete element interface AngleSharp does not have", _4AnObsoleteElementInterfaceAngleSharpDoesNotHave),
         new("5. a DOM prototype has no @@unscopables", _5ADOMPrototypeHasNoUnscopables),
         new("8. AngleSharp.Css refuses an unparseable media query", _8AngleSharpCssRefusesAnUnparseableMediaQuery),
@@ -1633,9 +1603,9 @@ internal static class WptBrowserExclusions
     /// <b><see cref="WptDivergence.NeedsTriage"/> records bounded causes, not a count of exclusion rows.</b> The eleven
     /// defects this lane first recorded were filed as
     /// https://github.com/sebastienros/jint/issues/3686 to 3695 and are fixed; what is left is named in
-    /// <c>Wpt/README.md</c>, one section per cause, and every one of them is bounded — a scheme a subresource
-    /// cannot fetch, a member AngleSharp reflects wrong, an <c>@@unscopables</c> object the binding does not
-    /// emit, and a custom element.
+    /// <c>Wpt/README.md</c>, one section per cause, and every one of them is bounded — a member AngleSharp
+    /// reflects wrong, an <c>@@unscopables</c> object the binding does not emit, and a form-associated custom
+    /// element.
     /// </para>
     /// <para>
     /// <b>The DOM suites made it much bigger, and every one of those causes is bounded.</b> They now hold
