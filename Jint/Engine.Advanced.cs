@@ -96,6 +96,16 @@ public partial class Engine
                 Throw.ArgumentNullException(nameof(action));
             }
 
+            // Argument validation belongs before an engine operation starts. Besides preserving the usual
+            // exception precedence, this keeps a foreign or incomplete realm from arming and resetting the
+            // engine's constraints before it is rejected.
+            ValidateRealm(realm);
+            if (_engine._realmInConstruction is not null)
+            {
+                Throw.InvalidOperationException(
+                    "A realm cannot be entered while this engine is constructing another realm.");
+            }
+
             return _engine.ExecuteWithConstraints(_engine.Options.Strict, () => WithRealmCore(realm, action));
         }
 
@@ -141,8 +151,6 @@ public partial class Engine
 
         private T WithRealmCore<T>(Realm realm, Func<Engine, T> action)
         {
-            ValidateRealm(realm);
-
             var previousEmptyStackDepth = _engine._emptyStackContextDepth;
             _engine.EnterExecutionContext(
                 realm.GlobalEnv,

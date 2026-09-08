@@ -3,6 +3,7 @@
 using Jint.Constraints;
 using Jint.Native;
 using Jint.Native.Object;
+using Jint.Native.Promise;
 using Jint.Runtime;
 
 namespace Jint.Tests.PublicInterface;
@@ -56,15 +57,33 @@ public sealed class HostRealmScopeTests
         var principalGlobal = engine.Global;
         var first = host.CreateAdditionalRealm();
         var second = host.CreateAdditionalRealm();
+        var third = host.CreateAdditionalRealm();
+        first.GlobalObject.Set("marker", "first");
+        second.GlobalObject.Set("marker", "second");
+        third.GlobalObject.Set("marker", "third");
 
         engine.Advanced.WithRealm(first, firstEngine =>
         {
             firstEngine.Global.Should().BeSameAs(first.GlobalObject);
+            firstEngine.Evaluate("marker").AsString().Should().Be("first");
+            firstEngine.Execute("let firstLexical = 42");
+            firstEngine.SetValue("wrapped", new object());
+            firstEngine.Evaluate("Object.getPrototypeOf(wrapped) === Object.prototype").Should().BeTrue();
             firstEngine.Advanced.WithRealm(second, secondEngine =>
             {
                 secondEngine.Global.Should().BeSameAs(second.GlobalObject);
+                secondEngine.Evaluate("marker").AsString().Should().Be("second");
+                secondEngine.Advanced.WithRealm(first, restoredFirstEngine =>
+                {
+                    restoredFirstEngine.Evaluate("marker").AsString().Should().Be("first");
+                    restoredFirstEngine.Evaluate("firstLexical").AsNumber().Should().Be(42);
+                });
+                secondEngine.Advanced.WithRealm(third, thirdEngine =>
+                    thirdEngine.Evaluate("marker").AsString().Should().Be("third"));
+                secondEngine.Evaluate("marker").AsString().Should().Be("second");
             });
             firstEngine.Global.Should().BeSameAs(first.GlobalObject);
+            firstEngine.Evaluate("firstLexical").AsNumber().Should().Be(42);
         });
 
         engine.Global.Should().BeSameAs(principalGlobal);
@@ -105,20 +124,55 @@ public sealed class HostRealmScopeTests
     }
 
     [Test]
-    public void RealmConstructionCannotEnterARealmCallback()
+    public void InvalidRealmIsRejectedBeforeAConstraintBudgetIsArmed()
     {
-        var host = new RealmHost
+        var firstHost = new RealmHost();
+        using var firstEngine = new Engine(options => options.UseHostFactory(_ => firstHost));
+        var foreignRealm = firstHost.CreateAdditionalRealm();
+        var constraint = new ResetCountingConstraint();
+        using var secondEngine = new Engine(options => options.AddConstraint(constraint));
+
+        constraint.Resets = 0;
+        Invoking(() => secondEngine.Advanced.WithRealm(foreignRealm, _ => { }))
+            .Should().ThrowExactly<ArgumentException>()
+            .WithParameterName("realm");
+
+        constraint.Resets.Should().Be(0, "argument rejection happens before an engine operation starts");
+    }
+
+    [Test]
+    public void IncompleteRealmIsRejectedBeforeConstructionRefusal()
+    {
+        var host = new RealmHost();
+        using var engine = new Engine(options => options.UseHostFactory(_ => host));
+        Exception? failure = null;
+        host.DuringIntrinsics = (scopedEngine, incompleteRealm) =>
         {
-            DuringIntrinsics = (engine, realm) =>
-            {
-                Invoking(() => engine.Advanced.WithRealm(realm, _ => { }))
-                    .Should().ThrowExactly<InvalidOperationException>();
-            },
+            failure = Caught.Exception(() => scopedEngine.Advanced.WithRealm(incompleteRealm, _ => { }));
         };
 
-        using var engine = new Engine(options => options.UseHostFactory(_ => host));
+        host.CreateAdditionalRealm();
 
-        engine.Evaluate("1 + 1").Should().Be(2);
+        failure.Should().BeOfType<ArgumentException>()
+            .Which.ParamName.Should().Be("realm");
+    }
+
+    [Test]
+    public void CompleteRealmCannotBeEnteredWhileAnotherRealmIsBeingConstructed()
+    {
+        var host = new RealmHost();
+        using var engine = new Engine(options => options.UseHostFactory(_ => host));
+        var completeRealm = host.CreateAdditionalRealm();
+        Exception? failure = null;
+        host.DuringIntrinsics = (scopedEngine, _) =>
+        {
+            failure = Caught.Exception(() => scopedEngine.Advanced.WithRealm(completeRealm, _ => { }));
+        };
+
+        host.CreateAdditionalRealm();
+
+        failure.Should().BeOfType<InvalidOperationException>();
+        engine.Global.Should().NotBeSameAs(completeRealm.GlobalObject);
     }
 
     [Test]
@@ -163,6 +217,22 @@ public sealed class HostRealmScopeTests
     }
 
     [Test]
+    public void ScriptExceptionRestoresTheCallingRealm()
+    {
+        var host = new RealmHost();
+        using var engine = new Engine(options => options.UseHostFactory(_ => host));
+        var principalGlobal = engine.Global;
+        var realm = host.CreateAdditionalRealm();
+
+        Invoking(() => engine.Advanced.WithRealm(realm, scopedEngine =>
+                scopedEngine.Execute("throw new Error('boom')")))
+            .Should().ThrowExactly<JavaScriptException>()
+            .WithMessage("boom");
+
+        engine.Global.Should().BeSameAs(principalGlobal);
+    }
+
+    [Test]
     public void CancellationFromScriptPropagatesAndRestoresTheRealm()
     {
         var host = new RealmHost();
@@ -179,6 +249,56 @@ public sealed class HostRealmScopeTests
         Invoking(() => engine.Advanced.WithRealm(realm, scopedEngine => scopedEngine.Execute("while (true) {}")))
             .Should().ThrowExactly<ExecutionCanceledException>();
 
+        engine.Global.Should().BeSameAs(principalGlobal);
+    }
+
+    [Test]
+    public void ConcurrentThreadIsRefusedWithoutChangingEitherRealm()
+    {
+        var host = new RealmHost();
+        using var engine = new Engine(options => options.UseHostFactory(_ => host));
+        var first = host.CreateAdditionalRealm();
+        var second = host.CreateAdditionalRealm();
+        Exception? failure = null;
+
+        engine.Advanced.WithRealm(first, scopedEngine =>
+        {
+            failure = Task.Run(() =>
+                    Caught.Exception(() => scopedEngine.Advanced.WithRealm(second, _ => { })))
+                .GetAwaiter()
+                .GetResult();
+            scopedEngine.Global.Should().BeSameAs(first.GlobalObject);
+        });
+
+        failure.Should().BeOfType<InvalidOperationException>();
+        engine.Global.Should().NotBeSameAs(first.GlobalObject);
+        engine.Global.Should().NotBeSameAs(second.GlobalObject);
+    }
+
+    [Test]
+    public async Task OutstandingAsyncOperationRefusesRealmEntryWithoutLeavingAContext()
+    {
+        var host = new RealmHost();
+        var gate = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var engine = new Engine(options => options.UseHostFactory(_ => host));
+        var principalGlobal = engine.Global;
+        var realm = host.CreateAdditionalRealm();
+        var foreignHost = new RealmHost();
+        using var foreignEngine = new Engine(options => options.UseHostFactory(_ => foreignHost));
+        var foreignRealm = foreignHost.CreateAdditionalRealm();
+        engine.SetValue("wait", new Func<Task<int>>(() => gate.Task));
+
+        var pending = engine.EvaluateAsync("(async () => await wait())()");
+        pending.IsCompleted.Should().BeFalse();
+
+        Invoking(() => engine.Advanced.WithRealm(foreignRealm, _ => { }))
+            .Should().ThrowExactly<ArgumentException>()
+            .WithParameterName("realm");
+        Invoking(() => engine.Advanced.WithRealm(realm, _ => { }))
+            .Should().ThrowExactly<InvalidOperationException>();
+
+        gate.SetResult(42);
+        (await pending).AsNumber().Should().Be(42);
         engine.Global.Should().BeSameAs(principalGlobal);
     }
 
@@ -223,6 +343,25 @@ public sealed class HostRealmScopeTests
         log.Should().Equal("first", "second", "microtask");
     }
 
+    [Test]
+    public void RealmSetupIsTransparentToAQueuedJobsEmptyStackCheckpoint()
+    {
+        var host = new RealmHost();
+        var log = new List<string>();
+        using var engine = new Engine(options => options
+            .UseHostFactory(_ => host)
+            .UseWebApis(WebApiFeatures.Events));
+        var realm = host.CreateAdditionalRealm();
+        engine.SetValue("record", new Action<string>(log.Add));
+        var (dispatch, target, eventObject) = CreateEventTarget(engine);
+
+        engine.Tasks.Post(() => engine.Advanced.WithRealm(realm, scopedEngine =>
+            scopedEngine.Call(dispatch, target, [eventObject])));
+        engine.Tasks.ProcessTasks();
+
+        log.Should().Equal("first", "microtask", "second");
+    }
+
     private static (JsValue Dispatch, JsValue Target, JsValue Event) CreateEventTarget(Engine engine)
     {
         engine.Execute("""
@@ -240,9 +379,49 @@ public sealed class HostRealmScopeTests
     }
 #endif
 
+    [Test]
+    public void TopLevelRealmEntryReportsUnhandledRejectionsWhenItCompletes()
+    {
+        var host = new RealmHost();
+        using var engine = new Engine(options => options.UseHostFactory(_ => host));
+        var realm = host.CreateAdditionalRealm();
+        var reject = engine.Advanced.WithRealm(realm, scopedEngine =>
+            scopedEngine.Evaluate("() => Promise.reject(new Error('boom'))"));
+        var reports = new List<PromiseRejectionTrackerEventArgs>();
+        engine.Tasks.PromiseRejectionTracker += (_, args) => reports.Add(args);
+
+        engine.Advanced.WithRealm(realm, scopedEngine => scopedEngine.Call(reject));
+
+        reports.Should().ContainSingle()
+            .Which.Operation.Should().Be(PromiseRejectionOperation.Reject);
+    }
+
+    [Test]
+    public void EscapingExceptionRestoresTheRealmWithoutReportingARejection()
+    {
+        var host = new RealmHost();
+        using var engine = new Engine(options => options.UseHostFactory(_ => host));
+        var principalGlobal = engine.Global;
+        var realm = host.CreateAdditionalRealm();
+        var reports = new List<PromiseRejectionTrackerEventArgs>();
+        engine.Tasks.PromiseRejectionTracker += (_, args) => reports.Add(args);
+        var failure = new InvalidOperationException("callback failed");
+        var reject = engine.Advanced.WithRealm(realm, scopedEngine =>
+            scopedEngine.Evaluate("() => Promise.reject(new Error('boom'))"));
+
+        Caught.Exception(() => engine.Advanced.WithRealm(realm, scopedEngine =>
+        {
+            scopedEngine.Call(reject);
+            throw failure;
+        })).Should().BeSameAs(failure);
+
+        reports.Should().BeEmpty("an escaping callback does not create a successful-entry checkpoint");
+        engine.Global.Should().BeSameAs(principalGlobal);
+    }
+
     private sealed class RealmHost : Host
     {
-        public Action<Engine, Realm>? DuringIntrinsics { get; init; }
+        public Action<Engine, Realm>? DuringIntrinsics { get; set; }
 
         public Realm CreateAdditionalRealm() => base.CreateRealm();
 
