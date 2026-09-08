@@ -151,15 +151,13 @@ internal static class DomViewMembers
 
     /// <summary>https://w3c.github.io/selection-api/#dom-document-getselection.</summary>
     /// <remarks>
-    /// The page's selection, whichever document the call was made on: a selection belongs to a document's
-    /// browsing context, and a document a <c>DOMParser</c> produced has none. So
-    /// <c>parsed.getSelection()</c> answers the page's rather than a second empty one, where a browser gives
-    /// the parsed document its own. Nothing can select inside a parsed document, so the difference is what
-    /// the object is rather than what it holds.
+    /// A selection belongs to a document's browsing context. A document made by <c>DOMParser</c>,
+    /// <c>new Document()</c> or <c>DOMImplementation</c> has none, so its answer is <c>null</c> rather than
+    /// the selection of the displayed document that happens to share its engine.
     /// </remarks>
-    internal static JsValue GetSelection(DomRealm realm)
+    internal static JsValue GetSelection(DomRealm realm, IDocument document)
     {
-        var runtime = PageRuntime.Find(realm.Engine);
+        var runtime = PageRuntime.Find(realm.Engine, document);
         return runtime is null ? JsValue.Null : runtime.Views.Selection;
     }
 

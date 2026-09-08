@@ -386,9 +386,9 @@
       "length": 0,
       "body": [
         "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, \"Document.getSelection\");",
-        "return global::Jint.Browser.Dom.Views.DomViewMembers.GetSelection(self.Realm);"
+        "return global::Jint.Browser.Dom.Views.DomViewMembers.GetSelection(self.Realm, self.Target);"
       ],
-      "reason": "Selection API §3: document.getSelection() answers the same object window.getSelection() does. AngleSharp has no Selection at all, so the interface is the runtime's."
+      "reason": "Selection API §3: document.getSelection() answers its browsing context's selection, or null when the document has no browsing context. AngleSharp has no Selection at all, so the displayed document's interface is the runtime's."
     },
     {
       "interface": "TreeWalker",

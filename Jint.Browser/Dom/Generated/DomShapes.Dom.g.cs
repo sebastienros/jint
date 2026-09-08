@@ -996,7 +996,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.getSelection", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.getSelection");
-                    return global::Jint.Browser.Dom.Views.DomViewMembers.GetSelection(self.Realm);
+                    return global::Jint.Browser.Dom.Views.DomViewMembers.GetSelection(self.Realm, self.Target);
                 }),
                 length: 0)
             .Method("hasFocus",
