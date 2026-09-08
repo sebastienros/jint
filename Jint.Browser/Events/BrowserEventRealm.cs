@@ -16,9 +16,11 @@ namespace Jint.Browser.Events;
 /// </summary>
 /// <remarks>
 /// <para>
-/// One engine is one document — a navigation builds a new engine — so per-engine and per-document coincide,
-/// which is what lets the focused element live here rather than beside the AngleSharp document. It is stored
-/// in a <see cref="ConditionalWeakTable{TKey,TValue}"/> keyed on the engine for the reason
+/// One engine displays one document — a navigation builds a new engine — so the displayed document's state
+/// can live here rather than beside the AngleSharp document. The same engine may still wrap inert documents
+/// made by <c>DOMParser</c> and DOM factories; focus entry points verify the receiver belongs to the displayed
+/// document before reading or changing this state. It is stored in a
+/// <see cref="ConditionalWeakTable{TKey,TValue}"/> keyed on the engine for the reason
 /// <see cref="Dom.DomRealm"/> gives: <c>Engine.HostDefined</c> belongs to the embedder.
 /// </para>
 /// <para>

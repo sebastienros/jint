@@ -1,6 +1,7 @@
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
 using Jint.Browser.Dom;
+using Jint.Browser.Runtime;
 using Jint.Native;
 using Jint.WebApi.Events;
 
@@ -38,6 +39,11 @@ internal static class FocusController
     /// </summary>
     internal static IElement? ActiveElement(BrowserEventRealm realm, IDocument document)
     {
+        if (PageRuntime.Find(realm.Engine, document) is null)
+        {
+            return document.Body;
+        }
+
         var focused = realm.FocusedElement;
 
         // A focused element removed from the tree stops being the active element, which is what HTML's
@@ -63,7 +69,7 @@ internal static class FocusController
     /// </remarks>
     internal static void Focus(DomRealm dom, IElement element)
     {
-        if (!IsFocusable(element))
+        if (PageRuntime.Find(dom.Engine, element) is null || !IsFocusable(element))
         {
             return;
         }
@@ -87,6 +93,11 @@ internal static class FocusController
     /// </summary>
     internal static void Blur(DomRealm dom, IElement element)
     {
+        if (PageRuntime.Find(dom.Engine, element) is null)
+        {
+            return;
+        }
+
         var realm = BrowserEventRealm.Of(dom.Engine);
 
         if (!ReferenceEquals(realm.FocusedElement, element))
@@ -97,6 +108,12 @@ internal static class FocusController
         realm.FocusedElement = null;
         RunFocusUpdateSteps(dom, element, next: null);
     }
+
+    /// <summary>
+    /// Whether <paramref name="document"/> is the displayed document and its viewport has focus.
+    /// </summary>
+    internal static bool HasFocus(BrowserEventRealm realm, IDocument document)
+        => PageRuntime.Find(realm.Engine, document) is not null && realm.DocumentHasFocus;
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/interaction.html#focus-update-steps, reduced to the two chains a

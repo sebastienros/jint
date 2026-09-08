@@ -72,6 +72,59 @@ public sealed class FocusTests
     }
 
     /// <summary>
+    /// A document made inside a page's realm has no browsing context of its own. Its focus and visibility
+    /// queries therefore cannot observe or replace the state of the document the page is displaying.
+    /// </summary>
+    [Test]
+    public async Task InertDocumentsDoNotReadOrChangeTheDisplayedDocumentsFocusAndVisibility()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<input id='page'>");
+
+        (await page.EvaluateAsync<string>(
+            """
+            (() => {
+              const pageInput = document.getElementById('page');
+              pageInput.focus();
+
+              const parsed = new DOMParser().parseFromString('<input id="other">', 'text/html');
+              const constructed = document.implementation.createHTMLDocument('other');
+              constructed.body.innerHTML = '<input id="other">';
+
+              const answers = [];
+              for (const other of [parsed, constructed]) {
+                const input = other.getElementById('other');
+                const seen = [];
+                input.addEventListener('focus', () => seen.push('focus'));
+                input.addEventListener('blur', () => seen.push('blur'));
+
+                answers.push([
+                  other.activeElement.tagName,
+                  other.hasFocus(),
+                  other.visibilityState,
+                  other.hidden,
+                ].join(':'));
+
+                input.focus();
+                input.blur();
+                answers.push(other.activeElement.tagName + ':' + seen.join(','));
+              }
+
+              answers.push([
+                document.activeElement.id,
+                document.hasFocus(),
+                document.visibilityState,
+                document.hidden,
+              ].join(':'));
+              return answers.join('|');
+            })()
+            """)).Should().Be(
+            "BODY:false:hidden:true|BODY:|BODY:false:hidden:true|BODY:|page:true:visible:false");
+        page.Errors.Should().BeEmpty();
+    }
+
+    /// <summary>
     /// Focusability without a rendering: the element's own kind, or a <c>tabindex</c> content attribute.
     /// AngleSharp's <c>TabIndex</c> cannot decide it — it answers 0 for every element, including a bare
     /// <c>&lt;div&gt;</c>, where HTML says −1.

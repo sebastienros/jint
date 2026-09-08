@@ -908,14 +908,14 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.elementFromPoint", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.elementFromPoint");
-                    return global::Jint.Browser.Layout.LayoutMembers.ElementFromPoint(self.Realm, args);
+                    return global::Jint.Browser.Layout.LayoutMembers.ElementFromPoint(self.Realm, self.Target, args);
                 }),
                 length: 2)
             .Method("elementsFromPoint",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.elementsFromPoint", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.elementsFromPoint");
-                    return global::Jint.Browser.Layout.LayoutMembers.ElementsFromPoint(self.Realm, args);
+                    return global::Jint.Browser.Layout.LayoutMembers.ElementsFromPoint(self.Realm, self.Target, args);
                 }),
                 length: 2)
             .Accessor("embeds",
@@ -1003,7 +1003,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.hasFocus", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.hasFocus");
-                    return global::Jint.Native.JsBoolean.Create(global::Jint.Browser.Events.BrowserEventRealm.Of(self.Realm.Engine).DocumentHasFocus);
+                    return global::Jint.Native.JsBoolean.Create(global::Jint.Browser.Events.FocusController.HasFocus(global::Jint.Browser.Events.BrowserEventRealm.Of(self.Realm.Engine), self.Target));
                 }),
                 length: 0)
             .Accessor("head",
@@ -1016,7 +1016,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.hidden", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.hidden");
-                    return global::Jint.Native.JsBoolean.Create(global::Jint.Browser.Runtime.PageRuntime.Find(self.Realm.Engine) is { } page && page.VisibilityState != "visible");
+                    return global::Jint.Native.JsBoolean.Create(global::Jint.Browser.Runtime.PageRuntime.Find(self.Realm.Engine, self.Target) is not { } page || page.VisibilityState != "visible");
                 }))
             .Accessor("images",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.images", static (thisObj, args) =>
@@ -1215,7 +1215,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.visibilityState", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.visibilityState");
-                    return global::Jint.Native.JsString.Create(global::Jint.Browser.Runtime.PageRuntime.Find(self.Realm.Engine)?.VisibilityState ?? "visible");
+                    return global::Jint.Native.JsString.Create(global::Jint.Browser.Runtime.PageRuntime.Find(self.Realm.Engine, self.Target)?.VisibilityState ?? "hidden");
                 }))
             .Method("write",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.write", static (thisObj, args) =>
