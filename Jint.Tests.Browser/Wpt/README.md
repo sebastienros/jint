@@ -26,7 +26,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | Suite | Documents | Synthesized | Tests | Not passing |
 | --- | --- | --- | --- | --- |
 | `dom/events/` | 56 | 9 | 544 | 15 |
-| `dom/nodes/` | 165 | 0 | 4,802 | 946 |
+| `dom/nodes/` | 168 | 0 | 8,115 | 1,074 |
 | `dom/collections/` | 8 | 0 | 43 | 0 |
 | `dom/lists/` | 5 | 0 | 189 | 5 |
 | `dom/traversal/` | 13 | 0 | 52 | 0 |
@@ -38,8 +38,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 52 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 3 |
-| **total** | **349** | **9** | **27,107** | **1,345** |
-
+| **total** | **352** | **9** | **30,420** | **1,473** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -177,15 +176,14 @@ a supported name; the collection's named reads remain live.
 
 `dom/nodes/`, `dom/collections/`, `dom/lists/`, `dom/traversal/`, `dom/ranges/` and `html/dom/` are the DOM
 standard's own suites and HTML's DOM half — the corpus every other suite in this lane is written on top of.
-They arrived together, 207 documents and 5,247 tests, and **1,532 of those tests do not pass**. That is a
+They now comprise 219 documents and 29,003 tests, and **1,128 of those tests do not pass**. That is a
 much worse ratio than any suite already here, and it should be: `dom/events/` is one interface's dispatch,
 where these are every member of every node interface.
 
-The failures are **sixteen distinct causes**, and the table names each of them test by test. Nine of them
-were filed as [#3765](https://github.com/sebastienros/jint/issues/3765)–[#3774](https://github.com/sebastienros/jint/issues/3774); the counts move as those are fixed.
-The eighteenth was [#3712](https://github.com/sebastienros/jint/issues/3712), a nullable `DOMString` argument
-answering the string `"null"`, and it is fixed here: the 23 rows it accounted for — `createElementNS(null,
-…)`'s namespace and local name, and the six of `attributes.html` — pass, so it has no row left.
+The failures are **eighteen distinct causes**, and the table names each of them test by test. The families
+first recorded by these suites were filed as [#3765](https://github.com/sebastienros/jint/issues/3765)–
+[#3774](https://github.com/sebastienros/jint/issues/3774), with the nullable-`DOMString` family previously
+tracked by [#3712](https://github.com/sebastienros/jint/issues/3712); the counts move as those are fixed.
 
 **The two numeric columns are derived, not typed**, and this is how: a cause is one of the comment-headed
 groups of `WptBrowserExclusions.All`, and its figures are the results a real run reported that the group's
@@ -193,28 +191,31 @@ patterns match — `JINT_WPT_DOCUMENT` over every document those groups name, th
 Every failing test in this corpus is claimed by exactly one group, which is what makes the sum mean
 anything. **Nothing checks it, though**, unlike the census table above, which is why it had gone as far out
 of date as the diff that restored it shows; making it a generated table beside that one is the follow-up.
-The rows sum to **1,476** rather than 1,532 because two groups also reach a `custom-elements/reactions/`
-document the same cause covers — 80 of `AriaMixin-string-attributes.html` and 4 of `Element.html`.
+The rows sum to the census's **1,128** failures. They were rederived after the current-main merge by running
+every document named by `WptBrowserExclusions.All` through `WptBrowserTriage` and assigning each failing
+result to its comment-headed exclusion group.
 Ordered by how many tests each accounts for:
 
 | Tests | Documents | What it is |
 | ---: | ---: | --- |
-| 540 | 13 | [#3771](https://github.com/sebastienros/jint/issues/3771) **A frame is never given a realm.** It has a **document** now — its `src` is fetched and parsed, `contentDocument` answers it same origin and `load` arrives at the element — and none of these 540 moved, which is the measurement that says what they were really waiting for. 488 of them are one line: `Document-createElement*.html` runs its whole table three times and two of the three documents are an **XML** and an **XHTML** one, which is [#3766](https://github.com/sebastienros/jint/issues/3766) and not this row; each of those runs then asks `doc.defaultView.DOMException`, and a frame with no realm has no `defaultView`. The rest are `node-realm-*`, `node-creation-realm` and the two cross-realm `TreeWalker` documents, whose whole subject is the second realm. `NeedsIframeScripting`, the category this lane already had. |
-| 378 | 9 | [#3766](https://github.com/sebastienros/jint/issues/3766) **An XML document, and the two members that make one.** Both members exist now, and what they uncovered is larger than what they hid: `DOMImplementation-createDocument.html` builds its own table of 434 cases *inside its first test* and the builder called the missing one, so the file used to register **two** tests. It registers them all now and **250** of them fail. The document has its `XMLDocument` interface and cloning preserves that brand; what remains is metadata AngleSharp does not expose — no location, an ASCII-upper-cased encoding name and a content type taken from the namespace. `processing-instruction-attributes.html` is 137 more of the same. `NeedsXmlDocuments`, a scope decision rather than debt, and the largest cause in this table after the frames. |
-| 67 | 28 | [#3772](https://github.com/sebastienros/jint/issues/3772) **A collection's named and indexed properties.** `getElementsByTagName` is live and applies HTML's qualified-name case rules now, removing 34 rows from this cause; the same collection host hook also makes six own-property assertions pass. What remains is the empty supported name (`HTMLCollection-empty-name.html`, 7 rows), the names `namednodemap-supported-property-names.html` sees, and the six `NodeList-static-length-getter-tampered*` documents: a static `NodeList` re-reads its tampered `length` getter and each spends between 5.9 s and 18.8 s. |
-| 101 | 5 | [#3712](https://github.com/sebastienros/jint/issues/3712) **A nullable `DOMString` answers the string `"null"`.** `createElementNS(null, …)` gives an element whose `namespaceURI` is `"http://www.w3.org/1999/xhtml"` and `node.nodeValue = null` reads back `"null"`, because the binding converts a `DOMString?` parameter with `TypeConverter.ToString`. It is the same conversion the custom-element corpus records for `getAttributeNS`, from the other side, and 80 of the 101 are that document — `custom-elements/reactions/AriaMixin-string-attributes.html`. |
-| 87 | 18 | One assertion each: `Node.isEqualNode` compares data it should not, `Element.removeAttribute` removes one attribute of two, an attribute's order in `element.attributes` differs, `cloneNode` copies a `value` a browser leaves behind. |
-| 80 | 5 | [#3769](https://github.com/sebastienros/jint/issues/3769) **A `(Node or DOMString)` union parameter takes only a `Node`.** `before`, `after`, `append`, `prepend` and `replaceWith` all accept a string in DOM §4.2.7; here a string is "parameter 1 is not of the expected type". `replaceWith` joined the row when the member arrived: eighteen of its twenty-four remaining assertions are the union and nothing else. |
-| 50 | 13 | One assertion each: `Node.isEqualNode` compares data it should not, `Element.removeAttribute` removes one attribute of two, an attribute's order in `element.attributes` differs, `cloneNode` copies a `value` a browser leaves behind. |
-| 49 | 2 | [#3772](https://github.com/sebastienros/jint/issues/3772) **The XML name productions are wrong.** `createDocumentType("edi:root", …)` and 43 of its siblings are refused as "Invalid character detected" where DOM's Name production allows them, and `name-validation.html` finds five code-point ranges refused in both directions. |
-| 40 | 5 | [#3774](https://github.com/sebastienros/jint/issues/3774) **A refusal the standard requires and AngleSharp does not make.** `createElementNS(null, "a:b")` is a `NamespaceError` in DOM's validate-and-extract and no error at all here — `Dom/AGENTS.md` records it — and `createElement` refuses eight names DOM allows. |
-| 20 | 5 | [#3772](https://github.com/sebastienros/jint/issues/3772) **`StaticRange` is not a name**, which is eleven rows of `StaticRange-constructor.html`, plus what is left of `Range`'s own algorithms: `comparePoint`, `extractContents` over a dynamic end, and a range whose shadow root has been removed. |
-| 18 | 1 | **An event interface this browser does not build**, which is `NeedsMoreEventInterfaces` and the alias table `dom/events/EventTarget-dispatchEvent.html` already names: `DragEvent`, `StorageEvent`, `TouchEvent` and the two device events. |
-| 8 | 2 | **The selector engine's escapes and matching.** AngleSharp 1.7.3 fixes the two surrogate escapes whose exclusions were removed. EOF, CRLF and NUL escapes still disagree with CSS Syntax, and `Element.closest` still disagrees on `:invalid`, `div > :scope` and `:has(> :scope)`. |
-| 7 | 3 | **A document with no browsing context still has a `location`**, `createHTMLDocument` gives it one child too few, and `characterSet` answers `"utf-8"` where the standard's encoding name is `"UTF-8"`. |
+| 362 | 7 | [#3766](https://github.com/sebastienros/jint/issues/3766) **An XML document, and the members that make one.** `DOMImplementation-createDocument.html` contributes 218 rows and `processing-instruction-attributes.html` 137; the rest cover XML metadata, identity and Range adoption. `NeedsXmlDocuments` is a scope decision rather than untriaged debt. |
+| 316 | 9 | [#3771](https://github.com/sebastienros/jint/issues/3771) **A frame is never given its own realm.** The 195 XHTML and 88 XML `Document-createElement*` rows reach `doc.defaultView.DOMException`; the rest are the `node-realm-*`, `node-creation-realm`, `createEvent` and connectivity cases. `NeedsIframeScripting` names that missing environment. |
+| 128 | 3 | **The Selectors-API table and selector-only element states.** The three newly vendored documents cover selector-error contracts, link and target state, enabled links, no-namespace selectors and `::slotted`; all 128 rows are `NeedsTriage`. |
+| 71 | 17 | **One assertion each or one small family per document.** These cover conversion order, import/clone identity, attribute selection and ordering, element-name identity, node equality and `accessKeyLabel`; each pattern is kept separate where neighboring rows pass. |
+| 53 | 6 | [#3774](https://github.com/sebastienros/jint/issues/3774) **A name AngleSharp refuses that the standard allows, plus required refusals it does not make.** The rows cover element creation, namespace validation and document insertion. |
+| 50 | 2 | [#3772](https://github.com/sebastienros/jint/issues/3772) **DOM's current name-validation rules differ from the XML productions.** `createDocumentType` contributes 45 rows and `name-validation.html` five. |
+| 38 | 1 | **AngleSharp has no `HTMLDListElement`.** `reflection-grouping.html` can therefore expose no `compact` IDL member on `<dl>` without incorrectly placing it on every `HTMLElement`. |
+| 30 | 11 | **Collection matching, identity and liveness differ.** The remaining rows cover namespace-aware tag queries, null-namespace identity, child-node collections, empty IDs, quirks class matching and related live reads; `dom/collections/` itself now passes whole. |
+| 22 | 3 | **Members of DOM interfaces are absent.** The rows cover `ProcessingInstruction` attributes, `ChildNode` unscopables and event aliases that have no constructor. |
+| 18 | 1 | **An event interface this browser does not build.** `Document-createEvent.https.html` reaches `DragEvent`, `StorageEvent`, `TouchEvent` and the two device-event interfaces. |
+| 8 | 2 | **The selector engine's escapes, `:scope` and `:has` differ.** `ParentNode-querySelector-escapes.html` contributes five rows and `Element-closest.html` three. |
+| 7 | 3 | **A document with no browsing context still has a `location`**, `createHTMLDocument` builds a different skeleton, and its encoding-name aliases differ. |
 | 6 | 1 | **Members the standard removed are still here**, which is exactly what `html/dom/historical.html` exists to find. |
-| 5 | 1 | [#3767](https://github.com/sebastienros/jint/issues/3767) **`DOMTokenList`** was the largest single cause this corpus found — 661 rows across six documents, more than a quarter of everything the DOM suites reported. DOM §7.1's mutating half is `Dom/Collections/DomTokenListMembers` now: the validation steps, `toggle`'s given-versus-not-given `force`, `replace`, `supports`, `item`'s `null`, the update steps and WebIDL's value iterator. What is left is five rows of one document: `sandbox`, `link.sizes` and `output.htmlFor` land on `DOMSettableTokenList`, an interface the standard merged away in 2016 and AngleSharp still carries a `[DomName]` for, and two `a.relList` rows are in namespaces HTML does not reflect `rel` in. `Element-classlist.html` passes all 1,420. |
-| 4 | 2 | **A `MutationObserver` record too few, or too many.** `classList.add` of an existing token reports one record where two are due, and an observer of the document itself never fires — both already recorded as AngleSharp divergences. |
+| 5 | 2 | [#3712](https://github.com/sebastienros/jint/issues/3712) **A nullable `DOMString` answers the string `"null"`.** The remaining rows are `CharacterData.data` and `Node.nodeValue` writes. |
+| 5 | 1 | [#3767](https://github.com/sebastienros/jint/issues/3767) **`DOMTokenList` has five remaining interface-shape differences.** They are the legacy `DOMSettableTokenList` surfaces and two namespace-specific `relList` rows. |
+| 4 | 2 | **`MutationObserver` records differ.** A document observer misses parser mutations, and an `outerHTML` replacement reports a different record set. |
+| 3 | 1 | [#3769](https://github.com/sebastienros/jint/issues/3769) **A `(Node or DOMString)` union parameter takes only a `Node`.** Three `ChildNode.before` rows still reject strings. |
+| 2 | 1 | **A Range whose shadow root was removed has the wrong boundary behavior.** These are the two remaining `Range-in-shadow-after-the-shadow-removed.html` rows. |
 
 **Three of HTML's ten reflection documents are cases, and two of the three pass whole.** HTML §2.6.1's
 reflection algorithms are `Jint.Browser/Dom/ReflectedAttribute.cs` and the members that take them are
@@ -270,9 +271,11 @@ different from the engine lane's. **Almost every row is a document that cannot p
 — a harness `ERROR` or `TIMEOUT` — which is what puts it there rather than in the exclusion table: a harness
 error covers the whole file and no per-test exclusion can name it. The rest are the globs upstream's own
 markers and this lane's directory rule earn, and the helper files of documents nothing here runs. They fall
-into twenty-eight groups; the counts are rows rather than files, since several are globs. Ninety-four of
+into twenty-eight groups; the counts are rows rather than files, since several are globs. Ninety of
 the rows belong to the six DOM suites, which is what a corpus about every member of every node interface
-costs: half of them are one member reached at file scope.
+costs: half of them are one member reached at file scope. **A twenty-ninth answer is not in this table at
+all**: `WptBrowserExclusions.FrameBodies` names the documents that are vendored and served and never run,
+which is what a fixture sitting beside the cases that load it needs — see below.
 
 | Why | How many | What it is |
 | --- | --- | --- |
@@ -299,11 +302,49 @@ costs: half of them are one member reached at file scope.
 | the WebIDL conformance harness, again | 2 | `html/dom/idlharness.https.html`, and one that needs an `RTCPeerConnection` |
 | HTML's reflection suite, seven of ten | 9 | [#3770](https://github.com/sebastienros/jint/issues/3770); `reflection-misc.html`, `-text.html` and `-grouping.html` are cases now and the other seven need the per-element attribute table each of them tests, one `reflected` row per content attribute. **Not** a time problem: 22.5 s for the whole set, 7.3 s for the largest. The exclusion table's own comment carries the per-family measurement |
 | a DOM crash test or reftest | 5 | none loads `testharness.js` |
-| a helper document beside its test | 5 | three frames, a fragment and an iframe body; a document under a suite would have to be a case |
-| a DOM frame that runs script | 17 | listed when a frame had neither a document nor a realm; it has both a document and a window now ([#3771](https://github.com/sebastienros/jint/issues/3771)) and each row is owed a re-examination against the realm, which is the half that is left — three of them need the frame body above, which a document under a suite cannot be |
+| a helper document beside its test | 4 | three frames and a fragment; a document under a suite would have to be a case, and the fourth answer is the frame-bodies table below |
+| a DOM frame that runs script | 14 | listed when a frame had neither a document nor a realm; it has a document now ([#3771](https://github.com/sebastienros/jint/issues/3771)) and each row is owed a re-examination against the half that is left. Three have had it: the selector documents are cases |
 | a member reached at file scope | 30 | `createCDATASection` (31 documents, 24 of them `dom/ranges/`, through `dom/common.js`), `createDocument` (5) and `setAttributeNode` (1) |
 | one DOM file each | 3 | a `SyntaxError` no `error` event carries to the harness, and two `MutationObserver` documents waiting for a record that never comes |
 | too slow to be a case | 2 | the six `NodeList-static-length-getter-tampered*` documents and their helper: a static `NodeList` re-reads its tampered `length` getter, so each spends between 5.9 s and 18.8 s and one of them crossed the driver's 30 s deadline on a loaded machine |
+
+**A document can also be vendored, served and never run.** `WptBrowserExclusions.FrameBodies` is that
+third answer, and it exists because a document directly under a suite is a case — `WptCorpus.BrowserTestFiles`
+never descends, so a helper lives under `resources/` or `support/` and a case does not. Upstream does not
+always agree. `ParentNode-querySelector-All-content.html` sits beside the three documents that load it into a
+frame and is a fixture with no `testharness.js` in it, so the only two answers this lane had were to run it
+and time out or to leave it out of the corpus and lose every case that loads it. Now it is vendored, served
+and not a case, and the table is held from both ends like every other one here: a row must name a document
+the corpus really holds, directly under a suite this lane claims, and no row may also be a `NotVendored`
+pattern — a path cannot be absent and served at once. It takes no minimum-test entry and appears in no census
+column, because neither counts anything about a document that reports nothing; what holds it to its job is
+the three cases that load it, which fail loudly if the frame they wait for never arrives.
+
+**And that is what let the selector table in.** `Element-matches.html`, `Element-webkitMatchesSelector.html`
+and `ParentNode-querySelector-All.html` are the whole of wpt's Selectors-API suite, run three times over —
+through `matches()`, through its prefixed alias, and through `querySelector`/`querySelectorAll` in five
+contexts (a document, an in-document element, a detached element, an empty element and a fragment). They were not vendored for
+two reasons at once: the frame body above, and the fact that a frame had no document to be
+([#3771](https://github.com/sebastienros/jint/issues/3771)). Both are answered, and the three documents bring
+**3,313 tests, of which 3,185 pass** — and `dom/nodes/` grows from 4,802 tests to 8,115. The 128 that do
+not pass are bounded to the patterns in the exclusion table. Some are selector-error contract differences:
+an undeclared namespace and a relative selector are accepted, while an unclosed attribute selector raises
+the wrong script-visible error. The others are matching differences for `:link`/`:visited`, `:target`,
+`:enabled`, no-namespace selectors and `::slotted`. They are `NeedsTriage`, for the reason that category
+exists: the change that first runs a suite is not also the change that moves the engine. The older branch
+named 518 failures; current `main` fixed 390 of them before the corpus landed, and the two-sided exclusion
+check removed every stale row rather than preserving that historical result.
+
+**One of them was the machine's answer rather than the browser's, and that is fixed rather than excluded.**
+`:lang(en)` on an element with **no** inherited language matched on a host whose culture is English and did
+not on one whose culture is invariant — the Windows and the Linux CI leg exactly, so four rows of this
+document passed on one and failed on the other and no exclusion could name them on both. AngleSharp resolves
+such an element through the browsing context's culture, and the context had none, so it took
+`CultureInfo.CurrentCulture` off whichever thread was parsing. `ParserDriver` gives the context the
+**engine's** culture now (`Options.Culture`, which itself defaults to the current culture, so nothing moves
+for a host that sets none), and this lane pins its own to the invariant culture — a gate whose answer depends
+on the runner's locale is not a gate. All four pass everywhere now; scoping the exclusion to an operating
+system would have encoded the coincidence instead of removing it.
 
 **The `testdriver.js` group is gone, which is what recording it by name was for.** Campaign item C4 mapped
 upstream's automation API onto the same `InputDispatcher` the `Input` domain reaches, through the

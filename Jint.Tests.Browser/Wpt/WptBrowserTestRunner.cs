@@ -126,7 +126,10 @@ public class WptBrowserTestRunner
     /// <see cref="WptBrowserExclusions.NotVendored"/> reason would quietly go red for a cause somebody already
     /// decided about. The <c>.any.js</c> half of the corpus is not this lane's business and is checked by
     /// <c>WptTestRunner</c>; what <i>is</i> checked here is that every document under a suite this lane claims
-    /// is either a case or accounted for.
+    /// is either a case or accounted for — and "accounted for" is now two things rather than one, since
+    /// <see cref="WptBrowserExclusions.FrameBodies"/> names the documents that are vendored and served and
+    /// never run. Both of those tables are held from both ends: a row naming nothing is as much a failure as
+    /// a document naming no row, and a path in both would be claiming to be absent and served at once.
     /// </remarks>
     [Test]
     public void EveryVendoredDocumentIsAccountedFor()
@@ -150,12 +153,19 @@ public class WptBrowserTestRunner
             }
 
             // A document directly under a suite is a case; one under its resources/ or support/ directory is
-            // a helper the cases load, which is why WptCorpus.BrowserTestFiles never descends.
+            // a helper the cases load, which is why WptCorpus.BrowserTestFiles never descends. A frame body
+            // is the third answer: directly under a suite, vendored, served and deliberately never run.
             if (Array.Exists(WptCorpus.BrowserSuites, suite => string.Equals(WptCorpus.DirectoryOf(path), suite, StringComparison.Ordinal))
-                && !cases.Contains(path))
+                && !cases.Contains(path)
+                && !WptBrowserCorpus.IsFrameBody(path))
             {
                 problems.Add($"{path} is vendored under a browser-lane suite but no theory case reaches it");
             }
+        }
+
+        foreach (var (body, reason) in WptBrowserExclusions.FrameBodies)
+        {
+            problems.AddRange(FrameBodyProblems(body, reason));
         }
 
         foreach (var path in cases)
@@ -186,6 +196,46 @@ public class WptBrowserTestRunner
 
         // The theory cases are generated from the corpus, so an empty corpus would be an empty, green run.
         cases.Should().HaveCountGreaterThan(330, "the lane runs the documents of thirteen suites");
+    }
+
+    [Test]
+    public void AFrameBodyRowMustNameADocument()
+    {
+        FrameBodyProblems("dom/nodes/selectors.js", "fixture")
+            .Should().ContainSingle().Which.Should().Be(
+                "dom/nodes/selectors.js is named as a frame body (fixture) but is not a browser test document");
+
+        FrameBodyProblems("dom/nodes/ParentNode-querySelector-All-content.html", "fixture")
+            .Should().BeEmpty();
+    }
+
+    private static IReadOnlyList<string> FrameBodyProblems(string body, string reason)
+    {
+        var problems = new List<string>();
+
+        if (!WptCorpus.Contains(body))
+        {
+            problems.Add($"{body} is named as a frame body ({reason}) but is not vendored, so nothing serves it");
+        }
+        else if (!WptCorpus.IsBrowserTestFile(body))
+        {
+            problems.Add($"{body} is named as a frame body ({reason}) but is not a browser test document");
+        }
+        else if (!WptCorpus.IsUnderABrowserSuite(body)
+            || !Array.Exists(WptCorpus.BrowserSuites, suite => string.Equals(WptCorpus.DirectoryOf(body), suite, StringComparison.Ordinal)))
+        {
+            problems.Add($"{body} is named as a frame body ({reason}) but is not directly under a browser-lane suite, where a case is the default");
+        }
+
+        foreach (var (pattern, notVendored) in WptBrowserExclusions.NotVendored)
+        {
+            if (WptExclusion.MatchesPattern(pattern, body))
+            {
+                problems.Add($"{body} is named as a frame body and \"{pattern}\" says it should not be vendored at all ({notVendored})");
+            }
+        }
+
+        return problems;
     }
 
     /// <summary>
