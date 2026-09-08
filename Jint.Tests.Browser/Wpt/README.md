@@ -30,7 +30,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `dom/collections/` | 8 | 0 | 43 | 0 |
 | `dom/lists/` | 5 | 0 | 189 | 5 |
 | `dom/traversal/` | 13 | 0 | 52 | 0 |
-| `dom/ranges/` | 17 | 0 | 82 | 7 |
+| `dom/ranges/` | 17 | 0 | 82 | 4 |
 | `html/dom/` | 8 | 0 | 20,522 | 45 |
 | `html/webappapis/scripting/events/` | 12 | 0 | 37 | 5 |
 | `html/webappapis/scripting/processing-model-2/` | 25 | 0 | 44 | 12 |
@@ -38,7 +38,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 52 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 3 |
-| **total** | **349** | **9** | **27,107** | **1,351** |
+| **total** | **349** | **9** | **27,107** | **1,348** |
 
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the

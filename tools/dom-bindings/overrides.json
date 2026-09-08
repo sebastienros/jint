@@ -1326,6 +1326,22 @@
   ],
   "hooks": [
     {
+      "interface": "Range",
+      "member": "comparePoint",
+      "half": "operation",
+      "hook": "ComparePoint",
+      "returns": true,
+      "reason": "DOM §5.5 checks the supplied point root and unsigned offset, then includes both range endpoints. DomRangeMembers reuses AngleSharp boundary ordering after those checks."
+    },
+    {
+      "interface": "Range",
+      "member": "isPointInRange",
+      "half": "operation",
+      "hook": "IsPointInRange",
+      "returns": true,
+      "reason": "DOM §5.5 checks the supplied point root and unsigned offset, then includes both range endpoints. DomRangeMembers reuses AngleSharp boundary ordering after those checks."
+    },
+    {
       "interface": "Document",
       "member": "getElementsByClassName",
       "half": "operation",
