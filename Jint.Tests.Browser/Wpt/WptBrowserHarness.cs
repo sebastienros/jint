@@ -152,6 +152,7 @@ internal sealed class WptBrowserHarness : IDisposable
     internal async Task<WptBrowserOutcome> RunAsync(string path)
     {
         var collector = new WptBrowserCollector();
+        var diagnostics = new WptBrowserDiagnostics();
 
         var context = await _browser.NewContextAsync(new BrowserContextOptions
         {
@@ -172,6 +173,11 @@ internal sealed class WptBrowserHarness : IDisposable
                 // outcome comes back through — so the census sees the whole lane whatever the theory then
                 // asserts, and a file the theories already ran is tallied rather than run a second time.
                 var outcome = await RunAsync(page, collector, path).ConfigureAwait(false);
+                if (outcome.HarnessError is { } failure)
+                {
+                    outcome = WptBrowserOutcome.Failed(failure + diagnostics.Describe(page, collector));
+                }
+
                 WptBrowserCensus.Record(path, outcome);
                 WptBrowserCauses.Record(path, outcome);
                 return outcome;
@@ -332,14 +338,16 @@ internal sealed class WptBrowserHarness : IDisposable
     /// Routes one posted report to the page whose engine posted it.
     /// </summary>
     /// <remarks>
-    /// Called on that page's own loop thread, from inside whatever turn the harness reported in. It touches
-    /// nothing of the engine's: the payload is already a string, and the collector it lands in is the driver's.
+    /// Called on that page's own loop thread, from inside whatever turn the harness reported in. The payload
+    /// is already a string; the only additional reads are the runtime's native readiness and script flags.
     /// </remarks>
     private void Report(Engine engine, string json)
     {
-        if (PageRuntime.Find(engine)?.Page is { } page && _collectors.TryGetValue(page, out var collector))
+        if (PageRuntime.Find(engine) is { Page: { } page } runtime && _collectors.TryGetValue(page, out var collector))
         {
-            collector.Add(json);
+            // Copy only native state on its owning loop. Do not evaluate script-visible getters or retain
+            // a runtime/node for the test thread to inspect after a timeout.
+            collector.Add(json, runtime.ReadyState, runtime.CurrentScript is not null);
         }
     }
 
@@ -392,6 +400,12 @@ internal sealed class WptBrowserCollector
     private volatile bool _complete;
     private int _harnessStatus;
     private string _harnessMessage = "";
+    private readonly long _started = Stopwatch.GetTimestamp();
+    private long _firstResult;
+    private long _lastResult;
+    private long _completion;
+    private string _readyState = "unreported";
+    private bool _scriptActive;
 
     /// <summary>Whether the harness has run its completion callback.</summary>
     internal bool IsComplete => _complete;
@@ -408,7 +422,7 @@ internal sealed class WptBrowserCollector
         }
     }
 
-    internal void Add(string json)
+    internal void Add(string json, string readyState = "unreported", bool scriptActive = false)
     {
         using var document = JsonDocument.Parse(json);
         var root = document.RootElement;
@@ -423,17 +437,46 @@ internal sealed class WptBrowserCollector
             lock (_gate)
             {
                 _results.Add(result);
+                var now = Stopwatch.GetTimestamp();
+                if (_firstResult == 0)
+                {
+                    _firstResult = now;
+                }
+
+                _lastResult = now;
+                _readyState = readyState;
+                _scriptActive = scriptActive;
             }
 
             return;
         }
 
-        _harnessStatus = root.GetProperty("status").GetInt32();
-        _harnessMessage = root.GetProperty("message").GetString() ?? "";
+        lock (_gate)
+        {
+            _harnessStatus = root.GetProperty("status").GetInt32();
+            _harnessMessage = root.GetProperty("message").GetString() ?? "";
+            _completion = Stopwatch.GetTimestamp();
+            _readyState = readyState;
+            _scriptActive = scriptActive;
+        }
 
-        // Last, and after the two fields it publishes: the test thread reads them the moment this turns true.
+        // Last, after the fields it publishes: the test thread reads them the moment this turns true.
         _complete = true;
     }
+
+    /// <summary>A failure-only rendering; callback work is limited to timestamps and native scalar fields.</summary>
+    internal string DescribeProgress()
+    {
+        lock (_gate)
+        {
+            return FormattableString.Invariant(
+                $"results={_results.Count}; firstResultMs={Elapsed(_firstResult)}; lastResultMs={Elapsed(_lastResult)}; completionMs={Elapsed(_completion)}; lastReportReadyState={_readyState}; lastReportScriptActive={_scriptActive}");
+        }
+    }
+
+    private string Elapsed(long timestamp) => timestamp == 0
+        ? "unreported"
+        : Stopwatch.GetElapsedTime(_started, timestamp).TotalMilliseconds.ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
 
     /// <summary>
     /// What the file produced. <paramref name="budgetFailure"/> is a harness error the harness itself could
