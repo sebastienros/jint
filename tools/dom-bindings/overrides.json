@@ -39,6 +39,11 @@
       "reason": "HTML §2.5.3 gives every element including HTMLOrSVGElement a nonce whose setter writes the [[CryptographicNonce]] slot and NOT the content attribute, which is what keeps a header-delivered policy's nonce out of a CSS selector. AngleSharp declares one attribute-backed property, on this interface alone, whose setter writes the attribute; skipped so the reflected HTMLElement.nonce row is what every element answers with."
     },
     {
+      "interface": "HTMLTableHeaderCellElement",
+      "member": "scope",
+      "reason": "HTML declares `scope` on HTMLTableCellElement (§4.9.10) and has no HTMLTableHeaderCellElement at all -- AngleSharp splits <th> and <td> into two [DomName] interfaces the standard does not have, which Dom/divergences.md records. Its `scope` shadowed the reflected HTMLTableCellElement.scope, so <th> kept the raw attribute value while <td> answered the enumeration. Skipped so both cells answer the one member."
+    },
+    {
       "interface": "HTMLMarqueeElement",
       "member": "scrollamount",
       "reason": "HTML names the IDL attribute scrollAmount (https://html.spec.whatwg.org/multipage/obsolete.html#htmlmarqueeelement); AngleSharp's [DomName] on IHtmlMarqueeElement.ScrollAmount is the CONTENT attribute's all-lower-case spelling, so the projection was a nonstandard member under a name no page can use. The reflected scrollAmount row replaces it."
@@ -2099,6 +2104,294 @@
       "attribute": "type",
       "type": "string",
       "reason": "HTML \u00a716.2: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLTableElement",
+      "member": "align",
+      "attribute": "align",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLTableElement",
+      "member": "border",
+      "attribute": "border",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLTableElement",
+      "member": "frame",
+      "attribute": "frame",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLTableElement",
+      "member": "rules",
+      "attribute": "rules",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLTableElement",
+      "member": "summary",
+      "attribute": "summary",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLTableElement",
+      "member": "width",
+      "attribute": "width",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLTableElement",
+      "member": "bgColor",
+      "attribute": "bgcolor",
+      "type": "string",
+      "legacyNullToEmptyString": true,
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute, [LegacyNullToEmptyString] so a null write is the empty string. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLTableElement",
+      "member": "cellPadding",
+      "attribute": "cellpadding",
+      "type": "string",
+      "legacyNullToEmptyString": true,
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute, [LegacyNullToEmptyString] so a null write is the empty string. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLTableElement",
+      "member": "cellSpacing",
+      "attribute": "cellspacing",
+      "type": "string",
+      "legacyNullToEmptyString": true,
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute, [LegacyNullToEmptyString] so a null write is the empty string. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLTableCaptionElement",
+      "member": "align",
+      "attribute": "align",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLTableColElement",
+      "member": "span",
+      "attribute": "span",
+      "type": "clamped unsigned long",
+      "default": 1,
+      "min": 1,
+      "max": 1000,
+      "reason": "HTML \u00a74.9.3: `span` is an unsigned long clamped to the range [1, 1000] with a default of 1. AngleSharp types it as an Int32 with .NET's own parse and no clamping, so `span=\"0\"` answered 0 and `span=\"2147483647\"` answered that."
+    },
+    {
+      "interface": "HTMLTableColElement",
+      "member": "align",
+      "attribute": "align",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLTableColElement",
+      "member": "ch",
+      "attribute": "char",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: `ch` reflects the `char` content attribute -- the IDL name and the attribute name differ. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLTableColElement",
+      "member": "chOff",
+      "attribute": "charoff",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: `chOff` reflects the `charoff` content attribute. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLTableColElement",
+      "member": "vAlign",
+      "attribute": "valign",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: `vAlign` reflects the `valign` content attribute. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLTableColElement",
+      "member": "width",
+      "attribute": "width",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLTableSectionElement",
+      "member": "align",
+      "attribute": "align",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLTableSectionElement",
+      "member": "ch",
+      "attribute": "char",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: `ch` reflects the `char` content attribute -- the IDL name and the attribute name differ. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLTableSectionElement",
+      "member": "chOff",
+      "attribute": "charoff",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: `chOff` reflects the `charoff` content attribute. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLTableSectionElement",
+      "member": "vAlign",
+      "attribute": "valign",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: `vAlign` reflects the `valign` content attribute. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLTableRowElement",
+      "member": "align",
+      "attribute": "align",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLTableRowElement",
+      "member": "ch",
+      "attribute": "char",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: `ch` reflects the `char` content attribute -- the IDL name and the attribute name differ. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLTableRowElement",
+      "member": "chOff",
+      "attribute": "charoff",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: `chOff` reflects the `charoff` content attribute. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLTableRowElement",
+      "member": "vAlign",
+      "attribute": "valign",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: `vAlign` reflects the `valign` content attribute. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLTableRowElement",
+      "member": "bgColor",
+      "attribute": "bgcolor",
+      "type": "string",
+      "legacyNullToEmptyString": true,
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute, [LegacyNullToEmptyString] so a null write is the empty string. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLTableCellElement",
+      "member": "colSpan",
+      "attribute": "colspan",
+      "type": "clamped unsigned long",
+      "default": 1,
+      "min": 1,
+      "max": 1000,
+      "reason": "HTML \u00a74.9.11: `colSpan` is an unsigned long clamped to the range [1, 1000] with a default of 1. AngleSharp types it as an Int32 with .NET's own parse, so `colspan=\"1001\"` answered 1001 rather than 1000 and `td.colSpan = 4294967295` wrote \"-1\"."
+    },
+    {
+      "interface": "HTMLTableCellElement",
+      "member": "rowSpan",
+      "attribute": "rowspan",
+      "type": "clamped unsigned long",
+      "default": 1,
+      "min": 0,
+      "max": 65534,
+      "reason": "HTML \u00a74.9.11: `rowSpan` is an unsigned long clamped to the range [0, 65534] with a default of 1 -- a different range from colSpan's, and zero is legal because it means \"to the end of the row group\"."
+    },
+    {
+      "interface": "HTMLTableCellElement",
+      "member": "headers",
+      "attribute": "headers",
+      "type": "string",
+      "reason": "HTML \u00a74.9.11: `headers` is a reflected DOMString, not a token list, whatever the value's syntax is. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLTableCellElement",
+      "member": "scope",
+      "attribute": "scope",
+      "type": "enum",
+      "keywords": ["row", "col", "rowgroup", "colgroup"],
+      "reason": "HTML \u00a74.9.10: `scope` is an enumerated attribute limited to known values, with an empty invalid and missing value default. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLTableCellElement",
+      "member": "abbr",
+      "attribute": "abbr",
+      "type": "string",
+      "reason": "HTML \u00a74.9.10: `abbr` is a reflected DOMString. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLTableCellElement",
+      "member": "align",
+      "attribute": "align",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLTableCellElement",
+      "member": "axis",
+      "attribute": "axis",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLTableCellElement",
+      "member": "height",
+      "attribute": "height",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLTableCellElement",
+      "member": "width",
+      "attribute": "width",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLTableCellElement",
+      "member": "ch",
+      "attribute": "char",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: `ch` reflects the `char` content attribute -- the IDL name and the attribute name differ. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLTableCellElement",
+      "member": "chOff",
+      "attribute": "charoff",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: `chOff` reflects the `charoff` content attribute. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLTableCellElement",
+      "member": "vAlign",
+      "attribute": "valign",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: `vAlign` reflects the `valign` content attribute. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLTableCellElement",
+      "member": "noWrap",
+      "attribute": "nowrap",
+      "type": "boolean",
+      "reason": "HTML \u00a716.3.3: an obsolete boolean attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLTableCellElement",
+      "member": "bgColor",
+      "attribute": "bgcolor",
+      "type": "string",
+      "legacyNullToEmptyString": true,
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute, [LegacyNullToEmptyString] so a null write is the empty string. AngleSharp has no member for it."
     },
     {
       "interface": "HTMLDivElement",

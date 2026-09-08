@@ -4651,6 +4651,17 @@ internal static partial class DomInterfaces
         => new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("HTMLTableCaptionElement")
             .PerRealmSlot("constructor", enumerable: false)
+            .Accessor("align",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCaptionElement.align", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCaptionElement>(thisObj, "HTMLTableCaptionElement.align");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableCaptionElementAlign.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCaptionElement.align", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCaptionElement>(thisObj, "HTMLTableCaptionElement.align");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableCaptionElementAlign.Set(self.Realm, self.Target, args);
+                }))
             .Build();
 
     /// <summary>The members of <c>HTMLTableCellElement</c>.</summary>
@@ -4658,39 +4669,165 @@ internal static partial class DomInterfaces
         => new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("HTMLTableCellElement")
             .PerRealmSlot("constructor", enumerable: false)
+            .Accessor("abbr",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.abbr", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.abbr");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementAbbr.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.abbr", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.abbr");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementAbbr.Set(self.Realm, self.Target, args);
+                }))
+            .Accessor("align",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.align", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.align");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementAlign.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.align", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.align");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementAlign.Set(self.Realm, self.Target, args);
+                }))
+            .Accessor("axis",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.axis", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.axis");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementAxis.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.axis", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.axis");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementAxis.Set(self.Realm, self.Target, args);
+                }))
+            .Accessor("bgColor",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.bgColor", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.bgColor");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementBgColor.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.bgColor", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.bgColor");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementBgColor.Set(self.Realm, self.Target, args);
+                }))
             .Accessor("cellIndex",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.cellIndex", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.cellIndex");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Index);
                 }))
+            .Accessor("ch",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.ch", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.ch");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementCh.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.ch", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.ch");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementCh.Set(self.Realm, self.Target, args);
+                }))
+            .Accessor("chOff",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.chOff", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.chOff");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementChOff.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.chOff", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.chOff");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementChOff.Set(self.Realm, self.Target, args);
+                }))
             .Accessor("colSpan",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.colSpan", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.colSpan");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.ColumnSpan);
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementColSpan.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.colSpan", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.colSpan");
-                    self.Target.ColumnSpan = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "HTMLTableCellElement.colSpan"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementColSpan.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("headers",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.headers", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.headers");
-                    return self.Realm.Wrap(self.Target.Headers);
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementHeaders.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.headers", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.headers");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementHeaders.Set(self.Realm, self.Target, args);
+                }))
+            .Accessor("height",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.height", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.height");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementHeight.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.height", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.height");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementHeight.Set(self.Realm, self.Target, args);
+                }))
+            .Accessor("noWrap",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.noWrap", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.noWrap");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementNoWrap.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.noWrap", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.noWrap");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementNoWrap.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("rowSpan",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.rowSpan", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.rowSpan");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.RowSpan);
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementRowSpan.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.rowSpan", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.rowSpan");
-                    self.Target.RowSpan = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "HTMLTableCellElement.rowSpan"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementRowSpan.Set(self.Realm, self.Target, args);
+                }))
+            .Accessor("scope",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.scope", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.scope");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementScope.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.scope", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.scope");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementScope.Set(self.Realm, self.Target, args);
+                }))
+            .Accessor("vAlign",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.vAlign", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.vAlign");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementVAlign.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.vAlign", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.vAlign");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementVAlign.Set(self.Realm, self.Target, args);
+                }))
+            .Accessor("width",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.width", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.width");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementWidth.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableCellElement.width", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(thisObj, "HTMLTableCellElement.width");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableCellElementWidth.Set(self.Realm, self.Target, args);
                 }))
             .Build();
 
@@ -4699,16 +4836,71 @@ internal static partial class DomInterfaces
         => new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("HTMLTableColElement")
             .PerRealmSlot("constructor", enumerable: false)
+            .Accessor("align",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableColElement.align", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableColumnElement>(thisObj, "HTMLTableColElement.align");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableColElementAlign.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableColElement.align", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableColumnElement>(thisObj, "HTMLTableColElement.align");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableColElementAlign.Set(self.Realm, self.Target, args);
+                }))
+            .Accessor("ch",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableColElement.ch", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableColumnElement>(thisObj, "HTMLTableColElement.ch");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableColElementCh.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableColElement.ch", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableColumnElement>(thisObj, "HTMLTableColElement.ch");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableColElementCh.Set(self.Realm, self.Target, args);
+                }))
+            .Accessor("chOff",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableColElement.chOff", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableColumnElement>(thisObj, "HTMLTableColElement.chOff");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableColElementChOff.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableColElement.chOff", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableColumnElement>(thisObj, "HTMLTableColElement.chOff");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableColElementChOff.Set(self.Realm, self.Target, args);
+                }))
             .Accessor("span",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableColElement.span", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableColumnElement>(thisObj, "HTMLTableColElement.span");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Span);
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableColElementSpan.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableColElement.span", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableColumnElement>(thisObj, "HTMLTableColElement.span");
-                    self.Target.Span = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "HTMLTableColElement.span"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableColElementSpan.Set(self.Realm, self.Target, args);
+                }))
+            .Accessor("vAlign",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableColElement.vAlign", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableColumnElement>(thisObj, "HTMLTableColElement.vAlign");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableColElementVAlign.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableColElement.vAlign", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableColumnElement>(thisObj, "HTMLTableColElement.vAlign");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableColElementVAlign.Set(self.Realm, self.Target, args);
+                }))
+            .Accessor("width",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableColElement.width", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableColumnElement>(thisObj, "HTMLTableColElement.width");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableColElementWidth.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableColElement.width", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableColumnElement>(thisObj, "HTMLTableColElement.width");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableColElementWidth.Set(self.Realm, self.Target, args);
                 }))
             .Build();
 
@@ -4724,16 +4916,38 @@ internal static partial class DomInterfaces
         => new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("HTMLTableElement")
             .PerRealmSlot("constructor", enumerable: false)
+            .Accessor("align",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.align", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.align");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableElementAlign.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.align", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.align");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableElementAlign.Set(self.Realm, self.Target, args);
+                }))
+            .Accessor("bgColor",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.bgColor", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.bgColor");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableElementBgColor.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.bgColor", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.bgColor");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableElementBgColor.Set(self.Realm, self.Target, args);
+                }))
             .Accessor("border",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.border", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.border");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Border);
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableElementBorder.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.border", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.border");
-                    self.Target.Border = global::Jint.Browser.Dom.DomConvert.RequiredUInt32(args, 0, "HTMLTableElement.border"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableElementBorder.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("caption",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.caption", static (thisObj, args) =>
@@ -4745,6 +4959,28 @@ internal static partial class DomInterfaces
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.caption");
                     self.Target.Caption = global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Html.Dom.IHtmlTableCaptionElement>(args, 0, "HTMLTableElement.caption"); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("cellPadding",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.cellPadding", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.cellPadding");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableElementCellPadding.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.cellPadding", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.cellPadding");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableElementCellPadding.Set(self.Realm, self.Target, args);
+                }))
+            .Accessor("cellSpacing",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.cellSpacing", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.cellSpacing");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableElementCellSpacing.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.cellSpacing", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.cellSpacing");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableElementCellSpacing.Set(self.Realm, self.Target, args);
                 }))
             .Method("createCaption",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.createCaption", static (thisObj, args) =>
@@ -4802,6 +5038,17 @@ internal static partial class DomInterfaces
                     self.Target.DeleteHead(); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
+            .Accessor("frame",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.frame", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.frame");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableElementFrame.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.frame", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.frame");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableElementFrame.Set(self.Realm, self.Target, args);
+                }))
             .Method("insertRow",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.insertRow", static (thisObj, args) =>
                 {
@@ -4814,6 +5061,28 @@ internal static partial class DomInterfaces
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.rows");
                     return self.Realm.WrapCollection<global::AngleSharp.Html.Dom.IHtmlTableRowElement>(self.Target.Rows);
+                }))
+            .Accessor("rules",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.rules", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.rules");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableElementRules.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.rules", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.rules");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableElementRules.Set(self.Realm, self.Target, args);
+                }))
+            .Accessor("summary",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.summary", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.summary");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableElementSummary.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.summary", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.summary");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableElementSummary.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("tBodies",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.tBodies", static (thisObj, args) =>
@@ -4843,6 +5112,17 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.tHead");
                     self.Target.Head = global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Html.Dom.IHtmlTableSectionElement>(args, 0, "HTMLTableElement.tHead"); return global::Jint.Native.JsValue.Undefined;
                 }))
+            .Accessor("width",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.width", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.width");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableElementWidth.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableElement.width", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.width");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableElementWidth.Set(self.Realm, self.Target, args);
+                }))
             .Build();
 
     /// <summary>The members of <c>HTMLTableHeaderCellElement</c>.</summary>
@@ -4850,17 +5130,6 @@ internal static partial class DomInterfaces
         => new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("HTMLTableHeaderCellElement")
             .PerRealmSlot("constructor", enumerable: false)
-            .Accessor("scope",
-                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableHeaderCellElement.scope", static (thisObj, args) =>
-                {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableHeaderCellElement>(thisObj, "HTMLTableHeaderCellElement.scope");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Scope);
-                }),
-                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableHeaderCellElement.scope", static (thisObj, args) =>
-                {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableHeaderCellElement>(thisObj, "HTMLTableHeaderCellElement.scope");
-                    self.Target.Scope = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLTableHeaderCellElement.scope"); return global::Jint.Native.JsValue.Undefined;
-                }))
             .Build();
 
     /// <summary>The members of <c>HTMLTableRowElement</c>.</summary>
@@ -4868,11 +5137,55 @@ internal static partial class DomInterfaces
         => new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("HTMLTableRowElement")
             .PerRealmSlot("constructor", enumerable: false)
+            .Accessor("align",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableRowElement.align", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableRowElement>(thisObj, "HTMLTableRowElement.align");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableRowElementAlign.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableRowElement.align", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableRowElement>(thisObj, "HTMLTableRowElement.align");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableRowElementAlign.Set(self.Realm, self.Target, args);
+                }))
+            .Accessor("bgColor",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableRowElement.bgColor", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableRowElement>(thisObj, "HTMLTableRowElement.bgColor");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableRowElementBgColor.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableRowElement.bgColor", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableRowElement>(thisObj, "HTMLTableRowElement.bgColor");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableRowElementBgColor.Set(self.Realm, self.Target, args);
+                }))
             .Accessor("cells",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableRowElement.cells", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableRowElement>(thisObj, "HTMLTableRowElement.cells");
                     return self.Realm.WrapCollection<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(self.Target.Cells);
+                }))
+            .Accessor("ch",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableRowElement.ch", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableRowElement>(thisObj, "HTMLTableRowElement.ch");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableRowElementCh.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableRowElement.ch", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableRowElement>(thisObj, "HTMLTableRowElement.ch");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableRowElementCh.Set(self.Realm, self.Target, args);
+                }))
+            .Accessor("chOff",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableRowElement.chOff", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableRowElement>(thisObj, "HTMLTableRowElement.chOff");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableRowElementChOff.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableRowElement.chOff", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableRowElement>(thisObj, "HTMLTableRowElement.chOff");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableRowElementChOff.Set(self.Realm, self.Target, args);
                 }))
             .Method("deleteCell",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableRowElement.deleteCell", static (thisObj, args) =>
@@ -4900,6 +5213,17 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableRowElement>(thisObj, "HTMLTableRowElement.sectionRowIndex");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.IndexInSection);
                 }))
+            .Accessor("vAlign",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableRowElement.vAlign", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableRowElement>(thisObj, "HTMLTableRowElement.vAlign");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableRowElementVAlign.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableRowElement.vAlign", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableRowElement>(thisObj, "HTMLTableRowElement.vAlign");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableRowElementVAlign.Set(self.Realm, self.Target, args);
+                }))
             .Build();
 
     /// <summary>The members of <c>HTMLTableSectionElement</c>.</summary>
@@ -4907,6 +5231,39 @@ internal static partial class DomInterfaces
         => new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("HTMLTableSectionElement")
             .PerRealmSlot("constructor", enumerable: false)
+            .Accessor("align",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableSectionElement.align", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableSectionElement>(thisObj, "HTMLTableSectionElement.align");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableSectionElementAlign.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableSectionElement.align", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableSectionElement>(thisObj, "HTMLTableSectionElement.align");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableSectionElementAlign.Set(self.Realm, self.Target, args);
+                }))
+            .Accessor("ch",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableSectionElement.ch", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableSectionElement>(thisObj, "HTMLTableSectionElement.ch");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableSectionElementCh.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableSectionElement.ch", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableSectionElement>(thisObj, "HTMLTableSectionElement.ch");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableSectionElementCh.Set(self.Realm, self.Target, args);
+                }))
+            .Accessor("chOff",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableSectionElement.chOff", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableSectionElement>(thisObj, "HTMLTableSectionElement.chOff");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableSectionElementChOff.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableSectionElement.chOff", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableSectionElement>(thisObj, "HTMLTableSectionElement.chOff");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableSectionElementChOff.Set(self.Realm, self.Target, args);
+                }))
             .Method("deleteRow",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableSectionElement.deleteRow", static (thisObj, args) =>
                 {
@@ -4926,6 +5283,17 @@ internal static partial class DomInterfaces
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableSectionElement>(thisObj, "HTMLTableSectionElement.rows");
                     return self.Realm.WrapCollection<global::AngleSharp.Html.Dom.IHtmlTableRowElement>(self.Target.Rows);
+                }))
+            .Accessor("vAlign",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableSectionElement.vAlign", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableSectionElement>(thisObj, "HTMLTableSectionElement.vAlign");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableSectionElementVAlign.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTableSectionElement.vAlign", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableSectionElement>(thisObj, "HTMLTableSectionElement.vAlign");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTableSectionElementVAlign.Set(self.Realm, self.Target, args);
                 }))
             .Build();
 
