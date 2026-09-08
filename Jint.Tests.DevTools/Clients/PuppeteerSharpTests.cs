@@ -47,6 +47,27 @@ public class PuppeteerSharpTests
     private static readonly TimeSpan Bound = TimeSpan.FromSeconds(120);
 
     [Test]
+    public async Task PuppeteerCreatesBrowserSessionsAndDetachesWithoutClosingTheConnection()
+    {
+        await using var server = new DevToolsServer();
+        await server.StartAsync();
+        await using var browser = await ConnectAsync(new ConnectOptions { BrowserWSEndpoint = server.BrowserWebSocketUrl });
+
+        var first = await browser.CreateCDPSessionAsync().WaitAsync(Bound);
+        var second = await browser.CreateCDPSessionAsync().WaitAsync(Bound);
+        var version = await first.SendAsync("Browser.getVersion").WaitAsync(Bound);
+        version!.Value.GetProperty("product").GetString().Should().StartWith("Jint/");
+        var info = await second.SendAsync("Target.getTargetInfo").WaitAsync(Bound);
+        info!.Value.GetProperty("targetInfo").GetProperty("type").GetString().Should().Be("browser");
+
+        await first.DetachAsync().WaitAsync(Bound);
+        (await second.SendAsync("Browser.getVersion").WaitAsync(Bound)).Should().NotBeNull();
+        await second.DetachAsync().WaitAsync(Bound);
+        (await browser.GetVersionAsync().WaitAsync(Bound)).Should().StartWith("Jint/");
+        browser.Disconnect();
+    }
+
+    [Test]
     public async Task PuppeteerConnectsListsTheTargetOpensASessionAndEvaluates()
     {
         await using var server = new DevToolsServer();
