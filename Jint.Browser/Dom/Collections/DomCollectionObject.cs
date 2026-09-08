@@ -1,5 +1,6 @@
 using Jint.Browser.Runtime;
 using Jint.Native;
+using Jint.Native.Object;
 
 namespace Jint.Browser.Dom.Collections;
 
@@ -10,7 +11,7 @@ namespace Jint.Browser.Dom.Collections;
 /// because the interface-specific half is a <see cref="DomCollectionAccessor"/> the generator wrote from
 /// AngleSharp's <c>[DomAccessor]</c> metadata.
 /// </summary>
-internal sealed class DomCollectionObject : DomCollectionBase
+internal sealed class DomCollectionObject : DomCollectionBase, INamedPropertySupport
 {
     private readonly DomCollectionAccessor _accessor;
 
@@ -78,19 +79,21 @@ internal sealed class DomCollectionObject : DomCollectionBase
             return false;
         }
 
-        // The supported-name check comes first, before a prototype (possibly a Proxy) can observe a probe.
-        if (!_accessor.TryGetNamed(DomRealm, DomTarget, name, out value))
+        if (ReferenceEquals(Definition, DomInterfaces.NamedNodeMap))
         {
-            return false;
+            // WebIDL tests membership and visibility before it invokes the named getter. Besides preserving
+            // that observable order around Proxy prototypes, this keeps a hidden Attr from being wrapped and
+            // charged to the page's node budget merely because script read a prototype member of the same name.
+            if (!HasSupportedName(name) || !IsNamedPropertyVisible(name))
+            {
+                value = JsValue.Undefined;
+                return false;
+            }
+
+            return _accessor.TryGetNamed(DomRealm, DomTarget, name, out value);
         }
 
-        if (ReferenceEquals(Definition, DomInterfaces.NamedNodeMap) && !IsNamedPropertyVisible(name))
-        {
-            value = JsValue.Undefined;
-            return false;
-        }
-
-        return true;
+        return _accessor.TryGetNamed(DomRealm, DomTarget, name, out value);
     }
 
     /// <summary>
@@ -109,14 +112,10 @@ internal sealed class DomCollectionObject : DomCollectionBase
 
         for (var prototype = Prototype; prototype is not null; prototype = prototype.Prototype)
         {
-            // WebIDL skips named properties objects, such as the one behind Window.prototype.
-            if (prototype is WindowNamedProperties)
-            {
-                return true;
-            }
-
+            // WebIDL skips the own-property check for a named properties object, such as the one behind
+            // Window.prototype, but keeps walking: a property farther up the chain still hides the name.
             // HasOwnProperty inspects the descriptor without invoking an accessor's getter.
-            if (prototype.HasOwnProperty(name))
+            if (prototype is not WindowNamedProperties && prototype.HasOwnProperty(name))
             {
                 return false;
             }
@@ -124,6 +123,21 @@ internal sealed class DomCollectionObject : DomCollectionBase
 
         return true;
     }
+
+    private bool HasSupportedName(string name)
+    {
+        foreach (var supportedName in _accessor.SupportedNames(DomTarget))
+        {
+            if (string.Equals(supportedName, name, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    bool INamedPropertySupport.HasSupportedName(string name) => HasSupportedName(name);
 
     /// <inheritdoc />
     protected override bool IsNameEnumerable(string name) => _accessor.AreNamesEnumerable;

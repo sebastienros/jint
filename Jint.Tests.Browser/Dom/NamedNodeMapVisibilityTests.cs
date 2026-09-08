@@ -83,6 +83,39 @@ public sealed class NamedNodeMapVisibilityTests
     }
 
     [Test]
+    public void AHiddenSupportedNameStillRefusesDefineOwnProperty()
+    {
+        using var fixture = DomTestFixture.Create("<!doctype html>");
+        fixture.Bool("""
+            (() => {
+              const element = document.createElement('div'); element.setAttribute('item', 'native');
+              const map = element.attributes, attribute = map.getNamedItem('item');
+              return Reflect.defineProperty(map, 'item', { value: 'own', configurable: true }) === false &&
+                map.item === NamedNodeMap.prototype.item && map.getNamedItem('item') === attribute &&
+                !Object.hasOwn(map, 'item');
+            })()
+            """).Should().BeTrue();
+    }
+
+    [Test]
+    public void AHiddenNameDoesNotWrapItsAttributeBeforeTheNamedGetterRuns()
+    {
+        using var fixture = DomTestFixture.Create("<!doctype html>");
+        fixture.Execute("""
+            const element = document.createElement('div');
+            element.setAttribute('item', 'native');
+            globalThis.map = element.attributes;
+            """);
+        var before = global::Jint.Browser.Dom.DomRealm.Of(fixture.Engine).NodeCount;
+
+        fixture.Text("typeof map.item").Should().Be("function");
+
+        global::Jint.Browser.Dom.DomRealm.Of(fixture.Engine).NodeCount.Should().Be(
+            before,
+            "a prototype-hidden supported name is filtered before its Attr is wrapped");
+    }
+
+    [Test]
     public void UnsupportedNamesAndNumericIndicesDoNotProbeThePrototype()
     {
         using var fixture = DomTestFixture.Create("<!doctype html>");
@@ -100,7 +133,7 @@ public sealed class NamedNodeMapVisibilityTests
     }
 
     [Test]
-    public async Task TheWindowsNamedPropertiesObjectEndsTheVisibilitySearch()
+    public async Task TheWindowsNamedPropertiesObjectIsSkippedButTheSearchContinues()
     {
         await using var browser = new global::Jint.Browser.Browser();
         var page = await browser.NewPageAsync();
@@ -111,14 +144,14 @@ public sealed class NamedNodeMapVisibilityTests
               element.setAttributeNS(null, 'probe', 'named property');
               element.setAttributeNS(null, 'toString', 'farther prototype property');
               const map = element.attributes;
-              const probe = map.getNamedItem('probe'), toString = map.getNamedItem('toString');
+              const probe = map.getNamedItem('probe');
               const windowNames = Object.getPrototypeOf(Window.prototype);
               Object.setPrototypeOf(map, windowNames);
               return Object.hasOwn(windowNames, 'probe') &&
-                map.probe === probe && map.toString === toString &&
-                Object.hasOwn(map, 'probe') && Object.hasOwn(map, 'toString') &&
+                map.probe === probe && map.toString === Object.prototype.toString &&
+                Object.hasOwn(map, 'probe') && !Object.hasOwn(map, 'toString') &&
                 Object.getOwnPropertyNames(map).includes('probe') &&
-                Object.getOwnPropertyNames(map).includes('toString');
+                !Object.getOwnPropertyNames(map).includes('toString');
             })()
             """)).Should().BeTrue();
     }
