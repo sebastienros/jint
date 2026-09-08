@@ -171,9 +171,23 @@ internal static class FormSubmitter
 
         try
         {
-            foreach (var element in form.Elements)
+            // HTML's entry-list inventory is submittable controls, not form.elements: the latter excludes
+            // image inputs. AngleSharp supplies both tree order and each control's form owner, including
+            // controls outside the form and controls in detached trees.
+            foreach (var node in form.GetRoot().GetDescendants())
             {
-                Append(runtime, entries, element, submitter);
+                var owner = node switch
+                {
+                    IHtmlInputElement input => input.Form,
+                    IHtmlButtonElement button => button.Form,
+                    IHtmlSelectElement select => select.Form,
+                    IHtmlTextAreaElement textArea => textArea.Form,
+                    _ => null,
+                };
+                if (ReferenceEquals(owner, form))
+                {
+                    Append(runtime, entries, (IHtmlElement) node, submitter);
+                }
             }
 
             return FireFormData(runtime, form, entries);
@@ -236,8 +250,18 @@ internal static class FormSubmitter
                     break;
 
                 case "image":
-                    // The coordinate pair an image button submits needs a click position, which is the input
-                    // model's (campaign item R2); until then an image button contributes nothing.
+                    // https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#constructing-the-entry-list
+                    // step 5.2: the selected image contributes x then y even when it has no name.
+                    if (ReferenceEquals(element, submitter))
+                    {
+                        var prefix = string.IsNullOrEmpty(name) ? "" : name + ".";
+                        // HTML permits selecting a position only from an available image the UA displays.
+                        // This browser does not fetch/render images, so even a pointer click activates the
+                        // fallback submit button and retains the initial (0, 0). A flat box is not an image.
+                        entries.Add(new FormDataEntry(prefix + "x", JsString.Create("0")));
+                        entries.Add(new FormDataEntry(prefix + "y", JsString.Create("0")));
+                    }
+
                     return;
 
                 case "file":
