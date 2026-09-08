@@ -90,6 +90,8 @@ namespace Jint
             public void ResetCallStack() { }
             public void RestoreGlobalSnapshot(Jint.GlobalSnapshot snapshot) { }
             public bool TryGetSourceText(Acornima.Ast.Program program, out string? sourceText) { }
+            public void WithRealm(Jint.Runtime.Realm realm, System.Action<Jint.Engine> action) { }
+            public T WithRealm<T>(Jint.Runtime.Realm realm, System.Func<Jint.Engine, T> action) { }
             public void WithRestoredGlobals(Jint.GlobalSnapshot snapshot, System.Action action) { }
         }
         public sealed class ConstraintOperations
