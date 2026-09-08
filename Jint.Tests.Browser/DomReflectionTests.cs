@@ -94,13 +94,46 @@ public sealed class DomReflectionTests
     }
 
     [Test]
-    public void AFormActionUrlDefaultsToTheOwningDocumentUrl()
+    public async Task AFormActionUrlDefaultsToTheOwningDocumentUrl()
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(
+            "<base href='https://base.example/other/'><input id='control'>",
+            "https://document.example/root/page.html#fragment");
+
+        (await page.EvaluateAsync<string>("control.formAction"))
+            .Should().Be("https://document.example/root/page.html#fragment");
+        await page.EvaluateAsync("control.setAttribute('formaction', '')");
+        (await page.EvaluateAsync<string>("control.formAction"))
+            .Should().Be("https://document.example/root/page.html#fragment");
+
+        await page.EvaluateAsync("control.setAttribute('formaction', 'submit')");
+        (await page.EvaluateAsync<string>("control.formAction"))
+            .Should().Be("https://base.example/other/submit");
+
+        await page.EvaluateAsync(
+            """
+            globalThis.other = document.implementation.createHTMLDocument('other');
+            other.head.innerHTML = "<base href='https://other-base.example/'>";
+            other.body.innerHTML = "<input id='otherControl'>";
+            globalThis.otherControl = other.getElementById('otherControl');
+            """);
+        (await page.EvaluateAsync<bool>("otherControl.formAction === other.URL")).Should().BeTrue();
+        await page.EvaluateAsync("document.adoptNode(otherControl)");
+        (await page.EvaluateAsync<bool>("otherControl.formAction === document.URL")).Should().BeTrue();
+    }
+
+    [Test]
+    public void AFormMethodRecognizesDialogCaseInsensitively()
     {
         using var fixture = DomTestFixture.Create("<input id='i'>");
 
-        fixture.Text("document.querySelector('#i').formAction").Should().Be("http://localhost/");
-        fixture.Evaluate("document.querySelector('#i').setAttribute('formaction', '')");
-        fixture.Text("document.querySelector('#i').formAction").Should().Be("http://localhost/");
+        fixture.Evaluate("document.querySelector('#i').formMethod = 'dialog'");
+        fixture.Text("document.querySelector('#i').formMethod").Should().Be("dialog");
+        fixture.Evaluate("document.querySelector('#i').formMethod = 'DiAlOg'");
+        fixture.Text("document.querySelector('#i').getAttribute('formmethod')").Should().Be("DiAlOg");
+        fixture.Text("document.querySelector('#i').formMethod").Should().Be("dialog");
     }
 
     [Test]

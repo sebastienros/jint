@@ -1922,16 +1922,16 @@
       "type": "enum",
       "keywords": ["application/x-www-form-urlencoded", "multipart/form-data", "text/plain"],
       "invalid": "application/x-www-form-urlencoded",
-      "reason": "HTML \u00a74.10.5: `formEnctype` is limited to the three form encoding keywords and maps every invalid value to `application/x-www-form-urlencoded`. AngleSharp exposes no member for it."
+      "reason": "HTML \u00a74.10.5: `formEnctype` is limited to the three form encoding keywords and maps every invalid value to `application/x-www-form-urlencoded`. AngleSharp exposes the member only under the nonstandard `formEncType` spelling, and its invalid value default is the empty string."
     },
     {
       "interface": "HTMLInputElement",
       "member": "formMethod",
       "attribute": "formmethod",
       "type": "enum",
-      "keywords": ["get", "post"],
+      "keywords": ["get", "post", "dialog"],
       "invalid": "get",
-      "reason": "HTML \u00a74.10.5: `formMethod` is limited to `get` and `post` and maps every invalid value to `get`. AngleSharp exposes no member for it."
+      "reason": "HTML \u00a74.10.5: `formMethod` recognizes `get`, `post` and `dialog` and maps every invalid value to `get`. AngleSharp recognizes the three keywords but maps an invalid value to the empty string."
     },
     {
       "interface": "HTMLInputElement",

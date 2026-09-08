@@ -16,7 +16,10 @@ internal enum ReflectedKind
     /// <summary>A <c>DOMString?</c>: absent is <see langword="null"/> and setting null removes.</summary>
     NullableText,
 
-    /// <summary>A <c>USVString</c> whose content attribute is defined to contain a URL.</summary>
+    /// <summary>
+    /// A <c>USVString</c> whose content attribute is defined to contain a URL, optionally answering the node
+    /// document's URL when that attribute is absent or empty.
+    /// </summary>
     Url,
 
     /// <summary>An enumerated attribute limited to known values.</summary>
@@ -152,16 +155,19 @@ internal sealed class ReflectedAttribute
 
     /// <summary>The IDL attribute's value outside a page runtime, resolved against its node document.</summary>
     internal JsValue Get(IElement element)
-        => Get(element, CurrentBaseUri(element.Owner, element.BaseUri));
+    {
+        var owner = element.Owner;
+        return Get(element, CurrentBaseUri(owner, element.BaseUri), owner?.Url);
+    }
 
     /// <summary>The IDL attribute's value inside a page runtime, resolved against its current document base.</summary>
     internal JsValue Get(DomRealm realm, IElement element)
     {
         var owner = element.Owner;
-        var baseUri = PageRuntime.Find(realm.Engine) is { } runtime && ReferenceEquals(owner, runtime.Document)
-            ? runtime.BaseUri
-            : CurrentBaseUri(owner, element.BaseUri);
-        return Get(element, baseUri);
+        var runtime = PageRuntime.Find(realm.Engine, owner);
+        var baseUri = runtime?.BaseUri ?? CurrentBaseUri(owner, element.BaseUri);
+        var documentUrl = runtime?.DocumentUrl ?? owner?.Url;
+        return Get(element, baseUri, documentUrl);
     }
 
     /// <summary>
@@ -184,7 +190,7 @@ internal sealed class ReflectedAttribute
         return PageUrl.Resolve(href, address) ?? address;
     }
 
-    private JsValue Get(IElement element, string? baseUri)
+    private JsValue Get(IElement element, string? baseUri, string? documentUrl)
     {
         var value = element.GetAttribute(_attribute);
 
@@ -200,7 +206,7 @@ internal sealed class ReflectedAttribute
                 return DomConvert.Bool(value is not null);
 
             case ReflectedKind.Url:
-                return DomConvert.Text(ResolveUrl(value, baseUri));
+                return DomConvert.Text(ResolveUrl(value, baseUri, documentUrl));
 
             case ReflectedKind.Enumerated:
                 return Enumerate(value);
@@ -458,14 +464,19 @@ internal sealed class ReflectedAttribute
     /// descriptor deliberately bypasses AngleSharp's convenience URL properties because their cached base
     /// can survive removal of the document's first <c>base[href]</c>.
     /// </remarks>
-    private string ResolveUrl(string? value, string? baseUri)
+    private string ResolveUrl(string? value, string? baseUri, string? documentUrl)
     {
-        if (value is null && !_defaultToDocumentUrl)
+        if (value is null)
         {
-            return "";
+            return _defaultToDocumentUrl ? documentUrl ?? "" : "";
         }
 
-        return PageUrl.Resolve(value ?? "", baseUri) ?? value ?? "";
+        if (_defaultToDocumentUrl && value.Length == 0)
+        {
+            return documentUrl ?? "";
+        }
+
+        return PageUrl.Resolve(value, baseUri) ?? value;
     }
 
     /// <summary>

@@ -260,7 +260,7 @@ internal sealed class Overrides
         [JsonPropertyName("nullable")]
         public bool Nullable { get; init; }
 
-        /// <summary>Whether an absent URL attribute resolves the owning document's URL.</summary>
+        /// <summary>Whether an absent or empty URL attribute answers the owning document's URL.</summary>
         [JsonPropertyName("defaultToDocumentUrl")]
         public bool DefaultToDocumentUrl { get; init; }
 
