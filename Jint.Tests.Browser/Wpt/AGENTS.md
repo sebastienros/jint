@@ -191,8 +191,11 @@ minimum-test counts, and the exclusions — because the runner is a driver and t
 
 The vocabulary is `WptDivergence`, shared. Six of its members exist for this lane, and the first four say so on
 themselves: `NeedsLayout`, `NeedsIframeScripting`, `NeedsIndexedDb`, `NeedsTestDriver`, `NeedsXmlDocuments` and
-`NeedsMoreEventInterfaces` — the last two being a shape rather than `NeedsTriage`'s: a page here parses HTML, AngleSharp builds
-no XML document, and the rows name what would move them rather than a fix somebody owes. **`NeedsTestDriver` has no
+`NeedsMoreEventInterfaces` — the last of which is a shape rather than `NeedsTriage`'s, its rows naming what
+would move them rather than a fix somebody owes. **`NeedsXmlDocuments` stopped being that and is now one
+AngleSharp mapping**: XML documents, `createDocument` and their metadata are this package's own now, and what is
+left is that `application/xhtml+xml` reaches the HTML parser — its own exclusion group is gone, and
+`README.md` says what its rows turned out to be. **`NeedsTestDriver` has no
 entries any more**: campaign item C4 mapped `testdriver.js` onto the same `InputDispatcher` the protocol's
 `Input` domain reaches, and the seven documents that were waiting for it were re-examined one at a time —
 five are cases now, and the two that still cannot report are `NotVendored` rows naming what each really needs

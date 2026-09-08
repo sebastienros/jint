@@ -209,6 +209,46 @@ internal class DomHostHooks
     private static string QualifiedName(IElement element)
         => string.IsNullOrEmpty(element.Prefix) ? element.LocalName : element.Prefix + ":" + element.LocalName;
 
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#dom-element-tagname — the element's
+    /// <a href="https://dom.spec.whatwg.org/#element-html-uppercased-qualified-name">HTML-uppercased
+    /// qualified name</a>, which is ASCII-uppercased only when the element is in the HTML namespace
+    /// <b>and</b> its node document is an HTML document.
+    /// </summary>
+    /// <remarks>
+    /// AngleSharp decides on the namespace alone, so an element created in the page and then adopted into
+    /// an XML document went on answering <c>DIV</c> where DOM says <c>div</c>: the name is not a property of
+    /// the element, it is a question about the document the element is in at the moment it is asked. The
+    /// divergence table records it.
+    /// </remarks>
+    internal virtual JsValue TagName(DomRealm realm, IElement element)
+    {
+        var qualified = QualifiedName(element);
+        return JsString.Create(
+            string.Equals(element.NamespaceUri, NamespaceNames.HtmlUri, StringComparison.Ordinal)
+            && element.Owner is IHtmlDocument
+                ? AsciiUppercase(qualified)
+                : qualified);
+    }
+
+    private static string AsciiUppercase(string value)
+    {
+        char[]? copy = null;
+        for (var i = 0; i < value.Length; i++)
+        {
+            var character = value[i];
+            if (character is < 'a' or > 'z')
+            {
+                continue;
+            }
+
+            copy ??= value.ToCharArray();
+            copy[i] = (char) (character & ~0x20);
+        }
+
+        return copy is null ? value : new string(copy);
+    }
+
     private static string? NullIfEmpty(string? value) => string.IsNullOrEmpty(value) ? null : value;
 
     private static string AsciiLowercase(string value)
@@ -315,12 +355,31 @@ internal class DomHostHooks
     internal virtual JsValue CloneNode(DomRealm realm, INode node, JsValue[] arguments)
         => CustomElements.CustomElementCreation.CloneNode(realm, node, arguments);
 
-    /// <summary>DOM's import steps do not copy a file input's selected files.</summary>
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#dom-document-importnode — "return the result of cloning a node given
+    /// node with <b>document set to this</b>". Two things AngleSharp's <c>Import</c> leaves out: DOM's
+    /// import steps do not copy a file input's selected files, and the clone's node document is the
+    /// <i>source</i> document rather than this one.
+    /// </summary>
+    /// <remarks>
+    /// The second one is why the clone is adopted afterwards, which is the step DOM folds into "cloning a
+    /// node given a document": an imported element went on belonging to the document it came from, so
+    /// <c>importNode(x).ownerDocument === document</c> was false and every member that asks its node
+    /// document a question — <c>tagName</c> among them — answered about the wrong document. AngleSharp
+    /// refuses to adopt an <c>IAttr</c> where DOM adopts any node, so an imported attribute is the one node
+    /// this cannot correct; the divergence table records both halves.
+    /// </remarks>
     internal virtual JsValue ImportNode(DomRealm realm, IDocument document, JsValue[] arguments)
     {
         var imported = document.Import(
             DomBindings.Argument<INode>(arguments, 0, "Document.importNode"),
             DomConvert.OptionalBool(arguments, 1, true));
+
+        if (imported is not IAttr && !ReferenceEquals(imported.Owner, document))
+        {
+            document.Adopt(imported);
+        }
+
         Files.FileTransferRealm.ResetCopiedInputs(imported);
         return realm.WrapNodeValue(imported);
     }
@@ -401,6 +460,80 @@ internal class DomHostHooks
 
         return JsString.Create(runtime.BaseUri);
     }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/nav-history-apis.html#dom-document-location — "return this's
+    /// relevant global object's <c>Location</c> object, if this is fully active, and null otherwise". A
+    /// document made by <c>createDocument</c>, <c>createHTMLDocument</c>, <c>new Document()</c> or
+    /// <c>DOMParser</c> has no browsing context at all, so it is never fully active and its
+    /// <c>location</c> is <see langword="null"/>.
+    /// </summary>
+    /// <remarks>
+    /// AngleSharp gives every document it builds a <c>Location</c> over <c>about:blank</c>, including the
+    /// ones nothing is displaying, so the question this answers is AngleSharp's own: a document is the
+    /// active document of a browsing context, or it is not one at all. That is the same distinction
+    /// <c>PageRuntime.FindBrowsingContext</c> makes for the page's own tree, asked in a way that does not
+    /// need a page runtime — a binding installed on its own still tells a parsed document from a
+    /// manufactured one.
+    /// </remarks>
+    internal virtual JsValue Location(DomRealm realm, IDocument document)
+        => HasBrowsingContext(document) ? realm.Wrap(document.Location) : JsValue.Null;
+
+    /// <summary>
+    /// The <c>[PutForwards=href]</c> half of the same attribute. WebIDL's setter steps read the attribute
+    /// and then set <c>href</c> on what came back, so a document with no browsing context — whose value is
+    /// <see langword="null"/> — is a <c>TypeError</c> and never a silent navigation of a document nobody
+    /// can see. https://webidl.spec.whatwg.org/#PutForwards
+    /// </summary>
+    internal virtual void SetLocation(DomRealm realm, IDocument document, string href)
+    {
+        if (!HasBrowsingContext(document) || document.Location is not { } location)
+        {
+            Throw.TypeError(realm.PrincipalRealm, "Cannot set property 'href' of null");
+            return;
+        }
+
+        location.Href = href;
+    }
+
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#dom-document-characterset, and the <c>charset</c> and
+    /// <c>inputEncoding</c> aliases DOM keeps beside it: the document's encoding's <b>name</b>, as
+    /// https://encoding.spec.whatwg.org/#names-and-labels spells it — <c>UTF-8</c>, not the ASCII-lowercased
+    /// label AngleSharp hands back from .NET's <c>Encoding.WebName</c>. The two spellings are one table's two
+    /// columns; <c>TextDecoder.encoding</c> reports the other one because its own definition says so.
+    /// </summary>
+    /// <remarks>
+    /// A label the Encoding Standard does not know is answered as AngleSharp gave it, rather than as UTF-8:
+    /// there is no name for it, and inventing one would hide the encoding a document really carries.
+    /// </remarks>
+    internal virtual JsValue CharacterSet(DomRealm realm, IDocument document)
+    {
+        var label = document.CharacterSet;
+
+        if (string.IsNullOrEmpty(label))
+        {
+            return JsString.Create(Jint.WebApi.Encoding.EncodingLabels.Utf8Name);
+        }
+
+        return JsString.Create(
+            Jint.WebApi.Encoding.EncodingLabels.TryLookup(label, out var encoding) ? encoding.Name : label);
+    }
+
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#dom-document-contenttype — the content type the algorithm that created
+    /// the document gave it. <see cref="DomContentType"/> says why it cannot be set on the document itself.
+    /// </summary>
+    internal virtual JsValue ContentType(DomRealm realm, IDocument document)
+        => JsString.Create(DomContentType.Of(document) ?? document.ContentType ?? "");
+
+    /// <summary>
+    /// Whether <paramref name="document"/> is the active document of a browsing context, which is what HTML
+    /// asks before answering with a <c>Location</c>, a <c>defaultView</c> or anything else a document only
+    /// has while something is showing it.
+    /// </summary>
+    private static bool HasBrowsingContext(IDocument document)
+        => document.Context is { } context && ReferenceEquals(context.Active, document);
 
     /// <summary>https://html.spec.whatwg.org/multipage/dom.html#dom-document-referrer</summary>
     internal virtual JsValue Referrer(DomRealm realm, IDocument document)

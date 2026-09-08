@@ -1111,19 +1111,13 @@ internal static class WptBrowserExclusions
         // Narrowed by the run: a frame has a window now, so the ten rows that only needed one pass.
         // What is left is the XML twins of the HTML rows above — the same arguments, refused or accepted
         // by the same two defects — so they are named the same way.
-        new("dom/nodes/Document-createElement.html", "*(\":\") in XML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElement.html", "*(\":foo\") in XML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElement.html", "*(\"FOO\") in XML document", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElement.html", "*(\"\\ufffffoo\") in XML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElement.html", "*(\"f1oo\") in XML document", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElement.html", "*(\"f::oo\") in XML document", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElement.html", "*(\"f::oo:\") in XML document", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElement.html", "*(\"f:o:o\") in XML document", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElement.html", "*(\"f:oo\") in XML document", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElement.html", "*(\"f<oo\") in XML document", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElement.html", "*(\"f\\uffffoo\") in XML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElement.html", "*(\"foo\") in XML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElement.html", "*(\"foo1\") in XML document", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElement.html", "*(\"foo:\") in XML document", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElement.html", "*(\"foo:0\") in XML document", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElement.html", "*(\"foo:_\") in XML document", WptDivergence.NeedsTriage),
@@ -1131,25 +1125,14 @@ internal static class WptBrowserExclusions
         new("dom/nodes/Document-createElement.html", "*(\"foo:ெ\") in XML document", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElement.html", "*(\"foo\\uffff\") in XML document", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElement.html", "*(\"foo}\") in XML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElement.html", "*(\"fooெ\") in XML document", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElement.html", "*(\"fooெ:foo\") in XML document", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElement.html", "*(\"f}oo\") in XML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElement.html", "*(\"fெ\") in XML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElement.html", "*(\"marK\") in XML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElement.html", "*(\"math\") in XML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElement.html", "*(\"svg\") in XML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElement.html", "*(\"xml\") in XML document", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElement.html", "*(\"xml:foo\") in XML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElement.html", "*(\"xmlfoo\") in XML document", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElement.html", "*(\"xmlfoo:bar\") in XML document", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElement.html", "*(\"xmlns\") in XML document", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElement.html", "*(\"xmlns:foo\") in XML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElement.html", "*(\"İnput\") in XML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElement.html", "*(\"ınput\") in XML document", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElement.html", "*(\"̀\") in XML document", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElement.html", "*(\"̀foo\") in XML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElement.html", "*(null) in XML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElement.html", "*(undefined) in XML document", WptDivergence.NeedsTriage),
         // Not the frame any more: the frame has its document. `application/xhtml+xml` is routed to the
         // HTML parser even with the XML factory registered, so the XHTML fixture comes back as an HTML
         // document and all 195 fail on its first assertion — the trailing newline an HTML skeleton adds.
@@ -1198,30 +1181,18 @@ internal static class WptBrowserExclusions
         new("dom/nodes/attributes.html", "*tests", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "*toggleAttribute)", WptDivergence.NeedsTriage),
         new("dom/nodes/remove-unscopable.html", "*", WptDivergence.NeedsTriage),
-    ];
-
-    // ---------------------------------------------------------------- an XML document, and the two members that make one
-    private static readonly WptExclusion[] _anXMLDocumentAndTheTwoMembersThatMakeOne =
-    [
-        // an XML document, and the members that make one
-        // This document's table is built inside its first test, and the builder calls createDocument — so
-        // while the member was absent the file reported *two* tests and the rest were never registered at
-        // all. They are registered now, and what they say is that the document a browser gets back is an
-        // XMLDocument has its own interface now. What remains is metadata AngleSharp does not expose: no
-        // location, an ASCII-upper-cased encoding name, and a content type taken from the namespace.
-        // See Wpt/README.md.
-        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: metadata for*", WptDivergence.NeedsXmlDocuments),
-        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: characterSet aliases for*", WptDivergence.NeedsXmlDocuments),
-        new("dom/nodes/Element-tagName.html", "*)", WptDivergence.NeedsXmlDocuments),
-        new("dom/nodes/Node-cloneNode.html", "*createDocument", WptDivergence.NeedsXmlDocuments),
-        new("dom/nodes/Node-isEqualNode.html", "documents*", WptDivergence.NeedsXmlDocuments),
-        new("dom/nodes/attributes.html", "*-HTML document", WptDivergence.NeedsXmlDocuments),
-        new("dom/nodes/processing-instruction-attributes.html", "*)", WptDivergence.NeedsXmlDocuments),
-        new("dom/nodes/processing-instruction-attributes.html", "Distinct attribute name (source: html*", WptDivergence.NeedsXmlDocuments),
-        new("dom/nodes/processing-instruction-attributes.html", "Distinct attribute name (source: xml-dom*", WptDivergence.NeedsXmlDocuments),
-        new("dom/nodes/processing-instruction-attributes.html", "Processing*", WptDivergence.NeedsXmlDocuments),
-        // Range adoption across documents still depends on the XML-document lane this category tracks.
-        new("dom/ranges/Range-adopt-test.html", "*appendChild: Removing the only element in the range must collapse the range", WptDivergence.NeedsXmlDocuments),
+        // ProcessingInstruction has no attributes at all. The whole of
+        // processing-instruction-attributes.html is the attribute surface WICG's declarative partial
+        // updates proposal (https://github.com/WICG/declarative-partial-updates, which the document's own
+        // <link rel=help> names) puts on a ProcessingInstruction: getAttribute, setAttribute,
+        // removeAttribute, hasAttribute, hasAttributes, getAttributeNames and toggleAttribute, over a
+        // parse of `data` that re-serializes on every write. AngleSharp models none of it and neither do
+        // the bindings. It is not about XML documents, which is where these rows used to be: three of its
+        // four sources are an HTML-document PI and a DOMParser XML document, and both work.
+        new("dom/nodes/processing-instruction-attributes.html", "*)", WptDivergence.NeedsTriage),
+        new("dom/nodes/processing-instruction-attributes.html", "Distinct attribute name (source: html*", WptDivergence.NeedsTriage),
+        new("dom/nodes/processing-instruction-attributes.html", "Distinct attribute name (source: xml-dom*", WptDivergence.NeedsTriage),
+        new("dom/nodes/processing-instruction-attributes.html", "Processing*", WptDivergence.NeedsTriage),
     ];
 
     // ---------------------------------------------------------------- a collection's named and indexed properties, and its liveness
@@ -1317,20 +1288,24 @@ internal static class WptBrowserExclusions
         new("dom/nodes/Document-createElementNS.html", "* XML document: null,\"foo}\",null", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElementNS.html", "* XML document: null,\"f}oo\",null", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElementNS.html", "* XML document: null,\";foo\",null", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: null,\";foo\",null,null", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: null,\"f}oo\",null,null", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: null,\"foo}\",null,null", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: null,\"\\ufffffoo\",null,null", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: null,\"f\\uffffoo\",null,null", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: null,\"foo\\uffff\",null,null", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: null,\"f<oo\",null,null", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: \"http://example.com/\",\"fo<o\",null,null", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: \"http://example.com/\",\"f:o:o\",null,null", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: \"http://example.com/\",\"0:a\",null,null", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: \"http://example.com/\",\"a:;\",null,null", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: \"http://example.com/\",\"a:̀\",null,null", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: \"http://example.com/\",\"̀:a\",null,null", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: \"http://example.com/\",\";:a\",null,null", WptDivergence.NeedsTriage),
+        // The same fourteen argument tuples through createDocument, where each one is three rows rather
+        // than one: the file also runs a "metadata for" and a "characterSet aliases for" test per tuple
+        // whose expected exception is null, and all three die on the same refusal before any metadata is
+        // read. The glob is the tuple, which is what makes it name exactly those three.
+        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: *null,\";foo\",null*", WptDivergence.NeedsTriage),
+        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: *null,\"f}oo\",null*", WptDivergence.NeedsTriage),
+        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: *null,\"foo}\",null*", WptDivergence.NeedsTriage),
+        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: *null,\"\\ufffffoo\",null*", WptDivergence.NeedsTriage),
+        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: *null,\"f\\uffffoo\",null*", WptDivergence.NeedsTriage),
+        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: *null,\"foo\\uffff\",null*", WptDivergence.NeedsTriage),
+        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: *null,\"f<oo\",null*", WptDivergence.NeedsTriage),
+        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: *\"http://example.com/\",\"fo<o\",null*", WptDivergence.NeedsTriage),
+        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: *\"http://example.com/\",\"f:o:o\",null*", WptDivergence.NeedsTriage),
+        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: *\"http://example.com/\",\"0:a\",null*", WptDivergence.NeedsTriage),
+        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: *\"http://example.com/\",\"a:;\",null*", WptDivergence.NeedsTriage),
+        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: *\"http://example.com/\",\"a:̀\",null*", WptDivergence.NeedsTriage),
+        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: *\"http://example.com/\",\"̀:a\",null*", WptDivergence.NeedsTriage),
+        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: *\"http://example.com/\",\";:a\",null*", WptDivergence.NeedsTriage),
     ];
 
     // ---------------------------------------------------------------- a nullable DOMString answers the string "null"
@@ -1348,6 +1323,12 @@ internal static class WptBrowserExclusions
     [
         // Range's remaining algorithms
         new("dom/ranges/Range-in-shadow-after-the-shadow-removed.html", "*", WptDivergence.NeedsTriage),
+        // A live range is adjusted by DOM's own remove steps whatever document the removed node is in.
+        // AngleSharp keeps its ranges on the document, so a container moved into another document with
+        // appendChild leaves the range behind and removing its only child no longer collapses it. The two
+        // rows whose container never moves pass, which is what says the algorithm is right and the
+        // bookkeeping is not.
+        new("dom/ranges/Range-adopt-test.html", "*appendChild: Removing the only element in the range must collapse the range", WptDivergence.NeedsTriage),
     ];
 
     // ---------------------------------------------------------------- an event interface this browser does not build
@@ -1370,11 +1351,6 @@ internal static class WptBrowserExclusions
         // a document with no browsing context, and what createHTMLDocument makes
         new("dom/nodes/DOMImplementation-createHTMLDocument-with-saved-implementation.html", "*", WptDivergence.NeedsTriage),
         new("dom/nodes/DOMImplementation-createHTMLDocument.html", "*\",\"\"", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createHTMLDocument.html", "*aliases", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createHTMLDocument.html", "*metadata", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createHTMLDocument.html", "*null", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-constructor.html", "*aliases", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-constructor.html", "*metadata", WptDivergence.NeedsTriage),
     ];
 
     // ---------------------------------------------------------------- the selector engine: escapes, :scope and :has
@@ -1451,7 +1427,17 @@ internal static class WptBrowserExclusions
         // before it checks whether the child has a parent at all.
         new("dom/nodes/Attr-prefix.html", "Attr.prefix present (SVG)", WptDivergence.NeedsTriage),
         new("dom/nodes/ChildNode-replaceWith.html", "*with one sibling of child and child itself as arguments.", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-importNode.html", "*'deep' argument.", WptDivergence.NeedsTriage),
+        // importNode's clone belongs to the importing document now, so the two rows that asked about that
+        // pass. What is left is the argument default: DOM declares `optional boolean deep = false` on both
+        // importNode and cloneNode, and both members pass AngleSharp's own default of true.
+        new("dom/nodes/Document-importNode.html", "No 'deep' argument.", WptDivergence.NeedsTriage),
+        new("dom/nodes/Document-importNode.html", "Undefined 'deep' argument.", WptDivergence.NeedsTriage),
+        // The one metadata row of createDocument that is not about a refused name. Its namespace is the
+        // XHTML one, so DOM gives the document the content type application/xhtml+xml and createElement
+        // puts the element in the HTML namespace while keeping its case (steps 2 and 4) -- and
+        // AngleSharp's HTML element factory ASCII-lowercases whatever local name it is handed, so
+        // createElement("DIV").localName is "div". The same defect case.html names for createElementNS.
+        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: metadata for \"http://www.w3.org/1999/xhtml\",\"\",null", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "Basic functionality of getAttributeNode/getAttributeNodeNS", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "Basic functionality of setAttributeNode", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "setAttributeNode doesn't have case-insensitivity even with an HTMLElement 2", WptDivergence.NeedsTriage),
@@ -1465,7 +1451,6 @@ internal static class WptBrowserExclusions
         new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: \"http://example.com/\",\"a:0\",null,\"INVALID_CHARACTER_ERR\"", WptDivergence.NeedsTriage),
         new("dom/nodes/Element-removeAttribute.html", "*", WptDivergence.NeedsTriage),
         new("dom/nodes/Element-setAttribute.html", "*namespace", WptDivergence.NeedsTriage),
-        new("dom/nodes/Element-tagName.html", "*ownerDocument", WptDivergence.NeedsTriage),
         new("dom/nodes/Element-tagName.html", "tagName should not*.", WptDivergence.NeedsTriage),
         new("dom/nodes/Node-cloneNode-svg.html", "cloned <use>'*", WptDivergence.NeedsTriage),
         new("dom/nodes/Node-cloneNode.html", "*createHTMLDocument", WptDivergence.NeedsTriage),
@@ -1473,6 +1458,12 @@ internal static class WptBrowserExclusions
         new("dom/nodes/Node-isEqualNode.html", "*ID", WptDivergence.NeedsTriage),
         new("dom/nodes/Node-isEqualNode.html", "*data", WptDivergence.NeedsTriage),
         new("dom/nodes/Node-isEqualNode.html", "*value", WptDivergence.NeedsTriage),
+        // AngleSharp's node equality begins by comparing the two nodes' base URLs, which DOM's
+        // https://dom.spec.whatwg.org/#concept-node-equals does not mention: two structurally identical
+        // documents built different ways are unequal as soon as the page has a real URL for one of them to
+        // have inherited. Its sibling row, "another empty XML document", passes because both sides are
+        // about:blank.
+        new("dom/nodes/Node-isEqualNode.html", "documents*", WptDivergence.NeedsTriage),
         new("dom/nodes/Node-nodeName.html", "*tagName.", WptDivergence.NeedsTriage),
         new("dom/nodes/Node-replaceChild.html", "*node", WptDivergence.NeedsTriage),
         new("dom/nodes/Node-replaceChild.html", "If*work.", WptDivergence.NeedsTriage),
@@ -1513,7 +1504,6 @@ internal static class WptBrowserExclusions
         new("a frame that runs script", _aFrameThatRunsScript),
         new("DOMTokenList: the token validation, the indexed access and the iteration", _dOMTokenListTheTokenValidationTheIndexedAccessAndTheIteration),
         new("a member of a DOM interface the bindings do not have", _aMemberOfADOMInterfaceTheBindingsDoNotHave),
-        new("an XML document, and the two members that make one", _anXMLDocumentAndTheTwoMembersThatMakeOne),
         new("a collection's named and indexed properties, and its liveness", _aCollectionSNamedAndIndexedPropertiesAndItsLiveness),
         new("a (Node or DOMString) union parameter takes only a Node", _aNodeOrDOMStringUnionParameterTakesOnlyANode),
         new("DOM's validate-and-extract, and the XML name productions", _dOMSValidateAndExtractAndTheXMLNameProductions),
