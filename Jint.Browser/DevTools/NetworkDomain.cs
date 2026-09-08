@@ -299,11 +299,11 @@ internal sealed partial class NetworkDomain : NetworkDomainBase, IDetachableDoma
     {
         if (!IsText(body.MimeType))
         {
-            return new GetResponseBodyResponse { Body = Convert.ToBase64String(body.Bytes), Base64Encoded = true };
+            return new GetResponseBodyResponse { Body = Convert.ToBase64String(body.Bytes.Span), Base64Encoded = true };
         }
 
         var encoding = Resolve(body.Charset) ?? Encoding.UTF8;
-        var text = encoding.GetString(body.Bytes);
+        var text = encoding.GetString(body.Bytes.Span);
 
         // A byte-order mark is a mark rather than content, and a client that pastes the answer into a parser
         // would otherwise get a stray U+FEFF at the top of every document.
