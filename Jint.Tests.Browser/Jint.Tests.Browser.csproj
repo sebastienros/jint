@@ -5,6 +5,13 @@
          Jint.Browser is net8.0+, like Jint/WebApi/ and Jint.DevTools. -->
     <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
 
+    <!-- Upstream's browser harness uses a ten-second wall-clock timeout. Running this project's two
+         testhosts together lets one synchronous document consume that deadline while its process is
+         descheduled: three unrelated CI changes have produced that signature, while either framework
+         alone and a single testhost with 64 NUnit workers complete. Keep the frameworks one after the
+         other; every fixture, census check and target framework still runs. -->
+    <TestTfmsInParallel>false</TestTfmsInParallel>
+
     <!-- Signed with the repository key, because Jint.Browser is signed and names this assembly as a friend.
          Everything the binding has is internal, so without the grant there is nothing here to test. -->
     <AssemblyOriginatorKeyFile>..\Jint\Jint.snk</AssemblyOriginatorKeyFile>
