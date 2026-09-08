@@ -1106,7 +1106,6 @@ internal static class WptBrowserExclusions
         new("dom/nodes/Document-createEvent.https.html", "createEvent('deviceorientationevent*", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createEvent.https.html", "createEvent('dragevent*", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createEvent.https.html", "createEvent('storageevent*", WptDivergence.NeedsTriage),
-        new("dom/nodes/ParentNode-replaceChildren.html", "*", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "*itself", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "*tests", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "*toggleAttribute)", WptDivergence.NeedsTriage),
@@ -1137,10 +1136,6 @@ internal static class WptBrowserExclusions
 
         // ---------------------------------------------------------------- a collection's named and indexed properties, and its liveness
         // a collection's named and indexed properties
-        new("dom/collections/HTMLCollection-as-prototype.html", "HTMLCollection as a prototype and setting own properties", WptDivergence.NeedsTriage),
-        new("dom/collections/HTMLCollection-own-props.html", "Setting non-array index while named property doesn't exist (loose)", WptDivergence.NeedsTriage),
-        new("dom/collections/HTMLCollection-own-props.html", "Setting non-array index while named property doesn't exist (strict)", WptDivergence.NeedsTriage),
-        new("dom/collections/HTMLCollection-supported-property-names.html", "*later", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-getElementById.html", "*string argument.", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-getElementsByTagName.html", "HTML*", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-getElementsByTagNameNS.html", "*namespace", WptDivergence.NeedsTriage),

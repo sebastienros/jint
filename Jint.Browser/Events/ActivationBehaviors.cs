@@ -210,8 +210,18 @@ internal static class ActivationBehaviors
         switch (input.Type)
         {
             case "submit":
-            case "image":
                 FormSubmission.Submit(wrapper.DomRealm, input.Form, input);
+                return;
+
+            case "image":
+                // The image activation algorithm returns before selecting a coordinate if its document is
+                // no longer fully active (a click listener can adopt the input into another document).
+                if (input.Form is not null
+                    && (Runtime.PageRuntime.Find(wrapper.Engine) is not { } runtime || ReferenceEquals(input.Owner, runtime.Document)))
+                {
+                    FormSubmission.Submit(wrapper.DomRealm, input.Form, input);
+                }
+
                 return;
 
             case "reset":

@@ -81,6 +81,22 @@ afterwards is ignored, because the four such files arm a guard timer a browser l
 "the file's one test has a result" and never "nothing is outstanding" — the latter would silence a file whose
 tests are all synchronous, which has an empty outstanding list from its first line.
 
+**One pure-timer file uses controlled timer time:** `WptTimerClock` admits only
+`html/webappapis/timers/negative-setinterval.any.js`, pinned by SHA-256 along with the shim (only the
+locally authored shim's CRLF is normalized). Any change refuses admission until its isolation is reviewed.
+The admitted source has no META helpers, Date/performance reads, workers, Atomics deadlines or I/O; its
+shim path only registers the file test and records `done()`. `performance` shares the timer provider, so
+its absence from that path is essential; Date and execution constraints retain their independent clocks. Do not extend that lane based on a filename
+pattern or use it for mixed clocks. It changes only `Options.WebApi.Timers.TimeProvider`, leaves the
+shipped `TimerQueue` in charge, and advances to the next due timer only after `ProcessTasks` drains all
+queued work and transitive microtasks. Real execution and harness deadlines stay real and fail the run;
+there are no retries, suppressed pre-completion errors, changed watchdogs or census exemptions. The outcome
+records pump/advance counts and timer/host elapsed time, also included in harness-failure output.
+`WptTimerDeadlineTests` applies identical simulated host starvation to elapsed and controlled clocks through
+the real queue, preserves both completion boundaries, and proves a wrong interval delay still loses to
+the watchdog. Every other corpus file, worker and browser lane keeps its original clock. See
+[#3937](https://github.com/sebastienros/jint/issues/3937) for the host-pump failure this isolates.
+
 A seventh thing is worth knowing because it decides *where* a divergence gets recorded. The driver's unit of
 report is a test, so a file that cannot produce one — a throw at file scope, a run that **stalls**, or a file
 whose tests are all registered *without a name* — is a harness error covering the whole file and has to go in

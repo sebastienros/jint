@@ -19,6 +19,63 @@ namespace Jint.Tests.Browser.Wpt;
 /// </remarks>
 public class WptBrowserCensusTests
 {
+    [TestCase(1, "ERROR")]
+    [TestCase(2, "TIMEOUT")]
+    [TestCase(3, "PRECONDITION_FAILED")]
+    public void AHarnessFailureAfterAReportedTestInvalidatesTheCensus(int status, string statusName)
+    {
+        const string path = "dom/nodes/NodeList-static-length-getter-tampered-1.html";
+        var collector = new WptBrowserCollector();
+        collector.Add("""{"kind":"result","name":"registered test","status":0,"message":""}""");
+        collector.Add($$"""{"kind":"completion","status":{{status}},"message":"incomplete document","count":1}""");
+        collector.IsComplete.Should().BeTrue();
+        collector.Results.Should().HaveCount(1);
+
+        var measurements = new WptBrowserCensus.Measurements();
+        measurements.Record(path, collector.Outcome(budgetFailure: null));
+        measurements.ContainsKey(path).Should().BeTrue("a failed report must not be silently retried by the census");
+
+        Action render = () => WptBrowserCensus.Render(measured: true, measurements);
+        render.Should().Throw<InvalidOperationException>()
+            .WithMessage($"*{path}: the harness reported {statusName}: incomplete document*No table can be rendered or rewritten*");
+    }
+
+    [Test]
+    public void ADriverFailureBeforeRegistrationInvalidatesTheCensus()
+    {
+        var measurements = new WptBrowserCensus.Measurements();
+        measurements.Record("dom/nodes/document.html", WptBrowserOutcome.Failed("the driver deadline expired"));
+
+        Action render = () => WptBrowserCensus.Render(measured: true, measurements);
+        render.Should().Throw<InvalidOperationException>()
+            .WithMessage("*dom/nodes/document.html: the driver deadline expired*No table can be rendered or rewritten*");
+    }
+
+    [Test]
+    public void TheUnmeasuredInventoryDoesNotRequireSuccessfulReports()
+    {
+        var measurements = new WptBrowserCensus.Measurements();
+        measurements.Record("dom/nodes/document.html", WptBrowserOutcome.Failed("the driver deadline expired"));
+        var stated = WptBrowserCensus.ReadmeTable();
+
+        var inventory = WptBrowserCensus.Render(measured: false, measurements);
+        WptBrowserCensus.Reconcile(inventory, stated, countsIncluded: false).Should().BeNull();
+    }
+
+    [Test]
+    public void CompleteReportsCountPassingAndExcludedFailuresAndReplaceOnlyTheirOwnObservation()
+    {
+        var measurements = new WptBrowserCensus.Measurements();
+        measurements.Record("first.html", WptBrowserOutcome.Failed("incomplete first run"));
+        measurements.Record("second.html", new WptBrowserOutcome([new("failure", 1, "assertion failed")], null));
+        measurements.Record("first.html", new WptBrowserOutcome([new("pass", 0, "")], null));
+
+        var counts = measurements.CompleteCounts();
+        counts.Should().HaveCount(2);
+        counts["first.html"].Should().Be((1, 0));
+        counts["second.html"].Should().Be((1, 1));
+    }
+
     /// <summary>
     /// The table must name every suite the lane runs, and its <c>Documents</c> and <c>Synthesized</c> columns
     /// must be what the corpus actually holds.
