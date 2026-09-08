@@ -283,6 +283,162 @@ internal static class DomReflected
     internal static readonly ReflectedAttribute HTMLScriptElementSrc =
         ReflectedAttribute.Url("HTMLScriptElement.src", "src");
 
+    /// <summary><c>HTMLTableCaptionElement.align</c> reflects <c>align</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableCaptionElementAlign =
+        ReflectedAttribute.Text("HTMLTableCaptionElement.align", "align");
+
+    /// <summary><c>HTMLTableCellElement.abbr</c> reflects <c>abbr</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableCellElementAbbr =
+        ReflectedAttribute.Text("HTMLTableCellElement.abbr", "abbr");
+
+    /// <summary><c>HTMLTableCellElement.align</c> reflects <c>align</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableCellElementAlign =
+        ReflectedAttribute.Text("HTMLTableCellElement.align", "align");
+
+    /// <summary><c>HTMLTableCellElement.axis</c> reflects <c>axis</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableCellElementAxis =
+        ReflectedAttribute.Text("HTMLTableCellElement.axis", "axis");
+
+    /// <summary><c>HTMLTableCellElement.bgColor</c> reflects <c>bgcolor</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableCellElementBgColor =
+        ReflectedAttribute.Text("HTMLTableCellElement.bgColor", "bgcolor", legacyNullToEmptyString: true);
+
+    /// <summary><c>HTMLTableCellElement.ch</c> reflects <c>char</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableCellElementCh =
+        ReflectedAttribute.Text("HTMLTableCellElement.ch", "char");
+
+    /// <summary><c>HTMLTableCellElement.chOff</c> reflects <c>charoff</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableCellElementChOff =
+        ReflectedAttribute.Text("HTMLTableCellElement.chOff", "charoff");
+
+    /// <summary><c>HTMLTableCellElement.colSpan</c> reflects <c>colspan</c> as a clamped unsigned long.</summary>
+    internal static readonly ReflectedAttribute HTMLTableCellElementColSpan =
+        ReflectedAttribute.Numeric("HTMLTableCellElement.colSpan", "colspan", ReflectedKind.ClampedUnsignedLong, 1, min: 1, max: 1000);
+
+    /// <summary><c>HTMLTableCellElement.headers</c> reflects <c>headers</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableCellElementHeaders =
+        ReflectedAttribute.Text("HTMLTableCellElement.headers", "headers");
+
+    /// <summary><c>HTMLTableCellElement.height</c> reflects <c>height</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableCellElementHeight =
+        ReflectedAttribute.Text("HTMLTableCellElement.height", "height");
+
+    /// <summary><c>HTMLTableCellElement.noWrap</c> reflects <c>nowrap</c> as a boolean.</summary>
+    internal static readonly ReflectedAttribute HTMLTableCellElementNoWrap =
+        ReflectedAttribute.Boolean("HTMLTableCellElement.noWrap", "nowrap");
+
+    /// <summary><c>HTMLTableCellElement.rowSpan</c> reflects <c>rowspan</c> as a clamped unsigned long.</summary>
+    internal static readonly ReflectedAttribute HTMLTableCellElementRowSpan =
+        ReflectedAttribute.Numeric("HTMLTableCellElement.rowSpan", "rowspan", ReflectedKind.ClampedUnsignedLong, 1, min: 0, max: 65534);
+
+    /// <summary><c>HTMLTableCellElement.scope</c> reflects <c>scope</c> as an enum.</summary>
+    internal static readonly ReflectedAttribute HTMLTableCellElementScope =
+        ReflectedAttribute.Enumerated("HTMLTableCellElement.scope", "scope", ["row", "col", "rowgroup", "colgroup"], missing: "", invalid: null);
+
+    /// <summary><c>HTMLTableCellElement.vAlign</c> reflects <c>valign</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableCellElementVAlign =
+        ReflectedAttribute.Text("HTMLTableCellElement.vAlign", "valign");
+
+    /// <summary><c>HTMLTableCellElement.width</c> reflects <c>width</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableCellElementWidth =
+        ReflectedAttribute.Text("HTMLTableCellElement.width", "width");
+
+    /// <summary><c>HTMLTableColElement.align</c> reflects <c>align</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableColElementAlign =
+        ReflectedAttribute.Text("HTMLTableColElement.align", "align");
+
+    /// <summary><c>HTMLTableColElement.ch</c> reflects <c>char</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableColElementCh =
+        ReflectedAttribute.Text("HTMLTableColElement.ch", "char");
+
+    /// <summary><c>HTMLTableColElement.chOff</c> reflects <c>charoff</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableColElementChOff =
+        ReflectedAttribute.Text("HTMLTableColElement.chOff", "charoff");
+
+    /// <summary><c>HTMLTableColElement.span</c> reflects <c>span</c> as a clamped unsigned long.</summary>
+    internal static readonly ReflectedAttribute HTMLTableColElementSpan =
+        ReflectedAttribute.Numeric("HTMLTableColElement.span", "span", ReflectedKind.ClampedUnsignedLong, 1, min: 1, max: 1000);
+
+    /// <summary><c>HTMLTableColElement.vAlign</c> reflects <c>valign</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableColElementVAlign =
+        ReflectedAttribute.Text("HTMLTableColElement.vAlign", "valign");
+
+    /// <summary><c>HTMLTableColElement.width</c> reflects <c>width</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableColElementWidth =
+        ReflectedAttribute.Text("HTMLTableColElement.width", "width");
+
+    /// <summary><c>HTMLTableElement.align</c> reflects <c>align</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableElementAlign =
+        ReflectedAttribute.Text("HTMLTableElement.align", "align");
+
+    /// <summary><c>HTMLTableElement.bgColor</c> reflects <c>bgcolor</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableElementBgColor =
+        ReflectedAttribute.Text("HTMLTableElement.bgColor", "bgcolor", legacyNullToEmptyString: true);
+
+    /// <summary><c>HTMLTableElement.border</c> reflects <c>border</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableElementBorder =
+        ReflectedAttribute.Text("HTMLTableElement.border", "border");
+
+    /// <summary><c>HTMLTableElement.cellPadding</c> reflects <c>cellpadding</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableElementCellPadding =
+        ReflectedAttribute.Text("HTMLTableElement.cellPadding", "cellpadding", legacyNullToEmptyString: true);
+
+    /// <summary><c>HTMLTableElement.cellSpacing</c> reflects <c>cellspacing</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableElementCellSpacing =
+        ReflectedAttribute.Text("HTMLTableElement.cellSpacing", "cellspacing", legacyNullToEmptyString: true);
+
+    /// <summary><c>HTMLTableElement.frame</c> reflects <c>frame</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableElementFrame =
+        ReflectedAttribute.Text("HTMLTableElement.frame", "frame");
+
+    /// <summary><c>HTMLTableElement.rules</c> reflects <c>rules</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableElementRules =
+        ReflectedAttribute.Text("HTMLTableElement.rules", "rules");
+
+    /// <summary><c>HTMLTableElement.summary</c> reflects <c>summary</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableElementSummary =
+        ReflectedAttribute.Text("HTMLTableElement.summary", "summary");
+
+    /// <summary><c>HTMLTableElement.width</c> reflects <c>width</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableElementWidth =
+        ReflectedAttribute.Text("HTMLTableElement.width", "width");
+
+    /// <summary><c>HTMLTableRowElement.align</c> reflects <c>align</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableRowElementAlign =
+        ReflectedAttribute.Text("HTMLTableRowElement.align", "align");
+
+    /// <summary><c>HTMLTableRowElement.bgColor</c> reflects <c>bgcolor</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableRowElementBgColor =
+        ReflectedAttribute.Text("HTMLTableRowElement.bgColor", "bgcolor", legacyNullToEmptyString: true);
+
+    /// <summary><c>HTMLTableRowElement.ch</c> reflects <c>char</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableRowElementCh =
+        ReflectedAttribute.Text("HTMLTableRowElement.ch", "char");
+
+    /// <summary><c>HTMLTableRowElement.chOff</c> reflects <c>charoff</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableRowElementChOff =
+        ReflectedAttribute.Text("HTMLTableRowElement.chOff", "charoff");
+
+    /// <summary><c>HTMLTableRowElement.vAlign</c> reflects <c>valign</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableRowElementVAlign =
+        ReflectedAttribute.Text("HTMLTableRowElement.vAlign", "valign");
+
+    /// <summary><c>HTMLTableSectionElement.align</c> reflects <c>align</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableSectionElementAlign =
+        ReflectedAttribute.Text("HTMLTableSectionElement.align", "align");
+
+    /// <summary><c>HTMLTableSectionElement.ch</c> reflects <c>char</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableSectionElementCh =
+        ReflectedAttribute.Text("HTMLTableSectionElement.ch", "char");
+
+    /// <summary><c>HTMLTableSectionElement.chOff</c> reflects <c>charoff</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableSectionElementChOff =
+        ReflectedAttribute.Text("HTMLTableSectionElement.chOff", "charoff");
+
+    /// <summary><c>HTMLTableSectionElement.vAlign</c> reflects <c>valign</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableSectionElementVAlign =
+        ReflectedAttribute.Text("HTMLTableSectionElement.vAlign", "valign");
+
     /// <summary><c>HTMLTimeElement.dateTime</c> reflects <c>datetime</c> as a string.</summary>
     internal static readonly ReflectedAttribute HTMLTimeElementDateTime =
         ReflectedAttribute.Text("HTMLTimeElement.dateTime", "datetime");

@@ -289,20 +289,20 @@ internal static class WptBrowserExclusions
         ("html/dom/usvstring-reflection.https.html", "needs webrtc/RTCPeerConnection-helper.js and a real RTCPeerConnection to reflect a USVString off"),
 
         // ------------------------------------------------------------ HTML's reflection suite
-        // Ten generated documents, 56,660 assertions. Six of them are cases now — reflection-misc.html,
-        // reflection-text.html, reflection-sections.html, reflection-grouping.html, reflection-metadata.html
-        // and reflection-obsolete.html, 31,772 assertions between them — because HTML §2.6.1's reflection
-        // algorithms are implemented (Jint.Browser/Dom/ReflectedAttribute.cs) and driven by overrides.json's
-        // `reflected` list. The first three pass whole; what fails in the other three is never reflection —
-        // it is an element interface the pinned assemblies do not have (<dl>, <dir>, <font>, <frame>) and
-        // <style>'s `media`, which AngleSharp.Css refuses from inside setAttribute.
+        // Ten generated documents, 56,660 assertions. Seven of them are cases now — reflection-misc.html,
+        // reflection-text.html, reflection-sections.html, reflection-tabular.html, reflection-grouping.html,
+        // reflection-metadata.html and reflection-obsolete.html, 37,888 assertions between them — because
+        // HTML §2.6.1's reflection algorithms are implemented (Jint.Browser/Dom/ReflectedAttribute.cs) and
+        // driven by overrides.json's `reflected` list. Four pass whole; what fails in the other three is
+        // never reflection — it is an element interface the pinned assemblies do not have (<dl>, <dir>,
+        // <font>, <frame>) and <style>'s `media`, which AngleSharp.Css refuses from inside setAttribute.
         //
-        // The other four are out for one reason and it is no longer "reflection is not implemented": each
+        // The other three are out for one reason and it is no longer "reflection is not implemented": each
         // needs the per-element attribute table it tests, one `reflected` row per content attribute, which is
-        // #3770's remaining work. The seventy rows written so far were mostly the GLOBAL attributes every
+        // #3770's remaining work. The 109 rows written so far started with the GLOBAL attributes every
         // element carries (`dir`, `lang`, `tabIndex`, `autofocus`, `inputMode`, `enterKeyHint`), so they have
-        // already moved the four a long way. What is left in them is `align`, `span`, `colSpan` and their
-        // kind — element-specific attributes, each one row.
+        // already moved the three a long way. What is left in them is `align`, `maxLength`, `formEnctype` and
+        // their kind — element-specific attributes, each one row.
         //
         // **None of them is slow**: the whole set runs in 22.5 s and the largest (reflection-embedded.html,
         // 8,922 tests) in 7.3 s, well inside the driver's 30 s deadline. What has always kept them out is the
@@ -311,7 +311,6 @@ internal static class WptBrowserExclusions
         ("html/dom/*-embedded.*", "#3770: the embedded-content elements and their attribute table; 3,774 of 8,922 assertions failed at the measurement in the issue"),
         ("html/dom/*-forms.*", "#3770: the form controls and their attribute table; 2,160 of 8,271"),
         ("html/dom/*-forms-weekmonth.*", "#3770: the week and month input types and their attribute table; 420 of 1,579"),
-        ("html/dom/*-tabular.*", "#3770: the tabular-data elements and their attribute table; 3,552 of 6,116"),
         ("html/dom/reflection-original.html", "the same suite in the aggregating spelling, which reports only failures rather than one test per assertion — a second answer to what reflection-*.html already say"),
         ("html/dom/elements-aria-enumerated.js", "the attribute table of aria-attribute-reflection-enumerated.tentative.html, which tests a proposal the specification has not adopted"),
 
@@ -770,6 +769,7 @@ internal static class WptBrowserExclusions
         ["html/dom/reflection-misc.html"] = 4877,
         ["html/dom/reflection-obsolete.html"] = 2621,
         ["html/dom/reflection-sections.html"] = 5604,
+        ["html/dom/reflection-tabular.html"] = 6116,
         ["html/dom/reflection-text.html"] = 10202,
         ["html/webappapis/scripting/events/body-onload.html"] = 1,
         ["html/webappapis/scripting/events/compile-event-handler-lexical-scopes-form-owner.html"] = 4,

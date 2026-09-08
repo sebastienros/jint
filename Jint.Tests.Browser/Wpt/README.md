@@ -31,14 +31,14 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `dom/lists/` | 5 | 0 | 189 | 5 |
 | `dom/traversal/` | 13 | 0 | 52 | 0 |
 | `dom/ranges/` | 17 | 0 | 82 | 4 |
-| `html/dom/` | 11 | 0 | 31,857 | 529 |
+| `html/dom/` | 12 | 0 | 37,973 | 529 |
 | `html/webappapis/scripting/events/` | 12 | 0 | 37 | 5 |
 | `html/webappapis/scripting/processing-model-2/` | 25 | 0 | 44 | 12 |
 | `custom-elements/` | 16 | 0 | 510 | 247 |
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 52 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 3 |
-| **total** | **355** | **9** | **41,755** | **1,913** |
+| **total** | **356** | **9** | **47,871** | **1,913** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -176,7 +176,7 @@ a supported name; the collection's named reads remain live.
 
 `dom/nodes/`, `dom/collections/`, `dom/lists/`, `dom/traversal/`, `dom/ranges/` and `html/dom/` are the DOM
 standard's own suites and HTML's DOM half — the corpus every other suite in this lane is written on top of.
-Across the six of them there are 222 documents and 40,338 tests, and **1,568 of those tests do not pass**.
+Across the six of them there are 223 documents and 46,454 tests, and **1,568 of those tests do not pass**.
 Those three figures are live and checked against the census. They arrived together as 207 documents and
 5,247 tests with 1,532 not passing; those arrival figures are historical and deliberately not re-derived.
 
@@ -211,18 +211,19 @@ table needs to be regenerated.
 | 3 | 1 | [#3769](https://github.com/sebastienros/jint/issues/3769) **A `(Node or DOMString)` union parameter takes only a `Node`.** Three `ChildNode.before` rows still reject strings. <!-- cause: a (Node or DOMString) union parameter takes only a Node --> |
 | 2 | 1 | **A Range whose shadow root was removed has the wrong boundary behavior.** These are the two remaining `Range-in-shadow-after-the-shadow-removed.html` rows. <!-- cause: Range's own algorithms --> |
 
-**Six of HTML's ten reflection documents are cases, and three of the six pass whole.** HTML §2.6.1's
+**Seven of HTML's ten reflection documents are cases, and four of the seven pass whole.** HTML §2.6.1's
 reflection algorithms are `Jint.Browser/Dom/ReflectedAttribute.cs` and the members that take them are
 `overrides.json`'s `reflected` list, so `reflection-misc.html` (4,877 assertions, 1,866 of them failing
-before), `reflection-text.html` (10,202, 3,360 failing before) and `reflection-sections.html` (5,604, 2,189
-failing before) pass with **nothing** excluded, and `reflection-grouping.html` (5,358, 2,006 failing before),
-`reflection-metadata.html` (3,110, 1,218 failing before) and `reflection-obsolete.html` (2,621, 1,483 failing
-before) have one cause each — and none of the three causes is reflection.
+before), `reflection-text.html` (10,202, 3,360 failing before), `reflection-sections.html` (5,604, 2,189
+failing before) and `reflection-tabular.html` (6,116, 3,552 failing before) pass with **nothing** excluded,
+and `reflection-grouping.html` (5,358, 2,006 failing before), `reflection-metadata.html` (3,110, 1,218 failing
+before) and `reflection-obsolete.html` (2,621, 1,483 failing before) have one cause each — and none of the
+three causes is reflection.
 
-Seventy rows did it, and the first fifteen were mostly the **global** attributes every element carries —
+109 rows did it, and the first fifteen were mostly the **global** attributes every element carries —
 `dir`, `lang`, `tabIndex`, `autofocus`, `inputMode`, `enterKeyHint` — which is why `text` needed only eleven
-rows of its own for 3,360 assertions. The rest are element-specific and that is what the remaining four
-documents need: `align`, `span`, `colSpan` and their kind, one `reflected` row each. `metadata` took seven of those —
+rows of its own for 3,360 assertions. The rest are element-specific and that is what the remaining three
+documents need: `align`, `maxLength`, `formEnctype` and their kind, one `reflected` row each. `metadata` took seven of those —
 `link`'s `as`, `crossOrigin`, `referrerPolicy`, `charset` and `target`, and `meta`'s `media` and `scheme` —
 plus one member that is deliberately not reflection at all: **`nonce` answers HTML §2.5.3's
 `[[CryptographicNonce]]` slot**, whose setter writes the slot and leaves the content attribute alone, so a
@@ -243,6 +244,13 @@ unsigned reflected integer had: HTML says a value outside the range 0 to 2147483
 arrive as that number rather than as −1. The setter wrote it verbatim. Eight rows of `obsolete` found it and
 `col.span`, `td.colSpan`, `input.size` and `textarea.cols` would all have carried it.
 
+`tabular` took thirty-nine, the largest table of the seven and the first with a **clamped unsigned long** in
+it: `col.span` and `colgroup.span` clamp to [1, 1000], `td.colSpan` and `th.colSpan` to the same, and
+`rowSpan` to [0, 65534] — three ranges, each with a default of 1, none of which any CLR signature carries.
+It also needed one `skip`: AngleSharp splits `<th>` and `<td>` into two interfaces HTML does not have, and
+the header cell's own `scope` shadowed the reflected `HTMLTableCellElement.scope`, so `<th>` answered the raw
+attribute value while `<td>` answered the enumeration.
+
 **Neither of the two causes left is reflection**, and both are the dependency. Four obsolete elements —
 `<dl>`, `<dir>`, `<font>` and `<frame>` — get an interface of their own from HTML and a plain `HTMLElement`
 from the pinned assemblies, so there is nowhere for `compact`, `color`, `src` and their kind to be reflected
@@ -252,7 +260,7 @@ is not in it, because `DomManualInterfaces` declares `HTMLFrameSetElement` by lo
 not a media query AngleSharp.Css can parse — the exception comes out of `Element.setAttribute` itself,
 through the attribute observer AngleSharp core registers, where Media Queries §2.1 requires an unparseable
 query to be replaced by `not all`. Those 522 rows are the only failures this lane's `html/dom/` figure
-gained, against 26,895 assertions it did not have before.
+gained, against 33,011 assertions it did not have before.
 
 **Four documents did not terminate at all, and that was the finding this campaign put first.**
 `TreeWalker-currentNode.html`, `TreeWalker-previousNodeLastChildReject.html`, `TreeWalker-traversal-reject.html`
