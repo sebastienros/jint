@@ -23,13 +23,21 @@ namespace Jint.Browser.Dom;
 /// window-forwarded handler attributes a <c>&lt;body&gt;</c> does.
 /// </para>
 /// <para>
-/// <b>The shape is empty on purpose.</b> HTML gives <c>HTMLFrameSetElement</c> no members of its own beyond
-/// <c>WindowEventHandlers</c>, which this package puts on <c>HTMLElement</c> along with
-/// <c>GlobalEventHandlers</c>; the interface exists so that <c>frameset instanceof HTMLFrameSetElement</c>
-/// holds, so that <c>HTMLFrameSetElement</c> is a name on the window, and so that
-/// <c>Object.prototype.toString</c> reports it. <c>dom/events/Body-FrameSet-Event-Handlers.html</c> is what
-/// asks for all three, and it asks first: it reaches for the name at file scope, so without it the whole
-/// document is a harness error rather than a run with two failures.
+/// <b>The interface exists so that three things are true</b>: <c>frameset instanceof HTMLFrameSetElement</c>
+/// holds, <c>HTMLFrameSetElement</c> is a name on the window, and <c>Object.prototype.toString</c> reports it.
+/// <c>dom/events/Body-FrameSet-Event-Handlers.html</c> is what asks for all three, and it asks first: it
+/// reaches for the name at file scope, so without it the whole document is a harness error rather than a run
+/// with two failures. Its <c>WindowEventHandlers</c> are on <c>HTMLElement</c> here along with
+/// <c>GlobalEventHandlers</c>, so the shape carries only the two members HTML gives the interface itself —
+/// <c>cols</c> and <c>rows</c>, which <c>html/dom/reflection-obsolete.html</c> asks for and which the shape
+/// did not have while this file said HTML gave it none.
+/// </para>
+/// <para>
+/// <b>Those two are reflected attributes written by hand</b>, which is the one place in this package that
+/// happens. <see cref="ReflectedAttribute"/> is the shared implementation and the descriptors normally come
+/// from <c>overrides.json</c>'s <c>reflected</c> list — but that list is read against the interfaces the
+/// generator can see, and this one is not among them by definition. So the descriptor is declared here, next
+/// to the shape that names it, and the algorithm is still the one every other reflected member takes.
 /// </para>
 /// <para>
 /// The indices continue <c>DomInterfaces</c>' own, which is what keeps <see cref="DomRealm"/>'s per-engine
@@ -38,6 +46,14 @@ namespace Jint.Browser.Dom;
 /// </remarks>
 internal static class DomManualInterfaces
 {
+    /// <summary><c>HTMLFrameSetElement.cols</c>, a reflected <c>DOMString</c> (HTML §16.3.3).</summary>
+    private static readonly ReflectedAttribute _frameSetCols =
+        ReflectedAttribute.Text("HTMLFrameSetElement.cols", "cols");
+
+    /// <summary><c>HTMLFrameSetElement.rows</c>, a reflected <c>DOMString</c> (HTML §16.3.3).</summary>
+    private static readonly ReflectedAttribute _frameSetRows =
+        ReflectedAttribute.Text("HTMLFrameSetElement.rows", "rows");
+
     /// <summary>https://html.spec.whatwg.org/multipage/obsolete.html#htmlframesetelement.</summary>
     internal static readonly DomInterfaceDefinition HTMLFrameSetElement = new(
         "HTMLFrameSetElement",
@@ -45,6 +61,8 @@ internal static class DomManualInterfaces
         static () => new JsObjectShape.Builder()
             .PerRealmSlot("constructor", enumerable: false)
             .ToStringTag("HTMLFrameSetElement")
+            .Accessor("cols", Reflected(_frameSetCols), ReflectedSetter(_frameSetCols))
+            .Accessor("rows", Reflected(_frameSetRows), ReflectedSetter(_frameSetRows))
             .Build(),
         DomInterfaces.HTMLElement,
         rootsAtEventTarget: true,
@@ -97,6 +115,32 @@ internal static class DomManualInterfaces
 
     /// <summary>Every manual interface, in index order.</summary>
     internal static readonly DomInterfaceDefinition[] All = [HTMLFrameSetElement, XMLDocument, StaticRange];
+
+    /// <summary>
+    /// A reflected attribute's getter, wrapped in the same failure guard and the same receiver check every
+    /// generated member body is.
+    /// </summary>
+    /// <remarks>
+    /// The receiver is bound as <see cref="IHtmlElement"/> and not as a frameset type, because there is no
+    /// frameset type to bind: that absence is the whole reason this interface is declared by local name. A
+    /// receiver of any other interface therefore reaches the descriptor, which is exactly what a
+    /// <c>Function.prototype.call</c> onto a <c>&lt;div&gt;</c> does in a browser — the member reads that
+    /// element's own content attribute rather than raising.
+    /// </remarks>
+    private static Func<JsValue, JsValue[], JsValue> Reflected(ReflectedAttribute attribute)
+        => DomFailures.Guard(attribute.Member, (thisObject, _) =>
+        {
+            var self = DomBindings.Bind<IHtmlElement>(thisObject, attribute.Member);
+            return attribute.Get(self.Target);
+        });
+
+    /// <summary>The same member's setter.</summary>
+    private static Func<JsValue, JsValue[], JsValue> ReflectedSetter(ReflectedAttribute attribute)
+        => DomFailures.Guard(attribute.Member, (thisObject, arguments) =>
+        {
+            var self = DomBindings.Bind<IHtmlElement>(thisObject, attribute.Member);
+            return attribute.Set(self.Realm, self.Target, arguments);
+        });
 
     /// <summary>
     /// The interface a node takes when its CLR type does not decide it, or <see langword="null"/> when

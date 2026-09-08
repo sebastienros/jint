@@ -39,6 +39,16 @@
       "reason": "HTML §2.5.3 gives every element including HTMLOrSVGElement a nonce whose setter writes the [[CryptographicNonce]] slot and NOT the content attribute, which is what keeps a header-delivered policy's nonce out of a CSS selector. AngleSharp declares one attribute-backed property, on this interface alone, whose setter writes the attribute; skipped so the reflected HTMLElement.nonce row is what every element answers with."
     },
     {
+      "interface": "HTMLMarqueeElement",
+      "member": "scrollamount",
+      "reason": "HTML names the IDL attribute scrollAmount (https://html.spec.whatwg.org/multipage/obsolete.html#htmlmarqueeelement); AngleSharp's [DomName] on IHtmlMarqueeElement.ScrollAmount is the CONTENT attribute's all-lower-case spelling, so the projection was a nonstandard member under a name no page can use. The reflected scrollAmount row replaces it."
+    },
+    {
+      "interface": "HTMLMarqueeElement",
+      "member": "scrolldelay",
+      "reason": "The same [DomName] casing defect on IHtmlMarqueeElement.ScrollDelay, and the reflected scrollDelay row beside it."
+    },
+    {
       "interface": "HTMLMetaElement",
       "member": "charset",
       "reason": "HTML's meta element has a charset content attribute but no charset IDL attribute (https://html.spec.whatwg.org/multipage/semantics.html#the-meta-element). AngleSharp 1.7.3 adds DomName to its CLR convenience property; do not expose a new nonstandard JavaScript member."
@@ -1896,6 +1906,64 @@
       "attribute": "datetime",
       "type": "string",
       "reason": "HTML \u00a74.7.1: `dateTime` is a plain reflected DOMString -- the value is a date string but the IDL attribute does not parse it. AngleSharp types it as a DateTime, so the conversion table had nothing to project it as and the member was absent."
+    },
+    {
+      "interface": "HTMLMarqueeElement",
+      "member": "bgColor",
+      "attribute": "bgcolor",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLMarqueeElement",
+      "member": "height",
+      "attribute": "height",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: `height` on <marquee> is a reflected DOMString and not a dimension. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLMarqueeElement",
+      "member": "hspace",
+      "attribute": "hspace",
+      "type": "unsigned long",
+      "reason": "HTML \u00a716.3.3: a reflected unsigned long, so HTML's rules for parsing non-negative integers decide it and anything else is 0. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLMarqueeElement",
+      "member": "scrollAmount",
+      "attribute": "scrollamount",
+      "type": "unsigned long",
+      "default": 6,
+      "reason": "HTML \u00a716.3.3: a reflected unsigned long whose default is 6. AngleSharp declares the member as `scrollamount` -- its [DomName] is the CONTENT attribute's spelling rather than the IDL attribute's -- and parses the attribute with .NET's own integer rules, so `marquee.scrollAmount` was absent and a nonstandard `marquee.scrollamount` was there instead; that one is a `skip` row."
+    },
+    {
+      "interface": "HTMLMarqueeElement",
+      "member": "scrollDelay",
+      "attribute": "scrolldelay",
+      "type": "unsigned long",
+      "default": 85,
+      "reason": "HTML \u00a716.3.3: a reflected unsigned long whose default is 85. The same [DomName] casing defect as scrollAmount, and the same `skip` row beside it."
+    },
+    {
+      "interface": "HTMLMarqueeElement",
+      "member": "trueSpeed",
+      "attribute": "truespeed",
+      "type": "boolean",
+      "reason": "HTML \u00a716.3.3: a boolean attribute. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLMarqueeElement",
+      "member": "vspace",
+      "attribute": "vspace",
+      "type": "unsigned long",
+      "reason": "HTML \u00a716.3.3: a reflected unsigned long. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLMarqueeElement",
+      "member": "width",
+      "attribute": "width",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: `width` on <marquee> is a reflected DOMString and not a dimension. AngleSharp has no member for it."
     },
     {
       "interface": "HTMLMenuElement",
