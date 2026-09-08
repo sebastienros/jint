@@ -11,7 +11,14 @@
          the two records disagree, because the checked-in Jint.Browser/Dom/Generated/ is a picture of exactly
          these assemblies' [DomName] surface. Bump both together, regenerate, and read the diff. -->
     <PackageVersion Include="AngleSharp" Version="1.8.0" />
-    <PackageVersion Include="AngleSharp.Css" Version="1.1.0" />
+    <!-- A prerelease deliberately, and the maintainer's own preference for this repository: 1.1.1-beta.308 is
+         1.1.0 plus AngleSharp/AngleSharp.Css#244, which stops a composite converter reparsing an unresolved
+         any-value with itself. Without it `translate`, `rotate` and `scale` overflow the stack inside
+         ComputeCurrentStyle(), and a stack overflow is the one failure Dom/Views/CssCascade's guard cannot
+         turn into a null cascade — it ends the process. Jint.Tests.Browser/Views/IndividualTransformStyleTests
+         is what holds the fix. AngleSharp itself stays on 1.8.0: nothing later is published, prerelease
+         included. -->
+    <PackageVersion Include="AngleSharp.Css" Version="1.1.1-beta.308" />
     <!-- Neither of these is in the binding generator's pin, and deliberately: the generator reads AngleSharp
          and AngleSharp.Css and nothing else, and neither of these carries a [DomName] the binding could
          project. Each is referenced for one thing the package's own principle says must not be written here —
