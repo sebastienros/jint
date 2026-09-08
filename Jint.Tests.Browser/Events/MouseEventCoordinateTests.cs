@@ -136,6 +136,30 @@ public sealed class MouseEventCoordinateTests
             "the coordinate is relative to the padding edge the event found, not to the one the listener made");
     }
 
+    [TestCase(0)]
+    [TestCase(100)]
+    public async Task ScrollingBeforeTheFirstOffsetReadUsesTheDispatchScroll(int initialScroll)
+    {
+        await using var browser = new Browser();
+        var page = await PageAsync(browser);
+
+        (await page.EvaluateAsync<bool>($$"""
+            (() => {
+              const target = document.getElementById('target');
+              window.scrollTo(0, {{initialScroll}});
+              const expected = 40 - target.getBoundingClientRect().top;
+              let offset;
+              target.addEventListener('click', e => {
+                window.scrollTo(0, 200);
+                offset = e.offsetY;
+              });
+
+              target.dispatchEvent(new MouseEvent('click', { clientY: 40, bubbles: true }));
+              return window.scrollY === 200 && offset === expected;
+            })()
+            """)).Should().BeTrue("scrolling cannot change the position where the event occurred");
+    }
+
     /// <summary>
     /// Two listeners of one dispatch agree, which is the same rule seen from the other side: the second
     /// reader is handed what the first was, however much the first moved the page.
