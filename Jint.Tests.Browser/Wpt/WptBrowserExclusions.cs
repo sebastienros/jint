@@ -1106,7 +1106,6 @@ internal static class WptBrowserExclusions
         new("dom/nodes/Document-createEvent.https.html", "createEvent('deviceorientationevent*", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createEvent.https.html", "createEvent('dragevent*", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createEvent.https.html", "createEvent('storageevent*", WptDivergence.NeedsTriage),
-        new("dom/nodes/ParentNode-replaceChildren.html", "*", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "*itself", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "*tests", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "*toggleAttribute)", WptDivergence.NeedsTriage),

@@ -248,6 +248,39 @@
   ],
   "additions": [
     {
+      "interface": "Document",
+      "member": "replaceChildren",
+      "kind": "operation",
+      "length": 0,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, \"Document.replaceChildren\");",
+        "return global::Jint.Browser.Dom.DomParentNodeMembers.ReplaceChildren(self.Realm, self.Target, args);"
+      ],
+      "reason": "DOM §4.2.6's replace-all is one operation and one mutation record. AngleSharp exposes no replaceChildren member, and composing RemoveChild with AppendChild queues several records, so the runtime owns the algorithm."
+    },
+    {
+      "interface": "DocumentFragment",
+      "member": "replaceChildren",
+      "kind": "operation",
+      "length": 0,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocumentFragment>(thisObj, \"DocumentFragment.replaceChildren\");",
+        "return global::Jint.Browser.Dom.DomParentNodeMembers.ReplaceChildren(self.Realm, self.Target, args);"
+      ],
+      "reason": "The DocumentFragment projection of the same ParentNode operation."
+    },
+    {
+      "interface": "Element",
+      "member": "replaceChildren",
+      "kind": "operation",
+      "length": 0,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, \"Element.replaceChildren\");",
+        "return global::Jint.Browser.Dom.DomParentNodeMembers.ReplaceChildren(self.Realm, self.Target, args);"
+      ],
+      "reason": "The Element projection of the same ParentNode operation."
+    },
+    {
       "interface": "HTMLSelectElement",
       "member": "add",
       "kind": "operation",
