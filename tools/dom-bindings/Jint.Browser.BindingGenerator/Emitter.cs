@@ -200,6 +200,21 @@ internal sealed class Emitter
 
             builder.Append("            .ToStringTag(").Append(CSharpNames.Literal(model.DomName)).Append(")\n");
 
+            if (model.Unscopables.Count != 0)
+            {
+                // https://webidl.spec.whatwg.org/#es-unscopable -- one object per interface prototype
+                // object, and a page may write to it, so it is a per-realm slot rather than a constant.
+                // The property is { writable: false, enumerable: false, configurable: true }: it is not a
+                // member of the interface, which is why it is the one thing on a prototype here that is
+                // neither enumerable nor writable.
+                builder.Append("            .PerRealmSlot(\n")
+                    .Append("                global::Jint.Native.Symbol.GlobalSymbolRegistry.Unscopables,\n")
+                    .Append("                static prototype => global::Jint.Browser.Dom.DomUnscopables.Create(prototype, [")
+                    .Append(string.Join(", ", model.Unscopables.Select(CSharpNames.Literal)))
+                    .Append("]),\n")
+                    .Append("                writable: false)\n");
+            }
+
             // https://webidl.spec.whatwg.org/#interface-prototype-object — `constructor` is
             // { writable: true, enumerable: false, configurable: true }, and per-realm because the interface
             // object it names belongs to one engine.

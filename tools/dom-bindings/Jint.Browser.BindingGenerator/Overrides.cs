@@ -17,6 +17,9 @@ internal sealed class Overrides
     [JsonPropertyName("excludedInterfaces")]
     public List<ExcludedInterface> ExcludedInterfaces { get; init; } = [];
 
+    [JsonPropertyName("mergedInterfaces")]
+    public List<MergedInterface> MergedInterfaces { get; init; } = [];
+
     [JsonPropertyName("manual")]
     public List<ManualEntry> Manual { get; init; } = [];
 
@@ -31,6 +34,9 @@ internal sealed class Overrides
 
     [JsonPropertyName("reflected")]
     public List<ReflectedEntry> Reflected { get; init; } = [];
+
+    [JsonPropertyName("unscopables")]
+    public List<UnscopableEntry> Unscopables { get; init; } = [];
 
     [JsonPropertyName("nullableStrings")]
     public List<NullableStringEntry> NullableStrings { get; init; } = [];
@@ -55,6 +61,52 @@ internal sealed class Overrides
     {
         [JsonPropertyName("interface")]
         public string Interface { get; init; } = "";
+
+        [JsonPropertyName("reason")]
+        public string Reason { get; init; } = "";
+    }
+
+    /// <summary>
+    /// An interface the standard merged into another one, projected as that other one.
+    /// </summary>
+    /// <remarks>
+    /// Unlike <see cref="ExcludedInterface"/>, which removes an interface and every member whose type names
+    /// it, this one keeps the members: their type resolves to <see cref="Into"/>'s projection instead, and
+    /// the merged interface contributes no definition, no interface object and no type-map candidate — so a
+    /// value that implements it is wrapped as the interface the standard says it is. The merged interface's
+    /// own members are dropped with it, which is what a merge means; declare any that must survive on
+    /// <see cref="Into"/>.
+    /// </remarks>
+    internal sealed class MergedInterface
+    {
+        [JsonPropertyName("interface")]
+        public string Interface { get; init; } = "";
+
+        /// <summary>The CLR interface whose projection this one is answered by.</summary>
+        [JsonPropertyName("into")]
+        public string Into { get; init; } = "";
+
+        [JsonPropertyName("reason")]
+        public string Reason { get; init; } = "";
+    }
+
+    /// <summary>
+    /// The <c>[Unscopable]</c> members of one interface, which WebIDL turns into its <c>@@unscopables</c>.
+    /// </summary>
+    /// <remarks>
+    /// A CLR annotation cannot say it: <c>[Unscopable]</c> is an extended attribute on the IDL declaration
+    /// and AngleSharp's metadata carries nothing for it. Listed per projected interface rather than per
+    /// mixin, because the mixins that declare these members — <c>ParentNode</c> and <c>ChildNode</c> — are
+    /// not interfaces this binding emits and the member closure has already attributed each one somewhere.
+    /// Every name has to be a member the interface really declares, or it is a diagnostic.
+    /// </remarks>
+    internal sealed class UnscopableEntry
+    {
+        [JsonPropertyName("interface")]
+        public string Interface { get; init; } = "";
+
+        [JsonPropertyName("members")]
+        public List<string> Members { get; init; } = [];
 
         [JsonPropertyName("reason")]
         public string Reason { get; init; } = "";

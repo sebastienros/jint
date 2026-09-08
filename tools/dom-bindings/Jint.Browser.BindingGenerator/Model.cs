@@ -66,6 +66,12 @@ internal sealed class InterfaceModel
 
     internal InterfaceModel? Parent { get; set; }
 
+    /// <summary>
+    /// The interface's <c>[Unscopable]</c> member names, sorted, or empty when it has none —
+    /// https://webidl.spec.whatwg.org/#es-unscopable.
+    /// </summary>
+    internal List<string> Unscopables { get; } = [];
+
     internal bool RootsAtEventTarget { get; set; }
 
     internal bool HasInterfaceObject { get; set; } = true;

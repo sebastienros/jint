@@ -971,23 +971,19 @@ internal static class WptBrowserExclusions
         new("html/dom/reflection-forms.html", "meter.optimum: IDL set to 1e+25", WptDivergence.NeedsTriage),
     ];
 
-    // ---------------------------------------------------------------- 5. a DOM prototype has no @@unscopables
-    private static readonly WptExclusion[] _5ADOMPrototypeHasNoUnscopables =
+    // ---------------------------------------------------------------- a form-associated custom element
+    private static readonly WptExclusion[] _aFormAssociatedCustomElement =
     [
-        // WebIDL puts an `@@unscopables` object on the interface prototype object of every interface with an
-        // `[Unscopable]` member — `Element`'s and `Document`'s `append`, `prepend` and `replaceChildren`
-        // among them — and this binding emits none, because AngleSharp's metadata does not say which members
-        // are unscopable. The three rows below never reach their subject: they *write* to
-        // `document[Symbol.unscopables]`, which is undefined here.
-        new("html/webappapis/scripting/events/compile-event-handler-symbol-unscopables.html", "*", WptDivergence.NeedsTriage),
-    ];
-
-    // ---------------------------------------------------------------- 4b. a custom element
-    private static readonly WptExclusion[] _4bACustomElement =
-    [
-        // The file's other three rows pass. This one defines a form-associated custom element, and
-        // `window.customElements` is a name this browser does not have — the same reason
-        // `EventTarget-add-listener-platform-object.html` is not vendored.
+        // `window.customElements` exists now and the file's other three rows pass — an `<input>`, an `<img>`
+        // and a `<div>` all get the form owner their handler's scope chain should see. This one defines an
+        // `<x-foo static formAssociated>` and asserts that its handler reads the *form's* `elements`; it
+        // reads the global's instead, because
+        // https://html.spec.whatwg.org/multipage/custom-elements.html#form-associated-custom-element makes
+        // the flag mean something only through `ElementInternals`, and this package records the flag and has
+        // no `ElementInternals` to consult it. So the element is not a form-associated element, takes no
+        // part in `form.elements`, and https://html.spec.whatwg.org/multipage/webappapis.html#getting-the-current-value-of-the-event-handler
+        // puts no form owner in its scope chain. Measured: the handler answers the string "global_elements"
+        // where the file expects an HTMLFormControlsCollection.
         new("html/webappapis/scripting/events/compile-event-handler-lexical-scopes-form-owner.html", "form-associated <x-foo> has a form owner", WptDivergence.NeedsTriage),
     ];
 
@@ -1047,6 +1043,13 @@ internal static class WptBrowserExclusions
         // no window, where HTML gives every nested browsing context an initial `about:blank` document. That is
         // a gap of its own and not this category; opening a document into a context nobody navigated is not
         // something AngleSharp's public surface does.
+        //
+        // The two `dom/events/` files each meet it in a different place, and both were measured rather than
+        // assumed: the first assigns a frame's `location.href` and gets the refusal `Runtime/FrameWindows`
+        // answers with (a frame has a document here and no browsing context to navigate), and the second
+        // assigns `frames[0].onerror` and gets `Illegal invocation` — a frame's window is an object on the
+        // page's realm carrying the page's `Window.prototype`, so the IDL setter's brand check does not
+        // recognise it as a global.
         new("dom/events/event-global-is-still-set-when-coercing-beforeunload-result.html", "*", WptDivergence.NeedsIframeScripting),
         new("dom/events/event-global-is-still-set-when-reporting-exception-onerror.html", "*", WptDivergence.NeedsIframeScripting),
         new("html/webappapis/scripting/processing-model-2/window-onerror-with-cross-frame-event-listeners-1.html", "*", WptDivergence.NeedsIframeScripting),
@@ -1224,15 +1227,18 @@ internal static class WptBrowserExclusions
         new("dom/nodes/node-realm-preserved-across-frameless-adoption.html", "*", WptDivergence.NeedsIframeScripting),
     ];
 
-    // ---------------------------------------------------------------- DOMTokenList: the token validation, the indexed access and the iteration
-    private static readonly WptExclusion[] _dOMTokenListTheTokenValidationTheIndexedAccessAndTheIteration =
+    // ---------------------------------------------------------------- an element interface outside the HTML namespace
+    private static readonly WptExclusion[] _anElementInterfaceOutsideTheHTMLNamespace =
     [
-        // DOMTokenList's validation and its indexed access
+        // What is left of this file is two rows, and neither is about DOMTokenList: each asks for `relList`
+        // on an `<a>` created OUTSIDE the HTML namespace, and gets `undefined` because there is no interface
+        // for the member to be on. AngleSharp declares seven SVG interfaces and no ISvgAnchorElement, and no
+        // MathML element interface at all, so this package has no SVGAElement and no MathMLElement — the
+        // same shape of gap as HTMLDListElement above, and unreachable from this side for the same reason:
+        // an element's interface is fixed by AngleSharp's own factories. The file's other 173 rows pass,
+        // including every namespace's `classList` and the three that used to answer DOMSettableTokenList.
         new("dom/lists/DOMTokenList-coverage-for-attributes.html", "a.relList in http://www.w3.org/1998*", WptDivergence.NeedsTriage),
         new("dom/lists/DOMTokenList-coverage-for-attributes.html", "a.relList in http://www.w3.org/2000*", WptDivergence.NeedsTriage),
-        new("dom/lists/DOMTokenList-coverage-for-attributes.html", "iframe.sandbox*DOMTokenList.", WptDivergence.NeedsTriage),
-        new("dom/lists/DOMTokenList-coverage-for-attributes.html", "link.sizes*DOMTokenList.", WptDivergence.NeedsTriage),
-        new("dom/lists/DOMTokenList-coverage-for-attributes.html", "output.htmlFor*DOMTokenList.", WptDivergence.NeedsTriage),
     ];
 
     // ---------------------------------------------------------------- a member of a DOM interface the bindings do not have
@@ -1254,7 +1260,6 @@ internal static class WptBrowserExclusions
         new("dom/nodes/attributes.html", "*itself", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "*tests", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "*toggleAttribute)", WptDivergence.NeedsTriage),
-        new("dom/nodes/remove-unscopable.html", "*", WptDivergence.NeedsTriage),
     ];
 
     // ---------------------------------------------------------------- an XML document, and the two members that make one
@@ -1277,8 +1282,6 @@ internal static class WptBrowserExclusions
         new("dom/nodes/processing-instruction-attributes.html", "Distinct attribute name (source: html*", WptDivergence.NeedsXmlDocuments),
         new("dom/nodes/processing-instruction-attributes.html", "Distinct attribute name (source: xml-dom*", WptDivergence.NeedsXmlDocuments),
         new("dom/nodes/processing-instruction-attributes.html", "Processing*", WptDivergence.NeedsXmlDocuments),
-        // Range adoption across documents still depends on the XML-document lane this category tracks.
-        new("dom/ranges/Range-adopt-test.html", "*appendChild: Removing the only element in the range must collapse the range", WptDivergence.NeedsXmlDocuments),
     ];
 
     // ---------------------------------------------------------------- a collection's named and indexed properties, and its liveness
@@ -1400,10 +1403,35 @@ internal static class WptBrowserExclusions
         new("dom/nodes/Node-nodeValue.html", "Text*", WptDivergence.NeedsTriage),
     ];
 
-    // ---------------------------------------------------------------- Range's own algorithms
-    private static readonly WptExclusion[] _rangeSOwnAlgorithms =
+    // ---------------------------------------------------------------- a live range that was adopted away
+    private static readonly WptExclusion[] _aLiveRangeThatWasAdoptedAway =
     [
-        // Range's remaining algorithms
+        // https://dom.spec.whatwg.org/#concept-node-remove's removing steps adjust every live range whose
+        // boundary points are in the removed node's tree, and a range has a ROOT rather than a document — so
+        // adopting the tree elsewhere changes nothing about which ranges a later removal has to adjust.
+        // AngleSharp keeps the live ranges on the Document instead, and adopt does not move them, so a range
+        // made before its container was adopted is stranded: measured, `endOffset` stays 1 where the
+        // standard collapses it to 0. It is not about XML documents, which is where these two rows used to
+        // be filed — `createHTMLDocument()` strands a range exactly as `createDocument(null, null)` does —
+        // and it is not about the range being new: one created AFTER the adoption is adjusted correctly.
+        // AngleSharp's, and `Dom/divergences.md` records it. The file's other two rows pass.
+        new("dom/ranges/Range-adopt-test.html", "*appendChild: Removing the only element in the range must collapse the range", WptDivergence.NeedsTriage),
+    ];
+
+    // ---------------------------------------------------------------- a document whose variants the lane does not serve
+    private static readonly WptExclusion[] _aDocumentWhoseVariantsTheLaneDoesNotServe =
+    [
+        // This file's mode comes from `<meta name="variant" content="?mode=open">`, which upstream's runner
+        // appends to the URL and this lane does not: a case here is the vendored path and nothing else. So
+        // the document runs with `location.search` empty, `new URLSearchParams("").get("mode")` is null, and
+        // `attachShadow({mode: null})` fails WebIDL's enum conversion before either test reaches its
+        // subject — "the provided value 'null' is not a valid enum value" is what both rows report.
+        //
+        // Nothing about the engine is wrong here and `Dom/RangeInShadowTests` measures the subject directly:
+        // both modes, both removals, all four pass. Serving a document once per declared variant is a change
+        // to the lane rather than to the engine — it moves the census's Tests column and makes a case a path
+        // plus a query — so it is recorded rather than done. `dom/events/handler-count.html` is the only
+        // other vendored document that declares any.
         new("dom/ranges/Range-in-shadow-after-the-shadow-removed.html", "*", WptDivergence.NeedsTriage),
     ];
 
@@ -1556,10 +1584,9 @@ internal static class WptBrowserExclusions
     [
         new("1. an event interface this browser has not built", _1AnEventInterfaceThisBrowserHasNotBuilt),
         new("4. an obsolete element interface AngleSharp does not have", _4AnObsoleteElementInterfaceAngleSharpDoesNotHave),
-        new("5. a DOM prototype has no @@unscopables", _5ADOMPrototypeHasNoUnscopables),
         new("8. AngleSharp.Css refuses an unparseable media query", _8AngleSharpCssRefusesAnUnparseableMediaQuery),
         new("9. a double written with .NET's number format", _9ADoubleWrittenWithNETSNumberFormat),
-        new("4b. a custom element", _4bACustomElement),
+        new("a form-associated custom element", _aFormAssociatedCustomElement),
         new("6. a frame that runs script: the scripting suites", _6AFrameThatRunsScriptTheScriptingSuites),
         new("7. a bubbling `submit` the file counts as an activation", _7ABubblingSubmitTheFileCountsAsAnActivation),
         new("a frame that runs script: custom elements", _aFrameThatRunsScriptCustomElements),
@@ -1571,7 +1598,7 @@ internal static class WptBrowserExclusions
         new("the upgrade", _theUpgrade),
         new("one [CEReactions] member per file", _oneCEReactionsMemberPerFile),
         new("a frame that runs script", _aFrameThatRunsScript),
-        new("DOMTokenList: the token validation, the indexed access and the iteration", _dOMTokenListTheTokenValidationTheIndexedAccessAndTheIteration),
+        new("an element interface outside the HTML namespace", _anElementInterfaceOutsideTheHTMLNamespace),
         new("a member of a DOM interface the bindings do not have", _aMemberOfADOMInterfaceTheBindingsDoNotHave),
         new("an XML document, and the two members that make one", _anXMLDocumentAndTheTwoMembersThatMakeOne),
         new("a collection's named and indexed properties, and its liveness", _aCollectionSNamedAndIndexedPropertiesAndItsLiveness),
@@ -1579,7 +1606,8 @@ internal static class WptBrowserExclusions
         new("DOM's validate-and-extract, and the XML name productions", _dOMSValidateAndExtractAndTheXMLNameProductions),
         new("a name AngleSharp refuses that the standard allows", _aNameAngleSharpRefusesThatTheStandardAllows),
         new("a nullable DOMString answers the string \"null\"", _aNullableDOMStringAnswersTheStringNull),
-        new("Range's own algorithms", _rangeSOwnAlgorithms),
+        new("a live range that was adopted away", _aLiveRangeThatWasAdoptedAway),
+        new("a document whose variants the lane does not serve", _aDocumentWhoseVariantsTheLaneDoesNotServe),
         new("an event interface this browser does not build", _anEventInterfaceThisBrowserDoesNotBuild),
         new("a document with no browsing context", _aDocumentWithNoBrowsingContext),
         new("the selector engine: escapes, :scope and :has", _theSelectorEngineEscapesScopeAndHas),

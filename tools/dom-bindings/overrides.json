@@ -15,6 +15,14 @@
       "reason": "Window is the browser runtime's, not the binding's: the global object stays Jint's GlobalObject and gains Window.prototype in its chain (campaign item R1). Generating a second Window here would produce an interface object nothing could ever be an instance of. document.defaultView is skipped with it, by the conversion table rather than by name."
     }
   ],
+  "mergedInterfaces": [
+    {
+      "interface": "AngleSharp.Dom.ISettableTokenList",
+      "into": "AngleSharp.Dom.ITokenList",
+      "reason": "DOM merged DOMSettableTokenList into DOMTokenList in 2016 and the standard has no such interface any more, but AngleSharp's ISettableTokenList still carries [DomName(\"DOMSettableTokenList\")] -- so iframe.sandbox, output.htmlFor and link.sizes answered [object DOMSettableTokenList] and were not instanceof DOMTokenList, and the removed interface was a global. Merged rather than excluded, because excluding it would drop the three members whose CLR type names it. Its one member goes with it and is not a loss: ISettableTokenList.Value is the *serialized* token set where DOM's `value` is the attribute verbatim -- `sandbox=\"  x  y \"` reads back as `x y` -- and the inherited DOMTokenList.value is already the standard's."
+    }
+  ],
+
   "manual": [
     {
       "interface": "AngleSharp.Dom.IHtmlCollection`1",
@@ -204,11 +212,6 @@
       "interface": "HTMLOutputElement",
       "member": "htmlFor",
       "reason": "Re-declared in `additions` so the projected `ITokenList` records the element and attribute it reflects: DOM §7.1 defines `value`, the stringifier and the update steps in terms of both, and AngleSharp's `ITokenList` names neither."
-    },
-    {
-      "interface": "DOMSettableTokenList",
-      "member": "value",
-      "reason": "DOM merged DOMSettableTokenList into DOMTokenList in 2016, and AngleSharp's ISettableTokenList.Value is the *serialized* token set where DOM's `value` is the attribute verbatim -- `sandbox=\"  x  y \"` reads back as `x y`. Skipped rather than re-declared: the inherited DOMTokenList.value is already the standard's, so this interface is left with no members of its own, which is what the standard leaves it with too."
     },
     {
       "interface": "CharacterData",
@@ -2642,6 +2645,34 @@
       "attribute": "width",
       "type": "string",
       "reason": "HTML \u00a716.2: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    }
+  ],
+
+  "unscopables": [
+    {
+      "interface": "Element",
+      "members": ["after", "append", "before", "prepend", "remove", "replaceChildren", "replaceWith", "slot"],
+      "reason": "WebIDL's [Unscopable] is an extended attribute on the IDL declaration and AngleSharp's metadata carries nothing for it, so the interface prototype objects had no @@unscopables at all -- which is what `<div onclick=\"remove()\">` resolving to the element's `remove` rather than the global's means. DOM marks eight members: ParentNode's append/prepend/replaceChildren, ChildNode's before/after/replaceWith/remove, and Element's `slot`. Listed per PROJECTED interface, because the two mixins are not interfaces this binding emits and the member closure has already attributed each member somewhere; every name is checked against a member that interface really declares."
+    },
+    {
+      "interface": "Document",
+      "members": ["append", "prepend", "replaceChildren"],
+      "reason": "WebIDL's [Unscopable] is an extended attribute on the IDL declaration and AngleSharp's metadata carries nothing for it, so the interface prototype objects had no @@unscopables at all -- which is what `<div onclick=\"remove()\">` resolving to the element's `remove` rather than the global's means. DOM marks eight members: ParentNode's append/prepend/replaceChildren, ChildNode's before/after/replaceWith/remove, and Element's `slot`. Listed per PROJECTED interface, because the two mixins are not interfaces this binding emits and the member closure has already attributed each member somewhere; every name is checked against a member that interface really declares."
+    },
+    {
+      "interface": "DocumentFragment",
+      "members": ["append", "prepend", "replaceChildren"],
+      "reason": "WebIDL's [Unscopable] is an extended attribute on the IDL declaration and AngleSharp's metadata carries nothing for it, so the interface prototype objects had no @@unscopables at all -- which is what `<div onclick=\"remove()\">` resolving to the element's `remove` rather than the global's means. DOM marks eight members: ParentNode's append/prepend/replaceChildren, ChildNode's before/after/replaceWith/remove, and Element's `slot`. Listed per PROJECTED interface, because the two mixins are not interfaces this binding emits and the member closure has already attributed each member somewhere; every name is checked against a member that interface really declares."
+    },
+    {
+      "interface": "DocumentType",
+      "members": ["after", "before", "remove", "replaceWith"],
+      "reason": "WebIDL's [Unscopable] is an extended attribute on the IDL declaration and AngleSharp's metadata carries nothing for it, so the interface prototype objects had no @@unscopables at all -- which is what `<div onclick=\"remove()\">` resolving to the element's `remove` rather than the global's means. DOM marks eight members: ParentNode's append/prepend/replaceChildren, ChildNode's before/after/replaceWith/remove, and Element's `slot`. Listed per PROJECTED interface, because the two mixins are not interfaces this binding emits and the member closure has already attributed each member somewhere; every name is checked against a member that interface really declares."
+    },
+    {
+      "interface": "CharacterData",
+      "members": ["after", "before", "remove", "replaceWith"],
+      "reason": "WebIDL's [Unscopable] is an extended attribute on the IDL declaration and AngleSharp's metadata carries nothing for it, so the interface prototype objects had no @@unscopables at all -- which is what `<div onclick=\"remove()\">` resolving to the element's `remove` rather than the global's means. DOM marks eight members: ParentNode's append/prepend/replaceChildren, ChildNode's before/after/replaceWith/remove, and Element's `slot`. Listed per PROJECTED interface, because the two mixins are not interfaces this binding emits and the member closure has already attributed each member somewhere; every name is checked against a member that interface really declares."
     }
   ],
 

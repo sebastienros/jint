@@ -349,6 +349,10 @@ internal static partial class DomInterfaces
     private static global::Jint.Native.JsObjectShape BuildCharacterData()
         => new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("CharacterData")
+            .PerRealmSlot(
+                global::Jint.Native.Symbol.GlobalSymbolRegistry.Unscopables,
+                static prototype => global::Jint.Browser.Dom.DomUnscopables.Create(prototype, ["after", "before", "remove", "replaceWith"]),
+                writable: false)
             .PerRealmSlot("constructor", enumerable: false)
             .Method("after",
                 global::Jint.Browser.Dom.DomFailures.Guard("CharacterData.after", static (thisObj, args) =>
@@ -502,6 +506,43 @@ internal static partial class DomInterfaces
                 length: 0)
             .Build();
 
+    /// <summary>The members of <c>DOMStringList</c>.</summary>
+    private static global::Jint.Native.JsObjectShape BuildDOMStringList()
+        => new global::Jint.Native.JsObjectShape.Builder()
+            .ToStringTag("DOMStringList")
+            .PerRealmSlot("constructor", enumerable: false)
+            .PerRealmSlot(
+                global::Jint.Native.Symbol.GlobalSymbolRegistry.Iterator,
+                global::Jint.Browser.Dom.Collections.DomIterator.ArrayValues)
+            .Method("contains",
+                global::Jint.Browser.Dom.DomFailures.Guard("DOMStringList.contains", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IStringList>(thisObj, "DOMStringList.contains");
+                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Contains(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "DOMStringList.contains")));
+                }),
+                length: 1)
+            .Method("item",
+                global::Jint.Browser.Dom.DomFailures.Guard("DOMStringList.item", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IStringList>(thisObj, "DOMStringList.item");
+                    return global::Jint.Browser.Dom.DomConvert.Text(((global::System.Collections.Generic.IReadOnlyList<global::System.String>) self.Target)[global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "DOMStringList.item")]);
+                }),
+                length: 1)
+            .Accessor("length",
+                global::Jint.Browser.Dom.DomFailures.Guard("DOMStringList.length", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IStringList>(thisObj, "DOMStringList.length");
+                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);
+                }))
+            .Build();
+
+    /// <summary>The members of <c>DOMStringMap</c>.</summary>
+    private static global::Jint.Native.JsObjectShape BuildDOMStringMap()
+        => new global::Jint.Native.JsObjectShape.Builder()
+            .ToStringTag("DOMStringMap")
+            .PerRealmSlot("constructor", enumerable: false)
+            .Build();
+
     /// <summary>The members of <c>DOMTokenList</c>.</summary>
     private static global::Jint.Native.JsObjectShape BuildDOMTokenList()
     {
@@ -589,55 +630,15 @@ internal static partial class DomInterfaces
         return builder.Build();
     }
 
-    /// <summary>The members of <c>DOMSettableTokenList</c>.</summary>
-    private static global::Jint.Native.JsObjectShape BuildDOMSettableTokenList()
-        => new global::Jint.Native.JsObjectShape.Builder()
-            .ToStringTag("DOMSettableTokenList")
-            .PerRealmSlot("constructor", enumerable: false)
-            .Build();
-
-    /// <summary>The members of <c>DOMStringList</c>.</summary>
-    private static global::Jint.Native.JsObjectShape BuildDOMStringList()
-        => new global::Jint.Native.JsObjectShape.Builder()
-            .ToStringTag("DOMStringList")
-            .PerRealmSlot("constructor", enumerable: false)
-            .PerRealmSlot(
-                global::Jint.Native.Symbol.GlobalSymbolRegistry.Iterator,
-                global::Jint.Browser.Dom.Collections.DomIterator.ArrayValues)
-            .Method("contains",
-                global::Jint.Browser.Dom.DomFailures.Guard("DOMStringList.contains", static (thisObj, args) =>
-                {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IStringList>(thisObj, "DOMStringList.contains");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Contains(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "DOMStringList.contains")));
-                }),
-                length: 1)
-            .Method("item",
-                global::Jint.Browser.Dom.DomFailures.Guard("DOMStringList.item", static (thisObj, args) =>
-                {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IStringList>(thisObj, "DOMStringList.item");
-                    return global::Jint.Browser.Dom.DomConvert.Text(((global::System.Collections.Generic.IReadOnlyList<global::System.String>) self.Target)[global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "DOMStringList.item")]);
-                }),
-                length: 1)
-            .Accessor("length",
-                global::Jint.Browser.Dom.DomFailures.Guard("DOMStringList.length", static (thisObj, args) =>
-                {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IStringList>(thisObj, "DOMStringList.length");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);
-                }))
-            .Build();
-
-    /// <summary>The members of <c>DOMStringMap</c>.</summary>
-    private static global::Jint.Native.JsObjectShape BuildDOMStringMap()
-        => new global::Jint.Native.JsObjectShape.Builder()
-            .ToStringTag("DOMStringMap")
-            .PerRealmSlot("constructor", enumerable: false)
-            .Build();
-
     /// <summary>The members of <c>Document</c>.</summary>
     private static global::Jint.Native.JsObjectShape BuildDocument()
     {
         var builder = new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("Document")
+            .PerRealmSlot(
+                global::Jint.Native.Symbol.GlobalSymbolRegistry.Unscopables,
+                static prototype => global::Jint.Browser.Dom.DomUnscopables.Create(prototype, ["append", "prepend", "replaceChildren"]),
+                writable: false)
             .PerRealmSlot("constructor", enumerable: false)
             .Accessor("URL",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.URL", static (thisObj, args) =>
@@ -1295,6 +1296,10 @@ internal static partial class DomInterfaces
     private static global::Jint.Native.JsObjectShape BuildDocumentFragment()
         => new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("DocumentFragment")
+            .PerRealmSlot(
+                global::Jint.Native.Symbol.GlobalSymbolRegistry.Unscopables,
+                static prototype => global::Jint.Browser.Dom.DomUnscopables.Create(prototype, ["append", "prepend", "replaceChildren"]),
+                writable: false)
             .PerRealmSlot("constructor", enumerable: false)
             .Method("append",
                 global::Jint.Browser.Dom.DomFailures.Guard("DocumentFragment.append", static (thisObj, args) =>
@@ -1368,6 +1373,10 @@ internal static partial class DomInterfaces
     private static global::Jint.Native.JsObjectShape BuildDocumentType()
         => new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("DocumentType")
+            .PerRealmSlot(
+                global::Jint.Native.Symbol.GlobalSymbolRegistry.Unscopables,
+                static prototype => global::Jint.Browser.Dom.DomUnscopables.Create(prototype, ["after", "before", "remove", "replaceWith"]),
+                writable: false)
             .PerRealmSlot("constructor", enumerable: false)
             .Method("after",
                 global::Jint.Browser.Dom.DomFailures.Guard("DocumentType.after", static (thisObj, args) =>
@@ -1424,6 +1433,10 @@ internal static partial class DomInterfaces
     {
         var builder = new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("Element")
+            .PerRealmSlot(
+                global::Jint.Native.Symbol.GlobalSymbolRegistry.Unscopables,
+                static prototype => global::Jint.Browser.Dom.DomUnscopables.Create(prototype, ["after", "append", "before", "prepend", "remove", "replaceChildren", "replaceWith", "slot"]),
+                writable: false)
             .PerRealmSlot("constructor", enumerable: false)
             .Method("after",
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.after", static (thisObj, args) =>

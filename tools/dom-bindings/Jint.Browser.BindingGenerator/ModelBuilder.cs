@@ -18,6 +18,9 @@ internal sealed class ModelBuilder
     private readonly Dictionary<string, InterfaceModel> _byClrName = new(StringComparer.Ordinal);
     private readonly HashSet<string> _excluded = new(StringComparer.Ordinal);
     private readonly HashSet<string> _closureExcluded = new(StringComparer.Ordinal);
+
+    /// <summary>A CLR interface the standard merged into another, and the one it is projected as.</summary>
+    private readonly Dictionary<string, string> _merged = new(StringComparer.Ordinal);
     private readonly HashSet<string> _mixins = new(StringComparer.Ordinal);
     private readonly HashSet<string> _stringEnums = new(StringComparer.Ordinal);
     private readonly Dictionary<string, List<MethodInfo>> _extensions = new(StringComparer.Ordinal);
@@ -47,6 +50,14 @@ internal sealed class ModelBuilder
         foreach (var entry in _overrides.ExcludedInterfaces)
         {
             _excluded.Add(entry.Interface);
+        }
+
+        // A merged interface is excluded from the model exactly as an excluded one is; what differs is that
+        // LookupInterface still answers for it, so a member whose type names it keeps its projection.
+        foreach (var entry in _overrides.MergedInterfaces)
+        {
+            _excluded.Add(entry.Interface);
+            _merged[entry.Interface] = entry.Into;
         }
 
         ClassifyMixins(named);
@@ -108,10 +119,49 @@ internal sealed class ModelBuilder
         }
 
         BuildConstants();
+        BuildUnscopables();
 
         _model.Interfaces.AddRange(TopologicalOrder());
         VerifyOverridesMatchTheAssemblies();
         return _model;
+    }
+
+    /// <summary>
+    /// Attaches https://webidl.spec.whatwg.org/#es-unscopable's member list to each interface the override
+    /// table names, after the members are built so that every name can be checked against a real one.
+    /// </summary>
+    private void BuildUnscopables()
+    {
+        foreach (var entry in _overrides.Unscopables)
+        {
+            var model = _byClrName.Values.FirstOrDefault(m => m.DomName == entry.Interface);
+
+            if (model is null)
+            {
+                _model.Diagnostics.Add(
+                    "overrides.json marks members of '" + entry.Interface + "' unscopable (" + entry.Reason
+                    + "), but the pinned assemblies do not project that interface.");
+                continue;
+            }
+
+            foreach (var member in entry.Members)
+            {
+                // WebIDL's unscopable object lists the interface's OWN [Unscopable] members, so a name that
+                // is only inherited would put a key on the wrong prototype: `with (element)` consults
+                // Element.prototype's object and never Node.prototype's.
+                if (!model.Members.Any(m => string.Equals(m.DomName, member, StringComparison.Ordinal)))
+                {
+                    _model.Diagnostics.Add(
+                        "overrides.json marks '" + entry.Interface + "." + member + "' unscopable ("
+                        + entry.Reason + "), but that interface declares no such member.");
+                    continue;
+                }
+
+                model.Unscopables.Add(member);
+            }
+
+            model.Unscopables.Sort(StringComparer.Ordinal);
+        }
     }
 
     private List<InterfaceModel> TopologicalOrder()
@@ -314,7 +364,23 @@ internal sealed class ModelBuilder
     }
 
     private InterfaceModel? LookupInterface(Type type)
-        => DefinitionName(type) is { } name && _byClrName.TryGetValue(name, out var model) ? model : null;
+    {
+        if (DefinitionName(type) is not { } name)
+        {
+            return null;
+        }
+
+        if (_byClrName.TryGetValue(name, out var model))
+        {
+            return model;
+        }
+
+        // A merged interface has no model of its own — it is in `_excluded` — so a member that returns one
+        // resolves to the interface the standard merged it into rather than being skipped for a type the
+        // conversion table has no entry for. The table is not walked transitively: a merge names its target
+        // directly, so a chain would be two entries and would say so.
+        return _merged.TryGetValue(name, out var into) && _byClrName.TryGetValue(into, out var target) ? target : null;
+    }
 
     private static WrapperKind KindOf(Type type)
     {
@@ -1586,6 +1652,23 @@ internal sealed class ModelBuilder
             if (!_assemblies.SelectMany(a => a.GetTypes()).Any(t => t.FullName == entry.Interface))
             {
                 _model.Diagnostics.Add("overrides.json excludes '" + entry.Interface + "' (" + entry.Reason + "), which is not in the pinned assemblies.");
+            }
+        }
+
+        foreach (var entry in _overrides.MergedInterfaces)
+        {
+            var types = _assemblies.SelectMany(a => a.GetTypes()).ToList();
+
+            if (!types.Any(t => t.FullName == entry.Interface))
+            {
+                _model.Diagnostics.Add("overrides.json merges '" + entry.Interface + "' (" + entry.Reason + "), which is not in the pinned assemblies.");
+            }
+
+            if (!_byClrName.ContainsKey(entry.Into))
+            {
+                _model.Diagnostics.Add(
+                    "overrides.json merges '" + entry.Interface + "' into '" + entry.Into + "' (" + entry.Reason
+                    + "), which the pinned assemblies do not project.");
             }
         }
 

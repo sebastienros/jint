@@ -239,4 +239,52 @@ public sealed class DomTokenListTests
             """)
             .Should().Be("  x  y :2|  x  y :2|  x  y :2|  x  y :2|  x  y :2");
     }
+
+    [Test]
+    public void EverySettableTokenListIsADOMTokenList()
+    {
+        using var fixture = DomTestFixture.Create(Page);
+
+        // DOM merged DOMSettableTokenList into DOMTokenList in 2016
+        // (https://github.com/whatwg/dom/commit/f1c1f5e), so `sandbox`, `htmlFor` and `sizes` are
+        // DOMTokenList like every other one and the old interface is not a global. AngleSharp's
+        // ISettableTokenList still carries [DomName("DOMSettableTokenList")], which is what
+        // `overrides.json`'s mergedInterfaces answers.
+        fixture.Text(
+            """
+            function brandOf(tag, member) {
+              var list = document.createElement(tag)[member];
+              return Object.prototype.toString.call(list)
+                + '/' + (list instanceof DOMTokenList)
+                + '/' + (Object.getPrototypeOf(list) === DOMTokenList.prototype);
+            }
+            [
+              brandOf('iframe', 'sandbox'),
+              brandOf('output', 'htmlFor'),
+              brandOf('link', 'sizes'),
+              brandOf('span', 'classList'),
+              typeof DOMSettableTokenList,
+            ].join('|');
+            """)
+            .Should().Be(
+                "[object DOMTokenList]/true/true|[object DOMTokenList]/true/true|"
+                + "[object DOMTokenList]/true/true|[object DOMTokenList]/true/true|undefined");
+    }
+
+    [Test]
+    public void ASettableTokenListKeepsTheStandardsValueRatherThanTheSerializedOne()
+    {
+        using var fixture = DomTestFixture.Create(Page);
+
+        // The merged interface's one member goes with it, and that is the point rather than a loss:
+        // https://dom.spec.whatwg.org/#dom-domtokenlist-value is the attribute verbatim, where AngleSharp's
+        // ISettableTokenList.Value answers the serialized token set.
+        fixture.Text(
+            """
+            var f = document.createElement('iframe');
+            f.setAttribute('sandbox', '  allow-scripts  allow-forms ');
+            f.sandbox.value + ':' + f.sandbox.length;
+            """)
+            .Should().Be("  allow-scripts  allow-forms :2");
+    }
 }
