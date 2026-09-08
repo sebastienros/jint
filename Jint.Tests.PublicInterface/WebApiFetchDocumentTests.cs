@@ -1104,6 +1104,10 @@ public class WebApiFetchDocumentTests
             typeof(FetchInterception), typeof(FetchResponseInterception), typeof(FetchRequestId),
             typeof(FetchHeader), typeof(FetchTiming),
 
+            // The body read is the one callback argument owning bytes off the socket, so it takes the same
+            // walk: what a protocol layer holds while a response is paused may not be a page's value.
+            typeof(FetchResponseInterceptionContext), typeof(IFetchResponseBodyBudget),
+
             // The socket seam is a second observer with the same rule, so it takes the same walk.
             typeof(Jint.WebApi.WebSockets.WebSocketObserver), typeof(Jint.WebApi.WebSockets.WebSocketId),
             typeof(Jint.WebApi.WebSockets.ObservedWebSocketHandshake), typeof(Jint.WebApi.WebSockets.ObservedWebSocketResponse),

@@ -3110,6 +3110,7 @@ namespace Jint.WebApi.Fetch
         public virtual void OnCompleted(Jint.WebApi.Fetch.FetchRequestId id, long bodyLength) { }
         public virtual void OnData(Jint.WebApi.Fetch.FetchRequestId id, System.ReadOnlySpan<byte> chunk) { }
         public virtual void OnFailed(Jint.WebApi.Fetch.FetchRequestId id, string reason, System.Exception? exception) { }
+        public virtual System.Threading.Tasks.ValueTask<Jint.WebApi.Fetch.FetchResponseInterception?> OnInterceptedResponseAsync(Jint.WebApi.Fetch.FetchResponseInterceptionContext context, System.Threading.CancellationToken cancellationToken) { }
         public virtual System.Threading.Tasks.ValueTask<Jint.WebApi.Fetch.FetchInterception?> OnRequestAsync(Jint.WebApi.Fetch.ObservedFetchRequest request, System.Threading.CancellationToken cancellationToken) { }
         public virtual void OnResponse(Jint.WebApi.Fetch.ObservedFetchResponse response) { }
         public virtual System.Threading.Tasks.ValueTask<Jint.WebApi.Fetch.FetchResponseInterception?> OnResponseAsync(Jint.WebApi.Fetch.ObservedFetchResponse response, System.Threading.CancellationToken cancellationToken) { }
@@ -3127,12 +3128,23 @@ namespace Jint.WebApi.Fetch
         public static Jint.WebApi.Fetch.FetchResponseInterception Fail(string reason) { }
         public static Jint.WebApi.Fetch.FetchResponseInterception Fulfill(int status, System.Collections.Generic.IReadOnlyList<Jint.WebApi.Fetch.FetchHeader>? headers = null, System.ReadOnlyMemory<byte> body = default, string? statusText = null) { }
     }
+    [System.Diagnostics.CodeAnalysis.Experimental("JINT0002")]
+    public sealed class FetchResponseInterceptionContext
+    {
+        public Jint.WebApi.Fetch.ObservedFetchResponse Response { get; }
+        public System.Threading.Tasks.ValueTask<System.ReadOnlyMemory<byte>?> TryReadBodyAsync(Jint.WebApi.Fetch.IFetchResponseBodyBudget budget, System.Threading.CancellationToken cancellationToken) { }
+    }
     public readonly struct FetchTiming : System.IEquatable<Jint.WebApi.Fetch.FetchTiming>
     {
         public FetchTiming(System.DateTimeOffset SentAt, System.TimeSpan TimeToHeaders) { }
         public System.DateTimeOffset HeadersAt { get; }
         public System.DateTimeOffset SentAt { get; init; }
         public System.TimeSpan TimeToHeaders { get; init; }
+    }
+    [System.Diagnostics.CodeAnalysis.Experimental("JINT0002")]
+    public interface IFetchResponseBodyBudget
+    {
+        bool TryReserve(int bytes, out System.IDisposable? lease);
     }
     [System.Diagnostics.CodeAnalysis.Experimental("JINT0002")]
     public sealed class ObservedFetchAuthChallenge : System.IEquatable<Jint.WebApi.Fetch.ObservedFetchAuthChallenge>

@@ -109,3 +109,28 @@ the handshake response (`ClientWebSocket.CollectHttpResponseDetails`, turned on 
 watching), and one terminal close
 ([#3621](https://github.com/sebastienros/jint/issues/3621),
 [#3701](https://github.com/sebastienros/jint/issues/3701) item 2).
+
+**The body of the response that ends the chain can be read at the ask, and `AnswerResponseAsync` is the only
+frame that may own that.** `OnInterceptedResponseAsync` is the ask; its default forwards to
+`OnResponseAsync`, so every observer written before it keeps its behaviour and an observer overrides one or
+the other, never both. What crosses is `FetchResponseInterceptionContext` — never a `Stream`, because a
+stream handed out is the accounting this seam exists for, bypassed. `TryReadBodyAsync` charges
+`IFetchResponseBodyBudget` **before** each growth of its buffer, so nothing is retained that was not first
+granted, and it answers three ways that must stay distinct: non-null-empty is *an empty body was read*, null
+is *the budget refused it*, and a throw is *the transfer failed* — never a short body dressed as a complete
+one. **A refusal is sticky for that response**, because the prefix already taken is pinned and reading on
+would spend an allowance that has just said it has none.
+
+**Whatever a read took is replayed, and that is the invariant the whole capability rests on.** The read
+consumes the socket, so `AttachReplay` puts the prefix in front of the unread remainder (a `StreamContent`
+over `FetchReplayStream`, carrying the content headers the interception settled on) before anything else
+looks — on continue and on a plain `null` answer alike. `Fulfill` and `Fail` `Discard` instead, because
+nobody will receive those bytes. The leases follow the bytes: the replay stream releases them once the prefix
+has been handed over or the content is dropped unread, so the ledger is charged exactly while the memory
+exists. **One byte is deliberately outside that accounting**, and it is the lookahead: an unknown-length body
+whose size is exactly the allowance cannot be told from one byte longer without reading one more byte, so the
+buffer always keeps a slot past what was reserved and writes to it only on the refusal path — where the byte
+in it is one the caller must still receive. A read of a body that never ends (an `EventSource` stream) is
+bounded by `Options.WebApi.Fetch.Timeout` and by nothing else; the ask is per final response, so a host that
+maps this onto a protocol decides for itself which responses it is willing to read
+([#3828](https://github.com/sebastienros/jint/issues/3828)).
