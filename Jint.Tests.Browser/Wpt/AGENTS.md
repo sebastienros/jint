@@ -206,6 +206,10 @@ failures, and it leaves the raised numbers in the diff.
 
 Like the engine lane's, the measured half is opt-in — totalling the table means running every document — and
 Windows-only, because a `TIMEOUT` is an outcome a loaded machine can produce on its own.
+**A harness error invalidates the census**, including a timeout after some subtests have reported. The census
+retains the document's failure and refuses to render or rewrite a measured table; it cannot count the empty
+results of a failed outcome as zero registrations or silently retry it. The unmeasured inventory check still
+works, because its document counts do not depend on a report.
 
 ### Adding a suite
 
