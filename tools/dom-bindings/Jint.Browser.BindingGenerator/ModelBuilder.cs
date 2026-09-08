@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Reflection;
 using System.Text;
 using static Jint.Browser.BindingGenerator.Inventory;
@@ -595,6 +595,14 @@ internal sealed class ModelBuilder
         if (entry.Type == "boolean")
         {
             factory = "ReflectedAttribute.Boolean(" + qualified + ", " + attribute + ")";
+            return true;
+        }
+
+        // Not one of HTML §2.6.1's reflection types and deliberately spelled as its own: §2.5.3's `nonce`
+        // reads and writes an internal slot, so its setter leaves the content attribute alone.
+        if (entry.Type == "nonce")
+        {
+            factory = "ReflectedAttribute.Nonce(" + qualified + ", " + attribute + ")";
             return true;
         }
 

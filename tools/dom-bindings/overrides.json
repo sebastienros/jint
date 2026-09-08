@@ -34,6 +34,11 @@
       "reason": "The same union on the collection, and the same two overloads."
     },
     {
+      "interface": "HTMLLinkElement",
+      "member": "nonce",
+      "reason": "HTML §2.5.3 gives every element including HTMLOrSVGElement a nonce whose setter writes the [[CryptographicNonce]] slot and NOT the content attribute, which is what keeps a header-delivered policy's nonce out of a CSS selector. AngleSharp declares one attribute-backed property, on this interface alone, whose setter writes the attribute; skipped so the reflected HTMLElement.nonce row is what every element answers with."
+    },
+    {
       "interface": "HTMLMetaElement",
       "member": "charset",
       "reason": "HTML's meta element has a charset content attribute but no charset IDL attribute (https://html.spec.whatwg.org/multipage/semantics.html#the-meta-element). AngleSharp 1.7.3 adds DomName to its CLR convenience property; do not expose a new nonstandard JavaScript member."
@@ -1658,6 +1663,13 @@
       "reason": "HTML \u00a76.8.4: an enumerated attribute of the ElementContentEditable mixin, which HTMLElement includes. AngleSharp has no member for it at all."
     },
     {
+      "interface": "HTMLElement",
+      "member": "nonce",
+      "attribute": "nonce",
+      "type": "nonce",
+      "reason": "HTML \u00a72.5.3: `nonce` is a member of the HTMLOrSVGElement mixin, and it is NOT reflection -- the getter answers the [[CryptographicNonce]] slot and the setter writes only that slot, so a header-delivered Content Security Policy can empty the content attribute and a `script[nonce]` selector cannot read the value back. AngleSharp declares it on IHtmlLinkElement alone, as an ordinary attribute-backed property whose setter writes the attribute."
+    },
+    {
       "interface": "HTMLHtmlElement",
       "member": "version",
       "attribute": "version",
@@ -1670,6 +1682,60 @@
       "attribute": "href",
       "type": "url",
       "reason": "HTML \u00a74.2.4 reflects `href` as a URL against the element's node document's current base URL. AngleSharp's Href can retain the URL of a removed base element, so it does not observe later tree mutations (#3896)."
+    },
+    {
+      "interface": "HTMLLinkElement",
+      "member": "as",
+      "attribute": "as",
+      "type": "enum",
+      "keywords": ["fetch", "audio", "document", "embed", "font", "image", "manifest", "object", "report", "script", "sharedworker", "style", "track", "video", "worker", "xslt"],
+      "reason": "HTML \u00a74.2.4: `as` is the potential destination, an enumerated attribute limited to Fetch's destinations with an empty invalid and missing value default. AngleSharp has no member for it at all."
+    },
+    {
+      "interface": "HTMLLinkElement",
+      "member": "crossOrigin",
+      "attribute": "crossorigin",
+      "type": "enum",
+      "keywords": ["anonymous", "use-credentials"],
+      "nullable": true,
+      "invalid": "anonymous",
+      "reason": "HTML \u00a72.6.7: a CORS settings attribute is an enumerated attribute whose IDL type is DOMString?, so an absent attribute is null and any unknown value -- the empty string included -- is the Anonymous state. AngleSharp's CrossOrigin hands back the raw value, the same divergence script.crossOrigin had."
+    },
+    {
+      "interface": "HTMLLinkElement",
+      "member": "referrerPolicy",
+      "attribute": "referrerpolicy",
+      "type": "enum",
+      "keywords": ["", "no-referrer", "no-referrer-when-downgrade", "same-origin", "origin", "strict-origin", "origin-when-cross-origin", "strict-origin-when-cross-origin", "unsafe-url"],
+      "reason": "HTML \u00a72.6.7: a referrer policy attribute is an enumerated attribute whose keywords are the Referrer Policy specification's, with an empty invalid and missing value default. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLLinkElement",
+      "member": "charset",
+      "attribute": "charset",
+      "type": "string",
+      "reason": "HTML \u00a716.2: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp's Charset is the resolved character set of the linked resource rather than the content attribute."
+    },
+    {
+      "interface": "HTMLLinkElement",
+      "member": "target",
+      "attribute": "target",
+      "type": "string",
+      "reason": "HTML \u00a716.2: an obsolete attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLMetaElement",
+      "member": "media",
+      "attribute": "media",
+      "type": "string",
+      "reason": "HTML \u00a74.2.5: `media` reflects the content attribute of <meta name=theme-color>. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLMetaElement",
+      "member": "scheme",
+      "attribute": "scheme",
+      "type": "string",
+      "reason": "HTML \u00a716.2: an obsolete attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
     },
     {
       "interface": "HTMLScriptElement",

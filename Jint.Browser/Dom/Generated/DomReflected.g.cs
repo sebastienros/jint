@@ -75,6 +75,10 @@ internal static class DomReflected
     internal static readonly ReflectedAttribute HTMLElementLang =
         ReflectedAttribute.Text("HTMLElement.lang", "lang");
 
+    /// <summary><c>HTMLElement.nonce</c> reflects <c>nonce</c> as a nonce.</summary>
+    internal static readonly ReflectedAttribute HTMLElementNonce =
+        ReflectedAttribute.Nonce("HTMLElement.nonce", "nonce");
+
     /// <summary><c>HTMLElement.tabIndex</c> reflects <c>tabindex</c> as a long.</summary>
     internal static readonly ReflectedAttribute HTMLElementTabIndex =
         ReflectedAttribute.Numeric("HTMLElement.tabIndex", "tabindex", ReflectedKind.Long, 0);
@@ -111,13 +115,41 @@ internal static class DomReflected
     internal static readonly ReflectedAttribute HTMLLIElementValue =
         ReflectedAttribute.Numeric("HTMLLIElement.value", "value", ReflectedKind.Long, 0);
 
+    /// <summary><c>HTMLLinkElement.as</c> reflects <c>as</c> as an enum.</summary>
+    internal static readonly ReflectedAttribute HTMLLinkElementAs =
+        ReflectedAttribute.Enumerated("HTMLLinkElement.as", "as", ["fetch", "audio", "document", "embed", "font", "image", "manifest", "object", "report", "script", "sharedworker", "style", "track", "video", "worker", "xslt"], missing: "", invalid: null);
+
+    /// <summary><c>HTMLLinkElement.charset</c> reflects <c>charset</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLLinkElementCharset =
+        ReflectedAttribute.Text("HTMLLinkElement.charset", "charset");
+
+    /// <summary><c>HTMLLinkElement.crossOrigin</c> reflects <c>crossorigin</c> as an enum.</summary>
+    internal static readonly ReflectedAttribute HTMLLinkElementCrossOrigin =
+        ReflectedAttribute.Enumerated("HTMLLinkElement.crossOrigin", "crossorigin", ["anonymous", "use-credentials"], missing: null, invalid: "anonymous");
+
     /// <summary><c>HTMLLinkElement.href</c> reflects <c>href</c> as an url.</summary>
     internal static readonly ReflectedAttribute HTMLLinkElementHref =
         ReflectedAttribute.Url("HTMLLinkElement.href", "href");
 
+    /// <summary><c>HTMLLinkElement.referrerPolicy</c> reflects <c>referrerpolicy</c> as an enum.</summary>
+    internal static readonly ReflectedAttribute HTMLLinkElementReferrerPolicy =
+        ReflectedAttribute.Enumerated("HTMLLinkElement.referrerPolicy", "referrerpolicy", ["", "no-referrer", "no-referrer-when-downgrade", "same-origin", "origin", "strict-origin", "origin-when-cross-origin", "strict-origin-when-cross-origin", "unsafe-url"], missing: "", invalid: null);
+
+    /// <summary><c>HTMLLinkElement.target</c> reflects <c>target</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLLinkElementTarget =
+        ReflectedAttribute.Text("HTMLLinkElement.target", "target");
+
     /// <summary><c>HTMLMenuElement.compact</c> reflects <c>compact</c> as a boolean.</summary>
     internal static readonly ReflectedAttribute HTMLMenuElementCompact =
         ReflectedAttribute.Boolean("HTMLMenuElement.compact", "compact");
+
+    /// <summary><c>HTMLMetaElement.media</c> reflects <c>media</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLMetaElementMedia =
+        ReflectedAttribute.Text("HTMLMetaElement.media", "media");
+
+    /// <summary><c>HTMLMetaElement.scheme</c> reflects <c>scheme</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLMetaElementScheme =
+        ReflectedAttribute.Text("HTMLMetaElement.scheme", "scheme");
 
     /// <summary><c>HTMLModElement.cite</c> reflects <c>cite</c> as an url.</summary>
     internal static readonly ReflectedAttribute HTMLModElementCite =

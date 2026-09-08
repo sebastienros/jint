@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using AngleSharp.Dom;
 using Jint.Browser.Runtime;
 using Jint.Native;
@@ -24,6 +24,11 @@ internal enum ReflectedKind
 
     /// <summary>A <c>boolean</c>: the attribute's presence.</summary>
     Boolean,
+
+    /// <summary>
+    /// HTML's <c>[[CryptographicNonce]]</c> slot, whose setter deliberately does not write the attribute.
+    /// </summary>
+    Nonce,
 
     /// <summary>A <c>long</c>.</summary>
     Long,
@@ -143,6 +148,15 @@ internal sealed class ReflectedAttribute
     internal static ReflectedAttribute Boolean(string member, string attribute)
         => new(member, attribute, ReflectedKind.Boolean);
 
+    /// <summary>
+    /// HTML §2.5.3's <c>nonce</c>, which answers <see cref="CryptographicNonce"/>'s slot rather than the
+    /// content attribute. It is in this table because it is the same accessor pair over the same attribute
+    /// name, and out of <see cref="ReflectedKind"/>'s other twelve because it is the one member whose setter
+    /// must leave the content attribute alone.
+    /// </summary>
+    internal static ReflectedAttribute Nonce(string member, string attribute)
+        => new(member, attribute, ReflectedKind.Nonce);
+
     /// <summary>One of the numeric types, with its default and — when it clamps — its range.</summary>
     internal static ReflectedAttribute Numeric(string member, string attribute, ReflectedKind kind, double fallback, long min = 0, long max = 0)
         => new(member, attribute, kind, fallback: fallback, min: min, max: max);
@@ -196,6 +210,9 @@ internal sealed class ReflectedAttribute
             case ReflectedKind.Boolean:
                 return DomConvert.Bool(value is not null);
 
+            case ReflectedKind.Nonce:
+                return DomConvert.Text(CryptographicNonce.Get(element));
+
             case ReflectedKind.Url:
                 return DomConvert.Text(ResolveUrl(value, baseUri));
 
@@ -218,6 +235,12 @@ internal sealed class ReflectedAttribute
 
         switch (_kind)
         {
+            // "On setting, set this's [[CryptographicNonce]] to the given value." The content attribute is
+            // untouched, which is what keeps a header-delivered policy's nonce out of a CSS selector.
+            case ReflectedKind.Nonce:
+                CryptographicNonce.Set(element, TypeConverter.ToString(value));
+                return JsValue.Undefined;
+
             case ReflectedKind.Boolean:
                 // "The content attribute must be removed if the IDL attribute is set to false, and must be
                 // set to the empty string if the IDL attribute is set to true."
