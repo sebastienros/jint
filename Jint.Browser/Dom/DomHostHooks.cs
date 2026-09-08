@@ -389,8 +389,8 @@ internal class DomHostHooks
 
     /// <summary>
     /// https://dom.spec.whatwg.org/#dom-node-baseuri — the node document's base URL, which
-    /// <c>&lt;base href&gt;</c> moves. Recomputed by the runtime because the URL it resolves against has to be
-    /// the page's.
+    /// <c>&lt;base href&gt;</c> moves. The displayed document resolves against the page URL; a secondary HTML
+    /// document is recomputed here so removing its first base element cannot leave AngleSharp's cached value.
     /// </summary>
     internal virtual JsValue BaseUri(DomRealm realm, INode node)
     {
@@ -441,7 +441,7 @@ internal class DomHostHooks
         var documentUrl = document.Url ?? "";
         if (document is not IHtmlDocument)
         {
-            return documentUrl;
+            return node.BaseUri ?? documentUrl;
         }
 
         var href = document.QuerySelector("base[href]")?.GetAttribute("href");

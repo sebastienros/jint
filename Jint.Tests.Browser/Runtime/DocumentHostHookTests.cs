@@ -142,4 +142,21 @@ public sealed class DocumentHostHookTests
 
         fixture.Server.Received.Count(request => request.Path == "/page/index.html").Should().Be(1);
     }
+
+    [Test]
+    public async Task NonHtmlDocumentsKeepTheirOwnBaseUriSemantics()
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<p>page</p>", "https://page.example/root/");
+
+        (await page.EvaluateAsync<string>(
+                """
+                const xml = new DOMParser().parseFromString(
+                  '<base href="https://html-base.example/"><child/></base>',
+                  'application/xml');
+                [xml.baseURI, xml.documentElement.baseURI, xml.documentElement.firstElementChild.baseURI].join('|');
+                """))
+            .Should().Be("about:blank|about:blank|about:blank");
+    }
 }

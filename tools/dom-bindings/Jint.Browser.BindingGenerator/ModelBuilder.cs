@@ -536,7 +536,8 @@ internal sealed class ModelBuilder
             {
                 DomName = entry.Member,
                 Kind = MemberKind.Attribute,
-                Body = Bind(model, qualified) + "return " + descriptor + ".Get(self.Target);",
+                Body = Bind(model, qualified) + "return " + descriptor
+                    + (entry.Type == "url" ? ".Get(self.Realm, self.Target);" : ".Get(self.Target);"),
                 SetterBody = Bind(model, qualified) + "return " + descriptor + ".Set(self.Realm, self.Target, args);",
                 Origin = "overrides.json (reflected)",
             });

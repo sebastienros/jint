@@ -33,6 +33,21 @@ internal interface INamedProjection
 }
 
 /// <summary>
+/// The supported-name set of an in-box named projection whose visible names can be a strict subset of that
+/// set. WebIDL's legacy <c>[[DefineOwnProperty]]</c> uses support rather than visibility, so it cannot be
+/// derived from <see cref="INamedProjection.HasName"/> for those objects.
+/// </summary>
+/// <remarks>
+/// Kept internal so the public <see cref="ArrayLikeObject"/> subclass contract remains the eight coherent
+/// projection hooks above. Browser bindings implement this refinement for legacy platform objects; ordinary
+/// host projections keep their existing behavior.
+/// </remarks>
+internal interface INamedPropertySupport
+{
+    bool HasSupportedName(string name);
+}
+
+/// <summary>
 /// Which of the optional named hooks a host type actually declared. Derived from the runtime type once and
 /// cached process-wide, exactly the way <c>ObjectInstance</c> derives <c>PropertyAccessSemantics</c> and its
 /// <c>ProbeOwnProperty</c> override flag: the answer depends only on the type, and an entry retains nothing
