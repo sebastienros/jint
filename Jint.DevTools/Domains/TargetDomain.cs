@@ -57,9 +57,15 @@ internal sealed class TargetDomain : TargetDomainBase
     protected override ValueTask<GetTargetsResponse> GetTargetsAsync(GetTargetsRequest parameters, CommandContext context)
     {
         var infos = new List<TargetInfo>();
+        var filter = parameters.Filter ?? (_discover ? _discoverFilter : null);
+        if (Matches(filter, "browser"))
+        {
+            infos.Add(BrowserTargetInfo());
+        }
+
         foreach (var target in _browser.Server.AllTargets)
         {
-            if (Matches(parameters.Filter, target.Type))
+            if (Matches(filter, target.Type))
             {
                 infos.Add(Describe(target));
             }
@@ -81,7 +87,8 @@ internal sealed class TargetDomain : TargetDomainBase
     {
         if (parameters.TargetId is { } targetId)
         {
-            return new ValueTask<GetTargetInfoResponse>(new GetTargetInfoResponse { TargetInfo = Describe(Find(targetId)) });
+            var info = targetId == _browser.Server.BrowserId ? BrowserTargetInfo() : Describe(Find(targetId));
+            return new ValueTask<GetTargetInfoResponse>(new GetTargetInfoResponse { TargetInfo = info });
         }
 
         var own = _owner is null ? BrowserTargetInfo() : Describe(_owner);
@@ -97,6 +104,11 @@ internal sealed class TargetDomain : TargetDomainBase
 
         if (_discover && !wasDiscovering)
         {
+            if (Matches(_discoverFilter, "browser"))
+            {
+                await EmitAsync(TargetEvents.TargetCreated(new TargetCreatedEvent { TargetInfo = BrowserTargetInfo() }), context.CancellationToken).ConfigureAwait(false);
+            }
+
             // Chrome replays targetCreated for everything that already exists, which is what makes discovery
             // usable by a client that connected after the targets did.
             foreach (var target in _browser.Server.AllTargets)
@@ -169,6 +181,18 @@ internal sealed class TargetDomain : TargetDomainBase
             RefuseUnflattened();
         }
 
+        if (parameters.TargetId == _browser.Server.BrowserId)
+        {
+            var browserSessionId = _browser.AttachBrowser();
+            await EmitAsync(TargetEvents.AttachedToTarget(new AttachedToTargetEvent
+            {
+                SessionId = browserSessionId,
+                TargetInfo = BrowserTargetInfo(),
+                WaitingForDebugger = false,
+            }), context.CancellationToken).ConfigureAwait(false);
+            return new AttachToTargetResponse { SessionId = browserSessionId };
+        }
+
         var target = Find(parameters.TargetId);
         var sessionId = await AttachAsync(target, context.CancellationToken).ConfigureAwait(false);
         return new AttachToTargetResponse { SessionId = sessionId };
@@ -180,7 +204,9 @@ internal sealed class TargetDomain : TargetDomainBase
         var sessionId = parameters.SessionId;
         if (sessionId is null && parameters.TargetId is { } targetId)
         {
-            sessionId = _browser.SessionIdOf(Find(targetId));
+            sessionId = targetId == _browser.Server.BrowserId
+                ? _browser.BrowserSessionId()
+                : _browser.SessionIdOf(Find(targetId));
         }
 
         if (sessionId is null)
@@ -188,14 +214,16 @@ internal sealed class TargetDomain : TargetDomainBase
             Throw.InvalidParams("Invalid parameters", "either sessionId or targetId is required");
         }
 
-        var detached = _browser.Detach(sessionId);
+        var detached = _browser.DetachBrowser(sessionId)
+            ? _browser.Server.BrowserId
+            : _browser.Detach(sessionId)?.TargetId;
         if (detached is null)
         {
             return Throw.SessionNotFound<EmptyResult>();
         }
 
         await EmitAsync(
-            TargetEvents.DetachedFromTarget(new DetachedFromTargetEvent { SessionId = sessionId, TargetId = detached.TargetId }),
+            TargetEvents.DetachedFromTarget(new DetachedFromTargetEvent { SessionId = sessionId, TargetId = detached }),
             context.CancellationToken).ConfigureAwait(false);
 
         return EmptyResult.Instance;
@@ -403,14 +431,14 @@ internal sealed class TargetDomain : TargetDomainBase
     /// </summary>
     /// <remarks>
     /// The protocol's own rule: the first entry that matches the type — or that names no type, which matches
-    /// everything — decides, and <c>exclude</c> inverts it. A filter that matches nothing excludes, and no
-    /// filter at all includes, which is what a client sending none means.
+    /// everything — decides, and <c>exclude</c> inverts it. A filter that matches nothing excludes. The
+    /// protocol default excludes browser and tab targets; explicit filters can include them for discovery.
     /// </remarks>
     private static bool Matches(FilterEntry[]? filter, string type)
     {
-        if (filter is null || filter.Length == 0)
+        if (filter is null)
         {
-            return true;
+            return type is not ("browser" or "tab");
         }
 
         foreach (var entry in filter)

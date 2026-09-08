@@ -254,7 +254,14 @@ internal sealed class LoopbackServer : IDisposable
         head.Append("Connection: close\r\n\r\n");
 
         await stream.WriteAsync(Encoding.ASCII.GetBytes(head.ToString()), token).ConfigureAwait(false);
-        await stream.WriteAsync(body, token).ConfigureAwait(false);
+        if (response.WriteBodyAsync is { } writeBody)
+        {
+            await writeBody(stream, token).ConfigureAwait(false);
+        }
+        else
+        {
+            await stream.WriteAsync(body, token).ConfigureAwait(false);
+        }
         await stream.FlushAsync(token).ConfigureAwait(false);
     }
 }
@@ -285,6 +292,9 @@ internal sealed class LoopbackResponse
 
     /// <summary>The body as bytes, when the test is about the encoding rather than the text.</summary>
     internal byte[]? RawBody { get; init; }
+
+    /// <summary>Optionally writes the declared body in gated chunks instead of one write.</summary>
+    internal Func<Stream, CancellationToken, Task>? WriteBodyAsync { get; init; }
 
     internal LoopbackResponse With(string name, string value)
     {

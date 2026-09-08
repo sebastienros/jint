@@ -14,6 +14,52 @@ namespace Jint.Tests.DevTools.Session;
 public class TargetSessionTests
 {
     [Test]
+    public async Task BrowserDiscoveryHonorsFiltersAndGetTargetsReusesTheDiscoveryFilter()
+    {
+        await using var session = ProtocolSession.Create();
+        var defaults = await session.SendAsync("Target.getTargets");
+        defaults.GetProperty("result").GetProperty("targetInfos").GetArrayLength().Should().Be(0);
+
+        await session.SendAsync("Target.setDiscoverTargets", """{"discover":true,"filter":[{}]}""");
+        var discovered = session.EventsOf("Target.targetCreated").Single().GetProperty("params").GetProperty("targetInfo");
+        discovered.GetProperty("type").GetString().Should().Be("browser");
+        var listed = await session.SendAsync("Target.getTargets");
+        listed.GetProperty("result").GetProperty("targetInfos")[0].GetProperty("targetId").GetString()
+            .Should().Be(discovered.GetProperty("targetId").GetString());
+        var filtered = await session.SendAsync("Target.getTargets", """{"filter":[{"type":"browser","exclude":true},{}]}""");
+        filtered.GetProperty("result").GetProperty("targetInfos").GetArrayLength().Should().Be(0);
+    }
+
+    [Test]
+    public async Task BrowserAttachmentsRouteWithoutAnEngineAndDetachTheirOwnedSessions()
+    {
+        await using var session = ProtocolSession.Create();
+        var info = await session.SendAsync("Target.getTargetInfo");
+        var id = info.GetProperty("result").GetProperty("targetInfo").GetProperty("targetId").GetString();
+        var explicitInfo = await session.SendAsync("Target.getTargetInfo", $$"""{"targetId":"{{id}}"}""");
+        explicitInfo.GetProperty("result").GetProperty("targetInfo").GetProperty("type").GetString().Should().Be("browser");
+        var attached = await session.SendAsync("Target.attachToTarget", $$"""{"targetId":"{{id}}","flatten":true}""");
+        var browserId = attached.GetProperty("result").GetProperty("sessionId").GetString()!;
+        var version = await session.SendAsync("Browser.getVersion", sessionId: browserId);
+        version.GetProperty("result").GetProperty("product").GetString().Should().StartWith("Jint/");
+        var runtime = await session.SendAsync("Runtime.evaluate", """{"expression":"1"}""", browserId);
+        runtime.GetProperty("error").GetProperty("code").GetInt32().Should().Be(-32601);
+
+        await session.SendAsync("Target.setDiscoverTargets", """{"discover":true,"filter":[{"type":"node"}]}""", browserId);
+        var target = session.AddTarget();
+        session.EventsOf("Target.targetCreated").Single().GetProperty("sessionId").GetString().Should().Be(browserId);
+        var child = await session.SendAsync("Target.attachToTarget", $$"""{"targetId":"{{target.TargetId}}","flatten":true}""", browserId);
+        var childId = child.GetProperty("result").GetProperty("sessionId").GetString()!;
+
+        await session.SendAsync("Target.detachFromTarget", $$"""{"sessionId":"{{browserId}}"}""");
+        var gone = await session.SendAsync("Browser.getVersion", sessionId: browserId);
+        gone.GetProperty("error").GetProperty("code").GetInt32().Should().Be(-32001);
+        var childGone = await session.SendAsync("Runtime.evaluate", """{"expression":"1"}""", childId);
+        childGone.GetProperty("error").GetProperty("code").GetInt32().Should().Be(-32001);
+        (await session.SendAsync("Browser.getVersion")).GetProperty("result").GetProperty("product").GetString().Should().StartWith("Jint/");
+    }
+
+    [Test]
     public async Task GetTargetsListsEveryPublishedEngine()
     {
         await using var session = ProtocolSession.Create();

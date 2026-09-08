@@ -63,6 +63,36 @@ public sealed class CharacterDataOffsetTests
         Answer(source + "; return t.data;").Should().Be(expected);
     }
 
+    [TestCase("t.substringData(6, { valueOf() { t.data = 'longer text'; return 1; } })", " ")]
+    [TestCase("t.deleteData(6, { valueOf() { t.data = 'longer text'; return 5; } }); t.data", "longer")]
+    [TestCase("t.insertData(6, { toString() { t.data = 'longer'; return '!'; } }); t.data", "longer!")]
+    [TestCase("t.replaceData(1, 99, { toString() { t.data = 'abcdef'; return '!'; } }); t.data", "a!")]
+    public void LaterArgumentConversionsRunBeforeOffsetValidationAndCountClamping(string expression, string expected)
+    {
+        using var fixture = DomTestFixture.Create(Page);
+        fixture.Execute(Node);
+        fixture.Text(expression).Should().Be(expected);
+    }
+
+    [TestCase("t.substringData(6, { valueOf() { throw new Error('count conversion'); } })")]
+    [TestCase("t.deleteData(6, { valueOf() { throw new Error('count conversion'); } })")]
+    [TestCase("t.insertData(6, { toString() { throw new Error('data conversion'); } })")]
+    [TestCase("t.replaceData(6, 1, { toString() { throw new Error('data conversion'); } })")]
+    public void ConversionErrorsTakePrecedenceOverInvalidOffsets(string expression)
+    {
+        Answer(expression + "; return 'no error';").Should().Be("Error");
+    }
+
+    [TestCase("substringData")]
+    [TestCase("deleteData")]
+    [TestCase("insertData")]
+    [TestCase("replaceData")]
+    public void MissingRequiredArgumentsAreRejectedBeforeAnyConversion(string method)
+    {
+        Answer("t." + method + "({ valueOf() { throw new Error('converted too early'); } }); return 'no error';")
+            .Should().Be("TypeError");
+    }
+
     private static string? Answer(string body)
     {
         using var fixture = DomTestFixture.Create(Page);
