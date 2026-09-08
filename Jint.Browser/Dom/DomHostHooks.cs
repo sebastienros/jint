@@ -126,6 +126,14 @@ internal class DomHostHooks
     internal virtual JsValue Labels(DomRealm realm, IHtmlElement element)
         => HtmlLabelAssociation.IsLabelable(element) ? realm.WrapLabels(element) : JsValue.Null;
 
+    /// <summary>https://dom.spec.whatwg.org/#dom-range-comparepoint</summary>
+    internal virtual JsValue ComparePoint(DomRealm realm, IRange range, JsValue[] arguments)
+        => DomRangeMembers.ComparePoint(realm, range, arguments);
+
+    /// <summary>https://dom.spec.whatwg.org/#dom-range-ispointinrange</summary>
+    internal virtual JsValue IsPointInRange(DomRealm realm, IRange range, JsValue[] arguments)
+        => DomRangeMembers.IsPointInRange(realm, range, arguments);
+
     /// <summary>https://dom.spec.whatwg.org/#concept-getelementsbyclassname</summary>
     internal virtual JsValue GetElementsByClassName(DomRealm realm, INode root, JsValue[] arguments)
     {

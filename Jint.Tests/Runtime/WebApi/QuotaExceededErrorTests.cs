@@ -101,7 +101,7 @@ public class QuotaExceededErrorTests
         var descriptor = engine.Realm.GlobalObject.GetOwnProperty("QuotaExceededError");
 
         // Lazy and unmaterialized until something names it, exactly like every other web-API global.
-        descriptor.Should().BeOfType<Jint.Runtime.Descriptors.Specialized.LazyPropertyDescriptor<Engine>>();
+        descriptor.Should().BeOfType<Jint.Runtime.Descriptors.Specialized.LazyPropertyDescriptor<Realm>>();
         descriptor._value.Should().BeNull();
 
         // https://webidl.spec.whatwg.org/#es-interfaces — writable and configurable, not enumerable.

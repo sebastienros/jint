@@ -84,19 +84,26 @@ public class Host
     protected internal virtual Realm CreateRealm()
     {
         var realmRec = new Realm();
+        var previousRealm = Engine._realmInConstruction;
         Engine._realmInConstruction = realmRec;
+        try
+        {
+            CreateIntrinsics(realmRec);
 
-        CreateIntrinsics(realmRec);
+            var globalObject = CreateGlobalObject(realmRec);
 
-        var globalObject = CreateGlobalObject(realmRec);
+            var globalEnv = CreateGlobalEnvironment(globalObject);
+            realmRec.GlobalEnv = globalEnv;
+            realmRec.GlobalObject = globalObject;
 
-        var globalEnv = CreateGlobalEnvironment(globalObject);
-        realmRec.GlobalEnv = globalEnv;
-        realmRec.GlobalObject = globalObject;
-
-        Engine._realmInConstruction = null!;
-
-        return realmRec;
+            return realmRec;
+        }
+        finally
+        {
+            // Host factories may throw or create another realm before this one is complete. Restore
+            // their caller's construction realm, rather than hiding it or leaving this partial one active.
+            Engine._realmInConstruction = previousRealm;
+        }
     }
 
     /// <summary>

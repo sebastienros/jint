@@ -443,7 +443,7 @@ public class IdleCallbackTests
         var (engine, _) = IdleEngine();
 
         var descriptor = engine.Realm.GlobalObject.GetOwnProperty("requestIdleCallback");
-        descriptor.Should().BeOfType<LazyPropertyDescriptor<Engine>>();
+        descriptor.Should().BeOfType<LazyPropertyDescriptor<Realm>>();
 
         // Still flagged CustomJsValue means the factory has not run: enabling the feature costs one descriptor
         // per global and nothing else.

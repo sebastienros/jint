@@ -28,7 +28,7 @@ public class WebApiRegistrationTests
         {
             var descriptor = engine.Realm.GlobalObject.GetOwnProperty(name);
 
-            descriptor.Should().BeOfType<LazyPropertyDescriptor<Engine>>();
+            descriptor.Should().BeOfType<LazyPropertyDescriptor<Realm>>();
             // Still flagged CustomJsValue means the factory has not run: enabling a feature nobody uses costs
             // one descriptor and nothing else.
             (descriptor._flags & PropertyFlag.CustomJsValue).Should().NotBe(PropertyFlag.None);
@@ -100,7 +100,7 @@ public class WebApiRegistrationTests
         // The descriptor is back to the unmaterialized state it was captured in, so the next read runs the
         // factory again — which does NOT mean a new object. See the three tests below for what it does mean.
         var descriptor = engine.Realm.GlobalObject.GetOwnProperty("console");
-        descriptor.Should().BeOfType<LazyPropertyDescriptor<Engine>>();
+        descriptor.Should().BeOfType<LazyPropertyDescriptor<Realm>>();
         descriptor._value.Should().BeNull();
 
         engine.Evaluate("typeof console").AsString().Should().Be("object");
@@ -256,7 +256,7 @@ public class WebApiRegistrationTests
 
             // Interface objects: writable and configurable, but not enumerable.
             var descriptor = engine.Realm.GlobalObject.GetOwnProperty(name);
-            descriptor.Should().BeOfType<LazyPropertyDescriptor<Engine>>();
+            descriptor.Should().BeOfType<LazyPropertyDescriptor<Realm>>();
             descriptor.Enumerable.Should().BeFalse();
             descriptor.Writable.Should().BeTrue();
             descriptor.Configurable.Should().BeTrue();
@@ -280,7 +280,7 @@ public class WebApiRegistrationTests
             engine.Evaluate($"typeof {name}").AsString().Should().Be("function");
 
             var descriptor = engine.Realm.GlobalObject.GetOwnProperty(name);
-            descriptor.Should().BeOfType<LazyPropertyDescriptor<Engine>>();
+            descriptor.Should().BeOfType<LazyPropertyDescriptor<Realm>>();
             descriptor.Enumerable.Should().BeFalse();
             descriptor.Writable.Should().BeTrue();
             descriptor.Configurable.Should().BeTrue();

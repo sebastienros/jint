@@ -10,7 +10,8 @@ namespace Jint.DevTools.Session;
 /// <para>
 /// What a connection to <c>/devtools/browser/&lt;browserId&gt;</c> becomes. Nothing registered here touches
 /// an engine — <c>Schema</c>, <c>Browser</c> and <c>Target</c> are all bookkeeping — so its commands are
-/// answered on the transport thread with no mailbox in between. Only the attachments it mints have a gateway.
+/// answered on the transport thread with no mailbox in between. Engine attachments have a gateway;
+/// browser attachments keep this same engine-free registration.
 /// </para>
 /// <para>
 /// A target appearing or disappearing on the server reaches every browser session, which is what makes
@@ -22,11 +23,20 @@ internal sealed class BrowserSession
 {
     private readonly Dictionary<string, TargetSession> _attached = new(StringComparer.Ordinal);
     private readonly TargetDomain _targets;
+    private readonly Dictionary<string, BrowserSession> _browserAttachments = new(StringComparer.Ordinal);
+    private readonly Action? _closeRequested;
+    private bool _detached;
 
     internal BrowserSession(DevToolsServer server, IDevToolsConnection connection, Action? closeRequested)
+        : this(server, new DevToolsSession(connection), closeRequested)
+    {
+    }
+
+    private BrowserSession(DevToolsServer server, DevToolsSession session, Action? closeRequested)
     {
         Server = server;
-        Session = new DevToolsSession(connection);
+        Session = session;
+        _closeRequested = closeRequested;
         _targets = new TargetDomain(this, nested: false);
 
         BuiltInDomains.RegisterBrowserDomains(Session, server.Version, closeRequested, _targets, server);
@@ -39,7 +49,7 @@ internal sealed class BrowserSession
     /// <summary>Gets the server whose targets this session sees.</summary>
     internal DevToolsServer Server { get; }
 
-    /// <summary>Gets the root session node this conversation answers on.</summary>
+    /// <summary>Gets the session node this conversation answers on.</summary>
     internal DevToolsSession Session { get; }
 
     /// <summary>Attaches to <paramref name="target"/>, minting the session a client then addresses it by.</summary>
@@ -54,6 +64,12 @@ internal sealed class BrowserSession
     {
         lock (_attached)
         {
+            if (_detached)
+            {
+                created = false;
+                return Throw.SessionNotFound<string>();
+            }
+
             foreach (var existing in _attached)
             {
                 if (ReferenceEquals(existing.Value.Target, target))
@@ -68,6 +84,48 @@ internal sealed class BrowserSession
             created = true;
             return sessionId;
         }
+    }
+
+    /// <summary>Attaches to the browser itself without an engine or an engine-thread gateway.</summary>
+    internal string AttachBrowser()
+    {
+        lock (_attached)
+        {
+            if (_detached)
+            {
+                return Throw.SessionNotFound<string>();
+            }
+
+            var id = Identifiers.New();
+            _browserAttachments.Add(id, new BrowserSession(Server, Session.CreateChild(id), _closeRequested));
+            return id;
+        }
+    }
+
+    /// <summary>Gets a browser attachment for the deprecated target-id spelling of detach.</summary>
+    internal string? BrowserSessionId()
+    {
+        lock (_attached)
+        {
+            return _browserAttachments.Keys.FirstOrDefault();
+        }
+    }
+
+    /// <summary>Detaches a browser attachment and the sessions it owns, leaving the connection alive.</summary>
+    internal bool DetachBrowser(string sessionId)
+    {
+        BrowserSession? attached;
+        lock (_attached)
+        {
+            if (!_browserAttachments.Remove(sessionId, out attached))
+            {
+                return false;
+            }
+        }
+
+        attached.DetachAll();
+        Session.RemoveChild(sessionId);
+        return true;
     }
 
     /// <summary>Detaches one session, answering the target it was attached to.</summary>
@@ -112,12 +170,22 @@ internal sealed class BrowserSession
     internal void DetachAll()
     {
         TargetSession[] sessions;
+        KeyValuePair<string, BrowserSession>[] browsers;
 
         lock (_attached)
         {
+            _detached = true;
             sessions = new TargetSession[_attached.Count];
             _attached.Values.CopyTo(sessions, 0);
             _attached.Clear();
+            browsers = _browserAttachments.ToArray();
+            _browserAttachments.Clear();
+        }
+
+        foreach (var browser in browsers)
+        {
+            browser.Value.DetachAll();
+            Session.RemoveChild(browser.Key);
         }
 
         foreach (var session in sessions)
@@ -127,14 +195,40 @@ internal sealed class BrowserSession
     }
 
     /// <summary>Tells this session that a target appeared on the server.</summary>
-    internal ValueTask TargetAddedAsync(DevToolsTarget target, CancellationToken cancellationToken)
-        => _targets.TargetAddedAsync(target, cancellationToken);
+    internal async ValueTask TargetAddedAsync(DevToolsTarget target, CancellationToken cancellationToken)
+    {
+        await _targets.TargetAddedAsync(target, cancellationToken).ConfigureAwait(false);
+        foreach (var browser in BrowserAttachments())
+        {
+            await browser.TargetAddedAsync(target, cancellationToken).ConfigureAwait(false);
+        }
+    }
 
     /// <summary>Tells this session that a target's title or location moved.</summary>
-    internal ValueTask TargetInfoChangedAsync(DevToolsTarget target, CancellationToken cancellationToken)
-        => _targets.TargetInfoChangedAsync(target, cancellationToken);
+    internal async ValueTask TargetInfoChangedAsync(DevToolsTarget target, CancellationToken cancellationToken)
+    {
+        await _targets.TargetInfoChangedAsync(target, cancellationToken).ConfigureAwait(false);
+        foreach (var browser in BrowserAttachments())
+        {
+            await browser.TargetInfoChangedAsync(target, cancellationToken).ConfigureAwait(false);
+        }
+    }
 
     /// <summary>Tells this session that a target went away.</summary>
-    internal ValueTask TargetRemovedAsync(DevToolsTarget target, CancellationToken cancellationToken)
-        => _targets.TargetRemovedAsync(target, cancellationToken);
+    internal async ValueTask TargetRemovedAsync(DevToolsTarget target, CancellationToken cancellationToken)
+    {
+        await _targets.TargetRemovedAsync(target, cancellationToken).ConfigureAwait(false);
+        foreach (var browser in BrowserAttachments())
+        {
+            await browser.TargetRemovedAsync(target, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private BrowserSession[] BrowserAttachments()
+    {
+        lock (_attached)
+        {
+            return _browserAttachments.Values.ToArray();
+        }
+    }
 }

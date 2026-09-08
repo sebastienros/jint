@@ -767,11 +767,9 @@ internal static class WptBrowserExclusions
         ["html/dom/aria-element-reflection-disconnected.html"] = 2,
         ["html/dom/aria-element-reflection.html"] = 27,
         ["html/dom/historical.html"] = 13,
-        ["html/dom/reflection-grouping.html"] = 1,
         ["html/dom/reflection-grouping.html"] = 5358,
         ["html/dom/reflection-misc.html"] = 4877,
         ["html/dom/reflection-text.html"] = 10202,
-        ["html/dom/reflection-text.html"] = 1,
         ["html/webappapis/scripting/events/body-onload.html"] = 1,
         ["html/webappapis/scripting/events/compile-event-handler-lexical-scopes-form-owner.html"] = 4,
         ["html/webappapis/scripting/events/compile-event-handler-symbol-unscopables.html"] = 3,
@@ -822,7 +820,7 @@ internal static class WptBrowserExclusions
     /// test, or by a glob over a family the file generates.
     /// </para>
     /// <para>
-    /// <b><see cref="WptDivergence.NeedsTriage"/> is four distinct things, not eleven rows.</b> The eleven
+    /// <b><see cref="WptDivergence.NeedsTriage"/> records bounded causes, not a count of exclusion rows.</b> The eleven
     /// defects this lane first recorded were filed as
     /// https://github.com/sebastienros/jint/issues/3686 to 3695 and are fixed; what is left is named in
     /// <c>Wpt/README.md</c>, one section per cause, and every one of them is bounded — a scheme a subresource
@@ -830,9 +828,9 @@ internal static class WptBrowserExclusions
     /// emit, and a custom element.
     /// </para>
     /// <para>
-    /// <b>The DOM suites made it much bigger, and every one of those causes is filed.</b> They arrived with
-    /// 2,181 failing tests over 209 documents, and <c>Wpt/README.md</c>'s "What the DOM corpus says about this
-    /// browser" names twenty-one causes with the count each accounts for. Ten are
+    /// <b>The DOM suites made it much bigger, and every one of those causes is bounded.</b> They now hold
+    /// 1,128 failing tests over 219 documents, and <c>Wpt/README.md</c>'s "What the DOM corpus says about this
+    /// browser" names eighteen causes with the count each accounts for. Ten families were filed as
     /// https://github.com/sebastienros/jint/issues/3765 to 3774 and one was already open as
     /// https://github.com/sebastienros/jint/issues/3712, so a row here that is not one of
     /// <see cref="WptDivergence.NeedsIframeScripting"/>, <see cref="WptDivergence.NeedsXmlDocuments"/> or
@@ -1165,16 +1163,11 @@ internal static class WptBrowserExclusions
         new("dom/nodes/processing-instruction-attributes.html", "Distinct attribute name (source: html*", WptDivergence.NeedsXmlDocuments),
         new("dom/nodes/processing-instruction-attributes.html", "Distinct attribute name (source: xml-dom*", WptDivergence.NeedsXmlDocuments),
         new("dom/nodes/processing-instruction-attributes.html", "Processing*", WptDivergence.NeedsXmlDocuments),
-        // Range and an Attr node: the constructor and attribute nodes reach these tests now, and two of
-        // the twenty-six still fail on which refusal an out-of-root Attr earns and on whether a point in
-        // one is in the range at all — DOM §5.5's own answers, not AngleSharp's.
-        new("dom/ranges/Range-attribute-nodes.html", "comparePoint() with an Attr node not sharing the range's root throws WrongDocumentError", WptDivergence.NeedsTriage),
-        new("dom/ranges/Range-attribute-nodes.html", "isPointInRange() with an Attr node sharing the range's root", WptDivergence.NeedsTriage),
+        // Range adoption across documents still depends on the XML-document lane this category tracks.
         new("dom/ranges/Range-adopt-test.html", "*appendChild: Removing the only element in the range must collapse the range", WptDivergence.NeedsXmlDocuments),
 
         // ---------------------------------------------------------------- a collection's named and indexed properties, and its liveness
         // a collection's named and indexed properties
-        new("dom/collections/HTMLCollection-as-prototype.html", "HTMLCollection as a prototype and setting own properties", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-getElementById.html", "*string argument.", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-getElementsByTagName.html", "HTML*", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-getElementsByTagNameNS.html", "*namespace", WptDivergence.NeedsTriage),
@@ -1186,8 +1179,6 @@ internal static class WptBrowserExclusions
         new("dom/nodes/Element-getElementsByTagNameNS.html", "*namespace", WptDivergence.NeedsTriage),
         new("dom/nodes/Element-getElementsByTagNameNS.html", "BODY*", WptDivergence.NeedsTriage),
         new("dom/nodes/Node-childNodes.html", "*.", WptDivergence.NeedsTriage),
-        new("dom/nodes/attributes-namednodemap.html", "*names", WptDivergence.NeedsTriage),
-        new("dom/nodes/attributes-namednodemap.html", "setting an attribute should not overwrite the methods*", WptDivergence.NeedsTriage),
         new("dom/nodes/case.html", "createElementNS http://www.w3.org/1999*ABC", WptDivergence.NeedsTriage),
         new("dom/nodes/case.html", "createElementNS http://www.w3.org/1999*Abc", WptDivergence.NeedsTriage),
         new("dom/nodes/getElementsByClassName-14.htm", "*)", WptDivergence.NeedsTriage),
@@ -1283,7 +1274,6 @@ internal static class WptBrowserExclusions
 
         // ---------------------------------------------------------------- Range's own algorithms
         // Range's remaining algorithms
-        new("dom/ranges/Range-comparePoint-2.html", "*2", WptDivergence.NeedsTriage),
         new("dom/ranges/Range-in-shadow-after-the-shadow-removed.html", "*", WptDivergence.NeedsTriage),
 
         // ---------------------------------------------------------------- an event interface this browser does not build

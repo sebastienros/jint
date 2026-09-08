@@ -147,6 +147,23 @@ public abstract class ArrayLikeObject : ObjectInstance, INamedProjection
     protected virtual bool OwnsLength => true;
 
     /// <summary>
+    /// Whether assignment ignores projected named getters when selecting an own descriptor. Defaults to <see langword="false"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Override with <see langword="true"/> for WebIDL legacy-platform-object assignment. An inheriting
+    /// receiver can then create its own property over a read-only projected name. Indexed properties,
+    /// ordinary stored properties, and the receiver's property-definition rules still apply.
+    /// </para>
+    /// <para>
+    /// A named setter still handles assignment to this object before descriptor selection. Reads and
+    /// property descriptors retain the named projection. The default preserves ordinary assignment
+    /// semantics for existing host subclasses.
+    /// </para>
+    /// </remarks>
+    protected virtual bool IgnoreNamedPropertiesInSet => false;
+
+    /// <summary>
     /// Reads the element at <paramref name="index"/>. Return <see langword="true"/> with the value; return
     /// <see langword="false"/> exactly when the object has no own element there — <paramref name="index"/> is at
     /// or beyond <see cref="Length"/>, or the position is a hole.
@@ -520,6 +537,17 @@ public abstract class ArrayLikeObject : ObjectInstance, INamedProjection
             return NamedProjection.Write(this, name, value);
         }
 
+        if (IgnoreNamedPropertiesInSet
+            && !ArrayInstance.IsArrayIndex(property, out _)
+            && !(OwnsLength && CommonProperties.Length.Equals(property)))
+        {
+            // https://webidl.spec.whatwg.org/#legacy-platform-object-set
+            // LegacyPlatformObjectGetOwnProperty's ignoreNamedProps flag skips only the named getter.
+            // Ordinary stored properties still participate; the receiver's DefineOwnProperty decides
+            // whether a new own property may be created (including a write back to this collection).
+            return OrdinarySetWithOwnDescriptor(property, value, receiver, base.GetOwnProperty(property));
+        }
+
         return base.Set(property, value, receiver);
     }
 
@@ -566,9 +594,25 @@ public abstract class ArrayLikeObject : ObjectInstance, INamedProjection
             return false;
         }
 
-        if (TryGetProjectedName(property, out var name) && NamedProjection.Probe(this, name))
+        if (TryGetProjectedName(property, out var name))
         {
-            return false;
+            if (this is INamedPropertySupport support)
+            {
+                // WebIDL's legacy [[DefineOwnProperty]] distinguishes a supported name from a visible one:
+                // a prototype may hide the projection from reads, but a supported name with no ordinary own
+                // property is still refused when the interface has no named setter. An ordinary own property
+                // takes the normal redefine path, which also lets an expando created before a name became
+                // supported remain an ordinary property.
+                if (base.GetOwnProperty(property) == PropertyDescriptor.Undefined
+                    && support.HasSupportedName(name))
+                {
+                    return false;
+                }
+            }
+            else if (NamedProjection.Probe(this, name))
+            {
+                return false;
+            }
         }
 
         return base.DefineOwnProperty(property, desc);
