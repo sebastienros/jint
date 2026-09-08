@@ -1205,7 +1205,6 @@ internal static class WptBrowserExclusions
         new("dom/nodes/Node-childNodes.html", "*.", WptDivergence.NeedsTriage),
         new("dom/nodes/case.html", "createElementNS http://www.w3.org/1999*ABC", WptDivergence.NeedsTriage),
         new("dom/nodes/case.html", "createElementNS http://www.w3.org/1999*Abc", WptDivergence.NeedsTriage),
-        new("dom/nodes/getElementsByClassName-14.htm", "*)", WptDivergence.NeedsTriage),
     ];
 
     // ---------------------------------------------------------------- a (Node or DOMString) union parameter takes only a Node

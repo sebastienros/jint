@@ -1347,7 +1347,7 @@
       "half": "operation",
       "hook": "GetElementsByClassName",
       "returns": true,
-      "reason": "DOM's class-name collection algorithm returns a live HTMLCollection. AngleSharp returns a snapshot, so the binding re-runs its class matching through DomLiveHtmlCollection on each read."
+      "reason": "DOM's class-name collection algorithm returns a live HTMLCollection with ASCII-insensitive matching only in quirks mode. DomClassNameQuery supplies matching over AngleSharp's tree and tokens through DomLiveHtmlCollection; AngleSharp declined runtime quirks support in #1319/#1321."
     },
     {
       "interface": "Element",
@@ -1355,7 +1355,7 @@
       "half": "operation",
       "hook": "GetElementsByClassName",
       "returns": true,
-      "reason": "DOM's class-name collection algorithm returns a live HTMLCollection. AngleSharp returns a snapshot, so the binding re-runs its class matching through DomLiveHtmlCollection on each read."
+      "reason": "DOM's class-name collection algorithm returns a live HTMLCollection with ASCII-insensitive matching only in quirks mode. DomClassNameQuery supplies matching over AngleSharp's tree and tokens through DomLiveHtmlCollection; AngleSharp declined runtime quirks support in #1319/#1321."
     },
     {
       "interface": "Document",

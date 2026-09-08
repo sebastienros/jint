@@ -25,6 +25,9 @@ here. Three consequences bind every change:
   and makes the next reader believe the standard says what AngleSharp does. The one thing a wrapper may do is
   implement Web IDL semantics AngleSharp's CLR surface does not represent — `DOMStringMap`'s property-name
   conversion and named setter/deleter are the worked example, and the divergence register says so.
+  **The explicit exception is runtime quirks-mode class-name matching:** after AngleSharp #1319/#1321
+  were declined as out of scope, the project chose to own it in `DomClassNameQuery`, using AngleSharp's
+  tree, tokens and document mode. The divergence register records this decision; no dependency release is pending.
 - **No document or README sentence positions this as a rival DOM stack.** It is "AngleSharp + Jint".
 - **A seam that proves useful is offered, not hoarded.** The tree-aware event dispatcher the engine grew for
   this package (`Jint/WebApi/Events/EventDispatch.cs`) knows nothing about a node; it asks the target. The

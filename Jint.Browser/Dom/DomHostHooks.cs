@@ -1,5 +1,6 @@
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
+using AngleSharp.Text;
 using Jint.Browser.Dom.Collections;
 using Jint.Browser.Runtime;
 using Jint.Native;
@@ -139,12 +140,8 @@ internal class DomHostHooks
     internal virtual JsValue GetElementsByClassName(DomRealm realm, INode root, JsValue[] arguments)
     {
         var classNames = DomConvert.RequiredText(arguments, 0, Member(root, "getElementsByClassName"));
-        return realm.WrapCollection<IElement>(new DomLiveHtmlCollection(() => root switch
-        {
-            IDocument document => document.GetElementsByClassName(classNames),
-            IElement element => element.GetElementsByClassName(classNames),
-            _ => [],
-        }));
+        var classes = classNames.SplitSpaces();
+        return realm.WrapCollection<IElement>(new DomLiveHtmlCollection(() => DomClassNameQuery.Find(root, classes)));
     }
 
     /// <summary>https://dom.spec.whatwg.org/#concept-getelementsbytagname</summary>
