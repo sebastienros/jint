@@ -538,7 +538,7 @@ internal class JsEventTarget : ObjectInstance
         // event being dispatched, and afterwards it is whatever it was — a throw included. Null for every
         // engine whose global object is not a `Window`, which is every engine that installs no document, so
         // the slot is not merely unread there but not maintained at all.
-        var window = _engine._webApi?.GlobalEventTargetIfCreated is { IsWindow: true } windowScope ? windowScope : null;
+        var window = _engine._webApi?.GlobalEventTargetIfCreatedFor(_realm) is { IsWindow: true } windowScope ? windowScope : null;
 
         // Invoke step 7: "Let listeners be a clone of ... event listener list. This avoids event listeners
         // added after this point from being run." The scan above keeps that clone off the common paths — a
@@ -612,7 +612,7 @@ internal class JsEventTarget : ObjectInstance
                 // global scope before step 6's console report. That is a no-op unless the GlobalEvents
                 // feature is on and something is listening, and it declines to recurse when the listener that
                 // just threw was itself running as part of a report.
-                _engine._webApi?.FireGlobalErrorEvent(exception);
+                _engine._webApi?.FireGlobalErrorEvent(_realm, exception);
                 diagnostics.Report(DiagnosticEvent.ForUncaughtCallbackError(exception, DiagnosticCallbackSource.EventListener));
             }
             finally

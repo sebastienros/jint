@@ -58,7 +58,7 @@ internal sealed class ReportErrorFunction : Jint.Native.Function.Function
         // The state is null on an engine that enabled the feature alone — no sink, and none of the features
         // that keep something here — which is precisely the documented no-op: the value was reported, and the
         // report was heard by nobody.
-        _engine._webApi?.ReportError(arguments[0]);
+        _engine._webApi?.ReportError(_realm, arguments[0]);
         return JsValue.Undefined;
     }
 }

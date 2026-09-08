@@ -15,8 +15,8 @@ namespace Jint.WebApi;
 /// <summary>
 /// Installs the globals for the web APIs an engine opted into. Invoked from <c>Options.Apply</c>, which is
 /// the sanctioned conditional-install site — the same one <c>Interop.Enabled</c> and
-/// <c>Modules.RegisterRequire</c> use — and from <c>Engine.WebApi.Enable</c>, which is the same
-/// work applied to an engine that already exists.
+/// <c>Modules.RegisterRequire</c> use — from <c>Engine.WebApi.Enable</c>, which applies the same work to an
+/// existing engine, and from a browser host installing the same surface in an additional realm.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -47,9 +47,9 @@ namespace Jint.WebApi;
 /// hands back something it is holding gives the next cycle what the previous one mutated.
 /// </para>
 /// <para>
-/// Nothing here touches anything but the principal realm's global object, so a <c>ShadowRealm</c> never
-/// carries these globals. That is deliberately more conservative than a browser, where the web APIs are
-/// <c>[Exposed=*]</c>; a host that wants them inside a shadow realm has <c>Host.InitializeShadowRealm</c>.
+/// Construction touches only the principal realm. A browser host may explicitly install the same expanded
+/// feature set in another fully initialized realm through <see cref="InstallInRealm"/>; ordinary
+/// <c>ShadowRealm</c> construction still receives none of it.
 /// </para>
 /// </remarks>
 internal static class WebApiRegistration
@@ -64,7 +64,7 @@ internal static class WebApiRegistration
         engine._webApiFeatures = features;
 
         CreateEngineState(options, engine, features);
-        InstallGlobals(engine, features);
+        InstallGlobals(engine, engine._mainRealm, features);
     }
 
     /// <summary>
@@ -148,16 +148,90 @@ internal static class WebApiRegistration
             ExtendEngineState(options, engine, state, added);
         }
 
-        InstallGlobals(engine, combined);
+        InstallGlobals(engine, engine._mainRealm, combined);
+        if (engine._secondaryWebApiRealms is { } realms)
+        {
+            foreach (var realm in realms.Snapshot())
+            {
+                InstallGlobals(engine, realm, combined);
+            }
+        }
+
         return added;
     }
 
-    private static void InstallGlobals(Engine engine, WebApiFeatures features)
+    /// <summary>
+    /// Installs this engine's current expanded Web API feature set in a fully initialized same-engine realm.
+    /// </summary>
+    /// <remarks>
+    /// This is the internal browser-host seam. It claims the engine before changing the global, keeps the
+    /// principal-only default intact, and records the realm weakly so a later live enable reaches it too.
+    /// </remarks>
+    internal static void InstallInRealm(Engine engine, Realm realm)
     {
-        // The PRINCIPAL realm, deliberately, and not Engine.Realm: during construction the two are the same,
-        // but the live door can be called from anywhere — including a host callback running inside a
-        // ShadowRealm — and these globals belong to the engine's own realm and to no other.
-        var realm = engine._mainRealm;
+        if (engine is null)
+        {
+            Throw.ArgumentNullException(nameof(engine));
+        }
+
+        ValidateRealm(engine, realm);
+        using var ownership = engine.EnterHostCall();
+
+        if (ReferenceEquals(realm, engine._mainRealm))
+        {
+            return;
+        }
+
+        var realms = engine._secondaryWebApiRealms ??= new WebApiRealmRegistry();
+        if (!realms.Register(realm))
+        {
+            return;
+        }
+
+        InstallGlobals(engine, realm, engine._webApiFeatures);
+    }
+
+    private static void ValidateRealm(Engine engine, Realm realm)
+    {
+        if (realm is null)
+        {
+            Throw.ArgumentNullException(nameof(realm));
+        }
+
+        if (realm.Intrinsics is null || realm.GlobalObject is null || realm.GlobalEnv is null)
+        {
+            Throw.ArgumentException("The realm is not fully initialized.", nameof(realm));
+        }
+
+        if (!ReferenceEquals(realm.GlobalObject.Engine, engine))
+        {
+            Throw.ArgumentException("The realm belongs to a different engine.", nameof(realm));
+        }
+    }
+
+    /// <summary>Finds the installed realm represented by <paramref name="global"/>.</summary>
+    internal static bool TryGetInstalledRealm(
+        Engine engine,
+        JsValue global,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out Realm? realm)
+    {
+        if (ReferenceEquals(global, engine._mainRealm.GlobalObject))
+        {
+            realm = engine._mainRealm;
+            return true;
+        }
+
+        if (engine._secondaryWebApiRealms is { } realms)
+        {
+            return realms.TryFindByGlobal(global, out realm);
+        }
+
+        realm = null;
+        return false;
+    }
+
+    private static void InstallGlobals(Engine engine, Realm realm, WebApiFeatures features)
+    {
         var global = realm.GlobalObject;
 
         if (features == WebApiFeatures.None)
@@ -282,7 +356,14 @@ internal static class WebApiRegistration
             // returns would erase a record a worker still needs.
             if (Install(global, realm, "self", static r => r.GlobalObject, PropertyFlag.ConfigurableEnumerableWritable) is { } installedSelf)
             {
-                engine._webApi!.InstalledSelf = installedSelf;
+                if (ReferenceEquals(realm, engine._mainRealm))
+                {
+                    engine._webApi!.InstalledSelf = installedSelf;
+                }
+                else if (engine._secondaryWebApiRealms?.TryGet(realm, out var state) == true)
+                {
+                    state.InstalledSelf = installedSelf;
+                }
             }
 
             // The two event interfaces the engine fires at that target. Ordinary WebIDL interface objects:
@@ -297,7 +378,7 @@ internal static class WebApiRegistration
             // the object model exactly as SetFetchHandler does — and, like it, pointedly not `fetch`. Unlike
             // it, the install happens while the engine is being built, so a module that constructs a Response
             // at top level works without the host having had to register anything first.
-            InstallFetchModel(engine);
+            InstallFetchModel(realm);
 
             Install(global, realm, "FetchEvent", static r => r.Intrinsics.FetchEvent, PropertyFlag.NonEnumerable);
         }
@@ -359,7 +440,7 @@ internal static class WebApiRegistration
 
         if ((features & WebApiFeatures.Fetch) != WebApiFeatures.None)
         {
-            InstallFetchModel(engine);
+            InstallFetchModel(realm);
 
             // A WebIDL operation on the global is a writable, enumerable, configurable data property, unlike
             // the interface objects above — https://webidl.spec.whatwg.org/#es-operations.
@@ -371,7 +452,7 @@ internal static class WebApiRegistration
             // The object model and pointedly not `fetch`: an XMLHttpRequest extracts a FormData or
             // URLSearchParams body with the fetch algorithm and hands a Blob back, but installing the model is
             // not granting the network — see WebApiFeatures.XmlHttpRequest for what does.
-            InstallFetchModel(engine);
+            InstallFetchModel(realm);
 
             Install(global, realm, "XMLHttpRequest", static r => r.Intrinsics.XmlHttpRequest, PropertyFlag.NonEnumerable);
             Install(global, realm, "XMLHttpRequestUpload", static r => r.Intrinsics.XmlHttpRequestUpload, PropertyFlag.NonEnumerable);
@@ -554,7 +635,18 @@ internal static class WebApiRegistration
     /// </remarks>
     internal static void InstallFetchModel(Engine engine)
     {
-        var realm = engine._mainRealm;
+        InstallFetchModel(engine._mainRealm);
+        if (engine._secondaryWebApiRealms is { } realms)
+        {
+            foreach (var realm in realms.Snapshot())
+            {
+                InstallFetchModel(realm);
+            }
+        }
+    }
+
+    private static void InstallFetchModel(Realm realm)
+    {
         var global = realm.GlobalObject;
         Install(global, realm, "Headers", static r => r.Intrinsics.Headers, PropertyFlag.NonEnumerable);
         Install(global, realm, "Request", static r => r.Intrinsics.Request, PropertyFlag.NonEnumerable);

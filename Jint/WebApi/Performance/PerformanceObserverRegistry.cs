@@ -251,7 +251,7 @@ internal sealed class PerformanceObserverRegistry(Engine engine)
         }
         catch (JavaScriptException exception) when (_engine._webApi?.Diagnostics is { } diagnostics)
         {
-            _engine._webApi?.FireGlobalErrorEvent(exception);
+            _engine._webApi?.FireGlobalErrorEvent(realm, exception);
             diagnostics.Report(DiagnosticEvent.ForUncaughtCallbackError(exception, DiagnosticCallbackSource.PerformanceObserver));
         }
     }

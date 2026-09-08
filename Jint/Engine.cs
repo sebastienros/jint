@@ -5319,6 +5319,7 @@ public sealed partial class Engine : IDisposable
         // in both directions; the host's OnWorkerEnded callbacks come back as a list and are run at the very
         // bottom of this method, once the engine has finished letting go of everything else.
         var endedWorkers = _webApi?.Dispose();
+        _secondaryWebApiRealms?.Clear();
 #endif
 
         if (_objectWrapperCache is not null)
