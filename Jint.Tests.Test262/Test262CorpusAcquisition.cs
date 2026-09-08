@@ -46,6 +46,7 @@ internal sealed class Test262CorpusAcquisition
 
         Directory.CreateDirectory(cacheDirectory);
         var archive = GetArchivePath(commitSha, cacheDirectory);
+        var removeInvalidArchive = false;
         if (File.Exists(archive))
         {
             try
@@ -55,6 +56,7 @@ internal sealed class Test262CorpusAcquisition
             catch (Exception exception) when (!offline)
             {
                 _log($"Ignoring invalid Test262 cache entry {archive}: {exception.Message}");
+                removeInvalidArchive = true;
             }
             catch (Exception exception)
             {
@@ -77,6 +79,26 @@ internal sealed class Test262CorpusAcquisition
 
             try
             {
+                if (removeInvalidArchive)
+                {
+                    // A concurrent acquisition may already have repaired the cache since the first
+                    // validation failed. Keep a valid replacement; otherwise remove the invalid file
+                    // before staging so publication never has to overwrite an archive in use.
+                    if (File.Exists(archive))
+                    {
+                        try
+                        {
+                            return LoadAndValidate(archive, commitSha);
+                        }
+                        catch
+                        {
+                            File.Delete(archive);
+                        }
+                    }
+
+                    removeInvalidArchive = false;
+                }
+
                 Directory.CreateDirectory(stagingDirectory);
                 var stream = await _loadStaged(commitSha, stagingDirectory);
                 try
@@ -95,11 +117,11 @@ internal sealed class Test262CorpusAcquisition
                 }
 
                 // The unique staging directory is under the cache root, so this publishes a completely
-                // validated archive with one same-volume rename. Concurrent processes may replace it only
-                // with another archive that passed the same pinned tree digest.
+                // validated archive with one same-volume rename. The first publisher owns the cache entry;
+                // later publishers must not replace an archive that a returned Test262Stream is reading.
                 try
                 {
-                    File.Move(stagedArchive, archive, overwrite: true);
+                    File.Move(stagedArchive, archive);
                 }
                 catch (IOException) when (File.Exists(archive))
                 {

@@ -67,56 +67,105 @@ public sealed class Test262CorpusAcquisitionTests
         const string sha = "0123456789abcdef";
         var cacheDirectory = NewCacheDirectory();
         var bothDownloadsReady = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseSecondDownload = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var readyCount = 0;
 
-        Task<Test262Stream> Stage(string actualSha, string stagingDirectory)
+        async Task<Test262Stream> Stage(
+            string actualSha,
+            string stagingDirectory,
+            string marker,
+            bool waitForRelease)
         {
             var archive = Path.Combine(stagingDirectory, $"test262-{actualSha}.zip");
-            CreateArchive(archive, actualSha);
+            CreateArchive(archive, actualSha, marker);
             if (Interlocked.Increment(ref readyCount) == 2)
             {
                 bothDownloadsReady.SetResult();
             }
 
-            return Finish();
-
-            async Task<Test262Stream> Finish()
+            await bothDownloadsReady.Task;
+            if (waitForRelease)
             {
-                await bothDownloadsReady.Task;
-                return Test262Stream.FromZipArchive(archive, $"test262-{actualSha}");
+                await releaseSecondDownload.Task;
             }
+
+            return Test262Stream.FromZipArchive(archive, $"test262-{actualSha}");
         }
 
-        var first = new Test262CorpusAcquisition(Stage, _ => Task.CompletedTask, TinyCorpusDigest);
-        var second = new Test262CorpusAcquisition(Stage, _ => Task.CompletedTask, TinyCorpusDigest);
+        var first = new Test262CorpusAcquisition(
+            (actualSha, stagingDirectory) => Stage(actualSha, stagingDirectory, "first", waitForRelease: false),
+            _ => Task.CompletedTask,
+            TinyCorpusDigest);
+        var second = new Test262CorpusAcquisition(
+            (actualSha, stagingDirectory) => Stage(actualSha, stagingDirectory, "second", waitForRelease: true),
+            _ => Task.CompletedTask,
+            TinyCorpusDigest);
+        Test262Stream? firstStream = null;
+        Test262Stream? secondStream = null;
 
         try
         {
-            var streams = await Task.WhenAll(
-                first.LoadAsync(sha, cacheDirectory),
-                second.LoadAsync(sha, cacheDirectory));
-            try
-            {
-                Assert.That(streams, Has.Length.EqualTo(2));
-                Assert.That(File.Exists(Path.Combine(cacheDirectory, $"test262-{sha}.zip")), Is.True);
-                Assert.That(Directory.EnumerateDirectories(cacheDirectory), Is.Empty);
+            var firstTask = first.LoadAsync(sha, cacheDirectory);
+            var secondTask = second.LoadAsync(sha, cacheDirectory);
+            firstStream = await firstTask;
+            releaseSecondDownload.SetResult();
+            secondStream = await secondTask;
 
-                var offline = new Test262CorpusAcquisition(
-                    (_, _) => throw new InvalidOperationException("A published cache entry must not download."),
-                    _ => Task.CompletedTask,
-                    TinyCorpusDigest);
-                var offlineStream = await offline.LoadAsync(sha, cacheDirectory, offline: true);
-                using (offlineStream.Options.FileSystem)
-                {
-                    Assert.That(offlineStream, Is.Not.Null);
-                }
-            }
-            finally
+            Assert.That(File.Exists(Path.Combine(cacheDirectory, $"test262-{sha}.zip")), Is.True);
+            Assert.That(Directory.EnumerateDirectories(cacheDirectory), Is.Empty);
+
+            var offline = new Test262CorpusAcquisition(
+                (_, _) => throw new InvalidOperationException("A published cache entry must not download."),
+                _ => Task.CompletedTask,
+                TinyCorpusDigest);
+            var offlineStream = await offline.LoadAsync(sha, cacheDirectory, offline: true);
+            using (offlineStream.Options.FileSystem)
             {
-                foreach (var stream in streams)
-                {
-                    stream.Options.FileSystem.Dispose();
-                }
+                Assert.That(offlineStream, Is.Not.Null);
+            }
+
+            firstStream.Options.FileSystem.Dispose();
+            firstStream = null;
+            secondStream.Options.FileSystem.Dispose();
+            secondStream = null;
+
+            var archive = Path.Combine(cacheDirectory, $"test262-{sha}.zip");
+            using var zip = ZipFile.OpenRead(archive);
+            Assert.That(zip.GetEntry("first"), Is.Not.Null);
+            Assert.That(zip.GetEntry("second"), Is.Null);
+        }
+        finally
+        {
+            releaseSecondDownload.TrySetResult();
+            firstStream?.Options.FileSystem.Dispose();
+            secondStream?.Options.FileSystem.Dispose();
+            Directory.Delete(cacheDirectory, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task InvalidOnlineCacheIsRemovedBeforePublishingItsReplacement()
+    {
+        const string sha = "0123456789abcdef";
+        var cacheDirectory = NewCacheDirectory();
+        var archive = Path.Combine(cacheDirectory, $"test262-{sha}.zip");
+        CreatePartialArchive(archive, sha);
+        var acquisition = new Test262CorpusAcquisition(
+            (actualSha, stagingDirectory) =>
+            {
+                var stagedArchive = Path.Combine(stagingDirectory, $"test262-{actualSha}.zip");
+                CreateArchive(stagedArchive, actualSha);
+                return Task.FromResult(Test262Stream.FromZipArchive(stagedArchive, $"test262-{actualSha}"));
+            },
+            _ => Task.CompletedTask,
+            TinyCorpusDigest);
+
+        try
+        {
+            var stream = await acquisition.LoadAsync(sha, cacheDirectory);
+            using (stream.Options.FileSystem)
+            {
+                Assert.That(stream.Options.FileSystem.DirectoryExists("/test/language"), Is.True);
             }
         }
         finally
@@ -324,9 +373,14 @@ public sealed class Test262CorpusAcquisitionTests
         return directory;
     }
 
-    private static void CreateArchive(string archive, string sha)
+    private static void CreateArchive(string archive, string sha, string? marker = null)
     {
         using var zip = ZipFile.Open(archive, ZipArchiveMode.Create);
+        if (marker is not null)
+        {
+            zip.CreateEntry(marker);
+        }
+
         zip.CreateEntry($"test262-{sha}/");
         zip.CreateEntry($"test262-{sha}/harness/");
         zip.CreateEntry($"test262-{sha}/harness/assert.js");
