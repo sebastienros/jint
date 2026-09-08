@@ -159,4 +159,28 @@ public sealed class DocumentHostHookTests
                 """))
             .Should().Be("about:blank|about:blank|about:blank");
     }
+
+    [Test]
+    public async Task FrameDocumentsUseTheSharedJarAtTheirOwnUrl()
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(server => server
+            .MapHtml("/frames/child.html", "<p>frame</p>")
+            .MapHtml("/page/index.html", "<iframe src='/frames/child.html'></iframe>"));
+
+        await fixture.Page.NavigateAsync(fixture.Url("/page/index.html"));
+        await fixture.Page.EvaluateAsync("document.cookie = 'shared=value; Path=/'");
+
+        (await fixture.Page.EvaluateAsync<string>(
+                "document.querySelector('iframe').contentDocument.cookie"))
+            .Should().Be("shared=value");
+
+        await fixture.Page.EvaluateAsync(
+            "document.querySelector('iframe').contentDocument.cookie = 'frame=value; Path=/frames'");
+
+        (await fixture.Page.EvaluateAsync<string>("document.cookie"))
+            .Should().Be("shared=value", "the frame's path-scoped cookie does not belong to the page URL");
+        (await fixture.Page.EvaluateAsync<string>(
+                "document.querySelector('iframe').contentDocument.cookie"))
+            .Should().Contain("frame=value");
+    }
 }

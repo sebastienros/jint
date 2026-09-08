@@ -411,16 +411,16 @@ internal class DomHostHooks
     /// the browsing context reads and writes — which is a jar AngleSharp's own document has no idea about.
     /// </summary>
     internal virtual JsValue Cookie(DomRealm realm, IDocument document)
-        => JsString.Create(PageRuntime.Find(realm.Engine, document) is { } runtime
-            ? DocumentCookies.Read(runtime)
+        => JsString.Create(PageRuntime.FindBrowsingContext(realm.Engine, document) is { } runtime
+            ? DocumentCookies.Read(runtime, document)
             : document.Cookie ?? "");
 
     /// <inheritdoc cref="Cookie" />
     internal virtual void SetCookie(DomRealm realm, IDocument document, string value)
     {
-        if (PageRuntime.Find(realm.Engine, document) is { } runtime)
+        if (PageRuntime.FindBrowsingContext(realm.Engine, document) is { } runtime)
         {
-            DocumentCookies.Write(runtime, value);
+            DocumentCookies.Write(runtime, document, value);
             return;
         }
 

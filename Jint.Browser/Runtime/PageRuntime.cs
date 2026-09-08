@@ -446,6 +446,30 @@ internal sealed class PageRuntime
         return document is not null && ReferenceEquals(runtime?.Document, document) ? runtime : null;
     }
 
+    /// <summary>
+    /// The runtime attached to <paramref name="engine"/> when <paramref name="document"/> belongs to the
+    /// displayed document's browsing-context tree, or <see langword="null"/> for a detached context.
+    /// </summary>
+    internal static PageRuntime? FindBrowsingContext(Engine engine, IDocument? document)
+    {
+        var runtime = Find(engine);
+        var displayedContext = runtime?.Document?.Context;
+        if (displayedContext is null || document is null)
+        {
+            return null;
+        }
+
+        for (AngleSharp.IBrowsingContext? context = document.Context; context is not null; context = context.Parent)
+        {
+            if (ReferenceEquals(context, displayedContext))
+            {
+                return runtime;
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>The page runtime of <paramref name="node"/>'s node document, when it is the displayed one.</summary>
     internal static PageRuntime? Find(Engine engine, INode node)
         => Find(engine, node as IDocument ?? node.Owner);
