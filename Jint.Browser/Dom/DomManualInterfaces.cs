@@ -324,11 +324,21 @@ internal static class DomManualInterfaces
     }
 
     /// <summary>
-    /// The interface HTML gives an element of this local name, for the five it gives one AngleSharp cannot
-    /// name — and <see langword="null"/> for every other element, which is nearly all of them.
+    /// The interface HTML gives an element of this local name, for the six AngleSharp cannot name — and
+    /// <see langword="null"/> for every other element, which is nearly all of them.
     /// </summary>
+    /// <remarks>
+    /// <c>applet</c> is the one row here that names a <b>generated</b> interface rather than one declared
+    /// above, and it is the opposite kind of gap: HTML <i>removed</i> <c>HTMLAppletElement</c>
+    /// (https://html.spec.whatwg.org/multipage/obsolete.html#htmlappletelement), so the element takes the
+    /// <c>HTMLUnknownElement</c> every unlisted HTML name takes. AngleSharp still builds an
+    /// <c>HtmlAppletElement</c> implementing nothing narrower than <c>IHtmlElement</c>, so
+    /// <see cref="DomTypeMap"/> would answer <c>HTMLElement</c> — which is why the local name has to decide
+    /// it here too.
+    /// </remarks>
     private static DomInterfaceDefinition? ByLocalName(string localName) => localName switch
     {
+        "applet" => DomInterfaces.HTMLUnknownElement,
         "dir" => HTMLDirectoryElement,
         "dl" => HTMLDListElement,
         "font" => HTMLFontElement,

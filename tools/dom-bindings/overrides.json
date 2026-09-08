@@ -25,6 +25,14 @@
     {
       "interface": "AngleSharp.Html.Dom.Events.ITouchList",
       "reason": "TouchList goes with Touch: nothing implements it either, and a list of an interface the binding no longer projects has nothing to hold. Declared beside it in Jint.Browser/Events/TouchInterfaces.cs, over the same ArrayLikeObject lane the generated collections use."
+    },
+    {
+      "interface": "AngleSharp.Html.Dom.IHtmlTableDataCellElement",
+      "reason": "HTML has no HTMLTableDataCellElement: it was merged into HTMLTableCellElement and html/dom/historical.html asserts the interface is gone from the window. AngleSharp splits the interface in two, which put a name on the global that no standard declares and gave <td> a prototype chain one link too long. Its shape carried no members of its own, so excluding it costs nothing; <td> is an HTMLTableCellElement now, which is also what the HTMLElement constructor's interface check wanted. Recorded in Jint.Browser/Dom/divergences.md."
+    },
+    {
+      "interface": "AngleSharp.Html.Dom.IHtmlTableHeaderCellElement",
+      "reason": "The other half of the same split, and the same removed name. Its one member, scope, is HTMLTableCellElement's in HTML, so it comes back as a reflected row on that interface rather than being lost with the interface."
     }
   ],
   "manual": [
@@ -49,11 +57,6 @@
       "interface": "HTMLLinkElement",
       "member": "nonce",
       "reason": "HTML §2.5.3 gives every element including HTMLOrSVGElement a nonce whose setter writes the [[CryptographicNonce]] slot and NOT the content attribute, which is what keeps a header-delivered policy's nonce out of a CSS selector. AngleSharp declares one attribute-backed property, on this interface alone, whose setter writes the attribute; skipped so the reflected HTMLElement.nonce row is what every element answers with."
-    },
-    {
-      "interface": "HTMLTableHeaderCellElement",
-      "member": "scope",
-      "reason": "HTML declares `scope` on HTMLTableCellElement (§4.9.10) and has no HTMLTableHeaderCellElement at all -- AngleSharp splits <th> and <td> into two [DomName] interfaces the standard does not have, which Dom/divergences.md records. Its `scope` shadowed the reflected HTMLTableCellElement.scope, so <th> kept the raw attribute value while <td> answered the enumeration. Skipped so both cells answer the one member."
     },
     {
       "interface": "HTMLMarqueeElement",
@@ -279,6 +282,16 @@
     }
   ],
   "additions": [
+    {
+      "interface": "Document",
+      "member": "applets",
+      "kind": "attribute",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, \"Document.applets\");",
+        "return global::Jint.Browser.Dom.DomObsoleteMembers.Applets(self.Realm, self.Target);"
+      ],
+      "reason": "HTML §16.3 keeps document.applets and defines it to answer an HTMLCollection whose filter matches nothing. AngleSharp has no member of that name at all, so the binding answered undefined where the standard requires an empty collection - a removed feature and a feature that must still answer nothing are different facts, and html/dom/historical.html is the file that tells them apart."
+    },
     {
       "interface": "Document",
       "member": "replaceChildren",
@@ -3173,6 +3186,33 @@
     }
   ],
 
+  "unscopables": [
+    {
+      "interface": "Element",
+      "members": ["after", "append", "before", "prepend", "remove", "replaceChildren", "replaceWith"],
+      "reason": "Element includes both ChildNode (DOM §4.2.8) and ParentNode (DOM §4.2.9), so its object carries all seven names. It is the one a page meets: an inline handler is compiled with the element on the scope chain."
+    },
+    {
+      "interface": "CharacterData",
+      "members": ["after", "before", "remove", "replaceWith"],
+      "reason": "DOM §4.2.8 marks every member of the ChildNode mixin [Unscopable], and Web IDL builds the interface prototype object's @@unscopables from them. Nothing in AngleSharp's metadata says which members are unscopable and nothing could: it is a statement about how a name behaves inside a `with`, which is what HTML compiles an inline event handler as, so without it `<div onclick=\"remove()\">` calls the element's remove() instead of the page's global of that name."
+    },
+    {
+      "interface": "DocumentType",
+      "members": ["after", "before", "remove", "replaceWith"],
+      "reason": "DOM §4.2.8 marks every member of the ChildNode mixin [Unscopable], and Web IDL builds the interface prototype object's @@unscopables from them. Nothing in AngleSharp's metadata says which members are unscopable and nothing could: it is a statement about how a name behaves inside a `with`, which is what HTML compiles an inline event handler as, so without it `<div onclick=\"remove()\">` calls the element's remove() instead of the page's global of that name."
+    },
+    {
+      "interface": "Document",
+      "members": ["append", "prepend", "replaceChildren"],
+      "reason": "DOM §4.2.9, the ParentNode half of the same rule. moveBefore is not listed because the pinned assemblies do not project it."
+    },
+    {
+      "interface": "DocumentFragment",
+      "members": ["append", "prepend", "replaceChildren"],
+      "reason": "DOM §4.2.9, the ParentNode half of the same rule. moveBefore is not listed because the pinned assemblies do not project it."
+    }
+  ],
   "nullableStrings": [
     {
       "interface": "Element",

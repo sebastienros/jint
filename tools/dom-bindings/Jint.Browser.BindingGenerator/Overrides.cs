@@ -32,6 +32,9 @@ internal sealed class Overrides
     [JsonPropertyName("reflected")]
     public List<ReflectedEntry> Reflected { get; init; } = [];
 
+    [JsonPropertyName("unscopables")]
+    public List<UnscopableEntry> Unscopables { get; init; } = [];
+
     [JsonPropertyName("nullableStrings")]
     public List<NullableStringEntry> NullableStrings { get; init; } = [];
 
@@ -300,6 +303,38 @@ internal sealed class Overrides
         /// <summary>A clamped attribute's upper bound.</summary>
         [JsonPropertyName("max")]
         public long? Max { get; init; }
+
+        [JsonPropertyName("reason")]
+        public string Reason { get; init; } = "";
+    }
+
+    /// <summary>
+    /// The <c>[Unscopable]</c> members of one interface - https://webidl.spec.whatwg.org/#Unscopable.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Nothing in AngleSharp's metadata says which members are unscopable, and nothing could: it is a Web IDL
+    /// extended attribute about how a member behaves inside a <c>with</c> statement, not a fact about the CLR
+    /// property behind it. So it is a table, and it is the <b>standard's</b> half of one rather than
+    /// AngleSharp's - DOM §4.2.8 and §4.2.9 mark every member of the <c>ChildNode</c> and <c>ParentNode</c>
+    /// mixins, which is what puts seven names on <c>Element</c> and four or three on each of the other four
+    /// interfaces that include one.
+    /// </para>
+    /// <para>
+    /// Every name has to be a member the interface really declares, which the generator checks after the
+    /// members are built: an entry naming one it does not is a diagnostic, because Web IDL builds the
+    /// <c>@@unscopables</c> object from the interface's own members and a name that is not one would make the
+    /// object claim something the prototype does not have.
+    /// </para>
+    /// </remarks>
+    internal sealed class UnscopableEntry
+    {
+        [JsonPropertyName("interface")]
+        public string Interface { get; init; } = "";
+
+        /// <summary>The IDL names, which become the keys of the <c>@@unscopables</c> object.</summary>
+        [JsonPropertyName("members")]
+        public List<string> Members { get; init; } = [];
 
         [JsonPropertyName("reason")]
         public string Reason { get; init; } = "";

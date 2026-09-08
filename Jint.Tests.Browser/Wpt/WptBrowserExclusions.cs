@@ -873,17 +873,6 @@ internal static class WptBrowserExclusions
         new("html/dom/reflection-forms.html", "meter.optimum: IDL set to 1e+25", WptDivergence.NeedsTriage),
     ];
 
-    // ---------------------------------------------------------------- 5. a DOM prototype has no @@unscopables
-    private static readonly WptExclusion[] _5ADOMPrototypeHasNoUnscopables =
-    [
-        // WebIDL puts an `@@unscopables` object on the interface prototype object of every interface with an
-        // `[Unscopable]` member — `Element`'s and `Document`'s `append`, `prepend` and `replaceChildren`
-        // among them — and this binding emits none, because AngleSharp's metadata does not say which members
-        // are unscopable. The three rows below never reach their subject: they *write* to
-        // `document[Symbol.unscopables]`, which is undefined here.
-        new("html/webappapis/scripting/events/compile-event-handler-symbol-unscopables.html", "*", WptDivergence.NeedsTriage),
-    ];
-
     // ---------------------------------------------------------------- 4b. a custom element
     private static readonly WptExclusion[] _4bACustomElement =
     [
@@ -1123,10 +1112,6 @@ internal static class WptBrowserExclusions
     private static readonly WptExclusion[] _aMemberOfADOMInterfaceTheBindingsDoNotHave =
     [
         // a member of a DOM interface the bindings do not have
-        new("dom/nodes/attributes.html", "*itself", WptDivergence.NeedsTriage),
-        new("dom/nodes/attributes.html", "*tests", WptDivergence.NeedsTriage),
-        new("dom/nodes/attributes.html", "*toggleAttribute)", WptDivergence.NeedsTriage),
-        new("dom/nodes/remove-unscopable.html", "*", WptDivergence.NeedsTriage),
         // ProcessingInstruction has no attributes at all. The whole of
         // processing-instruction-attributes.html is the attribute surface WICG's declarative partial
         // updates proposal (https://github.com/WICG/declarative-partial-updates, which the document's own
@@ -1157,6 +1142,20 @@ internal static class WptBrowserExclusions
         new("dom/nodes/Element-getElementsByTagNameNS.html", "*namespace", WptDivergence.NeedsTriage),
         new("dom/nodes/case.html", "createElementNS http://www.w3.org/1999*ABC", WptDivergence.NeedsTriage),
         new("dom/nodes/case.html", "createElementNS http://www.w3.org/1999*Abc", WptDivergence.NeedsTriage),
+        new("dom/nodes/getElementsByClassName-14.htm", "*)", WptDivergence.NeedsTriage),
+        // HTML gives `document.all` an HTMLAllCollection, whose supported property names are the ids of every
+        // element plus the `name` attributes of the fourteen "all"-named elements - a list `applet` was
+        // removed from. The binding projects AngleSharp's IHtmlAllCollection through the ordinary
+        // HTMLCollection named rule, which takes the `name` of any HTML element, so `document.all.war` finds
+        // the `<applet name=war>` html/dom/historical.html plants for exactly this.
+        new("html/dom/historical.html", "document.all*", WptDivergence.NeedsTriage),
+    ];
+
+    // ---------------------------------------------------------------- a (Node or DOMString) union parameter takes only a Node
+    private static readonly WptExclusion[] _aNodeOrDOMStringUnionParameterTakesOnlyANode =
+    [
+        // a (Node or DOMString) union parameter takes only a Node
+        new("dom/nodes/ChildNode-before.html", "*the argument.", WptDivergence.NeedsTriage),
     ];
 
     // ---------------------------------------------------------------- DOM's validate-and-extract, and the XML name productions
@@ -1213,6 +1212,9 @@ internal static class WptBrowserExclusions
         new("dom/nodes/Node-replaceChild.html", "*a doctype should throw a HierarchyRequestError.", WptDivergence.NeedsTriage),
         new("dom/nodes/Node-replaceChild.html", "*node should throw a HierarchyRequestError.", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "Basic*.", WptDivergence.NeedsTriage),
+        // Both halves of the same fact, on toggleAttribute: `toggleAttribute("")` does not raise the
+        // InvalidCharacterError DOM §4.9 requires, and a name the standard allows is refused with one.
+        new("dom/nodes/attributes.html", "*toggleAttribute)", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElementNS.html", "* XML document: \"http://example.com/\",\"0:a\",null", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElementNS.html", "* XML document: \"http://example.com/\",\"a:̀\",null", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElementNS.html", "* XML document: \"http://example.com/\",\"a:;\",null", WptDivergence.NeedsTriage),
@@ -1334,16 +1336,6 @@ internal static class WptBrowserExclusions
         new("dom/nodes/ParentNode-querySelector-All.html", "*Slotted selector (no matching closing paren): ::slotted(foo*", WptDivergence.NeedsTriage),
     ];
 
-    // ---------------------------------------------------------------- a member the standard removed and this browser still has
-    private static readonly WptExclusion[] _aMemberTheStandardRemovedAndThisBrowserStillHas =
-    [
-        // a member the standard removed and this browser still has
-        new("html/dom/historical.html", "*interface is removed", WptDivergence.NeedsTriage),
-        new("html/dom/historical.html", "*styled", WptDivergence.NeedsTriage),
-        new("html/dom/historical.html", "<applet*", WptDivergence.NeedsTriage),
-        new("html/dom/historical.html", "document.*", WptDivergence.NeedsTriage),
-    ];
-
     // ---------------------------------------------------------------- MutationObserver's records
     private static readonly WptExclusion[] _mutationObserverSRecords =
     [
@@ -1365,6 +1357,13 @@ internal static class WptBrowserExclusions
         // performs cannot invalidate it; AngleSharp's IChildNode members work the other way round and raise
         // NotFoundError. The remaining `before` rows belong to the union-parameter cause.
         // one assertion each; see Wpt/README.md
+        // `getComputedStyle(applet, "").cssFloat` is "" where the standard requires the initial value
+        // "none": `float` is not one of the ten properties Dom/Views/ResolvedStyle answers an initial value
+        // for, and the cascade reports only what a sheet declared. Nothing about `<applet>` - the same read
+        // of any element answers the same way, and Jint.Browser/AGENTS.md argues which ten.
+        new("html/dom/historical.html", "*styled", WptDivergence.NeedsTriage),
+        new("dom/nodes/ChildNode-after.html", "*positions.", WptDivergence.NeedsTriage),
+        new("dom/nodes/ChildNode-before.html", "*positions.", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElementNS.html", "Upper-case HTML*", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElementNS.html", "createElementNS test in HTML*:o\",null", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElementNS.html", "createElementNS test in HTML*̀\",null", WptDivergence.NeedsTriage),
@@ -1381,6 +1380,8 @@ internal static class WptBrowserExclusions
         // AngleSharp's: an Attr write does not carry its new value to the attribute observer, and a parser-
         // inserted namespaced attribute records no prefix.
         new("dom/nodes/Attr-prefix.html", "Attr.prefix present (SVG)", WptDivergence.NeedsTriage),
+        new("dom/nodes/attributes.html", "*itself", WptDivergence.NeedsTriage),
+        new("dom/nodes/attributes.html", "*tests", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "Basic functionality of getAttributeNode/getAttributeNodeNS", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "Basic functionality of setAttributeNode", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "setAttributeNode doesn't have case-insensitivity even with an HTMLElement 2", WptDivergence.NeedsTriage),
@@ -1448,6 +1449,8 @@ internal static class WptBrowserExclusions
     internal static readonly WptCause[] Causes =
     [
         new("5. a DOM prototype has no @@unscopables", _5ADOMPrototypeHasNoUnscopables),
+        new("2. a `data:` URL subresource", _2ADataURLSubresource),
+        new("3. a URL's fragment is dropped", _3AURLSFragmentIsDropped),
         new("8. AngleSharp.Css refuses an unparseable media query", _8AngleSharpCssRefusesAnUnparseableMediaQuery),
         new("9. a double written with .NET's number format", _9ADoubleWrittenWithNETSNumberFormat),
         new("4b. a custom element", _4bACustomElement),
@@ -1473,7 +1476,6 @@ internal static class WptBrowserExclusions
         new("a document with no browsing context", _aDocumentWithNoBrowsingContext),
         new("the selector engine: escapes, :scope and :has", _theSelectorEngineEscapesScopeAndHas),
         new("the Selectors-API table and selector-only element states", _theSelectorsAPITableAndSelectorOnlyElementStates),
-        new("a member the standard removed and this browser still has", _aMemberTheStandardRemovedAndThisBrowserStillHas),
         new("MutationObserver's records", _mutationObserverSRecords),
         new("one assertion each", _oneAssertionEach),
     ];

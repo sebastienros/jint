@@ -109,6 +109,7 @@ internal sealed class ModelBuilder
         }
 
         BuildConstants();
+        BuildUnscopables();
 
         _model.Interfaces.AddRange(TopologicalOrder());
         VerifyOverridesMatchTheAssemblies();
@@ -1494,6 +1495,47 @@ internal sealed class ModelBuilder
     }
 
     // ---------------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// https://webidl.spec.whatwg.org/#Unscopable - the <c>[Unscopable]</c> members of each interface, from
+    /// <c>overrides.json</c>'s <c>unscopables</c> list.
+    /// </summary>
+    /// <remarks>
+    /// It runs after the members are built, because that is what makes the check possible: a name the
+    /// interface does not declare is a diagnostic rather than a key silently added to an object Web IDL
+    /// builds out of the interface's own members. The list is sorted so the emitted array is stable whatever
+    /// order the table is written in.
+    /// </remarks>
+    private void BuildUnscopables()
+    {
+        foreach (var entry in _overrides.Unscopables)
+        {
+            var model = _byClrName.Values.FirstOrDefault(m => m.DomName == entry.Interface);
+
+            if (model is null)
+            {
+                _model.Diagnostics.Add(
+                    "overrides.json marks members of '" + entry.Interface + "' unscopable (" + entry.Reason
+                    + "), which the pinned assemblies do not project.");
+                continue;
+            }
+
+            foreach (var member in entry.Members)
+            {
+                if (!model.Members.Any(m => m.DomName == member))
+                {
+                    _model.Diagnostics.Add(
+                        "overrides.json marks '" + entry.Interface + "." + member + "' unscopable ("
+                        + entry.Reason + "), but that interface declares no such member.");
+                    continue;
+                }
+
+                model.Unscopables.Add(member);
+            }
+
+            model.Unscopables.Sort(StringComparer.Ordinal);
+        }
+    }
 
     private void VerifyOverridesMatchTheAssemblies()
     {

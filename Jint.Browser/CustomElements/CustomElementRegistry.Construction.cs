@@ -77,9 +77,10 @@ internal sealed partial class CustomElementRegistry
     /// <b>The ancestor clause is a deliberate relaxation of HTML's rule, and AngleSharp is why.</b> The
     /// standard's check is that the local name's interface <i>is</i> the active function object's, and it
     /// needs a table of which local names HTML gives which interface. What is available here is what
-    /// AngleSharp builds for a local name — and AngleSharp splits <c>HTMLTableCellElement</c> into
-    /// <c>HTMLTableDataCellElement</c> and <c>HTMLTableHeaderCellElement</c>, two interfaces HTML does not
-    /// have at all, so <c>class extends HTMLTableCellElement</c> with <c>{ extends: 'th' }</c> — which is
+    /// AngleSharp builds for a local name — and it does not always agree with HTML. The table-cell split it
+    /// used to disagree about is gone (both interfaces are <c>excludedInterfaces</c> rows now), but
+    /// <c>&lt;dt&gt;</c> and <c>&lt;dd&gt;</c> still take <c>IHtmlListItemElement</c> where HTML gives them a
+    /// plain <c>HTMLElement</c>, so <c>class extends HTMLElement</c> with <c>{ extends: 'dt' }</c> — which is
     /// what every page and <c>builtin-coverage.html</c> write — would be refused against the exact rule.
     /// What the relaxation costs is the other direction: <c>class extends HTMLElement</c> with
     /// <c>{ extends: 'button' }</c> is accepted here where a browser answers a <c>TypeError</c>.
