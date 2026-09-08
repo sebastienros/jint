@@ -1,5 +1,4 @@
 using System.Text.Json;
-using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
 using Jint.Browser;
 using Jint.Browser.Dom;
@@ -11,19 +10,12 @@ namespace Jint.Tests.Browser.Forms;
 
 /// <summary>
 /// HTML §4.10.22.4's image entries and §4.10.5.1.19's selected coordinate. Exercise the shared builder
-/// directly as well as actual navigation; FormData's constructor bridge uses this same builder.
+/// through FormData construction as well as actual navigation.
 /// </summary>
 public sealed class ImageSubmitTests
 {
-    private static Task<string> Entries(Page page, string submitter = "image", string form = "f")
-        => page.RunOnLoopAsync(engine =>
-        {
-            var runtime = PageRuntime.Find(engine)!;
-            var formNode = (IHtmlFormElement) ((DomNodeObject) engine.Evaluate(form)).Node;
-            var submitterNode = submitter == "null" ? null : (IElement) ((DomNodeObject) engine.Evaluate(submitter)).Node;
-            return JsonSerializer.Serialize(FormSubmitter.ConstructEntryList(runtime, formNode, submitterNode)
-                .Select(entry => new[] { entry.Name, entry.Value.ToString() }));
-        });
+    private static Task<string?> Entries(Page page, string submitter = "image", string form = "f")
+        => page.EvaluateAsync<string>($"JSON.stringify([...new FormData({form}, {submitter})])");
 
     private static Task<bool> PointerClick(Page page, double x, double y)
         => page.RunOnLoopAsync(engine =>
@@ -210,19 +202,28 @@ public sealed class ImageSubmitTests
         (await fixture.Page.EvaluateAsync<string>("document.querySelector('pre').textContent")).Should().Be("a=1&go.x=0&go.y=0");
     }
 
-    [TestCase("get")]
-    [TestCase("post")]
-    public async Task RequestSubmitSerializesTheSameEntriesTheFormdataListenerSees(string method)
+    [TestCase("get", false)]
+    [TestCase("post", false)]
+    [TestCase("get", true)]
+    [TestCase("post", true)]
+    public async Task ConstructorAndRequestSubmitShareScalarNamesAndListenerAmendments(string method, bool loneSurrogate)
     {
         await using var fixture = await LoopbackPage.CreateAsync(server => server
             .MapHtml("/form", $"<form id=f action=/echo method={method}><input name=a value=1><input id=image type=image name=go></form>"
-                + "<script>f.onformdata=e=>e.formData.append('go.x','listener')</script>")
+                + "<script>f.onformdata=e=>e.formData.append(e.formData.keys().toArray()[1],'listener')</script>")
             .Map("/echo", request => LoopbackResponse.Html("<pre>" + System.Net.WebUtility.HtmlEncode(
                 request.Method == "GET" ? request.Query : request.Body) + "</pre>")));
         await fixture.Page.NavigateAsync(fixture.Url("/form"));
+        if (loneSurrogate)
+        {
+            await fixture.Page.EvaluateAsync("image.name = 'go\\uD800'");
+        }
+        var prefix = loneSurrogate ? "go�" : "go";
+        (await Entries(fixture.Page)).Should().Be($"""[["a","1"],["{prefix}.x","0"],["{prefix}.y","0"],["{prefix}.x","listener"]]""");
         await fixture.NavigateByScriptAsync("f.requestSubmit(image)");
 
+        var encodedPrefix = loneSurrogate ? "go%EF%BF%BD" : "go";
         (await fixture.Page.EvaluateAsync<string>("document.querySelector('pre').textContent"))
-            .Should().Be("a=1&go.x=0&go.y=0&go.x=listener");
+            .Should().Be($"a=1&{encodedPrefix}.x=0&{encodedPrefix}.y=0&{encodedPrefix}.x=listener");
     }
 }
