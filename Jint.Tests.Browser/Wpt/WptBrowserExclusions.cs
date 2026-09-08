@@ -1139,9 +1139,6 @@ internal static class WptBrowserExclusions
         // ---------------------------------------------------------------- a collection's named and indexed properties, and its liveness
         // a collection's named and indexed properties
         new("dom/collections/HTMLCollection-as-prototype.html", "HTMLCollection as a prototype and setting own properties", WptDivergence.NeedsTriage),
-        new("dom/collections/HTMLCollection-own-props.html", "Setting non-array index while named property doesn't exist (loose)", WptDivergence.NeedsTriage),
-        new("dom/collections/HTMLCollection-own-props.html", "Setting non-array index while named property doesn't exist (strict)", WptDivergence.NeedsTriage),
-        new("dom/collections/HTMLCollection-supported-property-names.html", "*later", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-getElementById.html", "*string argument.", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-getElementsByTagName.html", "HTML*", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-getElementsByTagNameNS.html", "*namespace", WptDivergence.NeedsTriage),
