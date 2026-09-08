@@ -43,15 +43,17 @@ public sealed class Test262CorpusAcquisitionTests
         try
         {
             var stream = await acquisition.LoadAsync(sha, cacheDirectory);
-
-            Assert.That(stream.Options.FileSystem.DirectoryExists("/test"), Is.True);
-            Assert.That(File.Exists(Path.Combine(cacheDirectory, $"test262-{sha}.zip")), Is.True);
-            Assert.That(calls, Has.Count.EqualTo(2));
-            Assert.That(calls.Select(static call => call.Sha), Is.All.EqualTo(sha));
-            Assert.That(calls.Select(static call => call.StagingDirectory), Is.All.Not.EqualTo(cacheDirectory));
-            Assert.That(calls.Select(static call => call.StagingDirectory).Distinct().Count(), Is.EqualTo(2));
-            Assert.That(Directory.EnumerateDirectories(cacheDirectory), Is.Empty);
-            Assert.That(delays, Is.EqualTo(new[] { TimeSpan.FromSeconds(1) }));
+            using (stream.Options.FileSystem)
+            {
+                Assert.That(stream.Options.FileSystem.DirectoryExists("/test"), Is.True);
+                Assert.That(File.Exists(Path.Combine(cacheDirectory, $"test262-{sha}.zip")), Is.True);
+                Assert.That(calls, Has.Count.EqualTo(2));
+                Assert.That(calls.Select(static call => call.Sha), Is.All.EqualTo(sha));
+                Assert.That(calls.Select(static call => call.StagingDirectory), Is.All.Not.EqualTo(cacheDirectory));
+                Assert.That(calls.Select(static call => call.StagingDirectory).Distinct().Count(), Is.EqualTo(2));
+                Assert.That(Directory.EnumerateDirectories(cacheDirectory), Is.Empty);
+                Assert.That(delays, Is.EqualTo(new[] { TimeSpan.FromSeconds(1) }));
+            }
         }
         finally
         {
@@ -93,16 +95,29 @@ public sealed class Test262CorpusAcquisitionTests
             var streams = await Task.WhenAll(
                 first.LoadAsync(sha, cacheDirectory),
                 second.LoadAsync(sha, cacheDirectory));
+            try
+            {
+                Assert.That(streams, Has.Length.EqualTo(2));
+                Assert.That(File.Exists(Path.Combine(cacheDirectory, $"test262-{sha}.zip")), Is.True);
+                Assert.That(Directory.EnumerateDirectories(cacheDirectory), Is.Empty);
 
-            Assert.That(streams, Has.Length.EqualTo(2));
-            Assert.That(File.Exists(Path.Combine(cacheDirectory, $"test262-{sha}.zip")), Is.True);
-            Assert.That(Directory.EnumerateDirectories(cacheDirectory), Is.Empty);
-
-            var offline = new Test262CorpusAcquisition(
-                (_, _) => throw new InvalidOperationException("A published cache entry must not download."),
-                _ => Task.CompletedTask,
-                TinyCorpusDigest);
-            Assert.That(await offline.LoadAsync(sha, cacheDirectory, offline: true), Is.Not.Null);
+                var offline = new Test262CorpusAcquisition(
+                    (_, _) => throw new InvalidOperationException("A published cache entry must not download."),
+                    _ => Task.CompletedTask,
+                    TinyCorpusDigest);
+                var offlineStream = await offline.LoadAsync(sha, cacheDirectory, offline: true);
+                using (offlineStream.Options.FileSystem)
+                {
+                    Assert.That(offlineStream, Is.Not.Null);
+                }
+            }
+            finally
+            {
+                foreach (var stream in streams)
+                {
+                    stream.Options.FileSystem.Dispose();
+                }
+            }
         }
         finally
         {
@@ -129,10 +144,12 @@ public sealed class Test262CorpusAcquisitionTests
         try
         {
             var stream = await acquisition.LoadAsync(sha, cacheDirectory, offline: true);
-
-            Assert.That(stream.Options.FileSystem.DirectoryExists("/harness"), Is.True);
-            Assert.That(stream.Options.FileSystem.DirectoryExists("/test"), Is.True);
-            Assert.That(downloadCalls, Is.Zero);
+            using (stream.Options.FileSystem)
+            {
+                Assert.That(stream.Options.FileSystem.DirectoryExists("/harness"), Is.True);
+                Assert.That(stream.Options.FileSystem.DirectoryExists("/test"), Is.True);
+                Assert.That(downloadCalls, Is.Zero);
+            }
         }
         finally
         {
