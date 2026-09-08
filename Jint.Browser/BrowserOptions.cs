@@ -296,10 +296,12 @@ public sealed class BrowserOptions
     /// page nobody is driving pays nothing for this at all.
     /// </para>
     /// <para>
-    /// It is a bound on the <i>total</i> the page holds rather than on one body, and the oldest capture is
-    /// dropped to stay under it — so <c>Network.getResponseBody</c> for a request a client waited too long to
-    /// ask about answers that there is no body rather than the page growing without limit. A single response
-    /// larger than the whole budget is not kept at all, because half a body is not the body.
+    /// It counts retained response payload bytes, including in-progress captures, rather than one body.
+    /// Backing-buffer capacity and protocol strings are additional allocations, not a process-memory bound.
+    /// The oldest capture is dropped to stay under it — so <c>Network.getResponseBody</c> for a request a
+    /// client waited too long to ask about answers that there is no body rather than the page growing without
+    /// limit. A single response larger than the whole budget is not kept at all, because half a body is not
+    /// the body.
     /// </para>
     /// </remarks>
     /// <exception cref="ArgumentOutOfRangeException">The value is negative.</exception>
