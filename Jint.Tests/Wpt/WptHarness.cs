@@ -29,7 +29,9 @@ internal readonly record struct WptTestResult(string Name, string Status, string
 /// top level, a missing vendored resource, or the harness never reporting itself complete. It is deliberately
 /// nothing a per-test exclusion can cover, because there is no test to name.
 /// </param>
-internal sealed record WptRunOutcome(IReadOnlyList<WptTestResult> Results, string? HarnessError);
+/// <param name="TimerClockEvidence">The controlled lane's pump counts and independent timer/host elapsed time.</param>
+internal sealed record WptRunOutcome(
+    IReadOnlyList<WptTestResult> Results, string? HarnessError, string? TimerClockEvidence = null);
 
 /// <summary>
 /// The driver's <see cref="DiagnosticsSink"/>, and the reason every engine it builds has one.
@@ -157,9 +159,9 @@ internal sealed class WptDiagnosticsSink : DiagnosticsSink
 /// for the harness. The streams corpus is what cashed that in: it reaches for <c>step_timeout</c> — the shim
 /// forwards it straight onto the engine's <c>setTimeout</c> — at 45 sites, through <c>delay()</c> and
 /// <c>flushAsyncEvents()</c> in <c>streams/resources/test-utils.js</c> and directly, so several hundred of
-/// its assertions are decided by the queue's own ordering. The clock is <see cref="TimeProvider.System"/> and
-/// the drive loop below is what pumps it: a timer fires on a <c>ProcessTasks</c> at or after its due time,
-/// exactly as it does for an embedder.
+/// its assertions are decided by the queue's own ordering. The clock is <see cref="TimeProvider.System"/>,
+/// except for the one source-pinned pure-timer file admitted by <see cref="WptTimerClock"/>. That file
+/// advances timer time only between drained pumps; every lane still exercises the shipped queue.
 /// </para>
 /// <para>
 /// <b>The engine also carries the fetch object model, and pointedly not <c>fetch</c>.</b>
@@ -192,9 +194,8 @@ internal sealed class WptDiagnosticsSink : DiagnosticsSink
 internal static class WptHarness
 {
     /// <summary>
-    /// A runaway guard, not an assertion: nothing in the corpus is timing-dependent, and a file that has not
-    /// reported itself complete by now is hung rather than slow. Generous enough that a loaded CI machine
-    /// running the suites in parallel cannot reach it.
+    /// A real-time runaway guard, independent of the controlled timer clock. Reaching it is a harness
+    /// failure, never a reason to retry or discard a result. Individual corpus watchdogs remain unchanged.
     /// </summary>
     private static readonly TimeSpan _harnessDeadline = TimeSpan.FromMinutes(5);
 
@@ -659,10 +660,14 @@ internal static class WptHarness
             ? new WptWorkerProvider(moduleSource: null, directory, sink)
             : null;
 
-        var engine = BuildEngine(directory, sink, workers, IsServerBacked(sourceName), sourceName, IsBlobUrlBacked(sourceName));
-
+        Engine? engine = null;
+        WptTimerClock? timerClock = null;
         try
         {
+            timerClock = WptTimerClock.ForFile(sourceName, source, WptCorpus.Prelude, metaScripts.Count != 0);
+            engine = BuildEngine(directory, sink, workers, IsServerBacked(sourceName), sourceName,
+                IsBlobUrlBacked(sourceName), timerClock);
+
             // Before the shim, which reads it: `setup({single_test: true})` names its one test after the file.
             engine.SetValue("__wptTestFile", sourceName);
 
@@ -693,9 +698,11 @@ internal static class WptHarness
             // Pump to completion first and read afterwards: the shim records a test's outcome when it
             // finishes, so reading before the drive loop has run would report every async test as NOTRUN.
             var stalled = Outstanding(engine) is { } outstanding
-                ? Pump(engine, outstanding, workers, IsServerBacked(sourceName))
+                ? Pump(engine, outstanding, workers, IsServerBacked(sourceName), timerClock)
                 : "the harness shim did not install __wpt";
-            return new WptRunOutcome(ReadResults(engine), stalled ?? UndeclaredCallbackErrors(engine, sink));
+            // A resumption after the real deadline is unsuccessful even if that last pump reported done().
+            var error = stalled ?? UndeclaredCallbackErrors(engine, sink) ?? timerClock?.DeadlineError(_harnessDeadline);
+            return new WptRunOutcome(ReadResults(engine), error, timerClock?.Evidence);
         }
         catch (Exception ex)
         {
@@ -704,14 +711,14 @@ internal static class WptHarness
             List<WptTestResult> partial;
             try
             {
-                partial = ReadResults(engine);
+                partial = engine is null ? [] : ReadResults(engine);
             }
             catch
             {
                 partial = [];
             }
 
-            return new WptRunOutcome(partial, Describe(ex));
+            return new WptRunOutcome(partial, Describe(ex), timerClock?.Evidence);
         }
     }
 
@@ -771,7 +778,8 @@ internal static class WptHarness
         WptWorkerProvider? workers = null,
         bool serverBacked = false,
         string? sourceName = null,
-        bool blobUrlBacked = false)
+        bool blobUrlBacked = false,
+        WptTimerClock? timerClock = null)
     {
         Debug.Assert(!serverBacked || sourceName is not null, "the server lane needs the file's own URL");
 
@@ -837,6 +845,10 @@ internal static class WptHarness
             // corpus was written for. See WptDiagnosticsSink for the whole rationale, including why the
             // reports are recorded rather than discarded.
             options.WebApi.Diagnostics.Sink = sink;
+            if (timerClock is not null)
+            {
+                options.WebApi.Timers.TimeProvider = timerClock;
+            }
 
             // Only for a file in the workers/ corpus — the worker lane's parent, and the one top-level file
             // that creates workers of its own. An engine that no vendored file asks to create a worker from is
@@ -919,7 +931,8 @@ internal static class WptHarness
         Engine engine,
         ObjectInstance outstanding,
         WptWorkerProvider? workers = null,
-        bool offThreadWorkPossible = false)
+        bool offThreadWorkPossible = false,
+        WptTimerClock? timerClock = null)
     {
         var started = Stopwatch.GetTimestamp();
         var lastProgress = started;
@@ -927,6 +940,12 @@ internal static class WptHarness
 
         while (!IsComplete(outstanding))
         {
+            if (timerClock?.DeadlineError(_harnessDeadline) is { } deadlineError)
+            {
+                return Stalled(outstanding, deadlineError);
+            }
+
+            timerClock?.RecordPump();
             engine.Tasks.ProcessTasks();
 
             // The same cooperative rule the worker lane's loop uses, and for the same reason: a message
@@ -979,9 +998,18 @@ internal static class WptHarness
 
             if (untilDue > TimeSpan.Zero)
             {
-                // Sleep no longer than the engine's own next due time, and cap it so the deadline above
-                // stays responsive however far out that is.
-                Thread.Sleep(untilDue < TimeSpan.FromMilliseconds(10) ? untilDue : TimeSpan.FromMilliseconds(10));
+                if (timerClock is not null)
+                {
+                    // ProcessTasks drained the real queue, including transitive microtasks, before time
+                    // moves. This admitted file has no other clock or off-thread source of work.
+                    timerClock.Advance(untilDue);
+                }
+                else
+                {
+                    // Sleep no longer than the engine's own next due time, and cap it so the deadline above
+                    // stays responsive however far out that is.
+                    Thread.Sleep(untilDue < TimeSpan.FromMilliseconds(10) ? untilDue : TimeSpan.FromMilliseconds(10));
+                }
             }
         }
 

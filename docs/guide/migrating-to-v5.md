@@ -5522,6 +5522,35 @@ serialization read the prototype accessor through JavaScript `[[Get]]`. The host
 without one those operations observe length zero. Jint's DOM collection wrappers opt out, matching browser
 prototype placement and making a redefined `NodeList.prototype.length` visible to every consuming lane.
 
+### 4.135 Realm construction restores the caller after failure or nesting ([#3917](https://github.com/sebastienros/jint/issues/3917))
+
+A `Host` subclass that creates an additional realm through `base.CreateRealm()` can throw from
+`CreateIntrinsics` or `CreateGlobalObject` without leaving the engine pointed at the incomplete realm.
+If a factory creates another realm, completing or catching a failure from that inner construction restores
+the outer construction realm before the factory continues. Previously an inner success cleared that state,
+and a failure could leave the failed realm active.
+
+No host code change is needed. This restores temporary construction state; it does not add a public
+realm scope, change execution budgets, or roll back host-owned objects created before a factory threw.
+
+### 4.136 Host array-likes can use WebIDL assignment semantics ([#3929](https://github.com/sebastienros/jint/issues/3929))
+
+`ArrayLikeObject` adds the protected `IgnoreNamedPropertiesInSet` switch, defaulting to `false`. Existing
+host subclasses retain ordinary assignment semantics: an inherited read-only projected name prevents an
+assignment from creating an own property on the receiver. WebIDL-style hosts can opt in:
+
+```csharp
+protected override bool IgnoreNamedPropertiesInSet => true;
+```
+
+The opt-in skips the projected named getter when assignment selects its descriptor. An object created with
+`Object.create(collection)` can therefore assign its own property over a projected name. Reads remain live,
+indexed properties retain their descriptors, and ordinary stored properties and prototype setters still
+participate. Assignment to the collection itself still uses its property-definition rules; a read-only
+projected name cannot be replaced. A named setter still handles writes to the collection first.
+
+Jint's `HTMLCollection` wrappers opt in, matching WebIDL's legacy-platform-object `[[Set]]` algorithm.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

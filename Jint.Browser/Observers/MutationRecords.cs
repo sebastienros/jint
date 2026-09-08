@@ -61,6 +61,51 @@ internal sealed class DeliveredMutationRecord : IMutationRecord
     public string PreviousValue => _record.PreviousValue!;
 }
 
+/// <summary>The one child-list record DOM queues for a replace-all operation.</summary>
+internal sealed class ReplaceAllMutationRecord(INode target, INode[] added, INode[] removed) : IMutationRecord
+{
+    private readonly INodeList _added = new SnapshotNodeList(added);
+    private readonly INodeList _removed = new SnapshotNodeList(removed);
+
+    public string Type => "childList";
+
+    public INode Target { get; } = target;
+
+    public INodeList Added => _added;
+
+    public INodeList Removed => _removed;
+
+    public INode PreviousSibling => null!;
+
+    public INode NextSibling => null!;
+
+    public string AttributeName => null!;
+
+    public string AttributeNamespace => null!;
+
+    public string PreviousValue => null!;
+}
+
+/// <summary>A stable node-list snapshot used by a synthesized mutation record.</summary>
+internal sealed class SnapshotNodeList(INode[] nodes) : INodeList
+{
+    public INode this[int index] => nodes[index];
+
+    public int Length => nodes.Length;
+
+    public IEnumerator<INode> GetEnumerator() => ((IEnumerable<INode>) nodes).GetEnumerator();
+
+    IEnumerator IEnumerable.GetEnumerator() => nodes.GetEnumerator();
+
+    public void ToHtml(TextWriter writer, IMarkupFormatter formatter)
+    {
+        foreach (var node in nodes)
+        {
+            node.ToHtml(writer, formatter);
+        }
+    }
+}
+
 /// <summary>
 /// The <c>NodeList</c> an attribute or character-data record answers for its added and removed nodes.
 /// </summary>

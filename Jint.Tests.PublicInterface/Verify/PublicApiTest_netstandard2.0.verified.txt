@@ -1389,6 +1389,7 @@ namespace Jint.Native.Object
     public abstract class ArrayLikeObject : Jint.Native.Object.ObjectInstance
     {
         protected ArrayLikeObject(Jint.Engine engine) { }
+        protected virtual bool IgnoreNamedPropertiesInSet { get; }
         public abstract uint Length { get; }
         protected virtual int NameCount { get; }
         protected virtual bool OwnsLength { get; }
