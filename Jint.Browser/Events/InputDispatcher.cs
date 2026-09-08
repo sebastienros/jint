@@ -1,6 +1,7 @@
 ﻿using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
 using Jint.Browser.Dom;
+using Jint.Browser.Layout;
 using Jint.Browser.Runtime;
 using Jint.Native;
 using Jint.WebApi.Events;
@@ -127,12 +128,12 @@ internal static class InputDispatcher
         switch (input.Kind)
         {
             case MouseInputKind.Moved:
-                Pointer(target, "pointermove", options, cancelable: true);
+                Pointer(target, "pointermove", options, cancelable: true, layout);
                 Mouse(target, "mousemove", options, cancelable: true);
                 return;
 
             case MouseInputKind.Pressed:
-                Pointer(target, "pointerdown", options, cancelable: true);
+                Pointer(target, "pointerdown", options, cancelable: true, layout);
 
                 if (Mouse(target, "mousedown", options, cancelable: true)
                     && NearestFocusable(hit) is { } focusTarget)
@@ -144,7 +145,7 @@ internal static class InputDispatcher
                 return;
 
             case MouseInputKind.Released:
-                Pointer(target, "pointerup", options, cancelable: true);
+                Pointer(target, "pointerup", options, cancelable: true, layout);
                 Mouse(target, "mouseup", options, cancelable: true);
 
                 var clicked = dom.WrapNode(CommonAncestor(events.MousePressTarget, hit) ?? hit);
@@ -173,7 +174,7 @@ internal static class InputDispatcher
                 return;
 
             case MouseInputKind.Wheel:
-                if (Wheel(target, options, input.DeltaX, input.DeltaY))
+                if (Wheel(target, options, input.DeltaX, input.DeltaY, layout))
                 {
                     runtime.Layout.ScrollBy(input.DeltaY);
                 }
@@ -193,8 +194,12 @@ internal static class InputDispatcher
     }
 
     /// <summary>Dispatches one <c>PointerEvent</c>, answering whether nothing cancelled it.</summary>
-    private static bool Pointer(DomNodeObject target, string type, in ClickOptions options, bool cancelable)
-        => target.DispatchEvent(PointerEvent(target, type, options, cancelable));
+    private static bool Pointer(DomNodeObject target, string type, in ClickOptions options, bool cancelable, FlatLayout layout)
+    {
+        var ev = PointerEvent(target, type, options, cancelable);
+        PrepareOffsets(ev, target, layout);
+        return target.DispatchEvent(ev);
+    }
 
     /// <summary>Dispatches one <c>MouseEvent</c>, answering whether nothing cancelled it.</summary>
     private static bool Mouse(DomNodeObject target, string type, in ClickOptions options, bool cancelable)
@@ -216,7 +221,7 @@ internal static class InputDispatcher
     }
 
     /// <summary>Dispatches one <c>WheelEvent</c>, answering whether nothing cancelled it.</summary>
-    private static bool Wheel(DomNodeObject target, in ClickOptions options, double deltaX, double deltaY)
+    private static bool Wheel(DomNodeObject target, in ClickOptions options, double deltaX, double deltaY, FlatLayout layout)
     {
         var realm = BrowserEventRealm.Of(target.DomRealm.Engine);
         var ev = new JsWheelEvent(
@@ -237,7 +242,19 @@ internal static class InputDispatcher
 
         ev._prototype = realm.PrototypeOf(BrowserEventInterfaces.WheelEvent);
         ev.IsTrusted = true;
+        PrepareOffsets(ev, target, layout);
         return target.DispatchEvent(ev);
+    }
+
+    private static void PrepareOffsets(JsMouseEvent ev, DomNodeObject target, FlatLayout layout)
+    {
+        // The hit-test query precedes every listener. Reuse it only for the first event: a pointer
+        // listener can move the target before the following mouse/click event begins. Keeping just
+        // these numbers adds no layout walk and retains no query across a callback.
+        if (target.Node is IElement element && layout.ClientBoxOf(element) is { } box)
+        {
+            ev.PrepareOffsets(ev.ClientX - box.X, ev.ClientY - box.Y);
+        }
     }
 
     /// <summary>
