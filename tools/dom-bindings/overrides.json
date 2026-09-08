@@ -340,9 +340,9 @@
       "length": 0,
       "body": [
         "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IImplementation>(thisObj, \"DOMImplementation.createHTMLDocument\");",
-        "return self.Realm.WrapNodeValue(self.Target.CreateHtmlDocument(global::Jint.Browser.Dom.DomConvert.OptionalText(args, 0, \"\")!));"
+        "return global::Jint.Browser.Dom.Views.DomViewMembers.CreateHtmlDocument(self.Realm, self.Target, args);"
       ],
-      "reason": "DOM §4.5.1: the title is optional. The one divergence left is AngleSharp's: an omitted title still produces an empty <title> element, where the standard creates none at all."
+      "reason": "DOM §4.5.1: the title is optional, and step 6 creates the <title> element only when one is given. AngleSharp's CreateHtmlDocument takes a required string and always appends the element, so `createHTMLDocument()` and `createHTMLDocument(\"\")` were indistinguishable; DomViewMembers.CreateHtmlDocument removes the element the standard never asked for."
     },
     {
       "interface": "Document",
@@ -1577,6 +1577,13 @@
       "reason": "DOM 4.5: the content type the algorithm that created the document gave it -- createDocument derives one from the namespace, the Document() constructor states application/xml, and DOMParser uses the type it was handed. AngleSharp's Document.ContentType setter is protected and AngleSharp.Xml's document types have internal constructors, so DomContentType carries the value on the browsing context instead."
     },
     {
+      "interface": "Node",
+      "member": "nodeName",
+      "half": "getter",
+      "hook": "NodeName",
+      "reason": "DOM §4.4 defines nodeName for an element as the same HTML-uppercased qualified name tagName answers, so the two cannot disagree. AngleSharp decides both on the namespace alone; hooking only tagName would leave an element in an XML document answering div from one member and DIV from the other."
+    },
+    {
       "interface": "Element",
       "member": "tagName",
       "half": "getter",
@@ -1598,6 +1605,14 @@
       "hook": "CreateElementNS",
       "returns": true,
       "reason": "The namespaced half, which answers a plain element for every namespace but HTML's."
+    },
+    {
+      "interface": "Node",
+      "member": "isEqualNode",
+      "half": "operation",
+      "hook": "IsEqualNode",
+      "returns": true,
+      "reason": "DOM §4.4's node equality. AngleSharp's INode.Equals opens by comparing the two nodes' base URLs, which the algorithm does not mention, and leaves out a doctype's public and system identifiers, a CharacterData's data and a ProcessingInstruction's data, while comparing an attribute's prefix the algorithm deliberately ignores. DomNodeEquality states the algorithm over the same tree, and the hook takes the IDL argument as the Node? it is -- isEqualNode(null) was a TypeError."
     },
     {
       "interface": "Node",

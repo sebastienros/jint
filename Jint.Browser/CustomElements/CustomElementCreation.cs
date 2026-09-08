@@ -59,15 +59,27 @@ internal static class CustomElementCreation
     /// reaction run when the <c>[CEReactions]</c> operation returns.
     /// </summary>
     /// <remarks>
-    /// The <c>deep</c> default is AngleSharp's rather than DOM's, unchanged from what the generated member
-    /// passed: this replaces the body to upgrade what it produced and nothing else.
+    /// The <c>deep</c> default is DOM's own — <c>optional boolean deep = false</c> — rather than the
+    /// <see langword="true"/> AngleSharp's <c>INode.Clone</c> takes when nothing passes one. A shallow clone
+    /// is what <c>node.cloneNode()</c> means in every browser, and the difference is observable the moment a
+    /// page clones a node that has children.
     /// </remarks>
     internal static JsValue CloneNode(DomRealm realm, INode node, JsValue[] arguments)
     {
         // `new Document()` and an XML parse share AngleSharp's IXmlDocument runtime type, while WebIDL gives
         // only the parse the XMLDocument brand. Carry the source wrapper's choice through DOM's clone steps.
         var documentDefinition = node is IDocument ? realm.WrapNode(node).Definition : null;
-        var clone = node.Clone(DomConvert.OptionalBool(arguments, 0, true));
+        var clone = node.Clone(DomConvert.OptionalBool(arguments, 0, false));
+
+        // DOM's clone steps for a ProcessingInstruction are "set copy's target to node's target and copy's
+        // data to node's data". AngleSharp's clone carries the target and drops the data, so
+        // `document.createProcessingInstruction('t', 'd').cloneNode().data` was the empty string; the
+        // divergence register records it.
+        if (node is IProcessingInstruction instruction && clone is IProcessingInstruction copy)
+        {
+            copy.Data = instruction.Data;
+        }
+
         Dom.Files.FileTransferRealm.ResetCopiedInputs(clone);
         CustomElementRegistry.SubtreeCreated(realm, clone);
         return documentDefinition is null ? realm.WrapNodeValue(clone) : realm.Wrap(clone, documentDefinition);

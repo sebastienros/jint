@@ -1318,11 +1318,22 @@ internal static class WptBrowserExclusions
         new("dom/nodes/Node-nodeValue.html", "Text*", WptDivergence.NeedsTriage),
     ];
 
+    // ---------------------------------------------------------------- a document upstream runs once per variant
+    private static readonly WptExclusion[] _aDocumentUpstreamRunsOncePerVariant =
+    [
+        // Not about Range at all, which is what triaging the two rows one at a time said. The document
+        // declares `<meta name="variant" content="?mode=open">` and its closed sibling, and reads the mode
+        // out of location.search; upstream's runner turns each variant into a case of its own and this lane
+        // serves the bare path, so `mode` is null and `attachShadow({mode: null})` is the TypeError WebIDL's
+        // enum conversion owes a browser too. Running variants changes how a case is enumerated -- the case
+        // source, the minimum-test keys, the exclusion keys and both census columns -- so it is a change to
+        // the lane rather than to the engine.
+        new("dom/ranges/Range-in-shadow-after-the-shadow-removed.html", "*", WptDivergence.NeedsTriage),
+    ];
+
     // ---------------------------------------------------------------- Range's own algorithms
     private static readonly WptExclusion[] _rangeSOwnAlgorithms =
     [
-        // Range's remaining algorithms
-        new("dom/ranges/Range-in-shadow-after-the-shadow-removed.html", "*", WptDivergence.NeedsTriage),
         // A live range is adjusted by DOM's own remove steps whatever document the removed node is in.
         // AngleSharp keeps its ranges on the document, so a container moved into another document with
         // appendChild leaves the range behind and removing its only child no longer collapses it. The two
@@ -1348,9 +1359,9 @@ internal static class WptBrowserExclusions
     // ---------------------------------------------------------------- a document with no browsing context
     private static readonly WptExclusion[] _aDocumentWithNoBrowsingContext =
     [
-        // a document with no browsing context, and what createHTMLDocument makes
+        // A document with no browsing context. The one row left is an implementation saved from an iframe
+        // whose element has since been removed, which needs a frame that runs script of its own.
         new("dom/nodes/DOMImplementation-createHTMLDocument-with-saved-implementation.html", "*", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createHTMLDocument.html", "*\",\"\"", WptDivergence.NeedsTriage),
     ];
 
     // ---------------------------------------------------------------- the selector engine: escapes, :scope and :has
@@ -1415,23 +1426,24 @@ internal static class WptBrowserExclusions
     // ---------------------------------------------------------------- one assertion each
     private static readonly WptExclusion[] _oneAssertionEach =
     [
-        // one assertion each; see Wpt/README.md
+        // one assertion each; see Wpt/README.md. What is left after DOM 4.4's node equality, the two IDL
+        // `deep = false` defaults and NamedNodeMap's supported property names moved into the bindings is
+        // named below by what each row actually is.
+
+        // ChildNode.before/after/replaceWith with the context object itself among the arguments. DOM
+        // computes the viable sibling before it converts the nodes into one, so the removal the conversion
+        // performs cannot invalidate it; AngleSharp's IChildNode members work the other way round and raise
+        // NotFoundError. The remaining `before` rows belong to the union-parameter cause.
         new("dom/nodes/ChildNode-after.html", "*positions.", WptDivergence.NeedsTriage),
         new("dom/nodes/ChildNode-before.html", "*positions.", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElementNS.html", "Upper-case HTML*", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElementNS.html", "createElementNS test in HTML*:o\",null", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElementNS.html", "createElementNS test in HTML*̀\",null", WptDivergence.NeedsTriage),
         // The members #3768 added, and what the corpus says about them once they are reachable. Each is
-        // AngleSharp's: an Attr write does not carry its new value to the attribute observer, a parser-
-        // inserted namespaced attribute records no prefix, and IChildNode.Replace converts its arguments
-        // before it checks whether the child has a parent at all.
+        // AngleSharp's: a parser-inserted namespaced attribute records no prefix, and IChildNode.Replace
+        // converts its arguments before it checks whether the child has a parent at all.
         new("dom/nodes/Attr-prefix.html", "Attr.prefix present (SVG)", WptDivergence.NeedsTriage),
         new("dom/nodes/ChildNode-replaceWith.html", "*with one sibling of child and child itself as arguments.", WptDivergence.NeedsTriage),
-        // importNode's clone belongs to the importing document now, so the two rows that asked about that
-        // pass. What is left is the argument default: DOM declares `optional boolean deep = false` on both
-        // importNode and cloneNode, and both members pass AngleSharp's own default of true.
-        new("dom/nodes/Document-importNode.html", "No 'deep' argument.", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-importNode.html", "Undefined 'deep' argument.", WptDivergence.NeedsTriage),
         // The one metadata row of createDocument that is not about a refused name. Its namespace is the
         // XHTML one, so DOM gives the document the content type application/xhtml+xml and createElement
         // puts the element in the HTML namespace while keeping its case (steps 2 and 4) -- and
@@ -1449,8 +1461,17 @@ internal static class WptBrowserExclusions
         new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: *,\"foo:\",null,\"INVALID_CHARACTER_ERR\"", WptDivergence.NeedsTriage),
         new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: null,\":\",null,\"INVALID_CHARACTER_ERR\"", WptDivergence.NeedsTriage),
         new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: \"http://example.com/\",\"a:0\",null,\"INVALID_CHARACTER_ERR\"", WptDivergence.NeedsTriage),
+        // Attribute selection and ordering. DOM keys the attribute list on (namespace, local name) and
+        // selects for setAttribute/removeAttribute/getAttribute on the *qualified* name, so an element can
+        // hold two attributes spelling the same qualified name in different namespaces and the first one
+        // wins. AngleSharp collapses them, which is one defect showing up as a dozen assertions.
         new("dom/nodes/Element-removeAttribute.html", "*", WptDivergence.NeedsTriage),
         new("dom/nodes/Element-setAttribute.html", "*namespace", WptDivergence.NeedsTriage),
+
+        // Element-name identity: an element created with createElementNS keeps the case it was given, and
+        // an attribute keeps its prefix through a clone. AngleSharp's element factory ASCII-lowercases the
+        // local name it is handed whatever the namespace, so createElementNS(SVG, "SVG") is <svg>, and both
+        // tagName and nodeName answer about the same wrong name.
         new("dom/nodes/Element-tagName.html", "tagName should not*.", WptDivergence.NeedsTriage),
         new("dom/nodes/Node-cloneNode-svg.html", "cloned <use>'*", WptDivergence.NeedsTriage),
         new("dom/nodes/Node-cloneNode.html", "*createHTMLDocument", WptDivergence.NeedsTriage),
@@ -1465,15 +1486,36 @@ internal static class WptBrowserExclusions
         // about:blank.
         new("dom/nodes/Node-isEqualNode.html", "documents*", WptDivergence.NeedsTriage),
         new("dom/nodes/Node-nodeName.html", "*tagName.", WptDivergence.NeedsTriage),
+        new("dom/nodes/Node-nodeName.html", "*tagName.", WptDivergence.NeedsTriage),
+
+        // Four element interfaces the pinned assemblies declare no [DomName] for, so nothing could be
+        // generated: <dir>, <dl>, <font> and <frame> are all plain IHtmlElement to AngleSharp, and each row
+        // is `assert_true(typeName in window)`. The HTMLDListElement half of it is the cause the table
+        // already names for reflection-grouping.html.
+        new("dom/nodes/Node-cloneNode.html", "*(frame)", WptDivergence.NeedsTriage),
+        new("dom/nodes/Node-cloneNode.html", "*dir)", WptDivergence.NeedsTriage),
+        new("dom/nodes/Node-cloneNode.html", "*dl)", WptDivergence.NeedsTriage),
+        new("dom/nodes/Node-cloneNode.html", "*font)", WptDivergence.NeedsTriage),
+
+        // replaceChild: the pre-insert validity checks DOM makes before it touches the tree, and replacing
+        // a node with itself.
         new("dom/nodes/Node-replaceChild.html", "*node", WptDivergence.NeedsTriage),
         new("dom/nodes/Node-replaceChild.html", "If*work.", WptDivergence.NeedsTriage),
+
+        // The rest of the attribute-list defect above: an element cannot hold two attributes whose qualified
+        // names are equal, so the first-set-wins reads and the own-property lists are short by one.
         new("dom/nodes/attributes.html", "First*", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "Own property correctness with non-namespaced attribute before same-name namespaced one", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "Own property correctness with namespaced attribute before same-name non-namespaced one", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "Own property correctness with two namespaced attributes with the same name-with-prefix", WptDivergence.NeedsTriage),
-        new("dom/nodes/attributes.html", "Own property names should only include all-lowercase qualified names for an HTML element in an HTML document", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "Setting*", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "setAttribute*name", WptDivergence.NeedsTriage),
+
+        // accessKeyLabel: AngleSharp answers the raw accesskey content attribute, where HTML's is a label
+        // for the element's *assigned* access key -- a key combination this browser has no keyboard to
+        // decide. `accesskey="s 0"` is two valid one-code-point tokens by the specification's own reading,
+        // so the rule that makes this row pass is not one the standard states, and Chromium answers
+        // undefined for the member altogether. Recorded rather than guessed at.
         new("html/dom/access-key-label.html", "*invalid", WptDivergence.NeedsTriage),
     ];
 
@@ -1509,6 +1551,7 @@ internal static class WptBrowserExclusions
         new("DOM's validate-and-extract, and the XML name productions", _dOMSValidateAndExtractAndTheXMLNameProductions),
         new("a name AngleSharp refuses that the standard allows", _aNameAngleSharpRefusesThatTheStandardAllows),
         new("a nullable DOMString answers the string \"null\"", _aNullableDOMStringAnswersTheStringNull),
+        new("a document upstream runs once per variant", _aDocumentUpstreamRunsOncePerVariant),
         new("Range's own algorithms", _rangeSOwnAlgorithms),
         new("an event interface this browser does not build", _anEventInterfaceThisBrowserDoesNotBuild),
         new("a document with no browsing context", _aDocumentWithNoBrowsingContext),

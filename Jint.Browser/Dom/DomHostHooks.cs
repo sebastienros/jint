@@ -231,6 +231,20 @@ internal class DomHostHooks
                 : qualified);
     }
 
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#dom-node-nodename — for an element, the same
+    /// <a href="https://dom.spec.whatwg.org/#element-html-uppercased-qualified-name">HTML-uppercased
+    /// qualified name</a> <see cref="TagName"/> answers, and AngleSharp's own answer for everything else.
+    /// </summary>
+    /// <remarks>
+    /// DOM defines the two in terms of one name, so they cannot disagree; AngleSharp decides both on the
+    /// namespace alone, so hooking only <c>tagName</c> would have left an element in an XML document
+    /// answering <c>div</c> from one member and <c>DIV</c> from the other. It delegates rather than repeats,
+    /// which is what keeps a host that overrides <see cref="TagName"/> answering one name from both.
+    /// </remarks>
+    internal virtual JsValue NodeName(DomRealm realm, INode node)
+        => node is IElement element ? TagName(realm, element) : JsString.Create(node.NodeName);
+
     private static string AsciiUppercase(string value)
     {
         char[]? copy = null;
@@ -356,10 +370,20 @@ internal class DomHostHooks
         => CustomElements.CustomElementCreation.CloneNode(realm, node, arguments);
 
     /// <summary>
+    /// https://dom.spec.whatwg.org/#dom-node-isequalnode — DOM §4.4's node equality, which
+    /// <see cref="DomNodeEquality"/> states over the same tree because AngleSharp's <c>Node.Equals</c>
+    /// compares a base URL the standard never mentions and leaves out data the standard requires.
+    /// </summary>
+    internal virtual JsValue IsEqualNode(DomRealm realm, INode node, JsValue[] arguments)
+        => DomConvert.Bool(
+            DomNodeEquality.AreEqual(node, DomBindings.NullableArgument<INode>(arguments, 0, "Node.isEqualNode")));
+
+    /// <summary>
     /// https://dom.spec.whatwg.org/#dom-document-importnode — "return the result of cloning a node given
-    /// node with <b>document set to this</b>". Two things AngleSharp's <c>Import</c> leaves out: DOM's
-    /// import steps do not copy a file input's selected files, and the clone's node document is the
-    /// <i>source</i> document rather than this one.
+    /// node with <b>document set to this</b>". Three things AngleSharp's <c>Import</c> leaves out: DOM's
+    /// import steps do not copy a file input's selected files, the clone's node document is the
+    /// <i>source</i> document rather than this one, and the IDL default for <c>deep</c> is
+    /// <see langword="false"/> where <c>Import</c>'s own is <see langword="true"/>.
     /// </summary>
     /// <remarks>
     /// The second one is why the clone is adopted afterwards, which is the step DOM folds into "cloning a
@@ -373,7 +397,7 @@ internal class DomHostHooks
     {
         var imported = document.Import(
             DomBindings.Argument<INode>(arguments, 0, "Document.importNode"),
-            DomConvert.OptionalBool(arguments, 1, true));
+            DomConvert.OptionalBool(arguments, 1, false));
 
         if (imported is not IAttr && !ReferenceEquals(imported.Owner, document))
         {
