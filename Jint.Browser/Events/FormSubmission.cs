@@ -241,7 +241,7 @@ internal static class FormSubmission
         _ => false,
     };
 
-    private static IHtmlFormElement? FormOwnerOf(IHtmlElement element) => element switch
+    internal static IHtmlFormElement? FormOwnerOf(IHtmlElement element) => element switch
     {
         IHtmlButtonElement button => button.Form,
         IHtmlInputElement input => input.Form,

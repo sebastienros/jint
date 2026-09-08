@@ -98,6 +98,10 @@ internal static class FormSubmitter
         }
 
         var entries = ConstructEntryList(runtime, form, submitter);
+        if (entries is null)
+        {
+            return;
+        }
 
         // target=_blank opens a new page in a browser; there is no page-opening seam in this version, so
         // every target loads here and the page is told rather than left wondering.
@@ -164,10 +168,14 @@ internal static class FormSubmitter
     /// https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#constructing-the-form-data-set,
     /// including the <c>formdata</c> event a script may amend the result in.
     /// </summary>
-    internal static List<FormDataEntry> ConstructEntryList(PageRuntime runtime, IHtmlFormElement form, IElement? submitter)
+    internal static List<FormDataEntry>? ConstructEntryList(PageRuntime runtime, IHtmlFormElement form, IElement? submitter)
     {
+        if (!runtime.SubmittingForms.Add(form))
+        {
+            return null;
+        }
+
         var entries = new List<FormDataEntry>();
-        runtime.SubmittingForms.Add(form);
 
         try
         {
