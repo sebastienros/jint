@@ -1129,9 +1129,7 @@ internal static class WptBrowserExclusions
         new("dom/nodes/processing-instruction-attributes.html", "Distinct attribute name (source: html*", WptDivergence.NeedsXmlDocuments),
         new("dom/nodes/processing-instruction-attributes.html", "Distinct attribute name (source: xml-dom*", WptDivergence.NeedsXmlDocuments),
         new("dom/nodes/processing-instruction-attributes.html", "Processing*", WptDivergence.NeedsXmlDocuments),
-        // Range and an Attr node: the constructor and attribute nodes reach these tests now, and two of
-        // the twenty-six still fail on which refusal an out-of-root Attr earns and on whether a point in
-        // one is in the range at all — DOM §5.5's own answers, not AngleSharp's.
+        // Range adoption across documents still depends on the XML-document lane this category tracks.
         new("dom/ranges/Range-adopt-test.html", "*appendChild: Removing the only element in the range must collapse the range", WptDivergence.NeedsXmlDocuments),
 
         // ---------------------------------------------------------------- a collection's named and indexed properties, and its liveness
