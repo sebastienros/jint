@@ -1,9 +1,10 @@
 # Generated bindings and debugger integration: X6 review drafts
 
 These are repository review drafts for [campaign #3575, X6](https://github.com/sebastienros/jint/issues/3575),
-tracked by [#3904](https://github.com/sebastienros/jint/issues/3904). They describe an offer the maintainer can
-review and revise. They have **not been delivered** to AngleSharp.Js or Jither, and no adoption agreement is
-implied. Source observations below were checked against Jint main `3744d58324216d5674c88738b8d94e56bc743086`.
+prepared under [#3904](https://github.com/sebastienros/jint/issues/3904) and merged by
+[#3906](https://github.com/sebastienros/jint/pull/3906). They describe an offer the maintainer can review and
+revise. They have **not been delivered** to AngleSharp.Js or Jither, and no adoption agreement is implied.
+Source observations below were rechecked against Jint main `a04b5836d590e79ff52c350bf72bc436530daf3f`.
 
 ## Proposal for AngleSharp Js
 
@@ -126,10 +127,11 @@ host/adapter allocations separately from engine stepping before drawing a conclu
 
 | Stage | Evidence needed | Status of this document |
 | --- | --- | --- |
-| Repository preparation | Audited source links, concrete proposals and focused tracking issue | Draft for review in #3904 |
+| Repository preparation | Audited source links, concrete proposals and focused tracking issue | Merged in #3906; #3904 closed |
 | Maintainer review | Chosen scope, recipients, revised message and approval to send | Pending |
 | External delivery | Links to actual messages or upstream discussions | Not sent |
 | Adoption decision | Recipient feedback, agreed experiment and owned follow-up issues | Not requested |
 
-Merging this preparation can close #3904. Campaign X6 stays incomplete until the maintainer records what
-was actually offered and the note delivered. An offer being delivered does not mean it was accepted.
+The repository preparation landed in #3906 and #3904 is closed. Campaign X6 stays incomplete until the
+maintainer records what was actually offered and the note delivered. An offer being delivered does not mean
+it was accepted.
