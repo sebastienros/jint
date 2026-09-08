@@ -35,6 +35,8 @@ internal sealed class BrowserEventRealm
 
     private readonly ObjectInstance?[] _prototypes;
     private readonly BrowserEventInterfaceObject?[] _interfaceObjects;
+    private readonly ObjectInstance?[] _hostPrototypes;
+    private readonly Dom.HostInterfaceObject?[] _hostInterfaceObjects;
     private List<PendingActivation>? _pending;
 
     private BrowserEventRealm(Engine engine)
@@ -43,6 +45,8 @@ internal sealed class BrowserEventRealm
         PrincipalRealm = engine._mainRealm;
         _prototypes = new ObjectInstance?[BrowserEventInterfaces.All.Length];
         _interfaceObjects = new BrowserEventInterfaceObject?[BrowserEventInterfaces.All.Length];
+        _hostPrototypes = new ObjectInstance?[BrowserHostInterfaces.All.Length];
+        _hostInterfaceObjects = new Dom.HostInterfaceObject?[BrowserHostInterfaces.All.Length];
     }
 
     /// <summary>The engine every object in this realm belongs to.</summary>
@@ -140,6 +144,19 @@ internal sealed class BrowserEventRealm
                 definition.Name,
                 new LazyPropertyDescriptor<BrowserEventRealm>(realm, r => r.InterfaceObjectOf(captured), PropertyFlag.NonEnumerable));
         }
+
+        foreach (var host in BrowserHostInterfaces.All)
+        {
+            if (global.HasOwnProperty(WebApiRegistration.NameOf(host.Name)))
+            {
+                continue;
+            }
+
+            var captured = host;
+            global.SetProperty(
+                host.Name,
+                new LazyPropertyDescriptor<BrowserEventRealm>(realm, r => r.InterfaceObjectOf(captured), PropertyFlag.NonEnumerable));
+        }
     }
 
     /// <summary>
@@ -189,6 +206,56 @@ internal sealed class BrowserEventRealm
         PrototypeOf(definition);
         return _interfaceObjects[definition.Index]!;
     }
+
+    /// <summary>
+    /// The prototype object of one of the four non-<c>Event</c> interfaces the bridge owns, created on first
+    /// use. Its <c>[[Prototype]]</c> is <c>%Object.prototype%</c> and its interface object's is
+    /// <c>%Function.prototype%</c>, which is what separates it from <see cref="PrototypeOf(BrowserEventDefinition)"/>.
+    /// </summary>
+    internal ObjectInstance PrototypeOf(BrowserHostInterface host)
+    {
+        var existing = _hostPrototypes[host.Index];
+        if (existing is not null)
+        {
+            return existing;
+        }
+
+        var construct = host.Construct;
+        var prototype = Dom.HostInterfaceObject.Instantiate(
+            Engine,
+            host.Shape,
+            host.Name,
+            host.ConstructorLength,
+            construct is null ? null : args => construct(this, args),
+            out var interfaceObject);
+
+        _hostPrototypes[host.Index] = prototype;
+        _hostInterfaceObjects[host.Index] = interfaceObject;
+        return prototype;
+    }
+
+    /// <summary>The interface object — the global <c>Touch</c> — in this engine, created on first use.</summary>
+    internal Dom.HostInterfaceObject InterfaceObjectOf(BrowserHostInterface host)
+    {
+        PrototypeOf(host);
+        return _hostInterfaceObjects[host.Index]!;
+    }
+
+    /// <summary>https://w3c.github.io/touch-events/#dom-touch-touch — one contact point.</summary>
+    internal JsTouch NewTouch(in TouchState state)
+        => new(Engine, PrototypeOf(BrowserHostInterfaces.Touch), state);
+
+    /// <summary>One of a <c>TouchEvent</c>'s three lists.</summary>
+    internal JsTouchList NewTouchList(JsTouch[] touches)
+        => new(Engine, PrototypeOf(BrowserHostInterfaces.TouchList), touches);
+
+    /// <summary>One <c>DeviceMotionEvent</c> acceleration reading.</summary>
+    internal JsDeviceMotionAcceleration NewAcceleration(double? x, double? y, double? z)
+        => new(Engine, PrototypeOf(BrowserHostInterfaces.DeviceMotionEventAcceleration), x, y, z);
+
+    /// <summary>One <c>DeviceMotionEvent</c> rotation-rate reading.</summary>
+    internal JsDeviceMotionRotationRate NewRotationRate(double? alpha, double? beta, double? gamma)
+        => new(Engine, PrototypeOf(BrowserHostInterfaces.DeviceMotionEventRotationRate), alpha, beta, gamma);
 
     /// <summary>
     /// Builds an event of <paramref name="definition"/> that the engine itself created, so <c>isTrusted</c> is

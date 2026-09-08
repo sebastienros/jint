@@ -29,12 +29,12 @@ namespace Jint.Browser.Events;
 /// standard that unsets it, which is why the engine leaves the writer to a host.
 /// </para>
 /// <para>
-/// <b>An alias naming an interface this package does not have is a <c>NotSupportedError</c>, which is what the
-/// standard says for an alias it does not list at all.</b> Five of the table's rows name interfaces that do
-/// not exist here — <c>DragEvent</c> needs drag dispatch, <c>ClipboardEvent</c> a clipboard,
-/// <c>StorageEvent</c> a storage area's change notification, <c>TouchEvent</c> a touch input, and the two
-/// device-orientation events a sensor — and answering with a plain <c>Event</c> under those names would be a
-/// lie a page cannot detect. A browser without the interface refuses in the same way.
+/// <b>Every row of the table is here now.</b> Five of them used to name interfaces this package did not
+/// build — <c>DragEvent</c>, <c>StorageEvent</c>, <c>TouchEvent</c> and the two device events — and each
+/// answered a <c>NotSupportedError</c>, which is what the standard says for an alias it does not list at
+/// all. <c>BrowserEventInterfaces</c> builds all five: whether the runtime ever <i>fires</i> one is a
+/// separate question from whether a page can construct and dispatch one, and this member only ever needed
+/// the second. The refusal path stays for an alias the table really does not carry.
 /// </para>
 /// </remarks>
 internal static class LegacyEventCreation
@@ -54,6 +54,9 @@ internal static class LegacyEventCreation
         ["beforeunloadevent"] = BrowserEventInterfaces.BeforeUnloadEvent,
         ["compositionevent"] = BrowserEventInterfaces.CompositionEvent,
         ["customevent"] = null,
+        ["devicemotionevent"] = BrowserEventInterfaces.DeviceMotionEvent,
+        ["deviceorientationevent"] = BrowserEventInterfaces.DeviceOrientationEvent,
+        ["dragevent"] = BrowserEventInterfaces.DragEvent,
         ["event"] = null,
         ["events"] = null,
         ["focusevent"] = BrowserEventInterfaces.FocusEvent,
@@ -63,8 +66,10 @@ internal static class LegacyEventCreation
         ["messageevent"] = null,
         ["mouseevent"] = BrowserEventInterfaces.MouseEvent,
         ["mouseevents"] = BrowserEventInterfaces.MouseEvent,
+        ["storageevent"] = BrowserEventInterfaces.StorageEvent,
         ["svgevents"] = null,
         ["textevent"] = BrowserEventInterfaces.CompositionEvent,
+        ["touchevent"] = BrowserEventInterfaces.TouchEvent,
         ["uievent"] = BrowserEventInterfaces.UIEvent,
         ["uievents"] = BrowserEventInterfaces.UIEvent,
     };

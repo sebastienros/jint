@@ -600,21 +600,47 @@ internal enum WptDivergence
     /// <para>
     /// The test names an <b>event interface this browser does not build</b>. <c>document.createEvent</c>'s
     /// alias table (https://dom.spec.whatwg.org/#dom-document-createevent) is the only place a page meets
-    /// them all at once, and five of its rows name interfaces <c>Jint.Browser</c> deliberately has not:
-    /// <c>DragEvent</c> and <c>ClipboardEvent</c> need a <c>DataTransfer</c>, <c>StorageEvent</c> a storage
-    /// area's change notification, <c>TouchEvent</c> a touch input, and <c>DeviceMotionEvent</c> and
-    /// <c>DeviceOrientationEvent</c> a sensor. <c>Jint.Browser/Events/BrowserEventInterfaces.cs</c> is the
-    /// list of the fourteen it does build, and the absence of the rest is stated there.
+    /// them all at once, and five of its rows used to name interfaces <c>Jint.Browser</c> did not have:
+    /// <c>DragEvent</c>, <c>StorageEvent</c>, <c>TouchEvent</c>, <c>DeviceMotionEvent</c> and
+    /// <c>DeviceOrientationEvent</c>.
+    /// </para>
+    /// <para>
+    /// <b>No entry carries this category any more.</b> All five are built, in full and from their own
+    /// dictionaries, and the reason they could be is that whether the runtime ever <i>fires</i> one is a
+    /// different question from whether a page can construct and dispatch one — the corpus only ever asked the
+    /// second. <c>Jint.Browser/Events/BrowserEventInterfaces.cs</c> is the list, and it states which of them
+    /// nothing fires. It stays, like <see cref="NeedsTestDriver"/>, because the alias table is not the only
+    /// place a suite can meet an interface: <c>ClipboardEvent</c> is still absent — there is no clipboard
+    /// model at all — and it is not in that table, so the next suite that reaches for one needs a row.
     /// </para>
     /// <para>
     /// It is <see cref="NeedsTriage"/>'s opposite in the way that matters: the interface is named, the reason
     /// it is absent is a scope decision somebody made rather than a defect somebody owes, and the rows move
-    /// the day one of them is built. Answering a plain <c>Event</c> under those names instead would be a lie
-    /// a page cannot detect, which is why <c>createEvent</c> refuses them with the <c>NotSupportedError</c>
-    /// the standard gives an alias it does not list.
+    /// the day one of them is built. Answering a plain <c>Event</c> under such a name instead would be a lie
+    /// a page cannot detect, which is why <c>createEvent</c> refuses an alias it does not carry with the
+    /// <c>NotSupportedError</c> the standard gives one it does not list.
     /// </para>
     /// </summary>
     NeedsMoreEventInterfaces,
+
+    /// <summary>
+    /// <para>
+    /// The document <b>declines an optional feature</b> this browser exposes only when a client asks for it:
+    /// touch. <c>dom/nodes/Document-createEvent.https.html</c> guards its six <c>TouchEvent</c> rows with
+    /// <c>assert_implements_optional('ontouchstart' in document)</c>, so with touch emulation off they are
+    /// recorded <c>PRECONDITION_FAILED</c> and never reach their subject — which is <i>not</i> the interface:
+    /// <c>TouchEvent</c>, <c>Touch</c> and <c>TouchList</c> are all built, and
+    /// <c>document.createEvent('touchevent')</c> answers one.
+    /// </para>
+    /// <para>
+    /// What is deliberate is the exposure. <c>Jint.Browser/Runtime/TouchEmulation</c> argues it: whether
+    /// <c>ontouchstart</c> is present is what every responsive framework branches on, so a browser that has no
+    /// touch input must not claim one — and a client that asks for touch emulation gets it, along with
+    /// <c>navigator.maxTouchPoints</c>. Firefox on a desktop declines the same file's rows for the same
+    /// reason, which is what <c>assert_implements_optional</c> exists to record.
+    /// </para>
+    /// </summary>
+    NeedsTouchEmulation,
 
     /// <summary>
     /// <para>

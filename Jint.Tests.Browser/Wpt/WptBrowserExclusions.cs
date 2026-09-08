@@ -818,6 +818,32 @@ internal static class WptBrowserExclusions
         new("dom/events/EventTarget-dispatchEvent.html", "If the event's initialized flag is not set, an InvalidStateError must be thrown (DeviceOrientationEvent).", WptDivergence.NeedsMoreEventInterfaces),
         new("dom/events/EventTarget-dispatchEvent.html", "If the event's initialized flag is not set, an InvalidStateError must be thrown (DragEvent).", WptDivergence.NeedsMoreEventInterfaces),
         new("dom/events/EventTarget-dispatchEvent.html", "If the event's initialized flag is not set, an InvalidStateError must be thrown (StorageEvent).", WptDivergence.NeedsMoreEventInterfaces),
+    // ---------------------------------------------------------------- 2. a `data:` URL subresource
+    private static readonly WptExclusion[] _2ADataURLSubresource =
+    [
+        // A page navigates to a `data:` URL and cannot fetch one as a subresource, so a
+        // `<script src="data:text/javascript,…">` is never run — which is what "ran expected true got false"
+        // says here. The report site these documents are about works; what is missing is the scheme, and
+        // adding it is `Runtime/SubresourceFetch`'s change rather than this one.
+        new("html/webappapis/scripting/processing-model-2/compile-error-data-url.html", "*", WptDivergence.NeedsTriage),
+        new("html/webappapis/scripting/processing-model-2/runtime-error-data-url.html", "*", WptDivergence.NeedsTriage),
+        new("html/webappapis/scripting/processing-model-2/body-onerror-compile-error-data-url.html", "<body onerror> - compile error in <script src=data:...>", WptDivergence.NeedsTriage),
+    ];
+
+    // ---------------------------------------------------------------- 3. a URL's fragment is dropped
+    private static readonly WptExclusion[] _3AURLSFragmentIsDropped =
+    [
+        // This group used to be four rows and the cause was `script.src` not reflecting a URL: HTML says the
+        // `src` IDL attribute reflects the content attribute AS A URL, so it answers the resolved absolute
+        // one, and AngleSharp's `IHtmlScriptElement.Source` answered the raw attribute value. #3770's
+        // reflection machinery took the member over and two of the four are cases now.
+        // The two that remain are a different defect wearing the same shape: each loads
+        // `<script src="support/syntax-error.js#">` and the URL `onerror` reports has lost the trailing `#`,
+        // so what goes missing is the (empty) FRAGMENT and not the resolution. That happens on the
+        // script-loading path — the URL is re-serialized between the element and the error report — and is a
+        // change to `Runtime/`, not to the binding.
+        new("html/webappapis/scripting/processing-model-2/compile-error-same-origin-with-hash.html", "window.onerror - compile error in <script src=...> with hash", WptDivergence.NeedsTriage),
+        new("html/webappapis/scripting/processing-model-2/runtime-error-same-origin-with-hash.html", "window.onerror - runtime error in <script src=...> with hash", WptDivergence.NeedsTriage),
     ];
 
     // ---------------------------------------------------------------- 8. AngleSharp.Css refuses an unparseable media query
@@ -1137,18 +1163,6 @@ internal static class WptBrowserExclusions
     private static readonly WptExclusion[] _aMemberOfADOMInterfaceTheBindingsDoNotHave =
     [
         // a member of a DOM interface the bindings do not have
-        new("dom/nodes/Document-createEvent.https.html", "createEvent('DEVICEMOTIONEVENT*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createEvent.https.html", "createEvent('DEVICEORIENTATIONEVENT*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createEvent.https.html", "createEvent('DRAGEVENT*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createEvent.https.html", "createEvent('DeviceMotionEvent*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createEvent.https.html", "createEvent('DeviceOrientationEvent*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createEvent.https.html", "createEvent('DragEvent*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createEvent.https.html", "createEvent('STORAGEEVENT*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createEvent.https.html", "createEvent('StorageEvent*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createEvent.https.html", "createEvent('devicemotionevent*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createEvent.https.html", "createEvent('deviceorientationevent*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createEvent.https.html", "createEvent('dragevent*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createEvent.https.html", "createEvent('storageevent*", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "*itself", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "*tests", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "*toggleAttribute)", WptDivergence.NeedsTriage),
@@ -1297,18 +1311,19 @@ internal static class WptBrowserExclusions
         new("dom/ranges/Range-adopt-test.html", "*appendChild: Removing the only element in the range must collapse the range", WptDivergence.NeedsTriage),
     ];
 
-    // ---------------------------------------------------------------- an event interface this browser does not build
-    private static readonly WptExclusion[] _anEventInterfaceThisBrowserDoesNotBuild =
+    // ---------------------------------------------------------------- the touch rows the document declines
+    private static readonly WptExclusion[] _theTouchRowsTheDocumentDeclines =
     [
-        // an event interface this package deliberately does not build
-        new("dom/nodes/Document-createEvent.https.html", "*DeviceMotionEvent.", WptDivergence.NeedsMoreEventInterfaces),
-        new("dom/nodes/Document-createEvent.https.html", "*DeviceOrientationEvent.", WptDivergence.NeedsMoreEventInterfaces),
-        new("dom/nodes/Document-createEvent.https.html", "*DragEvent.", WptDivergence.NeedsMoreEventInterfaces),
-        new("dom/nodes/Document-createEvent.https.html", "*StorageEvent.", WptDivergence.NeedsMoreEventInterfaces),
-        new("dom/nodes/Document-createEvent.https.html", "*TouchEvent.", WptDivergence.NeedsMoreEventInterfaces),
-        new("dom/nodes/Document-createEvent.https.html", "createEvent('TOUCHEVENT*", WptDivergence.NeedsMoreEventInterfaces),
-        new("dom/nodes/Document-createEvent.https.html", "createEvent('TouchEvent*", WptDivergence.NeedsMoreEventInterfaces),
-        new("dom/nodes/Document-createEvent.https.html", "createEvent('touchevent*", WptDivergence.NeedsMoreEventInterfaces),
+        // The six rows this file guards with assert_implements_optional("'ontouchstart' in document"). The
+        // TouchEvent interface is built now — the alias resolves and the event is a TouchEvent — but the
+        // document never gets that far: it declines the whole optional feature first, and the harness records
+        // PRECONDITION_FAILED rather than FAIL. `ontouchstart` is exposed only when a client asks for touch
+        // emulation, which is Jint.Browser/Runtime/TouchEmulation's decision and the same answer Firefox on a
+        // desktop gives this file. See WptDivergence.NeedsTouchEmulation.
+        new("dom/nodes/Document-createEvent.https.html", "*TouchEvent.", WptDivergence.NeedsTouchEmulation),
+        new("dom/nodes/Document-createEvent.https.html", "createEvent('TOUCHEVENT*", WptDivergence.NeedsTouchEmulation),
+        new("dom/nodes/Document-createEvent.https.html", "createEvent('TouchEvent*", WptDivergence.NeedsTouchEmulation),
+        new("dom/nodes/Document-createEvent.https.html", "createEvent('touchevent*", WptDivergence.NeedsTouchEmulation),
     ];
 
     // ---------------------------------------------------------------- a document with no browsing context
@@ -1473,6 +1488,8 @@ internal static class WptBrowserExclusions
     internal static readonly WptCause[] Causes =
     [
         new("1. an event interface this browser has not built", _1AnEventInterfaceThisBrowserHasNotBuilt),
+        new("2. a `data:` URL subresource", _2ADataURLSubresource),
+        new("3. a URL's fragment is dropped", _3AURLSFragmentIsDropped),
         new("5. a DOM prototype has no @@unscopables", _5ADOMPrototypeHasNoUnscopables),
         new("8. AngleSharp.Css refuses an unparseable media query", _8AngleSharpCssRefusesAnUnparseableMediaQuery),
         new("9. a double written with .NET's number format", _9ADoubleWrittenWithNETSNumberFormat),
@@ -1495,7 +1512,7 @@ internal static class WptBrowserExclusions
                 new("a document upstream runs once per variant", _aDocumentUpstreamRunsOncePerVariant),
         new("a tag query's namespace and local-name identity", _aTagQuerySNamespaceAndLocalNameIdentity),
         new("Range's own algorithms", _rangeSOwnAlgorithms),
-        new("an event interface this browser does not build", _anEventInterfaceThisBrowserDoesNotBuild),
+        new("the touch rows the document declines", _theTouchRowsTheDocumentDeclines),
         new("a document with no browsing context", _aDocumentWithNoBrowsingContext),
         new("the selector engine: escapes, :scope and :has", _theSelectorEngineEscapesScopeAndHas),
         new("the Selectors-API table and selector-only element states", _theSelectorsAPITableAndSelectorOnlyElementStates),
@@ -1529,7 +1546,7 @@ internal static class WptBrowserExclusions
     /// https://github.com/sebastienros/jint/issues/3765 to 3774 and one was already open as
     /// https://github.com/sebastienros/jint/issues/3712, so a row here that is not one of
     /// <see cref="WptDivergence.NeedsIframeScripting"/>, <see cref="WptDivergence.NeedsXmlDocuments"/> or
-    /// <see cref="WptDivergence.NeedsMoreEventInterfaces"/> is a numbered debt rather than an unread one.
+    /// <see cref="WptDivergence.NeedsTouchEmulation"/> is a numbered debt rather than an unread one.
     /// </para>
     /// <para>
     /// <b>The Selectors-API table adds one bounded group.</b> Its 88 failing rows cover the selector-error

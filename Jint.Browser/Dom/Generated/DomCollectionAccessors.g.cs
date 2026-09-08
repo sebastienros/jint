@@ -448,27 +448,6 @@ internal sealed class DomAccessorTextTrackList : DomCollectionAccessor
     }
 }
 
-/// <summary>How <c>TouchList</c> answers indexed and named property lookups.</summary>
-internal sealed class DomAccessorTouchList : DomCollectionAccessor
-{
-    internal static readonly DomAccessorTouchList Instance = new();
-
-    internal override uint Length(object target) => (uint) ((global::AngleSharp.Html.Dom.Events.ITouchList) target).Length;
-
-    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
-    {
-        var collection = (global::AngleSharp.Html.Dom.Events.ITouchList) target;
-        if (index >= (uint) collection.Length)
-        {
-            value = global::Jint.Native.JsValue.Undefined;
-            return false;
-        }
-
-        value = realm.Wrap(collection[(int) index]);
-        return true;
-    }
-}
-
 /// <summary>How <c>VideoTrackList</c> answers indexed and named property lookups.</summary>
 internal sealed class DomAccessorVideoTrackList : DomCollectionAccessor
 {
