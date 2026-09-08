@@ -103,6 +103,10 @@ internal sealed class ParserDriver : IDisposable
         // service rather than replacing one, so AngleSharp's own observer keeps working.
         var configuration = Configuration.Default
             .WithCss()
+            // Selectors §8.2 matches :target only for the document's target element. AngleSharp compares
+            // each candidate's ID with its owner document's fragment, so duplicate IDs, shadow descendants
+            // and disconnected clones can all match instead of the one HTML indicated element.
+            .WithOnly<AngleSharp.Css.IPseudoClassSelectorFactory>(new PagePseudoClassSelectorFactory())
             // https://html.spec.whatwg.org/multipage/document-lifecycle.html#read-xml — a document whose
             // content type is an XML MIME type is parsed by the XML parser, and without the factory
             // AngleSharp.Xml supplies there is no XML document for it to produce: `<foo>Dummy</foo>` served
@@ -463,7 +467,13 @@ internal sealed class ParserDriver : IDisposable
                 return PageResourceLoader.Answer(url, [], "text/html; charset=utf-8");
             }
 
-            return Fetch(url, frame, "frame document", PageRequestKind.Frame, handedOver);
+            return Fetch(
+                url,
+                frame,
+                "frame document",
+                PageRequestKind.Frame,
+                handedOver,
+                documentResponse: true);
         });
     }
 
@@ -548,7 +558,13 @@ internal sealed class ParserDriver : IDisposable
     /// during a parser-blocking load; a fetch a <i>script</i> triggered blocks instead, because pumping from
     /// inside a running script would run the page's jobs in the middle of one.
     /// </summary>
-    private IResponse? Fetch(string url, IElement source, string what, PageRequestKind kind, bool mayPump)
+    private IResponse? Fetch(
+        string url,
+        IElement source,
+        string what,
+        PageRequestKind kind,
+        bool mayPump,
+        bool documentResponse = false)
     {
         var target = UrlParser.Parse(url);
 
@@ -580,7 +596,10 @@ internal sealed class ParserDriver : IDisposable
         try
         {
             var fetched = mayPump ? _baton.PumpUntil(fetch) : fetch.GetAwaiter().GetResult();
-            return PageResourceLoader.Answer(fetched.Url, fetched.Bytes, fetched.ContentType);
+            return PageResourceLoader.Answer(
+                documentResponse ? DocumentUrl(fetched.Url, fetched.Fragment) : fetched.Url,
+                fetched.Bytes,
+                fetched.ContentType);
         }
         catch (OperationCanceledException) when (_cancellationToken.IsCancellationRequested)
         {
@@ -598,6 +617,25 @@ internal sealed class ParserDriver : IDisposable
             FailSubresource(source, url, "The " + what + " '" + url + "' could not be loaded: " + exception.Message);
             return null;
         }
+    }
+
+    /// <summary>The response URL a nested document is opened with.</summary>
+    /// <remarks>
+    /// Fetch does not send a fragment to the server, and <see cref="SubresourceFetch"/> therefore serializes
+    /// its public response URL without one. Its separate fragment preserves the final request URL's three
+    /// states across redirects: absent, explicitly empty, or non-empty. AngleSharp reads the reconstructed
+    /// URL for <c>location</c> and Selectors' <c>:target</c>; script and stylesheet response URLs remain the
+    /// fragment-free transport URL.
+    /// </remarks>
+    private static string DocumentUrl(string responseUrl, string? fragment)
+    {
+        if (fragment is null || UrlParser.Parse(responseUrl) is not { } documentUrl)
+        {
+            return responseUrl;
+        }
+
+        documentUrl.Fragment = fragment;
+        return documentUrl.Serialize();
     }
 
     /// <summary>
@@ -764,7 +802,8 @@ internal sealed class ParserDriver : IDisposable
         var bytes = ReadAll(response.Content);
         var contentType = response.Headers.TryGetValue(HeaderNames.ContentType, out var declared) ? declared : null;
         var fallback = element.CharacterSet is { Length: > 0 } charset ? charset : element.Owner?.CharacterSet;
-        return new FetchedSubresource(bytes, contentType, response.Address?.Href ?? "", 200).Text(fallback);
+        var address = response.Address?.Href ?? "";
+        return new FetchedSubresource(bytes, contentType, address, UrlParser.Parse(address)?.Fragment, 200).Text(fallback);
     }
 
     private static byte[] ReadAll(Stream? stream)

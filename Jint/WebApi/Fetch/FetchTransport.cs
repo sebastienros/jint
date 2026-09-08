@@ -1268,6 +1268,11 @@ internal static class FetchTransport
             throw new FetchFailureException(FetchFailureKind.Network, $"'{current.Serialize()}' answered a redirect to an unparsable location.");
         }
 
+        // https://fetch.spec.whatwg.org/#concept-response-location-url step 4: an omitted fragment carries
+        // the request's current fragment into the next hop. An explicitly empty fragment is not omitted and
+        // therefore replaces it, which is why this checks for null rather than an empty string.
+        target.Fragment ??= current.Fragment;
+
         return target;
     }
 
