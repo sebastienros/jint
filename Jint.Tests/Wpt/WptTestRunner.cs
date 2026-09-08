@@ -2105,7 +2105,7 @@ public class WptTestRunner
     {
         var outcome = WptHarness.Run(file);
 
-        outcome.HarnessError.Should().BeNull($"{file} must run to completion");
+        outcome.HarnessError.Should().BeNull($"{file} must run to completion; {outcome.TimerClockEvidence}");
 
         // An entry scoped to another operating system is invisible here — it excludes nothing and the
         // staleness rules below do not ask it to match, which is what keeps the table exact per OS.

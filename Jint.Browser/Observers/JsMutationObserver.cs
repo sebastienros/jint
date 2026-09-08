@@ -199,6 +199,11 @@ internal sealed class JsMutationObserver : ObjectInstance
     {
         foreach (var record in records)
         {
+            if (_runtime.MutationObservers.CaptureReplaceAll(this, record))
+            {
+                continue;
+            }
+
             _records.Add(new DeliveredMutationRecord(record));
         }
 
@@ -206,6 +211,13 @@ internal sealed class JsMutationObserver : ObjectInstance
         {
             _runtime.MutationObservers.Enlist(this);
         }
+    }
+
+    /// <summary>Adds a record synthesized by a DOM operation the AngleSharp surface cannot express.</summary>
+    internal void Queue(IMutationRecord record)
+    {
+        _records.Add(new DeliveredMutationRecord(record));
+        _runtime.MutationObservers.Enlist(this);
     }
 
     private JsArray Drain()
