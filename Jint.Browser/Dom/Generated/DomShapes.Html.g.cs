@@ -3200,6 +3200,39 @@ internal static partial class DomInterfaces
         => new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("HTMLMarqueeElement")
             .PerRealmSlot("constructor", enumerable: false)
+            .Accessor("bgColor",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLMarqueeElement.bgColor", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMarqueeElement>(thisObj, "HTMLMarqueeElement.bgColor");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLMarqueeElementBgColor.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLMarqueeElement.bgColor", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMarqueeElement>(thisObj, "HTMLMarqueeElement.bgColor");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLMarqueeElementBgColor.Set(self.Realm, self.Target, args);
+                }))
+            .Accessor("height",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLMarqueeElement.height", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMarqueeElement>(thisObj, "HTMLMarqueeElement.height");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLMarqueeElementHeight.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLMarqueeElement.height", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMarqueeElement>(thisObj, "HTMLMarqueeElement.height");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLMarqueeElementHeight.Set(self.Realm, self.Target, args);
+                }))
+            .Accessor("hspace",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLMarqueeElement.hspace", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMarqueeElement>(thisObj, "HTMLMarqueeElement.hspace");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLMarqueeElementHspace.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLMarqueeElement.hspace", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMarqueeElement>(thisObj, "HTMLMarqueeElement.hspace");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLMarqueeElementHspace.Set(self.Realm, self.Target, args);
+                }))
             .Accessor("loop",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMarqueeElement.loop", static (thisObj, args) =>
                 {
@@ -3211,27 +3244,60 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMarqueeElement>(thisObj, "HTMLMarqueeElement.loop");
                     self.Target.Loop = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "HTMLMarqueeElement.loop"); return global::Jint.Native.JsValue.Undefined;
                 }))
-            .Accessor("scrollamount",
-                global::Jint.Browser.Dom.DomFailures.Guard("HTMLMarqueeElement.scrollamount", static (thisObj, args) =>
+            .Accessor("scrollAmount",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLMarqueeElement.scrollAmount", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMarqueeElement>(thisObj, "HTMLMarqueeElement.scrollamount");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.ScrollAmount);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMarqueeElement>(thisObj, "HTMLMarqueeElement.scrollAmount");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLMarqueeElementScrollAmount.Get(self.Target);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("HTMLMarqueeElement.scrollamount", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLMarqueeElement.scrollAmount", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMarqueeElement>(thisObj, "HTMLMarqueeElement.scrollamount");
-                    self.Target.ScrollAmount = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "HTMLMarqueeElement.scrollamount"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMarqueeElement>(thisObj, "HTMLMarqueeElement.scrollAmount");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLMarqueeElementScrollAmount.Set(self.Realm, self.Target, args);
                 }))
-            .Accessor("scrolldelay",
-                global::Jint.Browser.Dom.DomFailures.Guard("HTMLMarqueeElement.scrolldelay", static (thisObj, args) =>
+            .Accessor("scrollDelay",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLMarqueeElement.scrollDelay", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMarqueeElement>(thisObj, "HTMLMarqueeElement.scrolldelay");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.ScrollDelay);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMarqueeElement>(thisObj, "HTMLMarqueeElement.scrollDelay");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLMarqueeElementScrollDelay.Get(self.Target);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("HTMLMarqueeElement.scrolldelay", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLMarqueeElement.scrollDelay", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMarqueeElement>(thisObj, "HTMLMarqueeElement.scrolldelay");
-                    self.Target.ScrollDelay = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "HTMLMarqueeElement.scrolldelay"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMarqueeElement>(thisObj, "HTMLMarqueeElement.scrollDelay");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLMarqueeElementScrollDelay.Set(self.Realm, self.Target, args);
+                }))
+            .Accessor("trueSpeed",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLMarqueeElement.trueSpeed", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMarqueeElement>(thisObj, "HTMLMarqueeElement.trueSpeed");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLMarqueeElementTrueSpeed.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLMarqueeElement.trueSpeed", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMarqueeElement>(thisObj, "HTMLMarqueeElement.trueSpeed");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLMarqueeElementTrueSpeed.Set(self.Realm, self.Target, args);
+                }))
+            .Accessor("vspace",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLMarqueeElement.vspace", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMarqueeElement>(thisObj, "HTMLMarqueeElement.vspace");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLMarqueeElementVspace.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLMarqueeElement.vspace", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMarqueeElement>(thisObj, "HTMLMarqueeElement.vspace");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLMarqueeElementVspace.Set(self.Realm, self.Target, args);
+                }))
+            .Accessor("width",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLMarqueeElement.width", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMarqueeElement>(thisObj, "HTMLMarqueeElement.width");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLMarqueeElementWidth.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLMarqueeElement.width", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMarqueeElement>(thisObj, "HTMLMarqueeElement.width");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLMarqueeElementWidth.Set(self.Realm, self.Target, args);
                 }))
             .Build();
 

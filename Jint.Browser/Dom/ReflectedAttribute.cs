@@ -380,9 +380,9 @@ internal sealed class ReflectedAttribute
                 return SetInteger(element, Fallback(TypeConverter.ToUint32(value)));
 
             default:
-                // `unsigned long` and `clamped unsigned long` both set as a plain unsigned integer; the
-                // clamping is the getter's.
-                return SetInteger(element, TypeConverter.ToUint32(value));
+                // `unsigned long` and `clamped unsigned long` both set as a plain unsigned integer, out of
+                // range answering the default; the clamping to a narrower range is the getter's.
+                return SetInteger(element, InRange(TypeConverter.ToUint32(value)));
         }
     }
 
@@ -652,11 +652,23 @@ internal sealed class ReflectedAttribute
             DomFailures.Refuse(realm.Engine, Member, DomExceptionNames.IndexSize, detail);
         }
 
-        return SetInteger(element, value);
+        return SetInteger(element, InRange(value));
     }
 
     /// <summary>The value a with-fallback setter writes: the new value, or the default when out of range.</summary>
     private long Fallback(long value) => value is < 1 or > MaxInt ? (long) _default : value;
+
+    /// <summary>
+    /// "If the new value is in the range 0 to 2147483647, then let n be the new value, otherwise let n be the
+    /// default value": an unsigned reflected integer writes its <i>default</i> rather than the number it was
+    /// given when that number is outside the reflected range.
+    /// </summary>
+    /// <remarks>
+    /// It has to be tested here rather than left to the conversion, because WebIDL's <c>unsigned long</c> is
+    /// modulo 2<sup>32</sup>: <c>el.hspace = 4294967295</c> arrives as 4294967295 and not as −1. A signed
+    /// <c>long</c> cannot leave its range at all, so this is a no-op for one and the whole rule for the other.
+    /// </remarks>
+    private long InRange(long value) => value > MaxInt ? (long) _default : value;
 
     /// <summary>
     /// The shortest string representing an integer, which is what every numeric reflected attribute writes.

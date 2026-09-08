@@ -191,6 +191,38 @@ internal static class DomReflected
     internal static readonly ReflectedAttribute HTMLLinkElementTarget =
         ReflectedAttribute.Text("HTMLLinkElement.target", "target");
 
+    /// <summary><c>HTMLMarqueeElement.bgColor</c> reflects <c>bgcolor</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLMarqueeElementBgColor =
+        ReflectedAttribute.Text("HTMLMarqueeElement.bgColor", "bgcolor");
+
+    /// <summary><c>HTMLMarqueeElement.height</c> reflects <c>height</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLMarqueeElementHeight =
+        ReflectedAttribute.Text("HTMLMarqueeElement.height", "height");
+
+    /// <summary><c>HTMLMarqueeElement.hspace</c> reflects <c>hspace</c> as an unsigned long.</summary>
+    internal static readonly ReflectedAttribute HTMLMarqueeElementHspace =
+        ReflectedAttribute.Numeric("HTMLMarqueeElement.hspace", "hspace", ReflectedKind.UnsignedLong, 0);
+
+    /// <summary><c>HTMLMarqueeElement.scrollAmount</c> reflects <c>scrollamount</c> as an unsigned long.</summary>
+    internal static readonly ReflectedAttribute HTMLMarqueeElementScrollAmount =
+        ReflectedAttribute.Numeric("HTMLMarqueeElement.scrollAmount", "scrollamount", ReflectedKind.UnsignedLong, 6);
+
+    /// <summary><c>HTMLMarqueeElement.scrollDelay</c> reflects <c>scrolldelay</c> as an unsigned long.</summary>
+    internal static readonly ReflectedAttribute HTMLMarqueeElementScrollDelay =
+        ReflectedAttribute.Numeric("HTMLMarqueeElement.scrollDelay", "scrolldelay", ReflectedKind.UnsignedLong, 85);
+
+    /// <summary><c>HTMLMarqueeElement.trueSpeed</c> reflects <c>truespeed</c> as a boolean.</summary>
+    internal static readonly ReflectedAttribute HTMLMarqueeElementTrueSpeed =
+        ReflectedAttribute.Boolean("HTMLMarqueeElement.trueSpeed", "truespeed");
+
+    /// <summary><c>HTMLMarqueeElement.vspace</c> reflects <c>vspace</c> as an unsigned long.</summary>
+    internal static readonly ReflectedAttribute HTMLMarqueeElementVspace =
+        ReflectedAttribute.Numeric("HTMLMarqueeElement.vspace", "vspace", ReflectedKind.UnsignedLong, 0);
+
+    /// <summary><c>HTMLMarqueeElement.width</c> reflects <c>width</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLMarqueeElementWidth =
+        ReflectedAttribute.Text("HTMLMarqueeElement.width", "width");
+
     /// <summary><c>HTMLMenuElement.compact</c> reflects <c>compact</c> as a boolean.</summary>
     internal static readonly ReflectedAttribute HTMLMenuElementCompact =
         ReflectedAttribute.Boolean("HTMLMenuElement.compact", "compact");
