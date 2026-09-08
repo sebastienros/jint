@@ -9,8 +9,9 @@ namespace Jint.Tests.Browser.Forms;
 /// </summary>
 public sealed class FormEntryTests
 {
-    [Test]
-    public async Task FormDataListenersSeeScalarStringsApiNewlinesAndTheSubmissionCharset()
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task EntryConstructionExposesScalarStringsApiNewlinesAndUtf8Charset(bool viaConstructor)
     {
         await using var fixture = await LoopbackPage.CreateAsync(server => server
             .MapHtml("/echo", "<title>submitted</title>")
@@ -42,7 +43,22 @@ public sealed class FormEntryTests
               e.formData.append('amended', 'yes');
             });
             """);
-        await fixture.NavigateByScriptAsync("f.requestSubmit(send)");
+        if (viaConstructor)
+        {
+            (await fixture.Page.EvaluateAsync<bool>("""
+                const constructed = new FormData(f, send);
+                const expected = JSON.parse(sessionStorage.getItem('entries'));
+                expected.push(['amended', 'yes']);
+                JSON.stringify(Array.from(constructed, ([k,v]) =>
+                  [k, typeof v === 'string' ? v : v.name])) === JSON.stringify(expected) &&
+                  f.querySelector('textarea').value === 'one\ntwo' &&
+                  f.querySelector('input').value === 'wrong' && scalar.value === '\uDC00😀'
+                """)).Should().BeTrue();
+        }
+        else
+        {
+            await fixture.NavigateByScriptAsync("f.requestSubmit(send)");
+        }
         (await fixture.Page.EvaluateAsync<bool>("""
             JSON.stringify(JSON.parse(sessionStorage.getItem('entries'))) === JSON.stringify([
               ['note', 'one\ntwo'], ['_charset_', 'UTF-8'], ['_CHARSET_', 'UTF-8'],
@@ -50,7 +66,14 @@ public sealed class FormEntryTests
               ['send�', '�😀'], ['file�', '']
             ])
             """)).Should().BeTrue();
-        fixture.Server.Received.Single(r => r.Path == "/echo").Body.Should().EndWith("amended=yes");
+        if (viaConstructor)
+        {
+            fixture.Server.Received.Should().NotContain(r => r.Path == "/echo");
+        }
+        else
+        {
+            fixture.Server.Received.Single(r => r.Path == "/echo").Body.Should().EndWith("amended=yes");
+        }
         fixture.Page.Errors.Should().BeEmpty();
     }
 
