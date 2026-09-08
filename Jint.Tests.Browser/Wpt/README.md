@@ -31,14 +31,14 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `dom/lists/` | 5 | 0 | 189 | 5 |
 | `dom/traversal/` | 13 | 0 | 52 | 0 |
 | `dom/ranges/` | 17 | 0 | 82 | 4 |
-| `html/dom/` | 8 | 0 | 20,522 | 45 |
+| `html/dom/` | 9 | 0 | 23,632 | 61 |
 | `html/webappapis/scripting/events/` | 12 | 0 | 37 | 5 |
 | `html/webappapis/scripting/processing-model-2/` | 25 | 0 | 44 | 12 |
 | `custom-elements/` | 16 | 0 | 510 | 247 |
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 52 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 3 |
-| **total** | **352** | **9** | **30,420** | **1,429** |
+| **total** | **353** | **9** | **33,530** | **1,445** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -176,7 +176,7 @@ a supported name; the collection's named reads remain live.
 
 `dom/nodes/`, `dom/collections/`, `dom/lists/`, `dom/traversal/`, `dom/ranges/` and `html/dom/` are the DOM
 standard's own suites and HTML's DOM half — the corpus every other suite in this lane is written on top of.
-Across the six of them there are 219 documents and 29,003 tests, and **1,084 of those tests do not pass**.
+Across the six of them there are 220 documents and 32,113 tests, and **1,100 of those tests do not pass**.
 Those three figures are live and checked against the census. They arrived together as 207 documents and
 5,247 tests with 1,532 not passing; those arrival figures are historical and deliberately not re-derived.
 
@@ -201,6 +201,7 @@ table needs to be regenerated.
 | 26 | 11 | **Collection matching, identity and liveness differ.** The remaining rows cover namespace-aware tag queries, null-namespace identity, child-node collections, empty IDs, quirks class matching and related live reads; `dom/collections/` itself now passes whole. <!-- cause: a collection's named and indexed properties, and its liveness --> |
 | 22 | 3 | **Members of DOM interfaces are absent.** The rows cover `ProcessingInstruction` attributes, `ChildNode` unscopables and event aliases that have no constructor. <!-- cause: a member of a DOM interface the bindings do not have --> |
 | 18 | 1 | **An event interface this browser does not build.** `Document-createEvent.https.html` reaches `DragEvent`, `StorageEvent`, `TouchEvent` and the two device-event interfaces. <!-- cause: an event interface this browser does not build --> |
+| 16 | 1 | **AngleSharp.Css refuses an unparseable media query, from inside `Element.setAttribute`.** `<style>` registers an attribute observer that assigns the sheet's `MediaList.mediaText`, whose setter throws where Media Queries §2.1 requires `not all`; the sixteen rows are the values it cannot parse and the member's other thirty tests pass. `Dom/divergences.md` records it. <!-- cause: 8. AngleSharp.Css refuses an unparseable media query --> |
 | 8 | 2 | **The selector engine's escapes, `:scope` and `:has` differ.** `ParentNode-querySelector-escapes.html` contributes five rows and `Element-closest.html` three. <!-- cause: the selector engine: escapes, :scope and :has --> |
 | 7 | 3 | **A document with no browsing context still has a `location`**, `createHTMLDocument` builds a different skeleton, and its encoding-name aliases differ. <!-- cause: a document with no browsing context --> |
 | 6 | 1 | **Members the standard removed are still here**, which is exactly what `html/dom/historical.html` exists to find. <!-- cause: a member the standard removed and this browser still has --> |
@@ -210,21 +211,30 @@ table needs to be regenerated.
 | 3 | 1 | [#3769](https://github.com/sebastienros/jint/issues/3769) **A `(Node or DOMString)` union parameter takes only a `Node`.** Three `ChildNode.before` rows still reject strings. <!-- cause: a (Node or DOMString) union parameter takes only a Node --> |
 | 2 | 1 | **A Range whose shadow root was removed has the wrong boundary behavior.** These are the two remaining `Range-in-shadow-after-the-shadow-removed.html` rows. <!-- cause: Range's own algorithms --> |
 
-**Three of HTML's ten reflection documents are cases, and two of the three pass whole.** HTML §2.6.1's
+**Four of HTML's ten reflection documents are cases, and two of the four pass whole.** HTML §2.6.1's
 reflection algorithms are `Jint.Browser/Dom/ReflectedAttribute.cs` and the members that take them are
 `overrides.json`'s `reflected` list, so `reflection-misc.html` (4,877 assertions, 1,866 of them failing
 before) and `reflection-text.html` (10,202, 3,360 failing before) pass with **nothing** excluded, and
-`reflection-grouping.html` (5,358, 2,006 failing before) has one cause left.
+`reflection-grouping.html` (5,358, 2,006 failing before) and `reflection-metadata.html` (3,110, 1,218
+failing before) have one cause each.
 
-Forty rows did it, and the first fifteen were mostly the **global** attributes every element carries — `dir`,
-`lang`, `tabIndex`, `autofocus`, `inputMode`, `enterKeyHint` — which is why `text` needed only eleven rows of
-its own for 3,360 assertions. The rest are element-specific and that is what the remaining seven documents
-need: `align`, `as`, `referrerPolicy`, `compact`, `charset` and their kind, one `reflected` row each.
+Forty-nine rows did it, and the first fifteen were mostly the **global** attributes every element carries —
+`dir`, `lang`, `tabIndex`, `autofocus`, `inputMode`, `enterKeyHint` — which is why `text` needed only eleven
+rows of its own for 3,360 assertions. The rest are element-specific and that is what the remaining six
+documents need: `align`, `compact` and their kind, one `reflected` row each. `metadata` took seven of those —
+`link`'s `as`, `crossOrigin`, `referrerPolicy`, `charset` and `target`, and `meta`'s `media` and `scheme` —
+plus one member that is deliberately not reflection at all: **`nonce` answers HTML §2.5.3's
+`[[CryptographicNonce]]` slot**, whose setter writes the slot and leaves the content attribute alone, so a
+`script[nonce]` selector cannot read back a nonce a header-delivered policy issued
+(`Jint.Browser/Dom/CryptographicNonce.cs`).
 
-**The one cause left in `reflection-grouping.html` is not reflection at all.** `<dl>` has no
-`HTMLDListElement` in the pinned assemblies, so there is no interface for `compact` to be reflected onto;
-the divergence table records it and thirteen rows name the tests. Those thirty-eight are the only failures
-this lane's `html/dom/` figure gained, against 15,560 assertions it did not have before.
+**Neither of the two causes left is reflection.** `<dl>` has no `HTMLDListElement` in the pinned assemblies,
+so there is no interface for `compact` to be reflected onto; the divergence table records it and thirteen
+rows name the tests. And `<style>`'s `media` cannot be *written* at all when the value is not a media query
+AngleSharp.Css can parse — the exception comes out of `Element.setAttribute` itself, through the attribute
+observer AngleSharp core registers, where Media Queries §2.1 requires an unparseable query to be replaced by
+`not all`. Those fifty-four rows are the only failures this lane's `html/dom/` figure gained, against 18,670
+assertions it did not have before.
 
 **Four documents did not terminate at all, and that was the finding this campaign put first.**
 `TreeWalker-currentNode.html`, `TreeWalker-previousNodeLastChildReject.html`, `TreeWalker-traversal-reject.html`

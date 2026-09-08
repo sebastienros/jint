@@ -1,4 +1,4 @@
-using Jint.Tests.Wpt;
+﻿using Jint.Tests.Wpt;
 
 namespace Jint.Tests.Browser.Wpt;
 
@@ -289,19 +289,20 @@ internal static class WptBrowserExclusions
         ("html/dom/usvstring-reflection.https.html", "needs webrtc/RTCPeerConnection-helper.js and a real RTCPeerConnection to reflect a USVString off"),
 
         // ------------------------------------------------------------ HTML's reflection suite
-        // Ten generated documents, 56,660 assertions. Three of them are cases now — reflection-misc.html,
-        // reflection-text.html and reflection-grouping.html, 20,437 assertions between them — because HTML
-        // §2.6.1's reflection algorithms are implemented (Jint.Browser/Dom/ReflectedAttribute.cs) and driven
-        // by overrides.json's `reflected` list. The first two pass whole; grouping's only failures are
-        // <dl>'s, which is AngleSharp having no HTMLDListElement rather than reflection.
+        // Ten generated documents, 56,660 assertions. Four of them are cases now — reflection-misc.html,
+        // reflection-text.html, reflection-grouping.html and reflection-metadata.html, 23,547 assertions
+        // between them — because HTML §2.6.1's reflection algorithms are implemented
+        // (Jint.Browser/Dom/ReflectedAttribute.cs) and driven by overrides.json's `reflected` list. The first
+        // two pass whole; grouping's only failures are <dl>'s, which is AngleSharp having no
+        // HTMLDListElement rather than reflection, and metadata's only failures are <style>'s `media`, which
+        // AngleSharp.Css refuses from inside setAttribute.
         //
-        // The other seven are out for one reason and it is no longer "reflection is not implemented": each
+        // The other six are out for one reason and it is no longer "reflection is not implemented": each
         // needs the per-element attribute table it tests, one `reflected` row per content attribute, which is
-        // #3770's remaining work. The forty rows written so far were mostly the GLOBAL attributes every
+        // #3770's remaining work. The forty-nine rows written so far were mostly the GLOBAL attributes every
         // element carries (`dir`, `lang`, `tabIndex`, `autofocus`, `inputMode`, `enterKeyHint`), so they have
-        // already moved the seven a long way: metadata and sections fell from 1,218 and 2,189 failing
-        // assertions to 624 and 489. What is left in them is `align`, `as`, `referrerPolicy`, `compact`,
-        // `charset` and their kind — element-specific attributes, each one row.
+        // already moved the six a long way: sections fell from 2,189 failing assertions to 489. What is left
+        // in them is `align`, `compact` and their kind — element-specific attributes, each one row.
         //
         // **None of them is slow**: the whole set runs in 22.5 s and the largest (reflection-embedded.html,
         // 8,922 tests) in 7.3 s, well inside the driver's 30 s deadline. What has always kept them out is the
@@ -310,7 +311,6 @@ internal static class WptBrowserExclusions
         ("html/dom/*-embedded.*", "#3770: the embedded-content elements and their attribute table; 3,774 of 8,922 assertions failed at the measurement in the issue"),
         ("html/dom/*-forms.*", "#3770: the form controls and their attribute table; 2,160 of 8,271"),
         ("html/dom/*-forms-weekmonth.*", "#3770: the week and month input types and their attribute table; 420 of 1,579"),
-        ("html/dom/*-metadata.*", "#3770: the document-metadata elements and their attribute table; 1,218 of 3,110 at the measurement, 624 with the rows written so far — and its `nonce` members need HTML's [[CryptographicNonce]] slot rather than a reflected attribute, while `style.media` cannot be set at all because AngleSharp.Css refuses an unparseable media query from setAttribute"),
         ("html/dom/*-obsolete.*", "#3770: the obsolete elements and their attribute table; 1,483 of 2,621"),
         ("html/dom/*-sections.*", "#3770: the sectioning elements and their attribute table; 2,189 of 5,604 at the measurement, 489 with the rows written so far — and its Document-level members (document.dir, bgColor, fgColor, linkColor, vlinkColor, alinkColor) reflect an attribute of ANOTHER element, which the `reflected` list cannot say yet"),
         ("html/dom/*-tabular.*", "#3770: the tabular-data elements and their attribute table; 3,552 of 6,116"),
@@ -768,6 +768,7 @@ internal static class WptBrowserExclusions
         ["html/dom/aria-element-reflection.html"] = 27,
         ["html/dom/historical.html"] = 13,
         ["html/dom/reflection-grouping.html"] = 5358,
+        ["html/dom/reflection-metadata.html"] = 3110,
         ["html/dom/reflection-misc.html"] = 4877,
         ["html/dom/reflection-text.html"] = 10202,
         ["html/webappapis/scripting/events/body-onload.html"] = 1,
@@ -878,6 +879,40 @@ internal static class WptBrowserExclusions
         new("html/dom/reflection-grouping.html", "dl.compact: IDL set to Infinity", WptDivergence.NeedsTriage),
         new("html/dom/reflection-grouping.html", "dl.compact: IDL set to -Infinity", WptDivergence.NeedsTriage),
         new("html/dom/reflection-grouping.html", "dl.compact: IDL set to null", WptDivergence.NeedsTriage),
+    ];
+
+    // ---------------------------------------------------------------- 8. AngleSharp.Css refuses an unparseable media query
+    private static readonly WptExclusion[] _8AngleSharpCssRefusesAnUnparseableMediaQuery =
+    [
+        // HTML §4.2.6 makes <style>'s `media` a plain reflected DOMString, and DOM gives setAttribute no
+        // failure mode at all for a name that is already valid. AngleSharp core registers an
+        // IAttributeObserver for `media` on a <style> element that calls HtmlStyleElement.UpdateMedia, which
+        // assigns the sheet's MediaList.MediaText, and AngleSharp.Css's setter is SetMediaText(value,
+        // throwOnError: true) -- a DomException(Syntax) for a query list Media Queries §2.1 says must be
+        // treated as `not all` instead. So a document that writes an unparseable media query gets an
+        // exception out of `Element.setAttribute` itself, which is why the IDL half of the member fails with
+        // it: the reflected setter is one setAttribute. Nothing in this package can move it without
+        // swallowing a DOMException the binding is meant to surface; `Dom/divergences.md` records it.
+        //
+        // Sixteen rows and no `style.media: *` glob, because thirty of the member's tests pass: every value
+        // AngleSharp.Css can parse -- "", " foo ", "true", "false", "NaN", "Infinity", "null" and the rest --
+        // is written and read back correctly.
+        new("html/dom/reflection-metadata.html", "style.media: setAttribute() to \" \\0*", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-metadata.html", "style.media: setAttribute() to 7", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-metadata.html", "style.media: setAttribute() to 1.5", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-metadata.html", "style.media: setAttribute() to \"5%\"", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-metadata.html", "style.media: setAttribute() to \"+100\"", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-metadata.html", "style.media: setAttribute() to \".5\"", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-metadata.html", "style.media: setAttribute() to object \"[object Object]\"", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-metadata.html", "style.media: setAttribute() to \"\\0\"", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-metadata.html", "style.media: IDL set to \" \\0*", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-metadata.html", "style.media: IDL set to 7", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-metadata.html", "style.media: IDL set to 1.5", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-metadata.html", "style.media: IDL set to \"5%\"", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-metadata.html", "style.media: IDL set to \"+100\"", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-metadata.html", "style.media: IDL set to \".5\"", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-metadata.html", "style.media: IDL set to object \"[object Object]\"", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-metadata.html", "style.media: IDL set to \"\\0\"", WptDivergence.NeedsTriage),
     ];
 
     // ---------------------------------------------------------------- 5. a DOM prototype has no @@unscopables
@@ -1468,6 +1503,7 @@ internal static class WptBrowserExclusions
         new("3. a URL's fragment is dropped", _3AURLSFragmentIsDropped),
         new("4. AngleSharp has no HTMLDListElement", _4AngleSharpHasNoHTMLDListElement),
         new("5. a DOM prototype has no @@unscopables", _5ADOMPrototypeHasNoUnscopables),
+        new("8. AngleSharp.Css refuses an unparseable media query", _8AngleSharpCssRefusesAnUnparseableMediaQuery),
         new("4b. a custom element", _4bACustomElement),
         new("6. a frame that runs script: the scripting suites", _6AFrameThatRunsScriptTheScriptingSuites),
         new("7. a bubbling `submit` the file counts as an activation", _7ABubblingSubmitTheFileCountsAsAnActivation),
