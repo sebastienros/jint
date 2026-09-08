@@ -5522,6 +5522,24 @@ serialization read the prototype accessor through JavaScript `[[Get]]`. The host
 without one those operations observe length zero. Jint's DOM collection wrappers opt out, matching browser
 prototype placement and making a redefined `NodeList.prototype.length` visible to every consuming lane.
 
+### 4.136 Host array-likes can use WebIDL assignment semantics ([#3929](https://github.com/sebastienros/jint/issues/3929))
+
+`ArrayLikeObject` adds the protected `IgnoreNamedPropertiesInSet` switch, defaulting to `false`. Existing
+host subclasses retain ordinary assignment semantics: an inherited read-only projected name prevents an
+assignment from creating an own property on the receiver. WebIDL-style hosts can opt in:
+
+```csharp
+protected override bool IgnoreNamedPropertiesInSet => true;
+```
+
+The opt-in skips the projected named getter when assignment selects its descriptor. An object created with
+`Object.create(collection)` can therefore assign its own property over a projected name. Reads remain live,
+indexed properties retain their descriptors, and ordinary stored properties and prototype setters still
+participate. Assignment to the collection itself still uses its property-definition rules; a read-only
+projected name cannot be replaced. A named setter still handles writes to the collection first.
+
+Jint's `HTMLCollection` wrappers opt in, matching WebIDL's legacy-platform-object `[[Set]]` algorithm.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

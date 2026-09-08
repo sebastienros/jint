@@ -1,0 +1,13 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <IsPackable>false</IsPackable>
+    <RestorePackagesWithLockFile Condition="'$(MSBuildProjectName)' == 'Baseline' Or '$(MSBuildProjectName)' == 'Candidate'">true</RestorePackagesWithLockFile>
+    <RestoreLockedMode Condition="'$(MSBuildProjectName)' == 'Baseline' Or '$(MSBuildProjectName)' == 'Candidate'">true</RestoreLockedMode>
+  </PropertyGroup>
+</Project>
