@@ -19,6 +19,11 @@ namespace Jint.Tests.Browser.Wpt;
 /// <i>is</i>.
 /// </para>
 /// </remarks>
+// The measured test shares the census's process-wide observations and, in update mode, its README output.
+// Running this fixture beside WptBrowserCensusTests would race the two source-file rewrites and make both
+// fixtures walk every still-unobserved document at once. The non-parallel shift lets the ordinary browser
+// theories and the census finish first, so this check reuses their outcomes and writes after them.
+[NonParallelizable]
 public class WptBrowserCauseTests
 {
     /// <summary>
