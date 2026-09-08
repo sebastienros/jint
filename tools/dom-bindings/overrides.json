@@ -1899,6 +1899,30 @@
       "reason": "HTML \u00a716.2: `htmlFor` reflects `for`, the one member of this group whose IDL name and content attribute name differ. AngleSharp has no member for it."
     },
     {
+      "interface": "HTMLFormElement",
+      "member": "action",
+      "attribute": "action",
+      "type": "url",
+      "documentUrlWhenEmpty": true,
+      "reason": "HTML \u00a74.10.3: `action` reflects the content attribute as a URL, except that a missing or empty attribute answers the element's node document's URL instead -- the other of the two members in HTML with that rule, formAction being the first. AngleSharp's Action is the raw attribute value."
+    },
+    {
+      "interface": "HTMLFormElement",
+      "member": "autocomplete",
+      "attribute": "autocomplete",
+      "type": "enum",
+      "keywords": ["on", "off"],
+      "missing": "on",
+      "reason": "HTML \u00a74.10.3: an enumerated attribute whose missing AND invalid value defaults are both `on`, so an unknown value reads back as \"on\" rather than as itself. AngleSharp hands back the raw attribute value."
+    },
+    {
+      "interface": "HTMLLegendElement",
+      "member": "align",
+      "attribute": "align",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
       "interface": "HTMLInputElement",
       "member": "formAction",
       "attribute": "formaction",
@@ -1980,6 +2004,100 @@
       "attribute": "usemap",
       "type": "string",
       "reason": "HTML \u00a716.3.3: an obsolete attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLButtonElement",
+      "member": "formAction",
+      "attribute": "formaction",
+      "type": "url",
+      "documentUrlWhenEmpty": true,
+      "reason": "HTML \u00a74.10.18.6: the same member <input> has, on the other element that submits a form. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLButtonElement",
+      "member": "formEnctype",
+      "attribute": "formenctype",
+      "type": "enum",
+      "keywords": ["application/x-www-form-urlencoded", "multipart/form-data", "text/plain"],
+      "invalid": "application/x-www-form-urlencoded",
+      "reason": "HTML \u00a74.10.18.6: an invalid value default of the URL-encoded form and an empty missing value default. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLButtonElement",
+      "member": "formMethod",
+      "attribute": "formmethod",
+      "type": "enum",
+      "keywords": ["get", "post", "dialog"],
+      "invalid": "get",
+      "reason": "HTML \u00a74.10.18.6: `dialog` is a keyword here and not on <input>, which is why the two rows differ. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLButtonElement",
+      "member": "type",
+      "attribute": "type",
+      "type": "enum",
+      "keywords": ["submit", "reset", "button"],
+      "missing": "submit",
+      "reason": "HTML \u00a74.10.6: an enumerated attribute whose missing and invalid value defaults are both `submit`, so `<button type=x>` is a submit button. AngleSharp's Type hands back the raw attribute value."
+    },
+    {
+      "interface": "HTMLProgressElement",
+      "member": "max",
+      "attribute": "max",
+      "type": "limited double",
+      "default": 1,
+      "reason": "HTML \u00a74.10.13: `max` is a double limited to numbers greater than zero with a default of 1.0 -- so a zero or negative IDL set writes nothing at all and an unparseable attribute reads back as 1. AngleSharp types it as a Double with .NET's own parse and no floor."
+    },
+    {
+      "interface": "HTMLSelectElement",
+      "member": "autocomplete",
+      "attribute": "autocomplete",
+      "type": "string",
+      "reason": "HTML \u00a74.10.7 declares `autocomplete` on <select>; the getter is the autofill algorithm rather than reflection, which needs an autofill model this package does not have, so the row supplies the half that is -- the setter -- and a getter that answers the content attribute, which is what AngleSharp already does for <input>. AngleSharp has no member for it on <select> at all."
+    },
+    {
+      "interface": "HTMLSelectElement",
+      "member": "size",
+      "attribute": "size",
+      "type": "unsigned long",
+      "reason": "HTML \u00a74.10.7: `size` is a reflected unsigned long whose default is 0 -- not <input>'s 20, and not limited to positive numbers, which is exactly the kind of thing no CLR signature carries. AngleSharp types it as an Int32 with .NET's own parse."
+    },
+    {
+      "interface": "HTMLTextAreaElement",
+      "member": "autocomplete",
+      "attribute": "autocomplete",
+      "type": "string",
+      "reason": "HTML \u00a74.10.11, and the same halves as <select>'s. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLTextAreaElement",
+      "member": "cols",
+      "attribute": "cols",
+      "type": "limited unsigned long with fallback",
+      "default": 20,
+      "reason": "HTML \u00a74.10.11: `cols` is an unsigned long limited to only positive numbers WITH FALLBACK, default 20 -- so a zero or out-of-range IDL set writes 20 rather than throwing, which is what separates it from <input>'s `size`. AngleSharp types it as an Int32."
+    },
+    {
+      "interface": "HTMLTextAreaElement",
+      "member": "rows",
+      "attribute": "rows",
+      "type": "limited unsigned long with fallback",
+      "default": 2,
+      "reason": "HTML \u00a74.10.11: the same algorithm as cols with a default of 2."
+    },
+    {
+      "interface": "HTMLTextAreaElement",
+      "member": "maxLength",
+      "attribute": "maxlength",
+      "type": "limited long",
+      "reason": "HTML \u00a74.10.5.3.1: a long limited to only non-negative numbers, default -1, and a negative IDL set is an IndexSizeError. AngleSharp types it as an Int32 with no refusal."
+    },
+    {
+      "interface": "HTMLTextAreaElement",
+      "member": "minLength",
+      "attribute": "minlength",
+      "type": "limited long",
+      "reason": "HTML \u00a74.10.5.3.2: the same algorithm as maxLength. AngleSharp has no member for it."
     },
     {
       "interface": "HTMLModElement",

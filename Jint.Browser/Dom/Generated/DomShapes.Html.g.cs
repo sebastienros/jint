@@ -1247,12 +1247,12 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLButtonElement.formAction", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlButtonElement>(thisObj, "HTMLButtonElement.formAction");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.FormAction);
+                    return global::Jint.Browser.Dom.DomReflected.HTMLButtonElementFormAction.Get(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLButtonElement.formAction", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlButtonElement>(thisObj, "HTMLButtonElement.formAction");
-                    self.Target.FormAction = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLButtonElement.formAction"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomReflected.HTMLButtonElementFormAction.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("formEncType",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLButtonElement.formEncType", static (thisObj, args) =>
@@ -1265,16 +1265,27 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlButtonElement>(thisObj, "HTMLButtonElement.formEncType");
                     self.Target.FormEncType = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLButtonElement.formEncType"); return global::Jint.Native.JsValue.Undefined;
                 }))
+            .Accessor("formEnctype",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLButtonElement.formEnctype", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlButtonElement>(thisObj, "HTMLButtonElement.formEnctype");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLButtonElementFormEnctype.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLButtonElement.formEnctype", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlButtonElement>(thisObj, "HTMLButtonElement.formEnctype");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLButtonElementFormEnctype.Set(self.Realm, self.Target, args);
+                }))
             .Accessor("formMethod",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLButtonElement.formMethod", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlButtonElement>(thisObj, "HTMLButtonElement.formMethod");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.FormMethod);
+                    return global::Jint.Browser.Dom.DomReflected.HTMLButtonElementFormMethod.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLButtonElement.formMethod", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlButtonElement>(thisObj, "HTMLButtonElement.formMethod");
-                    self.Target.FormMethod = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLButtonElement.formMethod"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomReflected.HTMLButtonElementFormMethod.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("formNoValidate",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLButtonElement.formNoValidate", static (thisObj, args) =>
@@ -1326,12 +1337,12 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLButtonElement.type", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlButtonElement>(thisObj, "HTMLButtonElement.type");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Type);
+                    return global::Jint.Browser.Dom.DomReflected.HTMLButtonElementType.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLButtonElement.type", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlButtonElement>(thisObj, "HTMLButtonElement.type");
-                    self.Target.Type = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLButtonElement.type"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomReflected.HTMLButtonElementType.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("validationMessage",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLButtonElement.validationMessage", static (thisObj, args) =>
@@ -1781,23 +1792,23 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLFormElement.action", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFormElement>(thisObj, "HTMLFormElement.action");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Action);
+                    return global::Jint.Browser.Dom.DomReflected.HTMLFormElementAction.Get(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLFormElement.action", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFormElement>(thisObj, "HTMLFormElement.action");
-                    self.Target.Action = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLFormElement.action"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomReflected.HTMLFormElementAction.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("autocomplete",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLFormElement.autocomplete", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFormElement>(thisObj, "HTMLFormElement.autocomplete");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Autocomplete);
+                    return global::Jint.Browser.Dom.DomReflected.HTMLFormElementAutocomplete.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLFormElement.autocomplete", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFormElement>(thisObj, "HTMLFormElement.autocomplete");
-                    self.Target.Autocomplete = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLFormElement.autocomplete"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomReflected.HTMLFormElementAutocomplete.Set(self.Realm, self.Target, args);
                 }))
             .Method("checkValidity",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLFormElement.checkValidity", static (thisObj, args) =>
@@ -3006,6 +3017,17 @@ internal static partial class DomInterfaces
         => new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("HTMLLegendElement")
             .PerRealmSlot("constructor", enumerable: false)
+            .Accessor("align",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLLegendElement.align", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLegendElement>(thisObj, "HTMLLegendElement.align");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLLegendElementAlign.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLLegendElement.align", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLegendElement>(thisObj, "HTMLLegendElement.align");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLLegendElementAlign.Set(self.Realm, self.Target, args);
+                }))
             .Accessor("form",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLLegendElement.form", static (thisObj, args) =>
                 {
@@ -4164,12 +4186,12 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLProgressElement.max", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlProgressElement>(thisObj, "HTMLProgressElement.max");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Maximum);
+                    return global::Jint.Browser.Dom.DomReflected.HTMLProgressElementMax.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLProgressElement.max", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlProgressElement>(thisObj, "HTMLProgressElement.max");
-                    self.Target.Maximum = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, "HTMLProgressElement.max"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomReflected.HTMLProgressElementMax.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("position",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLProgressElement.position", static (thisObj, args) =>
@@ -4348,6 +4370,17 @@ internal static partial class DomInterfaces
                     return global::Jint.Browser.Dom.DomUnionMembers.SelectAdd(self, args);
                 }),
                 length: 1)
+            .Accessor("autocomplete",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLSelectElement.autocomplete", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSelectElement>(thisObj, "HTMLSelectElement.autocomplete");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLSelectElementAutocomplete.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLSelectElement.autocomplete", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSelectElement>(thisObj, "HTMLSelectElement.autocomplete");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLSelectElementAutocomplete.Set(self.Realm, self.Target, args);
+                }))
             .Accessor("autofocus",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLSelectElement.autofocus", static (thisObj, args) =>
                 {
@@ -4470,12 +4503,12 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLSelectElement.size", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSelectElement>(thisObj, "HTMLSelectElement.size");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Size);
+                    return global::Jint.Browser.Dom.DomReflected.HTMLSelectElementSize.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLSelectElement.size", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSelectElement>(thisObj, "HTMLSelectElement.size");
-                    self.Target.Size = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "HTMLSelectElement.size"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomReflected.HTMLSelectElementSize.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("type",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLSelectElement.type", static (thisObj, args) =>
@@ -5348,6 +5381,17 @@ internal static partial class DomInterfaces
         => new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("HTMLTextAreaElement")
             .PerRealmSlot("constructor", enumerable: false)
+            .Accessor("autocomplete",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.autocomplete", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.autocomplete");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementAutocomplete.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.autocomplete", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.autocomplete");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementAutocomplete.Set(self.Realm, self.Target, args);
+                }))
             .Accessor("autofocus",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.autofocus", static (thisObj, args) =>
                 {
@@ -5370,12 +5414,12 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.cols", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.cols");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Columns);
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementCols.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.cols", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.cols");
-                    self.Target.Columns = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "HTMLTextAreaElement.cols"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementCols.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("defaultValue",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.defaultValue", static (thisObj, args) =>
@@ -5426,12 +5470,23 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.maxLength", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.maxLength");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.MaxLength);
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementMaxLength.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.maxLength", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.maxLength");
-                    self.Target.MaxLength = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "HTMLTextAreaElement.maxLength"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementMaxLength.Set(self.Realm, self.Target, args);
+                }))
+            .Accessor("minLength",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.minLength", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.minLength");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementMinLength.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.minLength", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.minLength");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementMinLength.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("name",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.name", static (thisObj, args) =>
@@ -5481,12 +5536,12 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.rows", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.rows");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Rows);
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementRows.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.rows", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTextAreaElement>(thisObj, "HTMLTextAreaElement.rows");
-                    self.Target.Rows = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "HTMLTextAreaElement.rows"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomReflected.HTMLTextAreaElementRows.Set(self.Realm, self.Target, args);
                 }))
             .Method("select",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLTextAreaElement.select", static (thisObj, args) =>

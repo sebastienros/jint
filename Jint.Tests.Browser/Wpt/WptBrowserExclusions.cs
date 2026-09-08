@@ -289,29 +289,25 @@ internal static class WptBrowserExclusions
         ("html/dom/usvstring-reflection.https.html", "needs webrtc/RTCPeerConnection-helper.js and a real RTCPeerConnection to reflect a USVString off"),
 
         // ------------------------------------------------------------ HTML's reflection suite
-        // Ten generated documents, 56,660 assertions. Eight of them are cases now — reflection-misc.html,
-        // reflection-text.html, reflection-sections.html, reflection-tabular.html,
-        // reflection-forms-weekmonth.html, reflection-grouping.html, reflection-metadata.html and
-        // reflection-obsolete.html, 39,467 assertions between them — because HTML §2.6.1's reflection
+        // Ten generated documents, 56,660 assertions. Nine of them are cases now — every one but
+        // reflection-embedded.html, 47,738 assertions between them — because HTML §2.6.1's reflection
         // algorithms are implemented (Jint.Browser/Dom/ReflectedAttribute.cs) and driven by overrides.json's
-        // `reflected` list. Five pass whole; what fails in the other three is never reflection — it is an
-        // element interface the pinned assemblies do not have (<dl>, <dir>, <font>, <frame>) and <style>'s
-        // `media`, which AngleSharp.Css refuses from inside setAttribute.
+        // `reflected` list. Five pass whole; what fails in the other four is never reflection — it is an
+        // element interface the pinned assemblies do not have (<dl>, <dir>, <font>, <frame>), <style>'s
+        // `media`, which AngleSharp.Css refuses from inside setAttribute, and <meter>'s six setters, which
+        // write a double with .NET's number format.
         //
-        // The other two are out for one reason and it is no longer "reflection is not implemented": each
-        // needs the per-element attribute table it tests, one `reflected` row per content attribute, which is
-        // #3770's remaining work. The 120 rows written so far started with the GLOBAL attributes every
+        // The last one is out for one reason and it is no longer "reflection is not implemented": it needs
+        // the per-element attribute table it tests, one `reflected` row per content attribute, which is
+        // #3770's remaining work. The 135 rows written so far started with the GLOBAL attributes every
         // element carries (`dir`, `lang`, `tabIndex`, `autofocus`, `inputMode`, `enterKeyHint`), so they have
-        // already moved the two a long way — and `forms` shares the whole <input> table with the
-        // week-and-month document, which is a case. What is left is `enctype`, `preload`, `decoding` and
-        // their kind.
+        // already moved it a long way. What is left is `preload`, `decoding`, `kind` and their kind.
         //
         // **None of them is slow**: the whole set runs in 22.5 s and the largest (reflection-embedded.html,
         // 8,922 tests) in 7.3 s, well inside the driver's 30 s deadline. What has always kept them out is the
         // artefact — a table of patterns naming thousands of failures, every one of them saying the same
         // thing — and that is the thing this suite stops needing one family at a time.
         ("html/dom/*-embedded.*", "#3770: the embedded-content elements and their attribute table; 3,774 of 8,922 assertions failed at the measurement in the issue"),
-        ("html/dom/*-forms.*", "#3770: the form controls and their attribute table; 2,160 of 8,271"),
         ("html/dom/reflection-original.html", "the same suite in the aggregating spelling, which reports only failures rather than one test per assertion — a second answer to what reflection-*.html already say"),
         ("html/dom/elements-aria-enumerated.js", "the attribute table of aria-attribute-reflection-enumerated.tentative.html, which tests a proposal the specification has not adopted"),
 
@@ -766,6 +762,7 @@ internal static class WptBrowserExclusions
         ["html/dom/aria-element-reflection.html"] = 27,
         ["html/dom/historical.html"] = 13,
         ["html/dom/reflection-forms-weekmonth.html"] = 1579,
+        ["html/dom/reflection-forms.html"] = 8271,
         ["html/dom/reflection-grouping.html"] = 5358,
         ["html/dom/reflection-metadata.html"] = 3110,
         ["html/dom/reflection-misc.html"] = 4877,
@@ -967,6 +964,39 @@ internal static class WptBrowserExclusions
         new("html/dom/reflection-metadata.html", "style.media: IDL set to \".5\"", WptDivergence.NeedsTriage),
         new("html/dom/reflection-metadata.html", "style.media: IDL set to object \"[object Object]\"", WptDivergence.NeedsTriage),
         new("html/dom/reflection-metadata.html", "style.media: IDL set to \"\\0\"", WptDivergence.NeedsTriage),
+    ];
+
+    // ------------------------------------------- 9. a double written with .NET's number format
+    private static readonly WptExclusion[] _9ADoubleWrittenWithNETSNumberFormat =
+    [
+        // <meter>'s six members are the one group in this suite whose getters are NOT reflection and are
+        // right: AngleSharp implements HTML §4.10.14's clamping and its defaults — max is 1 when absent,
+        // optimum is the midpoint, value is constrained to [min, max] — so a reflected row here would be a
+        // regression rather than a fix, and there is none. What their SETTERS do is reflection, and
+        // AngleSharp writes the number with Double.ToString(NumberFormatInfo.InvariantInfo) where HTML
+        // §2.6.1 wants "the best representation of the number as a floating-point number", which is
+        // ECMAScript's Number-to-String. The two disagree on exactly three values, and on the same three
+        // for every member: -0 keeps its sign, and an exponent is spelled E+25 rather than e+25.
+        //
+        // Eighteen exact rows and no glob: every other test of all six members passes.
+        new("html/dom/reflection-forms.html", "meter.value: IDL set to -0", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-forms.html", "meter.value: IDL set to 1e-10", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-forms.html", "meter.value: IDL set to 1e+25", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-forms.html", "meter.min: IDL set to -0", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-forms.html", "meter.min: IDL set to 1e-10", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-forms.html", "meter.min: IDL set to 1e+25", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-forms.html", "meter.max: IDL set to -0", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-forms.html", "meter.max: IDL set to 1e-10", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-forms.html", "meter.max: IDL set to 1e+25", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-forms.html", "meter.low: IDL set to -0", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-forms.html", "meter.low: IDL set to 1e-10", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-forms.html", "meter.low: IDL set to 1e+25", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-forms.html", "meter.high: IDL set to -0", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-forms.html", "meter.high: IDL set to 1e-10", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-forms.html", "meter.high: IDL set to 1e+25", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-forms.html", "meter.optimum: IDL set to -0", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-forms.html", "meter.optimum: IDL set to 1e-10", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-forms.html", "meter.optimum: IDL set to 1e+25", WptDivergence.NeedsTriage),
     ];
 
     // ---------------------------------------------------------------- 5. a DOM prototype has no @@unscopables
@@ -1558,6 +1588,7 @@ internal static class WptBrowserExclusions
         new("4. an obsolete element interface AngleSharp does not have", _4AnObsoleteElementInterfaceAngleSharpDoesNotHave),
         new("5. a DOM prototype has no @@unscopables", _5ADOMPrototypeHasNoUnscopables),
         new("8. AngleSharp.Css refuses an unparseable media query", _8AngleSharpCssRefusesAnUnparseableMediaQuery),
+        new("9. a double written with .NET's number format", _9ADoubleWrittenWithNETSNumberFormat),
         new("4b. a custom element", _4bACustomElement),
         new("6. a frame that runs script: the scripting suites", _6AFrameThatRunsScriptTheScriptingSuites),
         new("7. a bubbling `submit` the file counts as an activation", _7ABubblingSubmitTheFileCountsAsAnActivation),
