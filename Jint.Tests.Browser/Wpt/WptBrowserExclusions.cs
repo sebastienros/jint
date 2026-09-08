@@ -1197,13 +1197,11 @@ internal static class WptBrowserExclusions
         new("dom/nodes/Document-getElementById.html", "*string argument.", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-getElementsByTagName.html", "HTML*", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-getElementsByTagNameNS.html", "*namespace", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-getElementsByTagNameNS.html", "BODY*", WptDivergence.NeedsTriage),
         new("dom/nodes/DocumentFragment-getElementById.html", "Empty*", WptDivergence.NeedsTriage),
         new("dom/nodes/Element-children.html", "*1", WptDivergence.NeedsTriage),
         new("dom/nodes/Element-getElementsByTagName-change-document-HTMLNess.html", "*", WptDivergence.NeedsTriage),
         new("dom/nodes/Element-getElementsByTagName.html", "HTML*", WptDivergence.NeedsTriage),
         new("dom/nodes/Element-getElementsByTagNameNS.html", "*namespace", WptDivergence.NeedsTriage),
-        new("dom/nodes/Element-getElementsByTagNameNS.html", "BODY*", WptDivergence.NeedsTriage),
         new("dom/nodes/Node-childNodes.html", "*.", WptDivergence.NeedsTriage),
         new("dom/nodes/case.html", "createElementNS http://www.w3.org/1999*ABC", WptDivergence.NeedsTriage),
         new("dom/nodes/case.html", "createElementNS http://www.w3.org/1999*Abc", WptDivergence.NeedsTriage),
@@ -1531,7 +1529,7 @@ internal static class WptBrowserExclusions
     /// </para>
     /// <para>
     /// <b>The DOM suites made it much bigger, and every one of those causes is bounded.</b> They now hold
-    /// 1,128 failing tests over 219 documents, and <c>Wpt/README.md</c>'s "What the DOM corpus says about this
+    /// 1,124 failing tests over 219 documents, and <c>Wpt/README.md</c>'s "What the DOM corpus says about this
     /// browser" names eighteen causes with the count each accounts for. Ten families were filed as
     /// https://github.com/sebastienros/jint/issues/3765 to 3774 and one was already open as
     /// https://github.com/sebastienros/jint/issues/3712, so a row here that is not one of
