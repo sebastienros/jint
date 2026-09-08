@@ -2328,7 +2328,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Range.comparePoint", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, "Range.comparePoint");
-                    return global::Jint.Browser.Dom.DomConvert.Number((int) (self.Target.CompareTo(global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Dom.INode>(args, 0, "Range.comparePoint"), global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 1, "Range.comparePoint"))));
+                    return self.Realm.Hooks.ComparePoint(self.Realm, self.Target, args);
                 }),
                 length: 2)
             .Method("deleteContents",
@@ -2396,7 +2396,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Range.isPointInRange", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, "Range.isPointInRange");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Contains(global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Dom.INode>(args, 0, "Range.isPointInRange"), global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 1, "Range.isPointInRange")));
+                    return self.Realm.Hooks.IsPointInRange(self.Realm, self.Target, args);
                 }),
                 length: 2)
             .Method("selectNode",
