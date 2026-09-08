@@ -63,4 +63,32 @@ public sealed class TagNameCollectionTests
         fixture.Execute("root.appendChild(document.createElementNS('test', 'aside'))");
         fixture.Number("allForeign.length").Should().Be(2);
     }
+
+    [TestCase("document", TestName = "Document exact namespace names keep their case and stay live")]
+    [TestCase("document.getElementById('root')", TestName = "Element exact namespace names keep their case and stay live")]
+    public void ExactNamespaceNamesKeepTheirCaseAndStayLive(string context)
+    {
+        using var fixture = DomTestFixture.Create("<main id='root'></main>");
+
+        fixture.Execute($$"""
+            var context = {{context}};
+            var root = document.getElementById('root');
+            var upperForeign = context.getElementsByTagNameNS('test', 'BODY');
+            var lowerForeign = context.getElementsByTagNameNS('test', 'body');
+            var upperHtml = context.getElementsByTagNameNS('http://www.w3.org/1999/xhtml', 'ABC');
+            var foreign = document.createElementNS('test', 'BODY');
+            var html = document.createElementNS('http://www.w3.org/1999/xhtml', 'ABC');
+            root.appendChild(foreign);
+            root.appendChild(html);
+            """);
+
+        fixture.Number("upperForeign.length").Should().Be(1);
+        fixture.Bool("upperForeign[0] === foreign").Should().BeTrue();
+        fixture.Number("lowerForeign.length").Should().Be(0);
+        fixture.Number("upperHtml.length").Should().Be(1);
+        fixture.Bool("upperHtml[0] === html").Should().BeTrue();
+
+        fixture.Execute("root.removeChild(foreign)");
+        fixture.Number("upperForeign.length").Should().Be(0);
+    }
 }

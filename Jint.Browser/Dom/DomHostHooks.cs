@@ -183,9 +183,9 @@ internal class DomHostHooks
         IEnumerable<IElement> Current()
         {
             // AngleSharp preserves information unavailable through IElement for exact names it created in
-            // the HTML namespace. Re-running that query keeps its answer live; the binding owns the wildcard
-            // and null-namespace cases its query does not implement.
-            if (namespaceUri is not null and not "*" && localName != "*")
+            // the HTML namespace. Re-running that query keeps its answer live. Other namespaces use the
+            // case-sensitive traversal below, which also owns the wildcard and null-namespace cases.
+            if (string.Equals(namespaceUri, NamespaceNames.HtmlUri, StringComparison.Ordinal) && localName != "*")
             {
                 return root switch
                 {
