@@ -429,4 +429,24 @@ internal sealed class PageRuntime
     /// <summary>The runtime attached to <paramref name="engine"/>, or <see langword="null"/> when it has none.</summary>
     internal static PageRuntime? Find(Engine engine)
         => _runtimes.TryGetValue(engine, out var runtime) ? runtime : null;
+
+    /// <summary>
+    /// The runtime attached to <paramref name="engine"/> when <paramref name="document"/> is the document
+    /// that runtime is showing, or <see langword="null"/> for a secondary document in the same engine.
+    /// </summary>
+    /// <remarks>
+    /// A DOM realm can wrap documents made by <c>DOMParser</c>, <c>new Document()</c> and
+    /// <c>DOMImplementation</c>. Per-engine state is page state only for <see cref="Document"/> itself;
+    /// selecting it for any other wrapped document leaks the page's URL, readiness and storage into a
+    /// document with no browsing context.
+    /// </remarks>
+    internal static PageRuntime? Find(Engine engine, IDocument? document)
+    {
+        var runtime = Find(engine);
+        return document is not null && ReferenceEquals(runtime?.Document, document) ? runtime : null;
+    }
+
+    /// <summary>The page runtime of <paramref name="node"/>'s node document, when it is the displayed one.</summary>
+    internal static PageRuntime? Find(Engine engine, INode node)
+        => Find(engine, node as IDocument ?? node.Owner);
 }

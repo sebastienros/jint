@@ -19,8 +19,9 @@ namespace Jint.Browser.Dom;
 /// <para>
 /// The generated members call these instead of AngleSharp directly. There is one instance and no subclass —
 /// <see cref="DomRealm.Hooks"/> is a seam nothing currently replaces — so a member whose answer differs with
-/// a page asks for one here, through <c>PageRuntime.Find</c>, and falls through to AngleSharp when there is
-/// none. That is what a binding-only engine gets, and it is the behaviour these members have always had.
+/// a page asks for one here, through <c>PageRuntime.Find</c>, and uses it only when the target belongs to the
+/// document that runtime is showing. A secondary document in the same engine and a binding-only engine both
+/// fall through to AngleSharp's own state.
 /// </para>
 /// <para>
 /// Two of them the parser driver settled rather than replaced. A <c>&lt;script&gt;</c> inserted through
@@ -360,7 +361,7 @@ internal class DomHostHooks
     /// </summary>
     internal virtual JsValue CurrentScript(DomRealm realm, IDocument document)
     {
-        if (PageRuntime.Find(realm.Engine) is not { } runtime)
+        if (PageRuntime.Find(realm.Engine, document) is not { } runtime)
         {
             return realm.WrapNodeValue(document.CurrentScript);
         }
@@ -374,7 +375,7 @@ internal class DomHostHooks
     /// outside its assembly can move it; the three transitions a page observes are the parser driver's.
     /// </summary>
     internal virtual JsValue ReadyState(DomRealm realm, IDocument document)
-        => JsString.Create(PageRuntime.Find(realm.Engine) is { } runtime
+        => JsString.Create(PageRuntime.Find(realm.Engine, document) is { } runtime
             ? runtime.ReadyState
             : document.ReadyState.ToString().ToLowerInvariant());
 
@@ -384,7 +385,7 @@ internal class DomHostHooks
     /// reloading, and AngleSharp's address cannot follow without raising a navigation of its own.
     /// </summary>
     internal virtual JsValue DocumentUrl(DomRealm realm, IDocument document)
-        => JsString.Create(PageRuntime.Find(realm.Engine)?.DocumentUrl ?? document.Url ?? "");
+        => JsString.Create(PageRuntime.Find(realm.Engine, document)?.DocumentUrl ?? document.Url ?? "");
 
     /// <summary>
     /// https://dom.spec.whatwg.org/#dom-node-baseuri — the node document's base URL, which
@@ -393,9 +394,9 @@ internal class DomHostHooks
     /// </summary>
     internal virtual JsValue BaseUri(DomRealm realm, INode node)
     {
-        if (PageRuntime.Find(realm.Engine) is not { } runtime)
+        if (PageRuntime.Find(realm.Engine, node) is not { } runtime)
         {
-            return JsString.Create(node.BaseUri ?? "");
+            return JsString.Create(CurrentBaseUri(node));
         }
 
         return JsString.Create(runtime.BaseUri);
@@ -403,27 +404,48 @@ internal class DomHostHooks
 
     /// <summary>https://html.spec.whatwg.org/multipage/dom.html#dom-document-referrer</summary>
     internal virtual JsValue Referrer(DomRealm realm, IDocument document)
-        => JsString.Create(PageRuntime.Find(realm.Engine)?.Referrer ?? document.Referrer ?? "");
+        => JsString.Create(PageRuntime.Find(realm.Engine, document)?.Referrer ?? document.Referrer ?? "");
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/dom.html#dom-document-cookie, over the same jar every request of
     /// the browsing context reads and writes — which is a jar AngleSharp's own document has no idea about.
     /// </summary>
     internal virtual JsValue Cookie(DomRealm realm, IDocument document)
-        => JsString.Create(PageRuntime.Find(realm.Engine) is { } runtime
+        => JsString.Create(PageRuntime.Find(realm.Engine, document) is { } runtime
             ? DocumentCookies.Read(runtime)
             : document.Cookie ?? "");
 
     /// <inheritdoc cref="Cookie" />
     internal virtual void SetCookie(DomRealm realm, IDocument document, string value)
     {
-        if (PageRuntime.Find(realm.Engine) is { } runtime)
+        if (PageRuntime.Find(realm.Engine, document) is { } runtime)
         {
             DocumentCookies.Write(runtime, value);
             return;
         }
 
         document.Cookie = value;
+    }
+
+    /// <summary>
+    /// The node document's current base URL, derived without AngleSharp's cached <see cref="INode.BaseUri"/>.
+    /// </summary>
+    private static string CurrentBaseUri(INode node)
+    {
+        var document = node as IDocument ?? node.Owner;
+        if (document is null)
+        {
+            return node.BaseUri ?? "";
+        }
+
+        var documentUrl = document.Url ?? "";
+        if (document is not IHtmlDocument)
+        {
+            return documentUrl;
+        }
+
+        var href = document.QuerySelector("base[href]")?.GetAttribute("href");
+        return string.IsNullOrEmpty(href) ? documentUrl : PageUrl.Resolve(href, documentUrl) ?? documentUrl;
     }
 
     /// <summary>
