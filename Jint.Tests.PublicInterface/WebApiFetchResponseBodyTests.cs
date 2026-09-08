@@ -482,6 +482,33 @@ public class WebApiFetchResponseBodyTests
 
     // ---- a body that lies, fails or is cancelled ----
 
+    [Test]
+    public void AKnownLengthBodyChargesAboutItsOwnSizeAndNotAWholeStep()
+    {
+        // The declared length may only make the first reservation smaller. A small body charging a whole
+        // growth step of a shared allowance is a sibling refused for no reason.
+        var bytes = Pattern(40);
+        var allowance = new Allowance(1 << 20);
+        var observer = new Reader { Budget = allowance };
+
+        using var handler = new StubHandler(() =>
+        {
+            var response = Body(bytes);
+            response.Content.Headers.ContentLength = bytes.Length;
+            return response;
+        });
+
+        var engine = WebEngine(handler, observer);
+
+        engine.Evaluate("fetch('https://example.org/a').then(r => r.arrayBuffer()).then(b => b.byteLength)")
+            .UnwrapIfPromise(TransportSignalCeiling)
+            .AsNumber().Should().Be(40);
+
+        observer.Bodies[0].Should().Equal(bytes);
+        allowance.Peak.Should().Be(41, "the declared length plus the one byte that finds its end");
+        allowance.Used.Should().Be(0);
+    }
+
     [TestCase(1_000L)]
     [TestCase(3L)]
     public void ADeceptiveContentLengthChangesNeitherWhatIsReadNorWhatIsSpent(long declared)

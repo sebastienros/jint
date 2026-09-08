@@ -172,7 +172,7 @@ public sealed class FetchResponseInterceptionContext
             {
                 if (_length == _reserved)
                 {
-                    var desired = _reserved == 0 ? InitialChunk : Math.Max(_reserved, InitialChunk);
+                    var desired = _reserved == 0 ? FirstChunk() : Math.Max(_reserved, InitialChunk);
                     if (!Grow(budget, desired))
                     {
                         // The allowance is spent with the buffer exactly full, which is the one state that
@@ -203,6 +203,21 @@ public sealed class FetchResponseInterceptionContext
         {
             Volatile.Write(ref _reading, 0);
         }
+    }
+
+    /// <summary>How much the first reservation asks for.</summary>
+    /// <remarks>
+    /// <b><c>Content-Length</c> is a hint that may only make it smaller.</b> A declared length above the
+    /// default step is ignored, so a header that lies upwards cannot reserve memory the body will never fill;
+    /// one that lies downwards costs another growth step and nothing else. What it buys is that a small body
+    /// stops charging a whole step of somebody else's allowance — a twelve-byte response reserving eight
+    /// kilobytes is a sibling refused for no reason. The extra byte is the one a body of exactly the declared
+    /// length needs to reach its end without a second reservation.
+    /// </remarks>
+    private int FirstChunk()
+    {
+        var declared = _message.Content.Headers.ContentLength;
+        return declared is >= 0 and < InitialChunk ? (int) declared.Value + 1 : InitialChunk;
     }
 
     /// <summary>The single slot beyond the reservation, which exists only so that a full buffer can ask.</summary>
