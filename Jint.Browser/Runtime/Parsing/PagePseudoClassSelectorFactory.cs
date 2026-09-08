@@ -6,17 +6,46 @@ using Jint.WebApi.Url.Parsing;
 
 namespace Jint.Browser.Runtime.Parsing;
 
-/// <summary>The selector states whose answer depends on the page environment.</summary>
+/// <summary>The selector states whose default AngleSharp answer a page must refine.</summary>
 internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFactory
 {
+    private const string Enabled = "enabled";
     private const string Target = "target";
 
     private static readonly ISelector _target = new TargetSelector();
     private readonly DefaultPseudoClassSelectorFactory _defaults = new();
+    private readonly ISelector _enabled;
+
+    internal PagePseudoClassSelectorFactory()
+    {
+        _enabled = new EnabledSelector(_defaults.Create(Enabled)
+            ?? throw new InvalidOperationException("AngleSharp no longer supplies the :enabled selector."));
+    }
 
     /// <inheritdoc />
     public ISelector? Create(string name)
-        => string.Equals(name, Target, StringComparison.OrdinalIgnoreCase) ? _target : _defaults.Create(name);
+    {
+        if (string.Equals(name, Target, StringComparison.OrdinalIgnoreCase))
+        {
+            return _target;
+        }
+
+        return string.Equals(name, Enabled, StringComparison.OrdinalIgnoreCase) ? _enabled : _defaults.Create(name);
+    }
+
+    /// <summary>Selectors §13.1: only elements which can be disabled can be enabled.</summary>
+    private sealed class EnabledSelector(ISelector defaults) : ISelector
+    {
+        public string Text => defaults.Text;
+
+        public Priority Specificity => defaults.Specificity;
+
+        public bool Match(IElement element, IElement? scope)
+            => element is not (IHtmlAnchorElement or IHtmlAreaElement or IHtmlLinkElement)
+                && defaults.Match(element, scope);
+
+        public void Accept(ISelectorVisitor visitor) => defaults.Accept(visitor);
+    }
 
     /// <summary>Selectors §8.2: the target element of a document.</summary>
     private sealed class TargetSelector : ISelector
