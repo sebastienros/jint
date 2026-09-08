@@ -1,6 +1,7 @@
 using System.Globalization;
 using AngleSharp;
 using AngleSharp.Dom;
+using Jint.Browser.Runtime;
 using Jint.Native;
 using Jint.Runtime;
 using Jint.WebApi.DomException;
@@ -147,8 +148,21 @@ internal sealed class ReflectedAttribute
     internal static ReflectedAttribute Numeric(string member, string attribute, ReflectedKind kind, double fallback, long min = 0, long max = 0)
         => new(member, attribute, kind, fallback: fallback, min: min, max: max);
 
-    /// <summary>The IDL attribute's value: the content attribute, through this type's algorithm.</summary>
+    /// <summary>The IDL attribute's value outside a page runtime, resolved against its node document.</summary>
     internal JsValue Get(IElement element)
+        => Get(element, element.Owner?.BaseUri ?? element.BaseUri);
+
+    /// <summary>The IDL attribute's value inside a page runtime, resolved against its current document base.</summary>
+    internal JsValue Get(DomRealm realm, IElement element)
+    {
+        var owner = element.Owner;
+        var baseUri = PageRuntime.Find(realm.Engine) is { } runtime && ReferenceEquals(owner, runtime.Document)
+            ? runtime.BaseUri
+            : owner?.BaseUri ?? element.BaseUri;
+        return Get(element, baseUri);
+    }
+
+    private JsValue Get(IElement element, string? baseUri)
     {
         var value = element.GetAttribute(_attribute);
 
@@ -164,7 +178,7 @@ internal sealed class ReflectedAttribute
                 return DomConvert.Bool(value is not null);
 
             case ReflectedKind.Url:
-                return DomConvert.Text(ResolveUrl(element, value));
+                return DomConvert.Text(ResolveUrl(value, baseUri));
 
             case ReflectedKind.Enumerated:
                 return Enumerate(value);
@@ -423,14 +437,13 @@ internal sealed class ReflectedAttribute
     /// URL itself. Which parser this package's URLs should come from is the runtime's question, not the
     /// binding's.
     /// </remarks>
-    private static string ResolveUrl(IElement element, string? value)
+    private static string ResolveUrl(string? value, string? baseUri)
     {
         if (value is null)
         {
             return "";
         }
 
-        var baseUri = element.BaseUri;
         var resolved = string.IsNullOrEmpty(baseUri) ? new Url(value) : new Url(new Url(baseUri), value);
 
         return resolved.IsInvalid ? value : resolved.Href;

@@ -2924,12 +2924,12 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLLinkElement.href", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLinkElement>(thisObj, "HTMLLinkElement.href");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Href);
+                    return global::Jint.Browser.Dom.DomReflected.HTMLLinkElementHref.Get(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLLinkElement.href", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLinkElement>(thisObj, "HTMLLinkElement.href");
-                    self.Target.Href = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLLinkElement.href"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomReflected.HTMLLinkElementHref.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("hreflang",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLLinkElement.hreflang", static (thisObj, args) =>
@@ -3372,7 +3372,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLModElement.cite", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlModElement>(thisObj, "HTMLModElement.cite");
-                    return global::Jint.Browser.Dom.DomReflected.HTMLModElementCite.Get(self.Target);
+                    return global::Jint.Browser.Dom.DomReflected.HTMLModElementCite.Get(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLModElement.cite", static (thisObj, args) =>
                 {
@@ -3957,7 +3957,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLQuoteElement.cite", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlQuoteElement>(thisObj, "HTMLQuoteElement.cite");
-                    return global::Jint.Browser.Dom.DomReflected.HTMLQuoteElementCite.Get(self.Target);
+                    return global::Jint.Browser.Dom.DomReflected.HTMLQuoteElementCite.Get(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLQuoteElement.cite", static (thisObj, args) =>
                 {
@@ -4063,7 +4063,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLScriptElement.src", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlScriptElement>(thisObj, "HTMLScriptElement.src");
-                    return global::Jint.Browser.Dom.DomReflected.HTMLScriptElementSrc.Get(self.Target);
+                    return global::Jint.Browser.Dom.DomReflected.HTMLScriptElementSrc.Get(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLScriptElement.src", static (thisObj, args) =>
                 {

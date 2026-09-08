@@ -1649,6 +1649,13 @@
       "reason": "HTML \u00a716.2: an obsolete attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
     },
     {
+      "interface": "HTMLLinkElement",
+      "member": "href",
+      "attribute": "href",
+      "type": "url",
+      "reason": "HTML \u00a74.2.4 reflects `href` as a URL against the element's node document's current base URL. AngleSharp's Href can retain the URL of a removed base element, so it does not observe later tree mutations (#3896)."
+    },
+    {
       "interface": "HTMLScriptElement",
       "member": "src",
       "attribute": "src",

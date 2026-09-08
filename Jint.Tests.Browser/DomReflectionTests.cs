@@ -94,6 +94,24 @@ public sealed class DomReflectionTests
     }
 
     [Test]
+    public async Task AUrlAttributeUsesTheCurrentDocumentBaseAfterBaseRemoval()
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(
+            "<base id='base' href='https://base.example/path/'><link id='link' href=''>",
+            "https://document.example/root/page.html");
+
+        (await page.EvaluateAsync<string>("link.href")).Should().Be("https://base.example/path/");
+        await page.EvaluateAsync("base.remove()");
+        (await page.EvaluateAsync<string>("link.href")).Should().Be("https://document.example/root/page.html");
+
+        (await page.EvaluateAsync<string>(
+                "new DOMParser().parseFromString(\"<base href='https://other.example/root/'><link id='other' href='child'>\", 'text/html').getElementById('other').href"))
+            .Should().Be("https://other.example/root/child");
+    }
+
+    [Test]
     public void ABooleanAttributeReflectsPresence()
     {
         using var fixture = DomTestFixture.Create("<input id='i'>");
