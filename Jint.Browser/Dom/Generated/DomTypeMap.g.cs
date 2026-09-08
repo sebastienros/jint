@@ -131,7 +131,6 @@ internal static partial class DomTypeMap
         DomInterfaces.CSSViewTransitionRule,
         DomInterfaces.CanvasRenderingContext2D,
         DomInterfaces.CharacterData,
-        DomInterfaces.DOMSettableTokenList,
         DomInterfaces.Document,
         DomInterfaces.DocumentFragment,
         DomInterfaces.DocumentType,

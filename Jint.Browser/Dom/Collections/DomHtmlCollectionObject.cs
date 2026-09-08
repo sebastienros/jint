@@ -106,20 +106,39 @@ internal sealed class DomHtmlCollectionObject<T> : DomCollectionBase where T : c
     /// <c>namedItem</c></a>, whose first step is the empty string and whose second is the element lookup.
     /// </summary>
     /// <remarks>
-    /// AngleSharp's named lookup matches an element carrying id="" or name="", so the empty-name check
-    /// precedes the search. The property projection reuses this lookup after checking ordinary own
-    /// properties; the visible-name list excludes empty names too.
+    /// <para>
+    /// The search is written out rather than delegated to AngleSharp's <c>this[string]</c>, because HTML's
+    /// second step is "the <b>first</b> element for which <i>either</i> its ID is key, <i>or</i> it is in the
+    /// HTML namespace and its <c>name</c> content attribute is key" — one pass in tree order, and the
+    /// <c>name</c> half restricted to HTML elements. AngleSharp matches <c>name</c> on any element and does
+    /// so in a second pass after every id, so <c>document.createElementNS("", "img")</c> with
+    /// <c>name="qux"</c> answered from a collection that must not expose it. That is what made this operation
+    /// and <see cref="VisibleNames"/> disagree about one object, which
+    /// <c>dom/nodes/Element-children.html</c> asserts they never do.
+    /// </para>
+    /// <para>
+    /// The empty-name check is HTML's first step, and it comes first because an element carrying
+    /// <c>id=""</c> or <c>name=""</c> would otherwise match. This operation looks through expandos; only
+    /// property lookup applies the visibility check.
+    /// </para>
     /// </remarks>
     internal override JsValue NamedItem(string name)
     {
-        // This operation looks through expandos; only property lookup applies the visibility check.
         if (name.Length == 0)
         {
             return JsValue.Null;
         }
 
-        var item = _collection[name];
-        return item is null ? JsValue.Null : DomRealm.Wrap(item);
+        foreach (var element in _collection)
+        {
+            if (string.Equals(element.Id, name, StringComparison.Ordinal)
+                || (element is IHtmlElement && string.Equals(element.GetAttribute("name"), name, StringComparison.Ordinal)))
+            {
+                return DomRealm.Wrap(element);
+            }
+        }
+
+        return JsValue.Null;
     }
 
     private List<string> VisibleNames()

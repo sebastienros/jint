@@ -14,19 +14,22 @@ internal sealed class Conversions
     private readonly Func<Type, bool> _isStringEnum;
     private readonly Func<string, int, bool> _isNullableParameter;
     private readonly Func<string, int, bool> _isNonNullableParameter;
+    private readonly Func<string, bool> _isNullToEmptyString;
 
     internal Conversions(
         BindingModel model,
         Func<Type, InterfaceModel?> lookup,
         Func<Type, bool> isStringEnum,
         Func<string, int, bool> isNullableParameter,
-        Func<string, int, bool> isNonNullableParameter)
+        Func<string, int, bool> isNonNullableParameter,
+        Func<string, bool> isNullToEmptyString)
     {
         _model = model;
         _lookup = lookup;
         _isStringEnum = isStringEnum;
         _isNullableParameter = isNullableParameter;
         _isNonNullableParameter = isNonNullableParameter;
+        _isNullToEmptyString = isNullToEmptyString;
     }
 
     /// <summary>
@@ -167,6 +170,15 @@ internal sealed class Conversions
                     && !_isNonNullableParameter(member, index))
                 {
                     code = "global::Jint.Browser.Dom.DomConvert.NullableText(args, " + index + ")";
+                    return true;
+                }
+
+                // https://webidl.spec.whatwg.org/#LegacyNullToEmptyString - the opposite direction, and the
+                // one no CLR signature can carry: the setter takes a non-nullable DOMString, and the value
+                // `null` is the empty string rather than the string "null". Only overrides.json knows.
+                if (role == ParameterRole.AttributeValue && _isNullToEmptyString(member))
+                {
+                    code = "global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, " + index + ", " + CSharpNames.Literal(member) + ")";
                     return true;
                 }
 

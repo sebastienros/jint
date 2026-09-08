@@ -135,15 +135,76 @@ internal class DomHostHooks
     internal virtual JsValue IsPointInRange(DomRealm realm, IRange range, JsValue[] arguments)
         => DomRangeMembers.IsPointInRange(realm, range, arguments);
 
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#dom-nonelementparentnode-getelementbyid - and DOM §4.9's definition of an
+    /// element's ID, which is what makes the empty string answer null.
+    /// </summary>
+    /// <remarks>
+    /// An element's ID is <i>unset</i> while its <c>id</c> content attribute is absent or the empty string, so
+    /// no element in any tree has the empty string as its ID and the lookup can never match. AngleSharp
+    /// compares the attribute's value instead, and answers the first element it walks for
+    /// <c>getElementById("")</c> - the document element of an ordinary page. See Dom/divergences.md.
+    /// </remarks>
+    internal virtual JsValue GetElementById(DomRealm realm, INode root, JsValue[] arguments)
+    {
+        var elementId = DomConvert.RequiredText(arguments, 0, Member(root, "getElementById"));
+
+        if (elementId.Length == 0)
+        {
+            return JsValue.Null;
+        }
+
+        return realm.WrapNodeValue(root is INonElementParentNode parent ? parent.GetElementById(elementId) : null);
+    }
+
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#dom-childnode-before, whose viable-sibling step runs before the argument
+    /// conversion that can move the receiver out of its own parent. See <see cref="DomChildNodeMembers"/>.
+    /// </summary>
+    internal virtual void Before(DomRealm realm, INode node, JsValue[] arguments)
+        => DomChildNodeMembers.Before(realm, node, arguments);
+
+    /// <summary>https://dom.spec.whatwg.org/#dom-childnode-after</summary>
+    internal virtual void After(DomRealm realm, INode node, JsValue[] arguments)
+        => DomChildNodeMembers.After(realm, node, arguments);
+
+    /// <summary>https://dom.spec.whatwg.org/#dom-childnode-replacewith</summary>
+    internal virtual void ReplaceWith(DomRealm realm, INode node, JsValue[] arguments)
+        => DomChildNodeMembers.ReplaceWith(realm, node, arguments);
+
     /// <summary>https://dom.spec.whatwg.org/#concept-getelementsbyclassname</summary>
+    /// <remarks>
+    /// <para>
+    /// The whole algorithm is here rather than only its liveness, because its comparison is
+    /// <b>ASCII case-insensitive when the root's node document is in quirks mode</b> and AngleSharp offers no
+    /// seam for that: <c>ITokenList.Contains</c> is the case-sensitive token store, and the class selector the
+    /// query engine uses calls the same operation. Jint owns this behaviour by the decision recorded on
+    /// <a href="https://github.com/sebastienros/jint/issues/3899">#3899</a>, after the upstream change was
+    /// declined as out of scope; the divergence register keeps the reproduction.
+    /// </para>
+    /// <para>
+    /// The mode is read <i>inside</i> the filter, with everything else the filter reads, because the
+    /// collection is live and a root adopted into another document takes that document's mode with it.
+    /// "ASCII case-insensitive" is spelled out rather than taken from <c>OrdinalIgnoreCase</c>, which folds
+    /// the whole of Unicode's simple case mapping and would make <c>class="ı"</c> match <c>"I"</c>.
+    /// </para>
+    /// </remarks>
     internal virtual JsValue GetElementsByClassName(DomRealm realm, INode root, JsValue[] arguments)
     {
-        var classNames = DomConvert.RequiredText(arguments, 0, Member(root, "getElementsByClassName"));
-        return realm.WrapCollection<IElement>(new DomLiveHtmlCollection(() => root switch
+        var classes = AsciiWhitespaceSplit(DomConvert.RequiredText(arguments, 0, Member(root, "getElementsByClassName")));
+
+        if (classes.Length == 0)
         {
-            IDocument document => document.GetElementsByClassName(classNames),
-            IElement element => element.GetElementsByClassName(classNames),
-            _ => [],
+            // "If classes is the empty set, return an empty HTMLCollection" - and an empty one that is still
+            // a collection, because a page holds it and reads its length.
+            return realm.WrapCollection<IElement>(new DomLiveHtmlCollection(static () => []));
+        }
+
+        return realm.WrapCollection<IElement>(new DomLiveHtmlCollection(() =>
+        {
+            // DOM §4.5: compatMode is "BackCompat" exactly while the node document's mode is "quirks".
+            var quirks = string.Equals((root as IDocument ?? root.Owner)?.CompatMode, "BackCompat", StringComparison.Ordinal);
+            return root.Descendants<IElement>().Where(element => HasEveryClass(element, classes, quirks));
         }));
     }
 
@@ -204,7 +265,107 @@ internal class DomHostHooks
     }
 
     private static string Member(INode root, string operation)
-        => (root is IDocument ? "Document." : "Element.") + operation;
+        => root switch
+        {
+            IDocument => "Document.",
+            IDocumentFragment => "DocumentFragment.",
+            _ => "Element.",
+        } + operation;
+
+    /// <summary>https://infra.spec.whatwg.org/#ascii-whitespace: TAB, LF, FF, CR and SPACE, and nothing else.</summary>
+    private static readonly char[] AsciiWhitespace = ['\t', '\n', '\f', '\r', ' '];
+
+    /// <summary>https://infra.spec.whatwg.org/#split-on-ascii-whitespace, which is how a class list is parsed.</summary>
+    private static string[] AsciiWhitespaceSplit(string value)
+        => value.Split(AsciiWhitespace, StringSplitOptions.RemoveEmptyEntries);
+
+    /// <summary>Whether <paramref name="element"/>'s classes contain every one of <paramref name="classes"/>.</summary>
+    /// <remarks>
+    /// The element's own token set is scanned in place rather than split: this runs once per descendant per
+    /// read of a live collection, and a page that keeps one and reads its <c>length</c> in a loop would
+    /// otherwise allocate an array per element per read.
+    /// </remarks>
+    private static bool HasEveryClass(IElement element, string[] classes, bool quirks)
+    {
+        var declared = element.GetAttribute("class");
+
+        if (string.IsNullOrEmpty(declared))
+        {
+            return false;
+        }
+
+        foreach (var candidate in classes)
+        {
+            if (!HasClass(declared.AsSpan(), candidate, quirks))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Whether the ASCII-whitespace-separated <paramref name="declared"/> set holds one token.</summary>
+    private static bool HasClass(ReadOnlySpan<char> declared, string candidate, bool quirks)
+    {
+        var index = 0;
+
+        while (index < declared.Length)
+        {
+            while (index < declared.Length && IsAsciiWhitespace(declared[index]))
+            {
+                index++;
+            }
+
+            var start = index;
+
+            while (index < declared.Length && !IsAsciiWhitespace(declared[index]))
+            {
+                index++;
+            }
+
+            if (index > start && TokenEquals(declared.Slice(start, index - start), candidate, quirks))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// https://infra.spec.whatwg.org/#ascii-case-insensitive - the ASCII range alone when the document is in
+    /// quirks mode, so the Kelvin sign and the dotless i keep their own identity where
+    /// <c>OrdinalIgnoreCase</c> would not, and an exact comparison otherwise.
+    /// </summary>
+    private static bool TokenEquals(ReadOnlySpan<char> token, string candidate, bool quirks)
+    {
+        if (token.Length != candidate.Length)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < token.Length; i++)
+        {
+            if (token[i] == candidate[i])
+            {
+                continue;
+            }
+
+            if (!quirks || AsciiLowercase(token[i]) != AsciiLowercase(candidate[i]))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool IsAsciiWhitespace(char character)
+        => character is '\t' or '\n' or '\f' or '\r' or ' ';
+
+    private static char AsciiLowercase(char character)
+        => character is >= 'A' and <= 'Z' ? (char) (character | 0x20) : character;
 
     private static string QualifiedName(IElement element)
         => string.IsNullOrEmpty(element.Prefix) ? element.LocalName : element.Prefix + ":" + element.LocalName;

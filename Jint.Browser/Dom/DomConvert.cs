@@ -149,6 +149,22 @@ internal static class DomConvert
             ? TypeConverter.ToString(arguments[index])
             : fallback;
 
+    /// <summary>
+    /// A <c>DOMString</c> parameter carrying
+    /// <a href="https://webidl.spec.whatwg.org/#LegacyNullToEmptyString">[LegacyNullToEmptyString]</a>:
+    /// JavaScript <c>null</c> becomes the empty string, and everything else converts as usual.
+    /// </summary>
+    /// <remarks>
+    /// <c>undefined</c> deliberately still converts to the string <c>"undefined"</c> — the extended attribute
+    /// names <c>null</c> alone, and <c>dom/nodes/CharacterData-data.html</c> asserts both halves.
+    /// </remarks>
+    internal static string NullToEmptyText(JsValue[] arguments, int index, string member)
+    {
+        Require(arguments, index, member);
+        var value = arguments[index];
+        return value.IsNull() ? string.Empty : TypeConverter.ToString(value);
+    }
+
     /// <summary>A <c>DOMString?</c> parameter: <c>null</c> and <c>undefined</c> stay null.</summary>
     internal static string? NullableText(JsValue[] arguments, int index)
         => index < arguments.Length && !arguments[index].IsNullOrUndefined()

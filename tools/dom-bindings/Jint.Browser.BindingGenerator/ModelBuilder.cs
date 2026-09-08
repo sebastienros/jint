@@ -92,7 +92,8 @@ internal sealed class ModelBuilder
             LookupInterface,
             t => _stringEnums.Contains(t.FullName!),
             (member, index) => IsListedParameter(_overrides.NullableParameters, member, index),
-            (member, index) => IsListedParameter(_overrides.NonNullableParameters, member, index));
+            (member, index) => IsListedParameter(_overrides.NonNullableParameters, member, index),
+            IsNullToEmptyString);
 
         foreach (var model in _byClrName.Values)
         {
@@ -923,22 +924,12 @@ internal sealed class ModelBuilder
             DomName = domName,
             Kind = MemberKind.Operation,
             Length = DeclaredLength(method),
-            Body = Bind(model, qualified) + DetachedChildGuard(declaring, method) + (method.ReturnType.FullName == "System.Void"
+            Body = Bind(model, qualified) + (method.ReturnType.FullName == "System.Void"
                 ? body + "; return global::Jint.Native.JsValue.Undefined;"
                 : "return " + body + ";"),
             Origin = declaring.Name + "." + method.Name,
         });
     }
-
-    /// <summary>
-    /// DOM §4.2.7 returns before converting arguments when <c>before</c> or <c>after</c>'s receiver has no
-    /// parent. AngleSharp instead enters its insertion helper and raises a not-found exception, so the
-    /// generated binding performs the standard's early return before calling it.
-    /// </summary>
-    private static string DetachedChildGuard(Type declaring, MethodInfo method)
-        => declaring.FullName == "AngleSharp.Dom.IChildNode" && method.Name is "Before" or "After"
-            ? "if (self.Target.Parent is null) { return global::Jint.Native.JsValue.Undefined; }\n"
-            : "";
 
     private void BuildPropertyAsOperation(InterfaceModel model, Type declaring, PropertyInfo property, string domName, string qualified)
     {
@@ -1186,6 +1177,24 @@ internal sealed class ModelBuilder
         var member = qualified[(dot + 1)..];
 
         return entries.Any(n => n.Interface == iface && n.Member == member && n.Parameter == index);
+    }
+
+    /// <summary>
+    /// Whether an IDL attribute's setter carries <c>[LegacyNullToEmptyString]</c>. The qualified name is what
+    /// the emitted conversion already carries, so the lookup needs nothing the caller does not have.
+    /// </summary>
+    private bool IsNullToEmptyString(string qualified)
+    {
+        var dot = qualified.LastIndexOf('.');
+        if (dot <= 0)
+        {
+            return false;
+        }
+
+        var iface = qualified[..dot];
+        var member = qualified[(dot + 1)..];
+
+        return _overrides.NullToEmptyStrings.Any(n => n.Interface == iface && n.Member == member);
     }
 
     /// <summary>
@@ -1521,6 +1530,11 @@ internal sealed class ModelBuilder
         foreach (var entry in _overrides.NullableStrings)
         {
             Check("nullableStrings", entry.Interface, entry.Member, entry.Reason);
+        }
+
+        foreach (var entry in _overrides.NullToEmptyStrings)
+        {
+            Check("nullToEmptyStrings", entry.Interface, entry.Member, entry.Reason);
         }
 
         foreach (var entry in _overrides.NullableParameters)
