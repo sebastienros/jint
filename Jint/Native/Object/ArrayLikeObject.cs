@@ -594,9 +594,25 @@ public abstract class ArrayLikeObject : ObjectInstance, INamedProjection
             return false;
         }
 
-        if (TryGetProjectedName(property, out var name) && NamedProjection.Probe(this, name))
+        if (TryGetProjectedName(property, out var name))
         {
-            return false;
+            if (this is INamedPropertySupport support)
+            {
+                // WebIDL's legacy [[DefineOwnProperty]] distinguishes a supported name from a visible one:
+                // a prototype may hide the projection from reads, but a supported name with no ordinary own
+                // property is still refused when the interface has no named setter. An ordinary own property
+                // takes the normal redefine path, which also lets an expando created before a name became
+                // supported remain an ordinary property.
+                if (base.GetOwnProperty(property) == PropertyDescriptor.Undefined
+                    && support.HasSupportedName(name))
+                {
+                    return false;
+                }
+            }
+            else if (NamedProjection.Probe(this, name))
+            {
+                return false;
+            }
         }
 
         return base.DefineOwnProperty(property, desc);

@@ -111,6 +111,10 @@ internal static class DomReflected
     internal static readonly ReflectedAttribute HTMLLIElementValue =
         ReflectedAttribute.Numeric("HTMLLIElement.value", "value", ReflectedKind.Long, 0);
 
+    /// <summary><c>HTMLLinkElement.href</c> reflects <c>href</c> as an url.</summary>
+    internal static readonly ReflectedAttribute HTMLLinkElementHref =
+        ReflectedAttribute.Url("HTMLLinkElement.href", "href");
+
     /// <summary><c>HTMLMenuElement.compact</c> reflects <c>compact</c> as a boolean.</summary>
     internal static readonly ReflectedAttribute HTMLMenuElementCompact =
         ReflectedAttribute.Boolean("HTMLMenuElement.compact", "compact");
