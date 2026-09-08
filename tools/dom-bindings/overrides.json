@@ -1906,6 +1906,93 @@
       "attribute": "width",
       "type": "string",
       "reason": "HTML \u00a716.2: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLInputElement",
+      "member": "formAction",
+      "attribute": "formaction",
+      "type": "url",
+      "defaultToDocumentUrl": true,
+      "reason": "HTML \u00a74.10.5: `formAction` reflects `formaction` as a URL. AngleSharp returns the raw attribute value rather than resolving it against the input's node document."
+    },
+    {
+      "interface": "HTMLInputElement",
+      "member": "formEnctype",
+      "attribute": "formenctype",
+      "type": "enum",
+      "keywords": ["application/x-www-form-urlencoded", "multipart/form-data", "text/plain"],
+      "invalid": "application/x-www-form-urlencoded",
+      "reason": "HTML \u00a74.10.5: `formEnctype` is limited to the three form encoding keywords and maps every invalid value to `application/x-www-form-urlencoded`. AngleSharp exposes no member for it."
+    },
+    {
+      "interface": "HTMLInputElement",
+      "member": "formMethod",
+      "attribute": "formmethod",
+      "type": "enum",
+      "keywords": ["get", "post"],
+      "invalid": "get",
+      "reason": "HTML \u00a74.10.5: `formMethod` is limited to `get` and `post` and maps every invalid value to `get`. AngleSharp exposes no member for it."
+    },
+    {
+      "interface": "HTMLInputElement",
+      "member": "height",
+      "attribute": "height",
+      "type": "unsigned long",
+      "setterOnly": true,
+      "reason": "HTML \u00a74.10.5: an image input's `height` setter reflects the dimension attribute as an unsigned long, while its getter determines rendered dimensions. Preserve AngleSharp's getter and replace its signed CLR setter, which wraps values above Int32.MaxValue."
+    },
+    {
+      "interface": "HTMLInputElement",
+      "member": "maxLength",
+      "attribute": "maxlength",
+      "type": "limited long",
+      "default": -1,
+      "reason": "HTML \u00a74.10.5: `maxLength` is a reflected long limited to non-negative values, with -1 when the content attribute is absent or invalid. AngleSharp parses it with different fallback and setter rules."
+    },
+    {
+      "interface": "HTMLInputElement",
+      "member": "minLength",
+      "attribute": "minlength",
+      "type": "limited long",
+      "default": -1,
+      "reason": "HTML \u00a74.10.5: `minLength` is a reflected long limited to non-negative values, with -1 when the content attribute is absent or invalid. AngleSharp parses it with different fallback and setter rules."
+    },
+    {
+      "interface": "HTMLInputElement",
+      "member": "size",
+      "attribute": "size",
+      "type": "limited unsigned long",
+      "default": 20,
+      "reason": "HTML \u00a74.10.5: `size` is a reflected unsigned long limited to values greater than zero and defaults to 20. AngleSharp rejects integer prefixes and permits zero on assignment."
+    },
+    {
+      "interface": "HTMLInputElement",
+      "member": "src",
+      "attribute": "src",
+      "type": "url",
+      "reason": "HTML \u00a74.10.5: an image input's `src` reflects as a URL against its node document. AngleSharp returns the raw content attribute."
+    },
+    {
+      "interface": "HTMLInputElement",
+      "member": "width",
+      "attribute": "width",
+      "type": "unsigned long",
+      "setterOnly": true,
+      "reason": "HTML \u00a74.10.5: an image input's `width` setter reflects the dimension attribute as an unsigned long, while its getter determines rendered dimensions. Preserve AngleSharp's getter and replace its signed CLR setter, which wraps values above Int32.MaxValue."
+    },
+    {
+      "interface": "HTMLInputElement",
+      "member": "align",
+      "attribute": "align",
+      "type": "string",
+      "reason": "HTML \u00a716.2: the obsolete `align` content attribute still has a required reflected DOMString IDL attribute. AngleSharp exposes no member for it."
+    },
+    {
+      "interface": "HTMLInputElement",
+      "member": "useMap",
+      "attribute": "usemap",
+      "type": "string",
+      "reason": "HTML \u00a716.2: the obsolete `useMap` member still reflects `usemap` as a DOMString. AngleSharp exposes no member for it."
     }
   ],
 

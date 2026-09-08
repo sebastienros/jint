@@ -501,7 +501,7 @@ internal sealed class ModelBuilder
     /// <summary>
     /// HTML §2.6.1's reflected content attributes: the accessor pair is the reflection algorithm its type
     /// names, over the content attribute, and it <b>replaces</b> whatever the pinned assemblies projected
-    /// under that name.
+    /// under that name. An entry marked setter-only preserves a custom projected getter.
     /// </summary>
     /// <remarks>
     /// The replacement is the whole point and is the opposite of what <c>additions</c> does. A reflected
@@ -526,6 +526,16 @@ internal sealed class ModelBuilder
 
             var qualified = model.DomName + "." + entry.Member;
             var field = model.FieldName + char.ToUpperInvariant(entry.Member[0]) + entry.Member[1..];
+            var projected = model.Members.Find(m => m.DomName == entry.Member);
+
+            if (entry.SetterOnly && projected is null)
+            {
+                _model.Diagnostics.Add(
+                    "overrides.json reflects only the setter of " + qualified + " (" + entry.Reason
+                    + "), but the pinned assemblies project no getter to preserve.");
+                continue;
+            }
+
             var replaced = model.Members.RemoveAll(m => m.DomName == entry.Member) > 0;
 
             _model.Reflected.Add(new ReflectedModel(field, qualified, entry.Attribute, entry.Type, factory, replaced));
@@ -536,8 +546,10 @@ internal sealed class ModelBuilder
             {
                 DomName = entry.Member,
                 Kind = MemberKind.Attribute,
-                Body = Bind(model, qualified) + "return " + descriptor
-                    + (entry.Type == "url" ? ".Get(self.Realm, self.Target);" : ".Get(self.Target);"),
+                Body = entry.SetterOnly
+                    ? projected!.Body
+                    : Bind(model, qualified) + "return " + descriptor
+                        + (entry.Type == "url" ? ".Get(self.Realm, self.Target);" : ".Get(self.Target);"),
                 SetterBody = Bind(model, qualified) + "return " + descriptor + ".Set(self.Realm, self.Target, args);",
                 Origin = "overrides.json (reflected)",
             });
@@ -556,6 +568,14 @@ internal sealed class ModelBuilder
 
         var qualified = CSharpNames.Literal(model.DomName + "." + entry.Member);
         var attribute = CSharpNames.Literal(entry.Attribute);
+
+        if (entry.DefaultToDocumentUrl && entry.Type != "url")
+        {
+            _model.Diagnostics.Add(
+                "overrides.json reflects " + model.DomName + "." + entry.Member + " (" + entry.Reason
+                + ") with 'defaultToDocumentUrl', which is valid only for a URL attribute.");
+            return false;
+        }
 
         if (entry.Type == "enum")
         {
@@ -588,7 +608,8 @@ internal sealed class ModelBuilder
 
         if (entry.Type == "url")
         {
-            factory = "ReflectedAttribute.Url(" + qualified + ", " + attribute + ")";
+            factory = "ReflectedAttribute.Url(" + qualified + ", " + attribute
+                + (entry.DefaultToDocumentUrl ? ", defaultToDocumentUrl: true" : "") + ")";
             return true;
         }
 

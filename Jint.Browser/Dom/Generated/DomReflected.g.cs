@@ -103,6 +103,50 @@ internal static class DomReflected
     internal static readonly ReflectedAttribute HTMLHtmlElementVersion =
         ReflectedAttribute.Text("HTMLHtmlElement.version", "version");
 
+    /// <summary><c>HTMLInputElement.align</c> reflects <c>align</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLInputElementAlign =
+        ReflectedAttribute.Text("HTMLInputElement.align", "align");
+
+    /// <summary><c>HTMLInputElement.formAction</c> reflects <c>formaction</c> as an url.</summary>
+    internal static readonly ReflectedAttribute HTMLInputElementFormAction =
+        ReflectedAttribute.Url("HTMLInputElement.formAction", "formaction", defaultToDocumentUrl: true);
+
+    /// <summary><c>HTMLInputElement.formEnctype</c> reflects <c>formenctype</c> as an enum.</summary>
+    internal static readonly ReflectedAttribute HTMLInputElementFormEnctype =
+        ReflectedAttribute.Enumerated("HTMLInputElement.formEnctype", "formenctype", ["application/x-www-form-urlencoded", "multipart/form-data", "text/plain"], missing: "", invalid: "application/x-www-form-urlencoded");
+
+    /// <summary><c>HTMLInputElement.formMethod</c> reflects <c>formmethod</c> as an enum.</summary>
+    internal static readonly ReflectedAttribute HTMLInputElementFormMethod =
+        ReflectedAttribute.Enumerated("HTMLInputElement.formMethod", "formmethod", ["get", "post"], missing: "", invalid: "get");
+
+    /// <summary><c>HTMLInputElement.height</c> reflects <c>height</c> as an unsigned long.</summary>
+    internal static readonly ReflectedAttribute HTMLInputElementHeight =
+        ReflectedAttribute.Numeric("HTMLInputElement.height", "height", ReflectedKind.UnsignedLong, 0);
+
+    /// <summary><c>HTMLInputElement.maxLength</c> reflects <c>maxlength</c> as a limited long.</summary>
+    internal static readonly ReflectedAttribute HTMLInputElementMaxLength =
+        ReflectedAttribute.Numeric("HTMLInputElement.maxLength", "maxlength", ReflectedKind.LimitedLong, -1);
+
+    /// <summary><c>HTMLInputElement.minLength</c> reflects <c>minlength</c> as a limited long.</summary>
+    internal static readonly ReflectedAttribute HTMLInputElementMinLength =
+        ReflectedAttribute.Numeric("HTMLInputElement.minLength", "minlength", ReflectedKind.LimitedLong, -1);
+
+    /// <summary><c>HTMLInputElement.size</c> reflects <c>size</c> as a limited unsigned long.</summary>
+    internal static readonly ReflectedAttribute HTMLInputElementSize =
+        ReflectedAttribute.Numeric("HTMLInputElement.size", "size", ReflectedKind.LimitedUnsignedLong, 20);
+
+    /// <summary><c>HTMLInputElement.src</c> reflects <c>src</c> as an url.</summary>
+    internal static readonly ReflectedAttribute HTMLInputElementSrc =
+        ReflectedAttribute.Url("HTMLInputElement.src", "src");
+
+    /// <summary><c>HTMLInputElement.useMap</c> reflects <c>usemap</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLInputElementUseMap =
+        ReflectedAttribute.Text("HTMLInputElement.useMap", "usemap");
+
+    /// <summary><c>HTMLInputElement.width</c> reflects <c>width</c> as an unsigned long.</summary>
+    internal static readonly ReflectedAttribute HTMLInputElementWidth =
+        ReflectedAttribute.Numeric("HTMLInputElement.width", "width", ReflectedKind.UnsignedLong, 0);
+
     /// <summary><c>HTMLLIElement.type</c> reflects <c>type</c> as a string.</summary>
     internal static readonly ReflectedAttribute HTMLLIElementType =
         ReflectedAttribute.Text("HTMLLIElement.type", "type");

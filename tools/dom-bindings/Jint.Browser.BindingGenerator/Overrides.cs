@@ -260,6 +260,14 @@ internal sealed class Overrides
         [JsonPropertyName("nullable")]
         public bool Nullable { get; init; }
 
+        /// <summary>Whether an absent URL attribute resolves the owning document's URL.</summary>
+        [JsonPropertyName("defaultToDocumentUrl")]
+        public bool DefaultToDocumentUrl { get; init; }
+
+        /// <summary>Whether reflection supplies only the setter while the projected getter remains.</summary>
+        [JsonPropertyName("setterOnly")]
+        public bool SetterOnly { get; init; }
+
         /// <summary>A numeric attribute's default value, when it is not the type's own.</summary>
         [JsonPropertyName("default")]
         public double? Default { get; init; }

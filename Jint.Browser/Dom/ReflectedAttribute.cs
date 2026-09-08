@@ -92,6 +92,7 @@ internal sealed class ReflectedAttribute
     private readonly double _default;
     private readonly long _min;
     private readonly long _max;
+    private readonly bool _defaultToDocumentUrl;
 
     private ReflectedAttribute(
         string member,
@@ -102,7 +103,8 @@ internal sealed class ReflectedAttribute
         string? invalid = null,
         double fallback = 0,
         long min = 0,
-        long max = 0)
+        long max = 0,
+        bool defaultToDocumentUrl = false)
     {
         Member = member;
         _attribute = attribute;
@@ -113,6 +115,7 @@ internal sealed class ReflectedAttribute
         _default = fallback;
         _min = min;
         _max = max;
+        _defaultToDocumentUrl = defaultToDocumentUrl;
     }
 
     /// <summary>The qualified member name — <c>HTMLElement.dir</c> — as a refusal names it.</summary>
@@ -123,8 +126,8 @@ internal sealed class ReflectedAttribute
         => new(member, attribute, nullable ? ReflectedKind.NullableText : ReflectedKind.Text);
 
     /// <summary>A <c>USVString</c> whose content attribute is defined to contain a URL.</summary>
-    internal static ReflectedAttribute Url(string member, string attribute)
-        => new(member, attribute, ReflectedKind.Url);
+    internal static ReflectedAttribute Url(string member, string attribute, bool defaultToDocumentUrl = false)
+        => new(member, attribute, ReflectedKind.Url, defaultToDocumentUrl: defaultToDocumentUrl);
 
     /// <summary>An enumerated attribute limited to known values.</summary>
     /// <param name="member">The qualified member name.</param>
@@ -267,9 +270,10 @@ internal sealed class ReflectedAttribute
                 return SetInteger(element, Fallback(TypeConverter.ToUint32(value)));
 
             default:
-                // `unsigned long` and `clamped unsigned long` both set as a plain unsigned integer; the
-                // clamping is the getter's.
-                return SetInteger(element, TypeConverter.ToUint32(value));
+                // `unsigned long` and `clamped unsigned long` share the reflected signed range. WebIDL can
+                // convert a value above it to UInt32, but HTML makes the content attribute the default.
+                var unsigned = TypeConverter.ToUint32(value);
+                return SetInteger(element, unsigned > MaxInt ? (long) _default : unsigned);
         }
     }
 
@@ -454,14 +458,14 @@ internal sealed class ReflectedAttribute
     /// descriptor deliberately bypasses AngleSharp's convenience URL properties because their cached base
     /// can survive removal of the document's first <c>base[href]</c>.
     /// </remarks>
-    private static string ResolveUrl(string? value, string? baseUri)
+    private string ResolveUrl(string? value, string? baseUri)
     {
-        if (value is null)
+        if (value is null && !_defaultToDocumentUrl)
         {
             return "";
         }
 
-        return PageUrl.Resolve(value, baseUri) ?? value;
+        return PageUrl.Resolve(value ?? "", baseUri) ?? value ?? "";
     }
 
     /// <summary>
@@ -539,7 +543,7 @@ internal sealed class ReflectedAttribute
             DomFailures.Refuse(realm.Engine, Member, DomExceptionNames.IndexSize, detail);
         }
 
-        return SetInteger(element, value);
+        return SetInteger(element, value > MaxInt ? (long) _default : value);
     }
 
     /// <summary>The value a with-fallback setter writes: the new value, or the default when out of range.</summary>

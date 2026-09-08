@@ -31,14 +31,14 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `dom/lists/` | 5 | 0 | 189 | 5 |
 | `dom/traversal/` | 13 | 0 | 52 | 0 |
 | `dom/ranges/` | 17 | 0 | 82 | 4 |
-| `html/dom/` | 8 | 0 | 20,522 | 45 |
+| `html/dom/` | 9 | 0 | 22,101 | 45 |
 | `html/webappapis/scripting/events/` | 12 | 0 | 37 | 5 |
 | `html/webappapis/scripting/processing-model-2/` | 25 | 0 | 44 | 12 |
 | `custom-elements/` | 16 | 0 | 510 | 247 |
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 52 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 3 |
-| **total** | **352** | **9** | **30,420** | **1,429** |
+| **total** | **353** | **9** | **31,999** | **1,429** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -210,15 +210,16 @@ table needs to be regenerated.
 | 3 | 1 | [#3769](https://github.com/sebastienros/jint/issues/3769) **A `(Node or DOMString)` union parameter takes only a `Node`.** Three `ChildNode.before` rows still reject strings. <!-- cause: a (Node or DOMString) union parameter takes only a Node --> |
 | 2 | 1 | **A Range whose shadow root was removed has the wrong boundary behavior.** These are the two remaining `Range-in-shadow-after-the-shadow-removed.html` rows. <!-- cause: Range's own algorithms --> |
 
-**Three of HTML's ten reflection documents are cases, and two of the three pass whole.** HTML §2.6.1's
+**Four of HTML's ten reflection documents are cases, and three of the four pass whole.** HTML §2.6.1's
 reflection algorithms are `Jint.Browser/Dom/ReflectedAttribute.cs` and the members that take them are
 `overrides.json`'s `reflected` list, so `reflection-misc.html` (4,877 assertions, 1,866 of them failing
 before) and `reflection-text.html` (10,202, 3,360 failing before) pass with **nothing** excluded, and
-`reflection-grouping.html` (5,358, 2,006 failing before) has one cause left.
+`reflection-grouping.html` (5,358, 2,006 failing before) has one cause left. The 1,579 assertions in
+`reflection-forms-weekmonth.html` pass whole too.
 
-Forty rows did it, and the first fifteen were mostly the **global** attributes every element carries — `dir`,
+Fifty-one rows did it, and the first fifteen were mostly the **global** attributes every element carries — `dir`,
 `lang`, `tabIndex`, `autofocus`, `inputMode`, `enterKeyHint` — which is why `text` needed only eleven rows of
-its own for 3,360 assertions. The rest are element-specific and that is what the remaining seven documents
+its own for 3,360 assertions. The rest are element-specific and that is what the remaining six documents
 need: `align`, `as`, `referrerPolicy`, `compact`, `charset` and their kind, one `reflected` row each.
 
 **The one cause left in `reflection-grouping.html` is not reflection at all.** `<dl>` has no
@@ -264,7 +265,7 @@ different from the engine lane's. **Almost every row is a document that cannot p
 — a harness `ERROR` or `TIMEOUT` — which is what puts it there rather than in the exclusion table: a harness
 error covers the whole file and no per-test exclusion can name it. The rest are the globs upstream's own
 markers and this lane's directory rule earn, and the helper files of documents nothing here runs. They fall
-into twenty-eight groups; the counts are rows rather than files, since several are globs. Ninety of
+into twenty-eight groups; the counts are rows rather than files, since several are globs. Eighty-nine of
 the rows belong to the six DOM suites, which is what a corpus about every member of every node interface
 costs: half of them are one member reached at file scope. **A twenty-ninth answer is not in this table at
 all**: `WptBrowserExclusions.FrameBodies` names the documents that are vendored and served and never run,
@@ -293,7 +294,7 @@ which is what a fixture sitting beside the cases that load it needs — see belo
 | a DOM marker, or not a document | 6 | `.window.js`, `.tentative.html` and `.sub.html` under the six new suites |
 | an XML document | 6 | `.xhtml`, `.xht`, `.svg` and the three `.xml` fixture globs: a page here parses HTML |
 | the WebIDL conformance harness, again | 2 | `html/dom/idlharness.https.html`, and one that needs an `RTCPeerConnection` |
-| HTML's reflection suite, seven of ten | 9 | [#3770](https://github.com/sebastienros/jint/issues/3770); `reflection-misc.html`, `-text.html` and `-grouping.html` are cases now and the other seven need the per-element attribute table each of them tests, one `reflected` row per content attribute. **Not** a time problem: 22.5 s for the whole set, 7.3 s for the largest. The exclusion table's own comment carries the per-family measurement |
+| HTML's reflection suite, six of ten | 8 | [#3770](https://github.com/sebastienros/jint/issues/3770); `reflection-misc.html`, `-text.html`, `-grouping.html` and `-forms-weekmonth.html` are cases now and the other six need the per-element attribute table each of them tests, one `reflected` row per content attribute. **Not** a time problem: 22.5 s for the whole set, 7.3 s for the largest. The exclusion table's own comment carries the per-family measurement |
 | a DOM crash test or reftest | 5 | none loads `testharness.js` |
 | a helper document beside its test | 4 | three frames and a fragment; a document under a suite would have to be a case, and the fourth answer is the frame-bodies table below |
 | a DOM frame that runs script | 14 | listed when a frame had neither a document nor a realm; it has a document now ([#3771](https://github.com/sebastienros/jint/issues/3771)) and each row is owed a re-examination against the half that is left. Three have had it: the selector documents are cases |

@@ -94,6 +94,16 @@ public sealed class DomReflectionTests
     }
 
     [Test]
+    public void AFormActionUrlDefaultsToTheOwningDocumentUrl()
+    {
+        using var fixture = DomTestFixture.Create("<input id='i'>");
+
+        fixture.Text("document.querySelector('#i').formAction").Should().Be("http://localhost/");
+        fixture.Evaluate("document.querySelector('#i').setAttribute('formaction', '')");
+        fixture.Text("document.querySelector('#i').formAction").Should().Be("http://localhost/");
+    }
+
+    [Test]
     public async Task AUrlAttributeUsesTheCurrentDocumentBaseAfterBaseRemoval()
     {
         await using var browser = new global::Jint.Browser.Browser();
@@ -345,12 +355,11 @@ public sealed class DomReflectionTests
     }
 
     // ---------------------------------------------------------------------------------------------------
-    // The types no `reflected` row wires up yet. They are the numeric half of HTML §2.6.1 plus the nullable
-    // string, and every one of them is #3770's remaining documents: `colSpan` and `span` are clamped unsigned
-    // longs, `maxLength` is a limited long, `select.size` a limited unsigned long, `progress.value` a double
-    // and `input.size` a limited unsigned long with fallback. Testing the algorithm here is what stops this
-    // change shipping machinery nothing runs, and it is the only way to state a type's rule before there is
-    // an element carrying an attribute of that type.
+    // The numeric half of HTML §2.6.1 plus the nullable string. Some now have generated members while others
+    // belong to #3770's remaining documents: `colSpan` and `span` are clamped unsigned longs, `maxLength` is
+    // a limited long, `select.size` a limited unsigned long, `progress.value` a double and textarea dimensions
+    // limited unsigned longs with fallback. Direct tests keep each shared algorithm explicit even before all
+    // of those element families are vendored.
     // ---------------------------------------------------------------------------------------------------
 
     /// <summary>A <c>DOMString?</c>: absent is <c>null</c>, and setting <c>null</c> removes.</summary>
@@ -449,6 +458,31 @@ public sealed class DomReflectionTests
 
         reflected.Set(realm, element.Value, [JsNumber.Create(0)]);
         element.Value.GetAttribute("y").Should().Be("20");
+    }
+
+    /// <summary>
+    /// HTML's reflected integer range ends at <c>2147483647</c>; WebIDL still converts larger values to
+    /// an unsigned long, but the content attribute receives the reflection type's default.
+    /// </summary>
+    [Test]
+    public void AnUnsignedSetterWritesItsDefaultAboveTheReflectedRange()
+    {
+        using var fixture = DomTestFixture.Create("<div id='a'></div>");
+        var realm = DomRealm.Of(fixture.Engine);
+
+        foreach (var (kind, fallback, expected) in new[]
+                 {
+                     (ReflectedKind.UnsignedLong, 0d, "0"),
+                     (ReflectedKind.LimitedUnsignedLong, 20d, "20"),
+                     (ReflectedKind.ClampedUnsignedLong, 1d, "1")
+                 })
+        {
+            using var element = Element();
+            var reflected = ReflectedAttribute.Numeric("X.y", "y", kind, fallback, min: 1, max: 1000);
+            reflected.Set(realm, element.Value, [JsNumber.Create(2147483648d)]);
+
+            element.Value.GetAttribute("y").Should().Be(expected);
+        }
     }
 
     /// <summary>
