@@ -5595,6 +5595,7 @@ none of it changes an engine that does not.
 | The names of the global `let`/`const`/`class` declarations, which `globalThis` does not carry | `engine.Advanced.GetGlobalLexicalNames()` | [§5.27](#5-27-a-host-can-list-the-global-lexical-bindings-3610) |
 | The program a function value was parsed in, so a tooling protocol resolves its script by identity | `function.Program`, beside `FunctionDeclaration` | [§5.28](#5-28-a-function-value-names-the-program-it-was-parsed-in-3666) |
 | `LazyJsString` — one base class for a host string whose text is expensive to produce | `class Field : LazyJsString { public Field(int len) : base(len) {} protected override string Materialize() => … }` | [Advanced hosting](advanced-hosting.md) |
+| A synchronous, bounded callback in a host-created realm | `engine.Advanced.WithRealm(realm, action)` | [§5.33](#5-33-a-host-can-run-a-bounded-callback-in-one-of-its-realms-3917) |
 
 The last row is the only one that replaces an existing spelling rather than adding a capability, so it is
 worth saying what happens to the old one. A lazy host string used to be written by deriving from `JsString`
@@ -6619,6 +6620,26 @@ later parsing such as `eval`; there is no source string to measure for the suppl
 Code compiled later by `eval`, dynamic import, function constructors or shadow realms still uses Jint's parser
 and the parser options carried by the preparation. A host supplying syntax from another frontend is responsible
 for applying compatible JavaScript semantics to the initial tree.
+
+### 5.33 A host can run a bounded callback in one of its realms ([#3917](https://github.com/sebastienros/jint/issues/3917))
+
+`Engine.Advanced.WithRealm` makes a fully initialized realm created by that engine's `Host` current for one
+synchronous callback. Both the value-returning and `Action<Engine>` forms restore the caller's realm on a
+normal return and when the callback throws:
+
+```csharp
+var answer = engine.Advanced.WithRealm(realm, scopedEngine =>
+    scopedEngine.Evaluate("answerFromThisRealm"));
+```
+
+The call is one ordinary engine entry. A top-level call arms a fresh statement, time and memory budget, while
+one reached by a host callback from running script shares the enclosing script's budget. A realm created by a
+different engine is rejected, as is entry while the engine or another realm is still being constructed.
+Those constraints observe engine work; they do not preempt arbitrary managed code in the callback.
+
+The callback is synchronous. A callback may return a `Task` because the generic result is unrestricted, but
+Jint returns that task without awaiting it and restores the previous realm first. Use the engine's asynchronous
+entry APIs for work that must retain engine ownership across an `await`.
 
 ## 6. AOT and trimming
 

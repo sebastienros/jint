@@ -58,6 +58,137 @@ public partial class Engine
         }
 
         /// <summary>
+        /// Runs <paramref name="action"/> synchronously with <paramref name="realm"/> as the engine's
+        /// current realm and returns its result.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The realm must have been created by this engine's <see cref="Runtime.Host"/>. The engine's
+        /// previous realm is restored when the callback returns or throws.
+        /// </para>
+        /// <para>
+        /// This call is one bounded engine entry. Script run by a top-level callback gets a fresh execution
+        /// constraint budget; a callback reached from running script shares that script's budget.
+        /// </para>
+        /// <para>
+        /// Execution constraints observe engine work and do not preempt arbitrary managed callback code.
+        /// </para>
+        /// <para>
+        /// The callback is synchronous. If <typeparamref name="T"/> is an awaitable type, it is returned
+        /// without being awaited and the previous realm is restored before the asynchronous work continues.
+        /// </para>
+        /// </remarks>
+        /// <typeparam name="T">The callback result type.</typeparam>
+        /// <param name="realm">The initialized realm to make current.</param>
+        /// <param name="action">The synchronous callback to invoke.</param>
+        /// <returns>The callback's result.</returns>
+        /// <exception cref="ArgumentNullException">
+        /// <paramref name="realm"/> or <paramref name="action"/> is <see langword="null"/>.
+        /// </exception>
+        /// <exception cref="ArgumentException">
+        /// <paramref name="realm"/> is incomplete or belongs to a different engine.
+        /// </exception>
+        /// <exception cref="InvalidOperationException">An engine or realm construction operation is in progress.</exception>
+        public T WithRealm<T>(Realm realm, Func<Engine, T> action)
+        {
+            if (action is null)
+            {
+                Throw.ArgumentNullException(nameof(action));
+            }
+
+            // Argument validation belongs before an engine operation starts. Besides preserving the usual
+            // exception precedence, this keeps a foreign or incomplete realm from arming and resetting the
+            // engine's constraints before it is rejected.
+            ValidateRealm(realm);
+            if (_engine._realmInConstruction is not null)
+            {
+                Throw.InvalidOperationException(
+                    "A realm cannot be entered while this engine is constructing another realm.");
+            }
+
+            return _engine.ExecuteWithConstraints(_engine.Options.Strict, () => WithRealmCore(realm, action));
+        }
+
+        /// <summary>
+        /// Runs <paramref name="action"/> synchronously with <paramref name="realm"/> as the engine's
+        /// current realm.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The realm must have been created by this engine's <see cref="Runtime.Host"/>. The engine's
+        /// previous realm is restored when the callback returns or throws.
+        /// </para>
+        /// <para>
+        /// This call is one bounded engine entry. Script run by a top-level callback gets a fresh execution
+        /// constraint budget; a callback reached from running script shares that script's budget.
+        /// </para>
+        /// <para>
+        /// Execution constraints observe engine work and do not preempt arbitrary managed callback code.
+        /// </para>
+        /// </remarks>
+        /// <param name="realm">The initialized realm to make current.</param>
+        /// <param name="action">The synchronous callback to invoke.</param>
+        /// <exception cref="ArgumentNullException">
+        /// <paramref name="realm"/> or <paramref name="action"/> is <see langword="null"/>.
+        /// </exception>
+        /// <exception cref="ArgumentException">
+        /// <paramref name="realm"/> is incomplete or belongs to a different engine.
+        /// </exception>
+        /// <exception cref="InvalidOperationException">An engine or realm construction operation is in progress.</exception>
+        public void WithRealm(Realm realm, Action<Engine> action)
+        {
+            if (action is null)
+            {
+                Throw.ArgumentNullException(nameof(action));
+            }
+
+            WithRealm(realm, engine =>
+            {
+                action(engine);
+                return JsValue.Undefined;
+            });
+        }
+
+        private T WithRealmCore<T>(Realm realm, Func<Engine, T> action)
+        {
+            var previousEmptyStackDepth = _engine._emptyStackContextDepth;
+            _engine.EnterExecutionContext(
+                realm.GlobalEnv,
+                realm.GlobalEnv,
+                realm,
+                privateEnvironment: null,
+                strict: _engine.Options.Strict);
+            _engine._emptyStackContextDepth = previousEmptyStackDepth + 1;
+            try
+            {
+                return action(_engine);
+            }
+            finally
+            {
+                _engine._emptyStackContextDepth = previousEmptyStackDepth;
+                _engine.LeaveExecutionContext();
+            }
+        }
+
+        private void ValidateRealm(Realm realm)
+        {
+            if (realm is null)
+            {
+                Throw.ArgumentNullException(nameof(realm));
+            }
+
+            if (realm.Intrinsics is null || realm.GlobalObject is null || realm.GlobalEnv is null)
+            {
+                Throw.ArgumentException("The realm is not fully initialized.", nameof(realm));
+            }
+
+            if (!ReferenceEquals(realm.GlobalObject.Engine, _engine))
+            {
+                Throw.ArgumentException("The realm belongs to a different engine.", nameof(realm));
+            }
+        }
+
+        /// <summary>
         /// Gets the names of the principal realm's global lexical bindings, in declaration order.
         /// </summary>
         /// <remarks>
