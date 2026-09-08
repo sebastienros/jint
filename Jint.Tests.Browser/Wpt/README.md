@@ -26,7 +26,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | Suite | Documents | Synthesized | Tests | Not passing |
 | --- | --- | --- | --- | --- |
 | `dom/events/` | 56 | 9 | 544 | 15 |
-| `dom/nodes/` | 168 | 0 | 8,115 | 1,048 |
+| `dom/nodes/` | 168 | 0 | 8,115 | 1,030 |
 | `dom/collections/` | 8 | 0 | 43 | 0 |
 | `dom/lists/` | 5 | 0 | 189 | 5 |
 | `dom/traversal/` | 13 | 0 | 52 | 0 |
@@ -38,7 +38,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 52 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 3 |
-| **total** | **352** | **9** | **30,420** | **1,447** |
+| **total** | **352** | **9** | **30,420** | **1,429** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -176,7 +176,7 @@ a supported name; the collection's named reads remain live.
 
 `dom/nodes/`, `dom/collections/`, `dom/lists/`, `dom/traversal/`, `dom/ranges/` and `html/dom/` are the DOM
 standard's own suites and HTML's DOM half — the corpus every other suite in this lane is written on top of.
-Across the six of them there are 219 documents and 29,003 tests, and **1,102 of those tests do not pass**.
+Across the six of them there are 219 documents and 29,003 tests, and **1,084 of those tests do not pass**.
 Those three figures are live and checked against the census. They arrived together as 207 documents and
 5,247 tests with 1,532 not passing; those arrival figures are historical and deliberately not re-derived.
 
@@ -193,7 +193,7 @@ table needs to be regenerated.
 | ---: | ---: | --- |
 | 362 | 7 | [#3766](https://github.com/sebastienros/jint/issues/3766) **An XML document, and the members that make one.** `DOMImplementation-createDocument.html` contributes 218 rows and `processing-instruction-attributes.html` 137; the rest cover XML metadata, identity and Range adoption. `NeedsXmlDocuments` is a scope decision rather than untriaged debt. <!-- cause: an XML document, and the two members that make one --> |
 | 316 | 9 | [#3771](https://github.com/sebastienros/jint/issues/3771) **A frame is never given its own realm.** The 195 XHTML and 88 XML `Document-createElement*` rows reach `doc.defaultView.DOMException`; the rest are the `node-realm-*`, `node-creation-realm`, `createEvent` and connectivity cases. `NeedsIframeScripting` names that missing environment. <!-- cause: a frame that runs script --> |
-| 106 | 3 | **The Selectors-API table and selector-only element states.** The three newly vendored documents cover selector-error contracts, link state, no-namespace selectors and `::slotted`; all 106 rows are `NeedsTriage`. <!-- cause: the Selectors-API table and selector-only element states --> |
+| 88 | 3 | **The Selectors-API table and selector-only element states.** The three newly vendored documents cover selector-error contracts, no-namespace selectors and `::slotted`; all 88 rows are `NeedsTriage`. <!-- cause: the Selectors-API table and selector-only element states --> |
 | 71 | 17 | **One assertion each or one small family per document.** These cover conversion order, import/clone identity, attribute selection and ordering, element-name identity, node equality and `accessKeyLabel`; each pattern is kept separate where neighboring rows pass. <!-- cause: one assertion each --> |
 | 53 | 6 | [#3774](https://github.com/sebastienros/jint/issues/3774) **A name AngleSharp refuses that the standard allows, plus required refusals it does not make.** The rows cover element creation, namespace validation and document insertion. <!-- cause: a name AngleSharp refuses that the standard allows --> |
 | 50 | 2 | [#3772](https://github.com/sebastienros/jint/issues/3772) **DOM's current name-validation rules differ from the XML productions.** `createDocumentType` contributes 45 rows and `name-validation.html` five. <!-- cause: DOM's validate-and-extract, and the XML name productions --> |
@@ -319,11 +319,11 @@ through `matches()`, through its prefixed alias, and through `querySelector`/`qu
 contexts (a document, an in-document element, a detached element, an empty element and a fragment). They were not vendored for
 two reasons at once: the frame body above, and the fact that a frame had no document to be
 ([#3771](https://github.com/sebastienros/jint/issues/3771)). Both are answered, and the three documents bring
-**3,313 tests, of which 3,207 pass** — and `dom/nodes/` grows from 4,802 tests to 8,115. The 106 that do
+**3,313 tests, of which 3,225 pass** — and `dom/nodes/` grows from 4,802 tests to 8,115. The 88 that do
 not pass are bounded to the patterns in the exclusion table. Some are selector-error contract differences:
 an undeclared namespace and a relative selector are accepted, while an unclosed attribute selector raises
-the wrong script-visible error. The others are matching differences for `:link`/`:visited`,
-no-namespace selectors and `::slotted`. They are `NeedsTriage`, for the reason that category
+the wrong script-visible error. The others are matching differences for no-namespace selectors and
+`::slotted`. They are `NeedsTriage`, for the reason that category
 exists: the change that first runs a suite is not also the change that moves the engine. The older branch
 named 518 failures; current `main` fixed 390 of them before the corpus landed, and the two-sided exclusion
 check removed every stale row rather than preserving that historical result.

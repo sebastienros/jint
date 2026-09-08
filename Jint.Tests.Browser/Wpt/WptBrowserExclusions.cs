@@ -1367,20 +1367,16 @@ internal static class WptBrowserExclusions
         new("dom/nodes/Element-matches.html", "*Undeclared namespace: :not(ns|div)*", WptDivergence.NeedsTriage),
         new("dom/nodes/Element-matches.html", "*Relative selector: >\\*", WptDivergence.NeedsTriage),
         new("dom/nodes/Element-matches.html", "*Attribute value selector, matching align attribute with value, unclosed bracket*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Element-matches.html", "*:link and :visited pseudo-class selectors, matching a and area elements with href attributes*", WptDivergence.NeedsTriage),
 
         new("dom/nodes/Element-webkitMatchesSelector.html", "*Undeclared namespace: ns|div*", WptDivergence.NeedsTriage),
         new("dom/nodes/Element-webkitMatchesSelector.html", "*Undeclared namespace: :not(ns|div)*", WptDivergence.NeedsTriage),
         new("dom/nodes/Element-webkitMatchesSelector.html", "*Relative selector: >\\*", WptDivergence.NeedsTriage),
         new("dom/nodes/Element-webkitMatchesSelector.html", "*Attribute value selector, matching align attribute with value, unclosed bracket*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Element-webkitMatchesSelector.html", "*:link and :visited pseudo-class selectors, matching a and area elements with href attributes*", WptDivergence.NeedsTriage),
 
         new("dom/nodes/ParentNode-querySelector-All.html", "*Undeclared namespace: ns|div*", WptDivergence.NeedsTriage),
         new("dom/nodes/ParentNode-querySelector-All.html", "*Undeclared namespace: :not(ns|div)*", WptDivergence.NeedsTriage),
         new("dom/nodes/ParentNode-querySelector-All.html", "*Relative selector: >\\*", WptDivergence.NeedsTriage),
         new("dom/nodes/ParentNode-querySelector-All.html", "*Attribute value selector, matching align attribute with value, unclosed bracket*", WptDivergence.NeedsTriage),
-        new("dom/nodes/ParentNode-querySelector-All.html", "*:link and :visited pseudo-class selectors, matching a and area elements with href attributes*", WptDivergence.NeedsTriage),
-        new("dom/nodes/ParentNode-querySelector-All.html", "*:link and :visited pseudo-class selectors, matching no elements*", WptDivergence.NeedsTriage),
         new("dom/nodes/ParentNode-querySelector-All.html", "*Namespace selector, matching div elements in no namespace only*", WptDivergence.NeedsTriage),
         new("dom/nodes/ParentNode-querySelector-All.html", "*Namespace selector, matching any elements in no namespace only*", WptDivergence.NeedsTriage),
         new("dom/nodes/ParentNode-querySelector-All.html", "*Slotted selector: ::slotted(foo)*", WptDivergence.NeedsTriage),
@@ -1522,7 +1518,7 @@ internal static class WptBrowserExclusions
     /// </para>
     /// <para>
     /// <b>The DOM suites made it much bigger, and every one of those causes is bounded.</b> They now hold
-    /// 1,102 failing tests over 219 documents, and <c>Wpt/README.md</c>'s "What the DOM corpus says about this
+    /// 1,084 failing tests over 219 documents, and <c>Wpt/README.md</c>'s "What the DOM corpus says about this
     /// browser" names eighteen causes with the count each accounts for. Ten families were filed as
     /// https://github.com/sebastienros/jint/issues/3765 to 3774 and one was already open as
     /// https://github.com/sebastienros/jint/issues/3712, so a row here that is not one of
@@ -1530,8 +1526,8 @@ internal static class WptBrowserExclusions
     /// <see cref="WptDivergence.NeedsMoreEventInterfaces"/> is a numbered debt rather than an unread one.
     /// </para>
     /// <para>
-    /// <b>The Selectors-API table adds one bounded group.</b> Its 106 failing rows cover the selector-error
-    /// contract, link state, no-namespace selectors and <c>::slotted</c>. The
+    /// <b>The Selectors-API table adds one bounded group.</b> Its 88 failing rows cover the selector-error
+    /// contract, no-namespace selectors and <c>::slotted</c>. The
     /// runner still proves each pattern matches a failure and no passing test.
     /// </para>
     /// </remarks>

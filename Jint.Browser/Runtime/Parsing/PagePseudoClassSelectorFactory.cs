@@ -10,16 +10,22 @@ namespace Jint.Browser.Runtime.Parsing;
 internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFactory
 {
     private const string Enabled = "enabled";
+    private const string Link = "link";
     private const string Target = "target";
+    private const string Visited = "visited";
 
     private static readonly ISelector _target = new TargetSelector();
     private readonly DefaultPseudoClassSelectorFactory _defaults = new();
     private readonly ISelector _enabled;
+    private readonly ISelector _link;
+    private readonly ISelector _visited;
 
     internal PagePseudoClassSelectorFactory()
     {
         _enabled = new EnabledSelector(_defaults.Create(Enabled)
             ?? throw new InvalidOperationException("AngleSharp no longer supplies the :enabled selector."));
+        _link = new LinkStateSelector(Default(Link), visited: false);
+        _visited = new LinkStateSelector(Default(Visited), visited: true);
     }
 
     /// <inheritdoc />
@@ -30,8 +36,22 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
             return _target;
         }
 
-        return string.Equals(name, Enabled, StringComparison.OrdinalIgnoreCase) ? _enabled : _defaults.Create(name);
+        if (string.Equals(name, Enabled, StringComparison.OrdinalIgnoreCase))
+        {
+            return _enabled;
+        }
+
+        if (string.Equals(name, Link, StringComparison.OrdinalIgnoreCase))
+        {
+            return _link;
+        }
+
+        return string.Equals(name, Visited, StringComparison.OrdinalIgnoreCase) ? _visited : _defaults.Create(name);
     }
+
+    private ISelector Default(string name)
+        => _defaults.Create(name)
+            ?? throw new InvalidOperationException($"AngleSharp no longer supplies the :{name} selector.");
 
     /// <summary>Selectors §13.1: only elements which can be disabled can be enabled.</summary>
     private sealed class EnabledSelector(ISelector defaults) : ISelector
@@ -43,6 +63,29 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
         public bool Match(IElement element, IElement? scope)
             => element is not (IHtmlAnchorElement or IHtmlAreaElement or IHtmlLinkElement)
                 && defaults.Match(element, scope);
+
+        public void Accept(ISelectorVisitor visitor) => defaults.Accept(visitor);
+    }
+
+    /// <summary>
+    /// Selectors §8.2 and HTML: every HTML <c>a</c> or <c>area</c> carrying an <c>href</c> is in exactly
+    /// one link-history state. This browser keeps no visited history, so every such hyperlink is unvisited.
+    /// </summary>
+    private sealed class LinkStateSelector(ISelector defaults, bool visited) : ISelector
+    {
+        public string Text => defaults.Text;
+
+        public Priority Specificity => defaults.Specificity;
+
+        public bool Match(IElement element, IElement? scope)
+        {
+            if (element is IHtmlAnchorElement or IHtmlAreaElement)
+            {
+                return !visited && element.HasAttribute("href");
+            }
+
+            return element is IHtmlElement ? false : defaults.Match(element, scope);
+        }
 
         public void Accept(ISelectorVisitor visitor) => defaults.Accept(visitor);
     }
