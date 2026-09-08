@@ -1,0 +1,50 @@
+name: Browser comparison verification
+
+on:
+  pull_request:
+    paths:
+      - 'tools/browser-comparison/**'
+      - 'tools/browser-comparison.Tests/**'
+      - 'Jint.Benchmark/MachineStateValidator.cs'
+      - '.github/workflows/browser-comparison.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'tools/browser-comparison/**'
+      - 'tools/browser-comparison.Tests/**'
+      - 'Jint.Benchmark/MachineStateValidator.cs'
+      - '.github/workflows/browser-comparison.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+      - name: Verify runner contracts in Release
+        run: dotnet test tools/browser-comparison.Tests/BrowserComparison.Tests.csproj -c Release
+      - name: Verify synthetic pairing and failure handling
+        run: python3 -m unittest discover -s tools/browser-comparison -p test_measure.py
+      - name: Verify real kernel descendant accounting and cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          scope="/sys/fs/cgroup/jint-comparison-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          sudo mkdir "$scope"
+          trap 'sudo rmdir "$scope"' EXIT
+          printf '+cpu +memory\n' | sudo tee "$scope/cgroup.subtree_control" >/dev/null
+          sudo env JINT_BROWSER_COMPARISON_CGROUP_ROOT="$scope" DOTNET_ROOT="$DOTNET_ROOT" \
+            "$(command -v dotnet)" test tools/browser-comparison.Tests/BrowserComparison.Tests.csproj -c Release \
+            --filter FullyQualifiedName~ActualAdapterFailureAlwaysRecordsAndCleansItsOwnedProcessScope
+          sudo env JINT_BROWSER_COMPARISON_CGROUP_ROOT="$scope" "$(command -v python3)" \
+            -m unittest discover -s tools/browser-comparison -p test_linux_accounting.py

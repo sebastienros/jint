@@ -1106,7 +1106,6 @@ internal static class WptBrowserExclusions
         new("dom/nodes/Document-createEvent.https.html", "createEvent('deviceorientationevent*", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createEvent.https.html", "createEvent('dragevent*", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createEvent.https.html", "createEvent('storageevent*", WptDivergence.NeedsTriage),
-        new("dom/nodes/ParentNode-replaceChildren.html", "*", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "*itself", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "*tests", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "*toggleAttribute)", WptDivergence.NeedsTriage),
@@ -1139,18 +1138,12 @@ internal static class WptBrowserExclusions
 
         // ---------------------------------------------------------------- a collection's named and indexed properties, and its liveness
         // a collection's named and indexed properties
-        new("dom/collections/HTMLCollection-as-prototype.html", "HTMLCollection as a prototype and setting own properties", WptDivergence.NeedsTriage),
-        new("dom/collections/HTMLCollection-own-props.html", "Setting non-array index while named property doesn't exist (loose)", WptDivergence.NeedsTriage),
-        new("dom/collections/HTMLCollection-own-props.html", "Setting non-array index while named property doesn't exist (strict)", WptDivergence.NeedsTriage),
-        new("dom/collections/HTMLCollection-supported-property-names.html", "*later", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-getElementById.html", "*string argument.", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-getElementsByClassName.html", "*", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-getElementsByTagName.html", "HTML*", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-getElementsByTagNameNS.html", "*namespace", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-getElementsByTagNameNS.html", "BODY*", WptDivergence.NeedsTriage),
         new("dom/nodes/DocumentFragment-getElementById.html", "Empty*", WptDivergence.NeedsTriage),
         new("dom/nodes/Element-children.html", "*1", WptDivergence.NeedsTriage),
-        new("dom/nodes/Element-getElementsByClassName.html", "*collection", WptDivergence.NeedsTriage),
         new("dom/nodes/Element-getElementsByTagName-change-document-HTMLNess.html", "*", WptDivergence.NeedsTriage),
         new("dom/nodes/Element-getElementsByTagName.html", "HTML*", WptDivergence.NeedsTriage),
         new("dom/nodes/Element-getElementsByTagNameNS.html", "*namespace", WptDivergence.NeedsTriage),
@@ -1160,15 +1153,7 @@ internal static class WptBrowserExclusions
         new("dom/nodes/attributes-namednodemap.html", "setting an attribute should not overwrite the methods*", WptDivergence.NeedsTriage),
         new("dom/nodes/case.html", "createElementNS http://www.w3.org/1999*ABC", WptDivergence.NeedsTriage),
         new("dom/nodes/case.html", "createElementNS http://www.w3.org/1999*Abc", WptDivergence.NeedsTriage),
-        new("dom/nodes/getElementsByClassName-03.htm", "*", WptDivergence.NeedsTriage),
-        new("dom/nodes/getElementsByClassName-05.htm", "*", WptDivergence.NeedsTriage),
-        new("dom/nodes/getElementsByClassName-06.htm", "*", WptDivergence.NeedsTriage),
-        new("dom/nodes/getElementsByClassName-13.htm", "*", WptDivergence.NeedsTriage),
         new("dom/nodes/getElementsByClassName-14.htm", "*)", WptDivergence.NeedsTriage),
-        new("dom/nodes/getElementsByClassName-20.htm", "*", WptDivergence.NeedsTriage),
-        new("dom/nodes/getElementsByClassName-21.htm", "*", WptDivergence.NeedsTriage),
-        new("dom/nodes/getElementsByClassName-22.htm", "*", WptDivergence.NeedsTriage),
-        new("dom/nodes/getElementsByClassName-25.htm", "*", WptDivergence.NeedsTriage),
 
         // ---------------------------------------------------------------- a (Node or DOMString) union parameter takes only a Node
         // a (Node or DOMString) union parameter takes only a Node

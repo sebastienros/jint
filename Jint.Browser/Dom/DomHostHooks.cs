@@ -126,6 +126,18 @@ internal class DomHostHooks
     internal virtual JsValue Labels(DomRealm realm, IHtmlElement element)
         => HtmlLabelAssociation.IsLabelable(element) ? realm.WrapLabels(element) : JsValue.Null;
 
+    /// <summary>https://dom.spec.whatwg.org/#concept-getelementsbyclassname</summary>
+    internal virtual JsValue GetElementsByClassName(DomRealm realm, INode root, JsValue[] arguments)
+    {
+        var classNames = DomConvert.RequiredText(arguments, 0, Member(root, "getElementsByClassName"));
+        return realm.WrapCollection<IElement>(new DomLiveHtmlCollection(() => root switch
+        {
+            IDocument document => document.GetElementsByClassName(classNames),
+            IElement element => element.GetElementsByClassName(classNames),
+            _ => [],
+        }));
+    }
+
     /// <summary>https://dom.spec.whatwg.org/#concept-getelementsbytagname</summary>
     internal virtual JsValue GetElementsByTagName(DomRealm realm, INode root, JsValue[] arguments)
     {
