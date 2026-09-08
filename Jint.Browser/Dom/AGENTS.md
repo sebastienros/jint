@@ -68,12 +68,15 @@ for decisions, the report is for consequences.
 - **`DomManualInterfaces.For` answers three questions, including HTML's element interface rule**: a
   name in the HTML namespace that is a valid custom element name is an `HTMLElement`, and only a name that is
   not is an `HTMLUnknownElement`. AngleSharp builds the same `HtmlUnknownElement` for both.
-- **`HTMLFrameSetElement` is declared by name and selected by local name.** AngleSharp models `<frameset>`
-  with the plain `IHtmlElement` — there is no `IHtmlFrameSetElement` and no `[DomName("HTMLFrameSetElement")]`
-  in the pinned assemblies — so `DomTypeMap`, which keys on the CLR type, cannot tell a frameset from a
-  `<div>`. Its shape is empty: HTML gives the interface no members beyond `WindowEventHandlers`, which this
-  package puts on `HTMLElement`. Its index continues `DomInterfaces`' own, which is what keeps `DomRealm`'s
-  per-engine arrays a dense array.
+- **Five HTML element interfaces are declared by name and selected by local name.** AngleSharp models `<dl>`,
+  `<dir>`, `<font>`, `<frame>` and `<frameset>` with internal sealed classes whose only public interface is
+  `IHtmlElement` — there is no `IHtmlDListElement`, no `IHtmlFrameElement` and no `[DomName]` for any of the
+  five — so `DomTypeMap`, which keys on the CLR type, cannot tell one of them from a `<div>`. Each gets its
+  own shape, constructor identity and `@@toStringTag`, and HTML §16.3.3's members are reflected onto it:
+  the one place a `ReflectedAttribute` is declared outside `overrides.json`'s `reflected` list, because that
+  list is read against the interfaces the generator can see. Putting the members on `HTMLElement` instead
+  would give `compact` and `noResize` to every element. Their indices continue `DomInterfaces`' own, which is
+  what keeps `DomRealm`'s per-engine arrays a dense array.
 - **`XMLDocument` is declared here and selected by `IXmlDocument`.** AngleSharp exposes that CLR interface
   but gives it no `[DomName]`, so the generator cannot emit the WebIDL interface. `new Document()` uses the
   same concrete XML type and is the explicit exception: `DomConstructors` wraps it as `Document`, and the
