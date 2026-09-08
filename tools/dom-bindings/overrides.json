@@ -483,7 +483,7 @@
         "global::Jint.Browser.Events.FocusController.Focus(self.Realm, self.Target);",
         "return global::Jint.Native.JsValue.Undefined;"
       ],
-      "reason": "AngleSharp's DoFocus never assigns IDocument.ActiveElement, so its focus() would move nothing. FocusOptions' one member is preventScroll, which nothing here could honour or violate."
+      "reason": "AngleSharp's DoFocus never assigns IDocument.ActiveElement, so its focus() would move nothing. FocusOptions' one member is preventScroll, which nothing here could honour or violate. The focusing steps stop when the element's document is not the one this runtime displays."
     },
     {
       "interface": "HTMLElement",
@@ -493,7 +493,7 @@
         "global::Jint.Browser.Events.FocusController.Blur(self.Realm, self.Target);",
         "return global::Jint.Native.JsValue.Undefined;"
       ],
-      "reason": "The other half of focus(), for the same reason."
+      "reason": "The other half of focus(), including the same displayed-document ownership check."
     },
     {
       "interface": "Document",
@@ -504,16 +504,16 @@
         "var element = global::Jint.Browser.Events.FocusController.ActiveElement(global::Jint.Browser.Events.BrowserEventRealm.Of(self.Realm.Engine), self.Target);",
         "return element is null ? global::Jint.Native.JsValue.Null : self.Realm.WrapNode(element);"
       ],
-      "reason": "AngleSharp never assigns IDocument.ActiveElement - not on DoFocus, not on parse - so the generated accessor answers null for the whole life of a document, where HTML says the body element."
+      "reason": "AngleSharp never assigns IDocument.ActiveElement - not on DoFocus, not on parse - so the generated accessor answers null for the whole life of a document, where HTML says the body element. Reading an inert document must not clear the displayed document's focus."
     },
     {
       "interface": "Document",
       "member": "hasFocus",
       "body": [
         "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, \"Document.hasFocus\");",
-        "return global::Jint.Native.JsBoolean.Create(global::Jint.Browser.Events.BrowserEventRealm.Of(self.Realm.Engine).DocumentHasFocus);"
+        "return global::Jint.Native.JsBoolean.Create(global::Jint.Browser.Events.FocusController.HasFocus(global::Jint.Browser.Events.BrowserEventRealm.Of(self.Realm.Engine), self.Target));"
       ],
-      "reason": "AngleSharp's HasFocus() reports a window-level flag DoFocus sets and nothing clears, which is not HTML's 'is the document's viewport focused'."
+      "reason": "AngleSharp's HasFocus() reports a window-level flag DoFocus sets and nothing clears, which is not HTML's 'is the document's viewport focused'. Only the document displayed by this runtime owns that viewport; DOMParser and constructed documents answer false."
     },
     {
       "interface": "Document",
@@ -521,9 +521,9 @@
       "kind": "attribute",
       "body": [
         "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, \"Document.visibilityState\");",
-        "return global::Jint.Native.JsString.Create(global::Jint.Browser.Runtime.PageRuntime.Find(self.Realm.Engine)?.VisibilityState ?? \"visible\");"
+        "return global::Jint.Native.JsString.Create(global::Jint.Browser.Runtime.PageRuntime.Find(self.Realm.Engine, self.Target)?.VisibilityState ?? \"hidden\");"
       ],
-      "reason": "AngleSharp has no visibility state at all - there is no IDocument member for it - and a page reads it to decide whether to animate, poll or reconnect. Emulation.setFocusEmulationEnabled is what moves it."
+      "reason": "AngleSharp has no visibility state at all - there is no IDocument member for it - and a page reads it to decide whether to animate, poll or reconnect. Emulation.setFocusEmulationEnabled moves the displayed document; a document without that browsing context is hidden."
     },
     {
       "interface": "Document",
@@ -531,9 +531,9 @@
       "kind": "attribute",
       "body": [
         "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, \"Document.hidden\");",
-        "return global::Jint.Native.JsBoolean.Create(global::Jint.Browser.Runtime.PageRuntime.Find(self.Realm.Engine) is { } page && page.VisibilityState != \"visible\");"
+        "return global::Jint.Native.JsBoolean.Create(global::Jint.Browser.Runtime.PageRuntime.Find(self.Realm.Engine, self.Target) is not { } page || page.VisibilityState != \"visible\");"
       ],
-      "reason": "The boolean half of visibilityState, and the one most feature detection actually reads. AngleSharp has neither."
+      "reason": "The boolean half of visibilityState, and the one most feature detection actually reads. AngleSharp has neither; a document without the page's browsing context is hidden."
     },
     {
       "interface": "HTMLFormElement",
@@ -768,9 +768,9 @@
       "length": 2,
       "body": [
         "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, \"Document.elementFromPoint\");",
-        "return global::Jint.Browser.Layout.LayoutMembers.ElementFromPoint(self.Realm, args);"
+        "return global::Jint.Browser.Layout.LayoutMembers.ElementFromPoint(self.Realm, self.Target, args);"
       ],
-      "reason": "The flat model's hit test, which is the same one DOM.getNodeForLocation and a mouse event at a coordinate go through - so a client that clicks the centre of a box it read is told the same element was hit."
+      "reason": "The flat model's hit test, which is the same one DOM.getNodeForLocation and a mouse event at a coordinate go through - so a client that clicks the centre of a box it read is told the same element was hit. The bound document must own that model; inert documents have no viewport to hit."
     },
     {
       "interface": "Document",
@@ -779,9 +779,9 @@
       "length": 2,
       "body": [
         "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, \"Document.elementsFromPoint\");",
-        "return global::Jint.Browser.Layout.LayoutMembers.ElementsFromPoint(self.Realm, args);"
+        "return global::Jint.Browser.Layout.LayoutMembers.ElementsFromPoint(self.Realm, self.Target, args);"
       ],
-      "reason": "The hit element and every rendered ancestor above it, innermost first. Boxes nest exactly as the tree does in this model, so the list is the ancestor chain rather than a second hit test."
+      "reason": "The hit element and every rendered ancestor above it, innermost first. Boxes nest exactly as the tree does in this model, so the list is the ancestor chain rather than a second hit test. An inert document has no layout and answers an empty list."
     },
     {
       "interface": "Document",
@@ -791,7 +791,7 @@
         "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, \"Document.scrollingElement\");",
         "return global::Jint.Browser.Layout.LayoutMembers.ScrollingElement(self.Realm, self.Target);"
       ],
-      "reason": "The one element whose scrollTop moves the window, which is how a client finds the page's own scroll offset. Standards mode always: it is the document element."
+      "reason": "The one element whose scrollTop moves the window, which is how a client finds the page's own scroll offset. Standards mode always: it is the displayed document's document element; a document with no browsing context answers null."
     },
     {
       "interface": "Document",
