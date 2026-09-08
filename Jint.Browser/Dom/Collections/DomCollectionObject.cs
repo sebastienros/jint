@@ -110,8 +110,13 @@ internal sealed class DomCollectionObject : DomCollectionBase
         for (var prototype = Prototype; prototype is not null; prototype = prototype.Prototype)
         {
             // WebIDL skips named properties objects, such as the one behind Window.prototype.
+            if (prototype is WindowNamedProperties)
+            {
+                return true;
+            }
+
             // HasOwnProperty inspects the descriptor without invoking an accessor's getter.
-            if (prototype is not WindowNamedProperties && prototype.HasOwnProperty(name))
+            if (prototype.HasOwnProperty(name))
             {
                 return false;
             }

@@ -100,20 +100,25 @@ public sealed class NamedNodeMapVisibilityTests
     }
 
     [Test]
-    public async Task TheWindowsNamedPropertiesObjectDoesNotHideAnAttribute()
+    public async Task TheWindowsNamedPropertiesObjectEndsTheVisibilitySearch()
     {
         await using var browser = new global::Jint.Browser.Browser();
         var page = await browser.NewPageAsync();
         await page.SetContentAsync("<div id='probe'></div>");
         (await page.EvaluateAsync<bool>("""
             (() => {
-              const element = document.createElement('div'); element.setAttribute('probe', 'native');
-              const map = element.attributes, attribute = map[0];
+              const element = document.createElementNS('urn:test', 'node');
+              element.setAttributeNS(null, 'probe', 'named property');
+              element.setAttributeNS(null, 'toString', 'farther prototype property');
+              const map = element.attributes;
+              const probe = map.getNamedItem('probe'), toString = map.getNamedItem('toString');
               const windowNames = Object.getPrototypeOf(Window.prototype);
-              if (!Object.hasOwn(windowNames, 'probe')) return false;
               Object.setPrototypeOf(map, windowNames);
-              return map.probe === attribute && Object.hasOwn(map, 'probe') &&
-                Object.getOwnPropertyNames(map).includes('probe');
+              return Object.hasOwn(windowNames, 'probe') &&
+                map.probe === probe && map.toString === toString &&
+                Object.hasOwn(map, 'probe') && Object.hasOwn(map, 'toString') &&
+                Object.getOwnPropertyNames(map).includes('probe') &&
+                Object.getOwnPropertyNames(map).includes('toString');
             })()
             """)).Should().BeTrue();
     }
