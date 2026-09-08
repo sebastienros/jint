@@ -31,7 +31,6 @@ internal enum ReflectedTarget
 }
 
 /// <summary>Which of HTML §2.6.1's per-type reflection algorithms an IDL attribute takes.</summary>
-
 internal enum ReflectedKind
 {
     /// <summary>A <c>DOMString</c>, transparently and case-preservingly.</summary>
@@ -122,6 +121,7 @@ internal sealed class ReflectedAttribute
     private readonly long _min;
     private readonly long _max;
     private readonly bool _legacyNull;
+    private readonly bool _documentUrlWhenEmpty;
     private readonly ReflectedTarget _target;
 
     private ReflectedAttribute(
@@ -135,6 +135,7 @@ internal sealed class ReflectedAttribute
         long min = 0,
         long max = 0,
         bool legacyNull = false,
+        bool documentUrlWhenEmpty = false,
         ReflectedTarget target = ReflectedTarget.Self)
     {
         Member = member;
@@ -147,6 +148,7 @@ internal sealed class ReflectedAttribute
         _min = min;
         _max = max;
         _legacyNull = legacyNull;
+        _documentUrlWhenEmpty = documentUrlWhenEmpty;
         _target = target;
     }
 
@@ -177,8 +179,16 @@ internal sealed class ReflectedAttribute
             target: target);
 
     /// <summary>A <c>USVString</c> whose content attribute is defined to contain a URL.</summary>
-    internal static ReflectedAttribute Url(string member, string attribute)
-        => new(member, attribute, ReflectedKind.Url);
+    /// <param name="member">The qualified member name.</param>
+    /// <param name="attribute">The content attribute reflected.</param>
+    /// <param name="documentUrlWhenEmpty">
+    /// HTML §4.10.18.6's exception, which <c>form.action</c> and <c>formAction</c> are the only members
+    /// with: "on getting, when the content attribute is missing or its value is the empty string, the
+    /// element's node document's URL must be returned instead". It is the document's URL and not the base
+    /// URL, so a <c>&lt;base href&gt;</c> does not move it.
+    /// </param>
+    internal static ReflectedAttribute Url(string member, string attribute, bool documentUrlWhenEmpty = false)
+        => new(member, attribute, ReflectedKind.Url, documentUrlWhenEmpty: documentUrlWhenEmpty);
 
     /// <summary>An enumerated attribute limited to known values.</summary>
     /// <param name="member">The qualified member name.</param>
@@ -296,6 +306,10 @@ internal sealed class ReflectedAttribute
 
             case ReflectedKind.Nonce:
                 return DomConvert.Text(element is null ? "" : CryptographicNonce.Get(element));
+
+            case ReflectedKind.Url when _documentUrlWhenEmpty && string.IsNullOrEmpty(value):
+                // "...the element's node document's URL must be returned instead."
+                return DomConvert.Text(element?.Owner?.Url ?? "");
 
             case ReflectedKind.Url:
                 return DomConvert.Text(ResolveUrl(value, baseUri));
