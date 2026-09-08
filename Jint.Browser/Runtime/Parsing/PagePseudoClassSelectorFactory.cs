@@ -9,6 +9,7 @@ namespace Jint.Browser.Runtime.Parsing;
 /// <summary>The selector states whose default AngleSharp answer a page must refine.</summary>
 internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFactory
 {
+    private const string AnyLink = "any-link";
     private const string Enabled = "enabled";
     private const string Link = "link";
     private const string Target = "target";
@@ -16,6 +17,7 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
 
     private static readonly ISelector _target = new TargetSelector();
     private readonly DefaultPseudoClassSelectorFactory _defaults = new();
+    private readonly ISelector _anyLink;
     private readonly ISelector _enabled;
     private readonly ISelector _link;
     private readonly ISelector _visited;
@@ -26,6 +28,7 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
             ?? throw new InvalidOperationException("AngleSharp no longer supplies the :enabled selector."));
         _link = new LinkStateSelector(Default(Link), visited: false);
         _visited = new LinkStateSelector(Default(Visited), visited: true);
+        _anyLink = new AnyLinkSelector(Default(AnyLink), _link, _visited);
     }
 
     /// <inheritdoc />
@@ -46,7 +49,25 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
             return _link;
         }
 
+        if (string.Equals(name, AnyLink, StringComparison.OrdinalIgnoreCase))
+        {
+            return _anyLink;
+        }
+
         return string.Equals(name, Visited, StringComparison.OrdinalIgnoreCase) ? _visited : _defaults.Create(name);
+    }
+
+    /// <summary>Selectors §8.1: <c>:any-link</c> is exactly <c>:is(:link, :visited)</c>.</summary>
+    private sealed class AnyLinkSelector(ISelector defaults, ISelector link, ISelector visited) : ISelector
+    {
+        public string Text => defaults.Text;
+
+        public Priority Specificity => defaults.Specificity;
+
+        public bool Match(IElement element, IElement? scope)
+            => link.Match(element, scope) || visited.Match(element, scope);
+
+        public void Accept(ISelectorVisitor visitor) => defaults.Accept(visitor);
     }
 
     private ISelector Default(string name)
@@ -68,8 +89,9 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
     }
 
     /// <summary>
-    /// Selectors §8.2 and HTML: every HTML <c>a</c> or <c>area</c> carrying an <c>href</c> is in exactly
-    /// one link-history state. This browser keeps no visited history, so every such hyperlink is unvisited.
+    /// Selectors §8.2, HTML and SVG: every HTML <c>a</c> or <c>area</c> carrying an <c>href</c>, and every
+    /// SVG <c>a</c> carrying an <c>href</c> or <c>xlink:href</c>, is in exactly one link-history state. This
+    /// browser keeps no visited history, so every such hyperlink is unvisited.
     /// </summary>
     private sealed class LinkStateSelector(ISelector defaults, bool visited) : ISelector
     {
@@ -84,7 +106,49 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
                 return !visited && element.HasAttribute("href");
             }
 
-            return element is IHtmlElement ? false : defaults.Match(element, scope);
+            if (element is IHtmlElement)
+            {
+                return false;
+            }
+
+            if (IsSvgAnchor(element))
+            {
+                return !visited && HasSvgLinkAttribute(element) && !HasHyperlinkAncestor(element);
+            }
+
+            return defaults.Match(element, scope);
+        }
+
+        private static bool IsSvgAnchor(IElement element)
+            => string.Equals(element.NamespaceUri, NamespaceNames.SvgUri, StringComparison.Ordinal)
+                && string.Equals(element.LocalName, "a", StringComparison.Ordinal);
+
+        private static bool HasSvgLinkAttribute(IElement element)
+            => element.HasAttribute(null, "href")
+                || element.HasAttribute(NamespaceNames.XLinkUri, "href");
+
+        /// <summary>
+        /// SVG 2 §16.2: a nested SVG <c>a</c> ignores its link attributes when any ancestor is a
+        /// hyperlink. The parent walk also applies to detached subtrees and allocates no traversal state.
+        /// </summary>
+        private static bool HasHyperlinkAncestor(IElement element)
+        {
+            for (var ancestor = element.ParentElement; ancestor is not null; ancestor = ancestor.ParentElement)
+            {
+                if (ancestor is IHtmlAnchorElement or IHtmlAreaElement)
+                {
+                    if (ancestor.HasAttribute("href"))
+                    {
+                        return true;
+                    }
+                }
+                else if (IsSvgAnchor(ancestor) && HasSvgLinkAttribute(ancestor))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         public void Accept(ISelectorVisitor visitor) => defaults.Accept(visitor);
