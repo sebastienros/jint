@@ -15,6 +15,19 @@ def report():
 
 
 class ComparisonTests(unittest.TestCase):
+    def test_actual_wide_report_shape_with_synthetic_measurements(self):
+        fixture = Path(__file__).parent / "Fixtures" / "wide-report.csv"
+        self.assertGreater(fixture.stat().st_size, 4096)
+        run.validate_csv(fixture)
+        # Locale-dependent BDN output can use semicolons with the same complete header.
+        with fixture.open(newline="") as stream:
+            rows = list(csv.reader(stream))
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "semicolon.csv"
+            with path.open("w", newline="") as stream:
+                csv.writer(stream, delimiter=";").writerows(rows)
+            run.validate_csv(path)
+
     def test_matching_reports(self):
         run.compare(report(), report())
 
