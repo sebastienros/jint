@@ -27,7 +27,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | --- | --- | --- | --- | --- |
 | `dom/events/` | 56 | 9 | 544 | 15 |
 | `dom/nodes/` | 165 | 0 | 4,802 | 949 |
-| `dom/collections/` | 8 | 0 | 43 | 1 |
+| `dom/collections/` | 8 | 0 | 43 | 0 |
 | `dom/lists/` | 5 | 0 | 189 | 5 |
 | `dom/traversal/` | 13 | 0 | 52 | 0 |
 | `dom/ranges/` | 17 | 0 | 82 | 7 |
@@ -38,7 +38,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 52 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 3 |
-| **total** | **349** | **9** | **27,107** | **1,352** |
+| **total** | **349** | **9** | **27,107** | **1,351** |
 
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
@@ -170,6 +170,10 @@ document whose subject is that resolution is in the not-vendored table for the r
 `performance-timeline/webtiming-resolution.any.js` is out of the engine lane.
 
 ## What the DOM corpus says about this browser
+
+All **43 assertions in the eight `dom/collections/` documents pass**, with no exclusions.
+`HTMLCollection-as-prototype.html` now permits an inheriting receiver to assign its own property over
+a supported name; the collection's named reads remain live.
 
 `dom/nodes/`, `dom/collections/`, `dom/lists/`, `dom/traversal/`, `dom/ranges/` and `html/dom/` are the DOM
 standard's own suites and HTML's DOM half — the corpus every other suite in this lane is written on top of.
