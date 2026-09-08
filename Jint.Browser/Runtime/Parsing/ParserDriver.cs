@@ -105,7 +105,9 @@ internal sealed class ParserDriver : IDisposable
             .WithCss()
             // Selectors §8.2 matches :target only for the document's target element. AngleSharp compares
             // each candidate's ID with its owner document's fragment, so duplicate IDs, shadow descendants
-            // and disconnected clones can all match instead of the one HTML indicated element.
+            // and disconnected clones can all match instead of the one HTML indicated element. The same
+            // factory keeps §13.1's :enabled off links, which have no disabled state, while delegating form
+            // controls to AngleSharp's existing selector.
             .WithOnly<AngleSharp.Css.IPseudoClassSelectorFactory>(new PagePseudoClassSelectorFactory())
             // https://html.spec.whatwg.org/multipage/document-lifecycle.html#read-xml — a document whose
             // content type is an XML MIME type is parsed by the XML parser, and without the factory
