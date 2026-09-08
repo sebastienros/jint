@@ -39,6 +39,7 @@ internal static class ObserverTask
 
         timers.Schedule(new TimerEntry(
             timers,
+            engine.Realm,
             new Job(work),
             [],
             requestedDelay: 0,

@@ -55,7 +55,7 @@ internal sealed partial class PromiseConstructor : Constructor
         JsPromise promise;
         if (ReferenceEquals(newTarget, this))
         {
-            promise = new JsPromise(_engine)
+            promise = new JsPromise(_engine, _realm)
             {
                 _prototype = PrototypeObject
             };
@@ -65,7 +65,7 @@ internal sealed partial class PromiseConstructor : Constructor
             promise = OrdinaryCreateFromConstructor(
                 newTarget,
                 static intrinsics => intrinsics.Promise.PrototypeObject,
-                static (Engine engine, Realm _, object? _) => new JsPromise(engine));
+                static (Engine engine, Realm realm, object? _) => new JsPromise(engine, realm));
         }
 
         var (resolve, reject) = promise.CreateResolvingFunctions();
@@ -922,7 +922,7 @@ internal sealed partial class PromiseConstructor : Constructor
         // settle it without materializing any function objects.
         if (c is PromiseConstructor promiseConstructor)
         {
-            var promise = new JsPromise(engine)
+            var promise = new JsPromise(engine, promiseConstructor._realm)
             {
                 _prototype = promiseConstructor.PrototypeObject,
             };

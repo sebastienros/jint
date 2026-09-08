@@ -93,6 +93,7 @@ internal sealed class AnimationFrameLane
         // limit, say — would otherwise leave the lane believing a frame is coming and never ask for another.
         timers.Schedule(new TimerEntry(
             timers,
+            _runtime.Engine.Realm,
             new Batch(this),
             [],
             FrameIntervalMilliseconds,

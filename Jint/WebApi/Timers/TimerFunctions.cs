@@ -147,6 +147,7 @@ internal sealed class TimerFunctions
 
         var entry = new TimerEntry(
             _timers,
+            _realm,
             callback,
             extraArguments,
             delay,

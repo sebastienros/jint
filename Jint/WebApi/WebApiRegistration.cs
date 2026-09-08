@@ -849,12 +849,10 @@ internal static class WebApiRegistration
             ? options.WebApi.Cache.Provider ?? new InMemoryCacheStorageProvider()
             : null;
 
-        // The idle queue needs the timer queue for the `timeout` option, and the realm so it can build an
-        // IdleDeadline for each invocation. The PRINCIPAL realm, which is the only one these globals are
-        // installed in — and the only one this can mean when the live door is called from inside a
-        // ShadowRealm callback.
+        // The idle queue needs the timer queue for the `timeout` option. Each registration captures its
+        // realm separately because this queue is shared by every installed realm in the engine.
         var idleCallbacks = (features & WebApiFeatures.IdleCallback) != WebApiFeatures.None
-            ? new IdleCallbackQueue(engine, engine._mainRealm, timeProvider, timers!, timerOptions.IdleBudget)
+            ? new IdleCallbackQueue(engine, timeProvider, timers!, timerOptions.IdleBudget)
             : null;
 
         // The messaging group is passed whole rather than resolved here, exactly as the storage group is: a
@@ -964,7 +962,7 @@ internal static class WebApiRegistration
             // The timer queue is there: IdleCallback is in NeedsTimerQueue, so either the state already had
             // one or the block above has just attached it.
             state.AttachIdleCallbacks(
-                new IdleCallbackQueue(engine, engine._mainRealm, state.TimeProvider, state.Timers!, timerOptions.IdleBudget));
+                new IdleCallbackQueue(engine, state.TimeProvider, state.Timers!, timerOptions.IdleBudget));
         }
     }
 

@@ -9,6 +9,12 @@ namespace Jint.Native;
 
 internal sealed class JsPromise : ObjectInstance
 {
+    /// <summary>
+    /// The realm whose promise constructor created this promise. HTML uses its global object when it
+    /// reports an unhandled rejection, even if the checkpoint which discovers it runs in another realm.
+    /// </summary>
+    internal Realm Realm { get; }
+
     internal PromiseState State { get; private set; }
 
     // valid only in settled state (Fulfilled or Rejected)
@@ -70,8 +76,9 @@ internal sealed class JsPromise : ObjectInstance
     internal List<PromiseReaction>? PromiseRejectReactions;
     internal List<PromiseReaction>? PromiseFulfillReactions;
 
-    internal JsPromise(Engine engine) : base(engine)
+    internal JsPromise(Engine engine, Realm realm) : base(engine)
     {
+        Realm = realm;
     }
 
     // https://tc39.es/ecma262/#sec-createresolvingfunctions

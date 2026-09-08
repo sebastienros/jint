@@ -1019,10 +1019,10 @@ internal sealed class WebApiEngineState
     /// HTML's <i>notHandled</i> — false exactly when a listener called <c>preventDefault()</c> on an
     /// <c>unhandledrejection</c> event.
     /// </returns>
-    internal bool ReportPromiseRejection(JsPromise promise, PromiseRejectionOperation operation)
+    internal bool ReportPromiseRejection(Realm realm, JsPromise promise, PromiseRejectionOperation operation)
     {
         var notHandled = true;
-        if (_globalEventTarget is { } target)
+        if (GlobalEventTargetIfCreatedFor(realm) is { } target)
         {
             var handled = operation == PromiseRejectionOperation.Handle;
             var reason = promise.State == PromiseState.Rejected ? promise.Value : JsValue.Undefined;

@@ -208,6 +208,7 @@ internal sealed partial class SchedulerPrototype : Prototype
 
         var entry = new TimerEntry(
             timers,
+            _realm,
             new DelayedEnqueue(scheduler.Tasks, task),
             [],
             delay,

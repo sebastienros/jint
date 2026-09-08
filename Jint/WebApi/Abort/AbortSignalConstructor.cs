@@ -98,6 +98,7 @@ internal sealed partial class AbortSignalConstructor : Constructor
         var signal = CreateSignal();
         var entry = new TimerEntry(
             timers,
+            _realm,
             new TimeoutAbortAlgorithm(signal, _realm),
             [],
             delay,

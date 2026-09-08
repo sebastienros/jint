@@ -96,7 +96,7 @@ internal sealed class JintAwaitExpression : JintExpression
         }
         else if (value is ObjectInstance)
         {
-            promise = new JsPromise(engine)
+            promise = new JsPromise(engine, engine.Realm)
             {
                 _prototype = engine.Realm.Intrinsics.Promise.PrototypeObject
             };

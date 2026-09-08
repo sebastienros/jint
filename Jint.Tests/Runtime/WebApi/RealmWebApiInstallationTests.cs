@@ -110,6 +110,115 @@ public sealed class RealmWebApiInstallationTests
     }
 
     [Test]
+    public void PromiseRejectionEventsUseThePromisesRealm()
+    {
+        var sink = new RecordingSink();
+        var (engine, host) = Create(WebApiFeatures.Events | WebApiFeatures.GlobalEvents, sink);
+        using (engine)
+        {
+            var other = host.CreateAdditionalRealm();
+            WebApiRegistration.InstallInRealm(engine, other);
+
+            engine.Execute("var principalRejections = 0; addEventListener('unhandledrejection', () => principalRejections++);");
+            In(engine, other, """
+                var rejectionEvents = [];
+                addEventListener('unhandledrejection', function (event) {
+                    rejectionEvents.push(
+                        event.target === globalThis
+                        && event.currentTarget === globalThis
+                        && this === globalThis
+                        && event.promise === rejected
+                        && event.promise instanceof Promise
+                        && event.reason === 'other');
+                });
+                addEventListener('rejectionhandled', function (event) {
+                    rejectionEvents.push(event.target === globalThis && event.promise === rejected);
+                });
+                var rejected = Promise.reject('other');
+                """);
+
+            In(engine, other, "rejected.catch(() => {});");
+
+            In(engine, other, "rejectionEvents.join(',')").AsString().Should().Be("true,true");
+            engine.Evaluate("principalRejections").AsNumber().Should().Be(0);
+            sink.Reports.Should().HaveCount(2);
+        }
+    }
+
+    [Test]
+    public void TimerErrorsUseTheSchedulingRealm()
+    {
+        var clock = new ManualClock();
+        var sink = new RecordingSink();
+        var (engine, host) = Create(
+            WebApiFeatures.Events | WebApiFeatures.GlobalEvents | WebApiFeatures.Timers,
+            sink,
+            clock);
+        using (engine)
+        {
+            var other = host.CreateAdditionalRealm();
+            WebApiRegistration.InstallInRealm(engine, other);
+
+            engine.Execute("var principalErrors = 0; addEventListener('error', () => principalErrors++);");
+            In(engine, other, """
+                var timerErrorWasLocal = false;
+                addEventListener('error', function (event) {
+                    timerErrorWasLocal = event.target === globalThis
+                        && event.currentTarget === globalThis
+                        && this === globalThis
+                        && event.error === 'timer';
+                });
+                setTimeout(() => { throw 'timer'; }, 1);
+                """);
+
+            clock.Advance(1);
+            engine.Tasks.ProcessTasks();
+
+            In(engine, other, "timerErrorWasLocal").AsBoolean().Should().BeTrue();
+            engine.Evaluate("principalErrors").AsNumber().Should().Be(0);
+            sink.Reports.Should().ContainSingle()
+                .Which.CallbackSource.Should().Be(DiagnosticCallbackSource.Timer);
+        }
+    }
+
+    [Test]
+    public void IdleCallbacksUseTheRegistrationRealmForDeadlineAndErrors()
+    {
+        var sink = new RecordingSink();
+        var (engine, host) = Create(
+            WebApiFeatures.Events | WebApiFeatures.GlobalEvents | WebApiFeatures.IdleCallback,
+            sink);
+        using (engine)
+        {
+            var other = host.CreateAdditionalRealm();
+            WebApiRegistration.InstallInRealm(engine, other);
+
+            engine.Execute("var principalErrors = 0; addEventListener('error', () => principalErrors++);");
+            In(engine, other, """
+                var idleDeadlineWasLocal = false;
+                var idleErrorWasLocal = false;
+                addEventListener('error', function (event) {
+                    idleErrorWasLocal = event.target === globalThis
+                        && event.currentTarget === globalThis
+                        && this === globalThis
+                        && event.error === 'idle';
+                });
+                requestIdleCallback(deadline => {
+                    idleDeadlineWasLocal = deadline instanceof IdleDeadline
+                        && Object.getPrototypeOf(deadline) === IdleDeadline.prototype;
+                    throw 'idle';
+                });
+                """);
+
+            In(engine, other, "idleDeadlineWasLocal").AsBoolean().Should().BeTrue();
+            In(engine, other, "idleErrorWasLocal").AsBoolean().Should().BeTrue();
+            engine.Evaluate("principalErrors").AsNumber().Should().Be(0);
+            sink.Reports.Should().ContainSingle()
+                .Which.CallbackSource.Should().Be(DiagnosticCallbackSource.IdleCallback);
+        }
+    }
+
+    [Test]
     public void WindowCurrentEventIsKeptPerDestinationRealm()
     {
         var (engine, host) = Create(WebApiFeatures.Events | WebApiFeatures.GlobalEvents);
@@ -306,7 +415,10 @@ public sealed class RealmWebApiInstallationTests
         engine._secondaryWebApiRealms.Snapshot().Should().BeEmpty();
     }
 
-    private static (Engine Engine, RealmHost Host) Create(WebApiFeatures features, DiagnosticsSink? sink = null)
+    private static (Engine Engine, RealmHost Host) Create(
+        WebApiFeatures features,
+        DiagnosticsSink? sink = null,
+        TimeProvider? timeProvider = null)
     {
         var host = new RealmHost();
         var engine = new Engine(options =>
@@ -314,6 +426,10 @@ public sealed class RealmWebApiInstallationTests
             options.UseHostFactory(_ => host);
             options.UseWebApis(features);
             options.WebApi.Diagnostics.Sink = sink;
+            if (timeProvider is not null)
+            {
+                options.WebApi.Timers.TimeProvider = timeProvider;
+            }
         });
         return (engine, host);
     }
@@ -331,6 +447,19 @@ public sealed class RealmWebApiInstallationTests
         internal List<DiagnosticEvent> Reports { get; } = [];
 
         public override void Report(DiagnosticEvent report) => Reports.Add(report);
+    }
+
+    private sealed class ManualClock : TimeProvider
+    {
+        private long _timestamp;
+
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+
+        public override long GetTimestamp() => _timestamp;
+
+        public override DateTimeOffset GetUtcNow() => DateTimeOffset.UnixEpoch.AddTicks(_timestamp);
+
+        internal void Advance(int milliseconds) => _timestamp += milliseconds * TimeSpan.TicksPerMillisecond;
     }
 }
 #endif

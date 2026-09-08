@@ -2683,7 +2683,7 @@ public sealed partial class Engine : IDisposable
     /// <returns>a Promise instance and functions to either resolve or reject it</returns>
     internal ManualPromise RegisterPromise(bool drainInline = true)
     {
-        var promise = new JsPromise(this)
+        var promise = new JsPromise(this, Realm)
         {
             _prototype = Realm.Intrinsics.Promise.PrototypeObject
         };
@@ -3046,7 +3046,7 @@ public sealed partial class Engine : IDisposable
         // pre-existing one behave exactly as it always did, which it cannot if a sink can run first. Null on
         // every engine whose host set no diagnostics sink, which is one predictable null test on a path that
         // only runs when a rejection had no handler.
-        return _webApi?.ReportPromiseRejection(promise, operation) ?? true;
+        return _webApi?.ReportPromiseRejection(promise.Realm, promise, operation) ?? true;
 #else
         return true;
 #endif
