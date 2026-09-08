@@ -628,6 +628,697 @@ public class FetchDomainTests
             "the default stage is Request, so the response is never paused at");
     }
 
+    // ---------------------------------------------------------------- getResponseBody
+
+    /// <summary>
+    /// The whole body of a response the client is holding, base64 — and the page still receives every one of
+    /// those bytes exactly once afterwards, which is the property the whole read/replay design exists for.
+    /// </summary>
+    [Test]
+    public async Task GetResponseBodyAnswersTheWholeBodyAndThePageStillReceivesIt()
+    {
+        const string Payload = "the whole body, twice over: once to the client and once to the page";
+
+        using var server = new LoopbackServer();
+        server.Map("/data", _ => LoopbackResponse.Text(Payload));
+        server.MapHtml("/page", "<html><body>ok</body></html>");
+
+        await using var fixture = await InterceptionFixture.OpenAsync(server);
+        await fixture.Page.NavigateAsync(server.Url("/page"), new NavigationOptions { WaitUntil = WaitUntilState.Load });
+        await fixture.EnableAsync("""{"patterns":[{"urlPattern":"*/data","requestStage":"Response"}]}""");
+
+        await fixture.FetchOnThePageAsync("/data");
+
+        var paused = await fixture.PausedAsync();
+        var body = await fixture.GetResponseBodyAsync(paused);
+
+        body.GetProperty("base64Encoded").GetBoolean().Should().BeTrue("bytes are always bytes here");
+        Encoding.UTF8.GetString(Convert.FromBase64String(body.GetProperty("body").GetString()!)).Should().Be(Payload);
+
+        await fixture.ContinueResponseAsync(paused);
+
+        (await fixture.AnswerAsync()).Should().Be(Payload, "the page receives every original byte exactly once");
+    }
+
+    /// <summary>Every byte value, so nothing in the path is a charset in disguise.</summary>
+    [Test]
+    public async Task GetResponseBodyRoundTripsARealBinaryBody()
+    {
+        var payload = new byte[512];
+        for (var i = 0; i < payload.Length; i++)
+        {
+            payload[i] = (byte) (i % 256);
+        }
+
+        using var server = new LoopbackServer();
+        server.Map("/blob", _ => LoopbackResponse.Raw(payload, "application/octet-stream"));
+        server.MapHtml("/page", "<html><body>ok</body></html>");
+
+        await using var fixture = await InterceptionFixture.OpenAsync(server);
+        await fixture.Page.NavigateAsync(server.Url("/page"), new NavigationOptions { WaitUntil = WaitUntilState.Load });
+        await fixture.EnableAsync("""{"patterns":[{"urlPattern":"*/blob","requestStage":"Response"}]}""");
+
+        await fixture.Page.EvaluateAsync("""
+            window.__answer = null;
+            fetch('/blob')
+                .then(r => r.arrayBuffer())
+                .then(b => { window.__answer = Array.from(new Uint8Array(b)).join(','); },
+                      e => { window.__answer = 'rejected:' + e; });
+            true
+            """);
+
+        var paused = await fixture.PausedAsync();
+        var read = Convert.FromBase64String((await fixture.GetResponseBodyAsync(paused)).GetProperty("body").GetString()!);
+        read.Should().Equal(payload);
+
+        await fixture.ContinueResponseAsync(paused);
+
+        (await fixture.AnswerAsync()).Should().Be(string.Join(",", payload), "the page got the same bytes");
+    }
+
+    /// <summary>Reading twice answers the same bytes rather than reaching for a socket that has moved on.</summary>
+    [Test]
+    public async Task RepeatedReadsOfOnePauseAnswerTheSameBody()
+    {
+        using var server = new LoopbackServer();
+        server.Map("/data", _ => LoopbackResponse.Text("read me twice"));
+        server.MapHtml("/page", "<html><body>ok</body></html>");
+
+        await using var fixture = await InterceptionFixture.OpenAsync(server);
+        await fixture.Page.NavigateAsync(server.Url("/page"), new NavigationOptions { WaitUntil = WaitUntilState.Load });
+        await fixture.EnableAsync("""{"patterns":[{"urlPattern":"*/data","requestStage":"Response"}]}""");
+
+        await fixture.FetchOnThePageAsync("/data");
+        var paused = await fixture.PausedAsync();
+
+        var first = (await fixture.GetResponseBodyAsync(paused)).GetProperty("body").GetString();
+        var second = (await fixture.GetResponseBodyAsync(paused)).GetProperty("body").GetString();
+
+        second.Should().Be(first);
+
+        await fixture.ContinueResponseAsync(paused);
+        (await fixture.AnswerAsync()).Should().Be("read me twice");
+    }
+
+    /// <summary>
+    /// Many replies of the same body do not accumulate: each reply's encoded copy is charged to the page's
+    /// allowance and released once it has been written, so a client that asks twenty times is answered twenty
+    /// times rather than refused on the way.
+    /// </summary>
+    [Test]
+    public async Task RepeatedRepliesDoNotAccumulateEncodedCopies()
+    {
+        var payload = new string('r', 100);
+
+        using var server = new LoopbackServer();
+        server.Map("/data", _ => LoopbackResponse.Text(payload));
+        server.MapHtml("/page", "<html><body>ok</body></html>");
+
+        await using var fixture = await InterceptionFixture.OpenAsync(
+            server,
+            new BrowserOptions { MaxCapturedResponseBytes = 8192 });
+
+        await fixture.Page.NavigateAsync(server.Url("/page"), new NavigationOptions { WaitUntil = WaitUntilState.Load });
+        await fixture.EnableAsync("""{"patterns":[{"urlPattern":"*/data","requestStage":"Response"}]}""");
+
+        await fixture.FetchOnThePageAsync("/data");
+        var paused = await fixture.PausedAsync();
+
+        var expected = Convert.ToBase64String(Encoding.UTF8.GetBytes(payload));
+
+        // Each reply reserves about five times the body for its base64 and the message carrying it. Twenty of
+        // those outstanding at once would be far past the page's allowance; twenty in sequence are not.
+        for (var i = 0; i < 20; i++)
+        {
+            (await fixture.GetResponseBodyAsync(paused)).GetProperty("body").GetString()
+                .Should().Be(expected, "reply {0} was refused, so a reservation was never given back", i);
+        }
+
+        await fixture.ContinueResponseAsync(paused);
+        (await fixture.AnswerAsync()).Should().Be(payload);
+    }
+
+    /// <summary>A read then a substitution: the bytes read are discarded and the page sees the client's own.</summary>
+    [Test]
+    public async Task ReadingThenFulfillingDiscardsWhatWasRead()
+    {
+        using var server = new LoopbackServer();
+        server.Map("/data", _ => LoopbackResponse.Text("from the server"));
+        server.MapHtml("/page", "<html><body>ok</body></html>");
+
+        await using var fixture = await InterceptionFixture.OpenAsync(server);
+        await fixture.Page.NavigateAsync(server.Url("/page"), new NavigationOptions { WaitUntil = WaitUntilState.Load });
+        await fixture.EnableAsync("""{"patterns":[{"urlPattern":"*/data","requestStage":"Response"}]}""");
+
+        await fixture.FetchOnThePageAsync("/data");
+        var paused = await fixture.PausedAsync();
+
+        var read = Encoding.UTF8.GetString(Convert.FromBase64String((await fixture.GetResponseBodyAsync(paused)).GetProperty("body").GetString()!));
+        read.Should().Be("from the server");
+
+        await fixture.Session.ResultAsync(
+            "Fetch.fulfillRequest",
+            $$"""
+            {"requestId":"{{paused.GetProperty("requestId").GetString()}}","responseCode":200,
+             "responseHeaders":[{"name":"Content-Type","value":"text/plain"}],
+             "body":"{{Convert.ToBase64String(Encoding.UTF8.GetBytes("from the client"))}}"}
+            """,
+            fixture.Attachment);
+
+        (await fixture.AnswerAsync()).Should().Be("from the client");
+    }
+
+    /// <summary>A read then a failure: the request fails, and the prefix is released rather than replayed.</summary>
+    [Test]
+    public async Task ReadingThenFailingStillFailsTheRequest()
+    {
+        using var server = new LoopbackServer();
+        server.Map("/data", _ => LoopbackResponse.Text("never delivered"));
+        server.MapHtml("/page", "<html><body>ok</body></html>");
+
+        await using var fixture = await InterceptionFixture.OpenAsync(server);
+        await fixture.Page.NavigateAsync(server.Url("/page"), new NavigationOptions { WaitUntil = WaitUntilState.Load });
+        await fixture.EnableAsync("""{"patterns":[{"urlPattern":"*/data","requestStage":"Response"}]}""");
+
+        await fixture.FetchOnThePageAsync("/data");
+        var paused = await fixture.PausedAsync();
+
+        await fixture.GetResponseBodyAsync(paused);
+
+        await fixture.Session.ResultAsync(
+            "Fetch.failRequest",
+            $$"""{"requestId":"{{paused.GetProperty("requestId").GetString()}}","errorReason":"AccessDenied"}""",
+            fixture.Attachment);
+
+        (await fixture.AnswerAsync()).Should().StartWith("rejected:");
+    }
+
+    /// <summary>
+    /// A body the page's allowance refuses is an error and <b>not</b> a resolved pause: the client can still
+    /// answer it, and the page still gets every byte.
+    /// </summary>
+    [Test]
+    public async Task ABodyOverThePagesAllowanceIsRefusedWithoutResolvingThePause()
+    {
+        var payload = new string('x', 4096);
+
+        using var server = new LoopbackServer();
+        server.Map("/data", _ => LoopbackResponse.Text(payload));
+        server.MapHtml("/page", "<html><body>ok</body></html>");
+
+        await using var fixture = await InterceptionFixture.OpenAsync(
+            server,
+            new BrowserOptions { MaxCapturedResponseBytes = 64 });
+
+        await fixture.Page.NavigateAsync(server.Url("/page"), new NavigationOptions { WaitUntil = WaitUntilState.Load });
+        await fixture.EnableAsync("""{"patterns":[{"urlPattern":"*/data","requestStage":"Response"}]}""");
+
+        await fixture.FetchOnThePageAsync("/data");
+        var paused = await fixture.PausedAsync();
+
+        var error = await fixture.Session.ErrorAsync(
+            "Fetch.getResponseBody",
+            $$"""{"requestId":"{{paused.GetProperty("requestId").GetString()}}"}""",
+            fixture.Attachment);
+
+        error.GetProperty("code").GetInt32().Should().Be(-32000);
+        error.GetProperty("message").GetString().Should().Contain("allowance");
+
+        // Not resolved: the pause is still the client's to answer, and the page loses nothing.
+        await fixture.ContinueResponseAsync(paused);
+        (await fixture.AnswerAsync()).Should().Be(payload, "a refusal never truncates what the page receives");
+    }
+
+    /// <summary>
+    /// Two responses paused at once share one ledger: what the first read is holding is exactly what the
+    /// second does not get, the first's bytes are never evicted to admit the second, and both pages are
+    /// served in full regardless.
+    /// </summary>
+    [Test]
+    public async Task TwoPausesShareOnePageAllowance()
+    {
+        var small = new string('a', 100);
+        var large = new string('b', 6000);
+
+        using var server = new LoopbackServer();
+        server.Map("/small", _ => LoopbackResponse.Text(small));
+        server.Map("/large", _ => LoopbackResponse.Text(large));
+        server.MapHtml("/page", "<html><body>ok</body></html>");
+
+        await using var fixture = await InterceptionFixture.OpenAsync(
+            server,
+            new BrowserOptions { MaxCapturedResponseBytes = 8192 });
+
+        await fixture.Page.NavigateAsync(server.Url("/page"), new NavigationOptions { WaitUntil = WaitUntilState.Load });
+        await fixture.EnableAsync("""{"patterns":[{"urlPattern":"*/small","requestStage":"Response"},{"urlPattern":"*/large","requestStage":"Response"}]}""");
+
+        // Both in flight, so both are paused before either is answered.
+        await fixture.Page.EvaluateAsync("""
+            window.__small = null;
+            window.__large = null;
+            fetch('/small').then(r => r.text()).then(t => { window.__small = t; }, e => { window.__small = 'rejected:' + e; });
+            fetch('/large').then(r => r.text()).then(t => { window.__large = t; }, e => { window.__large = 'rejected:' + e; });
+            true
+            """);
+
+        var first = await fixture.PausedAsync(0);
+        var second = await fixture.PausedAsync(1);
+
+        var (little, big) = first.GetProperty("request").GetProperty("url").GetString()!.EndsWith("/small", StringComparison.Ordinal)
+            ? (first, second)
+            : (second, first);
+
+        (await fixture.GetResponseBodyAsync(little)).GetProperty("body").GetString()
+            .Should().Be(Convert.ToBase64String(Encoding.UTF8.GetBytes(small)));
+
+        (await fixture.Session.ErrorAsync(
+            "Fetch.getResponseBody",
+            $$"""{"requestId":"{{big.GetProperty("requestId").GetString()}}"}""",
+            fixture.Attachment)).GetProperty("code").GetInt32().Should().Be(
+            -32000,
+            "the ledger is one, and the smaller read is holding part of it");
+
+        // The refusal did not evict what the first read is holding: it answers from the same bytes still.
+        (await fixture.GetResponseBodyAsync(little)).GetProperty("body").GetString()
+            .Should().Be(Convert.ToBase64String(Encoding.UTF8.GetBytes(small)));
+
+        await fixture.ContinueResponseAsync(little);
+        await fixture.ContinueResponseAsync(big);
+
+        (await fixture.AnswerAsync("__small")).Should().Be(small);
+        (await fixture.AnswerAsync("__large")).Should().Be(large, "a refusal costs the page nothing");
+    }
+
+    /// <summary>
+    /// A body read evicts completed <c>Network</c> captures to make room, which is the other half of one
+    /// ledger: a finished capture is the page's cheapest thing to give up, and a paused body is not.
+    /// </summary>
+    [Test]
+    public async Task AReadEvictsACompletedNetworkCaptureToMakeRoom()
+    {
+        var big = new string('b', 8000);
+
+        using var server = new LoopbackServer();
+        server.Map("/first", _ => LoopbackResponse.Text("kept until it is not"));
+        server.Map("/second", _ => LoopbackResponse.Text(big));
+        server.MapHtml("/page", "<html><body>ok</body></html>");
+
+        await using var fixture = await InterceptionFixture.OpenAsync(
+            server,
+            new BrowserOptions { MaxCapturedResponseBytes = 8192 });
+
+        await fixture.Page.NavigateAsync(server.Url("/page"), new NavigationOptions { WaitUntil = WaitUntilState.Load });
+
+        await fixture.FetchOnThePageAsync("/first");
+        (await fixture.AnswerAsync()).Should().Be("kept until it is not");
+
+        // The document's own request finished first, so the identifier is looked up by URL rather than by
+        // order.
+        var firstId = fixture.Session
+            .EventsOf("Network.responseReceived", fixture.Attachment)
+            .Select(e => e.GetProperty("params"))
+            .Single(p => p.GetProperty("response").GetProperty("url").GetString()!.EndsWith("/first", StringComparison.Ordinal))
+            .GetProperty("requestId").GetString();
+
+        (await fixture.Session.ResultAsync("Network.getResponseBody", $$"""{"requestId":"{{firstId}}"}""", fixture.Attachment))
+            .GetProperty("body").GetString().Should().Be("kept until it is not", "the capture is there to begin with");
+
+        await fixture.EnableAsync("""{"patterns":[{"urlPattern":"*/second","requestStage":"Response"}]}""");
+        await fixture.FetchOnThePageAsync("/second");
+        var paused = await fixture.PausedAsync();
+
+        // Eight kilobytes of body cannot be admitted beside the capture, so the capture goes.
+        await fixture.Session.SendAsync(
+            "Fetch.getResponseBody",
+            $$"""{"requestId":"{{paused.GetProperty("requestId").GetString()}}"}""",
+            fixture.Attachment).WaitAsync(Bound);
+
+        (await fixture.Session.ErrorAsync("Network.getResponseBody", $$"""{"requestId":"{{firstId}}"}""", fixture.Attachment))
+            .GetProperty("code").GetInt32().Should().Be(-32000, "the completed capture was given up to admit the read");
+
+        await fixture.ContinueResponseAsync(paused);
+        (await fixture.AnswerAsync()).Should().Be(big, "and the page is served whatever the ledger decided");
+    }
+
+    /// <summary>A zero allowance refuses every body, and the page is still served.</summary>
+    [Test]
+    public async Task AZeroAllowanceRefusesTheReadAndThePageIsStillServed()
+    {
+        using var server = new LoopbackServer();
+        server.Map("/data", _ => LoopbackResponse.Text("still delivered"));
+        server.MapHtml("/page", "<html><body>ok</body></html>");
+
+        await using var fixture = await InterceptionFixture.OpenAsync(
+            server,
+            new BrowserOptions { MaxCapturedResponseBytes = 0 });
+
+        await fixture.Page.NavigateAsync(server.Url("/page"), new NavigationOptions { WaitUntil = WaitUntilState.Load });
+        await fixture.EnableAsync("""{"patterns":[{"urlPattern":"*/data","requestStage":"Response"}]}""");
+
+        await fixture.FetchOnThePageAsync("/data");
+        var paused = await fixture.PausedAsync();
+
+        (await fixture.Session.ErrorAsync(
+            "Fetch.getResponseBody",
+            $$"""{"requestId":"{{paused.GetProperty("requestId").GetString()}}"}""",
+            fixture.Attachment)).GetProperty("code").GetInt32().Should().Be(-32000);
+
+        await fixture.ContinueResponseAsync(paused);
+        (await fixture.AnswerAsync()).Should().Be("still delivered");
+    }
+
+    /// <summary>
+    /// A request-stage pause is a real identifier naming a moment at which there is no response, which is a
+    /// different answer from an identifier naming nothing at all.
+    /// </summary>
+    [Test]
+    public async Task GetResponseBodyIsRefusedAtTheRequestStage()
+    {
+        using var server = new LoopbackServer();
+        server.MapHtml("/page", "<html><body>ok</body></html>");
+
+        await using var fixture = await InterceptionFixture.OpenAsync(server);
+        await fixture.EnableAsync();
+
+        var navigation = fixture.Page.NavigateAsync(server.Url("/page"), new NavigationOptions { WaitUntil = WaitUntilState.Load });
+        var paused = await fixture.PausedAsync();
+
+        var error = await fixture.Session.ErrorAsync(
+            "Fetch.getResponseBody",
+            $$"""{"requestId":"{{paused.GetProperty("requestId").GetString()}}"}""",
+            fixture.Attachment);
+
+        error.GetProperty("code").GetInt32().Should().Be(-32000);
+        error.GetProperty("message").GetString().Should().Be("Can only get response body on requests captured after headers received.");
+
+        await fixture.ContinueAsync(paused);
+        await navigation.WaitAsync(Bound);
+    }
+
+    /// <summary>An authentication pause names the same identifier space and has no response body either.</summary>
+    [Test]
+    public async Task GetResponseBodyIsRefusedAtAnAuthenticationPause()
+    {
+        using var server = new LoopbackServer();
+        MapChallenged(server, "/private", "Digest realm=\"jint\", nonce=\"abc\"");
+
+        await using var fixture = await InterceptionFixture.OpenAsync(server);
+        await fixture.EnableAsync("""{"handleAuthRequests":true}""");
+
+        var navigation = fixture.Page.NavigateAsync(server.Url("/private"), new NavigationOptions { WaitUntil = WaitUntilState.Load });
+        await fixture.ContinueAsync(await fixture.PausedAsync());
+
+        var challenged = await fixture.Session.EventAsync("Fetch.authRequired", sessionId: fixture.Attachment, timeoutSeconds: 30);
+
+        var error = await fixture.Session.ErrorAsync(
+            "Fetch.getResponseBody",
+            $$"""{"requestId":"{{challenged.GetProperty("requestId").GetString()}}"}""",
+            fixture.Attachment);
+
+        error.GetProperty("message").GetString().Should().Be("Can only get response body on requests captured after headers received.");
+
+        await fixture.Session.ResultAsync(
+            "Fetch.continueWithAuth",
+            $$$"""{"requestId":"{{{challenged.GetProperty("requestId").GetString()}}}","authChallengeResponse":{"response":"CancelAuth"}}""",
+            fixture.Attachment);
+
+        await navigation.WaitAsync(Bound);
+    }
+
+    /// <summary>An identifier naming nothing, and one that named a response the client has already released.</summary>
+    [Test]
+    public async Task GetResponseBodyRefusesAnUnknownAndAStaleIdentifier()
+    {
+        using var server = new LoopbackServer();
+        server.Map("/data", _ => LoopbackResponse.Text("gone"));
+        server.MapHtml("/page", "<html><body>ok</body></html>");
+
+        await using var fixture = await InterceptionFixture.OpenAsync(server);
+        await fixture.Page.NavigateAsync(server.Url("/page"), new NavigationOptions { WaitUntil = WaitUntilState.Load });
+        await fixture.EnableAsync("""{"patterns":[{"urlPattern":"*/data","requestStage":"Response"}]}""");
+
+        (await fixture.Session.ErrorAsync(
+            "Fetch.getResponseBody",
+            """{"requestId":"interception-job-999"}""",
+            fixture.Attachment)).GetProperty("message").GetString().Should().Be("Invalid InterceptionId.");
+
+        await fixture.FetchOnThePageAsync("/data");
+        var paused = await fixture.PausedAsync();
+
+        await fixture.ContinueResponseAsync(paused);
+        (await fixture.AnswerAsync()).Should().Be("gone");
+
+        (await fixture.Session.ErrorAsync(
+            "Fetch.getResponseBody",
+            $$"""{"requestId":"{{paused.GetProperty("requestId").GetString()}}"}""",
+            fixture.Attachment)).GetProperty("message").GetString().Should().Be(
+            "Invalid InterceptionId.",
+            "a released pause is gone, whatever it was released with");
+    }
+
+    /// <summary>
+    /// A terminal decision arriving while a read is in flight is refused rather than raced, and the read and
+    /// the release both succeed once it is not.
+    /// </summary>
+    /// <remarks>
+    /// The body is gated on the server side, so the read is genuinely outstanding when the second command
+    /// arrives. Every wait is bounded, and the gate is released whatever the assertions do.
+    /// </remarks>
+    [Test]
+    public async Task ATerminalCommandDuringAReadIsRefusedAndBothSucceedAfterwards()
+    {
+        var payload = Encoding.UTF8.GetBytes("gated body");
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        using var server = new LoopbackServer();
+        server.MapHtml("/page", "<html><body>ok</body></html>");
+        server.Map("/gated", _ => new LoopbackResponse
+        {
+            RawBody = payload,
+            WriteBodyAsync = async (stream, token) =>
+            {
+                await release.Task.WaitAsync(Bound, token).ConfigureAwait(false);
+                await stream.WriteAsync(payload, token).ConfigureAwait(false);
+            },
+        }.With("Content-Type", "text/plain; charset=utf-8"));
+
+        await using var fixture = await InterceptionFixture.OpenAsync(server);
+
+        try
+        {
+            await fixture.Page.NavigateAsync(server.Url("/page"), new NavigationOptions { WaitUntil = WaitUntilState.Load });
+            await fixture.EnableAsync("""{"patterns":[{"urlPattern":"*/gated","requestStage":"Response"}]}""");
+
+            await fixture.FetchOnThePageAsync("/gated");
+            var paused = await fixture.PausedAsync();
+            var id = paused.GetProperty("requestId").GetString();
+
+            // Started and deliberately not awaited: the body is gated, so this read is still in flight.
+            var reading = fixture.Session.SendAsync("Fetch.getResponseBody", $$"""{"requestId":"{{id}}"}""", fixture.Attachment);
+
+            var refused = await fixture.Session.SendAsync(
+                "Fetch.continueResponse",
+                $$"""{"requestId":"{{id}}"}""",
+                fixture.Attachment).WaitAsync(Bound);
+
+            refused.TryGetProperty("error", out var error).Should().BeTrue("a decision may not race a read");
+            error.GetProperty("code").GetInt32().Should().Be(-32000);
+            error.GetProperty("message").GetString().Should().Be("Invalid state for Fetch.continueResponse");
+
+            // A second read is refused on the same terms: one read of a response at a time.
+            (await fixture.Session.ErrorAsync(
+                "Fetch.getResponseBody",
+                $$"""{"requestId":"{{id}}"}""",
+                fixture.Attachment).WaitAsync(Bound))
+                .GetProperty("message").GetString().Should().Be("Invalid state for Fetch.getResponseBody");
+
+            release.SetResult();
+
+            var body = (await reading.WaitAsync(Bound)).GetProperty("result");
+            Encoding.UTF8.GetString(Convert.FromBase64String(body.GetProperty("body").GetString()!)).Should().Be("gated body");
+
+            await fixture.ContinueResponseAsync(paused);
+            (await fixture.AnswerAsync()).Should().Be("gated body");
+        }
+        finally
+        {
+            release.TrySetResult();
+        }
+    }
+
+    /// <summary>
+    /// Disabling the domain while a read is in flight still ends the pause — deferred behind the read rather
+    /// than racing it, which is the one thing the replay cannot survive.
+    /// </summary>
+    [Test]
+    public async Task DisablingDuringAReadStillReleasesTheResponse()
+    {
+        var payload = Encoding.UTF8.GetBytes("released anyway");
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        using var server = new LoopbackServer();
+        server.MapHtml("/page", "<html><body>ok</body></html>");
+        server.Map("/gated", _ => new LoopbackResponse
+        {
+            RawBody = payload,
+            WriteBodyAsync = async (stream, token) =>
+            {
+                await release.Task.WaitAsync(Bound, token).ConfigureAwait(false);
+                await stream.WriteAsync(payload, token).ConfigureAwait(false);
+            },
+        }.With("Content-Type", "text/plain; charset=utf-8"));
+
+        await using var fixture = await InterceptionFixture.OpenAsync(server);
+
+        try
+        {
+            await fixture.Page.NavigateAsync(server.Url("/page"), new NavigationOptions { WaitUntil = WaitUntilState.Load });
+            await fixture.EnableAsync("""{"patterns":[{"urlPattern":"*/gated","requestStage":"Response"}]}""");
+
+            await fixture.FetchOnThePageAsync("/gated");
+            var paused = await fixture.PausedAsync();
+
+            var reading = fixture.Session.SendAsync(
+                "Fetch.getResponseBody",
+                $$"""{"requestId":"{{paused.GetProperty("requestId").GetString()}}"}""",
+                fixture.Attachment);
+
+            await fixture.Session.ResultAsync("Fetch.disable", "{}", fixture.Attachment).WaitAsync(Bound);
+
+            release.SetResult();
+
+            var reply = await reading.WaitAsync(Bound);
+            Encoding.UTF8.GetString(Convert.FromBase64String(reply.GetProperty("result").GetProperty("body").GetString()!))
+                .Should().Be("released anyway", "the read that was already under way finishes");
+
+            (await fixture.AnswerAsync()).Should().Be("released anyway", "and the pause the disable ended delivers it");
+        }
+        finally
+        {
+            release.TrySetResult();
+        }
+    }
+
+    /// <summary>
+    /// The one fetch the page loop blocks on rather than pumping through, read while it blocks — the
+    /// threading claim <c>Fetch.getResponseBody</c> makes by being named in <c>PageTarget.RunsOffThread</c>.
+    /// </summary>
+    [Test]
+    public async Task TheOneFetchTheLoopBlocksOnIsReadableWhileItBlocks()
+    {
+        const string Source = "globalThis.__inserted = true;";
+
+        using var server = new LoopbackServer();
+        server.Map("/inserted.js", _ => LoopbackResponse.Script(Source));
+        server.MapHtml("/page", """
+            <html><head><title>Blocked</title><script>
+              var el = document.createElement('script');
+              el.src = '/inserted.js';
+              document.head.appendChild(el);
+            </script></head><body>ok</body></html>
+            """);
+
+        await using var fixture = await InterceptionFixture.OpenAsync(
+            server,
+            new BrowserOptions { SubresourceTimeout = TimeSpan.FromSeconds(8) });
+
+        await fixture.EnableAsync("""{"patterns":[{"urlPattern":"*/inserted.js","requestStage":"Response"}]}""");
+
+        var navigation = fixture.Page.NavigateAsync(server.Url("/page"), new NavigationOptions { WaitUntil = WaitUntilState.Load });
+
+        var paused = await fixture.PausedAsync();
+        paused.GetProperty("responseStatusCode").GetInt32().Should().Be(200);
+
+        var clock = Stopwatch.StartNew();
+        var reply = await fixture.Session.SendAsync(
+            "Fetch.getResponseBody",
+            $$"""{"requestId":"{{paused.GetProperty("requestId").GetString()}}"}""",
+            fixture.Attachment).WaitAsync(Bound);
+        clock.Stop();
+
+        reply.TryGetProperty("error", out var error).Should().BeFalse(
+            "the read reaches no engine state, so it is answered on the thread that read it rather than queued behind the fetch the loop is blocked on; it answered {0}", error);
+
+        clock.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(3));
+
+        Encoding.UTF8.GetString(Convert.FromBase64String(reply.GetProperty("result").GetProperty("body").GetString()!))
+            .Should().Be(Source);
+
+        await fixture.ContinueResponseAsync(paused);
+        await navigation.WaitAsync(Bound);
+
+        (await fixture.Page.EvaluateAsync<bool>("globalThis.__inserted === true")).Should().BeTrue(
+            "the script the client read really did run, from the very bytes it read");
+    }
+
+    /// <summary>
+    /// Reading adds no second announcement of anything: the <c>Network</c> events a request produces are the
+    /// same ones it produced before, because the read is the same transfer seen once.
+    /// </summary>
+    [Test]
+    public async Task ReadingAPausedBodyRaisesNoDuplicateNetworkEvents()
+    {
+        using var server = new LoopbackServer();
+        server.Map("/data", _ => LoopbackResponse.Text("counted once"));
+        server.MapHtml("/page", "<html><body>ok</body></html>");
+
+        await using var fixture = await InterceptionFixture.OpenAsync(server);
+        await fixture.Page.NavigateAsync(server.Url("/page"), new NavigationOptions { WaitUntil = WaitUntilState.Load });
+        await fixture.EnableAsync("""{"patterns":[{"urlPattern":"*/data","requestStage":"Response"}]}""");
+
+        await fixture.FetchOnThePageAsync("/data");
+        var paused = await fixture.PausedAsync();
+        var networkId = paused.GetProperty("networkId").GetString();
+
+        await fixture.GetResponseBodyAsync(paused);
+        await fixture.ContinueResponseAsync(paused);
+        (await fixture.AnswerAsync()).Should().Be("counted once");
+
+        await fixture.Session.EventAsync("Network.loadingFinished", sessionId: fixture.Attachment, timeoutSeconds: 30);
+
+        Count("Network.responseReceived").Should().Be(1);
+        Count("Network.loadingFinished").Should().Be(1);
+        Count("Network.loadingFailed").Should().Be(0);
+
+        // EventsOf answers whole envelopes, so the identifier is one level in.
+        int Count(string method) => fixture.Session
+            .EventsOf(method, fixture.Attachment)
+            .Count(e => e.GetProperty("params").TryGetProperty("requestId", out var id) && id.GetString() == networkId);
+    }
+
+    /// <summary>
+    /// Reading a paused body is not the <c>Network</c> domain's copy of it: that capture is still made, and
+    /// the page's own capture limit is what it always was.
+    /// </summary>
+    [Test]
+    public async Task APausedReadLeavesTheNetworkCaptureAsItWas()
+    {
+        using var server = new LoopbackServer();
+        server.Map("/data", _ => LoopbackResponse.Text("read by the client"));
+        server.MapHtml("/page", "<html><body>ok</body></html>");
+
+        await using var fixture = await InterceptionFixture.OpenAsync(server);
+        await fixture.Page.NavigateAsync(server.Url("/page"), new NavigationOptions { WaitUntil = WaitUntilState.Load });
+        await fixture.EnableAsync("""{"patterns":[{"urlPattern":"*/data","requestStage":"Response"}]}""");
+
+        await fixture.FetchOnThePageAsync("/data");
+        var paused = await fixture.PausedAsync();
+        var networkId = paused.GetProperty("networkId").GetString();
+
+        await fixture.GetResponseBodyAsync(paused);
+        await fixture.ContinueResponseAsync(paused);
+        (await fixture.AnswerAsync()).Should().Be("read by the client");
+
+        await fixture.Session.EventAsync("Network.loadingFinished", sessionId: fixture.Attachment, timeoutSeconds: 30);
+
+        var captured = await fixture.Session.ResultAsync(
+            "Network.getResponseBody",
+            $$"""{"requestId":"{{networkId}}"}""",
+            fixture.Attachment);
+
+        captured.GetProperty("body").GetString().Should().Be("read by the client");
+    }
+
     private sealed class InterceptionFixture : IAsyncDisposable
     {
         private InterceptionFixture(PageSession session, Page page, string attachment, string frameId)
@@ -671,6 +1362,49 @@ public class FetchDomainTests
                 "Fetch.continueRequest",
                 $$"""{"requestId":"{{paused.GetProperty("requestId").GetString()}}"}""",
                 Attachment);
+
+        internal Task ContinueResponseAsync(JsonElement paused)
+            => Session.ResultAsync(
+                "Fetch.continueResponse",
+                $$"""{"requestId":"{{paused.GetProperty("requestId").GetString()}}"}""",
+                Attachment);
+
+        internal Task<JsonElement> GetResponseBodyAsync(JsonElement paused)
+            => Session.ResultAsync(
+                "Fetch.getResponseBody",
+                $$"""{"requestId":"{{paused.GetProperty("requestId").GetString()}}"}""",
+                Attachment);
+
+        /// <summary>
+        /// Starts a <c>fetch</c> on the page and parks its answer, because the expression's own value is a
+        /// promise and the page is what has to await it.
+        /// </summary>
+        internal Task FetchOnThePageAsync(string path)
+            => Page.EvaluateAsync($$"""
+                window.__answer = null;
+                fetch('{{path}}')
+                    .then(r => r.text())
+                    .then(t => { window.__answer = t; }, e => { window.__answer = 'rejected:' + e; });
+                true
+                """);
+
+        /// <summary>What the page's own fetch settled to, waited for within the suite's bound.</summary>
+        internal async Task<string> AnswerAsync(string slot = "__answer")
+        {
+            var deadline = Stopwatch.StartNew();
+
+            while (deadline.Elapsed < Bound)
+            {
+                if (await Page.EvaluateAsync<string?>("window." + slot) is { } answer)
+                {
+                    return answer;
+                }
+
+                await Task.Delay(20).ConfigureAwait(false);
+            }
+
+            throw new TimeoutException("the page's fetch never settled");
+        }
 
         public ValueTask DisposeAsync() => Session.DisposeAsync();
     }

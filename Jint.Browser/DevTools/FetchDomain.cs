@@ -211,18 +211,26 @@ internal sealed class FetchDomain : FetchDomainBase, IDetachableDomain
     /// Holds one response until the client answers it, and turns that answer into a decision.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The same wait <see cref="PauseAsync"/> makes, at the other stage, and bounded by the same nothing of
     /// this domain's own — the fetch carries the page's timeout and the document's token. A pause the token
     /// ends delivers the response, because a fetch that has been abandoned is about to fail anyway.
+    /// </para>
+    /// <para>
+    /// <b>This is also the only place a body can be read</b>, which is why the pause carries the reader: the
+    /// bytes are on the socket exactly while this call has not returned, and
+    /// <see cref="GetResponseBodyAsync"/> is the one thing that ever asks for them.
+    /// </para>
     /// </remarks>
     internal async ValueTask<PageNetworkResponseDecision> PauseResponseAsync(
         PageNetworkRequest request,
         PageNetworkResponse response,
+        PageResponseBodyReader body,
         string frameId,
         CancellationToken cancellationToken)
     {
         var id = "interception-job-" + Interlocked.Increment(ref _lastInterception).ToString(CultureInfo.InvariantCulture);
-        var paused = new PausedResponse();
+        var paused = new PausedResponse { Body = body, Abandoned = cancellationToken };
 
         _pausedResponses[id] = paused;
 
@@ -244,7 +252,7 @@ internal sealed class FetchDomain : FetchDomainBase, IDetachableDomain
         try
         {
             using var registration = cancellationToken.Register(
-                static state => ((PausedResponse) state!).Answer(PageNetworkResponseDecision.Proceed),
+                static state => ((PausedResponse) state!).Terminate(PageNetworkResponseDecision.Proceed),
                 paused);
 
             return await paused.Completion.Task.ConfigureAwait(false);
@@ -380,11 +388,131 @@ internal sealed class FetchDomain : FetchDomainBase, IDetachableDomain
             ? Headers(declared)
             : Headers(parameters.BinaryResponseHeaders);
 
-        paused.Answer(headers is null && parameters.ResponseCode is null && parameters.ResponsePhrase is null
-            ? PageNetworkResponseDecision.Proceed
-            : PageNetworkResponseDecision.Continue(parameters.ResponseCode, parameters.ResponsePhrase, headers));
+        Answer(
+            parameters.RequestId,
+            paused,
+            headers is null && parameters.ResponseCode is null && parameters.ResponsePhrase is null
+                ? PageNetworkResponseDecision.Proceed
+                : PageNetworkResponseDecision.Continue(parameters.ResponseCode, parameters.ResponsePhrase, headers),
+            "Fetch.continueResponse");
 
         return new ValueTask<EmptyResult>(EmptyResult.Instance);
+    }
+
+    /// <inheritdoc/>
+    /// <remarks>
+    /// <para>
+    /// https://chromedevtools.github.io/devtools-protocol/tot/Fetch/#method-getResponseBody — the whole body
+    /// of a response the client is holding at the response stage, base64 always: the bytes are the ones the
+    /// page is about to consume, and encoding them as text would need a second charset policy and would lose
+    /// a binary body.
+    /// </para>
+    /// <para>
+    /// <b>Reading changes nothing the page sees.</b> The bytes taken off the socket are replayed ahead of
+    /// the remainder when the response is released, so the document receives every original byte exactly
+    /// once whether the read happened, was refused, or was never asked for. Repeated reads of the same pause
+    /// answer the same bytes without touching the socket again.
+    /// </para>
+    /// <para>
+    /// <b>It is the only thing that ever buffers a paused body</b>, which is what makes the cost a client's
+    /// own: a pattern that pauses responses copies nothing until this is called. The bytes are charged to
+    /// the page's one allowance — <c>BrowserOptions.MaxCapturedResponseBytes</c>, shared with the
+    /// <c>Network</c> domain's captured bodies — before they are retained, and so is the base64 reply, whose
+    /// reservation is held until that reply has actually been written to the transport. A body the allowance
+    /// refuses is a <c>-32000</c> error and <b>not</b> a resolved pause: the client can still continue,
+    /// fulfil or fail the response afterwards.
+    /// </para>
+    /// <para>
+    /// <b>A read and a terminal decision are serialised.</b> A <c>continueResponse</c>, <c>fulfillRequest</c>
+    /// or <c>failRequest</c> arriving while a read is in flight is refused with an explicit error rather
+    /// than racing the stream; detaching, disabling and the fetch's own cancellation still always end the
+    /// pause, behind the read.
+    /// </para>
+    /// </remarks>
+    protected override async ValueTask<GetResponseBodyResponse> GetResponseBodyAsync(GetResponseBodyRequest parameters, CommandContext context)
+    {
+        if (!_pausedResponses.TryGetValue(parameters.RequestId, out var paused))
+        {
+            // A request-stage or authentication pause is a real identifier naming a moment at which there is
+            // no response yet, which is a different thing from an identifier naming nothing.
+            if (_paused.ContainsKey(parameters.RequestId) || _pausedAuth.ContainsKey(parameters.RequestId))
+            {
+                Throw.ServerError(
+                    "Can only get response body on requests captured after headers received.",
+                    "that identifier names a request-stage pause, where the response does not exist yet");
+            }
+
+            Throw.ServerError("Invalid InterceptionId.");
+        }
+
+        if (!paused!.TryBeginRead())
+        {
+            Throw.ServerError(
+                "Invalid state for Fetch.getResponseBody",
+                "the response has already been answered, or another read of it is still in flight");
+        }
+
+        try
+        {
+            using var abandoned = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken, paused.Abandoned);
+
+            var body = await paused.Body.ReadAsync(abandoned.Token).ConfigureAwait(false);
+            if (body is null)
+            {
+                return Throw.ServerError<GetResponseBodyResponse>(
+                    "Response body exceeds the page's captured-response allowance.",
+                    "see BrowserOptions.MaxCapturedResponseBytes; the response is still paused and can be continued, fulfilled or failed");
+            }
+
+            return Encode(body.Value, paused.Body, context);
+        }
+        finally
+        {
+            paused.EndRead();
+        }
+    }
+
+    /// <summary>Base64-encodes one body, having reserved what the encoded reply will occupy.</summary>
+    /// <remarks>
+    /// <para>
+    /// A retained-payload cap alone is not a memory bound: the reply is a second copy of the body, four
+    /// characters per three bytes and two bytes per character, and the serialized message is a third. Both
+    /// are charged to the same allowance before either exists, and the lease is held until the reply has
+    /// actually left the process rather than until this command returns — which is what stops repeated
+    /// commands queueing unboundedly many encoded copies behind a slow transport.
+    /// </para>
+    /// <para>
+    /// The reservation is released by the session, once, whether the reply was written or the write failed.
+    /// </para>
+    /// </remarks>
+    private static GetResponseBodyResponse Encode(ReadOnlyMemory<byte> body, PageResponseBodyReader reader, CommandContext context)
+    {
+        // 4 characters per 3 bytes, 2 bytes per character, and the same again for the message the reply is
+        // serialized into.
+        var encoded = 4L * ((body.Length + 2L) / 3L);
+        var cost = 4L * encoded;
+
+        IDisposable? lease = null;
+        if (cost > int.MaxValue || !reader.TryReserve((int) cost, out lease))
+        {
+            return Throw.ServerError<GetResponseBodyResponse>(
+                "Response body exceeds the page's captured-response allowance.",
+                "the base64 reply would not fit; see BrowserOptions.MaxCapturedResponseBytes");
+        }
+
+        try
+        {
+            var text = Convert.ToBase64String(body.Span);
+
+            context.HoldUntilReplyWritten(lease);
+            lease = null;
+
+            return new GetResponseBodyResponse { Body = text, Base64Encoded = true };
+        }
+        finally
+        {
+            lease?.Dispose();
+        }
     }
 
     /// <summary>Lets every paused request and response go, which disabling and detaching both do.</summary>
@@ -402,7 +530,9 @@ internal sealed class FetchDomain : FetchDomainBase, IDetachableDomain
         {
             if (_pausedResponses.TryRemove(id, out var paused))
             {
-                paused.Answer(PageNetworkResponseDecision.Proceed);
+                // Terminate rather than answer: disabling and detaching end a pause whatever else is
+                // happening to it, and a read in flight only defers that by as long as the read lasts.
+                paused.Terminate(PageNetworkResponseDecision.Proceed);
             }
         }
 
@@ -449,10 +579,16 @@ internal sealed class FetchDomain : FetchDomainBase, IDetachableDomain
         var body = parameters.Body is { } encoded ? Convert.FromBase64String(encoded) : [];
 
         // Either stage: Chrome answers a response-stage pause with this command too, and there the bytes the
-        // server sent are discarded unread rather than never asked for.
-        if (_pausedResponses.TryRemove(parameters.RequestId, out var pausedResponse))
+        // server sent are discarded unread rather than never asked for — including a prefix a body read
+        // took, which is released rather than replayed because nobody will receive this response.
+        if (_pausedResponses.TryGetValue(parameters.RequestId, out var pausedResponse))
         {
-            pausedResponse.Answer(PageNetworkResponseDecision.Fulfill(parameters.ResponseCode, headers, body, parameters.ResponsePhrase));
+            Answer(
+                parameters.RequestId,
+                pausedResponse,
+                PageNetworkResponseDecision.Fulfill(parameters.ResponseCode, headers, body, parameters.ResponsePhrase),
+                "Fetch.fulfillRequest");
+
             return new ValueTask<EmptyResult>(EmptyResult.Instance);
         }
 
@@ -465,9 +601,14 @@ internal sealed class FetchDomain : FetchDomainBase, IDetachableDomain
     protected override ValueTask<EmptyResult> FailRequestAsync(FailRequestRequest parameters, CommandContext context)
     {
         // Either stage, like fulfillRequest above.
-        if (_pausedResponses.TryRemove(parameters.RequestId, out var pausedResponse))
+        if (_pausedResponses.TryGetValue(parameters.RequestId, out var pausedResponse))
         {
-            pausedResponse.Answer(PageNetworkResponseDecision.Fail(NetworkError(parameters.ErrorReason)));
+            Answer(
+                parameters.RequestId,
+                pausedResponse,
+                PageNetworkResponseDecision.Fail(NetworkError(parameters.ErrorReason)),
+                "Fetch.failRequest");
+
             return new ValueTask<EmptyResult>(EmptyResult.Instance);
         }
 
@@ -488,14 +629,39 @@ internal sealed class FetchDomain : FetchDomainBase, IDetachableDomain
     }
 
     /// <summary>The paused response one identifier names, or Chrome's own refusal.</summary>
+    /// <remarks>
+    /// It looks up rather than removes, because the claim is the state machine's: a response with a body
+    /// read in flight must be refused rather than quietly taken out of the map and left unanswerable.
+    /// </remarks>
     private PausedResponse TakeResponse(string requestId)
     {
-        if (!_pausedResponses.TryRemove(requestId, out var paused))
+        if (!_pausedResponses.TryGetValue(requestId, out var paused))
         {
             Throw.ServerError("Invalid InterceptionId.");
         }
 
         return paused!;
+    }
+
+    /// <summary>Answers a paused response, or refuses because a body read of it is in flight.</summary>
+    private void Answer(string requestId, PausedResponse paused, PageNetworkResponseDecision decision, string command)
+    {
+        switch (paused.TryAnswer(decision))
+        {
+            case PauseClaim.Taken:
+                _pausedResponses.TryRemove(requestId, out _);
+                return;
+
+            case PauseClaim.Reading:
+                Throw.ServerError(
+                    "Invalid state for " + command,
+                    "a getResponseBody of that response is still in flight; answer it once the read has returned");
+                return;
+
+            default:
+                Throw.ServerError("Invalid InterceptionId.");
+                return;
+        }
     }
 
     /// <summary>Whether one pattern asks about the response stage.</summary>
@@ -642,12 +808,124 @@ internal sealed class FetchDomain : FetchDomainBase, IDetachableDomain
     /// </summary>
     private sealed class PausedResponse
     {
+        private readonly object _gate = new();
+        private bool _reading;
+        private bool _answered;
+        private PageNetworkResponseDecision? _deferred;
+
+        /// <summary>The bounded read of this response's body, valid for as long as the pause is.</summary>
+        internal required PageResponseBodyReader Body { get; init; }
+
+        /// <summary>Cancelled when the fetch this pause belongs to is abandoned or times out.</summary>
+        internal required CancellationToken Abandoned { get; init; }
+
         internal TaskCompletionSource<PageNetworkResponseDecision> Completion { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        /// <summary>Answers the pause, ignoring a second answer for the same response.</summary>
-        internal void Answer(PageNetworkResponseDecision decision) => Completion.TrySetResult(decision);
+        /// <summary>Claims the pause for a body read, refusing while one is in flight or after a decision.</summary>
+        internal bool TryBeginRead()
+        {
+            lock (_gate)
+            {
+                if (_reading || _answered)
+                {
+                    return false;
+                }
+
+                _reading = true;
+                return true;
+            }
+        }
+
+        /// <summary>Ends a read, applying whatever decision was deferred behind it.</summary>
+        internal void EndRead()
+        {
+            PageNetworkResponseDecision? apply = null;
+
+            lock (_gate)
+            {
+                _reading = false;
+
+                if (_deferred is { } pending)
+                {
+                    _deferred = null;
+                    _answered = true;
+                    apply = pending;
+                }
+            }
+
+            if (apply is { } decision)
+            {
+                Completion.TrySetResult(decision);
+            }
+        }
+
+        /// <summary>
+        /// A client's terminal command, which is refused rather than raced while a read is in flight.
+        /// </summary>
+        internal PauseClaim TryAnswer(PageNetworkResponseDecision decision)
+        {
+            lock (_gate)
+            {
+                if (_answered)
+                {
+                    return PauseClaim.Gone;
+                }
+
+                if (_reading)
+                {
+                    return PauseClaim.Reading;
+                }
+
+                _answered = true;
+            }
+
+            Completion.TrySetResult(decision);
+            return PauseClaim.Taken;
+        }
+
+        /// <summary>
+        /// Detach, disable and the fetch's own cancellation, which always end the pause.
+        /// </summary>
+        /// <remarks>
+        /// Deferred behind a read rather than racing it: swapping the response's content out from under a
+        /// read in flight is the one thing the replay cannot survive, and the read is bounded by the very
+        /// token that fires here, so the deferral is over as soon as that read gives up.
+        /// </remarks>
+        internal void Terminate(PageNetworkResponseDecision decision)
+        {
+            lock (_gate)
+            {
+                if (_answered)
+                {
+                    return;
+                }
+
+                if (_reading)
+                {
+                    _deferred ??= decision;
+                    return;
+                }
+
+                _answered = true;
+            }
+
+            Completion.TrySetResult(decision);
+        }
     }
-
+
+    /// <summary>What claiming a paused response for one decision answered.</summary>
+    private enum PauseClaim
+    {
+        /// <summary>The pause is this caller's, and has been answered.</summary>
+        Taken,
+
+        /// <summary>A body read of the same response is in flight; the pause is untouched.</summary>
+        Reading,
+
+        /// <summary>Something else has already answered it.</summary>
+        Gone,
+    }
+
     /// <summary>
     /// A challenge's own pause, and a third map for the third thing one identifier space can name.
     /// </summary>

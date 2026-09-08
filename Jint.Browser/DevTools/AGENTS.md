@@ -103,10 +103,23 @@ target/runtime split and the manifest are there and none of it is repeated here.
   pattern asking for `requestStage: "Response"` pauses with the response's status and headers, and
   `continueResponse`, `fulfillRequest` and `failRequest` answer one — a default pattern still pauses the
   request stage only, that being the protocol's own default, and pausing both would double every pause a
-  recorded client expects. **`IO`, `Fetch.getResponseBody` and `takeResponseBodyAsStream` are still absent,
-  for a different reason than they used to be**: the pause has the response's *headers* while its body is
-  still on the socket, so there are no bytes to hand a client without buffering them first, which is a
-  budget decision rather than a hook. Still absent with a reason: `eventSourceMessageReceived` (a stream is
+  recorded client expects. **`Fetch.getResponseBody` is here**, over the engine's
+  `FetchResponseInterceptionContext`: it is the only thing that ever buffers a paused body, so a pattern that
+  pauses responses copies nothing until a client asks, and what it reads is **replayed ahead of the unread
+  remainder** — the page receives every original byte exactly once whether the read succeeded, was refused or
+  never happened. Both the bytes and the base64 reply are charged to the page's one reservation ledger
+  (`PageNetworkRecorder.TryReserve`, bounded by `BrowserOptions.MaxCapturedResponseBytes` and shared with the
+  `Network` captures, which it evicts and is never evicted by), and the reply's lease is held until the
+  transport has actually written it — `IDevToolsConnection.SendTrackedAsync` reached through
+  `CommandContext.HoldUntilReplyWritten`, which is what stops repeated commands queueing unboundedly many
+  encoded copies behind a slow socket. A body the ledger refuses is `-32000` and **not** a resolved pause. **A
+  read and a terminal decision are serialised per pause**: a `continueResponse`/`fulfillRequest`/`failRequest`
+  arriving mid-read is refused with an explicit invalid-state error, while detach, disable and the fetch's own
+  cancellation always end the pause and are merely deferred for as long as the read lasts — swapping the
+  response's content out from under a read in flight is the one thing the replay cannot survive.
+  **`IO` and `takeResponseBodyAsStream` stay absent**: a stream handle is a second lifetime to bound for a
+  shape no recorded client sends, and that domain's mainstream producers are `Page.printToPDF` and `Tracing`,
+  neither of which exists here. Still absent with a reason: `eventSourceMessageReceived` (a stream is
   observed as bytes rather than as the events they decode into, so its requests are in the log as
   `ResourceType: EventSource` and its messages are nowhere), and the three `webSocketFrame*` events (the
   engine's socket observer is told about the two handshakes and the close, and a frame never reaches it).
@@ -183,7 +196,12 @@ a second truth about the same request.
   debt `FetchObservation.FinalResponse` names, and the body half of it.
 - **The capture is bounded and off by default.** `BrowserOptions.MaxCapturedResponseBytes` bounds the total
   a page holds, the oldest capture is dropped to stay under it, and the copying is armed only while a client
-  has the `Network` domain enabled.
+  has the `Network` domain enabled. **That figure is one ledger with two kinds of holder**: a captured body
+  and a `Fetch.getResponseBody` reservation spend it together, because two allowances would each be a bound
+  and neither would bound the page. A chunk charges before it is copied and evicts the oldest capture to make
+  room; a reservation does the same and is itself **pinned**, since the bytes behind it are owed to a
+  response nobody has received yet — so a capture that no longer fits beside one is dropped rather than
+  allowed to overrun. Neither ever waits for a sibling to let go: a sibling may itself be paused.
 
 **The URL is the runtime's.** `PageRuntime.DocumentUrl` is what `location`, `document.URL` and relative
 resolution read, and `pushState` and a fragment navigation move it without reloading. Writing AngleSharp's

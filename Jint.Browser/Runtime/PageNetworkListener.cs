@@ -347,16 +347,25 @@ internal interface IPageNetworkListener
     /// </summary>
     /// <param name="request">The request, as its last hop went out.</param>
     /// <param name="response">The response, as the server sent it.</param>
+    /// <param name="body">The bounded read of this response's body, valid only until this call returns.</param>
     /// <param name="cancellationToken">Cancelled when the fetch is abandoned or times out.</param>
     /// <remarks>
+    /// <para>
     /// <b>The ask, and <see cref="ResponseReceived"/> is the notification.</b> They are separate calls and
     /// both happen, in that order, exactly as the engine's own <c>OnResponseAsync</c> and <c>OnResponse</c>
     /// are — so a client that rewrote a status sees its own value in the announcement that follows. The wait
     /// is bounded by the page's own timeouts, and it holds the transport thread the request is on.
+    /// </para>
+    /// <para>
+    /// <b><paramref name="body"/> is offered and never made.</b> A listener that never reads costs the page
+    /// nothing and leaves the response streaming; one that reads spends the page's own allowance, and the
+    /// document receives every original byte exactly once either way.
+    /// </para>
     /// </remarks>
     ValueTask<PageNetworkResponseDecision> ResponseWillBeDeliveredAsync(
         PageNetworkRequest request,
         PageNetworkResponse response,
+        PageResponseBodyReader body,
         CancellationToken cancellationToken);
 
     /// <summary>

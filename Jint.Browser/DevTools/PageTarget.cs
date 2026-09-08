@@ -228,8 +228,12 @@ internal sealed partial class PageTarget : DevToolsTarget, IPageObserver
         // entry up in a dictionary and complete a promise: no engine, no JsValue, no node. continueWithAuth
         // is the fifth, and its pause is the same one held at the same point: the challenge arrives on the
         // hop's own response, with the loop blocked on that fetch if a running script started it.
+        // getResponseBody is the sixth, and it is the one that *must* be answered here rather than merely
+        // may be: it reads the socket the loop is blocked on, so answering it on the loop would be the loop
+        // waiting for bytes nothing can ask for until it stops waiting. It reaches no engine either — a
+        // reader over a transport stream, a byte array and a base64 string, and no JsValue and no node.
         "Fetch.continueRequest" or "Fetch.failRequest" or "Fetch.fulfillRequest" or "Fetch.continueResponse"
-            or "Fetch.continueWithAuth" => true,
+            or "Fetch.continueWithAuth" or "Fetch.getResponseBody" => true,
         _ => false,
     };
 

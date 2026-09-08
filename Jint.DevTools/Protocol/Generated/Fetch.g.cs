@@ -4,7 +4,7 @@
 //
 //     source:   tools/devtools-protocol/browser_protocol.json
 //     protocol: version 1.3, ChromeDevTools/devtools-protocol@ea39a11d80de9a08ce2af03f52125ed2e462cf84 (devtools-protocol@0.0.1687809)
-//     manifest: tools/devtools-protocol/manifest.json, Fetch entries, sha256:4f7250c77f22
+//     manifest: tools/devtools-protocol/manifest.json, Fetch entries, sha256:bfca8d107ac4
 //
 // Do not edit. Regenerate instead, and read the diff: it is the upstream change stated in the
 // vocabulary this repository compiles. tools/devtools-protocol/README.md has the command, and
@@ -481,6 +481,12 @@ namespace Jint.DevTools.Domains
                 {
                     var result = await ContinueResponseAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.FetchContinueResponseRequest), context).ConfigureAwait(false);
                     return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                case "getResponseBody":
+                {
+                    var result = await GetResponseBodyAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.FetchGetResponseBodyRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.FetchGetResponseBodyResponse);
                 }
 
                 // A command manifest.json does not list is method-not-found BEFORE its parameters

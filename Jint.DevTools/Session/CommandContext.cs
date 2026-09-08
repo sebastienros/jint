@@ -17,6 +17,8 @@ namespace Jint.DevTools.Session;
 /// </remarks>
 internal sealed class CommandContext
 {
+    private List<IDisposable>? _held;
+
     internal CommandContext(DevToolsSession session, string? sessionId, CancellationToken cancellationToken)
     {
         Session = session;
@@ -34,4 +36,47 @@ internal sealed class CommandContext
 
     /// <summary>Gets the token cancelled when the client disconnects.</summary>
     internal CancellationToken CancellationToken { get; }
+
+    /// <summary>Gets whether anything is holding memory until this command's reply has been written.</summary>
+    internal bool HoldsUntilReplyWritten => _held is { Count: > 0 };
+
+    /// <summary>
+    /// Keeps <paramref name="lease"/> alive until this command's reply has actually left the process.
+    /// </summary>
+    /// <param name="lease">What to dispose then, or <see langword="null"/> for nothing.</param>
+    /// <remarks>
+    /// <para>
+    /// <b>A result is not free the moment it is returned.</b> A command answering with a large encoded
+    /// payload reserved memory for it, and the reservation has to outlive the command by exactly as long as
+    /// the string does — until the transport has written it. Registering the lease here is what makes the
+    /// session release it at that moment rather than at the end of the dispatch, which is what stops
+    /// repeated commands queueing unboundedly many encoded copies behind a slow socket.
+    /// </para>
+    /// <para>
+    /// The session disposes it exactly once, whether the reply was written, the write failed, or the command
+    /// ended in an error instead. The context itself must still not be captured past the command.
+    /// </para>
+    /// </remarks>
+    internal void HoldUntilReplyWritten(IDisposable? lease)
+    {
+        if (lease is not null)
+        {
+            (_held ??= []).Add(lease);
+        }
+    }
+
+    /// <summary>Disposes what this command was holding. Idempotent, and called by the session alone.</summary>
+    internal void ReleaseHeld()
+    {
+        if (_held is not { } held)
+        {
+            return;
+        }
+
+        _held = null;
+        foreach (var lease in held)
+        {
+            lease.Dispose();
+        }
+    }
 }

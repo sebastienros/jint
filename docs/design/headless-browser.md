@@ -321,15 +321,21 @@ document's request carries the `loaderId` as its `requestId`, which is what make
 response object. A page's `WebSocket` takes the four events the protocol gives a socket — its creation, both
 handshakes and its close — over the engine's own `WebSocketObserver`, and is deliberately *not* in the
 request log, because a socket stays open for as long as the page wants it and an entry would stop
-`networkIdle` firing. What is not there: `Fetch.getResponseBody` and `takeResponseBodyAsStream` and with
-them the `IO` domain, because a response-stage pause has the response's *headers* while its body is still on
-the socket, so handing a client bytes means buffering them first — a budget decision, and
-`Network.getResponseBody` is what answers a body here; the three `webSocketFrame*` events and
+`networkIdle` firing. `Fetch.getResponseBody` answers the whole body of a response-stage pause, base64: the
+bytes are read off the socket through the engine's own seam and then **replayed ahead of the unread
+remainder**, so the page receives every original byte exactly once, and a client that never asks costs the
+page nothing. Both the body and the base64 reply are charged to `BrowserOptions.MaxCapturedResponseBytes` —
+the same allowance `Network`'s captured bodies spend — and a body that does not fit is a `-32000` error
+rather than a resolved pause. What is not there: `Fetch.takeResponseBodyAsStream` and with it the `IO`
+domain, because a stream handle is a second lifetime to bound for a shape no recorded client sends and the
+domain's only mainstream producers are `Page.printToPDF` and `Tracing`, neither of which this browser has;
+the three `webSocketFrame*` events and
 `eventSourceMessageReceived`, because the socket observer is never told about a frame and a stream is
 observed as bytes rather than as the events they decode into; and `Network`'s **timing** document, because
 no phase of a request is measured and a document of zeros reads as a page that loaded instantly. A paused
 request holds the transport thread it is being sent on and never the page loop — the one exception is a
-`<script src>` a running script inserted, which blocks the loop by design.
+`<script src>` a running script inserted, which blocks the loop by design, and which is exactly why the
+commands that release a pause, `getResponseBody` included, are answered off the loop.
 
 **`Emulation` is effective, and the question each command answers is *when*.** The viewport, the emulated
 media type and its Level 5 preference features, touch, focus, geolocation, the user agent and the hardware
