@@ -557,6 +557,11 @@ internal sealed class ModelBuilder
         var qualified = CSharpNames.Literal(model.DomName + "." + entry.Member);
         var attribute = CSharpNames.Literal(entry.Attribute);
 
+        if (!TryReflectedTarget(model, entry, out var target))
+        {
+            return false;
+        }
+
         if (entry.Type == "enum")
         {
             if (entry.Keywords.Count == 0)
@@ -576,13 +581,16 @@ internal sealed class ModelBuilder
             var invalid = entry.Invalid is null ? "null" : CSharpNames.Literal(entry.Invalid);
 
             factory = "ReflectedAttribute.Enumerated(" + qualified + ", " + attribute + ", " + keywords
-                + ", missing: " + missing + ", invalid: " + invalid + ")";
+                + ", missing: " + missing + ", invalid: " + invalid + target + ")";
             return true;
         }
 
         if (entry.Type == "string")
         {
-            factory = "ReflectedAttribute.Text(" + qualified + ", " + attribute + (entry.Nullable ? ", nullable: true" : "") + ")";
+            factory = "ReflectedAttribute.Text(" + qualified + ", " + attribute
+                + (entry.Nullable ? ", nullable: true" : "")
+                + (entry.LegacyNullToEmptyString ? ", legacyNullToEmptyString: true" : "")
+                + target + ")";
             return true;
         }
 
@@ -604,6 +612,14 @@ internal sealed class ModelBuilder
         {
             factory = "ReflectedAttribute.Nonce(" + qualified + ", " + attribute + ")";
             return true;
+        }
+
+        if (entry.LegacyNullToEmptyString)
+        {
+            _model.Diagnostics.Add(
+                "overrides.json reflects " + model.DomName + "." + entry.Member + " (" + entry.Reason
+                + ") as '" + entry.Type + "' with legacyNullToEmptyString, which WebIDL only puts on a DOMString.");
+            return false;
         }
 
         if (!_numericKinds.TryGetValue(entry.Type, out var numeric))
@@ -632,7 +648,58 @@ internal sealed class ModelBuilder
         return true;
     }
 
+    /// <summary>
+    /// The <c>target:</c> argument one entry's factory takes, or a diagnostic saying why the entry cannot
+    /// have one.
+    /// </summary>
+    /// <remarks>
+    /// HTML's six members that reflect an attribute of another element are all on <c>Document</c> and are
+    /// all a string or an enumeration — §3.2.6.4's <c>dir</c> off the <c>html</c> element and §16.3's five
+    /// obsolete colours off the <c>body</c> element. Both halves are checked here rather than assumed,
+    /// because a row that named a target on a member whose accessor pair could not take one would generate
+    /// a member that silently reflected the wrong element.
+    /// </remarks>
+    private bool TryReflectedTarget(InterfaceModel model, Overrides.ReflectedEntry entry, out string target)
+    {
+        target = "";
+
+        if (entry.Target is null)
+        {
+            return true;
+        }
+
+        if (entry.Type is not ("string" or "enum"))
+        {
+            _model.Diagnostics.Add(
+                "overrides.json reflects " + model.DomName + "." + entry.Member + " (" + entry.Reason
+                + ") onto another element as '" + entry.Type + "'; only a string or an enumeration can.");
+            return false;
+        }
+
+        if (model.DomName != "Document")
+        {
+            _model.Diagnostics.Add(
+                "overrides.json reflects " + model.DomName + "." + entry.Member + " (" + entry.Reason
+                + ") onto another element; only a Document member does that, because the accessor pair"
+                + " that resolves a target takes an IDocument.");
+            return false;
+        }
+
+        if (entry.Target is not ("documentElement" or "body"))
+        {
+            _model.Diagnostics.Add(
+                "overrides.json reflects " + model.DomName + "." + entry.Member + " (" + entry.Reason
+                + ") onto '" + entry.Target + "', which is neither documentElement nor body.");
+            return false;
+        }
+
+        target = ", target: ReflectedTarget."
+            + (entry.Target == "documentElement" ? "DocumentElement" : "Body");
+        return true;
+    }
+
     /// <summary>A C# <c>double</c> literal that round-trips, for a reflected attribute's default value.</summary>
+
     private static string Number(double value) => value.ToString("R", CultureInfo.InvariantCulture);
 
     /// <summary>

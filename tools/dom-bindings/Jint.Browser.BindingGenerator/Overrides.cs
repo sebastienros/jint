@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace Jint.Browser.BindingGenerator;
@@ -259,6 +259,21 @@ internal sealed class Overrides
         /// </summary>
         [JsonPropertyName("nullable")]
         public bool Nullable { get; init; }
+
+        /// <summary>
+        /// WebIDL's <c>[LegacyNullToEmptyString]</c> on a <c>DOMString</c>: the null value converts to the
+        /// empty string rather than to <c>"null"</c>. It says nothing about <c>undefined</c>.
+        /// </summary>
+        [JsonPropertyName("legacyNullToEmptyString")]
+        public bool LegacyNullToEmptyString { get; init; }
+
+        /// <summary>
+        /// Which element the content attribute lives on, when it is not the one the IDL attribute was read
+        /// from: <c>documentElement</c> or <c>body</c>. HTML has six such members and all six are on
+        /// <c>Document</c>.
+        /// </summary>
+        [JsonPropertyName("target")]
+        public string? Target { get; init; }
 
         /// <summary>A numeric attribute's default value, when it is not the type's own.</summary>
         [JsonPropertyName("default")]

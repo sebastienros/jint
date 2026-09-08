@@ -1135,6 +1135,72 @@ internal static partial class DomInterfaces
         => new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("HTMLBodyElement")
             .PerRealmSlot("constructor", enumerable: false)
+            .Accessor("aLink",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLBodyElement.aLink", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlBodyElement>(thisObj, "HTMLBodyElement.aLink");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLBodyElementALink.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLBodyElement.aLink", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlBodyElement>(thisObj, "HTMLBodyElement.aLink");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLBodyElementALink.Set(self.Realm, self.Target, args);
+                }))
+            .Accessor("background",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLBodyElement.background", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlBodyElement>(thisObj, "HTMLBodyElement.background");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLBodyElementBackground.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLBodyElement.background", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlBodyElement>(thisObj, "HTMLBodyElement.background");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLBodyElementBackground.Set(self.Realm, self.Target, args);
+                }))
+            .Accessor("bgColor",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLBodyElement.bgColor", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlBodyElement>(thisObj, "HTMLBodyElement.bgColor");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLBodyElementBgColor.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLBodyElement.bgColor", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlBodyElement>(thisObj, "HTMLBodyElement.bgColor");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLBodyElementBgColor.Set(self.Realm, self.Target, args);
+                }))
+            .Accessor("link",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLBodyElement.link", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlBodyElement>(thisObj, "HTMLBodyElement.link");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLBodyElementLink.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLBodyElement.link", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlBodyElement>(thisObj, "HTMLBodyElement.link");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLBodyElementLink.Set(self.Realm, self.Target, args);
+                }))
+            .Accessor("text",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLBodyElement.text", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlBodyElement>(thisObj, "HTMLBodyElement.text");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLBodyElementText.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLBodyElement.text", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlBodyElement>(thisObj, "HTMLBodyElement.text");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLBodyElementText.Set(self.Realm, self.Target, args);
+                }))
+            .Accessor("vLink",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLBodyElement.vLink", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlBodyElement>(thisObj, "HTMLBodyElement.vLink");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLBodyElementVLink.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLBodyElement.vLink", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlBodyElement>(thisObj, "HTMLBodyElement.vLink");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLBodyElementVLink.Set(self.Realm, self.Target, args);
+                }))
             .Build();
 
     /// <summary>The members of <c>HTMLButtonElement</c>.</summary>
@@ -1932,6 +1998,17 @@ internal static partial class DomInterfaces
         => new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("HTMLHeadingElement")
             .PerRealmSlot("constructor", enumerable: false)
+            .Accessor("align",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLHeadingElement.align", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlHeadingElement>(thisObj, "HTMLHeadingElement.align");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLHeadingElementAlign.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLHeadingElement.align", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlHeadingElement>(thisObj, "HTMLHeadingElement.align");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLHeadingElementAlign.Set(self.Realm, self.Target, args);
+                }))
             .Build();
 
     /// <summary>The members of <c>HTMLHtmlElement</c>.</summary>

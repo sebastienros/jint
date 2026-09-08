@@ -1617,6 +1617,60 @@
 
   "reflected": [
     {
+      "interface": "Document",
+      "member": "dir",
+      "attribute": "dir",
+      "type": "enum",
+      "keywords": ["ltr", "rtl", "auto"],
+      "target": "documentElement",
+      "reason": "HTML \u00a73.2.6.4: `document.dir` reflects the `dir` content attribute OF THE HTML ELEMENT, limited to only known values -- and returns the empty string and does nothing on setting when there is no such element. AngleSharp has no member for it, and no CLR signature could say which element it reads."
+    },
+    {
+      "interface": "Document",
+      "member": "fgColor",
+      "attribute": "text",
+      "type": "string",
+      "legacyNullToEmptyString": true,
+      "target": "body",
+      "reason": "HTML \u00a716.3.3: `document.fgColor` reflects the BODY element's `text` content attribute, as a [LegacyNullToEmptyString] DOMString. AngleSharp has no member for it."
+    },
+    {
+      "interface": "Document",
+      "member": "linkColor",
+      "attribute": "link",
+      "type": "string",
+      "legacyNullToEmptyString": true,
+      "target": "body",
+      "reason": "HTML \u00a716.3.3: the body element's `link` content attribute, as a [LegacyNullToEmptyString] DOMString. AngleSharp has no member for it."
+    },
+    {
+      "interface": "Document",
+      "member": "vlinkColor",
+      "attribute": "vlink",
+      "type": "string",
+      "legacyNullToEmptyString": true,
+      "target": "body",
+      "reason": "HTML \u00a716.3.3: the body element's `vlink` content attribute, as a [LegacyNullToEmptyString] DOMString. AngleSharp has no member for it."
+    },
+    {
+      "interface": "Document",
+      "member": "alinkColor",
+      "attribute": "alink",
+      "type": "string",
+      "legacyNullToEmptyString": true,
+      "target": "body",
+      "reason": "HTML \u00a716.3.3: the body element's `alink` content attribute, as a [LegacyNullToEmptyString] DOMString. AngleSharp has no member for it."
+    },
+    {
+      "interface": "Document",
+      "member": "bgColor",
+      "attribute": "bgcolor",
+      "type": "string",
+      "legacyNullToEmptyString": true,
+      "target": "body",
+      "reason": "HTML \u00a716.3.3: the body element's `bgcolor` content attribute, as a [LegacyNullToEmptyString] DOMString. AngleSharp has no member for it."
+    },
+    {
       "interface": "HTMLElement",
       "member": "dir",
       "attribute": "dir",
@@ -1682,6 +1736,60 @@
       "attribute": "href",
       "type": "url",
       "reason": "HTML \u00a74.2.4 reflects `href` as a URL against the element's node document's current base URL. AngleSharp's Href can retain the URL of a removed base element, so it does not observe later tree mutations (#3896)."
+    },
+    {
+      "interface": "HTMLBodyElement",
+      "member": "text",
+      "attribute": "text",
+      "type": "string",
+      "legacyNullToEmptyString": true,
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute the standard still requires the IDL attribute for, as a [LegacyNullToEmptyString] DOMString -- so `body.text = null` writes the empty string where an ordinary DOMString writes \"null\". AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLBodyElement",
+      "member": "link",
+      "attribute": "link",
+      "type": "string",
+      "legacyNullToEmptyString": true,
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute, [LegacyNullToEmptyString]. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLBodyElement",
+      "member": "vLink",
+      "attribute": "vlink",
+      "type": "string",
+      "legacyNullToEmptyString": true,
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute, [LegacyNullToEmptyString]. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLBodyElement",
+      "member": "aLink",
+      "attribute": "alink",
+      "type": "string",
+      "legacyNullToEmptyString": true,
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute, [LegacyNullToEmptyString]. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLBodyElement",
+      "member": "bgColor",
+      "attribute": "bgcolor",
+      "type": "string",
+      "legacyNullToEmptyString": true,
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute, [LegacyNullToEmptyString]. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLBodyElement",
+      "member": "background",
+      "attribute": "background",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute the standard still requires the IDL attribute for. It is a plain DOMString and NOT a URL reflection, which is the one row of this group that is not [LegacyNullToEmptyString] either. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLHeadingElement",
+      "member": "align",
+      "attribute": "align",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute the standard still requires the IDL attribute for, on the one interface <h1> to <h6> share. AngleSharp has no member for it."
     },
     {
       "interface": "HTMLLinkElement",

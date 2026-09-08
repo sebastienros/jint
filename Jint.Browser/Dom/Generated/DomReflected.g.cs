@@ -15,6 +15,30 @@ namespace Jint.Browser.Dom;
 /// </summary>
 internal static class DomReflected
 {
+    /// <summary><c>Document.alinkColor</c> reflects <c>alink</c> as a string.</summary>
+    internal static readonly ReflectedAttribute DocumentAlinkColor =
+        ReflectedAttribute.Text("Document.alinkColor", "alink", legacyNullToEmptyString: true, target: ReflectedTarget.Body);
+
+    /// <summary><c>Document.bgColor</c> reflects <c>bgcolor</c> as a string.</summary>
+    internal static readonly ReflectedAttribute DocumentBgColor =
+        ReflectedAttribute.Text("Document.bgColor", "bgcolor", legacyNullToEmptyString: true, target: ReflectedTarget.Body);
+
+    /// <summary><c>Document.dir</c> reflects <c>dir</c> as an enum.</summary>
+    internal static readonly ReflectedAttribute DocumentDir =
+        ReflectedAttribute.Enumerated("Document.dir", "dir", ["ltr", "rtl", "auto"], missing: "", invalid: null, target: ReflectedTarget.DocumentElement);
+
+    /// <summary><c>Document.fgColor</c> reflects <c>text</c> as a string.</summary>
+    internal static readonly ReflectedAttribute DocumentFgColor =
+        ReflectedAttribute.Text("Document.fgColor", "text", legacyNullToEmptyString: true, target: ReflectedTarget.Body);
+
+    /// <summary><c>Document.linkColor</c> reflects <c>link</c> as a string.</summary>
+    internal static readonly ReflectedAttribute DocumentLinkColor =
+        ReflectedAttribute.Text("Document.linkColor", "link", legacyNullToEmptyString: true, target: ReflectedTarget.Body);
+
+    /// <summary><c>Document.vlinkColor</c> reflects <c>vlink</c> as a string.</summary>
+    internal static readonly ReflectedAttribute DocumentVlinkColor =
+        ReflectedAttribute.Text("Document.vlinkColor", "vlink", legacyNullToEmptyString: true, target: ReflectedTarget.Body);
+
     /// <summary><c>HTMLAnchorElement.charset</c> reflects <c>charset</c> as a string.</summary>
     internal static readonly ReflectedAttribute HTMLAnchorElementCharset =
         ReflectedAttribute.Text("HTMLAnchorElement.charset", "charset");
@@ -50,6 +74,30 @@ internal static class DomReflected
     /// <summary><c>HTMLBRElement.clear</c> reflects <c>clear</c> as a string.</summary>
     internal static readonly ReflectedAttribute HTMLBRElementClear =
         ReflectedAttribute.Text("HTMLBRElement.clear", "clear");
+
+    /// <summary><c>HTMLBodyElement.aLink</c> reflects <c>alink</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLBodyElementALink =
+        ReflectedAttribute.Text("HTMLBodyElement.aLink", "alink", legacyNullToEmptyString: true);
+
+    /// <summary><c>HTMLBodyElement.background</c> reflects <c>background</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLBodyElementBackground =
+        ReflectedAttribute.Text("HTMLBodyElement.background", "background");
+
+    /// <summary><c>HTMLBodyElement.bgColor</c> reflects <c>bgcolor</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLBodyElementBgColor =
+        ReflectedAttribute.Text("HTMLBodyElement.bgColor", "bgcolor", legacyNullToEmptyString: true);
+
+    /// <summary><c>HTMLBodyElement.link</c> reflects <c>link</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLBodyElementLink =
+        ReflectedAttribute.Text("HTMLBodyElement.link", "link", legacyNullToEmptyString: true);
+
+    /// <summary><c>HTMLBodyElement.text</c> reflects <c>text</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLBodyElementText =
+        ReflectedAttribute.Text("HTMLBodyElement.text", "text", legacyNullToEmptyString: true);
+
+    /// <summary><c>HTMLBodyElement.vLink</c> reflects <c>vlink</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLBodyElementVLink =
+        ReflectedAttribute.Text("HTMLBodyElement.vLink", "vlink", legacyNullToEmptyString: true);
 
     /// <summary><c>HTMLDivElement.align</c> reflects <c>align</c> as a string.</summary>
     internal static readonly ReflectedAttribute HTMLDivElementAlign =
@@ -102,6 +150,10 @@ internal static class DomReflected
     /// <summary><c>HTMLHRElement.width</c> reflects <c>width</c> as a string.</summary>
     internal static readonly ReflectedAttribute HTMLHRElementWidth =
         ReflectedAttribute.Text("HTMLHRElement.width", "width");
+
+    /// <summary><c>HTMLHeadingElement.align</c> reflects <c>align</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLHeadingElementAlign =
+        ReflectedAttribute.Text("HTMLHeadingElement.align", "align");
 
     /// <summary><c>HTMLHtmlElement.version</c> reflects <c>version</c> as a string.</summary>
     internal static readonly ReflectedAttribute HTMLHtmlElementVersion =

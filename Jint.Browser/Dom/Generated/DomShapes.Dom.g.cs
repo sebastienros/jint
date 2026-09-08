@@ -659,6 +659,17 @@ internal static partial class DomInterfaces
                     return self.Realm.WrapNodeValue(self.Target.Adopt(global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Dom.INode>(args, 0, "Document.adoptNode")));
                 }),
                 length: 1)
+            .Accessor("alinkColor",
+                global::Jint.Browser.Dom.DomFailures.Guard("Document.alinkColor", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.alinkColor");
+                    return global::Jint.Browser.Dom.DomReflected.DocumentAlinkColor.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("Document.alinkColor", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.alinkColor");
+                    return global::Jint.Browser.Dom.DomReflected.DocumentAlinkColor.Set(self.Realm, self.Target, args);
+                }))
             .Accessor("all",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.all", static (thisObj, args) =>
                 {
@@ -678,6 +689,17 @@ internal static partial class DomInterfaces
                     self.Target.Append(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, "Document.append")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
+            .Accessor("bgColor",
+                global::Jint.Browser.Dom.DomFailures.Guard("Document.bgColor", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.bgColor");
+                    return global::Jint.Browser.Dom.DomReflected.DocumentBgColor.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("Document.bgColor", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.bgColor");
+                    return global::Jint.Browser.Dom.DomReflected.DocumentBgColor.Set(self.Realm, self.Target, args);
+                }))
             .Accessor("body",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.body", static (thisObj, args) =>
                 {
@@ -868,12 +890,12 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.dir", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.dir");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Direction);
+                    return global::Jint.Browser.Dom.DomReflected.DocumentDir.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.dir", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.dir");
-                    self.Target.Direction = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.dir"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomReflected.DocumentDir.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("doctype",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.doctype", static (thisObj, args) =>
@@ -945,6 +967,17 @@ internal static partial class DomInterfaces
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.ExecuteCommand(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.execCommand"), global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 1, false), global::Jint.Browser.Dom.DomConvert.OptionalText(args, 2, "")!));
                 }),
                 length: 1)
+            .Accessor("fgColor",
+                global::Jint.Browser.Dom.DomFailures.Guard("Document.fgColor", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.fgColor");
+                    return global::Jint.Browser.Dom.DomReflected.DocumentFgColor.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("Document.fgColor", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.fgColor");
+                    return global::Jint.Browser.Dom.DomReflected.DocumentFgColor.Set(self.Realm, self.Target, args);
+                }))
             .Accessor("firstElementChild",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.firstElementChild", static (thisObj, args) =>
                 {
@@ -1054,6 +1087,17 @@ internal static partial class DomInterfaces
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.lastStyleSheetSet");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.LastStyleSheetSet);
+                }))
+            .Accessor("linkColor",
+                global::Jint.Browser.Dom.DomFailures.Guard("Document.linkColor", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.linkColor");
+                    return global::Jint.Browser.Dom.DomReflected.DocumentLinkColor.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("Document.linkColor", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.linkColor");
+                    return global::Jint.Browser.Dom.DomReflected.DocumentLinkColor.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("links",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.links", static (thisObj, args) =>
@@ -1216,6 +1260,17 @@ internal static partial class DomInterfaces
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.visibilityState");
                     return global::Jint.Native.JsString.Create(global::Jint.Browser.Runtime.PageRuntime.Find(self.Realm.Engine, self.Target)?.VisibilityState ?? "hidden");
+                }))
+            .Accessor("vlinkColor",
+                global::Jint.Browser.Dom.DomFailures.Guard("Document.vlinkColor", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.vlinkColor");
+                    return global::Jint.Browser.Dom.DomReflected.DocumentVlinkColor.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("Document.vlinkColor", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.vlinkColor");
+                    return global::Jint.Browser.Dom.DomReflected.DocumentVlinkColor.Set(self.Realm, self.Target, args);
                 }))
             .Method("write",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.write", static (thisObj, args) =>
