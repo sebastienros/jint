@@ -415,11 +415,15 @@ public sealed class DirectPlaywrightTests
         var started = System.Diagnostics.Stopwatch.GetTimestamp();
 
         var wait = async () => await page.WaitForFunctionAsync(
-            "() => { const end = Date.now() + 1000; while (Date.now() < end) {} return false; }",
+            "() => { const end = Date.now() + 4000; while (Date.now() < end) {} return false; }",
             options: new PageWaitForFunctionOptions { Timeout = 50 });
 
         await wait.Should().ThrowAsync<System.TimeoutException>();
-        System.Diagnostics.Stopwatch.GetElapsedTime(started).Should().BeLessThan(TimeSpan.FromMilliseconds(500));
+        // The ceiling is a wedge, not the assertion: it only has to sit well below the four seconds the
+        // synchronous loop would cost if the timeout waited for it. A loaded CI runner has taken 587 ms to
+        // get here on a 500 ms ceiling against a one-second loop, which is the property holding and the
+        // margin failing.
+        System.Diagnostics.Stopwatch.GetElapsedTime(started).Should().BeLessThan(TimeSpan.FromSeconds(2));
     }
 
     [Test]
