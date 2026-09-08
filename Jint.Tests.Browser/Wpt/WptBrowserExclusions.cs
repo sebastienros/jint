@@ -289,25 +289,21 @@ internal static class WptBrowserExclusions
         ("html/dom/usvstring-reflection.https.html", "needs webrtc/RTCPeerConnection-helper.js and a real RTCPeerConnection to reflect a USVString off"),
 
         // ------------------------------------------------------------ HTML's reflection suite
-        // Ten generated documents, 56,660 assertions. Nine of them are cases now — every one but
-        // reflection-embedded.html, 47,738 assertions between them — because HTML §2.6.1's reflection
-        // algorithms are implemented (Jint.Browser/Dom/ReflectedAttribute.cs) and driven by overrides.json's
-        // `reflected` list. Five pass whole; what fails in the other four is never reflection — it is an
+        // **All ten generated documents are cases**, 56,660 assertions, because HTML §2.6.1's reflection
+        // algorithms are implemented (Jint.Browser/Dom/ReflectedAttribute.cs) and 185 `reflected` rows in
+        // overrides.json state, per member, which of them it takes. Six of the ten pass whole; the 540 rows
+        // the other four still need are never reflection and every one of them is the dependency — an
         // element interface the pinned assemblies do not have (<dl>, <dir>, <font>, <frame>), <style>'s
         // `media`, which AngleSharp.Css refuses from inside setAttribute, and <meter>'s six setters, which
         // write a double with .NET's number format.
         //
-        // The last one is out for one reason and it is no longer "reflection is not implemented": it needs
-        // the per-element attribute table it tests, one `reflected` row per content attribute, which is
-        // #3770's remaining work. The 135 rows written so far started with the GLOBAL attributes every
-        // element carries (`dir`, `lang`, `tabIndex`, `autofocus`, `inputMode`, `enterKeyHint`), so they have
-        // already moved it a long way. What is left is `preload`, `decoding`, `kind` and their kind.
+        // The issue that vendored them is #3770, and what kept them out was never that they are slow: the
+        // whole set runs in about 22 s, the largest (reflection-embedded.html, 8,922 tests) in 7.3 s, well
+        // inside the driver's 30 s deadline. It was the artefact — the smallest table of patterns covering
+        // 22,028 failures was over four thousand rows, every one of them saying the same thing — and the
+        // answer was to write the attribute tables one family at a time instead.
         //
-        // **None of them is slow**: the whole set runs in 22.5 s and the largest (reflection-embedded.html,
-        // 8,922 tests) in 7.3 s, well inside the driver's 30 s deadline. What has always kept them out is the
-        // artefact — a table of patterns naming thousands of failures, every one of them saying the same
-        // thing — and that is the thing this suite stops needing one family at a time.
-        ("html/dom/*-embedded.*", "#3770: the embedded-content elements and their attribute table; 3,774 of 8,922 assertions failed at the measurement in the issue"),
+        // Two files here are not part of that and stay out.
         ("html/dom/reflection-original.html", "the same suite in the aggregating spelling, which reports only failures rather than one test per assertion — a second answer to what reflection-*.html already say"),
         ("html/dom/elements-aria-enumerated.js", "the attribute table of aria-attribute-reflection-enumerated.tentative.html, which tests a proposal the specification has not adopted"),
 
@@ -761,6 +757,7 @@ internal static class WptBrowserExclusions
         ["html/dom/aria-element-reflection-disconnected.html"] = 2,
         ["html/dom/aria-element-reflection.html"] = 27,
         ["html/dom/historical.html"] = 13,
+        ["html/dom/reflection-embedded.html"] = 8922,
         ["html/dom/reflection-forms-weekmonth.html"] = 1579,
         ["html/dom/reflection-forms.html"] = 8271,
         ["html/dom/reflection-grouping.html"] = 5358,

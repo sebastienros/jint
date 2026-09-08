@@ -2172,6 +2172,383 @@
       "reason": "HTML \u00a716.3.3: `width` on <marquee> is a reflected DOMString and not a dimension. AngleSharp has no member for it."
     },
     {
+      "interface": "HTMLImageElement",
+      "member": "referrerPolicy",
+      "attribute": "referrerpolicy",
+      "type": "enum",
+      "keywords": ["", "no-referrer", "no-referrer-when-downgrade", "same-origin", "origin", "strict-origin", "origin-when-cross-origin", "strict-origin-when-cross-origin", "unsafe-url"],
+      "reason": "HTML \u00a72.6.7: a referrer policy attribute is an enumerated attribute whose keywords are the Referrer Policy specification's, with an empty invalid and missing value default. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLImageElement",
+      "member": "decoding",
+      "attribute": "decoding",
+      "type": "enum",
+      "keywords": ["async", "sync", "auto"],
+      "missing": "auto",
+      "invalid": "auto",
+      "reason": "HTML \u00a74.8.3: `decoding` is an enumerated attribute whose missing and invalid value defaults are both `auto`. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLImageElement",
+      "member": "crossOrigin",
+      "attribute": "crossorigin",
+      "type": "enum",
+      "keywords": ["anonymous", "use-credentials"],
+      "nullable": true,
+      "invalid": "anonymous",
+      "reason": "HTML \u00a72.6.7: a CORS settings attribute is an enumerated attribute whose IDL type is DOMString?, so an absent attribute is null and any unknown value -- the empty string included -- is the Anonymous state. AngleSharp's CrossOrigin hands back the raw value."
+    },
+    {
+      "interface": "HTMLImageElement",
+      "member": "hspace",
+      "attribute": "hspace",
+      "type": "unsigned long",
+      "reason": "HTML \u00a716.3.3: a reflected unsigned long, so HTML's rules for parsing non-negative integers decide it and anything else is 0. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLImageElement",
+      "member": "vspace",
+      "attribute": "vspace",
+      "type": "unsigned long",
+      "reason": "HTML \u00a716.3.3: a reflected unsigned long, so HTML's rules for parsing non-negative integers decide it and anything else is 0. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLImageElement",
+      "member": "lowsrc",
+      "attribute": "lowsrc",
+      "type": "url",
+      "reason": "HTML \u00a716.3.3: an obsolete attribute reflected as a URL, so it answers the absolute URL the attribute resolves to. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLImageElement",
+      "member": "longDesc",
+      "attribute": "longdesc",
+      "type": "url",
+      "reason": "HTML \u00a716.3.3: an obsolete attribute reflected as a URL, so it answers the absolute URL the attribute resolves to. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLImageElement",
+      "member": "name",
+      "attribute": "name",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLImageElement",
+      "member": "border",
+      "attribute": "border",
+      "type": "string",
+      "legacyNullToEmptyString": true,
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute, [LegacyNullToEmptyString] so a null write is the empty string. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLImageElement",
+      "member": "align",
+      "attribute": "align",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLImageElement",
+      "member": "width",
+      "attribute": "width",
+      "type": "unsigned long",
+      "reason": "HTML \u00a74.8.3: the GETTER is the rendered width of the image and is not reflection, but the SETTER is. This package renders no image, so the getter answers the content attribute either way; what the row fixes is the setter, which AngleSharp implements as an Int32 write."
+    },
+    {
+      "interface": "HTMLImageElement",
+      "member": "height",
+      "attribute": "height",
+      "type": "unsigned long",
+      "reason": "HTML \u00a74.8.3, and the same halves as width's."
+    },
+    {
+      "interface": "HTMLIFrameElement",
+      "member": "referrerPolicy",
+      "attribute": "referrerpolicy",
+      "type": "enum",
+      "keywords": ["", "no-referrer", "no-referrer-when-downgrade", "same-origin", "origin", "strict-origin", "origin-when-cross-origin", "strict-origin-when-cross-origin", "unsafe-url"],
+      "reason": "HTML \u00a72.6.7: a referrer policy attribute is an enumerated attribute whose keywords are the Referrer Policy specification's, with an empty invalid and missing value default. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLIFrameElement",
+      "member": "longDesc",
+      "attribute": "longdesc",
+      "type": "url",
+      "reason": "HTML \u00a716.3.3: an obsolete attribute reflected as a URL, so it answers the absolute URL the attribute resolves to. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLIFrameElement",
+      "member": "height",
+      "attribute": "height",
+      "type": "string",
+      "reason": "HTML \u00a74.8.5: `height` on <iframe> is a reflected DOMString and not a dimension. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLIFrameElement",
+      "member": "width",
+      "attribute": "width",
+      "type": "string",
+      "reason": "HTML \u00a74.8.5: `width` on <iframe> is a reflected DOMString and not a dimension. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLIFrameElement",
+      "member": "scrolling",
+      "attribute": "scrolling",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLIFrameElement",
+      "member": "frameBorder",
+      "attribute": "frameborder",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLIFrameElement",
+      "member": "marginWidth",
+      "attribute": "marginwidth",
+      "type": "string",
+      "legacyNullToEmptyString": true,
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute, [LegacyNullToEmptyString] so a null write is the empty string. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLIFrameElement",
+      "member": "marginHeight",
+      "attribute": "marginheight",
+      "type": "string",
+      "legacyNullToEmptyString": true,
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute, [LegacyNullToEmptyString] so a null write is the empty string. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLIFrameElement",
+      "member": "align",
+      "attribute": "align",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLEmbedElement",
+      "member": "src",
+      "attribute": "src",
+      "type": "url",
+      "reason": "HTML \u00a74.8.6 reflects `src` as a URL, so it answers the absolute URL the attribute resolves to. AngleSharp's Source is the raw attribute value."
+    },
+    {
+      "interface": "HTMLEmbedElement",
+      "member": "name",
+      "attribute": "name",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLEmbedElement",
+      "member": "align",
+      "attribute": "align",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLObjectElement",
+      "member": "hspace",
+      "attribute": "hspace",
+      "type": "unsigned long",
+      "reason": "HTML \u00a716.3.3: a reflected unsigned long, so HTML's rules for parsing non-negative integers decide it and anything else is 0. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLObjectElement",
+      "member": "vspace",
+      "attribute": "vspace",
+      "type": "unsigned long",
+      "reason": "HTML \u00a716.3.3: a reflected unsigned long, so HTML's rules for parsing non-negative integers decide it and anything else is 0. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLObjectElement",
+      "member": "codeBase",
+      "attribute": "codebase",
+      "type": "url",
+      "reason": "HTML \u00a716.3.3: an obsolete attribute reflected as a URL, so it answers the absolute URL the attribute resolves to. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLObjectElement",
+      "member": "code",
+      "attribute": "code",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLObjectElement",
+      "member": "border",
+      "attribute": "border",
+      "type": "string",
+      "legacyNullToEmptyString": true,
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute, [LegacyNullToEmptyString] so a null write is the empty string. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLObjectElement",
+      "member": "standby",
+      "attribute": "standby",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLObjectElement",
+      "member": "declare",
+      "attribute": "declare",
+      "type": "boolean",
+      "reason": "HTML \u00a716.3.3: an obsolete boolean attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLObjectElement",
+      "member": "height",
+      "attribute": "height",
+      "type": "string",
+      "reason": "HTML \u00a74.8.7: `height` on <object> is a reflected DOMString and not a dimension. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLObjectElement",
+      "member": "width",
+      "attribute": "width",
+      "type": "string",
+      "reason": "HTML \u00a74.8.7: `width` on <object> is a reflected DOMString and not a dimension. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLObjectElement",
+      "member": "codeType",
+      "attribute": "codetype",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLObjectElement",
+      "member": "archive",
+      "attribute": "archive",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLObjectElement",
+      "member": "align",
+      "attribute": "align",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLParamElement",
+      "member": "type",
+      "attribute": "type",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLParamElement",
+      "member": "valueType",
+      "attribute": "valuetype",
+      "type": "string",
+      "reason": "HTML \u00a716.3.3: an obsolete presentational attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLMediaElement",
+      "member": "preload",
+      "attribute": "preload",
+      "type": "enum",
+      "keywords": ["none", "metadata", "auto"],
+      "missing": "auto",
+      "invalid": "auto",
+      "reason": "HTML \u00a74.8.11.5: `preload` is an enumerated attribute limited to only known values whose missing AND invalid value defaults are implementation-defined among the three states -- `auto` is the choice here, and it is what makes the empty string (a synonym for the Automatic state) read back as `auto` rather than as itself. AngleSharp hands back the raw attribute value."
+    },
+    {
+      "interface": "HTMLMediaElement",
+      "member": "crossOrigin",
+      "attribute": "crossorigin",
+      "type": "enum",
+      "keywords": ["anonymous", "use-credentials"],
+      "nullable": true,
+      "invalid": "anonymous",
+      "reason": "HTML \u00a72.6.7: a CORS settings attribute is an enumerated attribute whose IDL type is DOMString?, so an absent attribute is null and any unknown value -- the empty string included -- is the Anonymous state. AngleSharp hands back the raw value on both <video> and <audio>."
+    },
+    {
+      "interface": "HTMLVideoElement",
+      "member": "playsInline",
+      "attribute": "playsinline",
+      "type": "boolean",
+      "reason": "HTML \u00a74.8.9: a boolean attribute AngleSharp has no member for."
+    },
+    {
+      "interface": "HTMLVideoElement",
+      "member": "width",
+      "attribute": "width",
+      "type": "unsigned long",
+      "reason": "HTML \u00a74.8.9: `width` on <video> is a reflected unsigned long. AngleSharp types it as an Int32 with .NET's own parse."
+    },
+    {
+      "interface": "HTMLVideoElement",
+      "member": "height",
+      "attribute": "height",
+      "type": "unsigned long",
+      "reason": "HTML \u00a74.8.9: `height` on <video> is a reflected unsigned long. AngleSharp types it as an Int32 with .NET's own parse."
+    },
+    {
+      "interface": "HTMLTrackElement",
+      "member": "kind",
+      "attribute": "kind",
+      "type": "enum",
+      "keywords": ["subtitles", "captions", "descriptions", "chapters", "metadata"],
+      "missing": "subtitles",
+      "invalid": "metadata",
+      "reason": "HTML \u00a74.8.11.1: an enumerated attribute whose missing value default (`subtitles`) and invalid value default (`metadata`) DIFFER, which is the clearest case in the suite for stating both. AngleSharp hands back the raw attribute value."
+    },
+    {
+      "interface": "HTMLCanvasElement",
+      "member": "width",
+      "attribute": "width",
+      "type": "unsigned long",
+      "default": 300,
+      "reason": "HTML \u00a74.12.5: a reflected unsigned long whose default is 300. AngleSharp types it as an Int32 with .NET's own parse and a default of 0."
+    },
+    {
+      "interface": "HTMLCanvasElement",
+      "member": "height",
+      "attribute": "height",
+      "type": "unsigned long",
+      "default": 150,
+      "reason": "HTML \u00a74.12.5: a reflected unsigned long whose default is 150."
+    },
+    {
+      "interface": "HTMLAreaElement",
+      "member": "referrerPolicy",
+      "attribute": "referrerpolicy",
+      "type": "enum",
+      "keywords": ["", "no-referrer", "no-referrer-when-downgrade", "same-origin", "origin", "strict-origin", "origin-when-cross-origin", "strict-origin-when-cross-origin", "unsafe-url"],
+      "reason": "HTML \u00a72.6.7: a referrer policy attribute is an enumerated attribute whose keywords are the Referrer Policy specification's, with an empty invalid and missing value default. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLAreaElement",
+      "member": "noHref",
+      "attribute": "nohref",
+      "type": "boolean",
+      "reason": "HTML \u00a716.3.3: an obsolete boolean attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLAreaElement",
+      "member": "ping",
+      "attribute": "ping",
+      "type": "string",
+      "reason": "HTML \u00a74.8.14: `ping` is a reflected DOMString. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLMediaElement",
+      "member": "loading",
+      "attribute": "loading",
+      "type": "enum",
+      "keywords": ["lazy", "eager"],
+      "missing": "eager",
+      "invalid": "eager",
+      "reason": "HTML \u00a74.8.11.5: `loading` is a lazy loading attribute, which is an enumerated attribute over `lazy` and `eager` whose missing and invalid value defaults are both `eager`. It is on the media element and not only on <img> and <iframe>, which is easy to read past. AngleSharp has no member for it."
+    },
+    {
       "interface": "HTMLMenuElement",
       "member": "compact",
       "attribute": "compact",
