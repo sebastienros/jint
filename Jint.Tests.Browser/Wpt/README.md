@@ -176,7 +176,7 @@ a supported name; the collection's named reads remain live.
 
 `dom/nodes/`, `dom/collections/`, `dom/lists/`, `dom/traversal/`, `dom/ranges/` and `html/dom/` are the DOM
 standard's own suites and HTML's DOM half — the corpus every other suite in this lane is written on top of.
-Across the six of them there are 219 documents and 29,003 tests, and **1,084 of those tests do not pass**.
+Across the six of them there are 220 documents and 30,582 tests, and **1,084 of those tests do not pass**.
 Those three figures are live and checked against the census. They arrived together as 207 documents and
 5,247 tests with 1,532 not passing; those arrival figures are historical and deliberately not re-derived.
 
