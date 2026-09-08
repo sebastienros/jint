@@ -106,9 +106,16 @@ public sealed class DomReflectionTests
         await page.EvaluateAsync("base.remove()");
         (await page.EvaluateAsync<string>("link.href")).Should().Be("https://document.example/root/page.html");
 
-        (await page.EvaluateAsync<string>(
-                "new DOMParser().parseFromString(\"<base href='https://other.example/root/'><link id='other' href='child'>\", 'text/html').getElementById('other').href"))
-            .Should().Be("https://other.example/root/child");
+        await page.EvaluateAsync(
+            """
+            globalThis.secondary = new DOMParser().parseFromString(
+                "<base id='otherBase' href='https://other.example/root/'><link id='other' href=''>",
+                'text/html');
+            globalThis.otherLink = secondary.getElementById('other');
+            """);
+        (await page.EvaluateAsync<string>("otherLink.href")).Should().Be("https://other.example/root/");
+        await page.EvaluateAsync("secondary.getElementById('otherBase').remove()");
+        (await page.EvaluateAsync<string>("otherLink.href")).Should().BeEmpty();
     }
 
     [Test]

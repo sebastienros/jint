@@ -1,5 +1,4 @@
 using System.Globalization;
-using AngleSharp;
 using AngleSharp.Dom;
 using Jint.Browser.Runtime;
 using Jint.Native;
@@ -150,7 +149,7 @@ internal sealed class ReflectedAttribute
 
     /// <summary>The IDL attribute's value outside a page runtime, resolved against its node document.</summary>
     internal JsValue Get(IElement element)
-        => Get(element, element.Owner?.BaseUri ?? element.BaseUri);
+        => Get(element, CurrentBaseUri(element.Owner, element.BaseUri));
 
     /// <summary>The IDL attribute's value inside a page runtime, resolved against its current document base.</summary>
     internal JsValue Get(DomRealm realm, IElement element)
@@ -158,8 +157,28 @@ internal sealed class ReflectedAttribute
         var owner = element.Owner;
         var baseUri = PageRuntime.Find(realm.Engine) is { } runtime && ReferenceEquals(owner, runtime.Document)
             ? runtime.BaseUri
-            : owner?.BaseUri ?? element.BaseUri;
+            : CurrentBaseUri(owner, element.BaseUri);
         return Get(element, baseUri);
+    }
+
+    /// <summary>
+    /// The node document's current base URL, derived without AngleSharp's cached <c>Node.BaseUri</c>.
+    /// </summary>
+    private static string? CurrentBaseUri(IDocument? document, string? fallback)
+    {
+        if (document is null)
+        {
+            return fallback;
+        }
+
+        var address = document.Url;
+        var href = document.QuerySelector("base[href]")?.GetAttribute("href");
+        if (string.IsNullOrEmpty(href))
+        {
+            return address;
+        }
+
+        return PageUrl.Resolve(href, address) ?? address;
     }
 
     private JsValue Get(IElement element, string? baseUri)
@@ -431,11 +450,9 @@ internal sealed class ReflectedAttribute
     /// the resulting URL string — or, when parsing fails, the content attribute as it stands.
     /// </summary>
     /// <remarks>
-    /// The parser is AngleSharp's own <c>AngleSharp.Url</c> rather than the engine's WHATWG one,
-    /// deliberately: <c>a.protocol</c>, <c>a.host</c>, <c>a.pathname</c>, <c>a.search</c> and <c>a.hash</c>
-    /// are AngleSharp's, so a second parser here would leave the components of one URL disagreeing with the
-    /// URL itself. Which parser this package's URLs should come from is the runtime's question, not the
-    /// binding's.
+    /// The parser is the same WHATWG parser the page runtime uses for its document and base URLs. The
+    /// descriptor deliberately bypasses AngleSharp's convenience URL properties because their cached base
+    /// can survive removal of the document's first <c>base[href]</c>.
     /// </remarks>
     private static string ResolveUrl(string? value, string? baseUri)
     {
@@ -444,9 +461,7 @@ internal sealed class ReflectedAttribute
             return "";
         }
 
-        var resolved = string.IsNullOrEmpty(baseUri) ? new Url(value) : new Url(new Url(baseUri), value);
-
-        return resolved.IsInvalid ? value : resolved.Href;
+        return PageUrl.Resolve(value, baseUri) ?? value;
     }
 
     /// <summary>
