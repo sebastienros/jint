@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="AngleSharp" Version="[1.8.0]" />
+    <PackageReference Include="BenchmarkDotNet" Version="[0.15.8]" />
+    <PackageReference Include="AngleSharp.Js" Version="[1.1.0]" />
+    <PackageReference Include="Jint" Version="[4.15.3]" />
+    <Compile Include="../Shared/*.cs" />
+    <Compile Include="../../JintBenchmarkConfig.cs" Link="Config/JintBenchmarkConfig.cs" />
+    <Compile Include="../../BenchmarkTopology.cs" Link="Config/BenchmarkTopology.cs" />
+    <Compile Include="../../MachineStateValidator.cs" Link="Config/MachineStateValidator.cs" />
+  </ItemGroup>
+</Project>

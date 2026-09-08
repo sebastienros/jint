@@ -968,7 +968,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.getElementsByClassName", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.getElementsByClassName");
-                    return self.Realm.WrapCollection<global::AngleSharp.Dom.IElement>(self.Target.GetElementsByClassName(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.getElementsByClassName")));
+                    return self.Realm.Hooks.GetElementsByClassName(self.Realm, self.Target, args);
                 }),
                 length: 1)
             .Method("getElementsByName",
@@ -1158,6 +1158,13 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.referrer");
                     return self.Realm.Hooks.Referrer(self.Realm, self.Target);
                 }))
+            .Method("replaceChildren",
+                global::Jint.Browser.Dom.DomFailures.Guard("Document.replaceChildren", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.replaceChildren");
+                    return global::Jint.Browser.Dom.DomParentNodeMembers.ReplaceChildren(self.Realm, self.Target, args);
+                }),
+                length: 0)
             .Accessor("scripts",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.scripts", static (thisObj, args) =>
                 {
@@ -1293,6 +1300,13 @@ internal static partial class DomInterfaces
                     return self.Realm.Wrap((global::AngleSharp.Dom.INodeList) (self.Target.QuerySelectorAll(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "DocumentFragment.querySelectorAll"))), global::Jint.Browser.Dom.DomInterfaces.NodeList);
                 }),
                 length: 1)
+            .Method("replaceChildren",
+                global::Jint.Browser.Dom.DomFailures.Guard("DocumentFragment.replaceChildren", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocumentFragment>(thisObj, "DocumentFragment.replaceChildren");
+                    return global::Jint.Browser.Dom.DomParentNodeMembers.ReplaceChildren(self.Realm, self.Target, args);
+                }),
+                length: 0)
             .Build();
 
     /// <summary>The members of <c>DocumentType</c>.</summary>
@@ -1522,7 +1536,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.getElementsByClassName", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.getElementsByClassName");
-                    return self.Realm.WrapCollection<global::AngleSharp.Dom.IElement>(self.Target.GetElementsByClassName(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Element.getElementsByClassName")));
+                    return self.Realm.Hooks.GetElementsByClassName(self.Realm, self.Target, args);
                 }),
                 length: 1)
             .Method("getElementsByTagName",
@@ -1717,6 +1731,13 @@ internal static partial class DomInterfaces
                     return global::Jint.Browser.Dom.DomElementMembers.RemoveAttributeNode(self.Realm, self.Target, args);
                 }),
                 length: 1)
+            .Method("replaceChildren",
+                global::Jint.Browser.Dom.DomFailures.Guard("Element.replaceChildren", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.replaceChildren");
+                    return global::Jint.Browser.Dom.DomParentNodeMembers.ReplaceChildren(self.Realm, self.Target, args);
+                }),
+                length: 0)
             .Method("replaceWith",
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.replaceWith", static (thisObj, args) =>
                 {
