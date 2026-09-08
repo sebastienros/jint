@@ -452,19 +452,37 @@ internal static class FetchTransport
             Timing = exchange.Timing,
         };
 
-        var interception = await observation.ResponseAsync(snapshot, cancellationToken).ConfigureAwait(false);
+        // The read/replay primitive lives here and nowhere else: this is the one frame that owns the unread
+        // content, so a prefix an observer took can be put back in front of it before anybody else looks.
+        var context = new FetchResponseInterceptionContext(snapshot, response);
+
+        FetchResponseInterception? interception;
+        try
+        {
+            interception = await observation.ResponseAsync(context, cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            context.Discard();
+            throw;
+        }
+
         if (interception is null)
         {
+            context.AttachReplay();
             return exchange;
         }
 
         if (interception.Kind == FetchInterceptionKind.Fail)
         {
+            context.Discard();
             throw new FetchFailureException(FetchFailureKind.PolicyDenied, interception.Reason ?? "A fetch observer failed the response.");
         }
 
         if (interception.Kind == FetchInterceptionKind.Fulfill)
         {
+            context.Discard();
+
             var substitute = new FetchExchange
             {
                 Response = BuildResponse(interception.Status, interception.StatusText, interception.Headers, interception.Body),
@@ -511,6 +529,8 @@ internal static class FetchTransport
             }
         }
 
+        // Last, so the replay content is built from the header list the interception settled on.
+        context.AttachReplay();
         return exchange;
     }
 

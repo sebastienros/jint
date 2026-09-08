@@ -5587,6 +5587,7 @@ none of it changes an engine that does not.
 | A `Referer` header under a referrer policy, and an `Origin` header | `options.WebApi.Fetch.Referrer`, `.ReferrerPolicy`, `.Origin` | [§5.10](#5-10-fetch-can-behave-as-a-document-s-fetch-3617) |
 | Cookies, in a jar the host owns, consulted per redirect hop under the request's `credentials` mode | `options.WebApi.Fetch.CookieJar = new CookieContainerCookieJar()` | [§5.10](#5-10-fetch-can-behave-as-a-document-s-fetch-3617) |
 | Watching and intercepting every request, response and body chunk | `options.WebApi.Fetch.Observer = …`, plus `<NoWarn>$(NoWarn);JINT0002</NoWarn>` | [§5.10](#5-10-fetch-can-behave-as-a-document-s-fetch-3617) |
+| Reading the body of the response an observer is answering, against a memory allowance you own, without the caller losing a byte | override `OnInterceptedResponseAsync` instead of `OnResponseAsync` | [§5.34](#5-34-a-fetch-observer-can-read-the-body-of-the-response-it-is-answering-3828) |
 | When each hop went out and when its response headers came back, so a host can report a real time to first byte | `ObservedFetchResponse.Timing`, on the observer you already set | [§5.29](#5-29-an-observed-response-says-when-its-hop-went-out-and-when-its-headers-came-back-3701) |
 | The Chrome DevTools Protocol over a WebSocket, so a debugging client can attach to an engine your host is already running | `dotnet add package Jint.DevTools`, then `options.UseDevTools()` | [Jint.DevTools](../packages/jint-devtools/index.md) |
 | A headless browser — AngleSharp's DOM under Jint, drivable by Puppeteer and Playwright, plus a `jint-browser` command line | `dotnet add package Jint.Browser`, or `dotnet tool install -g Jint.Browser.Tool` | [Jint.Browser](../packages/jint-browser/index.md) |
@@ -6640,6 +6641,55 @@ Those constraints observe engine work; they do not preempt arbitrary managed cod
 The callback is synchronous. A callback may return a `Task` because the generic result is unrestricted, but
 Jint returns that task without awaiting it and restores the previous realm first. Use the engine's asynchronous
 entry APIs for work that must retain engine ownership across an `await`.
+
+### 5.34 A fetch observer can read the body of the response it is answering ([#3828](https://github.com/sebastienros/jint/issues/3828))
+
+`FetchObserver.OnResponseAsync` is asked once, for the response that ends the chain, with the headers in hand
+and the body still on the socket — and until now it could only answer from metadata. A new virtual takes the
+same decision with the body available:
+
+```csharp
+sealed class BodyReadingObserver : FetchObserver
+{
+    public override async ValueTask<FetchResponseInterception?> OnInterceptedResponseAsync(
+        FetchResponseInterceptionContext context,
+        CancellationToken cancellationToken)
+    {
+        var body = await context.TryReadBodyAsync(myBudget, cancellationToken);
+
+        // body is null when the budget refused it, and a non-null empty value when the body was empty.
+        return null; // deliver the response unchanged; the bytes just read are replayed ahead of the rest
+    }
+}
+```
+
+Three preview additions, all under `JINT0002` like the observer itself
+(`<NoWarn>$(NoWarn);JINT0002</NoWarn>`):
+
+| Member | What it is |
+| --- | --- |
+| `FetchObserver.OnInterceptedResponseAsync(FetchResponseInterceptionContext, CancellationToken)` | The ask. **Its default implementation forwards to `OnResponseAsync(context.Response, cancellationToken)`**, so an existing observer behaves exactly as it did and nothing has to change. Override one or the other, not both — an override here replaces the forward |
+| `FetchResponseInterceptionContext` | `Response`, the same `ObservedFetchResponse` the old ask received, and `TryReadBodyAsync(IFetchResponseBodyBudget, CancellationToken)` |
+| `IFetchResponseBodyBudget` | `bool TryReserve(int bytes, out IDisposable? lease)` — the host's own memory allowance, engine-free and thread-safe like everything else the transport touches |
+
+What the read promises:
+
+- **The caller still receives every original byte, exactly once.** Bytes taken off the socket are replayed
+  ahead of the unread remainder when the response is delivered. That holds whether the read succeeded, the
+  budget refused it, or it failed part-way. `Fulfill` and `Fail` discard them instead, because nobody
+  receives those bytes.
+- **Nothing is retained before it is charged.** The reader grows its buffer in granted steps, so a reservation
+  covers backing capacity rather than the body's final length. One byte sits outside it: the lookahead that
+  tells a body exactly at the allowance from one byte longer.
+- **`null` means refused and is sticky** for that response; a later read answers `null` without touching the
+  socket again. A success is immutable and reused by every later read.
+- **A failure is thrown, never returned as a short body**, and the read is valid only while the callback is
+  running — the context is sealed as soon as it returns.
+- **Nothing is read unless it is asked for.** `fetch`, a document or subresource load, `XMLHttpRequest` and
+  `EventSource` all stay streaming for an observer that does not call `TryReadBodyAsync`.
+
+A read waits for the whole body, so reading a response that never ends — a server-sent event stream — is
+bounded only by `Options.WebApi.Fetch.Timeout`. Decide per response whether to read.
 
 ## 6. AOT and trimming
 
