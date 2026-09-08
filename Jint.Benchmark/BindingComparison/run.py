@@ -33,9 +33,11 @@ def compare(baseline, candidate):
 
 def validate_csv(path):
     with path.open(encoding="utf-8-sig", newline="") as stream:
-        sample = stream.read(4096)
+        # BDN job metadata makes rows wide. A fixed-size sample can end mid-row and
+        # make Sniffer reject an otherwise consistent report; the full header is sufficient.
+        header = stream.readline()
         stream.seek(0)
-        dialect = csv.Sniffer().sniff(sample, delimiters=",;") if sample else csv.excel
+        dialect = csv.Sniffer().sniff(header, delimiters=",;") if header else csv.excel
         rows = list(csv.DictReader(stream, dialect=dialect))
     expected = {(method, workload) for method in ("Cold", "Warm") for workload in EXPECTED}
     actual = {(row.get("Method"), row.get("Workload")) for row in rows}
