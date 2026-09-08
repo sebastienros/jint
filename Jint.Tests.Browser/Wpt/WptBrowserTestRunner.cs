@@ -165,23 +165,7 @@ public class WptBrowserTestRunner
 
         foreach (var (body, reason) in WptBrowserExclusions.FrameBodies)
         {
-            if (!WptCorpus.Contains(body))
-            {
-                problems.Add($"{body} is named as a frame body ({reason}) but is not vendored, so nothing serves it");
-            }
-            else if (!WptCorpus.IsUnderABrowserSuite(body)
-                || !Array.Exists(WptCorpus.BrowserSuites, suite => string.Equals(WptCorpus.DirectoryOf(body), suite, StringComparison.Ordinal)))
-            {
-                problems.Add($"{body} is named as a frame body ({reason}) but is not directly under a browser-lane suite, where a case is the default");
-            }
-
-            foreach (var (pattern, notVendored) in WptBrowserExclusions.NotVendored)
-            {
-                if (WptExclusion.MatchesPattern(pattern, body))
-                {
-                    problems.Add($"{body} is named as a frame body and \"{pattern}\" says it should not be vendored at all ({notVendored})");
-                }
-            }
+            problems.AddRange(FrameBodyProblems(body, reason));
         }
 
         foreach (var path in cases)
@@ -212,6 +196,46 @@ public class WptBrowserTestRunner
 
         // The theory cases are generated from the corpus, so an empty corpus would be an empty, green run.
         cases.Should().HaveCountGreaterThan(330, "the lane runs the documents of thirteen suites");
+    }
+
+    [Test]
+    public void AFrameBodyRowMustNameADocument()
+    {
+        FrameBodyProblems("dom/nodes/selectors.js", "fixture")
+            .Should().ContainSingle().Which.Should().Be(
+                "dom/nodes/selectors.js is named as a frame body (fixture) but is not a browser test document");
+
+        FrameBodyProblems("dom/nodes/ParentNode-querySelector-All-content.html", "fixture")
+            .Should().BeEmpty();
+    }
+
+    private static IReadOnlyList<string> FrameBodyProblems(string body, string reason)
+    {
+        var problems = new List<string>();
+
+        if (!WptCorpus.Contains(body))
+        {
+            problems.Add($"{body} is named as a frame body ({reason}) but is not vendored, so nothing serves it");
+        }
+        else if (!WptCorpus.IsBrowserTestFile(body))
+        {
+            problems.Add($"{body} is named as a frame body ({reason}) but is not a browser test document");
+        }
+        else if (!WptCorpus.IsUnderABrowserSuite(body)
+            || !Array.Exists(WptCorpus.BrowserSuites, suite => string.Equals(WptCorpus.DirectoryOf(body), suite, StringComparison.Ordinal)))
+        {
+            problems.Add($"{body} is named as a frame body ({reason}) but is not directly under a browser-lane suite, where a case is the default");
+        }
+
+        foreach (var (pattern, notVendored) in WptBrowserExclusions.NotVendored)
+        {
+            if (WptExclusion.MatchesPattern(pattern, body))
+            {
+                problems.Add($"{body} is named as a frame body and \"{pattern}\" says it should not be vendored at all ({notVendored})");
+            }
+        }
+
+        return problems;
     }
 
     /// <summary>
