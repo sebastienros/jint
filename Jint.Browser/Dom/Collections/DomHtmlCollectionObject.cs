@@ -53,13 +53,14 @@ internal sealed class DomHtmlCollectionObject<T> : DomCollectionBase where T : c
     /// https://dom.spec.whatwg.org/#interface-htmlcollection — the supported property names are every
     /// element's non-empty <c>id</c> plus every HTML element's non-empty <c>name</c>, in tree order, without
     /// duplicates. The standard says "neither the empty string nor already in result" of both, which is the
-    /// half of the rule <see cref="TryGetNamedValue"/> carries the other half of.
+    /// half of the rule <see cref="TryGetNamedValue"/> carries the other half of. An ordinary own property
+    /// is listed by the base class instead of being projected here.
     /// </summary>
     protected override int NameCount
     {
         get
         {
-            _names = SupportedNames();
+            _names = VisibleNames();
             return _names.Count;
         }
     }
@@ -76,40 +77,52 @@ internal sealed class DomHtmlCollectionObject<T> : DomCollectionBase where T : c
     protected override bool IsNameEnumerable(string name) => false;
 
     /// <summary>
+    /// https://webidl.spec.whatwg.org/#dfn-named-property-visibility: an ordinary own property wins over
+    /// a supported name, including when the matching element appeared after the property was created.
+    /// </summary>
+    protected override bool TryGetNamedValue(string name, out JsValue value)
+    {
+        if (HasStoredProperty(name))
+        {
+            value = JsValue.Undefined;
+            return false;
+        }
+
+        value = NamedItem(name);
+        if (value.IsNull())
+        {
+            value = JsValue.Undefined;
+            return false;
+        }
+
+        return true;
+    }
+
+    // Query only ObjectInstance's ordinary property bag: GetOwnProperty would recurse through this projection.
+    private bool HasStoredProperty(string name) => base.TryGetProperty(name, out _);
+
+    /// <summary>
     /// <a href="https://html.spec.whatwg.org/multipage/common-dom-interfaces.html#dom-htmlcollection-nameditem">HTML's
     /// <c>namedItem</c></a>, whose first step is the empty string and whose second is the element lookup.
     /// </summary>
     /// <remarks>
-    /// <b>The empty string is refused before anything is searched, and it has to be here rather than left to
-    /// the search.</b> An element may carry <c>id=""</c> or <c>name=""</c> — the HTML parser builds both, and
-    /// AngleSharp's own named lookup matches them — so without step 1 a collection answered for a name
-    /// <see cref="NameCount"/> had already declined to list, which is the projection's three hooks
-    /// disagreeing at the same instant. It is one refusal for all three views, because <c>HasName</c> derives
-    /// from this and so does <c>NamedItem</c>: <c>'' in collection</c>, <c>collection['']</c> and
-    /// <c>collection.namedItem('')</c> are one answer.
+    /// AngleSharp's named lookup matches an element carrying id="" or name="", so the empty-name check
+    /// precedes the search. The property projection reuses this lookup after checking ordinary own
+    /// properties; the visible-name list excludes empty names too.
     /// </remarks>
-    protected override bool TryGetNamedValue(string name, out JsValue value)
+    internal override JsValue NamedItem(string name)
     {
-        // Step 1.
+        // This operation looks through expandos; only property lookup applies the visibility check.
         if (name.Length == 0)
         {
-            value = JsValue.Undefined;
-            return false;
+            return JsValue.Null;
         }
 
-        // Step 2.
         var item = _collection[name];
-        if (item is null)
-        {
-            value = JsValue.Undefined;
-            return false;
-        }
-
-        value = DomRealm.Wrap(item);
-        return true;
+        return item is null ? JsValue.Null : DomRealm.Wrap(item);
     }
 
-    private List<string> SupportedNames()
+    private List<string> VisibleNames()
     {
         var names = new List<string>();
         foreach (var element in _collection)
@@ -124,9 +137,13 @@ internal sealed class DomHtmlCollectionObject<T> : DomCollectionBase where T : c
 
         return names;
 
-        static void Add(List<string> names, string? candidate)
+        void Add(List<string> names, string? candidate)
         {
-            if (!string.IsNullOrEmpty(candidate) && !names.Contains(candidate!, StringComparer.Ordinal))
+            // The base class lists an ordinary own property itself, in property-bag order. Do not also
+            // advertise a projected name for it, or enumeration and lookup would disagree.
+            if (!string.IsNullOrEmpty(candidate)
+                && !names.Contains(candidate!, StringComparer.Ordinal)
+                && !HasStoredProperty(candidate!))
             {
                 names.Add(candidate!);
             }

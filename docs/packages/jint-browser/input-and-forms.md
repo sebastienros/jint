@@ -31,4 +31,10 @@ Methods that name an element return `false` when no suitable target exists.
 
 `SubmitFormAsync("#form")` runs validation, `submit`, entry-list construction, `formdata`, and GET or POST submission. It returns `null` when nothing matched, validation failed, or submission was cancelled.
 
+Page scripts can use `new FormData(form, submitter)` to read the same entry list without submitting or
+validating the form. The optional submitter must be a submit button owned by that form. A bubbling
+`formdata` event lets listeners amend the entries; constructing another `FormData` for that same form
+inside the listener throws `InvalidStateError`. Standalone engines and workers keep the no-DOM
+`FormData()` constructor.
+
 Input uses a deterministic synthetic box model, not visual layout. See [Limitations](./limitations).
