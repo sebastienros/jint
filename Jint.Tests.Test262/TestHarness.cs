@@ -12,6 +12,13 @@ public partial class TestHarness
 
     private static partial Task InitializeCustomState()
     {
+        if (State.CorpusInitializationFailure is not null)
+        {
+            // The unavailable stream reports this once from the first selected generated test and
+            // ignores the rest. Returning keeps NUnit from copying a namespace setup failure to all cases.
+            return Task.CompletedTask;
+        }
+
         // Test262Harness hands us State.HarnessFiles from the top level of harness/ only, and keys
         // nothing: an include is looked up by the exact string the test's frontmatter wrote. The
         // staging/ tests ported from SpiderMonkey include their helpers as "sm/non262-Set-shell.js",
