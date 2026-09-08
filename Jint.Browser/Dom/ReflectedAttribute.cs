@@ -7,7 +7,31 @@ using Jint.WebApi.DomException;
 
 namespace Jint.Browser.Dom;
 
+/// <summary>
+/// Which element a reflected IDL attribute's content attribute lives on, when it is not the one the IDL
+/// attribute was read from.
+/// </summary>
+/// <remarks>
+/// HTML has six of these and all six are on <c>Document</c>: §3.2.6.4's <c>dir</c>, which reflects the
+/// <c>html</c> element's attribute, and §16.3's five obsolete colours, which reflect the <c>body</c>
+/// element's. All six are a string or an enumeration, which is why only those two factories take one — a
+/// numeric or boolean member reflecting onto another element does not exist, and the generator refuses to
+/// invent one.
+/// </remarks>
+internal enum ReflectedTarget
+{
+    /// <summary>The element the IDL attribute was read from, which is every row but six.</summary>
+    Self,
+
+    /// <summary>The document element — the <c>html</c> element, when there is one.</summary>
+    DocumentElement,
+
+    /// <summary>The body element.</summary>
+    Body,
+}
+
 /// <summary>Which of HTML §2.6.1's per-type reflection algorithms an IDL attribute takes.</summary>
+
 internal enum ReflectedKind
 {
     /// <summary>A <c>DOMString</c>, transparently and case-preservingly.</summary>
@@ -97,6 +121,8 @@ internal sealed class ReflectedAttribute
     private readonly double _default;
     private readonly long _min;
     private readonly long _max;
+    private readonly bool _legacyNull;
+    private readonly ReflectedTarget _target;
 
     private ReflectedAttribute(
         string member,
@@ -107,7 +133,9 @@ internal sealed class ReflectedAttribute
         string? invalid = null,
         double fallback = 0,
         long min = 0,
-        long max = 0)
+        long max = 0,
+        bool legacyNull = false,
+        ReflectedTarget target = ReflectedTarget.Self)
     {
         Member = member;
         _attribute = attribute;
@@ -118,14 +146,35 @@ internal sealed class ReflectedAttribute
         _default = fallback;
         _min = min;
         _max = max;
+        _legacyNull = legacyNull;
+        _target = target;
     }
 
     /// <summary>The qualified member name — <c>HTMLElement.dir</c> — as a refusal names it.</summary>
     internal string Member { get; }
 
     /// <summary>A <c>DOMString</c>, or a <c>DOMString?</c> when <paramref name="nullable"/>.</summary>
-    internal static ReflectedAttribute Text(string member, string attribute, bool nullable = false)
-        => new(member, attribute, nullable ? ReflectedKind.NullableText : ReflectedKind.Text);
+    /// <param name="member">The qualified member name.</param>
+    /// <param name="attribute">The content attribute reflected.</param>
+    /// <param name="nullable">Whether the IDL type is <c>DOMString?</c>, whose setter takes null as a removal.</param>
+    /// <param name="legacyNullToEmptyString">
+    /// WebIDL's <c>[LegacyNullToEmptyString]</c>: the null value converts to the empty string rather than to
+    /// <c>"null"</c>. It is only ever on a <c>DOMString</c>, never on a <c>DOMString?</c>, and it says nothing
+    /// about <c>undefined</c>, which still converts to <c>"undefined"</c>.
+    /// </param>
+    /// <param name="target">Which element the content attribute lives on.</param>
+    internal static ReflectedAttribute Text(
+        string member,
+        string attribute,
+        bool nullable = false,
+        bool legacyNullToEmptyString = false,
+        ReflectedTarget target = ReflectedTarget.Self)
+        => new(
+            member,
+            attribute,
+            nullable ? ReflectedKind.NullableText : ReflectedKind.Text,
+            legacyNull: legacyNullToEmptyString,
+            target: target);
 
     /// <summary>A <c>USVString</c> whose content attribute is defined to contain a URL.</summary>
     internal static ReflectedAttribute Url(string member, string attribute)
@@ -141,8 +190,15 @@ internal sealed class ReflectedAttribute
     /// setter therefore takes <c>null</c> as a removal.
     /// </param>
     /// <param name="invalid">The invalid value default; the missing value default when there is none.</param>
-    internal static ReflectedAttribute Enumerated(string member, string attribute, string[] keywords, string? missing, string? invalid)
-        => new(member, attribute, ReflectedKind.Enumerated, keywords, missing, invalid);
+    /// <param name="target">Which element the content attribute lives on.</param>
+    internal static ReflectedAttribute Enumerated(
+        string member,
+        string attribute,
+        string[] keywords,
+        string? missing,
+        string? invalid,
+        ReflectedTarget target = ReflectedTarget.Self)
+        => new(member, attribute, ReflectedKind.Enumerated, keywords, missing, invalid, target: target);
 
     /// <summary>A <c>boolean</c> attribute: the attribute's presence and nothing else.</summary>
     internal static ReflectedAttribute Boolean(string member, string attribute)
@@ -176,8 +232,36 @@ internal sealed class ReflectedAttribute
     }
 
     /// <summary>
+    /// The IDL attribute of one of HTML's six <c>Document</c> members that reflect an attribute of
+    /// <b>another</b> element — the document element, or the body element.
+    /// </summary>
+    /// <remarks>
+    /// "If there is no such element, then the attribute must return the empty string and do nothing on
+    /// setting" (HTML §3.2.6.4, and §16.3 for the colours): a missing target reads exactly as an absent
+    /// content attribute, which is what passing no element to the shared getter says.
+    /// </remarks>
+    internal JsValue Get(IDocument document)
+        => Get(ElementIn(document), CurrentBaseUri(document, document.BaseUri));
+
+    /// <summary>The same member's setter, which does nothing when the target element is absent.</summary>
+    internal JsValue Set(DomRealm realm, IDocument document, JsValue[] arguments)
+    {
+        var element = ElementIn(document);
+        return element is null ? JsValue.Undefined : Set(realm, element, arguments);
+    }
+
+    /// <summary>The element a <see cref="ReflectedTarget"/> names in <paramref name="document"/>.</summary>
+    private IElement? ElementIn(IDocument document) => _target switch
+    {
+        ReflectedTarget.DocumentElement => document.DocumentElement,
+        ReflectedTarget.Body => document.Body,
+        _ => null,
+    };
+
+    /// <summary>
     /// The node document's current base URL, derived without AngleSharp's cached <c>Node.BaseUri</c>.
     /// </summary>
+
     private static string? CurrentBaseUri(IDocument? document, string? fallback)
     {
         if (document is null)
@@ -195,9 +279,9 @@ internal sealed class ReflectedAttribute
         return PageUrl.Resolve(href, address) ?? address;
     }
 
-    private JsValue Get(IElement element, string? baseUri)
+    private JsValue Get(IElement? element, string? baseUri)
     {
-        var value = element.GetAttribute(_attribute);
+        var value = element?.GetAttribute(_attribute);
 
         switch (_kind)
         {
@@ -211,7 +295,7 @@ internal sealed class ReflectedAttribute
                 return DomConvert.Bool(value is not null);
 
             case ReflectedKind.Nonce:
-                return DomConvert.Text(CryptographicNonce.Get(element));
+                return DomConvert.Text(element is null ? "" : CryptographicNonce.Get(element));
 
             case ReflectedKind.Url:
                 return DomConvert.Text(ResolveUrl(value, baseUri));
@@ -261,6 +345,12 @@ internal sealed class ReflectedAttribute
             case ReflectedKind.NullableText:
             case ReflectedKind.Enumerated when _missing is null:
                 return SetOrRemove(element, value);
+
+            // WebIDL's [LegacyNullToEmptyString]: null converts to "" rather than to "null". Only null,
+            // and pointedly not undefined, which is what the corpus asserts of <body text> either way.
+            case ReflectedKind.Text when _legacyNull && value.IsNull():
+                element.SetAttribute(_attribute, "");
+                return JsValue.Undefined;
 
             // On setting, a URL attribute takes the value as given; resolution is the getter's business.
             case ReflectedKind.Text:

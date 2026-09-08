@@ -289,20 +289,20 @@ internal static class WptBrowserExclusions
         ("html/dom/usvstring-reflection.https.html", "needs webrtc/RTCPeerConnection-helper.js and a real RTCPeerConnection to reflect a USVString off"),
 
         // ------------------------------------------------------------ HTML's reflection suite
-        // Ten generated documents, 56,660 assertions. Four of them are cases now — reflection-misc.html,
-        // reflection-text.html, reflection-grouping.html and reflection-metadata.html, 23,547 assertions
-        // between them — because HTML §2.6.1's reflection algorithms are implemented
-        // (Jint.Browser/Dom/ReflectedAttribute.cs) and driven by overrides.json's `reflected` list. The first
-        // two pass whole; grouping's only failures are <dl>'s, which is AngleSharp having no
-        // HTMLDListElement rather than reflection, and metadata's only failures are <style>'s `media`, which
-        // AngleSharp.Css refuses from inside setAttribute.
+        // Ten generated documents, 56,660 assertions. Five of them are cases now — reflection-misc.html,
+        // reflection-text.html, reflection-sections.html, reflection-grouping.html and
+        // reflection-metadata.html, 29,151 assertions between them — because HTML §2.6.1's reflection
+        // algorithms are implemented (Jint.Browser/Dom/ReflectedAttribute.cs) and driven by overrides.json's
+        // `reflected` list. The first three pass whole; grouping's only failures are <dl>'s, which is
+        // AngleSharp having no HTMLDListElement rather than reflection, and metadata's only failures are
+        // <style>'s `media`, which AngleSharp.Css refuses from inside setAttribute.
         //
-        // The other six are out for one reason and it is no longer "reflection is not implemented": each
+        // The other five are out for one reason and it is no longer "reflection is not implemented": each
         // needs the per-element attribute table it tests, one `reflected` row per content attribute, which is
-        // #3770's remaining work. The forty-nine rows written so far were mostly the GLOBAL attributes every
+        // #3770's remaining work. The sixty-two rows written so far were mostly the GLOBAL attributes every
         // element carries (`dir`, `lang`, `tabIndex`, `autofocus`, `inputMode`, `enterKeyHint`), so they have
-        // already moved the six a long way: sections fell from 2,189 failing assertions to 489. What is left
-        // in them is `align`, `compact` and their kind — element-specific attributes, each one row.
+        // already moved the five a long way. What is left in them is `align`, `compact` and their kind —
+        // element-specific attributes, each one row.
         //
         // **None of them is slow**: the whole set runs in 22.5 s and the largest (reflection-embedded.html,
         // 8,922 tests) in 7.3 s, well inside the driver's 30 s deadline. What has always kept them out is the
@@ -312,7 +312,6 @@ internal static class WptBrowserExclusions
         ("html/dom/*-forms.*", "#3770: the form controls and their attribute table; 2,160 of 8,271"),
         ("html/dom/*-forms-weekmonth.*", "#3770: the week and month input types and their attribute table; 420 of 1,579"),
         ("html/dom/*-obsolete.*", "#3770: the obsolete elements and their attribute table; 1,483 of 2,621"),
-        ("html/dom/*-sections.*", "#3770: the sectioning elements and their attribute table; 2,189 of 5,604 at the measurement, 489 with the rows written so far — and its Document-level members (document.dir, bgColor, fgColor, linkColor, vlinkColor, alinkColor) reflect an attribute of ANOTHER element, which the `reflected` list cannot say yet"),
         ("html/dom/*-tabular.*", "#3770: the tabular-data elements and their attribute table; 3,552 of 6,116"),
         ("html/dom/reflection-original.html", "the same suite in the aggregating spelling, which reports only failures rather than one test per assertion — a second answer to what reflection-*.html already say"),
         ("html/dom/elements-aria-enumerated.js", "the attribute table of aria-attribute-reflection-enumerated.tentative.html, which tests a proposal the specification has not adopted"),
@@ -770,6 +769,7 @@ internal static class WptBrowserExclusions
         ["html/dom/reflection-grouping.html"] = 5358,
         ["html/dom/reflection-metadata.html"] = 3110,
         ["html/dom/reflection-misc.html"] = 4877,
+        ["html/dom/reflection-sections.html"] = 5604,
         ["html/dom/reflection-text.html"] = 10202,
         ["html/webappapis/scripting/events/body-onload.html"] = 1,
         ["html/webappapis/scripting/events/compile-event-handler-lexical-scopes-form-owner.html"] = 4,
