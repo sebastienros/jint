@@ -465,4 +465,114 @@ public sealed class PagePseudoClassSelectorTests
             "outer:true,inner:true,innerLegend:true,innerBody:true,twoLegends:true,firstLegend:false," +
             "secondLegend:true,enabledOuter:false,enabledLegend:false,enabledBody:false");
     }
+
+    /// <summary>
+    /// HTML §4.16.3 matches <c>:default</c> against a form's own default button, an <c>input</c> which the
+    /// <c>checked</c> attribute applies to and carries, and an <c>option</c> with a <c>selected</c>
+    /// attribute. This is upstream's <c>html/semantics/selectors/pseudo-classes/default.html</c>.
+    /// </summary>
+    [Test]
+    public async Task DefaultMatchesTheFormDefaultButtonAndTheCheckedAndSelectedAttributes()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <!doctype html><html><body>
+            <form>
+              <button id=button1 type=button>button1</button>
+              <button id=button2 type=submit>button2</button>
+            </form>
+            <form>
+              <button id=button3 type=reset>button3</button>
+              <button id=button4>button4</button>
+            </form>
+            <button id=button5 type=submit>button5</button>
+            <form id=form1>
+              <input type=text id=input1>
+            </form>
+            <input type=text id=input2 form=form1>
+            <form>
+              <input type=submit id=input3>
+              <input type=submit id=input4>
+            </form>
+            <form>
+              <input type=image id=input5>
+              <input type=image id=input6>
+            </form>
+            <form>
+              <input type=submit id=input7>
+            </form>
+            <input type=checkbox id=checkbox1 checked>
+            <input type=checkbox id=checkbox2>
+            <input type=checkbox id=checkbox3 default>
+            <input type=radio name=radios id=radio1 checked>
+            <input type=radio name=radios id=radio2>
+            <input type=radio name=radios id=radio3 default>
+            <select id=select1>
+             <optgroup label="options" id=optgroup1>
+              <option value="option1" id=option1>option1
+              <option value="option2" id=option2 selected>option2
+            </select>
+            <dialog id="dialog">
+              <input type=submit id=input8>
+            </dialog>
+            <form>
+              <button id=button6 type='invalid'>button6</button>
+              <button id=button7>button7</button>
+            </form>
+            <form>
+              <button id=button8>button8</button>
+              <button id=button9>button9</button>
+            </form>
+            </body></html>
+            """);
+
+        (await page.EvaluateAsync<string>("""
+            (() => {
+              const ids = () => Array.from(document.querySelectorAll(':default'), element => element.id).join(',');
+              const initial = ids();
+              button1.type = 'submit';
+              return initial + '|' + ids();
+            })()
+            """)).Should().Be(
+            "button2,button4,input3,input5,input7,checkbox1,radio1,option2,button6,button8|" +
+            "button1,button4,input3,input5,input7,checkbox1,radio1,option2,button6,button8");
+    }
+
+    /// <summary>
+    /// A form's default button is its first submit button in tree order, which HTML decides over form
+    /// ownership rather than containment, so a control the <c>form</c> attribute associates counts and one
+    /// the form contains for another owner does not.
+    /// </summary>
+    [Test]
+    public async Task TheDefaultButtonIsTheFormsFirstSubmitButtonInTreeOrder()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <!doctype html><html><body>
+            <button id=before type=submit form=late>before</button>
+            <form id=late>
+              <button id=inside type=submit>inside</button>
+            </form>
+            <div id="detached"></div>
+            </body></html>
+            """);
+
+        (await page.EvaluateAsync<string>("""
+            (() => {
+              const attached = Array.from(document.querySelectorAll(':default'), element => element.id).join(',');
+              const orphan = document.createElement('button');
+              orphan.id = 'orphan';
+              detached.append(orphan);
+              const withOrphan = Array.from(document.querySelectorAll(':default'), element => element.id).join(',');
+
+              const away = document.createElement('form');
+              const awayButton = document.createElement('button');
+              awayButton.id = 'awayButton';
+              away.append(awayButton);
+              return [attached, withOrphan, awayButton.matches(':default'), orphan.matches(':default')].join('|');
+            })()
+            """)).Should().Be("before|before|true|false");
+    }
 }
