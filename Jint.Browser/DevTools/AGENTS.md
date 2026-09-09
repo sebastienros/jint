@@ -142,10 +142,40 @@ target/runtime split and the manifest are there and none of it is repeated here.
   domain's `backendNodeId` on every node — which is what makes a node a client found by role one it can then
   measure and click. It is computed per request and never maintained, which is why `loadComplete` and
   `nodesUpdated` are not emitted: an event stream would promise that the answer is being watched.
-- **`Security`, `Overlay` and `CSS` answer what a front end sends while attaching and nothing more.** `CSS`
-  has the two reads AngleSharp.Css can stand behind and every editing command is `-32601`; `Overlay` would
-  draw on a surface that does not exist; `Security` has no certificate decision to report, the transport
-  being the host's own `HttpClient`.
+- **`Security` and `Overlay` answer what a front end sends while attaching and nothing more.** `Overlay`
+  would draw on a surface that does not exist; `Security` has no certificate decision to report, the
+  transport being the host's own `HttpClient`.
+- **`CSS` is two reads and a coverage run, and every editing command is still `-32601`.**
+  `getComputedStyleForNode` and `getInlineStylesForNode` are what AngleSharp.Css can stand behind;
+  `startRuleUsageTracking`, `takeCoverageDelta` and `stopRuleUsageTracking` — with `styleSheetAdded` and
+  `getStyleSheetText`, which are the rest of what a coverage client sends — are
+  `page.coverage.startCSSCoverage()`. Four things about them are decisions:
+  - **A rule is used when it matched an element in a cascade computation.** `Dom/Views/CssRuleUsage` is the
+    seam and `Dom/Views/CssCascade` is where it sits, so every `getComputedStyle`, every box the flat model
+    measures and this domain's own computed style feed it. It is armed only while a window is open — a
+    process-wide array, a volatile read and a length test — so a page nobody is tracking pays what a page
+    with no `Network` client pays. **The matching is done again rather than read off the cascade**: nothing
+    in AngleSharp.Css reports which rules produced a computed declaration, which is the upstream finding
+    behind this whole shape. The window matches only the rules it has not already recorded, over
+    `IWindow.GetStyleCollection`'s own flattened, condition-filtered list — so a rule inside an `@media` or
+    `@supports` that holds counts on its own, one inside a group that does not is never a candidate, and a
+    rule that matched once is not recorded twice.
+  - **Starting a window walks the document once, and so does a commit.** Blink's `startRuleUsageTracking`
+    marks every element for style recalculation and runs it before returning; nothing renders here, so a
+    document nobody queries would otherwise yield an empty report. That sweep is selector matching and no
+    value computation.
+  - **The offsets index the text this domain hands out and no other string.** AngleSharp keeps a sheet's
+    authored text (`IStyleSheet.Source`) but no source position on any rule, so a range into the authored
+    bytes cannot be computed at all. `CssStyleSheetText` serializes the sheet and measures that same
+    serialization, which is what `getStyleSheetText` answers with — one rule per line, two spaces of
+    nesting, an LF line break everywhere — so two platforms report the same offsets, and a client
+    slicing the text it was given gets the rule it was told about.
+  - **Sheets are reconciled when a client asks, not watched.** AngleSharp raises no notification when a
+    sheet joins or leaves a document, so `CssStyleSheetTracker` mints identifiers — a document's, shared by
+    every attachment, exactly as `DomNodeTracker` mints a `nodeId` — and `styleSheetAdded` is emitted at
+    `enable`, at each commit, and before any command that hands out an offset. `styleSheetChanged` and
+    `styleSheetRemoved` are absent for the same reason, and their absence is what a client cannot notice:
+    it can cache a text that a page has since edited.
 
 `Jint.Tests.Browser/DevTools/` holds two handshake replays — every *method* four recorded clients sent, and
 every parameter **shape** they sent it with, the second built out of each call's own `paramsKeys` and typed

@@ -10,19 +10,21 @@ using ProtocolCss = Jint.DevTools.Protocol.CSS;
 namespace Jint.Browser.DevTools;
 
 /// <summary>
-/// The <c>CSS</c> domain: the two questions AngleSharp.Css can answer about a node, and nothing else.
+/// The <c>CSS</c> domain: what AngleSharp.Css can answer about a node, and which of a page's rules were
+/// used.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Two read commands, and every editing command is honestly <c>-32601</c>.</b>
+/// <b>Reads only, and every editing command is honestly <c>-32601</c>.</b>
 /// <c>getComputedStyleForNode</c> is the cascade AngleSharp.Css resolves — the same one
 /// <c>window.getComputedStyle</c> answers from, so a front end and a page are told one story — and
-/// <c>getInlineStylesForNode</c> is the element's own <c>style</c> attribute. What is <i>not</i> here is
-/// everything that names a style sheet: <c>getMatchedStylesForNode</c>, <c>setStyleTexts</c>,
-/// <c>addRule</c>, the rule-usage tracking and the <c>styleSheetAdded</c> stream. Each of them needs a
-/// stable identifier for a sheet and a range inside its source text, which means owning the CSSOM's
-/// serialization end to end; that is AngleSharp's half of this package and re-implementing it is the one
-/// thing <c>Jint.Browser</c> is not for.
+/// <c>getInlineStylesForNode</c> is the element's own <c>style</c> attribute. Rule-usage coverage, the
+/// <c>styleSheetAdded</c> stream and <c>getStyleSheetText</c> are in
+/// the other half of this class, <c>CssDomain.Coverage.cs</c>, and they need a sheet identifier
+/// and a range inside a sheet's text, which <c>CssStyleSheetTracker</c> and <c>CssStyleSheetText</c> are.
+/// What is still <i>not</i> here is everything that <i>edits</i> — <c>setStyleTexts</c>, <c>addRule</c>,
+/// <c>createStyleSheet</c> — and <c>getMatchedStylesForNode</c>, which would have to name the rule every
+/// declaration came from and AngleSharp.Css exposes no such thing.
 /// </para>
 /// <para>
 /// <b>A computed value here has no layout behind it.</b> A property the style sheets, the inline style or
@@ -42,7 +44,7 @@ namespace Jint.Browser.DevTools;
 /// See <see href="https://chromedevtools.github.io/devtools-protocol/tot/CSS/"/>.
 /// </para>
 /// </remarks>
-internal sealed class CssDomain : CSSDomainBase
+internal sealed partial class CssDomain : CSSDomainBase
 {
     private readonly PageTarget _target;
 
@@ -53,19 +55,26 @@ internal sealed class CssDomain : CSSDomainBase
 
     /// <inheritdoc/>
     /// <remarks>
-    /// No <c>styleSheetAdded</c> follows, because no style sheet is published: a client is told about the
-    /// sheets it can then read and edit, and there are none it can.
+    /// A <c>styleSheetAdded</c> follows for every sheet of the document that is showing, which is what
+    /// Chrome does and what a coverage client waits for before it asks for any text.
     /// </remarks>
     protected override async ValueTask<EmptyResult> EnableAsync(EmptyParameters parameters, CommandContext context)
     {
         await MarkEnabledAsync(context).ConfigureAwait(false);
+        await AnnounceAsync(context).ConfigureAwait(false);
         return EmptyResult.Instance;
     }
 
     /// <inheritdoc/>
+    /// <remarks>
+    /// A disabled domain publishes nothing, so an open coverage window is closed with it rather than left
+    /// recording into a report nobody can ask for — and the cascade seam is disarmed with it.
+    /// </remarks>
     protected override async ValueTask<EmptyResult> DisableAsync(EmptyParameters parameters, CommandContext context)
     {
         await MarkDisabledAsync(context).ConfigureAwait(false);
+        StopTracking();
+        _announced.Clear();
         return EmptyResult.Instance;
     }
 

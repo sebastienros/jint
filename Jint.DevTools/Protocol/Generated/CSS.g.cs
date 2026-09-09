@@ -4,7 +4,7 @@
 //
 //     source:   tools/devtools-protocol/browser_protocol.json
 //     protocol: version 1.3, ChromeDevTools/devtools-protocol@ea39a11d80de9a08ce2af03f52125ed2e462cf84 (devtools-protocol@0.0.1687809)
-//     manifest: tools/devtools-protocol/manifest.json, CSS entries, sha256:350c29d3176b
+//     manifest: tools/devtools-protocol/manifest.json, CSS entries, sha256:5de351ec6787
 //
 // Do not edit. Regenerate instead, and read the diff: it is the upstream change stated in the
 // vocabulary this repository compiles. tools/devtools-protocol/README.md has the command, and
@@ -14,6 +14,126 @@
 
 namespace Jint.DevTools.Protocol.CSS
 {
+    /// <summary>The strings the protocol admits for <c>CSS.StyleSheetOrigin</c>.</summary>
+    /// <remarks>Generated from the pinned protocol; do not edit. See <see href="https://chromedevtools.github.io/devtools-protocol/tot/CSS/#type-StyleSheetOrigin"/>.</remarks>
+    internal static class StyleSheetOriginValues
+    {
+        /// <summary>The protocol's <c>injected</c> value.</summary>
+        internal const string Injected = "injected";
+
+        /// <summary>The protocol's <c>user-agent</c> value.</summary>
+        internal const string UserAgent = "user-agent";
+
+        /// <summary>The protocol's <c>inspector</c> value.</summary>
+        internal const string Inspector = "inspector";
+
+        /// <summary>The protocol's <c>regular</c> value.</summary>
+        internal const string Regular = "regular";
+    }
+
+    /// <summary>CSS stylesheet metainformation.</summary>
+    /// <remarks>Generated from the pinned protocol; do not edit. See <see href="https://chromedevtools.github.io/devtools-protocol/tot/CSS/#type-CSSStyleSheetHeader"/>.</remarks>
+    internal sealed record CSSStyleSheetHeader
+    {
+        /// <summary>The stylesheet identifier.</summary>
+        [global::System.Text.Json.Serialization.JsonPropertyName("styleSheetId")]
+        public required string StyleSheetId { get; init; }
+
+        /// <summary>Owner frame identifier.</summary>
+        [global::System.Text.Json.Serialization.JsonPropertyName("frameId")]
+        public required string FrameId { get; init; }
+
+        /// <summary>Stylesheet resource URL.</summary>
+        [global::System.Text.Json.Serialization.JsonPropertyName("sourceURL")]
+        public required string SourceURL { get; init; }
+
+        /// <summary>URL of source map associated with the stylesheet (if any).</summary>
+        [global::System.Text.Json.Serialization.JsonPropertyName("sourceMapURL")]
+        [global::System.Text.Json.Serialization.JsonIgnore(Condition = global::System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+        public string? SourceMapURL { get; init; }
+
+        /// <summary>Stylesheet origin.</summary>
+        [global::System.Text.Json.Serialization.JsonPropertyName("origin")]
+        public required string Origin { get; init; }
+
+        /// <summary>Stylesheet title.</summary>
+        [global::System.Text.Json.Serialization.JsonPropertyName("title")]
+        public required string Title { get; init; }
+
+        /// <summary>The backend id for the owner node of the stylesheet.</summary>
+        [global::System.Text.Json.Serialization.JsonPropertyName("ownerNode")]
+        [global::System.Text.Json.Serialization.JsonIgnore(Condition = global::System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+        public int? OwnerNode { get; init; }
+
+        /// <summary>Denotes whether the stylesheet is disabled.</summary>
+        [global::System.Text.Json.Serialization.JsonPropertyName("disabled")]
+        public required bool Disabled { get; init; }
+
+        /// <summary>Whether the sourceURL field value comes from the sourceURL comment.</summary>
+        [global::System.Text.Json.Serialization.JsonPropertyName("hasSourceURL")]
+        [global::System.Text.Json.Serialization.JsonIgnore(Condition = global::System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+        public bool? HasSourceURL { get; init; }
+
+        /// <summary>Whether this stylesheet is created for STYLE tag by parser.</summary>
+        [global::System.Text.Json.Serialization.JsonPropertyName("isInline")]
+        public required bool IsInline { get; init; }
+
+        /// <summary>Whether this stylesheet is mutable.</summary>
+        [global::System.Text.Json.Serialization.JsonPropertyName("isMutable")]
+        public required bool IsMutable { get; init; }
+
+        /// <summary>True if this stylesheet is created through new CSSStyleSheet() or imported as a CSS module script.</summary>
+        [global::System.Text.Json.Serialization.JsonPropertyName("isConstructed")]
+        public required bool IsConstructed { get; init; }
+
+        /// <summary>Line offset of the stylesheet within the resource (zero based).</summary>
+        [global::System.Text.Json.Serialization.JsonPropertyName("startLine")]
+        public required double StartLine { get; init; }
+
+        /// <summary>Column offset of the stylesheet within the resource (zero based).</summary>
+        [global::System.Text.Json.Serialization.JsonPropertyName("startColumn")]
+        public required double StartColumn { get; init; }
+
+        /// <summary>Size of the content (in characters).</summary>
+        [global::System.Text.Json.Serialization.JsonPropertyName("length")]
+        public required double Length { get; init; }
+
+        /// <summary>Line offset of the end of the stylesheet within the resource (zero based).</summary>
+        [global::System.Text.Json.Serialization.JsonPropertyName("endLine")]
+        public required double EndLine { get; init; }
+
+        /// <summary>Column offset of the end of the stylesheet within the resource (zero based).</summary>
+        [global::System.Text.Json.Serialization.JsonPropertyName("endColumn")]
+        public required double EndColumn { get; init; }
+
+        /// <summary>The protocol's <c>loadingFailed</c> member.</summary>
+        /// <remarks>Experimental in the protocol. </remarks>
+        [global::System.Text.Json.Serialization.JsonPropertyName("loadingFailed")]
+        [global::System.Text.Json.Serialization.JsonIgnore(Condition = global::System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+        public bool? LoadingFailed { get; init; }
+    }
+
+    /// <summary>CSS coverage information.</summary>
+    /// <remarks>Generated from the pinned protocol; do not edit. See <see href="https://chromedevtools.github.io/devtools-protocol/tot/CSS/#type-RuleUsage"/>.</remarks>
+    internal sealed record RuleUsage
+    {
+        /// <summary>The css style sheet identifier (absent for user agent stylesheet and user-specified stylesheet rules) this rule came from.</summary>
+        [global::System.Text.Json.Serialization.JsonPropertyName("styleSheetId")]
+        public required string StyleSheetId { get; init; }
+
+        /// <summary>Offset of the start of the rule (including selector) from the beginning of the stylesheet.</summary>
+        [global::System.Text.Json.Serialization.JsonPropertyName("startOffset")]
+        public required double StartOffset { get; init; }
+
+        /// <summary>Offset of the end of the rule body from the beginning of the stylesheet.</summary>
+        [global::System.Text.Json.Serialization.JsonPropertyName("endOffset")]
+        public required double EndOffset { get; init; }
+
+        /// <summary>Indicates whether the rule was actually used by some element in the page.</summary>
+        [global::System.Text.Json.Serialization.JsonPropertyName("used")]
+        public required bool Used { get; init; }
+    }
+
     /// <summary>Text range within a resource.</summary>
     /// <remarks>Generated from the pinned protocol; do not edit. See <see href="https://chromedevtools.github.io/devtools-protocol/tot/CSS/#type-SourceRange"/>.</remarks>
     internal sealed record SourceRange
@@ -198,6 +318,55 @@ namespace Jint.DevTools.Protocol.CSS
         [global::System.Text.Json.Serialization.JsonIgnore(Condition = global::System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
         public global::Jint.DevTools.Protocol.CSS.CSSStyle? AttributesStyle { get; init; }
     }
+
+    /// <summary>The parameters of the <c>CSS.getStyleSheetText</c> command.</summary>
+    /// <remarks>Generated from the pinned protocol; do not edit. See <see href="https://chromedevtools.github.io/devtools-protocol/tot/CSS/#method-getStyleSheetText"/>.</remarks>
+    internal sealed record GetStyleSheetTextRequest
+    {
+        /// <summary>The protocol's <c>styleSheetId</c> member.</summary>
+        [global::System.Text.Json.Serialization.JsonPropertyName("styleSheetId")]
+        public required string StyleSheetId { get; init; }
+    }
+
+    /// <summary>The result of the <c>CSS.getStyleSheetText</c> command.</summary>
+    /// <remarks>Generated from the pinned protocol; do not edit. See <see href="https://chromedevtools.github.io/devtools-protocol/tot/CSS/#method-getStyleSheetText"/>.</remarks>
+    internal sealed record GetStyleSheetTextResponse
+    {
+        /// <summary>The stylesheet text.</summary>
+        [global::System.Text.Json.Serialization.JsonPropertyName("text")]
+        public required string Text { get; init; }
+    }
+
+    /// <summary>The result of the <c>CSS.stopRuleUsageTracking</c> command.</summary>
+    /// <remarks>Generated from the pinned protocol; do not edit. See <see href="https://chromedevtools.github.io/devtools-protocol/tot/CSS/#method-stopRuleUsageTracking"/>.</remarks>
+    internal sealed record StopRuleUsageTrackingResponse
+    {
+        /// <summary>The protocol's <c>ruleUsage</c> member.</summary>
+        [global::System.Text.Json.Serialization.JsonPropertyName("ruleUsage")]
+        public required global::Jint.DevTools.Protocol.CSS.RuleUsage[] RuleUsage { get; init; }
+    }
+
+    /// <summary>The result of the <c>CSS.takeCoverageDelta</c> command.</summary>
+    /// <remarks>Generated from the pinned protocol; do not edit. See <see href="https://chromedevtools.github.io/devtools-protocol/tot/CSS/#method-takeCoverageDelta"/>.</remarks>
+    internal sealed record TakeCoverageDeltaResponse
+    {
+        /// <summary>The protocol's <c>coverage</c> member.</summary>
+        [global::System.Text.Json.Serialization.JsonPropertyName("coverage")]
+        public required global::Jint.DevTools.Protocol.CSS.RuleUsage[] Coverage { get; init; }
+
+        /// <summary>Monotonically increasing time, in seconds.</summary>
+        [global::System.Text.Json.Serialization.JsonPropertyName("timestamp")]
+        public required double Timestamp { get; init; }
+    }
+
+    /// <summary>The parameters of the <c>CSS.styleSheetAdded</c> event.</summary>
+    /// <remarks>Generated from the pinned protocol; do not edit. See <see href="https://chromedevtools.github.io/devtools-protocol/tot/CSS/#event-styleSheetAdded"/>.</remarks>
+    internal sealed record StyleSheetAddedEvent
+    {
+        /// <summary>Added stylesheet metainfo.</summary>
+        [global::System.Text.Json.Serialization.JsonPropertyName("header")]
+        public required global::Jint.DevTools.Protocol.CSS.CSSStyleSheetHeader Header { get; init; }
+    }
 }
 
 namespace Jint.DevTools.Domains
@@ -229,6 +398,26 @@ namespace Jint.DevTools.Domains
         protected virtual global::System.Threading.Tasks.ValueTask<global::Jint.DevTools.Protocol.CSS.GetInlineStylesForNodeResponse> GetInlineStylesForNodeAsync(global::Jint.DevTools.Protocol.CSS.GetInlineStylesForNodeRequest parameters, global::Jint.DevTools.Session.CommandContext context)
             => global::Jint.DevTools.Throw.MethodNotFound<global::System.Threading.Tasks.ValueTask<global::Jint.DevTools.Protocol.CSS.GetInlineStylesForNodeResponse>>("CSS.getInlineStylesForNode");
 
+        /// <summary>Returns the current textual content for a stylesheet.</summary>
+        /// <remarks>Reached only while manifest.json lists it. See <see href="https://chromedevtools.github.io/devtools-protocol/tot/CSS/#method-getStyleSheetText"/>.</remarks>
+        protected virtual global::System.Threading.Tasks.ValueTask<global::Jint.DevTools.Protocol.CSS.GetStyleSheetTextResponse> GetStyleSheetTextAsync(global::Jint.DevTools.Protocol.CSS.GetStyleSheetTextRequest parameters, global::Jint.DevTools.Session.CommandContext context)
+            => global::Jint.DevTools.Throw.MethodNotFound<global::System.Threading.Tasks.ValueTask<global::Jint.DevTools.Protocol.CSS.GetStyleSheetTextResponse>>("CSS.getStyleSheetText");
+
+        /// <summary>Enables the selector recording.</summary>
+        /// <remarks>Reached only while manifest.json lists it. See <see href="https://chromedevtools.github.io/devtools-protocol/tot/CSS/#method-startRuleUsageTracking"/>.</remarks>
+        protected virtual global::System.Threading.Tasks.ValueTask<global::Jint.DevTools.Protocol.EmptyResult> StartRuleUsageTrackingAsync(global::Jint.DevTools.Protocol.EmptyParameters parameters, global::Jint.DevTools.Session.CommandContext context)
+            => global::Jint.DevTools.Throw.MethodNotFound<global::System.Threading.Tasks.ValueTask<global::Jint.DevTools.Protocol.EmptyResult>>("CSS.startRuleUsageTracking");
+
+        /// <summary>Stop tracking rule usage and return the list of rules that were used since last call to `takeCoverageDelta` (or since start of coverage instrumentation).</summary>
+        /// <remarks>Reached only while manifest.json lists it. See <see href="https://chromedevtools.github.io/devtools-protocol/tot/CSS/#method-stopRuleUsageTracking"/>.</remarks>
+        protected virtual global::System.Threading.Tasks.ValueTask<global::Jint.DevTools.Protocol.CSS.StopRuleUsageTrackingResponse> StopRuleUsageTrackingAsync(global::Jint.DevTools.Protocol.EmptyParameters parameters, global::Jint.DevTools.Session.CommandContext context)
+            => global::Jint.DevTools.Throw.MethodNotFound<global::System.Threading.Tasks.ValueTask<global::Jint.DevTools.Protocol.CSS.StopRuleUsageTrackingResponse>>("CSS.stopRuleUsageTracking");
+
+        /// <summary>Obtain list of rules that became used since last call to this method (or since start of coverage instrumentation).</summary>
+        /// <remarks>Reached only while manifest.json lists it. See <see href="https://chromedevtools.github.io/devtools-protocol/tot/CSS/#method-takeCoverageDelta"/>.</remarks>
+        protected virtual global::System.Threading.Tasks.ValueTask<global::Jint.DevTools.Protocol.CSS.TakeCoverageDeltaResponse> TakeCoverageDeltaAsync(global::Jint.DevTools.Protocol.EmptyParameters parameters, global::Jint.DevTools.Session.CommandContext context)
+            => global::Jint.DevTools.Throw.MethodNotFound<global::System.Threading.Tasks.ValueTask<global::Jint.DevTools.Protocol.CSS.TakeCoverageDeltaResponse>>("CSS.takeCoverageDelta");
+
         /// <inheritdoc/>
         internal sealed override async global::System.Threading.Tasks.ValueTask<string> DispatchAsync(string method, global::System.Text.Json.JsonElement? parameters, global::Jint.DevTools.Session.CommandContext context)
         {
@@ -258,6 +447,30 @@ namespace Jint.DevTools.Domains
                     return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.CSSGetInlineStylesForNodeResponse);
                 }
 
+                case "getStyleSheetText":
+                {
+                    var result = await GetStyleSheetTextAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.CSSGetStyleSheetTextRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.CSSGetStyleSheetTextResponse);
+                }
+
+                case "startRuleUsageTracking":
+                {
+                    var result = await StartRuleUsageTrackingAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyParameters), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                case "stopRuleUsageTracking":
+                {
+                    var result = await StopRuleUsageTrackingAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyParameters), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.CSSStopRuleUsageTrackingResponse);
+                }
+
+                case "takeCoverageDelta":
+                {
+                    var result = await TakeCoverageDeltaAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyParameters), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.CSSTakeCoverageDeltaResponse);
+                }
+
                 // A command manifest.json does not list is method-not-found BEFORE its parameters
                 // are looked at, which is the order Chrome answers in: a command a backend does not
                 // implement is not in its dispatch table at all, so its payload is never read.
@@ -265,5 +478,15 @@ namespace Jint.DevTools.Domains
                     return global::Jint.DevTools.Throw.MethodNotFound<string>("CSS." + method);
             }
         }
+    }
+
+    /// <summary>Builds the <c>CSS</c> domain's events.</summary>
+    /// <remarks>Generated from the pinned protocol; do not edit. See <see href="https://chromedevtools.github.io/devtools-protocol/tot/CSS/"/>.</remarks>
+    internal static class CSSEvents
+    {
+        /// <summary>Builds the <c>CSS.styleSheetAdded</c> event.</summary>
+        /// <remarks>Generated from the pinned protocol; do not edit. See <see href="https://chromedevtools.github.io/devtools-protocol/tot/CSS/#event-styleSheetAdded"/>.</remarks>
+        internal static global::Jint.DevTools.Protocol.ProtocolEvent StyleSheetAdded(global::Jint.DevTools.Protocol.CSS.StyleSheetAddedEvent parameters)
+            => new("CSS.styleSheetAdded", global::System.Text.Json.JsonSerializer.Serialize(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.CSSStyleSheetAddedEvent));
     }
 }
