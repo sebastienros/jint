@@ -230,17 +230,25 @@ The wrappers deliberately do **not** share a base class, and `IDomWrapper` is wh
   activation behaviour yet; both are campaign item R2, and answering a wrong slot would be worse than none.
 - **`Collections/DomCollectionObject : ArrayLikeObject`** — so `list[i]`, `for..of`, spread, `Array.from` and
   the `Array.prototype` generics reach the engine's one-callback-per-element lane with no `Reference`, no key
-  object and no descriptor. Its interface-specific half is the generated accessor.
-- **`Collections/DomStaticNodeListObject : DomCollectionBase`** — the one collection that memoizes its
-  elements, and the reason the static/live distinction exists in this package at all. **Nothing about an
-  `INodeList` says whether it is live**: `childNodes` and `labels` are, a selector match is not, and all three
-  used to arrive at the same wrapper. So staticness is a property of a *type* — `DomStaticNodeList`, a
-  snapshot the binding copies for itself, produced only by the `querySelectorAll` hook, which is where DOM
-  §4.2.6's word "static" is. Its wrapper then keeps one element wrapper per index, which is a memo of
-  `DomRealm.WrapNode` and never a second identity: the cached object *is* the one the wrapper table holds, it
-  adds no retention over the snapshot that already names those nodes, and it dies with the list. **A live
-  collection must not get one** — a per-index cache over a membership that moves answers the wrong node, and
-  a removed node it had cached would be pinned for the collection's life.
+  object and no descriptor. Its interface-specific half is the generated accessor. **Which wrapper class a
+  collection gets is a performance contract, not only a tidiness one**: every `list[i]` arrives at the
+  interpreter as one virtual `ArrayLikeObject.TryGetIndex`, which the JIT devirtualizes and inlines from a
+  class profile holding *one* guess, so the wrapper classes a page's collections produce compete for it. A new
+  wrapper for a shape an existing one already served costs the shapes that were already there: whichever
+  collection warms the call site first wins the guess and the others read every element through a cold
+  indirect call. [#4027](https://github.com/sebastienros/jint/pull/4027) is the worked example — a second
+  wrapper for the *static* `NodeList`, which shares this class with the live one. So a collection wanting a
+  different read strategy gets a branch inside the class that already serves its interface, never a sibling
+  of it.
+- **The static `NodeList`, and where the static/live distinction lives.** **Nothing about an `INodeList` says
+  whether it is live**: `childNodes` and `labels` are, a selector match is not, and all three arrive at the
+  same wrapper. So staticness is a property of a *type* — `Collections/DomStaticNodeList`, a snapshot the
+  binding copies for itself, produced only by the `querySelectorAll` hook, which is where DOM §4.2.6's word
+  "static" is — and `DomCollectionObject.TryGetIndex` tests for that type before it keeps one element wrapper
+  per index. The memo is of `DomRealm.WrapNode` and never a second identity: the cached object *is* the one
+  the wrapper table holds, it adds no retention over the snapshot that already names those nodes, and it dies
+  with the list. **A live collection must not get one** — a per-index cache over a membership that moves
+  answers the wrong node, and a removed node it had cached would be pinned for the collection's life.
 - **`Collections/DomIndexedNodeObject : DomNodeObject`** — a node whose interface *also* supports indexed or
   named properties (`form[0]`, `form.username`, `select[0]`). It is a node wrapper with the same generated
   accessor projected on top, and it has to be: the tree-dispatch lane keys on the node wrapper and the cache

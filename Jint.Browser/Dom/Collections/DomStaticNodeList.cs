@@ -17,8 +17,15 @@ namespace Jint.Browser.Dom.Collections;
 /// <c>childNodes</c>, <c>labels</c> and a selector match all arrive at the same wrapper through the same
 /// generated accessor, and a wrapper that cached anything per index would be wrong for two of the three. So
 /// staticness is made a property of a <i>type</i> rather than a claim about an instance — this class holds
-/// the matched nodes in an array nothing else can reach, which is what lets
-/// <see cref="DomStaticNodeListObject"/> keep one element wrapper per index.
+/// the matched nodes in an array nothing else can reach, and that type is what
+/// <see cref="DomCollectionObject.TryGetIndex"/> tests before it keeps one element wrapper per index.
+/// </para>
+/// <para>
+/// Note that <i>this</i> is the type staticness lives in, and the wrapper on the JavaScript side stays the
+/// one every other <c>NodeList</c> has. A second <c>ArrayLikeObject</c> beside it would have put a second
+/// candidate on the interpreter's array-like read lane, which devirtualizes from a class profile holding one
+/// guess, and the live <c>NodeList</c>s would then have been paying for this one's cache;
+/// <see cref="DomCollectionObject"/> records the measurement that says so.
 /// </para>
 /// <para>
 /// The array is a copy of the collection AngleSharp produced rather than a reference to it. That costs one
@@ -64,8 +71,8 @@ internal sealed class DomStaticNodeList : INodeList
     /// <summary>
     /// The CLR indexer, which every caller in this package guards before reaching. It is deliberately a bare
     /// array index: an out-of-range read is a defect here rather than something a page can ask for, because
-    /// both doors — <c>NodeList.item</c> and <see cref="DomStaticNodeListObject.TryGetIndex"/> — answer
-    /// WebIDL's out-of-range value themselves.
+    /// both doors — <c>NodeList.item</c> and <see cref="DomCollectionObject.TryGetIndex"/> — answer WebIDL's
+    /// out-of-range value themselves.
     /// </summary>
     public INode this[int index] => _nodes[index];
 

@@ -347,17 +347,26 @@ internal sealed class DomRealm
     /// "the static result of running scope-match a selectors string".
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The snapshot is the binding's own (<see cref="DomStaticNodeList"/>) rather than AngleSharp's, because
-    /// nothing about an <see cref="INodeList"/> says whether it is live and this wrapper keeps one element
+    /// nothing about an <see cref="INodeList"/> says whether it is live and the wrapper keeps one element
     /// wrapper per index. It is cached like every other wrapper, so <c>Hooks.WrapperCreated</c> fires once
     /// for it; the snapshot is new on every call, which keeps
     /// <c>el.querySelectorAll('x') !== el.querySelectorAll('x')</c> — DOM's answer, and the one the binding
     /// already gave.
+    /// </para>
+    /// <para>
+    /// The wrapper is the ordinary <see cref="DomCollectionObject"/> every other <c>NodeList</c> gets, and
+    /// deliberately so: the memo is a branch inside that one class rather than a second
+    /// <c>ArrayLikeObject</c> beside it, so the live <c>NodeList</c>s and this one go on sharing the class
+    /// the interpreter's array-like read lane devirtualizes. <see cref="DomCollectionObject"/> records why
+    /// that is a contract rather than a preference.
+    /// </para>
     /// </remarks>
     internal JsValue WrapStaticNodeList(IHtmlCollection<IElement> matches)
     {
         var snapshot = new DomStaticNodeList(matches);
-        return Cache(snapshot, new DomStaticNodeListObject(this, snapshot));
+        return Cache(snapshot, new DomCollectionObject(this, DomInterfaces.NodeList, snapshot, DomAccessorNodeList.Instance));
     }
 
     /// <summary>Projects the live <c>NodeList</c> of labels associated with a labelable element.</summary>

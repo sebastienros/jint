@@ -198,23 +198,37 @@ public sealed class StaticNodeListTests
     }
 
     /// <summary>
-    /// The seam: only a selector match takes the static lane. A live <c>NodeList</c> — <c>childNodes</c>, and
-    /// a labelable element's <c>labels</c> — must keep the accessor-driven wrapper, because a per-index cache
-    /// over a list whose membership moves would answer the wrong node.
+    /// The seam: only a selector match takes the static lane, and it takes it through its <i>target</i>. A
+    /// live <c>NodeList</c> — <c>childNodes</c>, and a labelable element's <c>labels</c> — must keep reading
+    /// through the accessor, because a per-index cache over a list whose membership moves would answer the
+    /// wrong node.
     /// </summary>
-    /// <remarks>This is the one test here that fails against the unfixed code.</remarks>
+    /// <remarks>
+    /// The second thing it pins is the shape, and that half is a performance contract: a static
+    /// <c>NodeList</c> and a live one are the <b>same</b> wrapper class, so the interpreter's array-like read
+    /// lane — which devirtualizes <c>ArrayLikeObject.TryGetIndex</c> from a class profile holding one guess —
+    /// sees one candidate for both. Splitting them makes that guess a race between whichever list warmed the
+    /// call site first, and the live lists pay for the static one's cache. This is the one test here that
+    /// fails against the unfixed code.
+    /// </remarks>
     [Test]
     public void OnlyASelectorMatchTakesTheStaticLane()
     {
         using var fixture = DomTestFixture.Create(
             "<div id='root'><span class='foo' id='s0'>a</span></div><label for='c'>l</label><input id='c'>");
 
-        fixture.Evaluate("document.querySelectorAll('.foo')").Should().BeOfType<DomStaticNodeListObject>();
-        fixture.Evaluate("document.getElementById('root').querySelectorAll('span')").Should().BeOfType<DomStaticNodeListObject>();
-        fixture.Evaluate("document.createDocumentFragment().querySelectorAll('span')").Should().BeOfType<DomStaticNodeListObject>();
+        static object TargetOf(JsValue collection)
+        {
+            collection.Should().BeOfType<DomCollectionObject>("every DOM collection is the one wrapper class");
+            return ((DomCollectionObject) collection).DomTarget;
+        }
 
-        fixture.Evaluate("document.getElementById('root').childNodes").Should().BeOfType<DomCollectionObject>();
-        fixture.Evaluate("document.getElementById('c').labels").Should().BeOfType<DomCollectionObject>();
+        TargetOf(fixture.Evaluate("document.querySelectorAll('.foo')")).Should().BeOfType<DomStaticNodeList>();
+        TargetOf(fixture.Evaluate("document.getElementById('root').querySelectorAll('span')")).Should().BeOfType<DomStaticNodeList>();
+        TargetOf(fixture.Evaluate("document.createDocumentFragment().querySelectorAll('span')")).Should().BeOfType<DomStaticNodeList>();
+
+        TargetOf(fixture.Evaluate("document.getElementById('root').childNodes")).Should().NotBeOfType<DomStaticNodeList>();
+        TargetOf(fixture.Evaluate("document.getElementById('c').labels")).Should().BeOfType<DomLabelNodeList>();
 
         // A live NodeList reports the tree it currently has, which is the property a cache would have broken.
         fixture.Execute("var live = document.getElementById('root').childNodes;");
