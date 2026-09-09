@@ -69,6 +69,137 @@ public sealed class ImageSubmitTests
         page.Errors.Should().BeEmpty();
     }
 
+    /// <summary>
+    /// A single-finger tap on the image, driven through the same dispatcher <c>Input.dispatchTouchEvent</c>
+    /// reaches: down at the point, then up, which is what leaves Touch Events §8's compatibility mouse
+    /// events behind.
+    /// </summary>
+    private static Task<bool> Tap(Page page, double x, double y)
+        => page.RunOnLoopAsync(engine =>
+        {
+            var runtime = PageRuntime.Find(engine)!;
+            var input = (IHtmlInputElement) runtime.Document!.GetElementById("image")!;
+            var box = runtime.Layout.Current().ClientBoxOf(input)!.Value;
+            InputDispatcher.DispatchTouch(runtime, new TouchInput(
+                TouchInputKind.Start, [TouchPointInput.At(box.X + x, box.Y + y)], EventModifiers.None));
+            InputDispatcher.DispatchTouch(runtime, TouchInput.Of(TouchInputKind.End));
+            return true;
+        });
+
+    [TestCase("name='go'", "go.x", "go.y")]
+    [TestCase("name=''", "x", "y")]
+    [TestCase("", "x", "y")]
+    public async Task ATapInsideAnAvailableImageSelectsTheCoordinateItLandedOn(string nameAttribute, string x, string y)
+    {
+        // https://html.spec.whatwg.org/multipage/input.html#image-button-state-(type=image) asks whether
+        // "the user activated the button using a pointing device", and a finger is one: Touch Events §8's
+        // compatibility `click` is the activation, so the tap selects the point it came off at exactly as
+        // the identical mouse release does.
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync($"<form id=f><input id=image type=image {nameAttribute} {AvailableImage}></form>");
+        await page.EvaluateAsync("f.onsubmit = e => e.preventDefault()");
+        await Tap(page, 7.75, 5.5);
+
+        (await Entries(page)).Should().Be(JsonSerializer.Serialize(new[] { new[] { x, "7" }, new[] { y, "5" } }));
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task ATapAndAClickAtOnePointSelectTheSameCoordinate()
+    {
+        // The two paths reach one activation behaviour, so they cannot disagree about the coordinate; this
+        // is the assertion that would have failed silently while only the mouse path measured.
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync($"<form id=f><input id=image type=image name=go {AvailableImage}></form>");
+        await page.EvaluateAsync("f.onsubmit = e => e.preventDefault()");
+
+        await PointerClick(page, 12, 3);
+        var clicked = await Entries(page);
+
+        await page.EvaluateAsync("window.tapped = null");
+        await Tap(page, 12, 3);
+
+        (await Entries(page)).Should().Be(clicked).And.Be("""[["go.x","12"],["go.y","3"]]""");
+    }
+
+    [Test]
+    public async Task ATapTheDocumentCancelledSelectsNothingBecauseItActivatesNothing()
+    {
+        // §8: `preventDefault()` on the `touchstart` means no compatibility mouse events at all, so there is
+        // no click, no activation behaviour and nothing to select — the button keeps the (0, 0) every
+        // unactivated image button has. The listener has to say `passive: false`, because HTML makes a
+        // `touchstart` listener on the window, the document or the body passive by default and a passive
+        // listener's `preventDefault()` does nothing.
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync($"<form id=f><input id=image type=image name=go {AvailableImage}></form>");
+        await page.EvaluateAsync("""
+            window.submitted = false;
+            f.onsubmit = e => { window.submitted = true; e.preventDefault(); };
+            document.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
+            """);
+        await Tap(page, 7.75, 5.5);
+
+        (await page.EvaluateAsync<bool>("window.submitted")).Should().BeFalse();
+        (await Entries(page)).Should().Be("""[["go.x","0"],["go.y","0"]]""");
+    }
+
+    [Test]
+    public async Task ATapThatLiftsOffTheImageSelectsNothingForIt()
+    {
+        // The compatibility events are dispatched where the finger came off, not where it went down, so a
+        // finger that slid off the button before lifting activates nothing and the button stays at (0, 0).
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(
+            $"<form id=f><input id=image type=image name=go {AvailableImage}></form><p id=elsewhere>elsewhere</p>");
+        await page.EvaluateAsync("""
+            window.submitted = false;
+            window.clicked = '';
+            f.onsubmit = e => { window.submitted = true; e.preventDefault(); };
+            document.addEventListener('click', e => { window.clicked = e.target.id; });
+            """);
+
+        await page.RunOnLoopAsync(engine =>
+        {
+            var runtime = PageRuntime.Find(engine)!;
+            var layout = runtime.Layout.Current();
+            var image = (IHtmlInputElement) runtime.Document!.GetElementById("image")!;
+            var elsewhere = runtime.Document.GetElementById("elsewhere")!;
+            var from = layout.ClientBoxOf(image)!.Value;
+            var to = layout.ClientBoxOf(elsewhere)!.Value;
+
+            InputDispatcher.DispatchTouch(runtime, new TouchInput(
+                TouchInputKind.Start, [TouchPointInput.At(from.X + 7, from.Y + 5)], EventModifiers.None));
+            InputDispatcher.DispatchTouch(runtime, new TouchInput(
+                TouchInputKind.Move, [TouchPointInput.At(to.X + 2, to.Y + 2)], EventModifiers.None));
+            InputDispatcher.DispatchTouch(runtime, TouchInput.Of(TouchInputKind.End));
+            return true;
+        });
+
+        (await page.EvaluateAsync<string>("window.clicked")).Should().Be("elsewhere");
+        (await page.EvaluateAsync<bool>("window.submitted")).Should().BeFalse();
+        (await Entries(page)).Should().Be("""[["go.x","0"],["go.y","0"]]""");
+    }
+
+    [Test]
+    public async Task TheCoordinateATapSelectedReachesAnActualSubmission()
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(server => server
+            .MapHtml("/form", $"<form id=f action=/echo><input name=a value=1>"
+                + $"<input id=image type=image name=go {AvailableImage}></form>")
+            .MapHtml("/echo", "<p>echoed</p>"));
+        await fixture.Page.NavigateAsync(fixture.Url("/form"));
+
+        var navigated = fixture.Page.WaitForNavigationAsync(TimeSpan.FromSeconds(10));
+        await Tap(fixture.Page, 7.75, 5.5);
+        (await navigated).Should().BeTrue("a tap's compatibility click runs the image button's activation behaviour");
+
+        fixture.Server.Received.Single(request => request.Path == "/echo").Query.Should().Be("a=1&go.x=7&go.y=5");
+    }
+
     [Test]
     public async Task TheFormdataEventCarriesTheSelectedCoordinateLongAfterTheClick()
     {

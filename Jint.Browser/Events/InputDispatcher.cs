@@ -150,7 +150,7 @@ internal static partial class InputDispatcher
                 // every listener, because the activation behaviour that reads it runs after all three of
                 // them and any one of them may move, adopt or detach the input first. Nothing is selected
                 // by measuring: the activation behaviour promotes it, or nothing does.
-                events.PendingImagePoint = ImagePointOf(hit, input, layout);
+                events.PendingImagePoint = ImagePointOf(hit, input.X, input.Y, layout);
 
                 try
                 {
@@ -222,12 +222,20 @@ internal static partial class InputDispatcher
     /// HTML §4.10.5.1.20</a>'s selected coordinate, "the position of the pointer relative to the image".
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The inclusive ancestors are walked rather than the hit element alone because a click inside an image
     /// button activates the button, and the coordinate is relative to <i>its</i> edge. The component is the
     /// distance truncated to an integer, which HTML's "valid integer" is, and never negative: a descendant's
     /// box is inside its ancestor's in the flat box model, so a point inside one is inside the other.
+    /// </para>
+    /// <para>
+    /// It takes the two coordinates rather than a <see cref="MouseInput"/> because a <b>tap</b> selects one
+    /// too: HTML asks whether "the user activated the button using a pointing device", and a touch is one.
+    /// The point a tap measures from is where the finger came off, which is also the point its compatibility
+    /// mouse events are dispatched at.
+    /// </para>
     /// </remarks>
-    private static (IElement Image, int X, int Y)? ImagePointOf(IElement hit, in MouseInput input, FlatLayout layout)
+    private static (IElement Image, int X, int Y)? ImagePointOf(IElement hit, double x, double y, FlatLayout layout)
     {
         for (var element = hit; element is not null; element = element.ParentElement)
         {
@@ -241,7 +249,7 @@ internal static partial class InputDispatcher
                 return null;
             }
 
-            return (image, Component(input.X - box.X), Component(input.Y - box.Y));
+            return (image, Component(x - box.X), Component(y - box.Y));
         }
 
         return null;

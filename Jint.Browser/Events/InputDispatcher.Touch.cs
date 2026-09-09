@@ -241,6 +241,16 @@ internal static partial class InputDispatcher
     /// <b>No <c>pointerdown</c>, and no boundary events.</b> The first is the class remark's; the second is
     /// <see cref="DispatchMouse"/>'s own limitation, and a tap has no previous position to compute them from.
     /// </para>
+    /// <para>
+    /// <b>An image button's selected coordinate is measured here too</b>, from the same hit test and the same
+    /// layout, and for the same reason the release arm of <see cref="DispatchMouse"/> measures it before its
+    /// listeners: the activation behaviour that reads it runs inside the <c>click</c> below, after the three
+    /// mouse listeners above, and any one of them may move, adopt or detach the input first. HTML asks
+    /// whether "the user activated the button using a pointing device"
+    /// (<a href="https://html.spec.whatwg.org/multipage/input.html#image-button-state-(type=image)">§4.10.5.1.20</a>),
+    /// and a finger is one — without this a tap on an image button submitted <c>(0, 0)</c> where the identical
+    /// click submitted the point it landed on.
+    /// </para>
     /// </remarks>
     private static void CompatibilityMouseEvents(PageRuntime runtime, ActiveTouch released, EventModifiers modifiers)
     {
@@ -250,7 +260,8 @@ internal static partial class InputDispatcher
         }
 
         var dom = runtime.Dom;
-        var hit = runtime.Layout.Current().ElementFromPoint(released.ClientX, released.ClientY) ?? document.DocumentElement;
+        var layout = runtime.Layout.Current();
+        var hit = layout.ElementFromPoint(released.ClientX, released.ClientY) ?? document.DocumentElement;
 
         if (hit is null)
         {
@@ -268,18 +279,30 @@ internal static partial class InputDispatcher
             Detail: 1,
             modifiers);
 
-        Mouse(target, "mousemove", options, cancelable: true);
+        var events = BrowserEventRealm.Of(dom.Engine);
+        events.PendingImagePoint = ImagePointOf(hit, released.ClientX, released.ClientY, layout);
 
-        if (Mouse(target, "mousedown", options with { Buttons = 1 }, cancelable: true)
-            && NearestFocusable(hit) is { } focusTarget)
+        try
         {
-            // https://html.spec.whatwg.org/multipage/interaction.html#focusing-steps — a tap focuses what it
-            // lands on unless the page cancelled the mousedown, which is the rule a press follows too.
-            FocusController.Focus(dom, focusTarget);
-        }
+            Mouse(target, "mousemove", options, cancelable: true);
 
-        Mouse(target, "mouseup", options, cancelable: true);
-        DispatchClickEvent(target, options, trusted: true);
+            if (Mouse(target, "mousedown", options with { Buttons = 1 }, cancelable: true)
+                && NearestFocusable(hit) is { } focusTarget)
+            {
+                // https://html.spec.whatwg.org/multipage/interaction.html#focusing-steps — a tap focuses what
+                // it lands on unless the page cancelled the mousedown, which is the rule a press follows too.
+                FocusController.Focus(dom, focusTarget);
+            }
+
+            Mouse(target, "mouseup", options, cancelable: true);
+            DispatchClickEvent(target, options, trusted: true);
+        }
+        finally
+        {
+            // Nothing is selected by measuring: the activation behaviour promotes it, or nothing does, and
+            // the measurement must not outlive the sequence it was taken for.
+            events.PendingImagePoint = null;
+        }
     }
 
     /// <summary>Builds one <c>TouchEvent</c> over the gesture and dispatches it at the contact's target.</summary>
