@@ -820,18 +820,6 @@ internal static class WptBrowserExclusions
         new("dom/events/EventTarget-dispatchEvent.html", "If the event's initialized flag is not set, an InvalidStateError must be thrown (StorageEvent).", WptDivergence.NeedsMoreEventInterfaces),
     ];
 
-    // ---------------------------------------------------------------- 2. a `data:` URL subresource
-    private static readonly WptExclusion[] _2ADataURLSubresource =
-    [
-        // A page navigates to a `data:` URL and cannot fetch one as a subresource, so a
-        // `<script src="data:text/javascript,…">` is never run — which is what "ran expected true got false"
-        // says here. The report site these documents are about works; what is missing is the scheme, and
-        // adding it is `Runtime/SubresourceFetch`'s change rather than this one.
-        new("html/webappapis/scripting/processing-model-2/compile-error-data-url.html", "*", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/processing-model-2/runtime-error-data-url.html", "*", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/processing-model-2/body-onerror-compile-error-data-url.html", "<body onerror> - compile error in <script src=data:...>", WptDivergence.NeedsTriage),
-    ];
-
     // ---------------------------------------------------------------- 8. AngleSharp.Css refuses an unparseable media query
     private static readonly WptExclusion[] _8AngleSharpCssRefusesAnUnparseableMediaQuery =
     [
@@ -1485,7 +1473,6 @@ internal static class WptBrowserExclusions
     internal static readonly WptCause[] Causes =
     [
         new("1. an event interface this browser has not built", _1AnEventInterfaceThisBrowserHasNotBuilt),
-        new("2. a `data:` URL subresource", _2ADataURLSubresource),
         new("5. a DOM prototype has no @@unscopables", _5ADOMPrototypeHasNoUnscopables),
         new("8. AngleSharp.Css refuses an unparseable media query", _8AngleSharpCssRefusesAnUnparseableMediaQuery),
         new("9. a double written with .NET's number format", _9ADoubleWrittenWithNETSNumberFormat),
