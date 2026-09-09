@@ -44,8 +44,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 0 |
 | **total** | **392** | **9** | **66,916** | **920** |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 3 |
-| **total** | **365** | **9** | **66,794** | **1,077** |
-| **total** | **365** | **9** | **66,794** | **1,089** |
+| **total** | **365** | **9** | **66,794** | **1,076** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
