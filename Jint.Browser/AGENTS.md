@@ -273,9 +273,12 @@ Two channels deliver those arrivals and both run inline, for the reason
 [the observer section](#the-observers-and-when-each-of-them-delivers) gives: AngleSharp's mutation records
 say what entered and left the document, and its `IAttributeObserver` service says what attribute changed —
 the service and not the records, because a record needs the element to be under the observed document and
-`el.setAttribute` before insertion is the commonest thing a component does. What is deliberately **not**
-drained on arrival is a reaction that arrived on the parser's thread or while the queue was already
-draining: those wait for the enclosing drain, or for the microtask checkpoint. So
+`el.setAttribute` before insertion is the commonest thing a component does. **Each drain takes the queue the
+arrivals landed on and leaves a fresh one behind**, which is the reactions *stack* rather than one flat
+queue: an arrival during a callback is a queue of its own and runs before that callback returns, so a
+callback that writes an attribute on a second element sees that element's callback run *inside* its own. What
+is deliberately **not** drained on arrival is a reaction that arrived on the parser's thread: those wait for
+the microtask checkpoint. So
 `el.setAttribute('x', 1); assert(calls === 1)` holds as it does in a browser, and a reaction from a mutation
 inside a *host* operation — one the page loop makes with no script to return to — runs at the checkpoint
 rather than before that operation returns.
