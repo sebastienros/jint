@@ -599,6 +599,33 @@ internal class DomHostHooks
     }
 
     /// <summary>
+    /// https://html.spec.whatwg.org/multipage/dom.html#the-body-element — the first <c>body</c> or
+    /// <c>frameset</c> child of the document's <i>html element</i>, and <see langword="null"/> when there is
+    /// no html element.
+    /// </summary>
+    /// <remarks>
+    /// The gate is the whole of this hook. "The html element of a document is its document element, if it is
+    /// an <c>html</c> element, and null otherwise", and an <c>html</c> element is one in the HTML namespace
+    /// with that local name — so a document whose root is an XHTML <c>div</c>, or an <c>html</c> from some
+    /// other namespace, has no body element however many <c>body</c> children that root has. AngleSharp's
+    /// getter walks <c>DocumentElement.ChildNodes</c> without asking what the document element is, which is
+    /// the standard's own counter-example (a body inserted beneath an SVG document element) answered wrongly.
+    /// Past the gate the search is AngleSharp's, because that half already matches: it takes the first child
+    /// that is a body or a frameset and looks no deeper.
+    /// </remarks>
+    internal virtual JsValue Body(DomRealm realm, IDocument document)
+    {
+        if (document.DocumentElement is not { } root
+            || !string.Equals(root.LocalName, "html", StringComparison.Ordinal)
+            || !string.Equals(root.NamespaceUri, NamespaceNames.HtmlUri, StringComparison.Ordinal))
+        {
+            return JsValue.Null;
+        }
+
+        return realm.WrapNodeValue(document.Body);
+    }
+
+    /// <summary>
     /// https://html.spec.whatwg.org/multipage/dom.html#dom-document-currentscript — the script whose text is
     /// running. AngleSharp 1.7.3 tracks its own execution path, but the page's parser driver also schedules
     /// and executes scripts itself, so its current-script scope remains authoritative for a page.
