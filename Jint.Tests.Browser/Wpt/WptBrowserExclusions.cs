@@ -444,7 +444,7 @@ internal static class WptBrowserExclusions
         ["custom-elements/HTMLElement-constructor-customized-builtins.html"] = 2,
         ["custom-elements/HTMLElement-constructor.html"] = 12,
         ["custom-elements/attribute-changed-callback.html"] = 13,
-        ["custom-elements/builtin-coverage.html"] = 441,
+        ["custom-elements/builtin-coverage.html"] = 444,
         ["custom-elements/connected-callbacks-template.html"] = 1,
         ["custom-elements/customized-built-in-constructor-exceptions.html"] = 5,
         ["custom-elements/historical.html"] = 3,
@@ -848,87 +848,6 @@ internal static class WptBrowserExclusions
         new("html/webappapis/scripting/processing-model-2/runtime-error-same-origin-with-hash.html", "window.onerror - runtime error in <script src=...> with hash", WptDivergence.NeedsTriage),
     ];
 
-    // ------------------------------------------- 4. an obsolete element interface AngleSharp does not have
-    private static readonly WptExclusion[] _4AnObsoleteElementInterfaceAngleSharpDoesNotHave =
-    [
-        // Four elements, one shape of gap. HTML gives each of them an interface of its own; the pinned
-        // assemblies model each as a plain HTMLElement, so there is nowhere for a `reflected` row to put the
-        // members. Putting them on HTMLElement instead would give `compact` to every element, which is worse
-        // than not having it. Declaring the interface by local name is what DomManualInterfaces does for
-        // <frameset>; doing it for these four is a change of its own, and Dom/divergences.md records it.
-        //
-        // <dl> is the first, and its one member is the obsolete `compact`: there is no IHtmlDListElement and
-        // no [DomName("HTMLDListElement")] anywhere in the pinned assemblies.
-        //
-        // Thirteen rows rather than one `dl.compact: *`, because one of the member's tests passes by
-        // accident and the two-sided rule will not have it covered: `IDL set to true` asserts
-        // `hasAttribute('compact')` is true, and the attribute is still there from the `setAttribute()` half
-        // that ran before it. The expando the assignment really made is invisible to that assertion.
-        new("html/dom/reflection-grouping.html", "dl.compact: typeof IDL attribute", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-grouping.html", "dl.compact: IDL get with DOM attribute unset", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-grouping.html", "dl.compact: setAttribute() to *", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-grouping.html", "dl.compact: IDL set to \"*", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-grouping.html", "dl.compact: IDL set to object \"*", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-grouping.html", "dl.compact: IDL set to undefined", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-grouping.html", "dl.compact: IDL set to 7", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-grouping.html", "dl.compact: IDL set to 1.5", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-grouping.html", "dl.compact: IDL set to false", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-grouping.html", "dl.compact: IDL set to NaN", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-grouping.html", "dl.compact: IDL set to Infinity", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-grouping.html", "dl.compact: IDL set to -Infinity", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-grouping.html", "dl.compact: IDL set to null", WptDivergence.NeedsTriage),
-
-        // <dir>, <font> and <frame> are the other three, and they arrived with
-        // html/dom/reflection-obsolete.html. HtmlDirectoryElement, HtmlFontElement and HtmlFrameElement
-        // are internal sealed classes with no public interface and no [DomName] at all, so each is an
-        // HTMLElement here and there is nowhere to put the members HTML gives them. <frameset> is the
-        // one of the family that is NOT in this group: DomManualInterfaces declares
-        // HTMLFrameSetElement by local name, so its `cols` and `rows` are reflected members now and its
-        // 76 assertions pass.
-        //
-        // Ten whole-member globs and two families of thirteen. A glob is safe for a member that is
-        // absent outright, because every one of its tests fails; a BOOLEAN member has one test that
-        // passes by accident, which is the same `IDL set to true` <dl> has -- it asserts
-        // hasAttribute() is true, and the attribute is still there from the setAttribute() half that
-        // ran before it.
-        new("html/dom/reflection-obsolete.html", "font.color: *", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-obsolete.html", "font.face: *", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-obsolete.html", "font.size: *", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-obsolete.html", "frame.frameBorder: *", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-obsolete.html", "frame.longDesc: *", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-obsolete.html", "frame.marginHeight: *", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-obsolete.html", "frame.marginWidth: *", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-obsolete.html", "frame.name: *", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-obsolete.html", "frame.scrolling: *", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-obsolete.html", "frame.src: *", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-obsolete.html", "dir.compact: typeof IDL attribute", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-obsolete.html", "dir.compact: IDL get with DOM attribute unset", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-obsolete.html", "dir.compact: setAttribute() to *", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-obsolete.html", "dir.compact: IDL set to \"*", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-obsolete.html", "dir.compact: IDL set to object \"*", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-obsolete.html", "dir.compact: IDL set to undefined", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-obsolete.html", "dir.compact: IDL set to 7", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-obsolete.html", "dir.compact: IDL set to 1.5", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-obsolete.html", "dir.compact: IDL set to false", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-obsolete.html", "dir.compact: IDL set to NaN", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-obsolete.html", "dir.compact: IDL set to Infinity", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-obsolete.html", "dir.compact: IDL set to -Infinity", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-obsolete.html", "dir.compact: IDL set to null", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-obsolete.html", "frame.noResize: typeof IDL attribute", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-obsolete.html", "frame.noResize: IDL get with DOM attribute unset", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-obsolete.html", "frame.noResize: setAttribute() to *", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-obsolete.html", "frame.noResize: IDL set to \"*", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-obsolete.html", "frame.noResize: IDL set to object \"*", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-obsolete.html", "frame.noResize: IDL set to undefined", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-obsolete.html", "frame.noResize: IDL set to 7", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-obsolete.html", "frame.noResize: IDL set to 1.5", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-obsolete.html", "frame.noResize: IDL set to false", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-obsolete.html", "frame.noResize: IDL set to NaN", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-obsolete.html", "frame.noResize: IDL set to Infinity", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-obsolete.html", "frame.noResize: IDL set to -Infinity", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-obsolete.html", "frame.noResize: IDL set to null", WptDivergence.NeedsTriage),
-    ];
-
     // ---------------------------------------------------------------- 8. AngleSharp.Css refuses an unparseable media query
     private static readonly WptExclusion[] _8AngleSharpCssRefusesAnUnparseableMediaQuery =
     [
@@ -1132,7 +1051,6 @@ internal static class WptBrowserExclusions
     [
         new("custom-elements/builtin-coverage.html", "*: Operator 'new' should instantiate a customized built-in element", WptDivergence.NeedsTriage),
         new("custom-elements/builtin-coverage.html", "*: document.createElement() should instantiate a customized built-in element", WptDivergence.NeedsTriage),
-        new("custom-elements/builtin-coverage.html", "dl: Define a customized built-in element", WptDivergence.NeedsTriage),
     ];
 
     // ---------------------------------------------------------------- the parser
@@ -1550,12 +1468,8 @@ internal static class WptBrowserExclusions
         new("dom/nodes/Element-tagName.html", "*ownerDocument", WptDivergence.NeedsTriage),
         new("dom/nodes/Element-tagName.html", "tagName should not*.", WptDivergence.NeedsTriage),
         new("dom/nodes/Node-cloneNode-svg.html", "cloned <use>'*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Node-cloneNode.html", "*(frame)", WptDivergence.NeedsTriage),
         new("dom/nodes/Node-cloneNode.html", "*createHTMLDocument", WptDivergence.NeedsTriage),
         new("dom/nodes/Node-cloneNode.html", "*createProcessingInstruction", WptDivergence.NeedsTriage),
-        new("dom/nodes/Node-cloneNode.html", "*dir)", WptDivergence.NeedsTriage),
-        new("dom/nodes/Node-cloneNode.html", "*dl)", WptDivergence.NeedsTriage),
-        new("dom/nodes/Node-cloneNode.html", "*font)", WptDivergence.NeedsTriage),
         new("dom/nodes/Node-isEqualNode.html", "*ID", WptDivergence.NeedsTriage),
         new("dom/nodes/Node-isEqualNode.html", "*data", WptDivergence.NeedsTriage),
         new("dom/nodes/Node-isEqualNode.html", "*value", WptDivergence.NeedsTriage),
@@ -1582,7 +1496,6 @@ internal static class WptBrowserExclusions
         new("1. an event interface this browser has not built", _1AnEventInterfaceThisBrowserHasNotBuilt),
         new("2. a `data:` URL subresource", _2ADataURLSubresource),
         new("3. a URL's fragment is dropped", _3AURLSFragmentIsDropped),
-        new("4. an obsolete element interface AngleSharp does not have", _4AnObsoleteElementInterfaceAngleSharpDoesNotHave),
         new("5. a DOM prototype has no @@unscopables", _5ADOMPrototypeHasNoUnscopables),
         new("8. AngleSharp.Css refuses an unparseable media query", _8AngleSharpCssRefusesAnUnparseableMediaQuery),
         new("9. a double written with .NET's number format", _9ADoubleWrittenWithNETSNumberFormat),

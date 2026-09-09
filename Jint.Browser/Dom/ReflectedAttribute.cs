@@ -155,6 +155,15 @@ internal sealed class ReflectedAttribute
     /// <summary>The qualified member name — <c>HTMLElement.dir</c> — as a refusal names it.</summary>
     internal string Member { get; }
 
+    /// <summary>
+    /// Whether the IDL type is a <c>USVString</c> whose content attribute contains a URL, which is the one
+    /// kind whose <em>getter</em> has to resolve against the page runtime's current base URL rather than the
+    /// parsed document's. The generated getters make exactly this distinction — <c>ModelBuilder</c> emits
+    /// the realm overload for a <c>url</c> row and for no other — and it is here so that a shape written by
+    /// hand can make it too, rather than paying for the lookup on every reflected read.
+    /// </summary>
+    internal bool ReflectsUrl => _kind == ReflectedKind.Url;
+
     /// <summary>A <c>DOMString</c>, or a <c>DOMString?</c> when <paramref name="nullable"/>.</summary>
     /// <param name="member">The qualified member name.</param>
     /// <param name="attribute">The content attribute reflected.</param>
