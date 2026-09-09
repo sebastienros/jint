@@ -28,6 +28,14 @@ a nested file for the ecosystems the last column says have none — Claude Code 
 already descend and simply arrive at the same file by a second path; nothing is duplicated either way,
 because the pointer is an import rather than a copy.
 
+A recipe too long to sit in the `AGENTS.md` that governs it moves instead to a plain markdown file beside
+the same code — `Jint/Native/Object/host-object-shapes.md` is the first — and is reached only by a pointer
+from that `AGENTS.md`, from the root index row, and from the `.claude/rules` file for the area. No agent
+loads such a file on its own, which is the point: what an agent breaks *before* it knows which file to open
+has to stay in the file it loads, while the recipe for what to do instead is only actionable once that area
+is open anyway. `AgentInstructionFileTests` does not weigh these files — nothing truncates a document no
+agent loads — but every pointer into one, from a file it does weigh, still has to resolve.
+
 **32 KiB is Codex's `project_doc_max_bytes` default**, and it is a running budget across the whole
 root-to-cwd chain rather than a per-file allowance, so a fat root file starves a nested one; overflow is a
 silent mid-file byte truncation whose only signal is a log line below the level `codex exec` prints at. The
