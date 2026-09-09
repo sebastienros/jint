@@ -38,6 +38,7 @@ internal sealed class BrowserEventRealm
     private readonly ObjectInstance?[] _hostPrototypes;
     private readonly Dom.HostInterfaceObject?[] _hostInterfaceObjects;
     private List<PendingActivation>? _pending;
+    private ConditionalWeakTable<IElement, SelectedCoordinate>? _imageCoordinates;
 
     private BrowserEventRealm(Engine engine)
     {
@@ -100,6 +101,51 @@ internal sealed class BrowserEventRealm
     /// every page nobody taps.
     /// </remarks>
     internal TouchSequence? Touches { get; set; }
+
+    /// <summary>
+    /// The image button a pointer release landed inside, and where inside its box, measured from the
+    /// hit-test geometry before any listener of that release could run.
+    /// </summary>
+    /// <remarks>
+    /// https://html.spec.whatwg.org/multipage/input.html#image-button-state-(type=image) — the selected
+    /// coordinate is read at the activation behaviour, which is after every <c>pointerup</c>,
+    /// <c>mouseup</c> and <c>click</c> listener, and any one of them may move the input, adopt it into
+    /// another document or take it out of the tree. So the geometry is captured up front and only
+    /// <i>promoted</i> to a selected coordinate if the activation actually runs; a release whose click was
+    /// cancelled leaves this behind and nothing reads it. It is per engine and lives for one release, like
+    /// <see cref="MousePressTarget"/>, which is why it holds no wrapper and pins no document.
+    /// </remarks>
+    internal (IElement Image, int X, int Y)? PendingImagePoint { get; set; }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/input.html#image-button-state-(type=image) — the coordinate
+    /// <paramref name="image"/>'s last activation selected, and (0, 0) for a button that has none.
+    /// </summary>
+    internal (int X, int Y) SelectedImageCoordinate(IElement image)
+        => _imageCoordinates is not null && _imageCoordinates.TryGetValue(image, out var selected)
+            ? (selected.X, selected.Y)
+            : (0, 0);
+
+    /// <summary>
+    /// What an image button's activation behaviour selected, which stands until that button is activated
+    /// again — a <c>FormData</c> constructed from the button long after the click reads exactly this.
+    /// </summary>
+    /// <remarks>
+    /// Per element rather than one slot, because HTML gives every image button a selected coordinate of its
+    /// own and a form may hold several; keyed weakly for the reason the wrapper cache is, so a button
+    /// dropped by both the tree and script takes its coordinate with it. The default costs no table at all:
+    /// the (0, 0) every activation that selected nothing sets is stored as the absence of an entry.
+    /// </remarks>
+    internal void SelectImageCoordinate(IElement image, int x, int y)
+    {
+        if (x == 0 && y == 0)
+        {
+            _imageCoordinates?.Remove(image);
+            return;
+        }
+
+        (_imageCoordinates ??= new ConditionalWeakTable<IElement, SelectedCoordinate>()).AddOrUpdate(image, new SelectedCoordinate(x, y));
+    }
 
     /// <summary>
     /// Where an activation behaviour's default action goes — a hyperlink to follow, a form to submit, a file
@@ -283,6 +329,9 @@ internal sealed class BrowserEventRealm
 
     /// <summary>https://dom.spec.whatwg.org/#inner-event-creation-steps step 3, the event's time stamp.</summary>
     internal double TimeStamp => Engine._webApi?.CurrentHighResolutionTime ?? 0;
+
+    /// <summary>One image button's selected coordinate, a class because a weak table's value is a reference.</summary>
+    private sealed record SelectedCoordinate(int X, int Y);
 }
 
 /// <summary>What kind of default action an activation behaviour asked its host for.</summary>

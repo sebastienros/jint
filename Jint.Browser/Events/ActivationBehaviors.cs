@@ -146,7 +146,7 @@ internal static class ActivationBehaviors
                 return;
 
             case IHtmlInputElement input:
-                RunInput(realm, wrapper, input);
+                RunInput(realm, wrapper, input, ev);
                 return;
 
             case IHtmlLabelElement label:
@@ -200,7 +200,7 @@ internal static class ActivationBehaviors
     }
 
     /// <summary>https://html.spec.whatwg.org/multipage/input.html#input-activation-behavior.</summary>
-    private static void RunInput(BrowserEventRealm realm, DomNodeObject wrapper, IHtmlInputElement input)
+    private static void RunInput(BrowserEventRealm realm, DomNodeObject wrapper, IHtmlInputElement input, JsEvent ev)
     {
         if (input.IsDisabled)
         {
@@ -216,12 +216,19 @@ internal static class ActivationBehaviors
             case "image":
                 // The image activation algorithm returns before selecting a coordinate if its document is
                 // no longer fully active (a click listener can adopt the input into another document).
-                if (input.Form is not null
-                    && (Runtime.PageRuntime.Find(wrapper.Engine) is not { } runtime || ReferenceEquals(input.Owner, runtime.Document)))
+                if (input.Form is null)
                 {
-                    FormSubmission.Submit(wrapper.DomRealm, input.Form, input);
+                    return;
                 }
 
+                var page = Runtime.PageRuntime.Find(wrapper.Engine);
+                if (page is not null && !ReferenceEquals(input.Owner, page.Document))
+                {
+                    return;
+                }
+
+                SelectCoordinate(realm, page, input, ev);
+                FormSubmission.Submit(wrapper.DomRealm, input.Form, input);
                 return;
 
             case "reset":
@@ -257,6 +264,41 @@ internal static class ActivationBehaviors
             default:
                 return;
         }
+    }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/input.html#image-button-state-(type=image): "if the element
+    /// has an image, and the user activated the button using a pointing device, the selected coordinate is
+    /// the position of the pointer relative to the image; otherwise it is (0, 0)". Every activation sets
+    /// one, which is what makes a synthetic <c>click()</c> after a real one select nothing again.
+    /// </summary>
+    /// <remarks>
+    /// <b>Three conditions, and each excludes a real case.</b> The image must be <i>completely available</i>
+    /// (<c>Media.PageImages</c>): an <c>&lt;input type=image&gt;</c> with no <c>src</c>, one whose fetch
+    /// failed and one whose bytes are not a container this browser reads have nothing to select within, and
+    /// HTML makes every one of them behave as a plain submit button. The activation must be trusted, because
+    /// <c>element.click()</c> and a dispatched <c>MouseEvent</c> are a script rather than a user — HTML asks
+    /// for a pointing device. And the pointer must have been measured inside <i>this</i> button
+    /// (<see cref="BrowserEventRealm.PendingImagePoint"/>), which excludes a keyboard activation, a
+    /// <c>&lt;label&gt;</c>'s forwarded click and a script's click fired from inside a listener of a real
+    /// release on some other element.
+    /// </remarks>
+    private static void SelectCoordinate(
+        BrowserEventRealm realm,
+        Runtime.PageRuntime? page,
+        IHtmlInputElement input,
+        JsEvent ev)
+    {
+        if (ev.IsTrusted
+            && realm.PendingImagePoint is { } point
+            && ReferenceEquals(point.Image, input)
+            && page?.ImagesIfLoaded?.Find(input) is { State: Media.ImageAvailability.CompletelyAvailable })
+        {
+            realm.SelectImageCoordinate(input, point.X, point.Y);
+            return;
+        }
+
+        realm.SelectImageCoordinate(input, 0, 0);
     }
 
     /// <summary>
