@@ -276,7 +276,14 @@
     "intl402/Temporal/PlainDate/prototype/daysInYear/basic-islamic-umalqura.js",
     "intl402/Temporal/PlainDate/prototype/inLeapYear/basic-islamic-umalqura.js",
     "intl402/Temporal/PlainDate/prototype/with/basic-islamic-umalqura.js",
+    // The three `*/prototype/withCalendar/extreme-dates.js` files are out on `chinese`, not on a
+    // calendar this branch reckons: their persian rows pass since #3751 was backported, and the run
+    // now stops at "chinese minimum non-approximated date". That is the lunisolar reckoning chain
+    // (#3482/#3502/#3519), which 4.x does not carry -- on main these four came out together.
     "intl402/Temporal/PlainDate/prototype/withCalendar/extreme-dates.js",
+    // Still out, but on a range check rather than a calendar: one of its extremes raises
+    // "Date is outside valid range" from PlainDateTime.from. The persian rows it shares with the
+    // withCalendar files pass (https://github.com/sebastienros/jint/issues/3604).
     "intl402/Temporal/PlainDateTime/from/extreme-dates.js",
     "intl402/Temporal/PlainDateTime/from/roundtrip-from-property-bag.js",
     "intl402/Temporal/PlainDateTime/prototype/daysInMonth/basic-islamic-umalqura.js",
@@ -291,7 +298,6 @@
     "intl402/Temporal/PlainYearMonth/prototype/daysInMonth/basic-islamic-umalqura.js",
     "intl402/Temporal/PlainYearMonth/prototype/daysInYear/basic-islamic-umalqura.js",
     "intl402/Temporal/PlainYearMonth/prototype/inLeapYear/basic-islamic-umalqura.js",
-    "intl402/Temporal/ZonedDateTime/from/extreme-dates.js",
     "intl402/Temporal/ZonedDateTime/from/roundtrip-from-property-bag.js",
     "intl402/Temporal/ZonedDateTime/prototype/daysInMonth/basic-islamic-umalqura.js",
     "intl402/Temporal/ZonedDateTime/prototype/daysInYear/basic-islamic-umalqura.js",
