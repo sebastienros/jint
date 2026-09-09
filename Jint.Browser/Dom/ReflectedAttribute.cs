@@ -17,6 +17,13 @@ namespace Jint.Browser.Dom;
 /// element's. All six are a string or an enumeration, which is why only those two factories take one — a
 /// numeric or boolean member reflecting onto another element does not exist, and the generator refuses to
 /// invent one.
+/// <para>
+/// <b>Both names are HTML's defined elements and neither is a tree position</b>, so both are resolved through
+/// <see cref="DomDocumentElements"/>: "the html element" is the document element only while that element is
+/// an <c>html</c> one in the HTML namespace, and "the body element" is a <c>body</c>-or-<c>frameset</c> child
+/// of <em>that</em>. Reading them off <c>IDocument.DocumentElement</c> and <c>IDocument.Body</c> instead is
+/// what made <c>document.bgColor</c> answer a body a document rooted at an XHTML <c>div</c> does not have.
+/// </para>
 /// </remarks>
 internal enum ReflectedTarget
 {
@@ -282,10 +289,18 @@ internal sealed class ReflectedAttribute
     }
 
     /// <summary>The element a <see cref="ReflectedTarget"/> names in <paramref name="document"/>.</summary>
+    /// <remarks>
+    /// Both are <see cref="DomDocumentElements"/>' and neither is AngleSharp's, because both members name one
+    /// of HTML's two <em>defined</em> elements rather than the tree position it usually occupies: <c>dir</c>
+    /// reflects "the html element", which is the document element only while that element is an <c>html</c>
+    /// one in the HTML namespace, and the colours reflect "the body element", which is a child of that.
+    /// AngleSharp's <c>Body</c> asks neither question, so <c>document.bgColor</c> on a document rooted at an
+    /// XHTML <c>div</c> read the nested <c>body</c>'s attribute where the standard has no target at all.
+    /// </remarks>
     private IElement? ElementIn(IDocument document) => _target switch
     {
-        ReflectedTarget.DocumentElement => document.DocumentElement,
-        ReflectedTarget.Body => document.Body,
+        ReflectedTarget.DocumentElement => DomDocumentElements.Html(document),
+        ReflectedTarget.Body => DomDocumentElements.Body(document),
         _ => null,
     };
 

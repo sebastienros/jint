@@ -606,26 +606,17 @@ internal class DomHostHooks
     /// no html element.
     /// </summary>
     /// <remarks>
-    /// The gate is the whole of this hook. "The html element of a document is its document element, if it is
-    /// an <c>html</c> element, and null otherwise", and an <c>html</c> element is one in the HTML namespace
-    /// with that local name — so a document whose root is an XHTML <c>div</c>, or an <c>html</c> from some
-    /// other namespace, has no body element however many <c>body</c> children that root has. AngleSharp's
-    /// getter walks <c>DocumentElement.ChildNodes</c> without asking what the document element is, which is
-    /// the standard's own counter-example (a body inserted beneath an SVG document element) answered wrongly.
-    /// Past the gate the search is AngleSharp's, because that half already matches: it takes the first child
-    /// that is a body or a frameset and looks no deeper.
+    /// The gate is the whole of this hook, and it is <see cref="DomDocumentElements"/>' because the five
+    /// obsolete colour members of <c>Document</c> reflect onto the same element and need the same answer.
+    /// "The html element of a document is its document element, if it is an <c>html</c> element, and null
+    /// otherwise", and an <c>html</c> element is one in the HTML namespace with that local name — so a
+    /// document whose root is an XHTML <c>div</c>, or an <c>html</c> from some other namespace, has no body
+    /// element however many <c>body</c> children that root has. AngleSharp's getter walks
+    /// <c>DocumentElement.ChildNodes</c> without asking what the document element is, which is the standard's
+    /// own counter-example (a body inserted beneath an SVG document element) answered wrongly.
     /// </remarks>
     internal virtual JsValue Body(DomRealm realm, IDocument document)
-    {
-        if (document.DocumentElement is not { } root
-            || !string.Equals(root.LocalName, "html", StringComparison.Ordinal)
-            || !string.Equals(root.NamespaceUri, NamespaceNames.HtmlUri, StringComparison.Ordinal))
-        {
-            return JsValue.Null;
-        }
-
-        return realm.WrapNodeValue(document.Body);
-    }
+        => realm.WrapNodeValue(DomDocumentElements.Body(document));
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/dom.html#dom-document-currentscript — the script whose text is
