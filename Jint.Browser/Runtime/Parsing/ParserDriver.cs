@@ -108,8 +108,10 @@ internal sealed class ParserDriver : IDisposable
             // Selectors §8.2 matches :target only for the document's target element. AngleSharp compares
             // each candidate's ID with its owner document's fragment, so duplicate IDs, shadow descendants
             // and disconnected clones can all match instead of the one HTML indicated element. The same
-            // factory keeps §13.1's :enabled off links, which have no disabled state, while delegating form
-            // controls to AngleSharp's existing selector.
+            // factory also owns HTML §4.15's disabled state, which is what :enabled and :disabled ask
+            // about: AngleSharp reads the boolean `disabled` attribute's value rather than its presence on
+            // an optgroup or a fieldset, disables neither of those from the select or the outer fieldset
+            // above it, and gives a link a disabled state at all.
             .WithOnly<AngleSharp.Css.IPseudoClassSelectorFactory>(new PagePseudoClassSelectorFactory())
             // https://html.spec.whatwg.org/multipage/document-lifecycle.html#read-xml — a document whose
             // content type is an XML MIME type is parsed by the XML parser, and without the factory
