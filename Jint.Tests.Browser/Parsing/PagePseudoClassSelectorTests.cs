@@ -718,4 +718,173 @@ public sealed class PagePseudoClassSelectorTests
             })()
             """)).Should().Be("true|true|details|details|1|details:closed|rgba(1, 2, 3, 1)");
     }
+    /// <summary>
+    /// HTML §4.16.3 matches <c>:in-range</c> and <c>:out-of-range</c> only against an element which is a
+    /// candidate for constraint validation <i>and</i> has range limitations. AngleSharp asks neither
+    /// question: its <c>IsInRange()</c> is "any <c>IValidation</c> element that is neither overflowing nor
+    /// underflowing", so every input the <c>min</c> and <c>max</c> attributes do not apply to matched
+    /// <c>:in-range</c>, and so did one they do apply to that carries neither.
+    /// </summary>
+    [Test]
+    public async Task InRangeNeedsBothACandidateAndRangeLimitations()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <!doctype html><html><body>
+              <input type="number" value="0" min="0" max="10" id="numberIn">
+              <input type="number" value="0" min="1" max="10" id="numberUnder">
+              <input type="number" value="11" min="0" max="10" id="numberOver">
+              <input type="number" value="0" min="0" max="10" id="numberDisabled" disabled>
+              <input type="number" value="0" min="0" max="10" id="numberReadOnly" readonly>
+              <input type="number" value="0" id="numberNoLimit">
+              <input type="date" min="2005-10-10" max="2020-10-10" value="2010-10-10" id="dateIn">
+              <input type="date" min="2010-10-10" max="2020-10-10" value="2005-10-10" id="dateUnder">
+              <input type="date" value="2010-10-10" id="dateNoLimit">
+              <input type="month" min="2000-04" value="2000-06" id="monthMinOnly">
+              <input type="text" min="1" value="0" id="text">
+              <input type="checkbox" min="1" id="checkbox">
+              <input type="hidden" min="1" value="0" id="hidden">
+              <textarea id="textarea"></textarea>
+            </body></html>
+            """);
+
+        (await page.EvaluateAsync<string>("""
+            (() => {
+              const ids = ['numberIn', 'numberUnder', 'numberOver', 'numberDisabled', 'numberReadOnly',
+                'numberNoLimit', 'dateIn', 'dateUnder', 'dateNoLimit', 'monthMinOnly', 'text', 'checkbox',
+                'hidden', 'textarea'];
+              const states = ids.map(id => {
+                const element = document.getElementById(id);
+                return id + ':' + element.matches(':in-range') + ':' + element.matches(':out-of-range');
+              }).join(',');
+              numberIn.value = -10;
+              return states + '|' + numberIn.matches(':in-range') + ':' + numberIn.matches(':out-of-range');
+            })()
+            """)).Should().Be(
+            "numberIn:true:false,numberUnder:false:true,numberOver:false:true," +
+            "numberDisabled:false:false,numberReadOnly:false:false,numberNoLimit:false:false," +
+            "dateIn:true:false,dateUnder:false:true,dateNoLimit:false:false,monthMinOnly:true:false," +
+            "text:false:false,checkbox:false:false,hidden:false:false,textarea:false:false|false:true");
+    }
+
+    /// <summary>
+    /// HTML §4.10.5.4 gives the Range state a default minimum of 0 and a default maximum of 100, so a range
+    /// control always has range limitations; and its value sanitization algorithm clamps the value to the
+    /// nearest boundary point, so it can suffer neither an underflow nor an overflow. AngleSharp reads the
+    /// content attribute back unclamped, so a value outside the range reported both.
+    /// </summary>
+    [Test]
+    public async Task ARangeControlIsAlwaysInRangeBecauseItsValueIsClamped()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <!doctype html><html><body>
+              <input type="range" value="50" id="noLimits">
+              <input type="range" min="2" max="7" value="5" id="within">
+              <input type="range" min="2" max="7" value="1" id="below">
+              <input type="range" min="2" max="7" value="9" id="above">
+              <input type="range" min="2" max="7" value="5" id="disabled" disabled>
+            </body></html>
+            """);
+
+        (await page.EvaluateAsync<string>("""
+            (() => {
+              const ids = ['noLimits', 'within', 'below', 'above', 'disabled'];
+              const states = ids.map(id => {
+                const element = document.getElementById(id);
+                return id + ':' + element.matches(':in-range') + ':' + element.matches(':out-of-range');
+              }).join(',');
+              const inRange = Array.from(document.querySelectorAll(':in-range'), e => e.id).join(',');
+              const out = document.querySelectorAll(':out-of-range').length;
+              return states + '|' + inRange + '|' + out;
+            })()
+            """)).Should().Be(
+            "noLimits:true:false,within:true:false,below:true:false,above:true:false,disabled:false:false|" +
+            "noLimits,within,below,above|0");
+    }
+
+    /// <summary>
+    /// HTML §4.16.3 matches <c>:valid</c> and <c>:invalid</c> against elements which are <i>candidates for
+    /// constraint validation</i>, so an element §4.10.19.2 bars from it matches neither. AngleSharp's
+    /// <c>IsInvalid()</c> is <c>!CheckValidity()</c> and its <c>CheckValidity()</c> is
+    /// <c>WillValidate &amp;&amp; Validity.IsValid</c>, so a barred element answered <c>false</c> and came
+    /// back <c>:invalid</c> — a disabled control, a read-only one, a hidden input and a reset button all did.
+    /// </summary>
+    [Test]
+    public async Task ValidAndInvalidMatchNeitherWhenTheElementIsBarredFromConstraintValidation()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <!doctype html><html><body>
+              <input id="satisfied" required value="x">
+              <input id="failing" required value="">
+              <input id="disabledFailing" required value="" disabled>
+              <input id="readOnlyFailing" required value="" readonly>
+              <input id="hidden" type="hidden" required value="">
+              <input id="reset" type="reset">
+              <button id="button" type="button"></button>
+              <button id="submit" type="submit"></button>
+              <div id="ordinary"></div>
+            </body></html>
+            """);
+
+        (await page.EvaluateAsync<string>("""
+            (() => {
+              const ids = ['satisfied', 'failing', 'disabledFailing', 'readOnlyFailing', 'hidden', 'reset',
+                'button', 'submit', 'ordinary'];
+              const states = ids.map(id => {
+                const element = document.getElementById(id);
+                return id + ':' + element.matches(':valid') + ':' + element.matches(':invalid');
+              }).join(',');
+              disabledFailing.disabled = false;
+              return states + '|' + disabledFailing.matches(':valid') + ':' + disabledFailing.matches(':invalid');
+            })()
+            """)).Should().Be(
+            "satisfied:true:false,failing:false:true,disabledFailing:false:false,readOnlyFailing:false:false," +
+            "hidden:false:false,reset:false:false,button:false:false,submit:true:false,ordinary:false:false|" +
+            "false:true");
+    }
+
+    /// <summary>
+    /// HTML §4.16.3's third category: a <c>fieldset</c> is <c>:invalid</c> when a descendant of it is a
+    /// candidate for constraint validation that does not satisfy its constraints, and <c>:valid</c> otherwise.
+    /// AngleSharp's <c>IsValid()</c> answers only for an <c>IValidation</c> element and a form, and a fieldset
+    /// is barred from constraint validation itself, so it came back <c>:invalid</c> whatever it contained.
+    /// </summary>
+    [Test]
+    public async Task AFieldsetIsInvalidWhenADescendantCandidateDoesNotSatisfyItsConstraints()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <!doctype html><html><body>
+              <fieldset id="empty"></fieldset>
+              <fieldset id="satisfied"><input required value="x"></fieldset>
+              <fieldset id="failing"><input id="inner" required value=""></fieldset>
+              <fieldset id="barred"><input required value="" disabled></fieldset>
+              <fieldset id="nested"><fieldset id="inner2"><input required value=""></fieldset></fieldset>
+            </body></html>
+            """);
+
+        (await page.EvaluateAsync<string>("""
+            (() => {
+              const ids = ['empty', 'satisfied', 'failing', 'barred', 'nested', 'inner2'];
+              const before = ids.map(id => {
+                const element = document.getElementById(id);
+                return id + ':' + element.matches(':valid') + ':' + element.matches(':invalid');
+              }).join(',');
+              inner.value = 'x';
+              const after = failing.matches(':valid') + ':' + failing.matches(':invalid');
+              const detached = document.getElementById('satisfied');
+              detached.remove();
+              detached.querySelector('input').setCustomValidity('nope');
+              return before + '|' + after + '|' + detached.matches(':valid') + ':' + detached.matches(':invalid');
+            })()
+            """)).Should().Be(
+            "empty:true:false,satisfied:true:false,failing:false:true,barred:true:false," +
+            "nested:false:true,inner2:false:true|true:false|false:true");
+    }
 }
