@@ -311,6 +311,45 @@ The in-box overrides are gone with it — `ArrayInstance`, `Function`, `JsRegExp
 `ObjectWrapper`, `ArrayLikeObject`, `NamedPropertyObject` and six others each declared their keys twice, and
 now declare them once. Two of those pairs did not agree; see [4.45](#4-45-getownproperties-reports-what-the-key-enumerations-report-3461).
 
+### 2.8 `Jint.Browser.Playwright` is gone; drive the page over CDP instead
+
+The preview package `Jint.Browser.Playwright` — a direct implementation of Microsoft.Playwright's public
+browser interfaces over `Jint.Browser`, entered through `JintPlaywright.BrowserType` — is removed and will
+not ship in 5.0. It was never released outside the preview feed.
+
+**Why.** Playwright for .NET's interfaces are not an extension point. Its own code casts them straight to
+the concrete implementation types, so an object that is not Playwright's own cannot be passed back in:
+`Assertions.Expect(ILocator)` constructs a `LocatorAssertions` whose constructor runs `(Locator)locator`,
+`Assertions.Expect(IPage)` a `PageAssertions` whose constructor runs `(Page)page`, and
+`IBrowserContext.NewCDPSessionAsync(IPage)` reads `((Page)page).Guid`. And `IPlaywright` names exactly three
+browsers — `Chromium`, `Firefox` and `Webkit`, with `PlaywrightImpl`'s indexer throwing
+`ArgumentException("Unknown browser type: …")` for a fourth — so the thing the package was for, pointing
+existing Playwright code at Jint, was never reachable.
+
+**What to use instead.** Real Microsoft.Playwright, over the Chrome DevTools Protocol. `Jint.Browser` serves
+the protocol for a page it is already running, and Playwright attaches to it the same way it attaches to a
+Chrome you did not launch:
+
+```csharp
+// The endpoint: the jint-browser tool, or a DevToolsServer your own process starts.
+//   jint-browser serve --host 127.0.0.1 --port 9222
+using var playwright = await Playwright.CreateAsync();
+await using var browser = await playwright.Chromium.ConnectOverCDPAsync("http://127.0.0.1:9222");
+
+// connectOverCDP adopts the browser's existing contexts rather than making one.
+var page = await browser.Contexts[0].NewPageAsync();
+
+await page.GotoAsync("https://example.org/");
+await page.Locator("#save").ClickAsync();
+await Assertions.Expect(page.Locator("#saved")).ToBeVisibleAsync();
+```
+
+That path is real Playwright throughout — its locators, its waiting, its assertions — and it is the one the
+`browser clients` CI leg exercises on every run. No browser executable and no `playwright install` step is
+involved; the driver is Playwright's own Node process, talking to Jint. See
+[Serve CDP](../packages/jint-browser-tool/serve-cdp.md). Anything that needs pixels — screenshots, PDF,
+video — was outside the removed package as well, because this browser has no renderer.
+
 ## 3. Renamed and reshaped API
 
 ### 3.1 The `string` overloads of `Engine.Call` and `Engine.Construct` are gone ([#3309](https://github.com/sebastienros/jint/pull/3309))
@@ -5591,7 +5630,6 @@ none of it changes an engine that does not.
 | When each hop went out and when its response headers came back, so a host can report a real time to first byte | `ObservedFetchResponse.Timing`, on the observer you already set | [§5.29](#5-29-an-observed-response-says-when-its-hop-went-out-and-when-its-headers-came-back-3701) |
 | The Chrome DevTools Protocol over a WebSocket, so a debugging client can attach to an engine your host is already running | `dotnet add package Jint.DevTools`, then `options.UseDevTools()` | [Jint.DevTools](../packages/jint-devtools/index.md) |
 | A headless browser — AngleSharp's DOM under Jint, drivable by Puppeteer and Playwright, plus a `jint-browser` command line | `dotnet add package Jint.Browser`, or `dotnet tool install -g Jint.Browser.Tool` | [Jint.Browser](../packages/jint-browser/index.md) |
-| Playwright for .NET's public browser interfaces over that headless browser, without Node, CDP or a WebSocket | `dotnet add package Jint.Browser.Playwright`, then use `JintPlaywright.BrowserType` | [Jint.Browser.Playwright](../packages/jint-browser-playwright/index.md) |
 | A Model Context Protocol server over that browser, so an agent reads a page as its accessibility tree and clicks its way through it | `jint-browser mcp`, or `AddMcpServer().AddJintBrowser()` in a host of your own | [Jint.Browser.Mcp](../packages/jint-browser-mcp/index.md) |
 | The names of the global `let`/`const`/`class` declarations, which `globalThis` does not carry | `engine.Advanced.GetGlobalLexicalNames()` | [§5.27](#5-27-a-host-can-list-the-global-lexical-bindings-3610) |
 | The program a function value was parsed in, so a tooling protocol resolves its script by identity | `function.Program`, beside `FunctionDeclaration` | [§5.28](#5-28-a-function-value-names-the-program-it-was-parsed-in-3666) |
@@ -6400,15 +6438,13 @@ has none.
 guard can only fire for an event a host's own `createEvent` produced — `Jint.Browser`'s — and a re-entrant
 dispatch still reports the message it always did.
 
-### 5.26 Five packages of their own, outside the engine's contract ([#3575](https://github.com/sebastienros/jint/issues/3575))
+### 5.26 Four packages of their own, outside the engine's contract ([#3575](https://github.com/sebastienros/jint/issues/3575))
 
-Five new packages ship beside `Jint`, and nothing about them reaches an engine that does not reference one.
+Four new packages ship beside `Jint`, and nothing about them reaches an engine that does not reference one.
 `Jint.DevTools` serves the Chrome DevTools Protocol for an engine your host is already running;
 `Jint.Browser` adds AngleSharp's DOM, a page runtime and the page-level protocol domains on top of it;
-`Jint.Browser.Playwright` implements Playwright for .NET's public browser interfaces directly over that
-runtime, without Playwright's Node driver or a CDP connection;
 `Jint.Browser.Mcp` is a Model Context Protocol server over that, for an agent rather than a client; and
-`Jint.Browser.Tool` is the `jint-browser` command line over both, installed rather than referenced. All five
+`Jint.Browser.Tool` is the `jint-browser` command line over both, installed rather than referenced. All four
 are `net8.0` and later.
 
 **There is nothing to migrate.** They are additive, they are separate packages, and they are outside the
@@ -6764,9 +6800,8 @@ first `touchmove`) gets none of them, which is exactly what a carousel or a cust
 
 The protocol reaches the same dispatcher through
 [`Input.dispatchTouchEvent`](https://chromedevtools.github.io/devtools-protocol/tot/Input/#method-dispatchTouchEvent),
-with the multi-touch, move and cancel cases the public API does not spell; and `Jint.Browser.Playwright` maps
-Playwright's `hasTouch` context option, `ILocator.TapAsync`, `IPage.TapAsync` and `IPage.Touchscreen.TapAsync`
-onto it — a tap without `hasTouch` is refused in Playwright's own words, as Playwright refuses it.
+with the multi-touch, move and cancel cases the public API does not spell, so a client driving the page over
+CDP — Playwright's `hasTouch` and `TapAsync`, Puppeteer's `Page.tap` — reaches the same finger.
 
 ## 6. AOT and trimming
 

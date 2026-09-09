@@ -165,7 +165,6 @@ const packageReadmes = [
   "README.md",
   "Jint.DevTools/README.md",
   "Jint.Browser/README.md",
-  "Jint.Browser.Playwright/README.md",
   "Jint.Browser.Tool/README.md",
   "Jint.Browser.Mcp/README.md"
 ];

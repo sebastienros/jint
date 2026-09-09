@@ -8,7 +8,6 @@ const previewSectionPrefixes = [
   "guide/web-apis",
   "packages/jint-devtools",
   "packages/jint-browser",
-  "packages/jint-browser-playwright",
   "packages/jint-browser-tool",
   "packages/jint-browser-mcp"
 ];
