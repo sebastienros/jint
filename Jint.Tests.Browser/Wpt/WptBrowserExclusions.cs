@@ -1291,19 +1291,6 @@ internal static class WptBrowserExclusions
         new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: *\"http://example.com/\",\";:a\",null*", WptDivergence.NeedsTriage),
     ];
 
-    // ---------------------------------------------------------------- a document upstream runs once per variant
-    private static readonly WptExclusion[] _aDocumentUpstreamRunsOncePerVariant =
-    [
-        // Not about Range at all, which is what triaging the two rows one at a time said. The document
-        // declares `<meta name="variant" content="?mode=open">` and its closed sibling, and reads the mode
-        // out of location.search; upstream's runner turns each variant into a case of its own and this lane
-        // serves the bare path, so `mode` is null and `attachShadow({mode: null})` is the TypeError WebIDL's
-        // enum conversion owes a browser too. Running variants changes how a case is enumerated -- the case
-        // source, the minimum-test keys, the exclusion keys and both census columns -- so it is a change to
-        // the lane rather than to the engine.
-        new("dom/ranges/Range-in-shadow-after-the-shadow-removed.html", "*", WptDivergence.NeedsTriage),
-    ];
-
     // ---------------------------------------------------------------- Range's own algorithms
     private static readonly WptExclusion[] _rangeSOwnAlgorithms =
     [
@@ -1491,7 +1478,6 @@ internal static class WptBrowserExclusions
         new("a member of a DOM interface the bindings do not have", _aMemberOfADOMInterfaceTheBindingsDoNotHave),
         new("DOM's validate-and-extract, and the XML name productions", _dOMSValidateAndExtractAndTheXMLNameProductions),
         new("a name AngleSharp refuses that the standard allows", _aNameAngleSharpRefusesThatTheStandardAllows),
-                new("a document upstream runs once per variant", _aDocumentUpstreamRunsOncePerVariant),
         new("a tag query's namespace and local-name identity", _aTagQuerySNamespaceAndLocalNameIdentity),
         new("Range's own algorithms", _rangeSOwnAlgorithms),
         new("a document with no browsing context", _aDocumentWithNoBrowsingContext),
