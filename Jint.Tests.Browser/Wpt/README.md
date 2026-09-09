@@ -37,11 +37,12 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `html/webappapis/scripting/events/` | 12 | 0 | 37 | 2 |
 | `html/webappapis/scripting/processing-model-2/` | 25 | 0 | 44 | 5 |
 | `html/semantics/embedded-content/the-img-element/` | 4 | 0 | 99 | 0 |
+| `html/semantics/selectors/pseudo-classes/` | 27 | 0 | 122 | 68 |
 | `custom-elements/` | 16 | 0 | 513 | 13 |
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 52 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 0 |
-| **total** | **365** | **9** | **66,794** | **852** |
+| **total** | **392** | **9** | **66,916** | **920** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -267,6 +268,40 @@ is one. Their siblings are about other interfaces — `HTMLFormControlsCollectio
 `RadioNodeList`, `DOMStringList` and HTML's obsolete document colours — and vendoring one moves the census's
 `Documents` and `Tests` columns, so it is a change of its own rather than a passenger on this one.
 
+## What the pseudo-classes suite says about this browser
+
+`html/semantics/selectors/pseudo-classes/` is HTML §4.16.3's own suite: one document per selector, run
+against a page's real selector engine rather than against a table of strings. **27 documents, 122 tests, 68
+of which do not pass**, and every failure is one of eleven bounded things AngleSharp's
+`DefaultPseudoClassSelectorFactory` does. That is the reason the suite is here: the page already owns
+`:target`, `:link`/`:visited`/`:any-link`, `:enabled`/`:disabled` and `:default`
+(`Runtime/Parsing/PagePseudoClassSelectorFactory`), and nothing until now measured the rest.
+
+None of these eleven has a row in the cause table above, and that is by construction: the table counts the
+six DOM suites, and every one of these is a failure of this suite alone.
+
+| Tests | What it is |
+| ---: | --- |
+| 20 | **`:read-write` is "mutable" rather than "the `readonly` attribute applies and the control is mutable".** So a checkbox is read-write; and `IsContentEditable` answers false, so an editing host and everything inside one is read-only. Two of the rows want a form-associated custom element. |
+| 10 | **`:in-range` matches any validation candidate that is neither overflowing nor underflowing**, where HTML asks for one that *has* range limitations — so `<input type=text min=0 max=10>` matches. A `range` control's value is also not clamped to its limits, so it can report an overflow §4.10.5.4 says cannot arise. |
+| 9 | **`:dir()` compares its argument with the `dir` content attribute of that element alone.** Directionality is inherited and its `auto` value is resolved from text, so an element declaring no `dir` matches neither keyword. |
+| 8 | **`:valid`/`:invalid` skip the `<fieldset>`.** They answer from `IValidation.CheckValidity()` and a form's; the same document's `<form>` rows pass. Two more documents want a constraint state kept across a removal and across a clone. |
+| 5 | **`:active` is a hyperlink-only flag nothing sets**, so no element matches while a click is in flight. |
+| 5 | **`:focus` is AngleSharp's `IElement.IsFocused`, which nothing assigns.** The page's own focus model is `Events/FocusController`, which is what `document.activeElement` reads, so `focus()` moves the active element where no selector can see it. |
+| 4 | **An opaque colour is serialized as `rgba(r, g, b, 1)`**, and these four rows read `getComputedStyle().color` against a literal. Each already gets the colour the selector should produce; `Dom/divergences.md` records why the process-global switch is not flipped. |
+| 3 | **`:checked` answers for the historical `<menuitem>`**, which `checked.html` keeps two of precisely so that they do not match. |
+| 2 | **`:indeterminate` has no radio-button-group rule**, so an unchecked radio in a group with no checked member never matches. |
+| 1 | **`:placeholder-shown` ignores whether `placeholder` applies to the type state, and never answers for a `<textarea>`.** |
+| 1 | **`:required`/`:optional` read the attribute wherever it is written**, including on a hidden input, which it does not apply to. |
+
+**Four of the directory's files are not vendored and none of the reasons is a defect.** `autofill.html`'s two
+assertions are `test_valid_selector`, which lives in `/css/support/parsing-testcommon.js` — a helper root this
+corpus does not hold — so the file throws at file scope and reports nothing; `indeterminate-radio-group.html`
+is a reftest and its `-ref.html` is the reference it is judged against; and the two `.window.js` files are the
+glob every suite here has. `checked-001-manual.html` is covered by the lane's own `-manual.` marker.
+`focus-iframe.html` *is* vendored, as a frame body: `focus.html` loads it to assert that `:focus` does not
+match a focused element inside a frame.
+
 ## What the DOM corpus says about this browser
 
 All **43 assertions in the eight `dom/collections/` documents pass**, with no exclusions.
@@ -487,7 +522,7 @@ different from the engine lane's. **Almost every row is a document that cannot p
 — a harness `ERROR` or `TIMEOUT` — which is what puts it there rather than in the exclusion table: a harness
 error covers the whole file and no per-test exclusion can name it. The rest are the globs upstream's own
 markers and this lane's directory rule earn, and the helper files of documents nothing here runs. They fall
-into twenty-eight groups; the counts are rows rather than files, since several are globs. Ninety of
+into twenty-nine groups; the counts are rows rather than files, since several are globs. Ninety of
 the rows belong to the six DOM suites, which is what a corpus about every member of every node interface
 costs: half of them are one member reached at file scope. **A twenty-ninth answer is not in this table at
 all**: `WptBrowserExclusions.FrameBodies` names the documents that are vendored and served and never run,
@@ -522,6 +557,7 @@ which is what a fixture sitting beside the cases that load it needs — see belo
 | a DOM frame that runs script | 14 | listed when a frame had neither a document nor a realm; it has a document now ([#3771](https://github.com/sebastienros/jint/issues/3771)) and each row is owed a re-examination against the half that is left. Three have had it: the selector documents are cases |
 | a member reached at file scope | 30 | `createCDATASection` (31 documents, 24 of them `dom/ranges/`, through `dom/common.js`), `createDocument` (5) and `setAttributeNode` (1) |
 | one DOM file each | 3 | a `SyntaxError` no `error` event carries to the harness, and two `MutationObserver` documents waiting for a record that never comes |
+| the pseudo-classes suite's four non-cases | 4 | a helper root this corpus does not hold, a `.window.js` glob, and a reftest with its reference |
 | too slow to be a case | 2 | the six `NodeList-static-length-getter-tampered*` documents and their helper: a static `NodeList` re-reads its tampered `length` getter, so each spends between 5.9 s and 18.8 s and one of them crossed the driver's 30 s deadline on a loaded machine |
 
 **A document can also be vendored, served and never run.** `WptBrowserExclusions.FrameBodies` is that
@@ -535,6 +571,10 @@ the corpus really holds, directly under a suite this lane claims, and no row may
 pattern — a path cannot be absent and served at once. It takes no minimum-test entry and appears in no census
 column, because neither counts anything about a document that reports nothing; what holds it to its job is
 the three cases that load it, which fail loudly if the frame they wait for never arrives.
+
+**There are two rows now.** `focus-iframe.html` is the second: `focus.html` frames it and asserts that
+`:focus` does not match a focused element inside it, which is a document that has to be served and must
+not be a case of its own.
 
 **And that is what let the selector table in.** `Element-matches.html`, `Element-webkitMatchesSelector.html`
 and `ParentNode-querySelector-All.html` are the whole of wpt's Selectors-API suite, run three times over —

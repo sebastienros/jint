@@ -96,6 +96,7 @@ internal static class WptCorpus
         "html/webappapis/scripting/events",
         "html/webappapis/scripting/processing-model-2",
         "html/semantics/embedded-content/the-img-element",
+        "html/semantics/selectors/pseudo-classes",
         "custom-elements",
         "custom-elements/parser",
         "custom-elements/reactions",

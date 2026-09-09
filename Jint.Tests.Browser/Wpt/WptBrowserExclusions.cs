@@ -390,6 +390,12 @@ internal static class WptBrowserExclusions
         ("dom/nodes/MutationObserver-attributes.html", "thirty-four of its tests report and one waits forever for a record the observer never delivers"),
         ("dom/nodes/MutationObserver-childList.html", "the same, after thirty-eight"),
 
+        // ============================================================ html/semantics/selectors/pseudo-classes
+        // HTML §4.16.3's own suite. Four of its files are out, and none of the reasons is a defect.
+        ("html/semantics/selectors/pseudo-classes/autofill.html", "its two assertions are test_valid_selector, which is /css/support/parsing-testcommon.js - a helper root this corpus does not vendor - so the file throws at file scope and reports nothing at all"),
+        ("html/semantics/selectors/pseudo-classes/*.window.js", "a .window.js script, whose generated wrapper this lane does not synthesize"),
+        ("html/semantics/selectors/pseudo-classes/indeterminate-radio-group.html", "a reftest: it loads no testharness.js and is judged against a reference rendering, which this browser has no way to produce"),
+        ("html/semantics/selectors/pseudo-classes/indeterminate-radio-group-ref.html", "the reference of the reftest above"),
     ];
 
     /// <summary>
@@ -419,6 +425,7 @@ internal static class WptBrowserExclusions
     internal static readonly (string Path, string Reason)[] FrameBodies =
     [
         ("dom/nodes/ParentNode-querySelector-All-content.html", "the fixture Element-matches.html, Element-webkitMatchesSelector.html and ParentNode-querySelector-All.html each load into a frame and run their whole table against"),
+        ("html/semantics/selectors/pseudo-classes/focus-iframe.html", "the frame focus.html loads to assert that :focus does not match a focused element inside it"),
     ];
 
     /// <summary>
@@ -855,6 +862,33 @@ internal static class WptBrowserExclusions
         ["html/webappapis/scripting/processing-model-2/window-onerror-with-cross-frame-event-listeners-3.html"] = 1,
         ["html/webappapis/scripting/processing-model-2/window-onerror-with-cross-frame-event-listeners-4.html"] = 1,
         ["html/webappapis/scripting/processing-model-2/window-onerror-with-cross-frame-event-listeners-5.html"] = 1,
+        ["html/semantics/selectors/pseudo-classes/active-disabled.html"] = 5,
+        ["html/semantics/selectors/pseudo-classes/checked.html"] = 3,
+        ["html/semantics/selectors/pseudo-classes/checked-type-change.html"] = 1,
+        ["html/semantics/selectors/pseudo-classes/default.html"] = 2,
+        ["html/semantics/selectors/pseudo-classes/dir.html"] = 3,
+        ["html/semantics/selectors/pseudo-classes/dir-dynamic.html"] = 4,
+        ["html/semantics/selectors/pseudo-classes/dir-html-input-dynamic-text.html"] = 1,
+        ["html/semantics/selectors/pseudo-classes/dir01.html"] = 1,
+        ["html/semantics/selectors/pseudo-classes/disabled.html"] = 7,
+        ["html/semantics/selectors/pseudo-classes/enabled.html"] = 1,
+        ["html/semantics/selectors/pseudo-classes/focus.html"] = 5,
+        ["html/semantics/selectors/pseudo-classes/focus-autofocus.html"] = 1,
+        ["html/semantics/selectors/pseudo-classes/indeterminate.html"] = 6,
+        ["html/semantics/selectors/pseudo-classes/indeterminate-radio.html"] = 1,
+        ["html/semantics/selectors/pseudo-classes/indeterminate-type-change.html"] = 1,
+        ["html/semantics/selectors/pseudo-classes/inrange-outofrange.html"] = 6,
+        ["html/semantics/selectors/pseudo-classes/inrange-outofrange-time-reversed.html"] = 4,
+        ["html/semantics/selectors/pseudo-classes/inrange-outofrange-type-change.html"] = 2,
+        ["html/semantics/selectors/pseudo-classes/invalid-after-clone.html"] = 1,
+        ["html/semantics/selectors/pseudo-classes/link.html"] = 1,
+        ["html/semantics/selectors/pseudo-classes/placeholder-shown-type-change.html"] = 1,
+        ["html/semantics/selectors/pseudo-classes/readwrite-readonly.html"] = 25,
+        ["html/semantics/selectors/pseudo-classes/readwrite-readonly-type-change.html"] = 1,
+        ["html/semantics/selectors/pseudo-classes/required-optional.html"] = 6,
+        ["html/semantics/selectors/pseudo-classes/required-optional-hidden.html"] = 1,
+        ["html/semantics/selectors/pseudo-classes/valid-invalid.html"] = 30,
+        ["html/semantics/selectors/pseudo-classes/valid-invalid-fieldset-disconnected.html"] = 2,
     };
 
     // ---------------------------------------------------------------- 8. AngleSharp.Css refuses an unparseable media query
@@ -1401,6 +1435,175 @@ internal static class WptBrowserExclusions
         new("html/dom/access-key-label.html", "*invalid", WptDivergence.NeedsTriage),
     ];
 
+    // ---------------------------------------------------------------- the pseudo-classes suite: :active
+    private static readonly WptExclusion[] _thePseudoClassesSuiteActive =
+    [
+        // HTML §4.16.3 leaves :active to the user agent's own "currently activated" notion, and says a
+        // disabled control still enters it. AngleSharp's IsActive() answers for a hyperlink and nothing else, off
+        // an IElement.IsActive flag no part of this package sets, so no element ever matches while a click is in
+        // flight - the five rows are one testdriver click each.
+        new("html/semantics/selectors/pseudo-classes/active-disabled.html", "Clicking on a disabled button should make it match the :active selector.", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/active-disabled.html", "Clicking the label for a disabled button should make the button match the :active selector.", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/active-disabled.html", "Clicking on a child of a disabled button should make the button match the :active selector.", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/active-disabled.html", "Clicking on a disabled input should make it match the :active selector.", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/active-disabled.html", "Clicking on a disabled textarea should make it match the :active selector.", WptDivergence.NeedsTriage),
+    ];
+
+    // ---------------------------------------------------------------- the pseudo-classes suite: :focus
+    private static readonly WptExclusion[] _thePseudoClassesSuiteFocus =
+    [
+        // :focus is AngleSharp's IElement.IsFocused, which nothing in this package assigns. The page has a
+        // focus model of its own - Events/FocusController, which is what document.activeElement and every focus
+        // event read - so element.focus() moves the active element and no selector can see that it did.
+        new("html/semantics/selectors/pseudo-classes/focus.html", "input1 has the focus", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/focus.html", "tabindex attribute makes the element focusable", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/focus.html", "editable elements are focusable", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/focus.html", "':focus' matches focussed body with tabindex", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/focus-autofocus.html", ":focus selector should work with an autofocused element.", WptDivergence.NeedsTriage),
+    ];
+
+    // ---------------------------------------------------------------- the pseudo-classes suite: :dir()
+    private static readonly WptExclusion[] _thePseudoClassesSuiteDir =
+    [
+        // :dir() asks for HTML §3.2.6.6's *directionality*: an inherited property whose `auto` value is
+        // resolved from the first strong character of the element's text - of an input's or textarea's value for
+        // those two. AngleSharp's DirFunctionState compares the argument with IHtmlElement.Direction, which
+        // reflects the `dir` content attribute of that element alone, so an element declaring none matches
+        // neither keyword: dir01.html asks for every element of an iso-8859-8 document and gets an empty list.
+        new("html/semantics/selectors/pseudo-classes/dir.html", "':dir(rtl)' matches all elements whose directionality is 'rtl'.", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/dir.html", "':dir(ltr)' matches all elements whose directionality is 'ltr'.", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/dir.html", "':dir(ltr)' doesn't match elements not in the document.", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/dir01.html", "direction doesn't affect :dir()", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/dir-dynamic.html", "Dynamically changing dir, text on input element", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/dir-dynamic.html", "Dynamically changing dir, text on textarea element", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/dir-dynamic.html", "Dynamically changing dir, text on div element", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/dir-dynamic.html", "Dynamically changing dir, text on pre element", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/dir-html-input-dynamic-text.html", ":dir on <input> isn't altered by text children", WptDivergence.NeedsTriage),
+    ];
+
+    // ---------------------------------------------------------------- the pseudo-classes suite: :checked
+    private static readonly WptExclusion[] _thePseudoClassesSuiteChecked =
+    [
+        // AngleSharp still models the historical &lt;menuitem&gt;, and its IsChecked() answers for one: the two
+        // checked menu items the document keeps precisely so that they do *not* match are the whole of the
+        // difference in all three rows. HTML §4.16.3's :checked is an input, an option and nothing else.
+        new("html/semantics/selectors/pseudo-classes/checked.html", "':checked' matches checked <input>s in checkbox and radio button states, selected <option>s", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/checked.html", "':checked' should no longer match <input>s whose type checkbox/radio has been removed", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/checked.html", "':checked' matches clicked checkbox and radio buttons", WptDivergence.NeedsTriage),
+    ];
+
+    // ---------------------------------------------------------------- the pseudo-classes suite: :indeterminate
+    private static readonly WptExclusion[] _thePseudoClassesSuiteIndeterminate =
+    [
+        // HTML §4.16.3 gives :indeterminate three sources: a checkbox whose indeterminate IDL attribute is
+        // set, a radio button whose radio button group holds no checked member, and a progress element with no
+        // value. AngleSharp's IsIndeterminate() has the first and the third and not the second, so the four
+        // unchecked radios of the document's two groups match nothing.
+        new("html/semantics/selectors/pseudo-classes/indeterminate.html", "':progress' matches <input>s radio buttons whose radio button group contains no checked input and <progress> elements without value attribute", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/indeterminate.html", "dynamically check a radio input in a radio button group", WptDivergence.NeedsTriage),
+    ];
+
+    // ---------------------------------------------------------------- the pseudo-classes suite: :in-range and :out-of-range
+    private static readonly WptExclusion[] _thePseudoClassesSuiteInRange =
+    [
+        // Two things at once. AngleSharp's IsInRange() answers true for *any* IValidation element that is
+        // neither overflowing nor underflowing, so every input without range limitations - text, checkbox,
+        // hidden, button - matches :in-range, where HTML §4.16.3 asks for an element that has range limitations
+        // to begin with. And a range control's value is not clamped to its limits, so range2 and range3 report an
+        // overflow and an underflow that the value sanitization algorithm (§4.10.5.4) says cannot arise.
+        new("html/semantics/selectors/pseudo-classes/inrange-outofrange.html", "':in-range' matches all elements that are candidates for constraint validation, have range limitations, and that are neither suffering from an underflow nor suffering from an overflow", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/inrange-outofrange.html", "':out-of-range' matches all elements that are candidates for constraint validation, have range limitations, and that are either suffering from an underflow or suffering from an overflow", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/inrange-outofrange.html", "':in-range' update number1's value < min", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/inrange-outofrange.html", "':out-of-range' update number1's value < min", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/inrange-outofrange.html", "':in-range' update number3's min < value", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/inrange-outofrange.html", "':out-of-range' update number3's min < value", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/inrange-outofrange-time-reversed.html", "':in-range' matches time inputs whose value is within a reversed range (>= min OR <= max)", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/inrange-outofrange-time-reversed.html", "':out-of-range' matches time inputs whose value is in the gap of a reversed range (> max AND < min)", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/inrange-outofrange-time-reversed.html", "Dynamic update from out-of-range to in-range in a reversed time range", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/inrange-outofrange-type-change.html", "Evaluation of :in-range changes for input type change.", WptDivergence.NeedsTriage),
+    ];
+
+    // ---------------------------------------------------------------- the pseudo-classes suite: :read-only and :read-write
+    private static readonly WptExclusion[] _thePseudoClassesSuiteReadOnly =
+    [
+        // AngleSharp reads :read-write as "mutable", which for an input is only !disabled &amp;&amp; !readOnly -
+        // the readonly attribute's *applicability* is never consulted, so a checkbox is read-write where HTML
+        // §4.16.3 makes every control the attribute does not apply to read-only. The editing half is missing
+        // too: IsContentEditable answers false for a contenteditable element, so no editing host and nothing
+        // inside one is read-write; the last two rows want a form-associated custom element.
+        new("html/semantics/selectors/pseudo-classes/readwrite-readonly.html", "The :read-write pseudo-class must not match input elements to which the readonly attribute does not apply", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/readwrite-readonly.html", "The :read-only pseudo-class must match input elements to which the readonly attribute does not apply", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/readwrite-readonly.html", "The :read-write pseudo-class must match input elements to which the readonly attribute applies, and that are mutable", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/readwrite-readonly.html", "The :read-only pseudo-class must not match input elements to which the readonly attribute applies, and that are mutable", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/readwrite-readonly.html", "The :read-write pseudo-class must not match input elements after the readonly attribute has been added", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/readwrite-readonly.html", "The :read-only pseudo-class must match input elements after the readonly attribute has been added", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/readwrite-readonly.html", "The :read-write pseudo-class must not match input elements after the readonly attribute has been removed", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/readwrite-readonly.html", "The :read-only pseudo-class must match input elements after the readonly attribute has been removed", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/readwrite-readonly.html", "The :read-write pseudo-class must not match input elements after the disabled attribute has been added", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/readwrite-readonly.html", "The :read-only pseudo-class must match input elements after the disabled attribute has been added", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/readwrite-readonly.html", "The :read-write pseudo-class must match input elements after the disabled attribute has been removed", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/readwrite-readonly.html", "The :read-only pseudo-class must not match input elements after the disabled attribute has been removed", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/readwrite-readonly.html", "The :read-write pseudo-class must match elements that are editable", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/readwrite-readonly.html", "The :read-only pseudo-class must not match elements that are editable", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/readwrite-readonly.html", "The :read-write pseudo-class must match elements that are editing hosts", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/readwrite-readonly.html", "The :read-only pseudo-class must not match elements that are editing hosts", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/readwrite-readonly.html", "The :read-write pseudo-class must match elements that are inside editing hosts, but not match inputs and textareas inside that aren't", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/readwrite-readonly.html", "The :read-only pseudo-class must match form-associated custom elements", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/readwrite-readonly.html", "The :read-write pseudo-class must match form-associated contenteditable custom elements", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/readwrite-readonly-type-change.html", "Evaluation of :read-write and :read-only changes for input type change.", WptDivergence.NeedsTriage),
+    ];
+
+    // ---------------------------------------------------------------- the pseudo-classes suite: :placeholder-shown
+    private static readonly WptExclusion[] _thePseudoClassesSuitePlaceholderShown =
+    [
+        // AngleSharp's IsPlaceholderShown() asks any input for a non-empty placeholder and an empty value, with
+        // no regard for whether the placeholder attribute applies to that type state - so a submit button with a
+        // placeholder matches - and it never answers for a textarea, which HTML §4.16.3 names beside the input.
+        new("html/semantics/selectors/pseudo-classes/placeholder-shown-type-change.html", "Evaluation of :placeholder-shown changes for input type change.", WptDivergence.NeedsTriage),
+    ];
+
+    // ---------------------------------------------------------------- the pseudo-classes suite: :required and :optional
+    private static readonly WptExclusion[] _thePseudoClassesSuiteRequired =
+    [
+        // The required attribute does not apply to a hidden input (HTML §4.10.5.1.7), so such an input is
+        // neither :required nor :optional; AngleSharp reads the attribute wherever it is written.
+        new("html/semantics/selectors/pseudo-classes/required-optional-hidden.html", "Evaluation of :required and :optional changes for input type change.", WptDivergence.NeedsTriage),
+    ];
+
+    // ---------------------------------------------------------------- the pseudo-classes suite: :valid and :invalid
+    private static readonly WptExclusion[] _thePseudoClassesSuiteValid =
+    [
+        // AngleSharp's IsValid()/IsInvalid() are CheckValidity() and its negation, and CheckValidity() is
+        // WillValidate && Validity.IsValid - so an element §4.10.19.2 bars from constraint validation answers
+        // false and comes back :invalid, where HTML §4.16.3 has it match neither. A fieldset is barred and
+        // carries no constraints of its own, so every one of them is :valid whatever it contains, where the
+        // standard makes it :invalid when a descendant candidate fails; the same document's form rows pass,
+        // which is what says the fieldset half is the missing one. The other two documents want a constraint
+        // state kept across a removal and across a clone.
+        new("html/semantics/selectors/pseudo-classes/valid-invalid.html", "':valid' matches fieldset elements that have no descendant elements that themselves are candidates for constraint validation but do not satisfy their constraints", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/valid-invalid.html", "':invalid' matches fieldset elements that have of one or more descendant elements that themselves are candidates for constraint validation but do not satisfy their constraints", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/valid-invalid.html", "invalid fieldset correctly styled on page-load", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/valid-invalid.html", "programmatically adding invalid to empty fieldset results in correct style", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/valid-invalid.html", "programmatically-invalidated fieldset correctly styled", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/valid-invalid-fieldset-disconnected.html", "<input> element becomes invalid inside disconnected <fieldset>", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/valid-invalid-fieldset-disconnected.html", "<select> element becomes valid inside disconnected <fieldset>", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/invalid-after-clone.html", "Cloned invalid inputs / textareas with interactive changes get their validity state copied correctly", WptDivergence.NeedsTriage),
+    ];
+
+    // ---------------------------------------------------------------- the pseudo-classes suite: an opaque colour serialized as rgba()
+    private static readonly WptExclusion[] _thePseudoClassesSuiteOpaqueColour =
+    [
+        // Not a selector at all: these four rows read getComputedStyle(...).color and every one of them already
+        // gets the colour the selector should produce. CSSOM serializes an opaque colour as rgb(r, g, b) and
+        // AngleSharp.Css writes rgba(r, g, b, 1); Dom/divergences.md records why the process-global
+        // CssColorValue.UseSpecSerialization switch is not flipped on every AngleSharp consumer's behalf. The
+        // style rows that compare two computed values rather than a literal are unaffected and pass.
+        new("html/semantics/selectors/pseudo-classes/checked-type-change.html", "Evaluation of :checked changes on input type change.", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/indeterminate-radio.html", ":indeterminate and input type=radio", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/indeterminate-type-change.html", "Evaluation of :indeterminate changes on input type change.", WptDivergence.NeedsTriage),
+        new("html/semantics/selectors/pseudo-classes/inrange-outofrange-type-change.html", "Evaluation of :out-of-range changes for input type change.", WptDivergence.NeedsTriage),
+    ];
+
     /// <summary>The causes this corpus found, each one the exclusions that are it.</summary>
     /// <remarks>
     /// A cause was a comment until it became a value a run could count. Its unique name is the hidden key
@@ -1430,6 +1633,17 @@ internal static class WptBrowserExclusions
         new("the Selectors-API table and selector-only element states", _theSelectorsAPITableAndSelectorOnlyElementStates),
         new("MutationObserver's records", _mutationObserverSRecords),
         new("one assertion each", _oneAssertionEach),
+        new("the pseudo-classes suite: :active", _thePseudoClassesSuiteActive),
+        new("the pseudo-classes suite: :focus", _thePseudoClassesSuiteFocus),
+        new("the pseudo-classes suite: :dir()", _thePseudoClassesSuiteDir),
+        new("the pseudo-classes suite: :checked", _thePseudoClassesSuiteChecked),
+        new("the pseudo-classes suite: :indeterminate", _thePseudoClassesSuiteIndeterminate),
+        new("the pseudo-classes suite: :in-range and :out-of-range", _thePseudoClassesSuiteInRange),
+        new("the pseudo-classes suite: :read-only and :read-write", _thePseudoClassesSuiteReadOnly),
+        new("the pseudo-classes suite: :placeholder-shown", _thePseudoClassesSuitePlaceholderShown),
+        new("the pseudo-classes suite: :required and :optional", _thePseudoClassesSuiteRequired),
+        new("the pseudo-classes suite: :valid and :invalid", _thePseudoClassesSuiteValid),
+        new("the pseudo-classes suite: an opaque colour serialized as rgba()", _thePseudoClassesSuiteOpaqueColour),
     ];
 
     /// <summary>
