@@ -1542,6 +1542,30 @@
       "reason": "The Element spelling invokes the same live namespace/local-name collection algorithm as Document."
     },
     {
+      "interface": "Document",
+      "member": "querySelectorAll",
+      "half": "operation",
+      "hook": "QuerySelectorAll",
+      "returns": true,
+      "reason": "DOM 4.2.6 makes the result the STATIC result of scope-match, and AngleSharp's QueryCollection already is a snapshot -- so this hook corrects no behaviour and exists to put the standard's word where the binding can act on it. Nothing about an INodeList says whether it is live (childNodes and labels are, this is not), so the hook wraps the match in DomStaticNodeList, whose staticness is a property of the type; that is what lets DomStaticNodeListObject keep one element wrapper per index instead of probing the realm's wrapper table on every list[j]. See sebastienros/jint#4013."
+    },
+    {
+      "interface": "DocumentFragment",
+      "member": "querySelectorAll",
+      "half": "operation",
+      "hook": "QuerySelectorAll",
+      "returns": true,
+      "reason": "The fragment spelling of the same ParentNode operation, and the same static result."
+    },
+    {
+      "interface": "Element",
+      "member": "querySelectorAll",
+      "half": "operation",
+      "hook": "QuerySelectorAll",
+      "returns": true,
+      "reason": "The element spelling of the same ParentNode operation, and the same static result."
+    },
+    {
       "interface": "HTMLImageElement",
       "member": "complete",
       "half": "getter",

@@ -266,6 +266,24 @@ internal class DomHostHooks
         return realm.WrapCollection<IElement>(new DomLiveHtmlCollection(Current));
     }
 
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#dom-parentnode-queryselectorall — "the <b>static</b> result of running
+    /// scope-match a selectors string".
+    /// </summary>
+    /// <remarks>
+    /// AngleSharp's answer is already a snapshot, so this hook corrects no behaviour. What it does is put the
+    /// standard's word "static" where the binding can act on it: the result is projected through
+    /// <c>DomRealm.WrapStaticNodeList</c>, whose <see cref="Collections.DomStaticNodeList"/> makes staticness
+    /// a property of the type rather than a guess about an <c>INodeList</c> — which is what lets that
+    /// wrapper keep one element wrapper per index. Every other <c>NodeList</c> in the surface
+    /// (<c>childNodes</c>, <c>labels</c>) is live and keeps the ordinary accessor-driven wrapper.
+    /// </remarks>
+    internal virtual JsValue QuerySelectorAll(DomRealm realm, INode root, JsValue[] arguments)
+    {
+        var selectors = DomConvert.RequiredText(arguments, 0, Member(root, "querySelectorAll"));
+        return realm.WrapStaticNodeList(((IParentNode) root).QuerySelectorAll(selectors));
+    }
+
     private static string Member(INode root, string operation)
         => root switch
         {
