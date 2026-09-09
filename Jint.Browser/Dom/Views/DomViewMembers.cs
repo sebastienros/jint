@@ -216,6 +216,40 @@ internal static class DomViewMembers
             "This document is neither an HTML document nor an XML one, so it can hold no CDATA section.");
     }
 
+    /// <summary>https://dom.spec.whatwg.org/#dom-domimplementation-createhtmldocument.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The title is optional, and its absence is not the empty string.</b> DOM's step 6 is "<i>if title is
+    /// given</i>, create a <c>title</c> element … and append": <c>createHTMLDocument()</c> makes a document
+    /// whose <c>head</c> is empty, and <c>createHTMLDocument("")</c> makes one holding <c>&lt;title&gt;&lt;/title&gt;</c>
+    /// with an empty text node in it. AngleSharp's <c>CreateHtmlDocument</c> takes a required string and
+    /// creates the element only when that string is non-empty, so the two spellings were indistinguishable
+    /// from outside and the argument could not be made optional by projecting it — which is why the member is
+    /// <c>skip</c>ped and re-declared.
+    /// </para>
+    /// <para>
+    /// Adding the element the standard asks for is the whole of what this does beyond that call. It is Web
+    /// IDL semantics AngleSharp's CLR surface cannot represent rather than a behaviour worked around: there
+    /// is no overload that distinguishes an absent title from an empty one, and the divergence register
+    /// records that.
+    /// </para>
+    /// </remarks>
+    internal static JsValue CreateHtmlDocument(DomRealm realm, IImplementation implementation, JsValue[] arguments)
+    {
+        var given = arguments.Length > 0 && !arguments[0].IsUndefined();
+        var title = DomConvert.OptionalText(arguments, 0, "")!;
+        var document = implementation.CreateHtmlDocument(title);
+
+        if (given && document.Head is { } head && head.QuerySelector("title") is null)
+        {
+            var element = document.CreateElement("title");
+            element.AppendChild(document.CreateTextNode(title));
+            head.AppendChild(element);
+        }
+
+        return realm.WrapNode(document);
+    }
+
     /// <summary>https://dom.spec.whatwg.org/#dom-domimplementation-createdocument.</summary>
     /// <remarks>
     /// <para>

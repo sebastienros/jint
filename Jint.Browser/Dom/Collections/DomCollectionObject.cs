@@ -1,3 +1,5 @@
+using AngleSharp.Dom;
+using AngleSharp.Html.Dom;
 using Jint.Browser.Runtime;
 using Jint.Native;
 using Jint.Native.Object;
@@ -47,7 +49,7 @@ internal sealed class DomCollectionObject : DomCollectionBase, INamedPropertySup
                 return 0;
             }
 
-            var names = _accessor.SupportedNames(DomTarget);
+            var names = SupportedNames();
             if (ReferenceEquals(Definition, DomInterfaces.NamedNodeMap))
             {
                 var visible = new List<string>(names.Count);
@@ -124,9 +126,70 @@ internal sealed class DomCollectionObject : DomCollectionBase, INamedPropertySup
         return true;
     }
 
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#dom-namednodemap-item — the collection's
+    /// <a href="https://webidl.spec.whatwg.org/#dfn-supported-property-names">supported property names</a>,
+    /// which for <c>NamedNodeMap</c> are not simply the attributes' qualified names.
+    /// </summary>
+    /// <remarks>
+    /// DOM §4.9.1 states two steps the generated accessor cannot: duplicates are omitted, and <b>when the
+    /// map's element is in the HTML namespace and its node document is an HTML document, a name that is not
+    /// its own ASCII lowercase is removed</b>. That second step is what keeps
+    /// <c>el.setAttributeNS("foo", "A:B", "")</c> from putting an <c>A:B</c> own property on
+    /// <c>el.attributes</c>, where an HTML parse could never have produced one; the attribute is still there
+    /// and still reachable by index, by <c>getAttributeNodeNS</c> and by <c>getNamedItemNS</c>, because none
+    /// of those is a named property. The element is read from the first attribute rather than from the map,
+    /// which has no owner in AngleSharp's surface — and an empty map has no names to filter.
+    /// </remarks>
+    private IReadOnlyList<string> SupportedNames()
+    {
+        var names = _accessor.SupportedNames(DomTarget);
+
+        if (!ReferenceEquals(Definition, DomInterfaces.NamedNodeMap) || names.Count == 0)
+        {
+            return names;
+        }
+
+        var lowercaseOnly = DomTarget is INamedNodeMap { Length: > 0 } map
+                            && map[0] is { OwnerElement: { } owner }
+                            && string.Equals(owner.NamespaceUri, NamespaceNames.HtmlUri, StringComparison.Ordinal)
+                            && owner.Owner is IHtmlDocument;
+
+        var supported = new List<string>(names.Count);
+
+        foreach (var name in names)
+        {
+            if (lowercaseOnly && !IsAsciiLowercase(name))
+            {
+                continue;
+            }
+
+            if (!supported.Contains(name, StringComparer.Ordinal))
+            {
+                supported.Add(name);
+            }
+        }
+
+        return supported;
+    }
+
+    /// <summary>Whether <paramref name="name"/> ASCII-lowercased is <paramref name="name"/>.</summary>
+    private static bool IsAsciiLowercase(string name)
+    {
+        foreach (var character in name)
+        {
+            if (character is >= 'A' and <= 'Z')
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     private bool HasSupportedName(string name)
     {
-        foreach (var supportedName in _accessor.SupportedNames(DomTarget))
+        foreach (var supportedName in SupportedNames())
         {
             if (string.Equals(supportedName, name, StringComparison.Ordinal))
             {

@@ -121,7 +121,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Node.isEqualNode", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INode>(thisObj, "Node.isEqualNode");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Equals(global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Dom.INode>(args, 0, "Node.isEqualNode")));
+                    return self.Realm.Hooks.IsEqualNode(self.Realm, self.Target, args);
                 }),
                 length: 1)
             .Method("isSameNode",
@@ -161,7 +161,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Node.nodeName", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INode>(thisObj, "Node.nodeName");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.NodeName);
+                    return self.Realm.Hooks.NodeName(self.Realm, self.Target);
                 }))
             .Accessor("nodeType",
                 global::Jint.Browser.Dom.DomFailures.Guard("Node.nodeType", static (thisObj, args) =>
@@ -489,7 +489,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("DOMImplementation.createHTMLDocument", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IImplementation>(thisObj, "DOMImplementation.createHTMLDocument");
-                    return self.Realm.WrapNodeValue(self.Target.CreateHtmlDocument(global::Jint.Browser.Dom.DomConvert.OptionalText(args, 0, "")!));
+                    return global::Jint.Browser.Dom.Views.DomViewMembers.CreateHtmlDocument(self.Realm, self.Target, args);
                 }),
                 length: 0)
             .Method("hasFeature",

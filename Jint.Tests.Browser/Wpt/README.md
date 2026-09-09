@@ -26,7 +26,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | Suite | Documents | Synthesized | Tests | Not passing |
 | --- | --- | --- | --- | --- |
 | `dom/events/` | 56 | 9 | 544 | 15 |
-| `dom/nodes/` | 168 | 0 | 8,115 | 808 |
+| `dom/nodes/` | 168 | 0 | 8,115 | 796 |
 | `dom/collections/` | 8 | 0 | 43 | 0 |
 | `dom/lists/` | 5 | 0 | 189 | 5 |
 | `dom/traversal/` | 13 | 0 | 52 | 0 |
@@ -38,7 +38,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 52 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 3 |
-| **total** | **359** | **9** | **66,646** | **1,204** |
+| **total** | **359** | **9** | **66,646** | **1,192** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -176,8 +176,9 @@ a supported name; the collection's named reads remain live.
 
 `dom/nodes/`, `dom/collections/`, `dom/lists/`, `dom/traversal/`, `dom/ranges/` and `html/dom/` are the DOM
 standard's own suites and HTML's DOM half — the corpus every other suite in this lane is written on top of.
-Across the six of them there are 226 documents and 65,226 tests, and **858 of those tests do not pass**.
+Across the six of them there are 226 documents and 65,226 tests, and **846 of those tests do not pass**.
 Across the six of them there are 226 documents and 65,226 tests, and **1,368 of those tests do not pass**.
+Across the six of them there are 219 documents and 29,003 tests, and **854 of those tests do not pass**.
 Those three figures are live and checked against the census. They arrived together as 207 documents and
 5,247 tests with 1,532 not passing; those arrival figures are historical and deliberately not re-derived.
 
@@ -196,7 +197,7 @@ table needs to be regenerated.
 | 159 | 4 | **Members of DOM interfaces are absent.** 137 of them are one interface: `processing-instruction-attributes.html` is the attribute surface [WICG's declarative partial updates](https://github.com/WICG/declarative-partial-updates) proposal puts on a `ProcessingInstruction`, which neither AngleSharp nor the bindings have. The rest are `ChildNode` unscopables, `Attr` identity and event aliases that have no constructor. <!-- cause: a member of a DOM interface the bindings do not have --> |
 | 88 | 3 | **The Selectors-API table and selector-only element states.** The three newly vendored documents cover selector-error contracts, no-namespace selectors and `::slotted`; all 88 rows are `NeedsTriage`. <!-- cause: the Selectors-API table and selector-only element states --> |
 | 81 | 6 | [#3774](https://github.com/sebastienros/jint/issues/3774) **A name AngleSharp refuses that the standard allows, plus required refusals it does not make.** The rows cover element creation, namespace validation and document insertion; each of `createDocument`'s fourteen argument tuples is three rows, because the file asks the same tuple for its metadata and its encoding aliases as well. <!-- cause: a name AngleSharp refuses that the standard allows --> |
-| 66 | 17 | **One assertion each or one small family per document.** These cover conversion order, import/clone identity, attribute selection and ordering, element-name identity, node equality and `accessKeyLabel`; each pattern is kept separate where neighboring rows pass. <!-- cause: one assertion each --> |
+| 55 | 14 | **One assertion each or one small family per document.** What is left after DOM §4.4's node equality, the `deep = false` defaults and `NamedNodeMap`'s supported property names moved into the bindings: a `ChildNode` member with the context object among its arguments, attribute selection and ordering, element-name identity, the four element interfaces AngleSharp declares no `[DomName]` for, and `accessKeyLabel`. Each pattern is kept separate where neighboring rows pass. <!-- cause: one assertion each --> |
 | 50 | 2 | [#3772](https://github.com/sebastienros/jint/issues/3772) **DOM's current name-validation rules differ from the XML productions.** `createDocumentType` contributes 45 rows and `name-validation.html` five. <!-- cause: DOM's validate-and-extract, and the XML name productions --> |
 | 26 | 11 | **Collection matching, identity and liveness differ.** The remaining rows cover namespace-aware tag queries, null-namespace identity, child-node collections, empty IDs, quirks class matching and related live reads; `dom/collections/` itself now passes whole. <!-- cause: a collection's named and indexed properties, and its liveness --> |
 | 18 | 1 | **An event interface this browser does not build.** `Document-createEvent.https.html` reaches `DragEvent`, `StorageEvent`, `TouchEvent` and the two device-event interfaces. <!-- cause: an event interface this browser does not build --> |
@@ -206,10 +207,11 @@ table needs to be regenerated.
 | 6 | 1 | **Members the standard removed are still here**, which is exactly what `html/dom/historical.html` exists to find. <!-- cause: a member the standard removed and this browser still has --> |
 | 5 | 2 | [#3712](https://github.com/sebastienros/jint/issues/3712) **A nullable `DOMString` answers the string `"null"`.** The remaining rows are `CharacterData.data` and `Node.nodeValue` writes. <!-- cause: a nullable DOMString answers the string "null" --> |
 | 5 | 1 | [#3767](https://github.com/sebastienros/jint/issues/3767) **`DOMTokenList` has five remaining interface-shape differences.** They are the legacy `DOMSettableTokenList` surfaces and two namespace-specific `relList` rows. <!-- cause: DOMTokenList: the token validation, the indexed access and the iteration --> |
-| 4 | 2 | **`MutationObserver` records differ.** A document observer misses parser mutations, and an `outerHTML` replacement reports a different record set. <!-- cause: MutationObserver's records --> |
-| 4 | 2 | **A live range is not adjusted once its container moves to another document.** Two `Range-in-shadow-after-the-shadow-removed.html` rows, and the two `Range-adopt-test.html` rows whose container is moved with `appendChild` — AngleSharp keeps its ranges on the document, so DOM's remove steps reach none of them. <!-- cause: Range's own algorithms --> |
+| 4 | 2 | **`MutationObserver` records differ**, and both halves are AngleSharp's. Its HTML parser inserts nodes without queueing a record, so a document observer hears nothing about the parse; and its `OuterHtml` setter inserts the replacement and then removes the element, which a page sees as two `childList` records where HTML's "replace this with fragment within parent" is one. <!-- cause: MutationObserver's records --> |
 | 3 | 1 | [#3769](https://github.com/sebastienros/jint/issues/3769) **A `(Node or DOMString)` union parameter takes only a `Node`.** Three `ChildNode.before` rows still reject strings. <!-- cause: a (Node or DOMString) union parameter takes only a Node --> |
-| 2 | 2 | **`createHTMLDocument` builds a different skeleton**, and a saved implementation detached from its document answers null. The `location` and encoding-alias halves of this cause are gone: a document with no browsing context has no `location` now, and `characterSet`/`charset`/`inputEncoding` answer the Encoding Standard's name. <!-- cause: a document with no browsing context --> |
+| 2 | 1 | **A live range is not adjusted once its container moves to another document.** The two `Range-adopt-test.html` rows whose container is moved with `appendChild` — AngleSharp keeps its ranges on the document, so DOM's remove steps reach none of them. The two rows whose container never moves pass. <!-- cause: Range's own algorithms --> |
+| 2 | 1 | **A document upstream runs once per `<meta name=variant>`.** `Range-in-shadow-after-the-shadow-removed.html` reads its shadow-root mode out of `location.search`, and this lane serves the bare path — so `mode` is `null` and `attachShadow({mode: null})` is the `TypeError` WebIDL owes a browser too. Nothing about `Range` is reached. <!-- cause: a document upstream runs once per variant --> |
+| 1 | 1 | **A saved implementation detached from its document answers null**, which needs a frame that runs script of its own. Every other half of this cause is gone: a document with no browsing context has no `location`, `characterSet`/`charset`/`inputEncoding` answer the Encoding Standard's name, and `createHTMLDocument` builds DOM's skeleton. <!-- cause: a document with no browsing context --> |
 
 **The XML-document cause is gone, and it was four different things.** It arrived as a scope decision —
 "a page here parses HTML, AngleSharp builds no XML document" — and by the time it was re-measured that
