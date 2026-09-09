@@ -341,6 +341,25 @@ internal sealed class DomRealm
         return Cache(collection, new DomHtmlCollectionObject<T>(this, definition, collection));
     }
 
+    /// <summary>
+    /// Projects the <b>static</b> <c>NodeList</c> a selector match produced, as
+    /// <a href="https://dom.spec.whatwg.org/#dom-parentnode-queryselectorall">DOM §4.2.6</a> defines it:
+    /// "the static result of running scope-match a selectors string".
+    /// </summary>
+    /// <remarks>
+    /// The snapshot is the binding's own (<see cref="DomStaticNodeList"/>) rather than AngleSharp's, because
+    /// nothing about an <see cref="INodeList"/> says whether it is live and this wrapper keeps one element
+    /// wrapper per index. It is cached like every other wrapper, so <c>Hooks.WrapperCreated</c> fires once
+    /// for it; the snapshot is new on every call, which keeps
+    /// <c>el.querySelectorAll('x') !== el.querySelectorAll('x')</c> — DOM's answer, and the one the binding
+    /// already gave.
+    /// </remarks>
+    internal JsValue WrapStaticNodeList(IHtmlCollection<IElement> matches)
+    {
+        var snapshot = new DomStaticNodeList(matches);
+        return Cache(snapshot, new DomStaticNodeListObject(this, snapshot));
+    }
+
     /// <summary>Projects the live <c>NodeList</c> of labels associated with a labelable element.</summary>
     internal JsValue WrapLabels(IHtmlElement control)
     {
