@@ -43,6 +43,11 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `custom-elements/reactions/` | 14 | 0 | 255 | 52 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 0 |
 | **total** | **392** | **9** | **66,916** | **902** |
+| `custom-elements/` | 16 | 0 | 513 | 13 |
+| `custom-elements/parser/` | 8 | 0 | 20 | 11 |
+| `custom-elements/reactions/` | 14 | 0 | 255 | 52 |
+| `custom-elements/upgrading/` | 2 | 0 | 7 | 0 |
+| **total** | **392** | **9** | **66,916** | **906** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -325,6 +330,7 @@ has the upstream half of each, and `Dom/AGENTS.md` says which override list carr
 `dom/nodes/`, `dom/collections/`, `dom/lists/`, `dom/traversal/`, `dom/ranges/` and `html/dom/` are the DOM
 standard's own suites and HTML's DOM half — the corpus every other suite in this lane is written on top of.
 Across the six of them there are 226 documents and 65,228 tests, and **756 of those tests do not pass**.
+Across the six of them there are 226 documents and 65,228 tests, and **757 of those tests do not pass**.
 Those three figures are live and checked against the census. They arrived together as 207 documents and
 5,247 tests with 1,532 not passing; those arrival figures are historical and deliberately not re-derived.
 
