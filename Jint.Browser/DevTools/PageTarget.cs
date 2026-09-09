@@ -98,6 +98,16 @@ internal sealed partial class PageTarget : DevToolsTarget, IPageObserver
     /// </remarks>
     internal DomNodeTracker Nodes { get; } = new();
 
+    /// <summary>
+    /// The identifiers the <c>CSS</c> domain addresses this page's style sheets by.
+    /// </summary>
+    /// <remarks>
+    /// On the target for the reason <see cref="Nodes"/> is: two clients attached to one page must be told
+    /// the same <c>styleSheetId</c> for the same sheet. Unlike a <c>backendNodeId</c> none of it outlives a
+    /// document, so the table is emptied on every commit.
+    /// </remarks>
+    internal CssStyleSheetTracker Sheets { get; } = new();
+
     /// <summary>The tab this page hangs off, which is how a client reaches it. Set by the host.</summary>
     /// <remarks>
     /// A tab shows what its page shows, so everything that moves the page's title or location moves the
@@ -189,6 +199,7 @@ internal sealed partial class PageTarget : DevToolsTarget, IPageObserver
 
         AddDomain(page);
         Nodes.Add(dom);
+        Sheets.Add(css);
 
         // Every one of these that listens -- the DOM domain hears about the engine being replaced under the
         // target the way the built-in five do -- is observed by `With` and unobserved again by `Detach`.
@@ -302,6 +313,7 @@ internal sealed partial class PageTarget : DevToolsTarget, IPageObserver
         // Before the swap, because the swap is what tells every DOM domain to announce documentUpdated and a
         // client that acted on it must find the identifiers already gone rather than resolving one more time.
         Nodes.DocumentReplaced();
+        Sheets.DocumentReplaced();
 
         Replace(runtime.Engine);
         NewDocumentScripts.Run(runtime);
@@ -314,6 +326,11 @@ internal sealed partial class PageTarget : DevToolsTarget, IPageObserver
     void IPageObserver.DocumentParsed(PageRuntime runtime, string loaderId)
     {
         Nodes.Watch(runtime);
+
+        // The first moment there is a tree to read style sheets off: RuntimeReplaced above runs before the
+        // parse, where the document has none. A client tracking rule usage across a navigation gets the new
+        // document's sheets announced and its window pointed at the new document here.
+        Sheets.DocumentCommitted(runtime);
 
         foreach (var domain in Snapshot())
         {

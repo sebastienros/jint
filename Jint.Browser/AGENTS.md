@@ -64,6 +64,12 @@ exist. That register's `getComputedStyle` row points back at this table.
 | a longhand nothing declared, through `getComputedStyle` | CSSOM's *resolved value*: every supported longhand answers, and a property nothing declared answers its initial value | the empty string, which read every element of every page as hidden to an automation client (`style.visibility !== "visible"` is where Playwright's actionability check ends). `Dom/Views/ResolvedStyle` is the exception this bought — **ten** properties, and it argues which ten. Everything else is still the declared cascade, a declaration always wins, and `length`/`item(i)` stay the declared set |
 | a relative length through `getComputedStyle` | the used value in `px` for `width`/`height`, resolved against the containing block; the percentage *kept* in the computed value of `min-width`, a margin and a padding | `px` against the **viewport** for every one of them, and against its *width* whichever axis the property is on — so `height: 50%` is half the window's width. `Runtime/PageRenderDevice` is the device that makes any of it computable: with none registered AngleSharp.Css raises `ArgumentException` rather than skipping the declaration, and one `width: 100%` rule took `getComputedStyle` **and every box query** down with it ([#3730](https://github.com/sebastienros/jint/issues/3730)). `ch` and `ex` have no conversion at all and still raise, which is why `Dom/Views/CssCascade` is the one guarded door all four callers come through |
 
+**That door is also where rule-usage coverage is recorded.** `Dom/Views/CssRuleUsage` is a static arming
+switch every cascade computation reads — a volatile array read and a length test with nothing armed — and
+the `CSS` domain's `startRuleUsageTracking` is what arms it
+([`DevTools/AGENTS.md`](DevTools/AGENTS.md)). Adding a fifth caller of the cascade adds a fifth place a
+client's coverage hears from; removing one silently narrows what "used" means.
+
 ### DOM §7's XPath, and CSSOM's `CSS`
 
 Two surfaces neither pinned assembly declares, so neither could be generated: there is no
