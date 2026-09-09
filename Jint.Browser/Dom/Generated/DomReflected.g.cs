@@ -439,6 +439,30 @@ internal static class DomReflected
     internal static readonly ReflectedAttribute HTMLMetaElementScheme =
         ReflectedAttribute.Text("HTMLMetaElement.scheme", "scheme");
 
+    /// <summary><c>HTMLMeterElement.high</c> reflects <c>high</c> as a double.</summary>
+    internal static readonly ReflectedAttribute HTMLMeterElementHigh =
+        ReflectedAttribute.Numeric("HTMLMeterElement.high", "high", ReflectedKind.Double, 0);
+
+    /// <summary><c>HTMLMeterElement.low</c> reflects <c>low</c> as a double.</summary>
+    internal static readonly ReflectedAttribute HTMLMeterElementLow =
+        ReflectedAttribute.Numeric("HTMLMeterElement.low", "low", ReflectedKind.Double, 0);
+
+    /// <summary><c>HTMLMeterElement.max</c> reflects <c>max</c> as a double.</summary>
+    internal static readonly ReflectedAttribute HTMLMeterElementMax =
+        ReflectedAttribute.Numeric("HTMLMeterElement.max", "max", ReflectedKind.Double, 0);
+
+    /// <summary><c>HTMLMeterElement.min</c> reflects <c>min</c> as a double.</summary>
+    internal static readonly ReflectedAttribute HTMLMeterElementMin =
+        ReflectedAttribute.Numeric("HTMLMeterElement.min", "min", ReflectedKind.Double, 0);
+
+    /// <summary><c>HTMLMeterElement.optimum</c> reflects <c>optimum</c> as a double.</summary>
+    internal static readonly ReflectedAttribute HTMLMeterElementOptimum =
+        ReflectedAttribute.Numeric("HTMLMeterElement.optimum", "optimum", ReflectedKind.Double, 0);
+
+    /// <summary><c>HTMLMeterElement.value</c> reflects <c>value</c> as a double.</summary>
+    internal static readonly ReflectedAttribute HTMLMeterElementValue =
+        ReflectedAttribute.Numeric("HTMLMeterElement.value", "value", ReflectedKind.Double, 0);
+
     /// <summary><c>HTMLModElement.cite</c> reflects <c>cite</c> as an url.</summary>
     internal static readonly ReflectedAttribute HTMLModElementCite =
         ReflectedAttribute.Url("HTMLModElement.cite", "cite");

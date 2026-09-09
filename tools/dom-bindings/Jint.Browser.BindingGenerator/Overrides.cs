@@ -307,6 +307,15 @@ internal sealed class Overrides
         public bool DocumentUrlWhenEmpty { get; init; }
 
         /// <summary>
+        /// Whether the row replaces only the <b>setter</b> and leaves the projected getter in place, which
+        /// is the shape of an IDL attribute HTML defines as reflecting "on setting" while its getter
+        /// computes something reflection cannot express — and where the pinned assemblies already compute
+        /// it correctly, so a full replacement would be a regression rather than a fix.
+        /// </summary>
+        [JsonPropertyName("setterOnly")]
+        public bool SetterOnly { get; init; }
+
+        /// <summary>
         /// Which element the content attribute lives on, when it is not the one the IDL attribute was read
         /// from: <c>documentElement</c> or <c>body</c>. HTML has six such members and all six are on
         /// <c>Document</c>.

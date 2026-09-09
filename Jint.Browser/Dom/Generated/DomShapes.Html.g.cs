@@ -3794,7 +3794,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMeterElement.high", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMeterElement>(thisObj, "HTMLMeterElement.high");
-                    self.Target.High = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, "HTMLMeterElement.high"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomReflected.HTMLMeterElementHigh.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("labels",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMeterElement.labels", static (thisObj, args) =>
@@ -3811,7 +3811,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMeterElement.low", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMeterElement>(thisObj, "HTMLMeterElement.low");
-                    self.Target.Low = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, "HTMLMeterElement.low"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomReflected.HTMLMeterElementLow.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("max",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMeterElement.max", static (thisObj, args) =>
@@ -3822,7 +3822,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMeterElement.max", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMeterElement>(thisObj, "HTMLMeterElement.max");
-                    self.Target.Maximum = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, "HTMLMeterElement.max"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomReflected.HTMLMeterElementMax.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("min",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMeterElement.min", static (thisObj, args) =>
@@ -3833,7 +3833,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMeterElement.min", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMeterElement>(thisObj, "HTMLMeterElement.min");
-                    self.Target.Minimum = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, "HTMLMeterElement.min"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomReflected.HTMLMeterElementMin.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("optimum",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMeterElement.optimum", static (thisObj, args) =>
@@ -3844,7 +3844,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMeterElement.optimum", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMeterElement>(thisObj, "HTMLMeterElement.optimum");
-                    self.Target.Optimum = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, "HTMLMeterElement.optimum"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomReflected.HTMLMeterElementOptimum.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("value",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMeterElement.value", static (thisObj, args) =>
@@ -3855,7 +3855,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMeterElement.value", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlMeterElement>(thisObj, "HTMLMeterElement.value");
-                    self.Target.Value = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, "HTMLMeterElement.value"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomReflected.HTMLMeterElementValue.Set(self.Realm, self.Target, args);
                 }))
             .Build();
 

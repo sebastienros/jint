@@ -554,14 +554,14 @@ internal sealed class ModelBuilder
     /// <summary>
     /// HTML §2.6.1's reflected content attributes: the accessor pair is the reflection algorithm its type
     /// names, over the content attribute, and it <b>replaces</b> whatever the pinned assemblies projected
-    /// under that name.
+    /// under that name — or, when the entry is <c>setterOnly</c>, replaces that projection's setter alone.
     /// </summary>
     /// <remarks>
     /// The replacement is the whole point and is the opposite of what <c>additions</c> does. A reflected
     /// attribute is usually one AngleSharp <em>does</em> project, from a CLR property whose getter hands back
     /// the raw attribute value, or parses it with a different default, or lower-cases nothing; the entry says
     /// which of HTML's thirteen algorithms it really is. What the entry can never do is silently shadow: the
-    /// report names every one and says whether it replaced a projection or added a member.
+    /// report names every one and says whether it replaced a projection, added a member, or supplied a setter.
     /// </remarks>
     private void BuildReflectedMembers(InterfaceModel model)
     {
@@ -577,33 +577,85 @@ internal sealed class ModelBuilder
                 continue;
             }
 
-            var qualified = model.DomName + "." + entry.Member;
-            var field = model.FieldName + char.ToUpperInvariant(entry.Member[0]) + entry.Member[1..];
-            var replaced = model.Members.RemoveAll(m => m.DomName == entry.Member) > 0;
-
-            _model.Reflected.Add(new ReflectedModel(field, qualified, entry.Attribute, entry.Type, factory, replaced));
-
-            var descriptor = "global::Jint.Browser.Dom.DomReflected." + field;
-
             // A getter hook beside a reflected entry is the shape of an IDL attribute whose *write* is
             // HTML's reflection and whose *read* is not: `img.width` and `img.height` set the content
             // attribute and answer the density-corrected intrinsic size of an available image, which no
             // reflection algorithm can express. Reaching for `skip` + `additions` instead would give up the
             // parsing rules the entry is here for.
-            var read = _overrides.Hooks.FirstOrDefault(h =>
-                h.Interface == model.DomName && h.Member == entry.Member && h.Half == "getter") is { } getterHook
-                ? "self.Realm.Hooks." + getterHook.Hook + "(self.Realm, self.Target)"
-                : descriptor + (entry.Type == "url" ? ".Get(self.Realm, self.Target)" : ".Get(self.Target)");
+            var getterHook = _overrides.Hooks.FirstOrDefault(h =>
+                h.Interface == model.DomName && h.Member == entry.Member && h.Half == "getter");
+
+            var projected = model.Members.Find(m => m.DomName == entry.Member);
+            var preserved = "";
+
+            if (entry.SetterOnly && !TrySetterOnlyRead(model, entry, projected, getterHook, out preserved))
+            {
+                continue;
+            }
+
+            var qualified = model.DomName + "." + entry.Member;
+            var field = model.FieldName + char.ToUpperInvariant(entry.Member[0]) + entry.Member[1..];
+            var replaced = model.Members.RemoveAll(m => m.DomName == entry.Member) > 0;
+
+            _model.Reflected.Add(
+                new ReflectedModel(field, qualified, entry.Attribute, entry.Type, factory, replaced, entry.SetterOnly));
+
+            var descriptor = "global::Jint.Browser.Dom.DomReflected." + field;
+
+            var read = getterHook is null
+                ? descriptor + (entry.Type == "url" ? ".Get(self.Realm, self.Target)" : ".Get(self.Target)")
+                : "self.Realm.Hooks." + getterHook.Hook + "(self.Realm, self.Target)";
 
             model.Members.Add(new MemberModel
             {
                 DomName = entry.Member,
                 Kind = MemberKind.Attribute,
-                Body = Bind(model, qualified) + "return " + read + ";",
+                Body = entry.SetterOnly ? preserved : Bind(model, qualified) + "return " + read + ";",
                 SetterBody = Bind(model, qualified) + "return " + descriptor + ".Set(self.Realm, self.Target, args);",
                 Origin = "overrides.json (reflected)",
             });
         }
+    }
+
+    /// <summary>
+    /// The getter body a <c>setterOnly</c> entry keeps, or a diagnostic saying why the entry has none.
+    /// </summary>
+    /// <remarks>
+    /// <c>setterOnly</c> is the form for an IDL attribute HTML defines as reflecting <em>on setting</em>
+    /// while its getter computes something reflection cannot express — and where the pinned assemblies
+    /// already compute it. <c>&lt;meter&gt;</c>'s six members are that case: AngleSharp implements HTML
+    /// §4.10.14's clamping and defaults, so replacing their getters would be a regression, while their
+    /// setters write the number with .NET's format rather than HTML's. Both of the ways an entry can be
+    /// wrong about that are refused rather than generated: a member with nothing projected under its name
+    /// has no getter to keep, and one that also carries a getter hook has named two answers for one read.
+    /// </remarks>
+    private bool TrySetterOnlyRead(
+        InterfaceModel model,
+        Overrides.ReflectedEntry entry,
+        MemberModel? projected,
+        Overrides.HookEntry? getterHook,
+        out string read)
+    {
+        read = projected?.Body ?? "";
+
+        if (projected is null)
+        {
+            _model.Diagnostics.Add(
+                "overrides.json reflects only the setter of " + model.DomName + "." + entry.Member + " ("
+                + entry.Reason + "), but the pinned assemblies project no getter to keep.");
+            return false;
+        }
+
+        if (getterHook is not null)
+        {
+            _model.Diagnostics.Add(
+                "overrides.json reflects only the setter of " + model.DomName + "." + entry.Member + " ("
+                + entry.Reason + ") and also routes its getter through the " + getterHook.Hook
+                + " hook; the read cannot be both.");
+            return false;
+        }
+
+        return true;
     }
 
     /// <summary>

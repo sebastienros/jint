@@ -2272,6 +2272,54 @@
       "reason": "HTML \u00a74.10.6: an enumerated attribute whose missing and invalid value defaults are both `submit`, so `<button type=x>` is a submit button. AngleSharp's Type hands back the raw attribute value."
     },
     {
+      "interface": "HTMLMeterElement",
+      "member": "value",
+      "attribute": "value",
+      "type": "double",
+      "setterOnly": true,
+      "reason": "HTML §4.10.14: the GETTER is the actual value -- the content attribute constrained to [min, max] -- and AngleSharp implements that clamping and every one of the section's defaults, so replacing it would be a regression. The SETTER is plain reflection, and §2.6.1 wants \"the best representation of the number as a floating-point number\", which is ECMAScript's Number-to-String; AngleSharp writes Double.ToString(NumberFormatInfo.InvariantInfo), which spells 1e+25 as 1E+25 and keeps the sign of -0."
+    },
+    {
+      "interface": "HTMLMeterElement",
+      "member": "min",
+      "attribute": "min",
+      "type": "double",
+      "setterOnly": true,
+      "reason": "HTML §4.10.14: the same halves. The getter is the minimum value, 0 when the attribute is absent or unparseable, which AngleSharp answers; the setter is the reflection whose serialization is .NET's."
+    },
+    {
+      "interface": "HTMLMeterElement",
+      "member": "max",
+      "attribute": "max",
+      "type": "double",
+      "setterOnly": true,
+      "reason": "HTML §4.10.14: the getter is the maximum value, which is 1 when the attribute is absent and never less than the minimum -- a default no reflection type carries and AngleSharp already answers. The setter is the reflection whose serialization is .NET's."
+    },
+    {
+      "interface": "HTMLMeterElement",
+      "member": "low",
+      "attribute": "low",
+      "type": "double",
+      "setterOnly": true,
+      "reason": "HTML §4.10.14: the getter is the low boundary, which is the minimum when the attribute is absent and is clamped into [min, max]. The setter is the reflection whose serialization is .NET's."
+    },
+    {
+      "interface": "HTMLMeterElement",
+      "member": "high",
+      "attribute": "high",
+      "type": "double",
+      "setterOnly": true,
+      "reason": "HTML §4.10.14: the getter is the high boundary, which is the maximum when the attribute is absent and is clamped into [low, max]. The setter is the reflection whose serialization is .NET's."
+    },
+    {
+      "interface": "HTMLMeterElement",
+      "member": "optimum",
+      "attribute": "optimum",
+      "type": "double",
+      "setterOnly": true,
+      "reason": "HTML §4.10.14: the getter is the optimum point, which is the midpoint of [min, max] when the attribute is absent -- a computed default, not a reflected one. The setter is the reflection whose serialization is .NET's."
+    },
+    {
       "interface": "HTMLProgressElement",
       "member": "max",
       "attribute": "max",
