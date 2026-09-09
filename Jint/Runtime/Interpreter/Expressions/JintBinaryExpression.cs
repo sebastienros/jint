@@ -143,7 +143,11 @@ internal abstract class JintBinaryExpression : JintExpression
         /// the length without materializing a JsNumber. Array length is always an own data property
         /// (the length machinery forbids accessors) and JsString.Length is the virtual that custom
         /// string types override, so neither read can run user code or materialize a lazy string.
-        /// Everything else — typed arrays, proxies, arguments, plain objects — declines.
+        /// A host <see cref="ArrayLikeObject"/> answers from its own O(1) count, but only while
+        /// <c>ArrayLikeObject.TryReadLength</c>'s guard proves that read is the one <c>[[Get]]</c> would
+        /// make — a tampered accessor, an own `length`, or a re-pointed prototype declines here and the
+        /// generic path invokes the accessor. Everything else — typed arrays, proxies, arguments, plain
+        /// objects — declines.
         /// </summary>
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static bool TryReadLengthBound(JintIdentifierExpression baseIdentifier, ref SlotLocationCache cache, Engine engine, Environments.Environment env, out double value)
@@ -164,6 +168,12 @@ internal abstract class JintBinaryExpression : JintExpression
             if (baseValue is JsString jsString)
             {
                 value = jsString.Length;
+                return true;
+            }
+
+            if (baseValue is ArrayLikeObject arrayLike && arrayLike.TryReadLength(out var arrayLikeLength))
+            {
+                value = arrayLikeLength;
                 return true;
             }
 
