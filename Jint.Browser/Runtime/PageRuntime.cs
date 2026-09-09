@@ -268,8 +268,8 @@ internal sealed class PageRuntime
     internal string WindowName { get; set; } = "";
 
     /// <summary>
-    /// The document's URL as the page knows it, which is what <c>location</c>, <c>document.URL</c> and
-    /// relative resolution read.
+    /// The document's URL as the page knows it, which is what <c>location</c>, <c>document.URL</c>,
+    /// relative resolution and HTML §4.10.18.6's empty-<c>action</c> default read.
     /// </summary>
     /// <remarks>
     /// It is the runtime's rather than AngleSharp's because <c>pushState</c> and a fragment navigation move

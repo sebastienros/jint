@@ -194,7 +194,9 @@ internal sealed class ReflectedAttribute
     /// HTML §4.10.18.6's exception, which <c>form.action</c> and <c>formAction</c> are the only members
     /// with: "on getting, when the content attribute is missing or its value is the empty string, the
     /// element's node document's URL must be returned instead". It is the document's URL and not the base
-    /// URL, so a <c>&lt;base href&gt;</c> does not move it.
+    /// URL, so a <c>&lt;base href&gt;</c> does not move it — and for a document with a browsing context it
+    /// is the URL <em>the page</em> holds, which a same-document navigation moves and AngleSharp's document
+    /// address does not; <see cref="Get(DomRealm, IElement)"/> is where the two are told apart.
     /// </param>
     internal static ReflectedAttribute Url(string member, string attribute, bool documentUrlWhenEmpty = false)
         => new(member, attribute, ReflectedKind.Url, documentUrlWhenEmpty: documentUrlWhenEmpty);
@@ -238,16 +240,26 @@ internal sealed class ReflectedAttribute
 
     /// <summary>The IDL attribute's value outside a page runtime, resolved against its node document.</summary>
     internal JsValue Get(IElement element)
-        => Get(element, CurrentBaseUri(element.Owner, element.BaseUri));
+    {
+        var owner = element.Owner;
+        return Get(element, CurrentBaseUri(owner, element.BaseUri), owner?.Url);
+    }
 
     /// <summary>The IDL attribute's value inside a page runtime, resolved against its current document base.</summary>
+    /// <remarks>
+    /// Two values come from the runtime and they are different values. The base URL is what a relative
+    /// content attribute resolves against; the document's URL is what <see cref="_documentUrlWhenEmpty"/>
+    /// answers instead of resolving anything, and a <c>&lt;base href&gt;</c> does not move it. Both are the
+    /// runtime's rather than AngleSharp's because a same-document navigation moves
+    /// <see cref="PageRuntime.DocumentUrl"/> and leaves AngleSharp's document address at whatever the parse
+    /// was given — so after <c>history.pushState</c> the AngleSharp answer is the address the page was
+    /// loaded at, which for <c>formAction</c> is the one URL a form posting to itself must not read.
+    /// </remarks>
     internal JsValue Get(DomRealm realm, IElement element)
     {
         var owner = element.Owner;
-        var baseUri = PageRuntime.Find(realm.Engine) is { } runtime && ReferenceEquals(owner, runtime.Document)
-            ? runtime.BaseUri
-            : CurrentBaseUri(owner, element.BaseUri);
-        return Get(element, baseUri);
+        var runtime = PageRuntime.Find(realm.Engine, owner);
+        return Get(element, runtime?.BaseUri ?? CurrentBaseUri(owner, element.BaseUri), runtime?.DocumentUrl ?? owner?.Url);
     }
 
     /// <summary>
@@ -260,7 +272,7 @@ internal sealed class ReflectedAttribute
     /// content attribute, which is what passing no element to the shared getter says.
     /// </remarks>
     internal JsValue Get(IDocument document)
-        => Get(ElementIn(document), CurrentBaseUri(document, document.BaseUri));
+        => Get(ElementIn(document), CurrentBaseUri(document, document.BaseUri), document.Url);
 
     /// <summary>The same member's setter, which does nothing when the target element is absent.</summary>
     internal JsValue Set(DomRealm realm, IDocument document, JsValue[] arguments)
@@ -298,7 +310,7 @@ internal sealed class ReflectedAttribute
         return PageUrl.Resolve(href, address) ?? address;
     }
 
-    private JsValue Get(IElement? element, string? baseUri)
+    private JsValue Get(IElement? element, string? baseUri, string? documentUrl)
     {
         var value = element?.GetAttribute(_attribute);
 
@@ -317,8 +329,9 @@ internal sealed class ReflectedAttribute
                 return DomConvert.Text(element is null ? "" : CryptographicNonce.Get(element));
 
             case ReflectedKind.Url when _documentUrlWhenEmpty && string.IsNullOrEmpty(value):
-                // "...the element's node document's URL must be returned instead."
-                return DomConvert.Text(element?.Owner?.Url ?? "");
+                // "...the element's node document's URL must be returned instead." The caller resolved which
+                // URL that is, because for the page's own document it is the runtime's and not AngleSharp's.
+                return DomConvert.Text(documentUrl ?? "");
 
             case ReflectedKind.Url:
                 return DomConvert.Text(ResolveUrl(value, baseUri));
