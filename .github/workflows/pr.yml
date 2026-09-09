@@ -78,7 +78,22 @@ jobs:
         enableCrossOsArchive: true
 
     - name: Test
+      if: matrix.os.name != 'windows'
       run: dotnet test --configuration Release --logger "console;verbosity=quiet" --logger "GitHubActions;summary-include-passed=false;summary-include-skipped=false"
+
+    # The Windows leg runs the browser suite on its own, after everything else, because three vendored
+    # documents (dom/nodes/NodeList-static-length-getter-tampered-*.html) are ~76 million interpreted
+    # iterations each under upstream testharness.js's 60 s `timeout=long` wall clock -- 15-17 s idle on
+    # net8.0, 37-48 s when the whole solution's test hosts share four cores -- so a slower vCPU takes them
+    # over the budget and the census fails closed on a TIMEOUT nothing in the tree caused (#3947). Running
+    # the suite alone gives those documents the four cores; no bound, deadline or retry changes.
+    - name: Test (everything but the browser suite)
+      if: matrix.os.name == 'windows'
+      run: dotnet test --configuration Release --filter "FullyQualifiedName!~Jint.Tests.Browser" --logger "console;verbosity=quiet" --logger "GitHubActions;summary-include-passed=false;summary-include-skipped=false"
+
+    - name: Test (the browser suite alone)
+      if: matrix.os.name == 'windows'
+      run: dotnet test Jint.Tests.Browser/Jint.Tests.Browser.csproj --configuration Release --logger "console;verbosity=quiet" --logger "GitHubActions;summary-include-passed=false;summary-include-skipped=false"
 
   # The matrix above is the shipped configuration: Release with host-contract verification off, which is what
   # the probe-count and no-descriptor pins in Jint.Tests.PublicInterface document as costing nothing. This leg
