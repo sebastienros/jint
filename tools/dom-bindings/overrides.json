@@ -2714,13 +2714,6 @@
       "reason": "HTML \u00a74.5.1: `ping` is a reflected DOMString. AngleSharp has no member for it."
     },
     {
-      "interface": "HTMLAreaElement",
-      "member": "ping",
-      "attribute": "ping",
-      "type": "string",
-      "reason": "HTML §4.8.13: `ping` is a reflected USVString on <area> too. AngleSharp types it as a DOMSettableTokenList, an interface DOM removed in 2016 and this table excludes, so the reflection is what supplies the member."
-    },
-    {
       "interface": "HTMLTableCellElement",
       "member": "headers",
       "attribute": "headers",
@@ -3041,13 +3034,6 @@
       "min": 0,
       "max": 65534,
       "reason": "HTML \u00a74.9.11: `rowSpan` is an unsigned long clamped to the range [0, 65534] with a default of 1 -- a different range from colSpan's, and zero is legal because it means \"to the end of the row group\"."
-    },
-    {
-      "interface": "HTMLTableCellElement",
-      "member": "headers",
-      "attribute": "headers",
-      "type": "string",
-      "reason": "HTML \u00a74.9.11: `headers` is a reflected DOMString, not a token list, whatever the value's syntax is. AngleSharp has no member for it."
     },
     {
       "interface": "HTMLTableCellElement",

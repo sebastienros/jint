@@ -79,6 +79,10 @@ internal static class DomReflected
     internal static readonly ReflectedAttribute HTMLAreaElementPing =
         ReflectedAttribute.Text("HTMLAreaElement.ping", "ping");
 
+    /// <summary><c>HTMLAreaElement.ping</c> reflects <c>ping</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLAreaElementPing =
+        ReflectedAttribute.Text("HTMLAreaElement.ping", "ping");
+
     /// <summary><c>HTMLAreaElement.referrerPolicy</c> reflects <c>referrerpolicy</c> as an enum.</summary>
     internal static readonly ReflectedAttribute HTMLAreaElementReferrerPolicy =
         ReflectedAttribute.Enumerated("HTMLAreaElement.referrerPolicy", "referrerpolicy", ["", "no-referrer", "no-referrer-when-downgrade", "same-origin", "origin", "strict-origin", "origin-when-cross-origin", "strict-origin-when-cross-origin", "unsafe-url"], missing: "", invalid: null);
@@ -582,6 +586,10 @@ internal static class DomReflected
     /// <summary><c>HTMLTableCellElement.colSpan</c> reflects <c>colspan</c> as a clamped unsigned long.</summary>
     internal static readonly ReflectedAttribute HTMLTableCellElementColSpan =
         ReflectedAttribute.Numeric("HTMLTableCellElement.colSpan", "colspan", ReflectedKind.ClampedUnsignedLong, 1, min: 1, max: 1000);
+
+    /// <summary><c>HTMLTableCellElement.headers</c> reflects <c>headers</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableCellElementHeaders =
+        ReflectedAttribute.Text("HTMLTableCellElement.headers", "headers");
 
     /// <summary><c>HTMLTableCellElement.headers</c> reflects <c>headers</c> as a string.</summary>
     internal static readonly ReflectedAttribute HTMLTableCellElementHeaders =
