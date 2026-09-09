@@ -2,6 +2,7 @@ using AngleSharp.Css;
 using AngleSharp.Css.Dom;
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
+using Jint.Browser.Events;
 using Jint.WebApi.Url.Parsing;
 
 namespace Jint.Browser.Runtime.Parsing;
@@ -16,15 +17,37 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
     private const string Disabled = "disabled";
     private const string Enabled = "enabled";
     private const string InRange = "in-range";
+    private const string Indeterminate = "indeterminate";
     private const string Invalid = "invalid";
     private const string Link = "link";
     private const string Open = "open";
     private const string OutOfRange = "out-of-range";
+    private const string PlaceholderShown = "placeholder-shown";
+    private const string ReadOnly = "read-only";
+    private const string ReadWrite = "read-write";
+
+    /// <summary>The content attribute, whose name is not the one either selector goes by.</summary>
+    private const string ReadOnlyAttributeName = "readonly";
     private const string Target = "target";
     private const string Valid = "valid";
     private const string Visited = "visited";
 
     private static readonly ISelector _target = new TargetSelector();
+
+    /// <summary>§4.10.5.4: the seven type states the <c>min</c> and <c>max</c> attributes apply to.</summary>
+    private static readonly string[] _minAndMaxApplyTo =
+        ["date", "month", "week", "time", "datetime-local", "number", "range"];
+
+    /// <summary>§4.10.5.3.10: the seven type states the <c>placeholder</c> attribute applies to.</summary>
+    private static readonly string[] _placeholderAppliesTo =
+        ["text", "search", "url", "tel", "email", "password", "number"];
+
+    /// <summary>§4.10.5.3.6: the twelve type states the <c>readonly</c> attribute applies to.</summary>
+    private static readonly string[] _readOnlyAppliesTo =
+    [
+        "text", "search", "url", "tel", "email", "password",
+        "date", "month", "week", "time", "datetime-local", "number",
+    ];
     private readonly DefaultPseudoClassSelectorFactory _defaults = new();
     private readonly ISelector _anyLink;
     private readonly ISelector _closed;
@@ -32,10 +55,14 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
     private readonly ISelector _disabled;
     private readonly ISelector _enabled;
     private readonly ISelector _inRange;
+    private readonly ISelector _indeterminate;
     private readonly ISelector _invalid;
     private readonly ISelector _link;
     private readonly ISelector _open;
     private readonly ISelector _outOfRange;
+    private readonly ISelector _placeholderShown;
+    private readonly ISelector _readOnly;
+    private readonly ISelector _readWrite;
     private readonly ISelector _valid;
     private readonly ISelector _visited;
 
@@ -57,6 +84,13 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
         _outOfRange = new RangeStateSelector(Default(OutOfRange), outOfRange: true);
         _valid = new ValidityStateSelector(Default(Valid), invalid: false);
         _invalid = new ValidityStateSelector(Default(Invalid), invalid: true);
+        _indeterminate = new IndeterminateSelector(Default(Indeterminate));
+        _placeholderShown = new PlaceholderShownSelector(Default(PlaceholderShown));
+
+        // The disabled selector rather than a second reading of the attribute: §4.10.5.3.6's "mutable" is
+        // "not read-only and not disabled", and being disabled is the whole of §4.15 that :disabled owns.
+        _readWrite = new ReadWriteStateSelector(Default(ReadWrite), _disabled, readOnly: false);
+        _readOnly = new ReadWriteStateSelector(Default(ReadOnly), _disabled, readOnly: true);
     }
 
     /// <inheritdoc />
@@ -120,6 +154,26 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
         if (string.Equals(name, Invalid, StringComparison.OrdinalIgnoreCase))
         {
             return _invalid;
+        }
+
+        if (string.Equals(name, Indeterminate, StringComparison.OrdinalIgnoreCase))
+        {
+            return _indeterminate;
+        }
+
+        if (string.Equals(name, PlaceholderShown, StringComparison.OrdinalIgnoreCase))
+        {
+            return _placeholderShown;
+        }
+
+        if (string.Equals(name, ReadWrite, StringComparison.OrdinalIgnoreCase))
+        {
+            return _readWrite;
+        }
+
+        if (string.Equals(name, ReadOnly, StringComparison.OrdinalIgnoreCase))
+        {
+            return _readOnly;
         }
 
         return string.Equals(name, Visited, StringComparison.OrdinalIgnoreCase) ? _visited : _defaults.Create(name);
@@ -593,18 +647,13 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
                 return true;
             }
 
-            if (!MinAndMaxApplyTo(input.Type))
+            if (!IsAnyOf(input.Type, _minAndMaxApplyTo))
             {
                 return false;
             }
 
             return IsSpecified(input, "min") || IsSpecified(input, "max");
         }
-
-        private static bool MinAndMaxApplyTo(string type)
-            => IsOneOf(type, "date", "month")
-                || IsOneOf(type, "week", "time")
-                || IsOneOf(type, "datetime-local", "number");
 
         private static bool IsTheRangeState(IHtmlInputElement input)
             => string.Equals(input.Type, "range", StringComparison.OrdinalIgnoreCase);
@@ -707,6 +756,200 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
     private static bool IsOneOf(string value, string first, string second)
         => string.Equals(value, first, StringComparison.OrdinalIgnoreCase)
             || string.Equals(value, second, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Whether <paramref name="value"/> is an ASCII case-insensitive match for one of the keywords.</summary>
+    private static bool IsAnyOf(string value, string[] keywords)
+    {
+        foreach (var keyword in keywords)
+        {
+            if (string.Equals(value, keyword, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>The topmost element above <paramref name="element"/>, which is the tree the scans walk.</summary>
+    private static IElement RootElementOf(IElement element)
+    {
+        var root = element;
+        while (root.ParentElement is { } parent)
+        {
+            root = parent;
+        }
+
+        return root;
+    }
+
+    /// <summary>
+    /// HTML §4.16.3: <c>:placeholder-shown</c> matches an <c>input</c> or a <c>textarea</c> whose placeholder
+    /// is currently being presented to the user, which §4.10.5.3.10 and §4.10.11 make "the attribute applies,
+    /// it is not empty, and the control's value is". AngleSharp's <c>IsPlaceholderShown()</c> asks any
+    /// <c>input</c> for a non-empty placeholder and an empty value — so a submit button with a placeholder
+    /// matches — and never answers for a <c>textarea</c> at all.
+    /// </summary>
+    private sealed class PlaceholderShownSelector(ISelector defaults) : ISelector
+    {
+        public string Text => defaults.Text;
+
+        public Priority Specificity => defaults.Specificity;
+
+        public bool Match(IElement element, IElement? scope)
+        {
+            if (element is IHtmlTextAreaElement textArea)
+            {
+                return HasAPlaceholder(textArea) && string.IsNullOrEmpty(textArea.Value);
+            }
+
+            return element is IHtmlInputElement input
+                && IsAnyOf(input.Type, _placeholderAppliesTo)
+                && HasAPlaceholder(input)
+                && string.IsNullOrEmpty(input.Value);
+        }
+
+        public void Accept(ISelectorVisitor visitor) => defaults.Accept(visitor);
+
+        /// <summary>An empty placeholder presents nothing, so it is not shown.</summary>
+        private static bool HasAPlaceholder(IElement element)
+            => element.GetAttribute("placeholder") is { Length: > 0 };
+    }
+
+    /// <summary>
+    /// HTML §4.16.3's three <c>:read-write</c> categories — an <c>input</c> the <c>readonly</c> attribute
+    /// applies to and which is mutable, a <c>textarea</c> with no <c>readonly</c> attribute which is not
+    /// disabled, and an element which is an editing host or editable and is neither of those two — and
+    /// <c>:read-only</c>, which matches <b>all other HTML elements</b>. That last word is load-bearing: an
+    /// SVG or a MathML element is in neither class, where AngleSharp's <c>IsReadOnly()</c> falls through to
+    /// <c>return true</c> for everything that is not an <c>IHtmlElement</c>. Its <c>:read-write</c> asks only
+    /// "not disabled and not read-only", with no applicability test, so a checkbox is user-alterable.
+    /// </summary>
+    private sealed class ReadWriteStateSelector(ISelector defaults, ISelector disabled, bool readOnly) : ISelector
+    {
+        public string Text => defaults.Text;
+
+        public Priority Specificity => defaults.Specificity;
+
+        public bool Match(IElement element, IElement? scope)
+            => element is IHtmlElement && IsUserAlterable(element, scope) != readOnly;
+
+        public void Accept(ISelectorVisitor visitor) => defaults.Accept(visitor);
+
+        private bool IsUserAlterable(IElement element, IElement? scope)
+        {
+            // §4.10.5.3.6: mutable is "the readonly attribute is not specified and the element is not
+            // disabled", and being disabled is what the :disabled selector beside this one already decides.
+            if (element is IHtmlInputElement input)
+            {
+                return IsAnyOf(input.Type, _readOnlyAppliesTo)
+                    && !input.HasAttribute(ReadOnlyAttributeName)
+                    && !disabled.Match(element, scope);
+            }
+
+            // §4.10.11: a textarea has no applicability question, only the attribute and the state.
+            if (element is IHtmlTextAreaElement)
+            {
+                return !element.HasAttribute(ReadOnlyAttributeName) && !disabled.Match(element, scope);
+            }
+
+            return IsEditable(element);
+        }
+
+        /// <summary>
+        /// The third category. <c>Events/ContentEditing.HostOf</c> is the package's own reading of
+        /// <c>contenteditable</c> — its file records why AngleSharp's <c>IsContentEditable</c> cannot be used,
+        /// since it answers <see langword="false"/> for the attribute written without a value — and returns
+        /// the nearest editing host, which is what "is an editing host or editable" asks for. A document in
+        /// design mode is an editing host of its own, so everything in it is editable.
+        /// </summary>
+        private static bool IsEditable(IElement element)
+        {
+            if (ContentEditing.HostOf(element) is not null)
+            {
+                return true;
+            }
+
+            return element.Owner is { } document
+                && string.Equals(document.DesignMode, "on", StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    /// <summary>
+    /// HTML §4.16.3's three <c>:indeterminate</c> categories: a checkbox whose <c>indeterminate</c> IDL
+    /// attribute is set, a radio button whose §4.10.5.1.16 radio button group holds no checked member, and a
+    /// <c>progress</c> element with <b>no</b> <c>value</c> content attribute. AngleSharp has the first, reads
+    /// the third as an attribute whose value is empty rather than one that is absent — so
+    /// <c>&lt;progress value=""&gt;</c> is indeterminate there and determinate here — and has no radio rule at
+    /// all, so every unchecked radio button in the document answered <see langword="false"/>.
+    /// </summary>
+    private sealed class IndeterminateSelector(ISelector defaults) : ISelector
+    {
+        public string Text => defaults.Text;
+
+        public Priority Specificity => defaults.Specificity;
+
+        public bool Match(IElement element, IElement? scope)
+        {
+            if (element is IHtmlProgressElement)
+            {
+                return !element.HasAttribute("value");
+            }
+
+            if (element is not IHtmlInputElement input)
+            {
+                return false;
+            }
+
+            if (string.Equals(input.Type, "checkbox", StringComparison.OrdinalIgnoreCase))
+            {
+                return input.IsIndeterminate;
+            }
+
+            return IsARadioButton(input) && !TheRadioButtonGroupOfHasACheckedMember(input);
+        }
+
+        public void Accept(ISelectorVisitor visitor) => defaults.Accept(visitor);
+
+        private static bool IsARadioButton(IHtmlInputElement input)
+            => string.Equals(input.Type, "radio", StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// §4.10.5.1.16: a radio button's group is every radio button in the same tree with the same form
+        /// owner and a <c>name</c> that is a compatibility caseless match for its own. A button carrying no
+        /// <c>name</c> matches that last condition with nothing, so its group is itself alone — which is why
+        /// the scan starts from its own checkedness and only widens when there is a name to widen by.
+        /// </summary>
+        private static bool TheRadioButtonGroupOfHasACheckedMember(IHtmlInputElement radio)
+        {
+            if (radio.IsChecked)
+            {
+                return true;
+            }
+
+            if (radio.Name is not { Length: > 0 } name)
+            {
+                return false;
+            }
+
+            var owner = radio.Form;
+            var root = RootElementOf(radio);
+
+            for (var candidate = root; candidate is not null; candidate = NextInSubtree(candidate, root))
+            {
+                if (candidate is IHtmlInputElement other
+                    && other.IsChecked
+                    && IsARadioButton(other)
+                    && ReferenceEquals(other.Form, owner)
+                    && string.Equals(other.Name, name, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
 
     /// <summary>Selectors §8.2: the target element of a document.</summary>
     private sealed class TargetSelector : ISelector

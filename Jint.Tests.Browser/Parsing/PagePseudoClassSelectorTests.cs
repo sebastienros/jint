@@ -887,4 +887,186 @@ public sealed class PagePseudoClassSelectorTests
             "empty:true:false,satisfied:true:false,failing:false:true,barred:true:false," +
             "nested:false:true,inner2:false:true|true:false|false:true");
     }
+    /// <summary>
+    /// HTML §4.16.3 matches <c>:placeholder-shown</c> against an <c>input</c> or a <c>textarea</c> whose
+    /// placeholder is currently being presented, which §4.10.5.3.10 confines to the seven type states the
+    /// attribute applies to and to an empty value. AngleSharp's <c>IsPlaceholderShown()</c> asks any input for
+    /// a placeholder and an empty value, applicability included, and never answers for a <c>textarea</c>.
+    /// </summary>
+    [Test]
+    public async Task PlaceholderShownNeedsTheAttributeToApplyAndAnswersForATextarea()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <!doctype html><html><body>
+              <input id="text" placeholder="hint">
+              <input id="email" type="email" placeholder="hint">
+              <input id="number" type="number" placeholder="hint">
+              <input id="filled" placeholder="hint" value="typed">
+              <input id="noPlaceholder">
+              <input id="emptyPlaceholder" placeholder="">
+              <input id="submit" type="submit" placeholder="hint">
+              <input id="checkbox" type="checkbox" placeholder="hint">
+              <input id="date" type="date" placeholder="hint">
+              <textarea id="textarea" placeholder="hint"></textarea>
+              <textarea id="filledTextarea" placeholder="hint">typed</textarea>
+              <textarea id="plainTextarea"></textarea>
+            </body></html>
+            """);
+
+        (await page.EvaluateAsync<string>("""
+            (() => {
+              const ids = ['text', 'email', 'number', 'filled', 'noPlaceholder', 'emptyPlaceholder', 'submit',
+                'checkbox', 'date', 'textarea', 'filledTextarea', 'plainTextarea'];
+              const states = ids.map(id => id + ':' + document.getElementById(id).matches(':placeholder-shown')).join(',');
+              text.value = 'typed';
+              filled.value = '';
+              return states + '|' + text.matches(':placeholder-shown') + ':' + filled.matches(':placeholder-shown');
+            })()
+            """)).Should().Be(
+            "text:true,email:true,number:true,filled:false,noPlaceholder:false,emptyPlaceholder:false," +
+            "submit:false,checkbox:false,date:false,textarea:true,filledTextarea:false,plainTextarea:false|" +
+            "false:true");
+    }
+
+    /// <summary>
+    /// HTML §4.16.3's three <c>:read-write</c> categories: an <c>input</c> the <c>readonly</c> attribute
+    /// applies to and which is mutable, a <c>textarea</c> with no <c>readonly</c> attribute which is not
+    /// disabled, and an element that is an editing host or editable and is neither. <c>:read-only</c> matches
+    /// <b>all other HTML elements</b>, which is what keeps an SVG or a MathML element out of both. AngleSharp
+    /// reads the first category as "not disabled and not read-only" with no applicability test, and its
+    /// fall-through answers <c>true</c> for every element that is not an <c>IHtmlElement</c> at all.
+    /// </summary>
+    [Test]
+    public async Task ReadWriteNeedsTheReadonlyAttributeToApplyAndReadOnlyIsHtmlOnly()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <!doctype html><html><body>
+              <div id="applies">
+                <input id="plain"><input id="readOnly" readonly><input id="disabledInput" disabled>
+                <input id="date" type="date"><input id="password" type="password">
+              </div>
+              <div id="doesNotApply">
+                <input id="checkbox" type="checkbox"><input id="hidden" type="hidden">
+                <input id="range" type="range"><input id="submit" type="submit">
+              </div>
+              <div id="areas">
+                <textarea id="textarea"></textarea><textarea id="readOnlyArea" readonly></textarea>
+                <textarea id="disabledArea" disabled></textarea>
+              </div>
+              <fieldset disabled id="fieldset"><input id="inFieldset"></fieldset>
+              <p id="paragraph">text</p>
+              <svg id="svg"><rect id="rect"></rect></svg>
+            </body></html>
+            """);
+
+        (await page.EvaluateAsync<string>("""
+            (() => {
+              const ids = ['plain', 'readOnly', 'disabledInput', 'date', 'password', 'checkbox', 'hidden',
+                'range', 'submit', 'textarea', 'readOnlyArea', 'disabledArea', 'inFieldset', 'paragraph',
+                'svg', 'rect'];
+              const states = ids.map(id => {
+                const element = document.getElementById(id);
+                return id + ':' + element.matches(':read-write') + ':' + element.matches(':read-only');
+              }).join(',');
+              const writable = Array.from(document.querySelectorAll('#applies :read-write, #doesNotApply :read-write, #areas :read-write'),
+                e => e.id).join(',');
+              return states + '|' + writable;
+            })()
+            """)).Should().Be(
+            "plain:true:false,readOnly:false:true,disabledInput:false:true,date:true:false," +
+            "password:true:false,checkbox:false:true,hidden:false:true,range:false:true," +
+            "submit:false:true,textarea:true:false,readOnlyArea:false:true,disabledArea:false:true," +
+            "inFieldset:false:true,paragraph:false:true,svg:false:false,rect:false:false|" +
+            "plain,date,password,textarea");
+    }
+
+    /// <summary>
+    /// The third category, which AngleSharp reads through its own <c>IsContentEditable</c> — the member
+    /// <c>Events/ContentEditing</c> already documents as answering <see langword="false"/> for
+    /// <c>contenteditable</c> written without a value, which is how nearly every page writes it. An editing
+    /// host and everything editable inside it is <c>:read-write</c>, and a document in design mode is an
+    /// editing host of its own; a control inside one is still decided by the first two categories.
+    /// </summary>
+    [Test]
+    public async Task AnEditingHostAndWhatIsEditableInsideItIsReadWrite()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <!doctype html><html><body>
+              <div id="host" contenteditable>
+                <p id="inside"></p>
+                <input id="mutable"><input id="readOnly" readonly><input id="disabled" disabled>
+                <textarea id="area"></textarea><textarea id="readOnlyArea" readonly></textarea>
+              </div>
+              <div id="outside"><p id="plain"></p></div>
+              <div id="explicitlyFalse" contenteditable="false"><p id="refused"></p></div>
+            </body></html>
+            """);
+
+        (await page.EvaluateAsync<string>("""
+            (() => {
+              const ids = ['host', 'inside', 'mutable', 'readOnly', 'disabled', 'area', 'readOnlyArea',
+                'outside', 'plain', 'explicitlyFalse', 'refused'];
+              const read = () => ids.map(id => {
+                const element = document.getElementById(id);
+                return id + ':' + element.matches(':read-write');
+              }).join(',');
+              const before = read();
+              document.designMode = 'on';
+              const designing = plain.matches(':read-write') + ':' + readOnly.matches(':read-write')
+                + ':' + refused.matches(':read-write');
+              document.designMode = 'off';
+              return before + '|' + designing + '|' + plain.matches(':read-write');
+            })()
+            """)).Should().Be(
+            "host:true,inside:true,mutable:true,readOnly:false,disabled:false,area:true,readOnlyArea:false," +
+            "outside:false,plain:false,explicitlyFalse:false,refused:false|true:false:true|false");
+    }
+
+    /// <summary>
+    /// HTML §4.16.3's three <c>:indeterminate</c> categories: a checkbox whose indeterminate IDL attribute is
+    /// set, a radio button whose §4.10.5.1.16 radio button group holds no checked member, and a
+    /// <c>progress</c> with <b>no value content attribute</b>. AngleSharp has the first and reads the third as
+    /// an attribute whose value is empty, and the radio-button rule is missing outright.
+    /// </summary>
+    [Test]
+    public async Task IndeterminateCoversARadioGroupWithNoCheckedMemberAndReadsAProgressAttributeByPresence()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <!doctype html><html><body>
+              <input type="radio" name="one" id="oneA"><input type="radio" name="one" id="oneB">
+              <input type="radio" name="two" id="twoA" checked><input type="radio" name="two" id="twoB">
+              <input type="radio" id="nameless">
+              <input type="radio" name="ONE" id="caseless">
+              <form id="form"><input type="radio" name="one" id="owned" checked></form>
+              <input type="checkbox" id="checkbox">
+              <progress id="noValue"></progress>
+              <progress id="emptyValue" value=""></progress>
+              <progress id="withValue" value="10"></progress>
+            </body></html>
+            """);
+
+        (await page.EvaluateAsync<string>("""
+            (() => {
+              const ids = ['oneA', 'oneB', 'twoA', 'twoB', 'nameless', 'caseless', 'owned', 'checkbox',
+                'noValue', 'emptyValue', 'withValue'];
+              const read = () => ids.map(id => id + ':' + document.getElementById(id).matches(':indeterminate')).join(',');
+              const before = read();
+              oneB.checked = true;
+              const afterChecking = oneA.matches(':indeterminate') + ':' + oneB.matches(':indeterminate')
+                + ':' + caseless.matches(':indeterminate');
+              checkbox.indeterminate = true;
+              return before + '|' + afterChecking + '|' + checkbox.matches(':indeterminate');
+            })()
+            """)).Should().Be(
+            "oneA:true,oneB:true,twoA:false,twoB:false,nameless:true,caseless:true,owned:false," +
+            "checkbox:false,noValue:true,emptyValue:false,withValue:false|false:false:false|true");
+    }
 }

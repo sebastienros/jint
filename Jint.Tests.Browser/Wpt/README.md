@@ -43,11 +43,12 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `custom-elements/reactions/` | 14 | 0 | 255 | 52 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 0 |
 | **total** | **392** | **9** | **66,916** | **902** |
+| `html/semantics/selectors/pseudo-classes/` | 27 | 0 | 122 | 34 |
 | `custom-elements/` | 16 | 0 | 513 | 13 |
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 52 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 0 |
-| **total** | **392** | **9** | **66,916** | **906** |
+| **total** | **392** | **9** | **66,916** | **885** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -276,35 +277,38 @@ is one. Their siblings are about other interfaces — `HTMLFormControlsCollectio
 ## What the pseudo-classes suite says about this browser
 
 `html/semantics/selectors/pseudo-classes/` is HTML §4.16.3's own suite: one document per selector, run
-against a page's real selector engine rather than against a table of strings. **27 documents, 122 tests, 55
-of which do not pass**, and every failure is one of eleven bounded things AngleSharp's
-`DefaultPseudoClassSelectorFactory` does. That is the reason the suite is here: the page already owns
-`:target`, `:link`/`:visited`/`:any-link`, `:enabled`/`:disabled` and `:default`
-(`Runtime/Parsing/PagePseudoClassSelectorFactory`), and nothing until now measured the rest.
+against a page's real selector engine rather than against a table of strings. **27 documents, 122 tests, 34
+of which do not pass**, and every failure is one of eight bounded things AngleSharp's
+`DefaultPseudoClassSelectorFactory` does. That is the reason the suite is here: the page owns
+`:target`, `:link`/`:visited`/`:any-link`, `:enabled`/`:disabled`, `:default`, `:open`/`:closed`,
+`:valid`/`:invalid`, `:in-range`/`:out-of-range`, `:read-only`/`:read-write`, `:placeholder-shown` and
+`:indeterminate` (`Runtime/Parsing/PagePseudoClassSelectorFactory`), and nothing until this suite arrived
+measured any of them.
 
-None of these eleven has a row in the cause table above, and that is by construction: the table counts the
+None of these eight has a row in the cause table above, and that is by construction: the table counts the
 six DOM suites, and every one of these is a failure of this suite alone.
 
 | Tests | What it is |
 | ---: | --- |
-| 20 | **`:read-write` is "mutable" rather than "the `readonly` attribute applies and the control is mutable".** So a checkbox is read-write; and `IsContentEditable` answers false, so an editing host and everything inside one is read-only. Two of the rows want a form-associated custom element. |
 | 9 | **`:dir()` compares its argument with the `dir` content attribute of that element alone.** Directionality is inherited and its `auto` value is resolved from text, so an element declaring no `dir` matches neither keyword. |
+| 7 | **An opaque colour is serialized as `rgba(r, g, b, 1)`**, and these seven rows read `getComputedStyle().color` against a literal. Each already gets the colour the selector should produce; `Dom/divergences.md` records why the process-global switch is not flipped. |
 | 5 | **`:active` is a hyperlink-only flag nothing sets**, so no element matches while a click is in flight. |
 | 5 | **`:focus` is AngleSharp's `IElement.IsFocused`, which nothing assigns.** The page's own focus model is `Events/FocusController`, which is what `document.activeElement` reads, so `focus()` moves the active element where no selector can see it. |
-| 5 | **An opaque colour is serialized as `rgba(r, g, b, 1)`**, and these five rows read `getComputedStyle().color` against a literal. Each already gets the colour the selector should produce; `Dom/divergences.md` records why the process-global switch is not flipped. |
 | 3 | **`:checked` answers for the historical `<menuitem>`**, which `checked.html` keeps two of precisely so that they do not match. |
 | 3 | **A reversed range is an underflow and an overflow at once.** §4.10.5.4 gives the time state a periodic domain, so `min` greater than `max` wraps midnight; `ValidityState` compares against both bounds unconditionally. `element.validity` says the same, so it is not the selector's. |
-| 2 | **`:indeterminate` has no radio-button-group rule**, so an unchecked radio in a group with no checked member never matches. |
-| 1 | **`:placeholder-shown` ignores whether `placeholder` applies to the type state, and never answers for a `<textarea>`.** |
 | 1 | **`:required`/`:optional` read the attribute wherever it is written**, including on a hidden input, which it does not apply to. |
 | 1 | **A cloned control loses its dirty value flag**, so `maxlength`'s "too long" state does not survive `cloneNode`. `element.validity` says the same. |
 
-**Two of the eleven are gone and two took their place.** `:in-range`/`:out-of-range` and `:valid`/`:invalid`
-are the page's now: both ask HTML's "candidate for constraint validation" question that AngleSharp folds into
-`CheckValidity()`, `:in-range` also asks for range limitations, and a `fieldset` is decided from its
-descendants. That retired 13 rows of this suite and one of `dom/nodes/Element-closest.html`; what is left of
-each group is a constraint-validation state rather than a selector, which is why the two rows above are
-named for what they are.
+**Five of the eleven the suite arrived with are gone, and the two that are left of them are named for what
+they now hold.** The page owns `:in-range`/`:out-of-range` and `:valid`/`:invalid` — both ask HTML's
+"candidate for constraint validation" question AngleSharp folds into `CheckValidity()`, `:in-range` also
+asks for range limitations, and a `fieldset` is decided from its descendants — and `:read-only`/`:read-write`,
+`:placeholder-shown` and `:indeterminate`, which ask whether the attribute they are about *applies* to the
+type state, answer for a `<textarea>`, and know about a radio button group and about a `progress` attribute
+that is absent rather than empty. That retired 34 rows of this suite and one of
+`dom/nodes/Element-closest.html`. **Three type-change documents did not become green and moved instead**:
+their selectors answer correctly now and their remaining assertion compares a computed colour against a
+literal, so they sit in the `rgba()` row above beside the four that were always there.
 
 **Four of the directory's files are not vendored and none of the reasons is a defect.** `autofill.html`'s two
 assertions are `test_valid_selector`, which lives in `/css/support/parsing-testcommon.js` — a helper root this
