@@ -26,8 +26,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | Suite | Documents | Synthesized | Tests | Not passing |
 | --- | --- | --- | --- | --- |
 | `dom/events/` | 56 | 9 | 544 | 15 |
-| `dom/nodes/` | 168 | 0 | 8,115 | 808 |
-| `dom/nodes/` | 168 | 0 | 8,115 | 800 |
+| `dom/nodes/` | 168 | 0 | 8,115 | 796 |
 | `dom/collections/` | 8 | 0 | 43 | 0 |
 | `dom/lists/` | 5 | 0 | 189 | 5 |
 | `dom/traversal/` | 13 | 0 | 52 | 0 |
@@ -39,8 +38,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 52 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 3 |
-| **total** | **359** | **9** | **66,646** | **1,204** |
-| **total** | **352** | **9** | **30,420** | **1,199** |
+| **total** | **359** | **9** | **66,646** | **1,192** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -178,7 +176,7 @@ a supported name; the collection's named reads remain live.
 
 `dom/nodes/`, `dom/collections/`, `dom/lists/`, `dom/traversal/`, `dom/ranges/` and `html/dom/` are the DOM
 standard's own suites and HTML's DOM half — the corpus every other suite in this lane is written on top of.
-Across the six of them there are 226 documents and 65,226 tests, and **858 of those tests do not pass**.
+Across the six of them there are 226 documents and 65,226 tests, and **846 of those tests do not pass**.
 Across the six of them there are 226 documents and 65,226 tests, and **1,368 of those tests do not pass**.
 Across the six of them there are 219 documents and 29,003 tests, and **854 of those tests do not pass**.
 Those three figures are live and checked against the census. They arrived together as 207 documents and
@@ -199,8 +197,7 @@ table needs to be regenerated.
 | 159 | 4 | **Members of DOM interfaces are absent.** 137 of them are one interface: `processing-instruction-attributes.html` is the attribute surface [WICG's declarative partial updates](https://github.com/WICG/declarative-partial-updates) proposal puts on a `ProcessingInstruction`, which neither AngleSharp nor the bindings have. The rest are `ChildNode` unscopables, `Attr` identity and event aliases that have no constructor. <!-- cause: a member of a DOM interface the bindings do not have --> |
 | 88 | 3 | **The Selectors-API table and selector-only element states.** The three newly vendored documents cover selector-error contracts, no-namespace selectors and `::slotted`; all 88 rows are `NeedsTriage`. <!-- cause: the Selectors-API table and selector-only element states --> |
 | 81 | 6 | [#3774](https://github.com/sebastienros/jint/issues/3774) **A name AngleSharp refuses that the standard allows, plus required refusals it does not make.** The rows cover element creation, namespace validation and document insertion; each of `createDocument`'s fourteen argument tuples is three rows, because the file asks the same tuple for its metadata and its encoding aliases as well. <!-- cause: a name AngleSharp refuses that the standard allows --> |
-| 66 | 17 | **One assertion each or one small family per document.** These cover conversion order, import/clone identity, attribute selection and ordering, element-name identity, node equality and `accessKeyLabel`; each pattern is kept separate where neighboring rows pass. <!-- cause: one assertion each --> |
-| 59 | 15 | **One assertion each or one small family per document.** What is left after DOM §4.4's node equality, the `deep = false` defaults and `NamedNodeMap`'s supported property names moved into the bindings: a `ChildNode` member with the context object among its arguments, attribute selection and ordering, element-name identity, the four element interfaces AngleSharp declares no `[DomName]` for, and `accessKeyLabel`. Each pattern is kept separate where neighboring rows pass. <!-- cause: one assertion each --> |
+| 55 | 14 | **One assertion each or one small family per document.** What is left after DOM §4.4's node equality, the `deep = false` defaults and `NamedNodeMap`'s supported property names moved into the bindings: a `ChildNode` member with the context object among its arguments, attribute selection and ordering, element-name identity, the four element interfaces AngleSharp declares no `[DomName]` for, and `accessKeyLabel`. Each pattern is kept separate where neighboring rows pass. <!-- cause: one assertion each --> |
 | 50 | 2 | [#3772](https://github.com/sebastienros/jint/issues/3772) **DOM's current name-validation rules differ from the XML productions.** `createDocumentType` contributes 45 rows and `name-validation.html` five. <!-- cause: DOM's validate-and-extract, and the XML name productions --> |
 | 26 | 11 | **Collection matching, identity and liveness differ.** The remaining rows cover namespace-aware tag queries, null-namespace identity, child-node collections, empty IDs, quirks class matching and related live reads; `dom/collections/` itself now passes whole. <!-- cause: a collection's named and indexed properties, and its liveness --> |
 | 18 | 1 | **An event interface this browser does not build.** `Document-createEvent.https.html` reaches `DragEvent`, `StorageEvent`, `TouchEvent` and the two device-event interfaces. <!-- cause: an event interface this browser does not build --> |

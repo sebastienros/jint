@@ -1474,17 +1474,11 @@ internal static class WptBrowserExclusions
         // tagName and nodeName answer about the same wrong name.
         new("dom/nodes/Element-tagName.html", "tagName should not*.", WptDivergence.NeedsTriage),
         new("dom/nodes/Node-cloneNode-svg.html", "cloned <use>'*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Node-cloneNode.html", "*createHTMLDocument", WptDivergence.NeedsTriage),
-        new("dom/nodes/Node-cloneNode.html", "*createProcessingInstruction", WptDivergence.NeedsTriage),
-        new("dom/nodes/Node-isEqualNode.html", "*ID", WptDivergence.NeedsTriage),
-        new("dom/nodes/Node-isEqualNode.html", "*data", WptDivergence.NeedsTriage),
-        new("dom/nodes/Node-isEqualNode.html", "*value", WptDivergence.NeedsTriage),
         // AngleSharp's node equality begins by comparing the two nodes' base URLs, which DOM's
         // https://dom.spec.whatwg.org/#concept-node-equals does not mention: two structurally identical
         // documents built different ways are unequal as soon as the page has a real URL for one of them to
         // have inherited. Its sibling row, "another empty XML document", passes because both sides are
         // about:blank.
-        new("dom/nodes/Node-isEqualNode.html", "documents*", WptDivergence.NeedsTriage),
         new("dom/nodes/Node-nodeName.html", "*tagName.", WptDivergence.NeedsTriage),
         new("dom/nodes/Node-nodeName.html", "*tagName.", WptDivergence.NeedsTriage),
 
@@ -1492,10 +1486,6 @@ internal static class WptBrowserExclusions
         // generated: <dir>, <dl>, <font> and <frame> are all plain IHtmlElement to AngleSharp, and each row
         // is `assert_true(typeName in window)`. The HTMLDListElement half of it is the cause the table
         // already names for reflection-grouping.html.
-        new("dom/nodes/Node-cloneNode.html", "*(frame)", WptDivergence.NeedsTriage),
-        new("dom/nodes/Node-cloneNode.html", "*dir)", WptDivergence.NeedsTriage),
-        new("dom/nodes/Node-cloneNode.html", "*dl)", WptDivergence.NeedsTriage),
-        new("dom/nodes/Node-cloneNode.html", "*font)", WptDivergence.NeedsTriage),
 
         // replaceChild: the pre-insert validity checks DOM makes before it touches the tree, and replacing
         // a node with itself.
