@@ -806,20 +806,6 @@ internal static class WptBrowserExclusions
         ["html/webappapis/scripting/processing-model-2/window-onerror-with-cross-frame-event-listeners-5.html"] = 1,
     };
 
-    // ---------------------------------------------------------------- 1. an event interface this browser has not built
-    private static readonly WptExclusion[] _1AnEventInterfaceThisBrowserHasNotBuilt =
-    [
-        // https://dom.spec.whatwg.org/#dom-document-createevent's alias table names five interfaces
-        // Jint.Browser deliberately does not build, and this file is the only place a page meets them all at
-        // once: it asks each of them for an uninitialized event and dispatches it. `createEvent` refuses the
-        // alias with the NotSupportedError the standard gives one it does not list, which is what these four
-        // rows say. See WptDivergence.NeedsMoreEventInterfaces.
-        new("dom/events/EventTarget-dispatchEvent.html", "If the event's initialized flag is not set, an InvalidStateError must be thrown (DeviceMotionEvent).", WptDivergence.NeedsMoreEventInterfaces),
-        new("dom/events/EventTarget-dispatchEvent.html", "If the event's initialized flag is not set, an InvalidStateError must be thrown (DeviceOrientationEvent).", WptDivergence.NeedsMoreEventInterfaces),
-        new("dom/events/EventTarget-dispatchEvent.html", "If the event's initialized flag is not set, an InvalidStateError must be thrown (DragEvent).", WptDivergence.NeedsMoreEventInterfaces),
-        new("dom/events/EventTarget-dispatchEvent.html", "If the event's initialized flag is not set, an InvalidStateError must be thrown (StorageEvent).", WptDivergence.NeedsMoreEventInterfaces),
-    ];
-
     // ---------------------------------------------------------------- 8. AngleSharp.Css refuses an unparseable media query
     private static readonly WptExclusion[] _8AngleSharpCssRefusesAnUnparseableMediaQuery =
     [
@@ -1137,18 +1123,6 @@ internal static class WptBrowserExclusions
     private static readonly WptExclusion[] _aMemberOfADOMInterfaceTheBindingsDoNotHave =
     [
         // a member of a DOM interface the bindings do not have
-        new("dom/nodes/Document-createEvent.https.html", "createEvent('DEVICEMOTIONEVENT*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createEvent.https.html", "createEvent('DEVICEORIENTATIONEVENT*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createEvent.https.html", "createEvent('DRAGEVENT*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createEvent.https.html", "createEvent('DeviceMotionEvent*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createEvent.https.html", "createEvent('DeviceOrientationEvent*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createEvent.https.html", "createEvent('DragEvent*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createEvent.https.html", "createEvent('STORAGEEVENT*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createEvent.https.html", "createEvent('StorageEvent*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createEvent.https.html", "createEvent('devicemotionevent*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createEvent.https.html", "createEvent('deviceorientationevent*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createEvent.https.html", "createEvent('dragevent*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createEvent.https.html", "createEvent('storageevent*", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "*itself", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "*tests", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "*toggleAttribute)", WptDivergence.NeedsTriage),
@@ -1297,18 +1271,19 @@ internal static class WptBrowserExclusions
         new("dom/ranges/Range-adopt-test.html", "*appendChild: Removing the only element in the range must collapse the range", WptDivergence.NeedsTriage),
     ];
 
-    // ---------------------------------------------------------------- an event interface this browser does not build
-    private static readonly WptExclusion[] _anEventInterfaceThisBrowserDoesNotBuild =
+    // ---------------------------------------------------------------- the touch rows the document declines
+    private static readonly WptExclusion[] _theTouchRowsTheDocumentDeclines =
     [
-        // an event interface this package deliberately does not build
-        new("dom/nodes/Document-createEvent.https.html", "*DeviceMotionEvent.", WptDivergence.NeedsMoreEventInterfaces),
-        new("dom/nodes/Document-createEvent.https.html", "*DeviceOrientationEvent.", WptDivergence.NeedsMoreEventInterfaces),
-        new("dom/nodes/Document-createEvent.https.html", "*DragEvent.", WptDivergence.NeedsMoreEventInterfaces),
-        new("dom/nodes/Document-createEvent.https.html", "*StorageEvent.", WptDivergence.NeedsMoreEventInterfaces),
-        new("dom/nodes/Document-createEvent.https.html", "*TouchEvent.", WptDivergence.NeedsMoreEventInterfaces),
-        new("dom/nodes/Document-createEvent.https.html", "createEvent('TOUCHEVENT*", WptDivergence.NeedsMoreEventInterfaces),
-        new("dom/nodes/Document-createEvent.https.html", "createEvent('TouchEvent*", WptDivergence.NeedsMoreEventInterfaces),
-        new("dom/nodes/Document-createEvent.https.html", "createEvent('touchevent*", WptDivergence.NeedsMoreEventInterfaces),
+        // The six rows this file guards with assert_implements_optional("'ontouchstart' in document"). The
+        // TouchEvent interface is built now — the alias resolves and the event is a TouchEvent — but the
+        // document never gets that far: it declines the whole optional feature first, and the harness records
+        // PRECONDITION_FAILED rather than FAIL. `ontouchstart` is exposed only when a client asks for touch
+        // emulation, which is Jint.Browser/Runtime/TouchEmulation's decision and the same answer Firefox on a
+        // desktop gives this file. See WptDivergence.NeedsTouchEmulation.
+        new("dom/nodes/Document-createEvent.https.html", "*TouchEvent.", WptDivergence.NeedsTouchEmulation),
+        new("dom/nodes/Document-createEvent.https.html", "createEvent('TOUCHEVENT*", WptDivergence.NeedsTouchEmulation),
+        new("dom/nodes/Document-createEvent.https.html", "createEvent('TouchEvent*", WptDivergence.NeedsTouchEmulation),
+        new("dom/nodes/Document-createEvent.https.html", "createEvent('touchevent*", WptDivergence.NeedsTouchEmulation),
     ];
 
     // ---------------------------------------------------------------- a document with no browsing context
@@ -1472,7 +1447,6 @@ internal static class WptBrowserExclusions
     /// </remarks>
     internal static readonly WptCause[] Causes =
     [
-        new("1. an event interface this browser has not built", _1AnEventInterfaceThisBrowserHasNotBuilt),
         new("5. a DOM prototype has no @@unscopables", _5ADOMPrototypeHasNoUnscopables),
         new("8. AngleSharp.Css refuses an unparseable media query", _8AngleSharpCssRefusesAnUnparseableMediaQuery),
         new("9. a double written with .NET's number format", _9ADoubleWrittenWithNETSNumberFormat),
@@ -1495,7 +1469,7 @@ internal static class WptBrowserExclusions
                 new("a document upstream runs once per variant", _aDocumentUpstreamRunsOncePerVariant),
         new("a tag query's namespace and local-name identity", _aTagQuerySNamespaceAndLocalNameIdentity),
         new("Range's own algorithms", _rangeSOwnAlgorithms),
-        new("an event interface this browser does not build", _anEventInterfaceThisBrowserDoesNotBuild),
+        new("the touch rows the document declines", _theTouchRowsTheDocumentDeclines),
         new("a document with no browsing context", _aDocumentWithNoBrowsingContext),
         new("the selector engine: escapes, :scope and :has", _theSelectorEngineEscapesScopeAndHas),
         new("the Selectors-API table and selector-only element states", _theSelectorsAPITableAndSelectorOnlyElementStates),
@@ -1529,7 +1503,7 @@ internal static class WptBrowserExclusions
     /// https://github.com/sebastienros/jint/issues/3765 to 3774 and one was already open as
     /// https://github.com/sebastienros/jint/issues/3712, so a row here that is not one of
     /// <see cref="WptDivergence.NeedsIframeScripting"/>, <see cref="WptDivergence.NeedsXmlDocuments"/> or
-    /// <see cref="WptDivergence.NeedsMoreEventInterfaces"/> is a numbered debt rather than an unread one.
+    /// <see cref="WptDivergence.NeedsTouchEmulation"/> is a numbered debt rather than an unread one.
     /// </para>
     /// <para>
     /// <b>The Selectors-API table adds one bounded group.</b> Its 88 failing rows cover the selector-error

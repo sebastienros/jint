@@ -74,6 +74,22 @@ something the attribute already says. The one case that needs more is `<body onl
 it to the **window** and `load` never touches the body: `EventHandlerContentAttributes.InstallBodyHandlers`
 builds that wrapper once when the parse ends.
 
+**An interface a page can construct is not the same thing as an event the runtime fires, and the second is
+not a reason to skip the first.** `BrowserEventInterfaces` builds `DragEvent`, `StorageEvent`, `TouchEvent`
+and the two device events, and the table above raises none of them: there is no drag, no second document
+sharing a storage area, no touch input and no sensor. What a page does with them is construct one from its
+dictionary and dispatch it itself, which is what every synthetic-drag library, every storage-sync shim and
+`document.createEvent`'s alias table need — so where a member's value would come from state this browser has
+none of, the standard's construction-from-dictionary semantics are implemented in full and the class says
+which state is missing. Two of them own more than an `Event`: `DragEvent` carries the real `DataTransfer`
+`Dom/Files/` already builds, and `TouchEvent` carries `Touch` and `TouchList`, which are
+`Events/TouchInterfaces` rather than AngleSharp's — nothing in the pinned assemblies implements
+`ITouchPoint` or `ITouchList`, so both are `excludedInterfaces` rows and
+[`../Dom/divergences.md`](../Dom/divergences.md) records it. **Detection stays a client's decision**:
+`ontouchstart` is exposed only under touch emulation ([`../Runtime/AGENTS.md`](../Runtime/AGENTS.md)), which
+is why the corpus's `TouchEvent` rows are declined rather than failed and why building the interface did not
+— and must not — change what a page detects.
+
 **`isTrusted` is the line between a script and a client.** `element.click()` is untrusted — HTML's `click()`
 says to fire the synthetic pointer event "with the not trusted flag set", and the activation behaviour still
 runs, because trust decides what a page can *tell apart*, not whether the default action happens. Everything

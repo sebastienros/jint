@@ -498,12 +498,6 @@ internal static partial class DomInterfaces
     /// <summary>The <c>TimeRanges</c> interface, projected from <c>AngleSharp.Media.Dom.ITimeRanges</c>.</summary>
     internal static readonly DomInterfaceDefinition TimeRanges;
 
-    /// <summary>The <c>Touch</c> interface, projected from <c>AngleSharp.Html.Dom.Events.ITouchPoint</c>.</summary>
-    internal static readonly DomInterfaceDefinition Touch;
-
-    /// <summary>The <c>TouchList</c> interface, projected from <c>AngleSharp.Html.Dom.Events.ITouchList</c>.</summary>
-    internal static readonly DomInterfaceDefinition TouchList;
-
     /// <summary>The <c>TreeWalker</c> interface, projected from <c>AngleSharp.Dom.ITreeWalker</c>.</summary>
     internal static readonly DomInterfaceDefinition TreeWalker;
 
@@ -521,7 +515,7 @@ internal static partial class DomInterfaces
 
     static DomInterfaces()
     {
-        var all = new global::System.Collections.Generic.List<DomInterfaceDefinition>(167);
+        var all = new global::System.Collections.Generic.List<DomInterfaceDefinition>(165);
 
         ApplicationCache = Add(new DomInterfaceDefinition(
             "ApplicationCache",
@@ -2102,25 +2096,6 @@ internal static partial class DomInterfaces
             rootsAtEventTarget: false,
             hasInterfaceObject: true,
             DomWrapperKind.Object));
-
-        Touch = Add(new DomInterfaceDefinition(
-            "Touch",
-            typeof(global::AngleSharp.Html.Dom.Events.ITouchPoint),
-            BuildTouch,
-            null,
-            rootsAtEventTarget: false,
-            hasInterfaceObject: true,
-            DomWrapperKind.Object));
-
-        TouchList = Add(new DomInterfaceDefinition(
-            "TouchList",
-            typeof(global::AngleSharp.Html.Dom.Events.ITouchList),
-            BuildTouchList,
-            null,
-            rootsAtEventTarget: false,
-            hasInterfaceObject: true,
-            DomWrapperKind.Collection,
-            collectionAccessor: DomAccessorTouchList.Instance));
 
         TreeWalker = Add(new DomInterfaceDefinition(
             "TreeWalker",

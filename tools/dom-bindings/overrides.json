@@ -17,6 +17,14 @@
     {
       "interface": "AngleSharp.Dom.IWindow",
       "reason": "Window is the browser runtime's, not the binding's: the global object stays Jint's GlobalObject and gains Window.prototype in its chain (campaign item R1). Generating a second Window here would produce an interface object nothing could ever be an instance of. document.defaultView is skipped with it, by the conversion table rather than by name."
+    },
+    {
+      "interface": "AngleSharp.Html.Dom.Events.ITouchPoint",
+      "reason": "Touch is the events bridge's, for the reason every other event interface is: no type in either pinned assembly implements ITouchPoint, so nothing could ever produce one and the generated interface object was an unreachable shell. It also carries only eight of Touch Events Level 2's twelve members - radiusX, radiusY, rotationAngle and force are absent - and its Target is an IEventTarget this package wraps rather than owns. Jint.Browser/Events/TouchInterfaces.cs declares the whole interface, with the constructor WebIDL gives it. Recorded in Jint.Browser/Dom/divergences.md."
+    },
+    {
+      "interface": "AngleSharp.Html.Dom.Events.ITouchList",
+      "reason": "TouchList goes with Touch: nothing implements it either, and a list of an interface the binding no longer projects has nothing to hold. Declared beside it in Jint.Browser/Events/TouchInterfaces.cs, over the same ArrayLikeObject lane the generated collections use."
     }
   ],
   "manual": [
