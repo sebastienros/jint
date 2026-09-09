@@ -575,4 +575,147 @@ public sealed class PagePseudoClassSelectorTests
             })()
             """)).Should().Be("before|before|true|false");
     }
+    /// <summary>
+    /// HTML §4.16.3 matches <c>:open</c> against a <c>details</c> or a <c>dialog</c> carrying <c>open</c>, a
+    /// drop-down <c>select</c> whose drop-down box is open, and an <c>input</c> whose picker is open. The last
+    /// two need a user interface, so only the first two can ever match here. AngleSharp's <c>IsOpen()</c>
+    /// returns <c>false</c> for every element, so <c>&lt;details open&gt;</c> matched nothing at all.
+    /// </summary>
+    [Test]
+    public async Task OpenMatchesTheDetailsAndDialogElementsCarryingTheAttribute()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <!doctype html><html><body>
+              <details id="closedDetails"><summary>s</summary>body</details>
+              <details id="openDetails" open><summary>s</summary>body</details>
+              <dialog id="closedDialog">d</dialog>
+              <dialog id="openDialog" open>d</dialog>
+              <div id="openDiv" open></div>
+            </body></html>
+            """);
+
+        (await page.EvaluateAsync<string>("""
+            (() => {
+              const ids = ['closedDetails', 'openDetails', 'closedDialog', 'openDialog', 'openDiv'];
+              const states = ids.map(id => id + ':' + document.getElementById(id).matches(':open')).join(',');
+              const open = Array.from(document.querySelectorAll(':open'), element => element.id).join(',');
+              openDetails.removeAttribute('open');
+              closedDialog.setAttribute('open', '');
+              const after = Array.from(document.querySelectorAll(':open'), element => element.id).join(',');
+              return states + '|' + open + '|' + after;
+            })()
+            """)).Should().Be(
+            "closedDetails:false,openDetails:true,closedDialog:false,openDialog:true,openDiv:false|" +
+            "openDetails,openDialog|closedDialog,openDialog");
+    }
+
+    /// <summary>
+    /// Selectors §10.5: <c>:closed</c> is an element which has an open and a closed state and is in the
+    /// closed one, so it is not the complement of <c>:open</c> over every element — only over the four
+    /// categories HTML §4.16.3 gives the pair. AngleSharp registers no <c>:closed</c> selector at all, so the
+    /// whole selector was a parse failure and every API that took one threw a <c>SyntaxError</c>.
+    /// </summary>
+    [Test]
+    public async Task ClosedMatchesOnlyAnElementThatHasBothStatesAndIsInTheClosedOne()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <!doctype html><html><body>
+              <details id="closedDetails"><summary>s</summary>body</details>
+              <details id="openDetails" open><summary>s</summary>body</details>
+              <dialog id="closedDialog">d</dialog>
+              <dialog id="openDialog" open>d</dialog>
+              <div id="plainDiv"></div>
+              <span id="plainSpan"></span>
+            </body></html>
+            """);
+
+        (await page.EvaluateAsync<string>("""
+            (() => {
+              const ids = ['closedDetails', 'openDetails', 'closedDialog', 'openDialog', 'plainDiv', 'plainSpan'];
+              const states = ids.map(id => id + ':' + document.getElementById(id).matches(':closed')).join(',');
+              const closed = Array.from(document.querySelectorAll(':closed'), element => element.id).join(',');
+              const both = document.querySelectorAll(':open:closed').length;
+              return states + '|' + closed + '|' + both;
+            })()
+            """)).Should().Be(
+            "closedDetails:true,openDetails:false,closedDialog:true,openDialog:false," +
+            "plainDiv:false,plainSpan:false|closedDetails,closedDialog|0");
+    }
+
+    /// <summary>
+    /// The two categories this browser can never open are still in the pair: a drop-down <c>select</c> and an
+    /// <c>input</c> supporting a picker have both states, so each of them is <c>:closed</c>. HTML §4.10.7
+    /// makes a <c>select</c> a drop-down box when it has no <c>multiple</c> attribute and its display size —
+    /// the <c>size</c> attribute parsed as a non-negative integer, else 4 with <c>multiple</c> and 1 without —
+    /// is 1; §4.10.5 makes the File Upload state the one that must support a picker.
+    /// </summary>
+    [Test]
+    public async Task ADropDownSelectAndAFileInputAreClosedAndAListBoxIsNeither()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <!doctype html><html><body>
+              <select id="dropDown"><option>a</option></select>
+              <select id="sizeOne" size="1"><option>a</option></select>
+              <select id="listBox" size="4"><option>a</option></select>
+              <select id="multiple" multiple><option>a</option></select>
+              <select id="unparseableSize" size="wide"><option>a</option></select>
+              <input id="file" type="file">
+              <input id="text" type="text">
+              <input id="color" type="color">
+            </body></html>
+            """);
+
+        (await page.EvaluateAsync<string>("""
+            (() => {
+              const ids = ['dropDown', 'sizeOne', 'listBox', 'multiple', 'unparseableSize', 'file', 'text', 'color'];
+              const states = ids.map(id => id + ':' + document.getElementById(id).matches(':closed')).join(',');
+              const open = document.querySelectorAll(':open').length;
+              listBox.removeAttribute('size');
+              return states + '|' + open + '|' + listBox.matches(':closed');
+            })()
+            """)).Should().Be(
+            "dropDown:true,sizeOne:true,listBox:false,multiple:false,unparseableSize:true," +
+            "file:true,text:false,color:false|0|true");
+    }
+
+    /// <summary>
+    /// A selector this package registers has to reach every API a page can spell it in, and has to carry the
+    /// text and the one-class specificity the parser gives an ordinary pseudo-class — <c>:closed</c> is the
+    /// first one here that AngleSharp does not supply a default for, so both come from this file.
+    /// </summary>
+    [Test]
+    public async Task ClosedIsAnOrdinaryPseudoClassEverySelectorApiAccepts()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <!doctype html><html><body>
+              <div id="host"><details id="details"><summary>s</summary>body</details></div>
+            </body></html>
+            """);
+
+        (await page.EvaluateAsync<string>("""
+            (() => {
+              const sheet = document.createElement('style');
+              sheet.textContent = 'details:closed { color: rgb(1, 2, 3) }';
+              document.head.append(sheet);
+              const rule = document.styleSheets[document.styleSheets.length - 1].cssRules[0];
+              return [
+                details.matches(':closed'),
+                details.webkitMatchesSelector(':closed'),
+                details.closest(':closed').id,
+                host.querySelector(':closed').id,
+                document.querySelectorAll('details:closed, dialog:closed').length,
+                rule.selectorText,
+                getComputedStyle(details).color,
+              ].join('|');
+            })()
+            """)).Should().Be("true|true|details|details|1|details:closed|rgba(1, 2, 3, 1)");
+    }
 }
