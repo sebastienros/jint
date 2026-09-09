@@ -29,6 +29,7 @@ Supported waits and actions:
 
 - `WaitForAsync` with attached, detached, visible, or hidden state
 - `ClickAsync`
+- `TapAsync`
 - `FillAsync`
 - `PressAsync`
 
@@ -37,6 +38,17 @@ Only the `Timeout` option is supported for locator actions and value reads. `Wai
 ```csharp
 await page.Locator("#email").FillAsync("ada@example.org");
 await page.Locator("#submit").ClickAsync();
+```
+
+`TapAsync` requires the context's `HasTouch` option, as Playwright does, and is refused with Playwright's own
+message without it. A context created with `HasTouch` also reports itself a touch device to the page —
+`ontouchstart`, `navigator.maxTouchPoints` and the coarse-pointer media features — and `page.Touchscreen.TapAsync(x, y)`
+taps a point rather than an element.
+
+```csharp
+var context = await browser.NewContextAsync(new() { HasTouch = true });
+var page = await context.NewPageAsync();
+await page.Locator("#save").TapAsync();
 ```
 
 Actions use `Jint.Browser` trusted input and synthetic geometry. They do not implement Playwright's full actionability, trial, force, position, modifier, or atomic locator-resolution semantics.

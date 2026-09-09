@@ -89,6 +89,19 @@ internal sealed class BrowserEventRealm
     internal IElement? MousePressTarget { get; set; }
 
     /// <summary>
+    /// The touch points currently on the surface, and what the sequence they belong to has already decided.
+    /// </summary>
+    /// <remarks>
+    /// https://w3c.github.io/touch-events/#touchevent-interface — <c>touches</c> and <c>targetTouches</c> are
+    /// about every point of contact rather than the one an event is for, so neither can be answered by
+    /// anything that lives for one <c>Input.dispatchTouchEvent</c>. Per engine, like
+    /// <see cref="MousePressTarget"/> and for the same reason: a navigation in the middle of a gesture leaves
+    /// the new document with nothing outstanding. <see langword="null"/> until a touch arrives, which is
+    /// every page nobody taps.
+    /// </remarks>
+    internal TouchSequence? Touches { get; set; }
+
+    /// <summary>
     /// Where an activation behaviour's default action goes — a hyperlink to follow, a form to submit, a file
     /// chooser to open. Replaced by the navigation layer (campaign item R5); until then the default records.
     /// </summary>

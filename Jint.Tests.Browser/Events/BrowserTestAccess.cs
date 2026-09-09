@@ -68,6 +68,26 @@ internal static class BrowserTestAccess
         });
 
     /// <summary>
+    /// Runs the input dispatcher's touch entry point, which is what <c>Input.dispatchTouchEvent</c> maps
+    /// onto: the contacts a client described, hit-tested against the flat box model.
+    /// </summary>
+    internal static Task DispatchTouchAsync(
+        Page page,
+        TouchInputKind kind,
+        TouchPointInput[] points,
+        EventModifiers modifiers = EventModifiers.None)
+        => page.RunOnLoopAsync(engine =>
+        {
+            if (Jint.Browser.Runtime.PageRuntime.Find(engine) is not { } runtime)
+            {
+                return false;
+            }
+
+            InputDispatcher.DispatchTouch(runtime, new TouchInput(kind, points, modifiers));
+            return true;
+        });
+
+    /// <summary>
     /// Runs the input dispatcher's click entry point at an element, which focuses it and then dispatches a
     /// trusted click — the other half of what CDP's <c>Input</c> domain maps onto.
     /// </summary>

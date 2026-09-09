@@ -60,6 +60,12 @@ target/runtime split and the manifest are there and none of it is repeated here.
   and the Playwright adapter all run one algorithm, `Dom/Files/FileSelection`. It reads the host paths on the
   loop before it changes anything — a `File` here is memory the engine owns, not a handle, so a failed read
   leaves the previous selection standing and is `-32000` naming the path rather than an empty selection. The keyboard's own rules are
+  one character at a time. `Input` is `dispatchMouseEvent`, `dispatchKeyEvent`, `dispatchTouchEvent`,
+  `insertText` and an `imeSetComposition` that is accepted and changes nothing; drag and the synthesized
+  gestures are honestly `-32601`, and the public `Page.ClickAsync`/`TypeAsync`/`PressAsync`/`TapAsync` reach
+  the same dispatcher rather than a second one. A touch is delivered whether or not
+  `Emulation.setTouchEmulationEnabled` was sent — that command decides what a page *detects* — and the
+  gesture's own rules are [`../Events/AGENTS.md`](../Events/AGENTS.md#touch-a-gesture-outlives-the-command). The keyboard's own rules are
   [above](../Events/AGENTS.md#the-keyboard-and-the-editor-under-it).
 - **A named isolated world is made again over every document.** Chrome does that, and Puppeteer and
   Playwright each create one utility world when they attach and then use it for the life of the page — so a

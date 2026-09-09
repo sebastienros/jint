@@ -38,6 +38,7 @@ second bus:
 | focus moves | `blur`, `focusout`, `focus`, `focusin`, and `change` for a control the user edited | `Events/FocusController` |
 | a key edits a text control | `keydown`, `keypress`, `beforeinput` (cancelable), `input`, `keyup` | `Events/InputDispatcher`, `Events/TextEditing`, `Events/ContentEditing` ([below](#the-keyboard-and-the-editor-under-it)) |
 | the selection moves | `selectionchange`, queued and coalesced | `Events/SelectionChange`, from `Events/TextEditing` for a text control and from `Dom/Views/JsSelection` for the document |
+| a client drives a touch | `touchstart`, `touchmove`, `touchend`, `touchcancel`, and the four compatibility mouse events a tap leaves | `Events/InputDispatcher.Touch` ([below](#touch-a-gesture-outlives-the-command)) |
 
 Every listener on that table returns to a microtask checkpoint, because the point that fires it is a turn of the loop rather than a script — see [`Jint/WebApi/AGENTS.md`](../../Jint/WebApi/AGENTS.md#web-apis). `AnimationFrameLane` owes the same cleanup by hand, since one frame is one job over many callbacks.
 
@@ -75,20 +76,22 @@ it to the **window** and `load` never touches the body: `EventHandlerContentAttr
 builds that wrapper once when the parse ends.
 
 **An interface a page can construct is not the same thing as an event the runtime fires, and the second is
-not a reason to skip the first.** `BrowserEventInterfaces` builds `DragEvent`, `StorageEvent`, `TouchEvent`
-and the two device events, and the table above raises none of them: there is no drag, no second document
-sharing a storage area, no touch input and no sensor. What a page does with them is construct one from its
+not a reason to skip the first.** `BrowserEventInterfaces` builds `DragEvent`, `StorageEvent` and the two
+device events, and the table above raises none of them: there is no drag, no second document sharing a
+storage area and no sensor. What a page does with them is construct one from its
 dictionary and dispatch it itself, which is what every synthetic-drag library, every storage-sync shim and
 `document.createEvent`'s alias table need — so where a member's value would come from state this browser has
 none of, the standard's construction-from-dictionary semantics are implemented in full and the class says
 which state is missing. Two of them own more than an `Event`: `DragEvent` carries the real `DataTransfer`
-`Dom/Files/` already builds, and `TouchEvent` carries `Touch` and `TouchList`, which are
+`Dom/Files/` already builds, and `TouchEvent` — which *is* fired, by the row the table gained — carries
+`Touch` and `TouchList`, which are
 `Events/TouchInterfaces` rather than AngleSharp's — nothing in the pinned assemblies implements
 `ITouchPoint` or `ITouchList`, so both are `excludedInterfaces` rows and
-[`../Dom/divergences.md`](../Dom/divergences.md) records it. **Detection stays a client's decision**:
-`ontouchstart` is exposed only under touch emulation ([`../Runtime/AGENTS.md`](../Runtime/AGENTS.md)), which
-is why the corpus's `TouchEvent` rows are declined rather than failed and why building the interface did not
-— and must not — change what a page detects.
+[`../Dom/divergences.md`](../Dom/divergences.md) records it. **Detection stays a client's decision**: the four
+`ontouch*` handler attributes are exposed only under touch emulation
+([`../Runtime/AGENTS.md`](../Runtime/AGENTS.md)), which is why the corpus's `TouchEvent` rows are declined on
+a page nobody configured and why neither building the interface nor dispatching one changed what a page
+detects.
 
 **`isTrusted` is the line between a script and a client.** `element.click()` is untrusted — HTML's `click()`
 says to fire the synthetic pointer event "with the not trusted flag set", and the activation behaviour still
@@ -113,6 +116,26 @@ box must not manufacture a selected image coordinate. `Runtime/FormSubmitter` st
 name prefix only when nonempty. Its inventory is submittable controls, not `form.elements`, which excludes
 image inputs: AngleSharp's tree traversal and form-owner properties supply tree order and external
 association. Nonzero image coordinates require a real image availability/presentation model first.
+
+### Touch: a gesture outlives the command
+
+`Input.dispatchTouchEvent` is `Events/InputDispatcher.Touch`, and three of its rules decide the rest.
+
+**`touches` and `targetTouches` are about the surface, not the event**, so the contacts a gesture holds live
+on `BrowserEventRealm.Touches` and outlive the command that pressed them — per engine, like the mouse's press
+target, so a navigation mid-gesture leaves the next document with nothing down. A contact's `target` is fixed
+when it goes down (Touch Events §"the touch point"), which is why a finger dragged off its button still ends
+on the button while the *mouse* events a tap leaves go where the finger really came off.
+
+**A tap is a click, made of the same parts.** §8's compatibility events — `mousemove`, `mousedown`, `mouseup`,
+`click` — are dispatched through the helpers `DispatchMouse` uses, at the released point, so one activation
+behaviour runs rather than two nearly identical ones. They are owed only by a *single-finger* gesture nothing
+cancelled: a second contact, a cancelled `touchstart` or first `touchmove`, or a `touchcancel` withdraws them.
+**No pointer event is fired for a touch** — `pointerType: "touch"` with a `pointerId` per contact and its own
+boundary events is a second pointer model over the same contacts, and this package has one.
+
+**Emulation is not consulted.** A client that sends a touch is asking for one; what
+`Emulation.setTouchEmulationEnabled` decides is whether the page can *detect* that it might get one.
 
 ### The keyboard, and the editor under it
 

@@ -172,7 +172,7 @@ the engine** (`WindowInstaller.Operation`), and only an operation that needs not
 
 Some members are own properties of their object rather than accessors on a shaped prototype. **`document` is no
 longer one of them**: its eight runtime-answered members are getter hooks on `Document.prototype` (and
-`Node.prototype`, for `baseURI`), so `Object.getOwnPropertyNames(document)` is empty as a browser's is. Left: `ontouchstart` on `document`, a presence test rather than an interface member; `submit` and
+`Node.prototype`, for `baseURI`), so `Object.getOwnPropertyNames(document)` is empty as a browser's is. Left: the four touch handler attributes on `document` under emulation; `submit` and
 `requestSubmit` on a **form wrapper**, installed by `DomHostHooks.WrapperCreated`, because neither is generated
 and neither could be — AngleSharp's `Submit()` returns a `Task`, there is no `requestSubmit`, and its own
 submission navigates on the calling thread through its own event bus; and **`Location`**, which

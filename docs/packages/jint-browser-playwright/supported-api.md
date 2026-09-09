@@ -5,11 +5,12 @@ The table summarizes the current direct adapter. Members not listed should be tr
 | Interface | Supported surface |
 | --- | --- |
 | `IBrowserType` | name, executable path, `LaunchAsync` with headless |
-| `IBrowser` | type, contexts, connection state, version, context/page creation, close, events |
+| `IBrowser` | type, contexts, connection state, version, context/page creation (with `HasTouch`), close, events |
 | `IBrowserContext` | browser, pages, closed state, new page, close, default timeouts, events |
-| `IPage` | context/frame metadata, URL, closed state, CSS/role locators, goto/reload/back/forward, set/get content, title, evaluate, wait for function, close, defaults |
+| `IPage` | context/frame metadata, URL, closed state, CSS/role locators, goto/reload/back/forward, set/get content, title, evaluate, wait for function, tap, touchscreen, close, defaults |
 | `IFrame` | page/URL/name/frame metadata, CSS locator, content, title |
-| `ILocator` | first/last/nth, count, text contents, text content, input value, visibility, wait, click, fill, press |
+| `ILocator` | first/last/nth, count, text contents, text content, input value, visibility, wait, click, tap, fill, press |
+| `ITouchscreen` | `TapAsync(x, y)` |
 | `IResponse` | frame, service-worker flag, URL/status/status text/OK, headers, finished |
 | `IJSHandle` | `AsElement`, JSON value, disposal |
 

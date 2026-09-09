@@ -6714,6 +6714,19 @@ sealed class NodeList : ArrayLikeObject
 
     protected override bool OwnsLength => false;
 }
+### 5.36 A page can be a touch device, and be tapped ([#4003](https://github.com/sebastienros/jint/pull/4003))
+
+`Jint.Browser` drives a page with a mouse and a keyboard; it now drives one with a finger as well, and the two
+halves of that are deliberately separate.
+
+```csharp
+// What the page detects: ontouchstart & co., navigator.maxTouchPoints, (pointer: coarse) / (hover: none).
+await page.SetTouchEmulationAsync(enabled: true, maxTouchPoints: 5);
+
+// What the page receives: touchstart, touchend, and the compatibility mouse events a tap leaves behind,
+// so a tap on a link follows it and a tap on a checkbox toggles it.
+await page.TapAsync("#save");
+await page.TapAsync(x: 120, y: 48);
 ```
 
 | Member | What it is |
@@ -6733,6 +6746,27 @@ the prototype. Those are the three `dom/nodes/NodeList-static-length-getter-tamp
 web-platform-tests documents, and they run against this. A build with host-contract verification on
 (`AppContext.SetSwitch("Jint.EnableHostContractVerification", true)`) invokes the accessor on every read that
 takes the lane and fails on the first disagreement.
+| `Page.SetTouchEmulationAsync(bool enabled, int maxTouchPoints = 1)` | Makes the page report itself a touch device. It is the page's, so it survives every navigation after it, and it is the same setting `Emulation.setTouchEmulationEnabled` writes |
+| `Page.TapAsync(string target, NavigationOptions?)` and the indexed overload | One finger down at the centre of the element's box and up again, waiting for any navigation it causes — the tap counterpart of `ClickAsync` |
+| `Page.TapAsync(double x, double y, NavigationOptions?)` | The same at a point, hit-tested against the flat box model |
+| `BrowserOptions.HasTouch` | The other half of a device profile, beside `Viewport`: every page opens as a touch device, so the detection is already true while its *first* document parses |
+
+**The two are independent, on purpose.** A client that taps gets the touch events whether or not it asked for
+emulation — a page that added a `touchstart` listener hears one either way — and what emulation adds is the
+half a page can *ask about* before deciding to listen at all. That is what every responsive framework's
+`'ontouchstart' in window` reads, so exposing it unasked would tell every page this is a touch device.
+
+**A tap is a click made of the same parts.** [Touch Events Level 2
+§8](https://w3c.github.io/touch-events/#mouse-events)'s compatibility events — `mousemove`, `mousedown`,
+`mouseup`, `click` — are dispatched through the same helpers a mouse click uses, at the point the finger came
+off, so one activation behaviour runs. A page that calls `preventDefault()` on the `touchstart` (or on the
+first `touchmove`) gets none of them, which is exactly what a carousel or a custom gesture does.
+
+The protocol reaches the same dispatcher through
+[`Input.dispatchTouchEvent`](https://chromedevtools.github.io/devtools-protocol/tot/Input/#method-dispatchTouchEvent),
+with the multi-touch, move and cancel cases the public API does not spell; and `Jint.Browser.Playwright` maps
+Playwright's `hasTouch` context option, `ILocator.TapAsync`, `IPage.TapAsync` and `IPage.Touchscreen.TapAsync`
+onto it — a tap without `hasTouch` is refused in Playwright's own words, as Playwright refuses it.
 
 ## 6. AOT and trimming
 

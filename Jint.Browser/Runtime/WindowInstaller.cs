@@ -256,7 +256,7 @@ internal static class WindowInstaller
         return wrapper;
     }
 
-    private static JsEventTarget WindowTargetOf(JsValue thisObject, string member, string verb)
+    internal static JsEventTarget WindowTargetOf(JsValue thisObject, string member, string verb)
     {
         if (thisObject is ObjectInstance instance
             && ReferenceEquals(instance, instance.Engine._mainRealm.GlobalObject)
@@ -548,7 +548,12 @@ internal static class WindowInstaller
     }
 
     /// <summary>One <c>on<i>type</i></c> attribute pair, holding the event type and nothing engine-specific.</summary>
-    private sealed class EventHandlerAccessor
+    /// <remarks>
+    /// Reachable outside the shape because touch emulation installs the same pair on the global object for a
+    /// handler name this shape cannot declare: whether <c>ontouchstart</c> is there at all is a client's
+    /// decision, and a shared shape is built once for the process (<c>Runtime/TouchEmulation</c>).
+    /// </remarks>
+    internal sealed class EventHandlerAccessor
     {
         private readonly string _type;
 

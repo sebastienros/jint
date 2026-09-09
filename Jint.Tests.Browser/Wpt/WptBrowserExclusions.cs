@@ -424,6 +424,48 @@ internal static class WptBrowserExclusions
     ];
 
     /// <summary>
+    /// The documents this lane opens on a <b>touch device</b>, because what they are about needs one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>An environment, not an exclusion.</b> Touch detection is a client's decision here
+    /// (<c>Jint.Browser/Runtime/TouchEmulation</c>), so a page is not a touch device unless somebody says so
+    /// — and a document that guards its rows with
+    /// <c>assert_implements_optional('ontouchstart' in document)</c> is asking exactly that question. Left
+    /// alone it declines and reports <c>PRECONDITION_FAILED</c>, which is a row that measures nothing; run on
+    /// a touch device it reports what it is really about. This is the lane's counterpart of upstream's own
+    /// per-test preferences, and it is the same page seam a client has:
+    /// <c>Page.SetTouchEmulationAsync</c>, applied before the navigation so the document parses in it.
+    /// </para>
+    /// <para>
+    /// <b>Its rule is the two-sided one every table here has:</b> a row must name a document that is a case
+    /// of a suite this lane claims, and — because a document run in the wrong environment is worse than one
+    /// nobody configured — the row is only worth having while the document's rows really need it, which the
+    /// exclusion discipline enforces from the other side: turn the emulation off and the six rows this
+    /// retires go back to <c>PRECONDITION_FAILED</c> with nothing naming them, and the run fails.
+    /// <c>WptBrowserTestRunner.EveryVendoredDocumentIsAccountedFor</c> holds the first half.
+    /// </para>
+    /// </remarks>
+    internal static readonly (string Path, string Reason)[] TouchDocuments =
+    [
+        ("dom/nodes/Document-createEvent.https.html", "its six TouchEvent rows are guarded by assert_implements_optional(\"ontouchstart\" in document), which is the question touch emulation answers"),
+    ];
+
+    /// <summary>Whether this lane opens <paramref name="path"/> as a touch device.</summary>
+    internal static bool NeedsTouchEmulation(string path)
+    {
+        foreach (var (document, _) in TouchDocuments)
+        {
+            if (string.Equals(document, path, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// How many tests each case must at least report, so a document that quietly stopped registering fails
     /// rather than passing with nothing in it.
     /// </summary>
@@ -1268,21 +1310,6 @@ internal static class WptBrowserExclusions
         new("dom/ranges/Range-adopt-test.html", "*appendChild: Removing the only element in the range must collapse the range", WptDivergence.NeedsTriage),
     ];
 
-    // ---------------------------------------------------------------- the touch rows the document declines
-    private static readonly WptExclusion[] _theTouchRowsTheDocumentDeclines =
-    [
-        // The six rows this file guards with assert_implements_optional("'ontouchstart' in document"). The
-        // TouchEvent interface is built now — the alias resolves and the event is a TouchEvent — but the
-        // document never gets that far: it declines the whole optional feature first, and the harness records
-        // PRECONDITION_FAILED rather than FAIL. `ontouchstart` is exposed only when a client asks for touch
-        // emulation, which is Jint.Browser/Runtime/TouchEmulation's decision and the same answer Firefox on a
-        // desktop gives this file. See WptDivergence.NeedsTouchEmulation.
-        new("dom/nodes/Document-createEvent.https.html", "*TouchEvent.", WptDivergence.NeedsTouchEmulation),
-        new("dom/nodes/Document-createEvent.https.html", "createEvent('TOUCHEVENT*", WptDivergence.NeedsTouchEmulation),
-        new("dom/nodes/Document-createEvent.https.html", "createEvent('TouchEvent*", WptDivergence.NeedsTouchEmulation),
-        new("dom/nodes/Document-createEvent.https.html", "createEvent('touchevent*", WptDivergence.NeedsTouchEmulation),
-    ];
-
     // ---------------------------------------------------------------- a document with no browsing context
     private static readonly WptExclusion[] _aDocumentWithNoBrowsingContext =
     [
@@ -1462,7 +1489,6 @@ internal static class WptBrowserExclusions
                 new("a document upstream runs once per variant", _aDocumentUpstreamRunsOncePerVariant),
         new("a tag query's namespace and local-name identity", _aTagQuerySNamespaceAndLocalNameIdentity),
         new("Range's own algorithms", _rangeSOwnAlgorithms),
-        new("the touch rows the document declines", _theTouchRowsTheDocumentDeclines),
         new("a document with no browsing context", _aDocumentWithNoBrowsingContext),
         new("the selector engine: escapes, :scope and :has", _theSelectorEngineEscapesScopeAndHas),
         new("the Selectors-API table and selector-only element states", _theSelectorsAPITableAndSelectorOnlyElementStates),
@@ -1494,8 +1520,8 @@ internal static class WptBrowserExclusions
     /// browser" names eighteen causes with the count each accounts for. Ten families were filed as
     /// https://github.com/sebastienros/jint/issues/3765 to 3774 and one was already open as
     /// https://github.com/sebastienros/jint/issues/3712, so a row here that is not one of
-    /// <see cref="WptDivergence.NeedsIframeScripting"/>, <see cref="WptDivergence.NeedsXmlDocuments"/> or
-    /// <see cref="WptDivergence.NeedsTouchEmulation"/> is a numbered debt rather than an unread one.
+    /// <see cref="WptDivergence.NeedsIframeScripting"/> or <see cref="WptDivergence.NeedsXmlDocuments"/> is a
+    /// numbered debt rather than an unread one.
     /// </para>
     /// <para>
     /// <b>The Selectors-API table adds one bounded group.</b> Its 88 failing rows cover the selector-error

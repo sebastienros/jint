@@ -70,12 +70,12 @@
 
     "DOM",
 
-    // Left out: touch and drag input, synthesized scroll and pinch gestures, and the input-driver commands.
-    // The flat box model dispatches a key, a mouse event and text, which is what a client uses to drive a
+    // Left out: drag input, synthesized scroll and pinch gestures, and the input-driver commands. The flat
+    // box model dispatches a key, a mouse event, a touch and text, which is what a client uses to drive a
     // page here.
     {
       "domain": "Input",
-      "commands": ["dispatchKeyEvent", "dispatchMouseEvent", "imeSetComposition", "insertText"]
+      "commands": ["dispatchKeyEvent", "dispatchMouseEvent", "dispatchTouchEvent", "imeSetComposition", "insertText"]
     },
 
     "Accessibility",
@@ -325,6 +325,7 @@
     "Fetch.getResponseBody",
     "Input.dispatchKeyEvent",
     "Input.dispatchMouseEvent",
+    "Input.dispatchTouchEvent",
     "Input.imeSetComposition",
     "Input.insertText",
     "Jint.getAccessibilitySnapshot",

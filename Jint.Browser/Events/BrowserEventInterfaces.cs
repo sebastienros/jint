@@ -17,13 +17,15 @@ namespace Jint.Browser.Events;
 /// </para>
 /// <para>
 /// <b>An interface here is one a page can construct and dispatch; whether the runtime ever fires one is a
-/// separate question and often "no".</b> <c>DragEvent</c>, <c>StorageEvent</c>, <c>TouchEvent</c> and the two
-/// device events are all in that position: there is no drag, no second document sharing a storage area, no
-/// touch input and no sensor, so nothing here fires them — and every one of them is still built in full,
-/// because constructing one from its dictionary and dispatching it is what a page does and what
-/// <c>document.createEvent</c>'s alias table requires an interface to exist for. Where a member's value would
-/// come from state this browser does not have, the standard's construction-from-dictionary semantics are what
-/// is implemented and each class says so.
+/// separate question and often "no".</b> <c>DragEvent</c>, <c>StorageEvent</c> and the two device events are
+/// in that position: there is no drag, no second document sharing a storage area and no sensor, so nothing
+/// here fires them — and every one of them is still built in full, because constructing one from its
+/// dictionary and dispatching it is what a page does and what <c>document.createEvent</c>'s alias table
+/// requires an interface to exist for. Where a member's value would come from state this browser does not
+/// have, the standard's construction-from-dictionary semantics are what is implemented and each class says
+/// so. <c>TouchEvent</c> was the fifth of them and no longer is: <c>Input.dispatchTouchEvent</c> fires one
+/// (<c>Events/InputDispatcher.Touch</c>), so its three lists are computed from a real gesture as well as
+/// taken from a dictionary.
 /// </para>
 /// <para>
 /// <b>Deliberately absent: <c>ClipboardEvent</c></b>, because there is no clipboard model at all — not even

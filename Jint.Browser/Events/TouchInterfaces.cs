@@ -42,12 +42,12 @@ internal readonly record struct TouchState(
 /// </para>
 /// </summary>
 /// <remarks>
-/// <b>Every member is what the dictionary said, and nothing measures anything.</b> There is no touch input in
-/// this browser — <c>Input</c> is the mouse and the keyboard, and
-/// <see cref="Runtime.TouchEmulation"/> says why touch emulation changes what a page detects rather than what
-/// it receives — so a <c>Touch</c> only ever exists because a script constructed one. Touch Events' construction
-/// steps are therefore implemented in full and the platform half of the interface (a digitizer's radii, its
-/// pressure) is simply the value the page supplied.
+/// <b>Every member is what somebody said, and nothing measures anything.</b> A <c>Touch</c> is built from a
+/// <c>TouchInit</c> a script wrote, or from a contact a client described to
+/// <c>Input.dispatchTouchEvent</c> — and the platform half of the interface (a digitizer's radii, its
+/// pressure) is the value that came in either way, since there is no digitizer to improve on it. What is
+/// computed rather than supplied is <see cref="Target"/>, which the dispatcher resolves by hit-testing the
+/// contact against the flat box model, and <c>pageY</c>, which adds the page's scroll offset.
 /// </remarks>
 internal sealed class JsTouch : ObjectInstance
 {
@@ -150,11 +150,11 @@ internal sealed class JsTouchList : ArrayLikeObject
 /// </para>
 /// </summary>
 /// <remarks>
-/// The three lists are exactly the three sequences the init dictionary carried, each already converted to a
-/// <see cref="JsTouchList"/> by the constructor. Nothing here recomputes <c>targetTouches</c> from
-/// <c>touches</c>: that filtering belongs to the algorithm that <i>dispatches</i> a touch, and this browser
-/// dispatches none — <c>Events/AGENTS.md</c>'s table names every point that fires an event and there is no
-/// touch among them.
+/// The three lists are exactly the three lists the constructor was handed, each already a
+/// <see cref="JsTouchList"/>. Nothing here recomputes <c>targetTouches</c> from <c>touches</c>: that
+/// filtering belongs to whatever built the event — the init dictionary's three sequences for a
+/// <c>new TouchEvent</c>, and the gesture for a dispatched one, which is
+/// <c>Events/InputDispatcher.Touch</c> and is where §5.2's three questions are answered.
 /// </remarks>
 internal sealed class JsTouchEvent : JsUiEvent
 {

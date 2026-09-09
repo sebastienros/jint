@@ -115,6 +115,22 @@ internal static class EventHandlerContentAttributes
         "unload",
     ];
 
+    /// <summary>
+    /// https://w3c.github.io/touch-events/#element-touchstart — the four event handler IDL attributes Touch
+    /// Events adds to <c>GlobalEventHandlers</c>.
+    /// </summary>
+    /// <remarks>
+    /// <b>They are handler <i>types</i> here and not <see cref="ElementHandlers"/> rows</b>, and the
+    /// difference is exactly the one <c>Runtime/TouchEmulation</c> exists for. A row in that array is a
+    /// member of the shared prototype shape, so every page would have <c>ontouchstart</c> to feature-detect
+    /// and would be told this is a touch device. Being a handler type is the other half: the content
+    /// attribute a page wrote in its own markup is compiled and reconciled like any other, whether or not
+    /// anybody asked for touch emulation, because markup is not a capability probe. The IDL attributes are
+    /// added to the window, the document and <c>Element.prototype</c> only under emulation, by
+    /// <c>TouchEmulation</c>, and they read and write the same slot this reconciliation does.
+    /// </remarks>
+    internal static readonly string[] TouchHandlers = ["touchstart", "touchend", "touchmove", "touchcancel"];
+
     private static readonly HashSet<string> _bodyHandlerLookup = new(BodyHandlersOwnedByTheWindow, StringComparer.Ordinal);
 
     private static readonly HashSet<string> _elementHandlerLookup = BuildElementHandlerLookup();
@@ -146,6 +162,7 @@ internal static class EventHandlerContentAttributes
     {
         var names = new HashSet<string>(ElementHandlers, StringComparer.Ordinal);
         names.UnionWith(BodyHandlersOwnedByTheWindow);
+        names.UnionWith(TouchHandlers);
         return names;
     }
 
