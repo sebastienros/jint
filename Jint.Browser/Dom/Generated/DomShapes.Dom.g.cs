@@ -2407,7 +2407,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Range.cloneContents", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, "Range.cloneContents");
-                    return self.Realm.WrapNodeValue(self.Target.CopyContent());
+                    return self.Realm.Hooks.CloneContents(self.Realm, self.Target, args);
                 }),
                 length: 0)
             .Method("cloneRange",
@@ -2480,7 +2480,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Range.extractContents", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, "Range.extractContents");
-                    return self.Realm.WrapNodeValue(self.Target.ExtractContent());
+                    return self.Realm.Hooks.ExtractContents(self.Realm, self.Target, args);
                 }),
                 length: 0)
             .Method("getBoundingClientRect",

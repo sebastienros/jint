@@ -14,6 +14,28 @@ namespace Jint.Browser.CustomElements;
 internal sealed partial class CustomElementRegistry
 {
     /// <summary>
+    /// The namespace prefix the <c>createElementNS</c> in progress owes the element its constructor is about
+    /// to make, taken by the first <see cref="NewElement"/> of that construction and cleared by it.
+    /// </summary>
+    /// <remarks>
+    /// <b>This is the one place creation diverges from DOM, and AngleSharp's read-only <c>Prefix</c> is
+    /// why.</b> https://dom.spec.whatwg.org/#concept-create-element step 5.1.3.9 sets the prefix on the
+    /// element the constructor produced, <i>after</i> it returns; there is no setter to do that with, so the
+    /// element is created carrying it instead. What that costs is exactly one thing a page can tell apart —
+    /// <c>this.prefix</c> read inside the constructor answers the prefix where the standard says
+    /// <see langword="null"/> — and what it buys is the element keeping its prefix and its qualified
+    /// <c>tagName</c> for the rest of its life instead of losing both.
+    /// <c>Dom/divergences.md</c> records it.
+    /// <para>
+    /// It is taken rather than read, so a nested <c>new MyElement()</c> inside the constructor — which HTML
+    /// gives an empty construction stack and its own fresh element — gets no prefix, and a nested
+    /// <c>createElementNS</c> gets its own. The save-and-restore around the construction is what keeps the
+    /// two from seeing each other's.
+    /// </para>
+    /// </remarks>
+    private string? _pendingPrefix;
+
+    /// <summary>
     /// https://html.spec.whatwg.org/multipage/custom-elements.html#html-element-constructors, from step 5.
     /// </summary>
     /// <param name="interfaceDefinition">The interface object <c>super()</c> reached — the active function object.</param>
@@ -113,7 +135,12 @@ internal sealed partial class CustomElementRegistry
                 "Failed to construct '" + definition.Name + "': the window has no document to create an element in.");
         }
 
-        var element = document!.CreateElement(definition.LocalName);
+        var prefix = _pendingPrefix;
+        _pendingPrefix = null;
+
+        var element = prefix is null
+            ? document!.CreateElement(definition.LocalName)
+            : document!.CreateElement(HtmlNamespace, prefix + ":" + definition.LocalName);
         var record = RecordFor(element);
 
         record.Definition = definition;
@@ -137,8 +164,11 @@ internal sealed partial class CustomElementRegistry
     /// element in the failed state — which is what keeps <c>document.createElement</c> from throwing at a
     /// page that only asked for an element.
     /// </remarks>
-    internal JsValue ConstructAutonomous(CustomElementDefinition definition, IDocument document, string localName)
+    internal JsValue ConstructAutonomous(CustomElementDefinition definition, IDocument document, string localName, string? prefix = null)
     {
+        var enclosing = _pendingPrefix;
+        _pendingPrefix = prefix;
+
         try
         {
             var constructed = _runtime.Engine.Construct(definition.Constructor, [], definition.Constructor, null);
@@ -170,6 +200,10 @@ internal sealed partial class CustomElementRegistry
             var failed = document.CreateElement(localName);
             RecordFor(failed).State = CustomElementState.Failed;
             return _runtime.Dom.WrapNode(failed);
+        }
+        finally
+        {
+            _pendingPrefix = enclosing;
         }
     }
 }

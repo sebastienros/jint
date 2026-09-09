@@ -1436,6 +1436,22 @@
       "reason": "DOM §5.5 checks the supplied point root and unsigned offset, then includes both range endpoints. DomRangeMembers reuses AngleSharp boundary ordering after those checks."
     },
     {
+      "interface": "Range",
+      "member": "cloneContents",
+      "half": "operation",
+      "hook": "CloneContents",
+      "returns": true,
+      "reason": "DOM §5.5's clone-the-contents reaches \"clone a node\" for every partially contained ancestor, and cloning an element a definition names enqueues an upgrade reaction -- so the constructors run in tree order before this [CEReactions] member returns. AngleSharp's CopyContent knows nothing of a definition; the hook walks the fragment it answers, which is the same door Node.cloneNode comes through. See Dom/DomRangeMembers."
+    },
+    {
+      "interface": "Range",
+      "member": "extractContents",
+      "half": "operation",
+      "hook": "ExtractContents",
+      "returns": true,
+      "reason": "The same upgrade for DOM §5.5's extract-the-contents: the fragment holds the nodes that moved -- already custom -- and the clones of the partially contained ancestors, which are the ones the upgrade is for. See Dom/DomRangeMembers."
+    },
+    {
       "interface": "CharacterData",
       "member": "before",
       "half": "operation",

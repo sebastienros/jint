@@ -154,9 +154,13 @@ tree order — and an `<iframe name=x>` gives that frame's window and not the el
 `Runtime/FrameWindows`. One divergence is stated on the class: a name several elements answer to gives the
 first rather than an `HTMLCollection`.
 
-**`window.event` is the one member that is an own property of the global** rather than an accessor on the
-shaped prototype, because WebIDL's `[Global]` puts an interface's members on the global object itself and
-`event` is the one a page can tell apart (`assert_own_property(window, "event")`). The slot it reads is the
+**`window.event` and `window.customElements` are the two members that are own properties of the global**
+rather than accessors on the shaped prototype, because WebIDL's `[Global]` puts an interface's members on the
+global object itself and these two are the ones a page can tell apart — `assert_own_property(window,
+"event")`, and a page that saves `Object.getOwnPropertyDescriptor(window, "customElements")`, replaces the
+global and puts the descriptor back (`custom-elements/overwritten-customElements-global.html`, whose restore
+threw on an `undefined` descriptor). The registry's is a *lazy* global, so a document that never mentions it
+still builds none. The slot it reads is the
 engine's — DOM's *current event*, maintained by the dispatch — and the engine maintains it only because the
 installer sets `GlobalEventTarget.IsWindow`, which is also what turns on DOM's default passive value.
 

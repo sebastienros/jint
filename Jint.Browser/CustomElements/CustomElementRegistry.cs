@@ -181,10 +181,28 @@ internal sealed partial class CustomElementRegistry : ObjectInstance
             : JsValue.Undefined;
 
     /// <summary>https://html.spec.whatwg.org/multipage/custom-elements.html#dom-customelementregistry-getname.</summary>
+    /// <remarks>
+    /// The argument is WebIDL's <c>CustomElementConstructor</c> — <c>callback CustomElementConstructor =
+    /// HTMLElement ();</c> — so anything that is not callable is refused by the <i>conversion</i>, before the
+    /// member runs at all, and never answered as a lookup that found nothing. A callable no definition names
+    /// still answers <see langword="null"/>, which is the member's own "no such entry".
+    /// </remarks>
     internal JsValue GetName(JsValue[] arguments)
-        => arguments.At(0) is ObjectInstance constructor && _byConstructor.TryGetValue(constructor, out var definition)
+    {
+        var argument = arguments.At(0);
+
+        if (argument is not ObjectInstance constructor || constructor is not ICallable)
+        {
+            Throw.TypeError(
+                _runtime.Engine._mainRealm,
+                "Failed to execute 'getName' on 'CustomElementRegistry': parameter 1 is not of type 'Function'.");
+            return JsValue.Undefined;
+        }
+
+        return _byConstructor.TryGetValue(constructor, out var definition)
             ? JsString.Create(definition.Name)
             : JsValue.Null;
+    }
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/custom-elements.html#dom-customelementregistry-whendefined.

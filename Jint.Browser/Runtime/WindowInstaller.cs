@@ -324,7 +324,6 @@ internal static class WindowInstaller
                     return JsValue.Undefined;
                 })
             .Accessor("origin", static (t, _) => JsString.Create(PageRuntime.Of(t, "origin").Document?.Origin ?? "null"))
-            .Accessor("customElements", static (t, _) => PageRuntime.Of(t, "customElements").CustomElements)
             .Method("stop", static (_, _) => JsValue.Undefined)
             .Method("focus", static (_, _) => JsValue.Undefined)
             .Method("blur", static (_, _) => JsValue.Undefined)

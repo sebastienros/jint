@@ -137,6 +137,14 @@ internal class DomHostHooks
     internal virtual JsValue IsPointInRange(DomRealm realm, IRange range, JsValue[] arguments)
         => DomRangeMembers.IsPointInRange(realm, range, arguments);
 
+    /// <summary>https://dom.spec.whatwg.org/#dom-range-clonecontents</summary>
+    internal virtual JsValue CloneContents(DomRealm realm, IRange range, JsValue[] arguments)
+        => DomRangeMembers.CloneContents(realm, range);
+
+    /// <summary>https://dom.spec.whatwg.org/#dom-range-extractcontents</summary>
+    internal virtual JsValue ExtractContents(DomRealm realm, IRange range, JsValue[] arguments)
+        => DomRangeMembers.ExtractContents(realm, range);
+
     /// <summary>
     /// https://dom.spec.whatwg.org/#dom-nonelementparentnode-getelementbyid - and DOM §4.9's definition of an
     /// element's ID, which is what makes the empty string answer null.
