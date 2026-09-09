@@ -45,11 +45,11 @@ public class HostNativeRecursionGuardTests
     {
         {
             "bound call",
-            "var f = function () { return 1; }; for (var i = 0; i < 50000; i++) f = f.bind(null); f();"
+            "var f = function () { return 1; }; for (var i = 0; i < 10000; i++) f = f.bind(null); f();"
         },
         {
             "proxy call",
-            "var f = function () { return 1; }; for (var i = 0; i < 50000; i++) f = new Proxy(f, {}); f();"
+            "var f = function () { return 1; }; for (var i = 0; i < 10000; i++) f = new Proxy(f, {}); f();"
         },
         {
             "proxy construct",
@@ -89,7 +89,7 @@ public class HostNativeRecursionGuardTests
 #endif
 
             engine.Evaluate("6 * 7").AsNumber().Should().Be(42);
-        }, maxStackSize: SmallStack);
+        }, maxStackSize: ForwardingStack);
     }
 
     [Fact]
@@ -131,6 +131,14 @@ public class HostNativeRecursionGuardTests
     }
 
     private const int SmallStack = 1024 * 1024;
+
+    /// <summary>
+    /// A quarter of <see cref="SmallStack"/> for the forwarding chains: on this branch a bound-call or proxy hop
+    /// is light enough that ten thousand of them fit in a mebibyte on Linux x64, and light enough on ARM64 that
+    /// the hop count needed to overflow it kills the host before the probe can answer. A stack this size runs
+    /// out for every frame size at a depth the probe sees first.
+    /// </summary>
+    private const int ForwardingStack = 256 * 1024;
 
     /// <summary>
     /// The probe is gated on <c>StackOverflowGuard</c>, which is opt-in on this branch, so every engine
