@@ -806,46 +806,6 @@ internal static class WptBrowserExclusions
         ["html/webappapis/scripting/processing-model-2/window-onerror-with-cross-frame-event-listeners-5.html"] = 1,
     };
 
-    // ---------------------------------------------------------------- 1. an event interface this browser has not built
-    private static readonly WptExclusion[] _1AnEventInterfaceThisBrowserHasNotBuilt =
-    [
-        // https://dom.spec.whatwg.org/#dom-document-createevent's alias table names five interfaces
-        // Jint.Browser deliberately does not build, and this file is the only place a page meets them all at
-        // once: it asks each of them for an uninitialized event and dispatches it. `createEvent` refuses the
-        // alias with the NotSupportedError the standard gives one it does not list, which is what these four
-        // rows say. See WptDivergence.NeedsMoreEventInterfaces.
-        new("dom/events/EventTarget-dispatchEvent.html", "If the event's initialized flag is not set, an InvalidStateError must be thrown (DeviceMotionEvent).", WptDivergence.NeedsMoreEventInterfaces),
-        new("dom/events/EventTarget-dispatchEvent.html", "If the event's initialized flag is not set, an InvalidStateError must be thrown (DeviceOrientationEvent).", WptDivergence.NeedsMoreEventInterfaces),
-        new("dom/events/EventTarget-dispatchEvent.html", "If the event's initialized flag is not set, an InvalidStateError must be thrown (DragEvent).", WptDivergence.NeedsMoreEventInterfaces),
-        new("dom/events/EventTarget-dispatchEvent.html", "If the event's initialized flag is not set, an InvalidStateError must be thrown (StorageEvent).", WptDivergence.NeedsMoreEventInterfaces),
-    // ---------------------------------------------------------------- 2. a `data:` URL subresource
-    private static readonly WptExclusion[] _2ADataURLSubresource =
-    [
-        // A page navigates to a `data:` URL and cannot fetch one as a subresource, so a
-        // `<script src="data:text/javascript,…">` is never run — which is what "ran expected true got false"
-        // says here. The report site these documents are about works; what is missing is the scheme, and
-        // adding it is `Runtime/SubresourceFetch`'s change rather than this one.
-        new("html/webappapis/scripting/processing-model-2/compile-error-data-url.html", "*", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/processing-model-2/runtime-error-data-url.html", "*", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/processing-model-2/body-onerror-compile-error-data-url.html", "<body onerror> - compile error in <script src=data:...>", WptDivergence.NeedsTriage),
-    ];
-
-    // ---------------------------------------------------------------- 3. a URL's fragment is dropped
-    private static readonly WptExclusion[] _3AURLSFragmentIsDropped =
-    [
-        // This group used to be four rows and the cause was `script.src` not reflecting a URL: HTML says the
-        // `src` IDL attribute reflects the content attribute AS A URL, so it answers the resolved absolute
-        // one, and AngleSharp's `IHtmlScriptElement.Source` answered the raw attribute value. #3770's
-        // reflection machinery took the member over and two of the four are cases now.
-        // The two that remain are a different defect wearing the same shape: each loads
-        // `<script src="support/syntax-error.js#">` and the URL `onerror` reports has lost the trailing `#`,
-        // so what goes missing is the (empty) FRAGMENT and not the resolution. That happens on the
-        // script-loading path — the URL is re-serialized between the element and the error report — and is a
-        // change to `Runtime/`, not to the binding.
-        new("html/webappapis/scripting/processing-model-2/compile-error-same-origin-with-hash.html", "window.onerror - compile error in <script src=...> with hash", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/processing-model-2/runtime-error-same-origin-with-hash.html", "window.onerror - runtime error in <script src=...> with hash", WptDivergence.NeedsTriage),
-    ];
-
     // ---------------------------------------------------------------- 8. AngleSharp.Css refuses an unparseable media query
     private static readonly WptExclusion[] _8AngleSharpCssRefusesAnUnparseableMediaQuery =
     [
@@ -1487,9 +1447,6 @@ internal static class WptBrowserExclusions
     /// </remarks>
     internal static readonly WptCause[] Causes =
     [
-        new("1. an event interface this browser has not built", _1AnEventInterfaceThisBrowserHasNotBuilt),
-        new("2. a `data:` URL subresource", _2ADataURLSubresource),
-        new("3. a URL's fragment is dropped", _3AURLSFragmentIsDropped),
         new("5. a DOM prototype has no @@unscopables", _5ADOMPrototypeHasNoUnscopables),
         new("8. AngleSharp.Css refuses an unparseable media query", _8AngleSharpCssRefusesAnUnparseableMediaQuery),
         new("9. a double written with .NET's number format", _9ADoubleWrittenWithNETSNumberFormat),
