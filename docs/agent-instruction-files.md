@@ -29,8 +29,9 @@ already descend and simply arrive at the same file by a second path; nothing is 
 because the pointer is an import rather than a copy.
 
 A recipe too long to sit in the `AGENTS.md` that governs it moves instead to a plain markdown file beside
-the same code — `Jint/Native/Object/host-object-shapes.md` is the first — and is reached only by a pointer
-from that `AGENTS.md`, from the root index row, and from the `.claude/rules` file for the area. No agent
+the same code — `Jint/Native/Object/host-object-shapes.md` was the first, and `Jint/WebApi/Events/event-dispatch.md`
+and `Jint.Browser/Layout/box-model.md` followed it — and is reached only by a pointer from that `AGENTS.md`,
+from the `.claude/rules` file for the area, and from the root index row when that row named the material. No agent
 loads such a file on its own, which is the point: what an agent breaks *before* it knows which file to open
 has to stay in the file it loads, while the recipe for what to do instead is only actionable once that area
 is open anyway. `AgentInstructionFileTests` does not weigh these files — nothing truncates a document no
@@ -42,3 +43,14 @@ silent mid-file byte truncation whose only signal is a log line below the level 
 Devin CLI caps an always-on rule file at the same 32 KiB, truncating with a pointer to the source. Devin
 Desktop documents 12,000 characters per workspace rule file; whether that applies to an `AGENTS.md` its rules
 engine processes is undocumented, so treat it as the tightest plausible budget.
+
+## What makes the budget fail rather than merely be stated
+
+`Jint.Tests/AgentInstructionFileTests.cs` is what makes those numbers fail rather than merely be stated,
+since the truncation is silent and nobody was measuring by hand. It counts CRLF line endings — the largest
+a checkout can be — reports *every* file's headroom when one crosses, because that is the moment you need
+to know where there is room, and holds the routing map together: index, `.claude/rules`, links and anchors.
+Only five of the fourteen ecosystems in the table above reach a co-located file on their own — four descend
+into a nested `AGENTS.md`, and Claude Code follows the one-line `CLAUDE.md` beside it — so every other one
+arrives only because the root index names it, and a relocated rule nothing points at is the same outcome as
+truncation.

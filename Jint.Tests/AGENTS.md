@@ -1,7 +1,8 @@
 # Agent instructions: the main test suite
 
-> **Read this when:** You are adding or changing a test in `Jint.Tests`, reaching for a wall-clock number in
-> one, or looking at a failure from one of the tests that hold this repository to its own rules.
+> **Read this when:** You are adding or changing a test in `Jint.Tests`, deciding which test project a new
+> test belongs in, reaching for a wall-clock number in one, or looking at a failure from one of the tests
+> that hold this repository to its own rules.
 >
 > This is one of the co-located instruction files indexed from the repository-root
 > [`AGENTS.md`](../AGENTS.md). Read that first — it carries the build and test commands, the branch to
@@ -107,6 +108,30 @@ repository-wide, so the annotation you add has to be right rather than approxima
 Scripts a test loads are embedded resources under `Runtime/Scripts/` and `Parser/Scripts/`, declared in the
 project file; adding a script is adding a file to one of those directories, not a new `EmbeddedResource`
 entry.
+
+## The seven test projects, and which one a test belongs in
+
+The repository-root [`AGENTS.md`](../AGENTS.md#build--test) states the trap — the project a change needs is
+often not the one it edits. This is the roster it points at.
+
+- **`Jint.Tests`** — Main unit tests (NUnit, AwesomeAssertions), with `Wpt/` the web-platform-tests area. Use a 30-second timeout when invoking the runner.
+- **`Jint.Tests.Test262`** — Official TC39 conformance suite (NUnit); `Test262Harness.settings.json` holds its exclusions and which of test262's `test/` sub-directories are generated at all, and [`Jint.Tests.Test262/AGENTS.md`](../Jint.Tests.Test262/AGENTS.md) says where the suite's own sources are and how to reproduce a failure. **Never "fix" these tests.** No runner timeout needed; the engine defaults to 30 seconds.
+- **`Jint.Tests.CommonScripts`** — Real-world scripts (crypto, 3D rendering, …) run as correctness and performance validation (NUnit).
+- **`Jint.Tests.PublicInterface`** — API contract tests (NUnit). See [the third-party integration surface](../AGENTS.md#third-party-integration-surface).
+- **`Jint.Tests.DevTools`** — In-process protocol tests for `Jint.DevTools`, and the generated-protocol currency check (NUnit).
+- **`Jint.Tests.SourceGenerators`** — Tests for the source generators.
+- **`Jint.Tests.Browser`** — The browser package and everything built on it, plus the browser lane of the web-platform-tests (NUnit).
+
+Before a test exists, `Jint.Repl` is the quick manual run:
+
+```bash
+# -f <path> executes a file, -t <secs> sets a timeout, stdin works too
+dotnet run --project Jint.Repl -c Release -- -f script.js -t 10
+echo "Math.sqrt(16)" | dotnet run --project Jint.Repl -c Release -- -t 10
+```
+
+**Always pass `-t`** so a runaway script cannot hang the session. Anything worth keeping is a test in
+`Jint.Tests`.
 
 ## Host-contract verification is a separate leg, deliberately
 
