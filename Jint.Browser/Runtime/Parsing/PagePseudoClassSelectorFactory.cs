@@ -10,21 +10,25 @@ namespace Jint.Browser.Runtime.Parsing;
 internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFactory
 {
     private const string AnyLink = "any-link";
+    private const string Closed = "closed";
     // The pseudo-class HTML calls "default"; the name is taken by the helper which reads AngleSharp's own.
     private const string DefaultState = "default";
     private const string Disabled = "disabled";
     private const string Enabled = "enabled";
     private const string Link = "link";
+    private const string Open = "open";
     private const string Target = "target";
     private const string Visited = "visited";
 
     private static readonly ISelector _target = new TargetSelector();
     private readonly DefaultPseudoClassSelectorFactory _defaults = new();
     private readonly ISelector _anyLink;
+    private readonly ISelector _closed;
     private readonly ISelector _default;
     private readonly ISelector _disabled;
     private readonly ISelector _enabled;
     private readonly ISelector _link;
+    private readonly ISelector _open;
     private readonly ISelector _visited;
 
     internal PagePseudoClassSelectorFactory()
@@ -35,6 +39,12 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
         _link = new LinkStateSelector(Default(Link), visited: false);
         _visited = new LinkStateSelector(Default(Visited), visited: true);
         _anyLink = new AnyLinkSelector(Default(AnyLink), _link, _visited);
+        _open = new OpenStateSelector(Default(Open), Open, closed: false);
+
+        // The one selector here with no AngleSharp default to keep: :closed is not in
+        // DefaultPseudoClassSelectorFactory's table at all, so before this the whole selector failed to
+        // parse and every API a page could spell it in raised a SyntaxError.
+        _closed = new OpenStateSelector(defaults: null, Closed, closed: true);
     }
 
     /// <inheritdoc />
@@ -68,6 +78,16 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
         if (string.Equals(name, AnyLink, StringComparison.OrdinalIgnoreCase))
         {
             return _anyLink;
+        }
+
+        if (string.Equals(name, Open, StringComparison.OrdinalIgnoreCase))
+        {
+            return _open;
+        }
+
+        if (string.Equals(name, Closed, StringComparison.OrdinalIgnoreCase))
+        {
+            return _closed;
         }
 
         return string.Equals(name, Visited, StringComparison.OrdinalIgnoreCase) ? _visited : _defaults.Create(name);
@@ -381,6 +401,115 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
         }
 
         public void Accept(ISelectorVisitor visitor) => defaults.Accept(visitor);
+    }
+
+    /// <summary>
+    /// Selectors §10.5 and HTML §4.16.3: <c>:open</c> and <c>:closed</c> are the two states of an element
+    /// which has both, so neither is the complement of the other over every element — only over the four
+    /// categories HTML gives the pair. A <c>details</c> and a <c>dialog</c> are open exactly while they carry
+    /// the boolean <c>open</c> attribute; the other two categories are a drop-down <c>select</c> whose
+    /// drop-down box is open and an <c>input</c> whose picker is open, and both of those are opened by a user
+    /// interface this browser does not present, so they are always in the closed state rather than in
+    /// neither. AngleSharp's <c>IsOpen()</c> is a <c>return false</c> with a to-do beside it.
+    /// </summary>
+    private sealed class OpenStateSelector(ISelector? defaults, string name, bool closed) : ISelector
+    {
+        public string Text => defaults?.Text ?? ":" + name;
+
+        public Priority Specificity => defaults?.Specificity ?? Priority.OneClass;
+
+        public bool Match(IElement element, IElement? scope)
+            => HasAnOpenAndAClosedState(element) && IsOpen(element) != closed;
+
+        public void Accept(ISelectorVisitor visitor)
+        {
+            if (defaults is not null)
+            {
+                defaults.Accept(visitor);
+                return;
+            }
+
+            visitor.PseudoClass(name);
+        }
+
+        /// <summary>HTML §4.16.3's four categories, which is what the pair is defined over.</summary>
+        private static bool HasAnOpenAndAClosedState(IElement element)
+            => element is IHtmlDetailsElement or IHtmlDialogElement
+                || IsADropDownBox(element)
+                || SupportsAPicker(element);
+
+        /// <summary>
+        /// §4.11.1 and §4.11.4: <c>open</c> is a boolean attribute on both elements, so its presence is the
+        /// state. Nothing else here can be open, because opening it would take a user gesture at a rendering.
+        /// </summary>
+        private static bool IsOpen(IElement element)
+            => element is IHtmlDetailsElement or IHtmlDialogElement && element.HasAttribute(Open);
+
+        /// <summary>
+        /// §4.10.7: a <c>select</c> is a drop-down box when it has no <c>multiple</c> attribute and its
+        /// display size is 1, and the display size is the <c>size</c> attribute parsed as a non-negative
+        /// integer — or, when there is none or it does not parse, 4 with <c>multiple</c> and 1 without.
+        /// AngleSharp's <c>Size</c> answers 0 for an absent attribute, so the attribute is read here instead.
+        /// </summary>
+        private static bool IsADropDownBox(IElement element)
+            => element is IHtmlSelectElement select && !select.IsMultiple && DisplaySizeOf(select) == 1;
+
+        private static int DisplaySizeOf(IHtmlSelectElement select)
+            => TryParseNonNegativeInteger(select.GetAttribute("size"), out var size) ? size : 1;
+
+        /// <summary>
+        /// §4.10.5: whether an <c>input</c> supports a picker is implementation-defined but for the File
+        /// Upload state, where the standard requires one. This browser shows no picker of its own for any
+        /// other type state, so File Upload is the whole of the category here.
+        /// </summary>
+        private static bool SupportsAPicker(IElement element)
+            => element is IHtmlInputElement input
+                && string.Equals(input.Type, "file", StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// HTML's rules for parsing non-negative integers: leading ASCII whitespace, an optional <c>+</c> and
+        /// then at least one ASCII digit, with anything after the digits ignored. A leading <c>-</c> or a
+        /// first character that is not a digit is a failure, which is what leaves the display size at its
+        /// default.
+        /// </summary>
+        private static bool TryParseNonNegativeInteger(string? value, out int result)
+        {
+            result = 0;
+
+            if (value is null)
+            {
+                return false;
+            }
+
+            var at = 0;
+            while (at < value.Length && IsAsciiWhitespace(value[at]))
+            {
+                at++;
+            }
+
+            if (at < value.Length && value[at] == '+')
+            {
+                at++;
+            }
+
+            if (at >= value.Length || !char.IsAsciiDigit(value[at]))
+            {
+                return false;
+            }
+
+            var parsed = 0L;
+            while (at < value.Length && char.IsAsciiDigit(value[at]))
+            {
+                parsed = Math.Min((parsed * 10) + (value[at] - '0'), int.MaxValue);
+                at++;
+            }
+
+            result = (int) parsed;
+            return true;
+        }
+
+        private static bool IsAsciiWhitespace(char character)
+            => character is '\t' or '\n' or '\f' or '\r' or ' ';
     }
 
     /// <summary>Selectors §8.2: the target element of a document.</summary>

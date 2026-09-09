@@ -113,7 +113,8 @@ internal sealed class ParserDriver : IDisposable
             // an optgroup or a fieldset, disables neither of those from the select or the outer fieldset
             // above it, and gives a link a disabled state at all. HTML §4.16.3's :default is the same
             // shape: AngleSharp calls every button in a form its default button and no checkbox or radio
-            // one at all.
+            // one at all. The same section's :open is a `return false` there and :closed is not registered
+            // at all, so a page spelling the latter got a SyntaxError out of every selector API.
             .WithOnly<AngleSharp.Css.IPseudoClassSelectorFactory>(new PagePseudoClassSelectorFactory())
             // https://html.spec.whatwg.org/multipage/document-lifecycle.html#read-xml — a document whose
             // content type is an XML MIME type is parsed by the XML parser, and without the factory
