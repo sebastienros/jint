@@ -5316,13 +5316,6 @@ internal static partial class DomInterfaces
                 }))
             .Build();
 
-    /// <summary>The members of <c>HTMLTableDataCellElement</c>.</summary>
-    private static global::Jint.Native.JsObjectShape BuildHTMLTableDataCellElement()
-        => new global::Jint.Native.JsObjectShape.Builder()
-            .ToStringTag("HTMLTableDataCellElement")
-            .PerRealmSlot("constructor", enumerable: false)
-            .Build();
-
     /// <summary>The members of <c>HTMLTableElement</c>.</summary>
     private static global::Jint.Native.JsObjectShape BuildHTMLTableElement()
         => new global::Jint.Native.JsObjectShape.Builder()
@@ -5535,13 +5528,6 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlTableElement>(thisObj, "HTMLTableElement.width");
                     return global::Jint.Browser.Dom.DomReflected.HTMLTableElementWidth.Set(self.Realm, self.Target, args);
                 }))
-            .Build();
-
-    /// <summary>The members of <c>HTMLTableHeaderCellElement</c>.</summary>
-    private static global::Jint.Native.JsObjectShape BuildHTMLTableHeaderCellElement()
-        => new global::Jint.Native.JsObjectShape.Builder()
-            .ToStringTag("HTMLTableHeaderCellElement")
-            .PerRealmSlot("constructor", enumerable: false)
             .Build();
 
     /// <summary>The members of <c>HTMLTableRowElement</c>.</summary>

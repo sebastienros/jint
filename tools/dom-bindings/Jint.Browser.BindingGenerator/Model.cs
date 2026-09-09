@@ -76,6 +76,12 @@ internal sealed class InterfaceModel
 
     internal List<ConstantModel> Constants { get; } = [];
 
+    /// <summary>
+    /// The interface's <c>[Unscopable]</c> member names, sorted, or empty. A non-empty list is what puts an
+    /// <c>@@unscopables</c> object on the interface prototype object.
+    /// </summary>
+    internal List<string> Unscopables { get; } = [];
+
     /// <summary>The generated <c>DomCollectionAccessor</c> class body, or <see langword="null"/>.</summary>
     internal string? AccessorClass { get; set; }
 

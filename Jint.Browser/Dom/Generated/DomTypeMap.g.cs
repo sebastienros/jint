@@ -19,8 +19,6 @@ internal static partial class DomTypeMap
     private static readonly DomInterfaceDefinition[] _candidates =
     [
         DomInterfaces.HTMLAudioElement,
-        DomInterfaces.HTMLTableDataCellElement,
-        DomInterfaces.HTMLTableHeaderCellElement,
         DomInterfaces.HTMLVideoElement,
         DomInterfaces.CSSContainerRule,
         DomInterfaces.CSSDocumentRule,

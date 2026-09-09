@@ -369,14 +369,8 @@ internal static partial class DomInterfaces
     /// <summary>The <c>HTMLTableColElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlTableColumnElement</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLTableColElement;
 
-    /// <summary>The <c>HTMLTableDataCellElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlTableDataCellElement</c>.</summary>
-    internal static readonly DomInterfaceDefinition HTMLTableDataCellElement;
-
     /// <summary>The <c>HTMLTableElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlTableElement</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLTableElement;
-
-    /// <summary>The <c>HTMLTableHeaderCellElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlTableHeaderCellElement</c>.</summary>
-    internal static readonly DomInterfaceDefinition HTMLTableHeaderCellElement;
 
     /// <summary>The <c>HTMLTableRowElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlTableRowElement</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLTableRowElement;
@@ -515,7 +509,7 @@ internal static partial class DomInterfaces
 
     static DomInterfaces()
     {
-        var all = new global::System.Collections.Generic.List<DomInterfaceDefinition>(165);
+        var all = new global::System.Collections.Generic.List<DomInterfaceDefinition>(163);
 
         ApplicationCache = Add(new DomInterfaceDefinition(
             "ApplicationCache",
@@ -1659,29 +1653,11 @@ internal static partial class DomInterfaces
             hasInterfaceObject: true,
             DomWrapperKind.Node));
 
-        HTMLTableDataCellElement = Add(new DomInterfaceDefinition(
-            "HTMLTableDataCellElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlTableDataCellElement),
-            BuildHTMLTableDataCellElement,
-            HTMLTableCellElement,
-            rootsAtEventTarget: true,
-            hasInterfaceObject: true,
-            DomWrapperKind.Node));
-
         HTMLTableElement = Add(new DomInterfaceDefinition(
             "HTMLTableElement",
             typeof(global::AngleSharp.Html.Dom.IHtmlTableElement),
             BuildHTMLTableElement,
             HTMLElement,
-            rootsAtEventTarget: true,
-            hasInterfaceObject: true,
-            DomWrapperKind.Node));
-
-        HTMLTableHeaderCellElement = Add(new DomInterfaceDefinition(
-            "HTMLTableHeaderCellElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlTableHeaderCellElement),
-            BuildHTMLTableHeaderCellElement,
-            HTMLTableCellElement,
             rootsAtEventTarget: true,
             hasInterfaceObject: true,
             DomWrapperKind.Node));
