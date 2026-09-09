@@ -11,14 +11,23 @@
          the two records disagree, because the checked-in Jint.Browser/Dom/Generated/ is a picture of exactly
          these assemblies' [DomName] surface. Bump both together, regenerate, and read the diff. -->
     <PackageVersion Include="AngleSharp" Version="1.8.0" />
-    <!-- A prerelease deliberately, and the maintainer's own preference for this repository: 1.1.1-beta.308 is
-         1.1.0 plus AngleSharp/AngleSharp.Css#244, which stops a composite converter reparsing an unresolved
-         any-value with itself. Without it `translate`, `rotate` and `scale` overflow the stack inside
-         ComputeCurrentStyle(), and a stack overflow is the one failure Dom/Views/CssCascade's guard cannot
-         turn into a null cascade — it ends the process. Jint.Tests.Browser/Views/IndividualTransformStyleTests
-         is what holds the fix. AngleSharp itself stays on 1.8.0: nothing later is published, prerelease
-         included. -->
-    <PackageVersion Include="AngleSharp.Css" Version="1.1.1-beta.308" />
+    <!-- A prerelease deliberately, and the maintainer's own preference for this repository: this package is
+         taken from the preview channel whenever one of them carries something the browser needs, and two of
+         them do. 1.1.1-beta.308 is 1.1.0 plus AngleSharp/AngleSharp.Css#244, which stops a composite
+         converter reparsing an unresolved any-value with itself; without it `translate`, `rotate` and
+         `scale` overflow the stack inside ComputeCurrentStyle(), and a stack overflow is the one failure
+         Dom/Views/CssCascade's guard cannot turn into a null cascade — it ends the process.
+         1.1.1-beta.310 is that plus AngleSharp.Css 8c7ec8b9 and 534c18ec. The half this browser reaches is
+         one null guard: CssTranslateValue leaves the axes a function did not name null — that is how it
+         tells translateX(10px) from translate3d(10px, 0, 0) — and its Compute dereferenced all three, so
+         computing any `transform` whose translate named fewer than three axes raised inside the computed
+         declaration and Dom/Views/CssCascade dropped the property to "". The rest of the two commits is
+         CssRotateValue's and CssMatrixValue's ComputeMatrix, which nothing here calls: there is no
+         transform stage in the flat box model. Jint.Tests.Browser/Views/IndividualTransformStyleTests and
+         Views/TransformFunctionStyleTests are what hold the two fixes. AngleSharp itself stays on 1.8.0:
+         nothing later is published, prerelease included — nuget's flatcontainer index for `anglesharp` ends
+         at 1.8.0, whose newest prerelease (1.8.0-beta.679) precedes it. -->
+    <PackageVersion Include="AngleSharp.Css" Version="1.1.1-beta.310" />
     <!-- Neither of these is in the binding generator's pin, and deliberately: the generator reads AngleSharp
          and AngleSharp.Css and nothing else, and neither of these carries a [DomName] the binding could
          project. Each is referenced for one thing the package's own principle says must not be written here —

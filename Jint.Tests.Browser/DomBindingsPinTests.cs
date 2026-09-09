@@ -33,7 +33,7 @@ public sealed class DomBindingsPinTests
         var pinned = ReadPin();
 
         // An assembly version carries a fourth revision component a package version never states, and it
-        // carries no prerelease suffix at all — AngleSharp.Css 1.1.1-beta.308 is assembly 1.1.1.0 — so this
+        // carries no prerelease suffix at all — AngleSharp.Css 1.1.1-beta.310 is assembly 1.1.1.0 — so this
         // compares the three numeric parts of the release portion rather than the whole string.
         Release(typeof(IElement).Assembly.GetName().Version!.ToString()).Should().Be(Release(pinned["AngleSharp"]));
         Release(typeof(ICssStyleDeclaration).Assembly.GetName().Version!.ToString()).Should().Be(Release(pinned["AngleSharp.Css"]));
