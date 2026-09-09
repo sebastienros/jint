@@ -179,8 +179,6 @@ internal static partial class DomTypeMap
         DomInterfaces.TextTrackCueList,
         DomInterfaces.TextTrackList,
         DomInterfaces.TimeRanges,
-        DomInterfaces.Touch,
-        DomInterfaces.TouchList,
         DomInterfaces.TreeWalker,
         DomInterfaces.ValidityState,
         DomInterfaces.VideoTrack,

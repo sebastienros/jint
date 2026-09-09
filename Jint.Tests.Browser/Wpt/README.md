@@ -25,10 +25,8 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 
 | Suite | Documents | Synthesized | Tests | Not passing |
 | --- | --- | --- | --- | --- |
-| `dom/events/` | 56 | 9 | 544 | 15 |
-| `dom/nodes/` | 168 | 0 | 8,115 | 772 |
 | `dom/events/` | 56 | 9 | 544 | 11 |
-| `dom/nodes/` | 168 | 0 | 8,115 | 784 |
+| `dom/nodes/` | 168 | 0 | 8,115 | 748 |
 | `dom/collections/` | 8 | 0 | 43 | 0 |
 | `dom/lists/` | 5 | 0 | 189 | 2 |
 | `dom/traversal/` | 13 | 0 | 52 | 0 |
@@ -40,8 +38,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 52 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 3 |
-| **total** | **359** | **9** | **66,646** | **1,158** |
-| **total** | **359** | **9** | **66,646** | **1,176** |
+| **total** | **359** | **9** | **66,646** | **1,130** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -196,8 +193,7 @@ has the upstream half of each, and `Dom/AGENTS.md` says which override list carr
 
 `dom/nodes/`, `dom/collections/`, `dom/lists/`, `dom/traversal/`, `dom/ranges/` and `html/dom/` are the DOM
 standard's own suites and HTML's DOM half — the corpus every other suite in this lane is written on top of.
-Across the six of them there are 226 documents and 65,226 tests, and **819 of those tests do not pass**.
-Across the six of them there are 226 documents and 65,226 tests, and **834 of those tests do not pass**.
+Across the six of them there are 226 documents and 65,226 tests, and **795 of those tests do not pass**.
 Those three figures are live and checked against the census. They arrived together as 207 documents and
 5,247 tests with 1,532 not passing; those arrival figures are historical and deliberately not re-derived.
 
@@ -213,15 +209,12 @@ table needs to be regenerated.
 | Tests | Documents | What it is |
 | ---: | ---: | --- |
 | 299 | 9 | [#3771](https://github.com/sebastienros/jint/issues/3771) **A frame is never given its own realm.** The 195 XHTML and 71 XML `Document-createElement*` rows reach `doc.defaultView.DOMException`; the rest are the `node-realm-*`, `node-creation-realm`, `createEvent` and connectivity cases. `NeedsIframeScripting` names that missing environment. <!-- cause: a frame that runs script --> |
-| 159 | 4 | **Members of DOM interfaces are absent.** The rows cover `ProcessingInstruction` attributes, `ChildNode` unscopables and event aliases that have no constructor. <!-- cause: a member of a DOM interface the bindings do not have --> |
-| 147 | 3 | **Members of DOM interfaces are absent.** 137 of them are one interface: `processing-instruction-attributes.html` is the attribute surface [WICG's declarative partial updates](https://github.com/WICG/declarative-partial-updates) proposal puts on a `ProcessingInstruction`, which neither AngleSharp nor the bindings have. The rest are `ChildNode` unscopables and `Attr` identity. <!-- cause: a member of a DOM interface the bindings do not have --> |
+| 147 | 3 | **Members of DOM interfaces are absent.** The rows cover `ProcessingInstruction` attributes, `ChildNode` unscopables and event aliases that have no constructor. <!-- cause: a member of a DOM interface the bindings do not have --> |
 | 88 | 3 | **The Selectors-API table and selector-only element states.** The three newly vendored documents cover selector-error contracts, no-namespace selectors and `::slotted`; all 88 rows are `NeedsTriage`. <!-- cause: the Selectors-API table and selector-only element states --> |
 | 81 | 6 | [#3774](https://github.com/sebastienros/jint/issues/3774) **A name AngleSharp refuses that the standard allows, plus required refusals it does not make.** The rows cover element creation, namespace validation and document insertion. <!-- cause: a name AngleSharp refuses that the standard allows --> |
 | 50 | 2 | [#3772](https://github.com/sebastienros/jint/issues/3772) **DOM's current name-validation rules differ from the XML productions.** `createDocumentType` contributes 45 rows and `name-validation.html` five. <!-- cause: DOM's validate-and-extract, and the XML name productions --> |
 | 46 | 11 | **One assertion each or one small family per document.** These cover conversion order, import/clone identity, attribute selection and ordering, element-name identity, node equality and `accessKeyLabel`; each pattern is kept separate where neighboring rows pass. <!-- cause: one assertion each --> |
 | 19 | 6 | [#3949](https://github.com/sebastienros/jint/issues/3949) **A tag query's namespace and local-name identity is lost before the query runs.** `createElementNS(HTML, "ABC")` exposes a lower-case `localName` and a null-namespace `<body>` becomes an XHTML one on insertion, so the qualified-name, exact-namespace, empty-namespace and HTMLness assertions cannot be answered from the tree the query is given; `case.html` contributes ten of the rows and the two `getElementsByTagName`/`NS` pairs the rest. The queries themselves are DOM's. <!-- cause: a tag query's namespace and local-name identity --> |
-| 18 | 1 | **An event interface this browser does not build.** `Document-createEvent.https.html` reaches `DragEvent`, `StorageEvent`, `TouchEvent` and the two device-event interfaces. <!-- cause: an event interface this browser does not build --> |
-| 26 | 11 | **Collection matching, identity and liveness differ.** The remaining rows cover namespace-aware tag queries, null-namespace identity, child-node collections, empty IDs, quirks class matching and related live reads; `dom/collections/` itself now passes whole. <!-- cause: a collection's named and indexed properties, and its liveness --> |
 | 18 | 1 | **A reflected `double` is written with .NET's number format.** `<meter>`'s six setters write `Double.ToString(InvariantInfo)`, so `-0` keeps its sign and an exponent is spelled `1E-10` where HTML wants ECMAScript's `1e-10`. Their getters are *not* reflection and are right, so there is no row for them; three values per member differ. `Dom/divergences.md` records it. <!-- cause: 9. a double written with .NET's number format --> |
 | 16 | 1 | **AngleSharp.Css refuses an unparseable media query, from inside `Element.setAttribute`.** `<style>` registers an attribute observer that assigns the sheet's `MediaList.mediaText`, whose setter throws where Media Queries §2.1 requires `not all`; the sixteen rows are the values it cannot parse and the member's other thirty tests pass. `Dom/divergences.md` records it. <!-- cause: 8. AngleSharp.Css refuses an unparseable media query --> |
 | 8 | 2 | **The selector engine's escapes, `:scope` and `:has` differ.** `ParentNode-querySelector-escapes.html` contributes five rows and `Element-closest.html` three. <!-- cause: the selector engine: escapes, :scope and :has --> |
