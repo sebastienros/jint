@@ -14,6 +14,52 @@ using AngleSharp.Dom;
 
 internal static partial class DomInterfaces
 {
+    /// <summary>The <c>[Unscopable]</c> members of <c>CharacterData</c>.</summary>
+    private static readonly string[] _unscopablesCharacterData =
+    [
+        "after",
+        "before",
+        "remove",
+        "replaceWith",
+    ];
+
+    /// <summary>The <c>[Unscopable]</c> members of <c>Document</c>.</summary>
+    private static readonly string[] _unscopablesDocument =
+    [
+        "append",
+        "prepend",
+        "replaceChildren",
+    ];
+
+    /// <summary>The <c>[Unscopable]</c> members of <c>DocumentFragment</c>.</summary>
+    private static readonly string[] _unscopablesDocumentFragment =
+    [
+        "append",
+        "prepend",
+        "replaceChildren",
+    ];
+
+    /// <summary>The <c>[Unscopable]</c> members of <c>DocumentType</c>.</summary>
+    private static readonly string[] _unscopablesDocumentType =
+    [
+        "after",
+        "before",
+        "remove",
+        "replaceWith",
+    ];
+
+    /// <summary>The <c>[Unscopable]</c> members of <c>Element</c>.</summary>
+    private static readonly string[] _unscopablesElement =
+    [
+        "after",
+        "append",
+        "before",
+        "prepend",
+        "remove",
+        "replaceChildren",
+        "replaceWith",
+    ];
+
     /// <summary>The members of <c>Node</c>.</summary>
     private static global::Jint.Native.JsObjectShape BuildNode()
         => new global::Jint.Native.JsObjectShape.Builder()
@@ -350,6 +396,10 @@ internal static partial class DomInterfaces
         => new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("CharacterData")
             .PerRealmSlot("constructor", enumerable: false)
+            .PerRealmSlot(
+                global::Jint.Native.Symbol.GlobalSymbolRegistry.Unscopables,
+                static self => global::Jint.Browser.Dom.DomUnscopables.Create(self, _unscopablesCharacterData),
+                writable: false)
             .Method("after",
                 global::Jint.Browser.Dom.DomFailures.Guard("CharacterData.after", static (thisObj, args) =>
                 {
@@ -630,6 +680,10 @@ internal static partial class DomInterfaces
         var builder = new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("Document")
             .PerRealmSlot("constructor", enumerable: false)
+            .PerRealmSlot(
+                global::Jint.Native.Symbol.GlobalSymbolRegistry.Unscopables,
+                static self => global::Jint.Browser.Dom.DomUnscopables.Create(self, _unscopablesDocument),
+                writable: false)
             .Accessor("URL",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.URL", static (thisObj, args) =>
                 {
@@ -680,6 +734,12 @@ internal static partial class DomInterfaces
                     self.Target.Append(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, "Document.append")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
+            .Accessor("applets",
+                global::Jint.Browser.Dom.DomFailures.Guard("Document.applets", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.applets");
+                    return global::Jint.Browser.Dom.DomObsoleteMembers.Applets(self.Realm, self.Target);
+                }))
             .Accessor("bgColor",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.bgColor", static (thisObj, args) =>
                 {
@@ -1299,6 +1359,10 @@ internal static partial class DomInterfaces
         => new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("DocumentFragment")
             .PerRealmSlot("constructor", enumerable: false)
+            .PerRealmSlot(
+                global::Jint.Native.Symbol.GlobalSymbolRegistry.Unscopables,
+                static self => global::Jint.Browser.Dom.DomUnscopables.Create(self, _unscopablesDocumentFragment),
+                writable: false)
             .Method("append",
                 global::Jint.Browser.Dom.DomFailures.Guard("DocumentFragment.append", static (thisObj, args) =>
                 {
@@ -1372,6 +1436,10 @@ internal static partial class DomInterfaces
         => new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("DocumentType")
             .PerRealmSlot("constructor", enumerable: false)
+            .PerRealmSlot(
+                global::Jint.Native.Symbol.GlobalSymbolRegistry.Unscopables,
+                static self => global::Jint.Browser.Dom.DomUnscopables.Create(self, _unscopablesDocumentType),
+                writable: false)
             .Method("after",
                 global::Jint.Browser.Dom.DomFailures.Guard("DocumentType.after", static (thisObj, args) =>
                 {
@@ -1426,6 +1494,10 @@ internal static partial class DomInterfaces
         var builder = new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("Element")
             .PerRealmSlot("constructor", enumerable: false)
+            .PerRealmSlot(
+                global::Jint.Native.Symbol.GlobalSymbolRegistry.Unscopables,
+                static self => global::Jint.Browser.Dom.DomUnscopables.Create(self, _unscopablesElement),
+                writable: false)
             .Method("after",
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.after", static (thisObj, args) =>
                 {

@@ -26,24 +26,19 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | Suite | Documents | Synthesized | Tests | Not passing |
 | --- | --- | --- | --- | --- |
 | `dom/events/` | 56 | 9 | 544 | 11 |
-| `dom/nodes/` | 168 | 0 | 8,115 | 748 |
-| `dom/nodes/` | 168 | 0 | 8,115 | 778 |
+| `dom/nodes/` | 168 | 0 | 8,115 | 742 |
 | `dom/collections/` | 8 | 0 | 43 | 0 |
 | `dom/lists/` | 5 | 0 | 189 | 2 |
 | `dom/traversal/` | 13 | 0 | 52 | 0 |
 | `dom/ranges/` | 17 | 0 | 82 | 4 |
-| `html/dom/` | 15 | 0 | 56,745 | 41 |
-| `html/webappapis/scripting/events/` | 12 | 0 | 37 | 5 |
-| `html/webappapis/scripting/processing-model-2/` | 25 | 0 | 44 | 5 |
 | `html/dom/` | 15 | 0 | 56,745 | 37 |
 | `html/webappapis/scripting/events/` | 12 | 0 | 37 | 2 |
-| `html/webappapis/scripting/processing-model-2/` | 25 | 0 | 44 | 12 |
+| `html/webappapis/scripting/processing-model-2/` | 25 | 0 | 44 | 5 |
 | `custom-elements/` | 16 | 0 | 513 | 248 |
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 52 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 3 |
-| **total** | **359** | **9** | **66,646** | **1,130** |
-| **total** | **359** | **9** | **66,646** | **1,163** |
+| **total** | **359** | **9** | **66,646** | **1,117** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -222,8 +217,7 @@ has the upstream half of each, and `Dom/AGENTS.md` says which override list carr
 
 `dom/nodes/`, `dom/collections/`, `dom/lists/`, `dom/traversal/`, `dom/ranges/` and `html/dom/` are the DOM
 standard's own suites and HTML's DOM half — the corpus every other suite in this lane is written on top of.
-Across the six of them there are 226 documents and 65,226 tests, and **795 of those tests do not pass**.
-Across the six of them there are 226 documents and 65,226 tests, and **824 of those tests do not pass**.
+Across the six of them there are 226 documents and 65,226 tests, and **785 of those tests do not pass**.
 Those three figures are live and checked against the census. They arrived together as 207 documents and
 5,247 tests with 1,532 not passing; those arrival figures are historical and deliberately not re-derived.
 
@@ -239,34 +233,21 @@ table needs to be regenerated.
 | Tests | Documents | What it is |
 | ---: | ---: | --- |
 | 299 | 9 | [#3771](https://github.com/sebastienros/jint/issues/3771) **A frame is never given its own realm.** The 195 XHTML and 71 XML `Document-createElement*` rows reach `doc.defaultView.DOMException`; the rest are the `node-realm-*`, `node-creation-realm`, `createEvent` and connectivity cases. `NeedsIframeScripting` names that missing environment. <!-- cause: a frame that runs script --> |
-| 147 | 3 | **Members of DOM interfaces are absent.** The rows cover `ProcessingInstruction` attributes, `ChildNode` unscopables and event aliases that have no constructor. <!-- cause: a member of a DOM interface the bindings do not have --> |
-| 88 | 3 | **The Selectors-API table and selector-only element states.** The three newly vendored documents cover selector-error contracts, no-namespace selectors and `::slotted`; all 88 rows are `NeedsTriage`. <!-- cause: the Selectors-API table and selector-only element states --> |
-| 81 | 6 | [#3774](https://github.com/sebastienros/jint/issues/3774) **A name AngleSharp refuses that the standard allows, plus required refusals it does not make.** The rows cover element creation, namespace validation and document insertion. <!-- cause: a name AngleSharp refuses that the standard allows --> |
-| 50 | 2 | [#3772](https://github.com/sebastienros/jint/issues/3772) **DOM's current name-validation rules differ from the XML productions.** `createDocumentType` contributes 45 rows and `name-validation.html` five. <!-- cause: DOM's validate-and-extract, and the XML name productions --> |
-| 46 | 11 | **One assertion each or one small family per document.** These cover conversion order, import/clone identity, attribute selection and ordering, element-name identity, node equality and `accessKeyLabel`; each pattern is kept separate where neighboring rows pass. <!-- cause: one assertion each --> |
-| 19 | 6 | [#3949](https://github.com/sebastienros/jint/issues/3949) **A tag query's namespace and local-name identity is lost before the query runs.** `createElementNS(HTML, "ABC")` exposes a lower-case `localName` and a null-namespace `<body>` becomes an XHTML one on insertion, so the qualified-name, exact-namespace, empty-namespace and HTMLness assertions cannot be answered from the tree the query is given; `case.html` contributes ten of the rows and the two `getElementsByTagName`/`NS` pairs the rest. The queries themselves are DOM's. <!-- cause: a tag query's namespace and local-name identity --> |
-| 137 | 1 | **Members of DOM interfaces are absent.** 137 of them are one interface: `processing-instruction-attributes.html` is the attribute surface [WICG's declarative partial updates](https://github.com/WICG/declarative-partial-updates) proposal puts on a `ProcessingInstruction`, which neither AngleSharp nor the bindings have. It is the whole of the cause now: `@@unscopables` is emitted, and the `attributes.html` rows that used to sit here are AngleSharp name validation and `Attr` identity rather than a missing member, so each moved to the group that says so. <!-- cause: a member of a DOM interface the bindings do not have --> |
+| 137 | 1 | **Members of DOM interfaces are absent.** The rows cover `ProcessingInstruction` attributes, `ChildNode` unscopables and event aliases that have no constructor. <!-- cause: a member of a DOM interface the bindings do not have --> |
 | 88 | 3 | **The Selectors-API table and selector-only element states.** The three newly vendored documents cover selector-error contracts, no-namespace selectors and `::slotted`; all 88 rows are `NeedsTriage`. <!-- cause: the Selectors-API table and selector-only element states --> |
 | 83 | 6 | [#3774](https://github.com/sebastienros/jint/issues/3774) **A name AngleSharp refuses that the standard allows, plus required refusals it does not make.** The rows cover element creation, namespace validation and document insertion. <!-- cause: a name AngleSharp refuses that the standard allows --> |
-| 69 | 18 | **One assertion each or one small family per document.** These cover conversion order, import/clone identity, attribute selection and ordering, element-name identity, node equality, `accessKeyLabel`, and `getComputedStyle(el).cssFloat` answering `""` where CSSOM requires the initial value; each pattern is kept separate where neighboring rows pass. <!-- cause: one assertion each --> |
 | 50 | 2 | [#3772](https://github.com/sebastienros/jint/issues/3772) **DOM's current name-validation rules differ from the XML productions.** `createDocumentType` contributes 45 rows and `name-validation.html` five. <!-- cause: DOM's validate-and-extract, and the XML name productions --> |
-| 27 | 12 | **Collection matching, identity and liveness differ.** The remaining rows cover namespace-aware tag queries, null-namespace identity, child-node collections, empty IDs, quirks class matching, related live reads, and `document.all`'s named properties being `HTMLCollection`'s rather than `HTMLAllCollection`'s narrower list; `dom/collections/` itself now passes whole. <!-- cause: a collection's named and indexed properties, and its liveness --> |
+| 49 | 12 | **One assertion each or one small family per document.** These cover conversion order, import/clone identity, attribute selection and ordering, element-name identity, node equality and `accessKeyLabel`; each pattern is kept separate where neighboring rows pass. <!-- cause: one assertion each --> |
+| 20 | 7 | [#3949](https://github.com/sebastienros/jint/issues/3949) **A tag query's namespace and local-name identity is lost before the query runs.** `createElementNS(HTML, "ABC")` exposes a lower-case `localName` and a null-namespace `<body>` becomes an XHTML one on insertion, so the qualified-name, exact-namespace, empty-namespace and HTMLness assertions cannot be answered from the tree the query is given; `case.html` contributes ten of the rows and the two `getElementsByTagName`/`NS` pairs the rest. The queries themselves are DOM's. <!-- cause: a tag query's namespace and local-name identity --> |
 | 18 | 1 | **A reflected `double` is written with .NET's number format.** `<meter>`'s six setters write `Double.ToString(InvariantInfo)`, so `-0` keeps its sign and an exponent is spelled `1E-10` where HTML wants ECMAScript's `1e-10`. Their getters are *not* reflection and are right, so there is no row for them; three values per member differ. `Dom/divergences.md` records it. <!-- cause: 9. a double written with .NET's number format --> |
 | 16 | 1 | **AngleSharp.Css refuses an unparseable media query, from inside `Element.setAttribute`.** `<style>` registers an attribute observer that assigns the sheet's `MediaList.mediaText`, whose setter throws where Media Queries §2.1 requires `not all`; the sixteen rows are the values it cannot parse and the member's other thirty tests pass. `Dom/divergences.md` records it. <!-- cause: 8. AngleSharp.Css refuses an unparseable media query --> |
 | 8 | 2 | **The selector engine's escapes, `:scope` and `:has` differ.** `ParentNode-querySelector-escapes.html` contributes five rows and `Element-closest.html` three. <!-- cause: the selector engine: escapes, :scope and :has --> |
 | 6 | 1 | **The touch rows the document declines.** `Document-createEvent.https.html` guards them with `assert_implements_optional('ontouchstart' in document)`, and touch detection is a client's decision here, so the harness records `PRECONDITION_FAILED` before reaching the `TouchEvent` this browser now builds. <!-- cause: the touch rows the document declines --> |
-| 6 | 1 | **Members the standard removed are still here**, which is exactly what `html/dom/historical.html` exists to find. <!-- cause: a member the standard removed and this browser still has --> |
 | 4 | 2 | **`MutationObserver` records differ**, and both halves are AngleSharp's. Its HTML parser inserts nodes without queueing a record, so a document observer hears nothing about the parse; and its `OuterHtml` setter inserts the replacement and then removes the element, which a page sees as two `childList` records where HTML's "replace this with fragment within parent" is one. <!-- cause: MutationObserver's records --> |
 | 2 | 1 | **A document upstream runs once per `<meta name=variant>`.** `Range-in-shadow-after-the-shadow-removed.html` reads its shadow-root mode out of `location.search`, and this lane serves the bare path — so `mode` is `null` and `attachShadow({mode: null})` is the `TypeError` WebIDL owes a browser too. Nothing about `Range` is reached. <!-- cause: a document upstream runs once per variant --> |
 | 2 | 1 | **A live range is not adjusted once its container moves to another document.** The two `Range-adopt-test.html` rows whose container is moved with `appendChild` — AngleSharp keeps its ranges on the document, so DOM's remove steps reach none of them. The two rows whose container never moves pass. <!-- cause: Range's own algorithms --> |
 | 2 | 1 | **`relList` on an element AngleSharp gives no interface.** SVG 2 puts `relList` on `SVGAElement` and this corpus asks a MathML `<a>` for one too; AngleSharp builds a bare `SvgElement` and a `MathElement` and declares neither interface, so there is no member to project. `Dom/divergences.md` records it. <!-- cause: relList on an element AngleSharp gives no interface --> |
 | 1 | 1 | **A saved implementation detached from its document answers null**, which needs a frame that runs script of its own. Every other half of this cause is gone: a document with no browsing context has no `location`, `characterSet`/`charset`/`inputEncoding` answer the Encoding Standard's name, and `createHTMLDocument` builds DOM's skeleton. <!-- cause: a document with no browsing context --> |
-| 5 | 2 | [#3712](https://github.com/sebastienros/jint/issues/3712) **A nullable `DOMString` answers the string `"null"`.** The remaining rows are `CharacterData.data` and `Node.nodeValue` writes. <!-- cause: a nullable DOMString answers the string "null" --> |
-| 5 | 1 | [#3767](https://github.com/sebastienros/jint/issues/3767) **`DOMTokenList` has five remaining interface-shape differences.** They are the legacy `DOMSettableTokenList` surfaces and two namespace-specific `relList` rows. <!-- cause: DOMTokenList: the token validation, the indexed access and the iteration --> |
-| 4 | 2 | **`MutationObserver` records differ.** A document observer misses parser mutations, and an `outerHTML` replacement reports a different record set. <!-- cause: MutationObserver's records --> |
-| 4 | 2 | **A live range is not adjusted once its container moves to another document.** Two `Range-in-shadow-after-the-shadow-removed.html` rows, and the two `Range-adopt-test.html` rows whose container is moved with `appendChild` — AngleSharp keeps its ranges on the document, so DOM's remove steps reach none of them. <!-- cause: Range's own algorithms --> |
-| 3 | 1 | [#3769](https://github.com/sebastienros/jint/issues/3769) **A `(Node or DOMString)` union parameter takes only a `Node`.** Three `ChildNode.before` rows still reject strings. <!-- cause: a (Node or DOMString) union parameter takes only a Node --> |
-| 2 | 2 | **`createHTMLDocument` builds a different skeleton**, and a saved implementation detached from its document answers null. The `location` and encoding-alias halves of this cause are gone: a document with no browsing context has no `location` now, and `characterSet`/`charset`/`inputEncoding` answer the Encoding Standard's name. <!-- cause: a document with no browsing context --> |
 
 **The XML-document cause is gone, and it was four different things.** It arrived as a scope decision —
 "a page here parses HTML, AngleSharp builds no XML document" — and by the time it was re-measured that

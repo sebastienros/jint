@@ -1142,7 +1142,6 @@ internal static class WptBrowserExclusions
         new("dom/nodes/Element-getElementsByTagNameNS.html", "*namespace", WptDivergence.NeedsTriage),
         new("dom/nodes/case.html", "createElementNS http://www.w3.org/1999*ABC", WptDivergence.NeedsTriage),
         new("dom/nodes/case.html", "createElementNS http://www.w3.org/1999*Abc", WptDivergence.NeedsTriage),
-        new("dom/nodes/getElementsByClassName-14.htm", "*)", WptDivergence.NeedsTriage),
         // HTML gives `document.all` an HTMLAllCollection, whose supported property names are the ids of every
         // element plus the `name` attributes of the fourteen "all"-named elements - a list `applet` was
         // removed from. The binding projects AngleSharp's IHtmlAllCollection through the ordinary
@@ -1362,8 +1361,6 @@ internal static class WptBrowserExclusions
         // for, and the cascade reports only what a sheet declared. Nothing about `<applet>` - the same read
         // of any element answers the same way, and Jint.Browser/AGENTS.md argues which ten.
         new("html/dom/historical.html", "*styled", WptDivergence.NeedsTriage),
-        new("dom/nodes/ChildNode-after.html", "*positions.", WptDivergence.NeedsTriage),
-        new("dom/nodes/ChildNode-before.html", "*positions.", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElementNS.html", "Upper-case HTML*", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElementNS.html", "createElementNS test in HTML*:o\",null", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElementNS.html", "createElementNS test in HTML*̀\",null", WptDivergence.NeedsTriage),
@@ -1448,9 +1445,6 @@ internal static class WptBrowserExclusions
     /// </remarks>
     internal static readonly WptCause[] Causes =
     [
-        new("5. a DOM prototype has no @@unscopables", _5ADOMPrototypeHasNoUnscopables),
-        new("2. a `data:` URL subresource", _2ADataURLSubresource),
-        new("3. a URL's fragment is dropped", _3AURLSFragmentIsDropped),
         new("8. AngleSharp.Css refuses an unparseable media query", _8AngleSharpCssRefusesAnUnparseableMediaQuery),
         new("9. a double written with .NET's number format", _9ADoubleWrittenWithNETSNumberFormat),
         new("4b. a custom element", _4bACustomElement),
