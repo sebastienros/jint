@@ -1648,6 +1648,13 @@
     },
     {
       "interface": "Document",
+      "member": "body",
+      "half": "getter",
+      "hook": "Body",
+      "reason": "HTML 3.1.3: the body element is the first body or frameset child of the document's HTML ELEMENT, which is the document element only when that element is itself an HTML-namespace `html` element. AngleSharp walks DocumentElement.ChildNodes without asking what the document element is, so an XHTML `div` root -- or an `html` from another namespace -- answers a body the standard says is not one; its own example is a body under an SVG document element. The setter keeps AngleSharp's algorithm, which may append a body under a non-html root the getter then declines to answer."
+    },
+    {
+      "interface": "Document",
       "member": "currentScript",
       "half": "getter",
       "hook": "CurrentScript",

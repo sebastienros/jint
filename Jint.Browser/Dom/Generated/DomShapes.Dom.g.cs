@@ -755,7 +755,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.body", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.body");
-                    return self.Realm.WrapNodeValue(self.Target.Body);
+                    return self.Realm.Hooks.Body(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.body", static (thisObj, args) =>
                 {
