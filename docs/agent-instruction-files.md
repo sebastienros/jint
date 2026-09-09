@@ -37,6 +37,12 @@ has to stay in the file it loads, while the recipe for what to do instead is onl
 is open anyway. `AgentInstructionFileTests` does not weigh these files — nothing truncates a document no
 agent loads — but every pointer into one, from a file it does weigh, still has to resolve.
 
+Where a document beside that code already exists, the recipe extends it rather than starting a second one.
+The field reference for every list in `tools/dom-bindings/overrides.json` lives in the generator's own
+`tools/dom-bindings/README.md`, which already described the file in outline, so the binding surface has one
+description instead of two; `Jint.Browser/Dom/divergences.md` is the same shape from the other direction —
+a register of data beside the code, pointed at from the `AGENTS.md` that governs it.
+
 **32 KiB is Codex's `project_doc_max_bytes` default**, and it is a running budget across the whole
 root-to-cwd chain rather than a per-file allowance, so a fat root file starves a nested one; overflow is a
 silent mid-file byte truncation whose only signal is a log line below the level `codex exec` prints at. The
