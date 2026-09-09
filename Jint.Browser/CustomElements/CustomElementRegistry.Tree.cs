@@ -166,6 +166,67 @@ internal sealed partial class CustomElementRegistry
         registry.UpgradeSubtree(root);
         registry.Drain();
     }
+
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#concept-node-clone: a copy is created with <b>node's is value</b>, and
+    /// then upgraded the way <see cref="SubtreeCreated"/> upgrades anything else a member just made.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The is value is a slot, not the <c>is</c> content attribute</b>, and the difference is the whole
+    /// of this method. <c>document.createElement('button', { is: 'x-y' })</c> and <c>new XY()</c> set the
+    /// slot and add no attribute, so AngleSharp's clone — which copies attributes and nothing else — handed
+    /// back an element with no way to find its definition, and <c>customized.cloneNode()</c> answered a plain
+    /// built-in. An element whose <c>is</c> attribute says something <i>else</i> is the same rule read from
+    /// the other side: the slot wins, and DOM says so.
+    /// </para>
+    /// <para>
+    /// The two trees are walked in lockstep rather than the copy alone, because only the source knows what
+    /// each element's slot held. An explicit stack for the reason <see cref="Walk"/> has one — the depth is
+    /// a stranger's document — and pairing by index is what AngleSharp's own clone produces.
+    /// </para>
+    /// </remarks>
+    internal static void Cloned(Dom.DomRealm realm, INode source, INode copy)
+    {
+        if (Of(realm.Engine) is not { } registry)
+        {
+            return;
+        }
+
+        registry.CarryIsValues(source, copy);
+
+        if (registry.HasDefinitions)
+        {
+            registry.UpgradeSubtree(copy);
+            registry.Drain();
+        }
+    }
+
+    private void CarryIsValues(INode source, INode copy)
+    {
+        var pending = new Stack<(INode Source, INode Copy)>();
+        pending.Push((source, copy));
+
+        while (pending.Count > 0)
+        {
+            var (from, to) = pending.Pop();
+
+            if (from is IElement element
+                && to is IElement clone
+                && TryGetRecord(element) is { IsValue: { } isValue })
+            {
+                RecordFor(clone).IsValue = isValue;
+            }
+
+            var sources = from.ChildNodes;
+            var copies = to.ChildNodes;
+
+            for (var i = Math.Min(sources.Length, copies.Length) - 1; i >= 0; i--)
+            {
+                pending.Push((sources[i], copies[i]));
+            }
+        }
+    }
 }
 
 /// <summary>

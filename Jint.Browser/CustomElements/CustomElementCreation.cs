@@ -81,7 +81,7 @@ internal static class CustomElementCreation
         }
 
         Dom.Files.FileTransferRealm.ResetCopiedInputs(clone);
-        CustomElementRegistry.SubtreeCreated(realm, clone);
+        CustomElementRegistry.Cloned(realm, node, clone);
         return documentDefinition is null ? realm.WrapNodeValue(clone) : realm.Wrap(clone, documentDefinition);
     }
 

@@ -46,8 +46,7 @@ internal sealed partial class CustomElementRegistry
         CustomElementDefinition definition,
         ObjectInstance newTarget)
     {
-        var engine = _runtime.Engine;
-        var realm = engine._mainRealm;
+        var realm = _runtime.Engine._mainRealm;
 
         // Step 5, both branches at once: an autonomous element's definition records HTMLElement and a
         // customized built-in's records the interface its local name maps to, so "the interface of the
@@ -77,13 +76,14 @@ internal sealed partial class CustomElementRegistry
         var last = definition.ConstructionStack.Count - 1;
         var wrapper = definition.ConstructionStack[last];
 
+        // "If element is an already constructed marker, then throw a TypeError." A plain TypeError and not a
+        // DOMException: this is the one refusal in the HTML element constructor that a page reaches by
+        // constructing its own class again from inside its constructor, and the corpus asserts the name.
         if (wrapper is null)
         {
-            var error = realm.Intrinsics.DomException.CreateException(
-                DomExceptionNames.InvalidState,
+            Throw.TypeError(
+                realm,
                 "Failed to construct '" + definition.Name + "': the element has already been constructed.");
-            var location = engine._lastSyntaxElement?.Location ?? default;
-            Throw.JavaScriptException(engine, error, in location);
         }
 
         definition.ConstructionStack[last] = null;
