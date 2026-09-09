@@ -27,6 +27,8 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | --- | --- | --- | --- | --- |
 | `dom/events/` | 56 | 9 | 544 | 11 |
 | `dom/nodes/` | 168 | 0 | 8,115 | 736 |
+| `dom/events/` | 56 | 9 | 548 | 15 |
+| `dom/nodes/` | 168 | 0 | 8,115 | 808 |
 | `dom/collections/` | 8 | 0 | 43 | 0 |
 | `dom/lists/` | 5 | 0 | 189 | 2 |
 | `dom/traversal/` | 13 | 0 | 52 | 0 |
@@ -36,11 +38,16 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `html/obsolete/requirements-for-implementations/other-elements-attributes-and-apis/` | 1 | 0 | 2 | 0 |
 | `html/webappapis/scripting/events/` | 12 | 0 | 37 | 2 |
 | `html/webappapis/scripting/processing-model-2/` | 25 | 0 | 44 | 5 |
+| `dom/ranges/` | 17 | 0 | 84 | 2 |
+| `html/dom/` | 15 | 0 | 56,745 | 41 |
+| `html/webappapis/scripting/events/` | 12 | 0 | 37 | 5 |
+| `html/webappapis/scripting/processing-model-2/` | 25 | 0 | 44 | 12 |
 | `custom-elements/` | 16 | 0 | 513 | 248 |
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 52 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 3 |
 | **total** | **361** | **9** | **66,689** | **1,110** |
+| **total** | **359** | **9** | **66,652** | **1,202** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -57,6 +64,21 @@ JINT_WPT_BROWSER_CENSUS=update dotnet test Jint.Tests.Browser -c Release
 
 `JINT_WPT_BROWSER_CENSUS=update-raising-the-ceiling` is the one spelling that may write a *larger*
 not-passing figure, for a corpus bump that genuinely arrives with new failures.
+
+**A case is a document *at one variant*, and that is why `Tests` can move without `Documents` moving.**
+A document may carry [`<meta name="variant" content="?query">`](https://web-platform-tests.org/writing-tests/testharness.html#variants)
+elements; upstream's manifest then makes one test per declaration, at the document's path with that
+string appended, and the document reads which one it is out of `location.search`. This lane enumerates
+them the same way and names a case exactly as the manifest names it —
+`dom/ranges/Range-in-shadow-after-the-shadow-removed.html?mode=open` — so an exclusion, a minimum-test
+entry and a cause all key on the *case*, and there is deliberately no spelling that means every variant:
+two variants are two runs, and a divergence measured in one is not evidence about the other. Two vendored
+documents declare any, and both pass at every one of their five variants between them:
+`dom/events/handler-count.html` (`?document`, `?window`, `?element`) and
+`dom/ranges/Range-in-shadow-after-the-shadow-removed.html` (`?mode=closed`, `?mode=open`). The engine
+lane's answer is the opposite one and is not a contradiction: `// META: variant=` sharding is ignored
+there because one unsharded run of a `.any.js` file is the union of its `?1-1000` shards, while a query a
+document branches on selects *different* tests that no single run is the union of.
 
 ## What this corpus says about this browser
 
@@ -237,6 +259,7 @@ has the upstream half of each, and `Dom/AGENTS.md` says which override list carr
 `dom/nodes/`, `dom/collections/`, `dom/lists/`, `dom/traversal/`, `dom/ranges/` and `html/dom/` are the DOM
 standard's own suites and HTML's DOM half — the corpus every other suite in this lane is written on top of.
 Across the six of them there are 226 documents and 65,226 tests, and **778 of those tests do not pass**.
+Across the six of them there are 226 documents and 65,228 tests, and **856 of those tests do not pass**.
 Those three figures are live and checked against the census. They arrived together as 207 documents and
 5,247 tests with 1,532 not passing; those arrival figures are historical and deliberately not re-derived.
 
@@ -266,6 +289,13 @@ table needs to be regenerated.
 | 2 | 1 | **A live range is not adjusted once its container moves to another document.** The two `Range-adopt-test.html` rows whose container is moved with `appendChild` — AngleSharp keeps its ranges on the document, so DOM's remove steps reach none of them. The two rows whose container never moves pass. <!-- cause: Range's own algorithms --> |
 | 2 | 1 | **`relList` on an element AngleSharp gives no interface.** SVG 2 puts `relList` on `SVGAElement` and this corpus asks a MathML `<a>` for one too; AngleSharp builds a bare `SvgElement` and a `MathElement` and declares neither interface, so there is no member to project. `Dom/divergences.md` records it. <!-- cause: relList on an element AngleSharp gives no interface --> |
 | 1 | 1 | **A saved implementation detached from its document answers null**, which needs a frame that runs script of its own. Every other half of this cause is gone: a document with no browsing context has no `location`, `characterSet`/`charset`/`inputEncoding` answer the Encoding Standard's name, and `createHTMLDocument` builds DOM's skeleton. <!-- cause: a document with no browsing context --> |
+| 6 | 1 | **Members the standard removed are still here**, which is exactly what `html/dom/historical.html` exists to find. <!-- cause: a member the standard removed and this browser still has --> |
+| 5 | 2 | [#3712](https://github.com/sebastienros/jint/issues/3712) **A nullable `DOMString` answers the string `"null"`.** The remaining rows are `CharacterData.data` and `Node.nodeValue` writes. <!-- cause: a nullable DOMString answers the string "null" --> |
+| 5 | 1 | [#3767](https://github.com/sebastienros/jint/issues/3767) **`DOMTokenList` has five remaining interface-shape differences.** They are the legacy `DOMSettableTokenList` surfaces and two namespace-specific `relList` rows. <!-- cause: DOMTokenList: the token validation, the indexed access and the iteration --> |
+| 4 | 2 | **`MutationObserver` records differ.** A document observer misses parser mutations, and an `outerHTML` replacement reports a different record set. <!-- cause: MutationObserver's records --> |
+| 3 | 1 | [#3769](https://github.com/sebastienros/jint/issues/3769) **A `(Node or DOMString)` union parameter takes only a `Node`.** Three `ChildNode.before` rows still reject strings. <!-- cause: a (Node or DOMString) union parameter takes only a Node --> |
+| 2 | 2 | **`createHTMLDocument` builds a different skeleton**, and a saved implementation detached from its document answers null. The `location` and encoding-alias halves of this cause are gone: a document with no browsing context has no `location` now, and `characterSet`/`charset`/`inputEncoding` answer the Encoding Standard's name. <!-- cause: a document with no browsing context --> |
+| 2 | 1 | **A live range is not adjusted once its container moves to another document.** The two `Range-adopt-test.html` rows whose container is moved with `appendChild` — AngleSharp keeps its ranges on the document, so DOM's remove steps reach neither. The two rows whose container never moves pass, which is what says the algorithm is right and the bookkeeping is not. <!-- cause: Range's own algorithms --> |
 
 **The XML-document cause is gone, and it was four different things.** It arrived as a scope decision —
 "a page here parses HTML, AngleSharp builds no XML document" — and by the time it was re-measured that
@@ -299,6 +329,16 @@ fifth with `document.all` becoming a real `HTMLAllCollection`, whose supported n
 from one of the fourteen "all"-named elements and `applet` is not among them. The one that is left is somebody
 else's cause — `cssFloat` is not one of the ten properties `ResolvedStyle` answers an initial value for — so the
 row this file used to have is gone rather than shrunk.
+**Half of the `Range` row is gone, and that half was never about `Range`.**
+`Range-in-shadow-after-the-shadow-removed.html` takes its shadow-root mode from
+`<meta name="variant" content="?mode=open">` and its closed sibling, and the lane used to serve the bare
+path — so `mode` was `null`, `attachShadow({mode: null})` raised the `TypeError` WebIDL's enum conversion
+owes a browser too, and both of the file's tests failed before either reached a `Range` at all. Running a
+document once per declared variant is what removed them: four assertions over two cases now, all passing,
+nothing excluded, and what is left under that cause is the `Range-adopt-test.html` pair, which really is
+the bookkeeping. It is worth naming as a shape — a share of a cause that turns out to be the *lane*
+rather than the engine, whose fix is therefore a change to how a case is enumerated and not to the
+subject the document was about.
 
 **All ten of HTML's reflection documents are cases, and six of the ten pass whole**
 ([#3770](https://github.com/sebastienros/jint/issues/3770)). HTML §2.6.1's reflection algorithms are
@@ -509,8 +549,10 @@ upstream's automation API onto the same `InputDispatcher` the `Input` domain rea
 `testdriver-vendor.js` slot upstream ships empty for a vendor to fill (`AGENTS.md` has the rules). Its seven
 documents were then re-examined one at a time, and **five are cases now** —
 `Event-dispatch-redispatch.html`, `focus-event-document-move.html`, `handler-count.html`,
-`no-focus-events-at-clicking-editable-content-in-link.html` and `pointer-event-document-move.html`, ten tests
-between them, all passing, none excluded. Two still cannot report, and neither reason was ever the driver's:
+`no-focus-events-at-clicking-editable-content-in-link.html` and `pointer-event-document-move.html`,
+fourteen tests between them, all passing, none excluded — fourteen rather than ten because
+`handler-count.html` declares three variants and is three cases. Two still cannot report, and neither
+reason was ever the driver's:
 `Event-dispatch-on-disabled-elements.html` spends five of its nine tests waiting for CSS transition and
 animation events on a disabled control, so it never completes and never reaches its testdriver-driven test at
 all; and `click-on-absolute-pseudo.html` reads `event.pseudoTarget` and `element.pseudo('::after')`, which

@@ -583,7 +583,11 @@ internal static class WptBrowserExclusions
         ["dom/events/event-handler-attribute-replace-preserves-passive.html"] = 2,
         ["dom/events/event-src-element-nullable.html"] = 1,
         ["dom/events/focus-event-document-move.html"] = 1,
-        ["dom/events/handler-count.html"] = 2,
+        // Three variants, three cases: the file reads `location.search` and hangs its two tests
+        // off the target the query names.
+        ["dom/events/handler-count.html?document"] = 2,
+        ["dom/events/handler-count.html?element"] = 2,
+        ["dom/events/handler-count.html?window"] = 2,
         ["dom/events/label-default-action.html"] = 1,
         ["dom/events/mouse-event-retarget.html"] = 1,
         ["dom/events/no-focus-events-at-clicking-editable-content-in-link.html"] = 2,
@@ -777,7 +781,8 @@ internal static class WptBrowserExclusions
         ["dom/ranges/Range-detach.html"] = 1,
         ["dom/ranges/Range-extractContents-dynamic-end.html"] = 1,
         ["dom/ranges/Range-extractContents-in-ShadowRoot.html"] = 4,
-        ["dom/ranges/Range-in-shadow-after-the-shadow-removed.html"] = 2,
+        ["dom/ranges/Range-in-shadow-after-the-shadow-removed.html?mode=closed"] = 2,
+        ["dom/ranges/Range-in-shadow-after-the-shadow-removed.html?mode=open"] = 2,
         ["dom/ranges/Range-intersectsNode-2.html"] = 1,
         ["dom/ranges/Range-intersectsNode-binding.html"] = 1,
         ["dom/ranges/Range-intersectsNode-shadow.html"] = 1,

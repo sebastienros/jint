@@ -68,6 +68,21 @@ document, and only two of them are cases:
   appears in no census column, because neither counts anything about a document that reports nothing. What
   holds a frame body to its job is the case that loads it.
 
+**And a case is a path *at one variant*.** A document may declare
+[`<meta name="variant" content="?query">`](https://web-platform-tests.org/writing-tests/testharness.html#variants),
+and upstream's manifest then makes one test per declaration, at that path with the string appended; the
+document reads which one it is out of `location.search`. `WptBrowserVariants` is the port of
+`SourceFile.test_variants` — a document's `<meta>` elements read off a real parse, a wrapped `.any.js`
+file's `// META: variant=` lines, upstream's two validity rules, and `[""]` for a file that declares
+none — and a case name is the path and the variant, spelled as the manifest spells it
+(`dom/events/handler-count.html?element`). So **every key in this lane is a case and never a document**: a
+minimum-test entry, an exclusion, a cause's file. There is deliberately **no spelling that means every
+variant**, because two variants are two runs and a divergence measured in one is not evidence about the
+other — which is also why the census's `Documents` and `Synthesized` columns keep counting *files*, so a
+variant moves `Tests` and leaves those two alone. The engine lane ignores `// META: variant=` for the
+opposite and equally correct reason: a shard variant selects a subset of the same tests and one unsharded
+run is their union, which a query the document itself branches on is not.
+
 **The dedicated-worker wrapper is deliberately not generated.** `WorkersHandler`'s document creates a *classic*
 worker whose generated body opens with `importScripts("/resources/testharness.js")`, and Jint runs module
 workers only — so it would throw before registering a test, which is why `workers/*.worker.js` is a
