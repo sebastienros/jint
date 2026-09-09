@@ -180,9 +180,6 @@ internal static partial class DomInterfaces
     /// <summary>The <c>FileList</c> interface, projected from <c>AngleSharp.Io.Dom.IFileList</c>.</summary>
     internal static readonly DomInterfaceDefinition FileList;
 
-    /// <summary>The <c>HTMLCollection</c> interface, projected from <c>AngleSharp.Dom.IHtmlCollection`1</c>.</summary>
-    internal static readonly DomInterfaceDefinition HTMLCollection;
-
     /// <summary>The <c>HTMLAllCollection</c> interface, projected from <c>AngleSharp.Dom.IHtmlAllCollection</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLAllCollection;
 
@@ -215,6 +212,9 @@ internal static partial class DomInterfaces
 
     /// <summary>The <c>HTMLCanvasElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlCanvasElement</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLCanvasElement;
+
+    /// <summary>The <c>HTMLCollection</c> interface, projected from <c>AngleSharp.Dom.IHtmlCollection`1</c>.</summary>
+    internal static readonly DomInterfaceDefinition HTMLCollection;
 
     /// <summary>The <c>HTMLCommandElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlCommandElement</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLCommandElement;
@@ -1072,23 +1072,14 @@ internal static partial class DomInterfaces
             DomWrapperKind.Collection,
             collectionAccessor: DomAccessorFileList.Instance));
 
-        HTMLCollection = Add(new DomInterfaceDefinition(
-            "HTMLCollection",
-            typeof(global::AngleSharp.Dom.IHtmlCollection<>),
-            DomManualShapes.HtmlCollection,
-            null,
-            rootsAtEventTarget: false,
-            hasInterfaceObject: true,
-            DomWrapperKind.HtmlCollection));
-
         HTMLAllCollection = Add(new DomInterfaceDefinition(
             "HTMLAllCollection",
             typeof(global::AngleSharp.Dom.IHtmlAllCollection),
-            BuildHTMLAllCollection,
-            HTMLCollection,
+            DomManualShapes.HtmlAllCollection,
+            null,
             rootsAtEventTarget: false,
             hasInterfaceObject: true,
-            DomWrapperKind.HtmlCollection));
+            DomWrapperKind.HtmlAllCollection));
 
         HTMLElement = Add(new DomInterfaceDefinition(
             "HTMLElement",
@@ -1191,6 +1182,15 @@ internal static partial class DomInterfaces
             rootsAtEventTarget: true,
             hasInterfaceObject: true,
             DomWrapperKind.Node));
+
+        HTMLCollection = Add(new DomInterfaceDefinition(
+            "HTMLCollection",
+            typeof(global::AngleSharp.Dom.IHtmlCollection<>),
+            DomManualShapes.HtmlCollection,
+            null,
+            rootsAtEventTarget: false,
+            hasInterfaceObject: true,
+            DomWrapperKind.HtmlCollection));
 
         HTMLCommandElement = Add(new DomInterfaceDefinition(
             "HTMLCommandElement",

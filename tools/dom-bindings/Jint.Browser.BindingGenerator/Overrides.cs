@@ -70,6 +70,11 @@ internal sealed class Overrides
         public string Reason { get; init; } = "";
     }
 
+    /// <summary>
+    /// An interface the binding writes by hand: always its shape, and optionally the two other things the CLR
+    /// hierarchy answers wrongly for it - which wrapper class its instances get, and what its prototype
+    /// inherits.
+    /// </summary>
     internal sealed class ManualEntry
     {
         [JsonPropertyName("interface")]
@@ -78,6 +83,23 @@ internal sealed class Overrides
         /// <summary>The hand-written method group that builds the shape.</summary>
         [JsonPropertyName("shape")]
         public string Shape { get; init; } = "";
+
+        /// <summary>
+        /// The <c>DomWrapperKind</c> this interface's instances get, overriding the one derived from its CLR
+        /// metadata. Absent means the derivation stands.
+        /// </summary>
+        [JsonPropertyName("wrapper")]
+        public string? Wrapper { get; init; }
+
+        /// <summary>
+        /// The DOM name of the interface this one inherits, overriding what the CLR interface hierarchy
+        /// implies; the <b>empty string</b> means the prototype chain roots at <c>Object.prototype</c>. Absent
+        /// means the derivation stands. It exists because AngleSharp models a standalone WebIDL interface as a
+        /// refinement of another one - <c>IHtmlAllCollection : IHtmlCollection&lt;IElement&gt;</c>, where
+        /// HTML's <c>HTMLAllCollection</c> inherits nothing.
+        /// </summary>
+        [JsonPropertyName("inherits")]
+        public string? Inherits { get; init; }
 
         [JsonPropertyName("reason")]
         public string Reason { get; init; } = "";

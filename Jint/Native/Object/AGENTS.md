@@ -75,6 +75,10 @@ Several of Jint's fastest lanes are keyed on `internal` type flags or `internal 
 
 The prototype-method cache's **holder** gate is the second worked example, and it resolved the other way. `VersionWitnessesOwnProperty` refuses a holder carrying `OrdinaryGet`, because for a host subclass that flag stands in for "this object's own-property set lives outside the engine, so no version describes it" — which is why the row above says a host prototype cannot hold an entry. An object in `BuiltinShapeMode` carries the flag too when it reached the protected constructor, but keeps its whole own-property set in engine storage and bumps its version on every change to that set, so it is carved out. A host cannot enter that mode by subclassing — `InitializeBuiltinShape` is `private protected` and `IBuiltinShaped` is internal — but it can *obtain* an object that is in it, from `JsObjectShape.Instantiate`. That is deliberate: the capability is reachable through a factory without the storage protocol being exposed, the same resolution shape as `PropertyAccessSemantics`.
 
+**A third is an internal slot, and resolves the same way.** `DeclareIsHtmlDda` and `DeclareCallable` are
+`internal` because Annex B.3.6 permits `[[IsHTMLDDA]]` only on an object emulating `document.all`; the three
+behaviours it grants are `ObjectInstance`'s and `JintUnaryExpression`'s, never a bearer's.
+
 ### What counts as a public contract
 
 These are this area's rows of Jint's public surface. The rule they all obey — **a change to any of it

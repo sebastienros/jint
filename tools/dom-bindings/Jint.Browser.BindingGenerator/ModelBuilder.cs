@@ -100,6 +100,7 @@ internal sealed class ModelBuilder
             model.Parent = FindParent(model.ClrType);
             model.RootsAtEventTarget = model.ClrType.GetInterfaces().Any(i => i.FullName == "AngleSharp.Dom.IEventTarget");
             model.Kind = KindOf(model.ClrType);
+            ApplyManualProjection(model);
         }
 
         foreach (var model in _byClrName.Values.OrderBy(m => m.DomName, StringComparer.Ordinal))
@@ -313,6 +314,56 @@ internal sealed class ModelBuilder
         }
 
         return best;
+    }
+
+    /// <summary>
+    /// The two halves of a <c>manual</c> entry the CLR metadata answers wrongly: which wrapper class the
+    /// interface's instances get, and what its prototype inherits. Both are absent for every entry that only
+    /// hand-writes a shape, and an unknown value is a diagnostic rather than a silent fallback.
+    /// </summary>
+    private void ApplyManualProjection(InterfaceModel model)
+    {
+        var entry = _overrides.Manual.FirstOrDefault(m => m.Interface == model.ClrType.FullName);
+        if (entry is null)
+        {
+            return;
+        }
+
+        if (entry.Wrapper is { Length: > 0 } wrapper)
+        {
+            if (Enum.TryParse<WrapperKind>(wrapper, out var kind))
+            {
+                model.Kind = kind;
+            }
+            else
+            {
+                _model.Diagnostics.Add(
+                    "overrides.json's manual entry for '" + entry.Interface + "' (" + entry.Reason
+                    + ") asks for wrapper kind '" + wrapper + "', which is not a DomWrapperKind.");
+            }
+        }
+
+        if (entry.Inherits is not { } inherits)
+        {
+            return;
+        }
+
+        if (inherits.Length == 0)
+        {
+            model.Parent = null;
+            return;
+        }
+
+        var parent = _byClrName.Values.FirstOrDefault(m => m.DomName == inherits);
+        if (parent is null)
+        {
+            _model.Diagnostics.Add(
+                "overrides.json's manual entry for '" + entry.Interface + "' (" + entry.Reason
+                + ") inherits '" + inherits + "', which the pinned assemblies do not project.");
+            return;
+        }
+
+        model.Parent = parent;
     }
 
     private InterfaceModel? LookupInterface(Type type)
@@ -1642,6 +1693,16 @@ internal sealed class ModelBuilder
             if (!_assemblies.SelectMany(a => a.GetTypes()).Any(t => t.FullName == entry.Interface))
             {
                 _model.Diagnostics.Add("overrides.json excludes '" + entry.Interface + "' (" + entry.Reason + "), which is not in the pinned assemblies.");
+            }
+        }
+
+        // A manual entry names a CLR interface the generator has to have projected, or its hand-written shape
+        // reaches no prototype at all - which is silent, because nothing else in the pipeline reads the entry.
+        foreach (var entry in _overrides.Manual)
+        {
+            if (!_byClrName.ContainsKey(entry.Interface))
+            {
+                _model.Diagnostics.Add("overrides.json hand-writes '" + entry.Interface + "' (" + entry.Reason + "), which the pinned assemblies do not project.");
             }
         }
 

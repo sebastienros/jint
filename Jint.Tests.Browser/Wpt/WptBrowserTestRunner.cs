@@ -65,6 +65,12 @@ public class WptBrowserTestRunner
     [TestCaseSource(nameof(HtmlDomCases))]
     public Task RunsTheHtmlDomSuite(string path) => RunCaseAsync(path);
 
+    [TestCaseSource(nameof(CommonDomInterfaceCollectionsCases))]
+    public Task RunsTheCommonDomInterfaceCollectionsSuite(string path) => RunCaseAsync(path);
+
+    [TestCaseSource(nameof(ObsoleteApisCases))]
+    public Task RunsTheObsoleteApisSuite(string path) => RunCaseAsync(path);
+
     [TestCaseSource(nameof(ScriptingEventsCases))]
     public Task RunsTheScriptingEventsSuite(string path) => RunCaseAsync(path);
 
@@ -96,6 +102,10 @@ public class WptBrowserTestRunner
     public static IEnumerable<object[]> DomRangesCases() => Cases("dom/ranges");
 
     public static IEnumerable<object[]> HtmlDomCases() => Cases("html/dom");
+
+    public static IEnumerable<object[]> CommonDomInterfaceCollectionsCases() => Cases("html/infrastructure/common-dom-interfaces/collections");
+
+    public static IEnumerable<object[]> ObsoleteApisCases() => Cases("html/obsolete/requirements-for-implementations/other-elements-attributes-and-apis");
 
     public static IEnumerable<object[]> ScriptingEventsCases() => Cases("html/webappapis/scripting/events");
 

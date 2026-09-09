@@ -437,6 +437,8 @@ internal static class WptBrowserExclusions
     internal static readonly Dictionary<string, int> MinimumTests = new(StringComparer.Ordinal)
     {
         ["custom-elements/CustomElementRegistry-constructor-and-callbacks-are-held-strongly.html"] = 5,
+        ["html/infrastructure/common-dom-interfaces/collections/htmlallcollection.html"] = 41,
+        ["html/obsolete/requirements-for-implementations/other-elements-attributes-and-apis/document-all.html"] = 2,
         ["custom-elements/CustomElementRegistry-getName.html"] = 4,
         ["custom-elements/Document-createElementNS-customized-builtins.html"] = 3,
         ["custom-elements/Document-createElementNS-prefix-timing.html"] = 3,
@@ -1142,12 +1144,6 @@ internal static class WptBrowserExclusions
         new("dom/nodes/Element-getElementsByTagNameNS.html", "*namespace", WptDivergence.NeedsTriage),
         new("dom/nodes/case.html", "createElementNS http://www.w3.org/1999*ABC", WptDivergence.NeedsTriage),
         new("dom/nodes/case.html", "createElementNS http://www.w3.org/1999*Abc", WptDivergence.NeedsTriage),
-        // HTML gives `document.all` an HTMLAllCollection, whose supported property names are the ids of every
-        // element plus the `name` attributes of the fourteen "all"-named elements - a list `applet` was
-        // removed from. The binding projects AngleSharp's IHtmlAllCollection through the ordinary
-        // HTMLCollection named rule, which takes the `name` of any HTML element, so `document.all.war` finds
-        // the `<applet name=war>` html/dom/historical.html plants for exactly this.
-        new("html/dom/historical.html", "document.all*", WptDivergence.NeedsTriage),
     ];
 
     // ---------------------------------------------------------------- a (Node or DOMString) union parameter takes only a Node
