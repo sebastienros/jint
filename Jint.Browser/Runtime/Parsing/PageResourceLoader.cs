@@ -24,11 +24,21 @@ namespace Jint.Browser.Runtime.Parsing;
 /// they still <em>execute</em> when they should, but the download is not overlapped.
 /// </para>
 /// <para>
-/// <b>What is refused, and why it is still recorded.</b> There is no rendering here, so an <c>&lt;img&gt;</c>,
-/// a media element and a non-stylesheet <c>&lt;link&gt;</c> have nothing to be for; fetching them would be
-/// traffic a page never sees the result of. The reference is written into <see cref="Page.Requests"/> with a
+/// <b>What is refused, and why it is still recorded.</b> A media element and a non-stylesheet
+/// <c>&lt;link&gt;</c> have nothing to be for without a rendering; fetching them would be traffic a page
+/// never sees the result of. The reference is written into <see cref="Page.Requests"/> with a
 /// <see cref="PageRequest.NotFetchedReason"/> instead, so a caller sees everything the document asked for
 /// rather than the subset something chose to answer.
+/// </para>
+/// <para>
+/// <b>An image is fetched, and the two elements that ask for one are here for the same reason.</b>
+/// <c>&lt;img&gt;</c> and <c>&lt;input type=image&gt;</c> both drive AngleSharp's
+/// <c>ImageRequestProcessor</c>, and both need HTML §4.8.4.3's answers — <c>complete</c>,
+/// <c>naturalWidth</c>, <c>currentSrc</c>, the <c>load</c> and <c>error</c> events a lazy-loading library
+/// waits on, and the availability an image submit button's coordinates depend on. What is read out of the
+/// bytes is the container header and nothing else: see <see cref="ParserDriver.FetchImage"/> and
+/// <see cref="Media.ImageHeader"/>. An <c>&lt;input&gt;</c> that is not <c>type=image</c> never reaches the
+/// resource loader at all, so the arm needs no second test.
 /// </para>
 /// <para>
 /// <b>An <c>&lt;iframe&gt;</c> is answered</b>, because a frame's document is something a page can reach:
@@ -66,6 +76,8 @@ internal sealed class PageResourceLoader : IResourceLoader
             IHtmlScriptElement script => _driver.FetchScript(script, url),
             IHtmlLinkElement link when IsStyleSheet(link) => _driver.FetchStyleSheet(link, url),
             IHtmlInlineFrameElement frame => _driver.FetchFrame(frame, url),
+            IHtmlImageElement image => _driver.FetchImage(image, url),
+            IHtmlInputElement input => _driver.FetchImage(input, url),
             _ => _driver.RefuseSubresource(request.Source, url),
         };
 

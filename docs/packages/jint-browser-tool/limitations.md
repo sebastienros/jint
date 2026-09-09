@@ -6,7 +6,7 @@ The tool exposes the limits of `Jint.Browser`:
 - No visual layout; geometry used by automation is synthetic.
 - No iframe scripting, IndexedDB, WebAssembly, CSP enforcement, SharedWorker, or ServiceWorker.
 - No drag and drop, clipboard integration, or native input.
-- Images are not downloaded for display.
+- Images are downloaded, but only their container headers are read: there is a size and no picture.
 - JavaScript is interpreted, so wall-clock execution can be slower than a native browser engine.
 
 Command-specific limits:

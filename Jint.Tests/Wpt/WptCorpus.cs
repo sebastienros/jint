@@ -95,6 +95,7 @@ internal static class WptCorpus
         "html/obsolete/requirements-for-implementations/other-elements-attributes-and-apis",
         "html/webappapis/scripting/events",
         "html/webappapis/scripting/processing-model-2",
+        "html/semantics/embedded-content/the-img-element",
         "custom-elements",
         "custom-elements/parser",
         "custom-elements/reactions",

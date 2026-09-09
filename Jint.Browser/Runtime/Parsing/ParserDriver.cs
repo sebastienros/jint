@@ -59,9 +59,10 @@ internal sealed class ParserDriver : IDisposable
     private IHtmlScriptElement? _importMapElement;
     private IBrowsingContext? _context;
     private int _frameDocuments;
-    private int _pendingStyleSheetEvents;
-    private TaskCompletionSource? _styleSheetEventsCompleted;
-    private Queue<(IHtmlLinkElement Link, string Type)>? _deferredStyleSheetEvents;
+    private bool _tokenizing;
+    private int _pendingResourceEvents;
+    private TaskCompletionSource? _resourceEventsCompleted;
+    private Queue<(IElement Element, string Type, bool AfterParse)>? _deferredResourceEvents;
 
     private ParserDriver(PageRuntime runtime, string url, CancellationToken cancellationToken)
     {
@@ -268,12 +269,20 @@ internal sealed class ParserDriver : IDisposable
         };
 
         thread.Start();
+        _tokenizing = true;
 
-        if (!_baton.Serve(completion.Task))
+        try
         {
-            // The page is closing. The parser thread is a background one and its next hand-off fails, so
-            // there is nothing left to wait for and nothing to show.
-            throw new OperationCanceledException("The page was closed while its document was being parsed.");
+            if (!_baton.Serve(completion.Task))
+            {
+                // The page is closing. The parser thread is a background one and its next hand-off
+                // fails, so there is nothing left to wait for and nothing to show.
+                throw new OperationCanceledException("The page was closed while its document was being parsed.");
+            }
+        }
+        finally
+        {
+            _tokenizing = false;
         }
 
         if (failure is not null)
@@ -346,7 +355,7 @@ internal sealed class ParserDriver : IDisposable
         {
             if (error is null)
             {
-                QueueStyleSheetEvent(link, "load");
+                QueueResourceEvent(link, "load", afterParse: false);
             }
             else if (!_cancellationToken.IsCancellationRequested)
             {
@@ -357,29 +366,63 @@ internal sealed class ParserDriver : IDisposable
         });
     }
 
-    private void QueueStyleSheetEvent(IHtmlLinkElement link, string type)
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/webappapis.html#queue-an-element-task — a resource event is
+    /// queued at the element rather than fired where the bytes landed, and the document's <c>load</c> waits
+    /// for every one of them.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Two kinds of element come through here and both need the delay for the same reason.</b> A style
+    /// sheet's listener has to see <c>link.sheet</c>, which the CSS processor assigns after the fetch
+    /// returns; an image's has to see <c>complete</c>, <c>naturalWidth</c> and <c>currentSrc</c>, which the
+    /// image lane assigns at the same point. Queuing at the fetch instead would let a parser-time network
+    /// pump deliver before either exists.
+    /// </para>
+    /// <para>
+    /// <b>The count is what delays the window's <c>load</c></b>, which is
+    /// https://html.spec.whatwg.org/multipage/parsing.html#the-end step 6: spin until nothing delays the load
+    /// event. An image request in flight is one of the things that does.
+    /// </para>
+    /// </remarks>
+    /// <param name="element">The element the event is fired at.</param>
+    /// <param name="type">Either <c>load</c> or <c>error</c>.</param>
+    /// <param name="afterParse">
+    /// Whether the event has to wait for the tokenizer to finish, which an image's does and a style sheet's
+    /// does not. It is the one place this browser's synchronous subresource fetch is visible: a browser
+    /// yields to its event loop only for a parser-blocking script, so a queued task reaches a page mid-parse
+    /// only where a browser would also have yielded — and this browser yields while it fetches an image,
+    /// where a browser would have carried on tokenizing. Delivering there would make an
+    /// <c>&lt;img src&gt;</c> followed by a <c>&lt;script&gt;</c> that installs <c>onload</c> — the
+    /// commonest image pattern there is — miss the event, which no browser does, because a real network is
+    /// slower than the next fifty bytes of markup. A style sheet is deliberately not deferred: the parser
+    /// really does wait for one, and <c>AStyleSheetLoadDuringAParserNetworkWaitSeesTheInstalledSheet</c>
+    /// pins that its <c>load</c> arrives while it does.
+    /// </param>
+    private void QueueResourceEvent(IElement element, string type, bool afterParse)
     {
         if (_cancellationToken.IsCancellationRequested)
         {
             return;
         }
 
-        if (_pendingStyleSheetEvents++ == 0)
+        if (_pendingResourceEvents++ == 0)
         {
-            _styleSheetEventsCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            _resourceEventsCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         }
 
         // The processor assigns link.Sheet after the styling service returns, before the next hand-off.
-        _runtime.Engine.Tasks.Post(() => DeliverStyleSheetEvent(link, type));
+        _runtime.Engine.Tasks.Post(() => DeliverResourceEvent(element, type, afterParse));
     }
 
-    private void DeliverStyleSheetEvent(IHtmlLinkElement link, string type)
+    private void DeliverResourceEvent(IElement element, string type, bool afterParse)
     {
         // Engine.Execute drains tasks even for a script inserted by another script. Resource events must
-        // wait for the outermost script element to return and restore document.currentScript first.
-        if (_runtime.CurrentScript is not null)
+        // wait for the outermost script element to return and restore document.currentScript first — and an
+        // image's for the tokenizer as well, for the reason QueueResourceEvent gives.
+        if (_runtime.CurrentScript is not null || (afterParse && _tokenizing))
         {
-            (_deferredStyleSheetEvents ??= new()).Enqueue((link, type));
+            (_deferredResourceEvents ??= new()).Enqueue((element, type, afterParse));
             return;
         }
 
@@ -387,15 +430,46 @@ internal sealed class ParserDriver : IDisposable
         {
             if (!_cancellationToken.IsCancellationRequested)
             {
-                FireAt(link, type);
+                FireAt(element, type);
             }
         }
         finally
         {
-            if (--_pendingStyleSheetEvents == 0)
+            if (--_pendingResourceEvents == 0)
             {
-                _styleSheetEventsCompleted!.TrySetResult();
+                _resourceEventsCompleted!.TrySetResult();
             }
+        }
+    }
+
+    /// <summary>
+    /// Re-posts every resource event that was waiting for a script to return or for the parse to end.
+    /// </summary>
+    /// <remarks>
+    /// <b>It has to run before <see cref="FinishLoad"/>'s drain and not only after a script</b>: the drain
+    /// waits for the pending count to reach zero, and an entry parked in this queue with no task posted for
+    /// it would never be counted down.
+    /// </remarks>
+    private void FlushDeferredResourceEvents()
+    {
+        if (_deferredResourceEvents is not { } deferred)
+        {
+            return;
+        }
+
+        // One pass over what is there, keeping in the queue what is still waiting for the tokenizer: posting
+        // an image's event back only for it to park again would be one task per script per image.
+        for (var pending = deferred.Count; pending > 0; pending--)
+        {
+            var entry = deferred.Dequeue();
+
+            if (entry.AfterParse && _tokenizing)
+            {
+                deferred.Enqueue(entry);
+                continue;
+            }
+
+            _runtime.Engine.Tasks.Post(() => DeliverResourceEvent(entry.Element, entry.Type, entry.AfterParse));
         }
     }
 
@@ -476,6 +550,110 @@ internal sealed class ParserDriver : IDisposable
                 "frame document",
                 PageRequestKind.Frame,
                 handedOver);
+        });
+    }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/images.html#update-the-image-data — the image an
+    /// <c>&lt;img&gt;</c> or an <c>&lt;input type=image&gt;</c> named, fetched over the page's own network
+    /// position and reduced to the two numbers a pixel-free browser can honestly hold.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>AngleSharp asks and this answers; the state is the binding's.</b> The request itself is
+    /// AngleSharp's <c>ImageRequestProcessor</c>, which is what turns a parsed <c>src</c>, a
+    /// <c>img.src = …</c> and a <c>srcset</c> rewrite into exactly one fetch and what makes the document
+    /// delay its <c>load</c> event while one is outstanding. What it cannot produce is HTML's current-request
+    /// state or an intrinsic size, so <see cref="Media.PageImages"/> holds both — see that class for what a
+    /// browser with no pixels can and cannot say.
+    /// </para>
+    /// <para>
+    /// <b>The three endings are the standard's three.</b> Bytes whose container
+    /// <see cref="Media.ImageHeader"/> recognises are <i>completely available</i> and the element hears
+    /// <c>load</c>; a fetch that failed and a container it does not recognise are both the <i>broken</i>
+    /// state and both hear <c>error</c>, which is step 25's "not in a supported file format" arm. Neither
+    /// event is fired here: both are queued as element tasks through
+    /// <see cref="QueueResourceEvent"/>, so a listener added after <c>img.src = …</c> in the same script
+    /// still hears them and every one of them delays the window's <c>load</c>.
+    /// </para>
+    /// <para>
+    /// <b><c>loading=lazy</c> loads eagerly, and it has to.</b> HTML defers a lazy image until it is within
+    /// the lazy load root's scrolling area, which is a question about a layout this browser does not have.
+    /// Never loading one would leave every image of an infinite-scroll page <c>complete === false</c>
+    /// forever, which is the state those libraries block on; so the attribute is parsed, reflected and
+    /// otherwise ignored, exactly as <see cref="Observers"/>' <c>IntersectionObserver</c> reports every
+    /// target as intersecting for the same reason.
+    /// </para>
+    /// <para>
+    /// <b>The ceiling is <see cref="BrowserOptions.MaxImageRequests"/></b>, counted over the document rather
+    /// than per element. Zero means images are not fetched at all, which is exactly what this browser did
+    /// before there was a model: the reference is recorded in <see cref="Page.Requests"/> with a
+    /// <see cref="PageRequest.NotFetchedReason"/>, no socket is opened, and no event is fired — because
+    /// nothing was attempted and an <c>error</c> would say something was.
+    /// </para>
+    /// </remarks>
+    internal IResponse? FetchImage(IElement image, string url)
+    {
+        var handedOver = HandsOver;
+
+        return Serve(() =>
+        {
+            var images = _runtime.Images;
+
+            // https://html.spec.whatwg.org/multipage/images.html#update-the-image-data step 7.3: an image
+            // already in the list of available images under this key is taken from it, with no request and
+            // — the previous URL being this one — no event.
+            if (images.IsAlreadyAvailable(image, url))
+            {
+                return null;
+            }
+
+            var request = images.Begin(image, url);
+            var ceiling = _runtime.Options.MaxImageRequests;
+
+            if (!images.TryStart(ceiling))
+            {
+                _requests.RecordNotFetched(
+                    url,
+                    RequestInitiator.Subresource,
+                    PageRequestKind.Image,
+                    ceiling <= 0
+                        ? "images are not fetched: BrowserOptions.MaxImageRequests is zero"
+                        : "an image is not fetched: this document has already reached the "
+                            + ceiling.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                            + " image requests BrowserOptions.MaxImageRequests allows");
+                return null;
+            }
+
+            // From here the element has asked for this URL, so `currentSrc` names it whatever the fetch
+            // does next: HTML sets the current request's current URL from the selected source in both the
+            // success and the failure arm. A ceiling refusal above deliberately does not get here.
+            request.Requested = true;
+
+            var fetched = FetchBytes(url, image, "image", PageRequestKind.Image, handedOver);
+
+            if (fetched is null)
+            {
+                // FailSubresource has already recorded the failure and queued the element's `error`, unless
+                // the document is being abandoned — in which case there is nobody left to tell.
+                Media.PageImages.Break(request);
+                return null;
+            }
+
+            if (!Media.ImageHeader.TryRead(fetched.Value.Bytes, out var width, out var height))
+            {
+                Media.PageImages.Break(request);
+                FailSubresource(
+                    image,
+                    url,
+                    "The image '" + url + "' is not in a container format this browser can read a size out of.");
+                return null;
+            }
+
+            Media.PageImages.Complete(request, width, height);
+            QueueResourceEvent(image, "load", afterParse: true);
+
+            return PageResourceLoader.Answer(fetched.Value.Url, fetched.Value.Bytes, fetched.Value.ContentType);
         });
     }
 
@@ -567,6 +745,26 @@ internal sealed class ParserDriver : IDisposable
         PageRequestKind kind,
         bool mayPump)
     {
+        return FetchBytes(url, source, what, kind, mayPump) is { } fetched
+            ? PageResourceLoader.Answer(fetched.Url, fetched.Bytes, fetched.ContentType)
+            : null;
+    }
+
+    /// <summary>
+    /// The bytes of one subresource, before anything has been made of them.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Fetch"/> wraps them into the response AngleSharp reads; the image lane needs the bytes
+    /// themselves, because <see cref="Media.ImageHeader"/> is what decides between the completely-available
+    /// and the broken state and it has to decide before the element hears anything.
+    /// </remarks>
+    private FetchedBody? FetchBytes(
+        string url,
+        IElement source,
+        string what,
+        PageRequestKind kind,
+        bool mayPump)
+    {
         var target = UrlParser.Parse(url);
 
         if (target is null)
@@ -608,9 +806,9 @@ internal sealed class ParserDriver : IDisposable
         try
         {
             var fetched = mayPump ? _baton.PumpUntil(fetch) : fetch.GetAwaiter().GetResult();
-            return PageResourceLoader.Answer(
-                ResponseUrl(fetched.Url, fetched.Fragment),
+            return new FetchedBody(
                 fetched.Bytes,
+                ResponseUrl(fetched.Url, fetched.Fragment),
                 fetched.ContentType);
         }
         catch (OperationCanceledException) when (_cancellationToken.IsCancellationRequested)
@@ -650,7 +848,7 @@ internal sealed class ParserDriver : IDisposable
     /// <see cref="SubresourceFetch"/> checks it over the wire; a page may not escape it by inlining.
     /// </para>
     /// </remarks>
-    private IResponse? FetchDataUrl(UrlRecord target, IElement source, string url, string what)
+    private FetchedBody? FetchDataUrl(UrlRecord target, IElement source, string url, string what)
     {
         if (!DataUrl.TryProcess(target, out var content))
         {
@@ -671,8 +869,11 @@ internal sealed class ParserDriver : IDisposable
 
         // https://fetch.spec.whatwg.org/#concept-response-url: the response URL is the request's, so the
         // fragment a data: URL was written with survives into what an error report names.
-        return PageResourceLoader.Answer(target.Serialize(), content.Body, content.MimeType.Serialize());
+        return new FetchedBody(content.Body, target.Serialize(), content.MimeType.Serialize());
     }
+
+    /// <summary>One subresource's bytes, the URL they were answered under, and what the server called them.</summary>
+    private readonly record struct FetchedBody(byte[] Bytes, string Url, string? ContentType);
 
     /// <summary>The URL a fetched subresource is answered under.</summary>
     /// <remarks>
@@ -711,9 +912,13 @@ internal sealed class ParserDriver : IDisposable
     private void FailSubresource(IElement source, string url, string message)
     {
         Report(PageErrorKind.ReportedError, message, url);
-        if (source is IHtmlLinkElement link)
+        if (source is IHtmlLinkElement)
         {
-            QueueStyleSheetEvent(link, "error");
+            QueueResourceEvent(source, "error", afterParse: false);
+        }
+        else if (source is IHtmlImageElement or IHtmlInputElement)
+        {
+            QueueResourceEvent(source, "error", afterParse: true);
         }
         else
         {
@@ -839,12 +1044,9 @@ internal sealed class ParserDriver : IDisposable
         finally
         {
             _runtime.CurrentScript = previous;
-            if (previous is null && _deferredStyleSheetEvents is { } deferred)
+            if (previous is null)
             {
-                while (deferred.TryDequeue(out var entry))
-                {
-                    _runtime.Engine.Tasks.Post(() => DeliverStyleSheetEvent(entry.Link, entry.Type));
-                }
+                FlushDeferredResourceEvents();
             }
         }
 
@@ -946,11 +1148,16 @@ internal sealed class ParserDriver : IDisposable
         // window's load.
         FireFrameLoads(document);
 
-        // Stylesheet completion handlers can insert further stylesheets. Keep their load-event delay
-        // until the entire chain has delivered, with each event on its own budgeted task.
-        while (_pendingStyleSheetEvents > 0 && !_cancellationToken.IsCancellationRequested)
+        // The tokenizer has finished, so every image event that was waiting for it is posted now — after
+        // DOMContentLoaded, which is where a browser's images land too, and before the window's load, which
+        // an image request delays.
+        FlushDeferredResourceEvents();
+
+        // A style sheet's or an image's completion handler can insert further subresources. Keep their
+        // load-event delay until the entire chain has delivered, each event on its own budgeted task.
+        while (_pendingResourceEvents > 0 && !_cancellationToken.IsCancellationRequested)
         {
-            _baton.PumpUntil(_styleSheetEventsCompleted!.Task);
+            _baton.PumpUntil(_resourceEventsCompleted!.Task);
         }
 
         // Step 9: readiness becomes "complete" and only then does load fire, which is why a load listener
@@ -1241,19 +1448,15 @@ internal sealed class ParserDriver : IDisposable
 
     /// <summary>What kind of resource a reference the page will not follow was, for the request log.</summary>
     /// <remarks>
-    /// A frame is deliberately not here any more: <see cref="PageResourceLoader"/> routes one to
-    /// <see cref="FetchFrame"/>, which records its own refusal with the reason it has and this one has not.
+    /// Neither a frame nor an image is here any more: <see cref="PageResourceLoader"/> routes each to
+    /// <see cref="FetchFrame"/> and <see cref="FetchImage"/>, which record their own refusals with the
+    /// reason each has and this one has not.
     /// </remarks>
-    private static PageRequestKind KindNotFetched(IElement source) => source switch
-    {
-        IHtmlImageElement => PageRequestKind.Image,
-        _ when IsLegacyFrame(source) => PageRequestKind.Frame,
-        _ => PageRequestKind.Other,
-    };
+    private static PageRequestKind KindNotFetched(IElement source)
+        => IsLegacyFrame(source) ? PageRequestKind.Frame : PageRequestKind.Other;
 
     private static string ReasonNotFetched(IElement source) => source switch
     {
-        IHtmlImageElement => "images are not fetched: there is no rendering to need them",
         IHtmlLinkElement link => "a <link rel=\"" + (link.Relation ?? "") + "\"> is not fetched: only a stylesheet is",
         _ when IsLegacyFrame(source) => "a <frame>'s document is not fetched: AngleSharp has no HTMLFrameElement "
             + "interface, so nothing script can reach would answer it",

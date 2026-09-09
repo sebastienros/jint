@@ -37,6 +37,7 @@ internal sealed class PageRuntime
     private List<JsMediaQueryList>? _mediaQueryLists;
     private ConditionalWeakTable<object, ObjectInstance>? _frameWindows;
     private PerformanceNavigation? _navigation;
+    private Media.PageImages? _images;
 
 
     private PageRuntime(
@@ -177,6 +178,23 @@ internal sealed class PageRuntime
 
     /// <summary>Where mutation records wait for the microtask checkpoint that delivers them.</summary>
     internal Observers.MutationObserverLane MutationObservers { get; }
+
+    /// <summary>
+    /// HTML §4.8.4.3's image requests, one per <c>&lt;img&gt;</c> and per <c>&lt;input type=image&gt;</c>
+    /// this document has loaded, built on first use.
+    /// </summary>
+    /// <remarks>
+    /// A document with no images never builds the table, which is why this is lazy where the lanes above are
+    /// not: an image is the one subresource kind a page can have none of and still be a page.
+    /// </remarks>
+    internal Media.PageImages Images => _images ??= new Media.PageImages();
+
+    /// <summary>The image requests this document has made, or <see langword="null"/> if it has made none.</summary>
+    /// <remarks>
+    /// The read-only half, for the members that must not make a table by being asked: <c>img.complete</c> on
+    /// a document with no image requests answers from the attributes alone.
+    /// </remarks>
+    internal Media.PageImages? ImagesIfLoaded => _images;
 
     /// <summary>The flat box model of this document, and the virtual scroll offset over it.</summary>
     /// <remarks>

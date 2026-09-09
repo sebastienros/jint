@@ -36,11 +36,12 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `html/obsolete/requirements-for-implementations/other-elements-attributes-and-apis/` | 1 | 0 | 2 | 0 |
 | `html/webappapis/scripting/events/` | 12 | 0 | 37 | 2 |
 | `html/webappapis/scripting/processing-model-2/` | 25 | 0 | 44 | 5 |
+| `html/semantics/embedded-content/the-img-element/` | 2 | 0 | 6 | 0 |
 | `custom-elements/` | 16 | 0 | 513 | 248 |
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 52 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 3 |
-| **total** | **361** | **9** | **66,695** | **1,108** |
+| **total** | **363** | **9** | **66,701** | **1,108** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -218,6 +219,31 @@ renderer off for its own reasons and `AGENTS.md` says so rather than letting tha
 `Event.timeStamp` is not coarsened, which `PerformancePrototype` records as a deliberate divergence; the one
 document whose subject is that resolution is in the not-vendored table for the reason
 `performance-timeline/webtiming-resolution.any.js` is out of the engine lane.
+
+## The image element, and the two documents that fit here today
+
+`html/semantics/embedded-content/the-img-element/` arrived with HTML §4.8.4.3's image request, and **both its
+documents pass with no exclusions**: `Image-constructor.html`'s five tests are the `[LegacyFactoryFunction]`'s
+shape — the name, the prototype it shares with `HTMLImageElement`, the descriptor of `Image.prototype` — and
+`nonexistent-image.html` is the one that could not have passed before, because it waits for an `error` event
+this browser had no image request to fire.
+
+**Two documents out of a hundred and sixty is deliberate, and the reason is what the directory is made of.**
+Most of the suite is a *rendering* test: `image-loading-lazy-*` alone is thirty-odd documents about whether an
+image is inside a scrolling area, `available-images.html` and its siblings are reference tests compared
+pixel-by-pixel, and a dozen more draw the loaded image into a `<canvas>` and read the bytes back. Of what is
+left, `img.complete.html` and `naturalWidth-naturalHeight-width-height.html` are the two whose subject is
+exactly this model — and each needs upstream's photographs, a 91 kB and a 380 kB JPEG, plus
+`?pipe=trickle(d1)` server-side throttling for the assertion that `complete` cannot change inside a task.
+This corpus vendors no binary at all today, and adding half a megabyte of them is a change of its own rather
+than a passenger on the one that made the model exist. `img.complete.html` would also fail that one
+assertion honestly: a subresource fetch is synchronous with the parse here (`Runtime/Parsing/AGENTS.md`), so
+`complete` really can move inside the task that set `src`.
+
+Two more are held back by a gap this browser has rather than by a missing environment, and
+[`Dom/divergences.md`](../../Jint.Browser/Dom/divergences.md) carries the row: `invalid-src.html` and
+`null-image-source.html` both wait for the `error` an `<img src="">` fires, and AngleSharp asks the resource
+loader for nothing when it selects no source, so there is no request processor to hang that event on.
 
 ## The two smallest suites, and `document.all`
 

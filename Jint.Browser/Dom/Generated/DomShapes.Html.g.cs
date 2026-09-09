@@ -2337,7 +2337,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLImageElement.complete", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.complete");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsCompleted);
+                    return self.Realm.Hooks.ImageComplete(self.Realm, self.Target);
                 }))
             .Accessor("crossOrigin",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLImageElement.crossOrigin", static (thisObj, args) =>
@@ -2354,7 +2354,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLImageElement.currentSrc", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.currentSrc");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.ActualSource);
+                    return self.Realm.Hooks.ImageCurrentSrc(self.Realm, self.Target);
                 }))
             .Accessor("decoding",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLImageElement.decoding", static (thisObj, args) =>
@@ -2371,7 +2371,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLImageElement.height", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.height");
-                    return global::Jint.Browser.Dom.DomReflected.HTMLImageElementHeight.Get(self.Target);
+                    return self.Realm.Hooks.ImageHeight(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLImageElement.height", static (thisObj, args) =>
                 {
@@ -2399,6 +2399,17 @@ internal static partial class DomInterfaces
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.isMap");
                     self.Target.IsMap = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("loading",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLImageElement.loading", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.loading");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLImageElementLoading.Get(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLImageElement.loading", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.loading");
+                    return global::Jint.Browser.Dom.DomReflected.HTMLImageElementLoading.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("longDesc",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLImageElement.longDesc", static (thisObj, args) =>
@@ -2437,13 +2448,13 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLImageElement.naturalHeight", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.naturalHeight");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.OriginalHeight);
+                    return self.Realm.Hooks.ImageNaturalHeight(self.Realm, self.Target);
                 }))
             .Accessor("naturalWidth",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLImageElement.naturalWidth", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.naturalWidth");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.OriginalWidth);
+                    return self.Realm.Hooks.ImageNaturalWidth(self.Realm, self.Target);
                 }))
             .Accessor("referrerPolicy",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLImageElement.referrerPolicy", static (thisObj, args) =>
@@ -2515,7 +2526,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLImageElement.width", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.width");
-                    return global::Jint.Browser.Dom.DomReflected.HTMLImageElementWidth.Get(self.Target);
+                    return self.Realm.Hooks.ImageWidth(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLImageElement.width", static (thisObj, args) =>
                 {

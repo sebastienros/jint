@@ -478,6 +478,8 @@ internal static class WptBrowserExclusions
     /// </remarks>
     internal static readonly Dictionary<string, int> MinimumTests = new(StringComparer.Ordinal)
     {
+        ["html/semantics/embedded-content/the-img-element/Image-constructor.html"] = 5,
+        ["html/semantics/embedded-content/the-img-element/nonexistent-image.html"] = 1,
         ["custom-elements/CustomElementRegistry-constructor-and-callbacks-are-held-strongly.html"] = 5,
         ["html/infrastructure/common-dom-interfaces/collections/htmlallcollection.html"] = 41,
         ["html/obsolete/requirements-for-implementations/other-elements-attributes-and-apis/document-all.html"] = 2,

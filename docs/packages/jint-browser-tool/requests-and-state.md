@@ -19,4 +19,4 @@ For a persistent browsing session, use:
 
 There is no separate `jint-browser requests` command, and `fetch` output contains only the requested document representation. Page errors are written to standard error.
 
-Images are not fetched because the browser does not render them. In persistent APIs, their references still appear in the request log with a reason. Request logs are summaries rather than traffic archives and do not retain arbitrary bodies or request headers.
+Images are fetched so that a page can read `complete`, `naturalWidth` and the `load` event, but only their container headers are read — the browser renders nothing. References it does not follow, such as a media element, still appear in the request log with a reason. Request logs are summaries rather than traffic archives and do not retain arbitrary bodies or request headers.

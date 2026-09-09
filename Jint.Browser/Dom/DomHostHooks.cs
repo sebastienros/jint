@@ -720,6 +720,134 @@ internal class DomHostHooks
     private static bool HasBrowsingContext(IDocument document)
         => document.Context is { } context && ReferenceEquals(context.Active, document);
 
+    // ---------------------------------------------------------------------------------------------------
+    // HTML §4.8.4's image members. Every one of them answers from the page's own image lane rather than
+    // from AngleSharp, whose IsCompleted/OriginalWidth/ActualSource all read an IImageInfo produced by an
+    // IResourceService<IImageInfo> this browser deliberately does not register — registering one would
+    // mean decoding pixels for two numbers a container header already states. See Media/PageImages.
+    // A binding with no page runtime behind it keeps AngleSharp's answers, which are the ones it had before
+    // there was a lane at all.
+    // ---------------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/embedded-content.html#dom-img-complete — true when there is
+    /// nothing to wait for: no source at all, or a current request that has finished either way.
+    /// </summary>
+    /// <remarks>
+    /// <b>The first two conditions are why this cannot be AngleSharp's <c>IsCompleted</c>.</b> An
+    /// <c>&lt;img&gt;</c> with no <c>src</c> and no <c>srcset</c> is complete, and so is a broken one; both
+    /// answered <see langword="false"/> before, and both are what a lazy-loading library tests to decide
+    /// whether to wait for a <c>load</c> event that is never coming.
+    /// </remarks>
+    internal virtual JsValue ImageComplete(DomRealm realm, IHtmlImageElement image)
+    {
+        var source = image.GetAttribute(null, "src");
+
+        if (!image.HasAttribute("srcset") && string.IsNullOrEmpty(source))
+        {
+            return JsBoolean.True;
+        }
+
+        if (PageRuntime.Find(realm.Engine, image.Owner) is not { } runtime)
+        {
+            return DomConvert.Bool(image.IsCompleted);
+        }
+
+        // There is no pending request here (Media/PageImages says why), so "and its pending request is
+        // null" is satisfied by every state this reaches.
+        return DomConvert.Bool(runtime.ImagesIfLoaded?.Find(image)
+            is { State: Media.ImageAvailability.CompletelyAvailable or Media.ImageAvailability.Broken });
+    }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/embedded-content.html#dom-img-currentsrc — the current
+    /// request's current URL: the selected source, resolved, and not where a redirect the fetch followed
+    /// ended up. It answers for a broken request too, which is what makes it usable for saying <i>which</i>
+    /// candidate of a source set a page settled on.
+    /// </summary>
+    internal virtual JsValue ImageCurrentSrc(DomRealm realm, IHtmlImageElement image)
+        => JsString.Create(PageRuntime.Find(realm.Engine, image.Owner) is { } runtime
+            ? runtime.ImagesIfLoaded?.Find(image)?.CurrentSrc ?? ""
+            : image.ActualSource ?? "");
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/embedded-content.html#dom-img-naturalwidth — the intrinsic
+    /// width of an available image, and 0 for one that is not available or states no size.
+    /// </summary>
+    internal virtual JsValue ImageNaturalWidth(DomRealm realm, IHtmlImageElement image)
+        => JsNumber.Create(PageRuntime.Find(realm.Engine, image.Owner) is { } runtime
+            ? Available(runtime, image)?.NaturalWidth ?? 0
+            : image.OriginalWidth);
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/embedded-content.html#dom-img-naturalheight — the intrinsic
+    /// height, on the same terms.
+    /// </summary>
+    internal virtual JsValue ImageNaturalHeight(DomRealm realm, IHtmlImageElement image)
+        => JsNumber.Create(PageRuntime.Find(realm.Engine, image.Owner) is { } runtime
+            ? Available(runtime, image)?.NaturalHeight ?? 0
+            : image.OriginalHeight);
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/embedded-content.html#dom-dim-width — the <c>width</c>
+    /// content attribute when it has one, and otherwise the intrinsic width of an available image.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>This member is not reflection, and the <c>reflected</c> entry beside it is only its setter.</b>
+    /// HTML makes the getter answer the element's box when it is being rendered, the density-corrected
+    /// intrinsic width when it is available and not rendered, and 0 otherwise — never the content
+    /// attribute. The flat box model gives every rendered element the viewport's width
+    /// (<c>Runtime/AGENTS.md</c>), which would make every image 1280 wide and is worse than no answer, so
+    /// the attribute stands in for the box it maps to and the intrinsic size answers when there is none.
+    /// That is AngleSharp's own <c>DisplayWidth</c> rule, over an intrinsic size AngleSharp cannot produce.
+    /// </para>
+    /// <para>
+    /// It is what an image submit button's coordinates depend on
+    /// (<a href="https://github.com/sebastienros/jint/issues/3933">#3933</a>): HTML selects a coordinate only
+    /// within an available image the user agent displays, and until there was a size there was nothing to
+    /// select within.
+    /// </para>
+    /// </remarks>
+    internal virtual JsValue ImageWidth(DomRealm realm, IHtmlImageElement image)
+        => Dimension(realm, image, "width", DomReflected.HTMLImageElementWidth, intrinsicWidth: true);
+
+    /// <inheritdoc cref="ImageWidth" />
+    internal virtual JsValue ImageHeight(DomRealm realm, IHtmlImageElement image)
+        => Dimension(realm, image, "height", DomReflected.HTMLImageElementHeight, intrinsicWidth: false);
+
+    private static JsValue Dimension(
+        DomRealm realm,
+        IHtmlImageElement image,
+        string attribute,
+        ReflectedAttribute reflected,
+        bool intrinsicWidth)
+    {
+        // The content attribute is what the presentational hint maps to, so where it is present it is the
+        // box, and HTML's own parsing rules for it are the reflected entry's.
+        if (image.HasAttribute(attribute))
+        {
+            return reflected.Get(image);
+        }
+
+        if (PageRuntime.Find(realm.Engine, image.Owner) is not { } runtime)
+        {
+            return JsNumber.Create(intrinsicWidth ? image.OriginalWidth : image.OriginalHeight);
+        }
+
+        var request = Available(runtime, image);
+        return JsNumber.Create(request is null ? 0 : intrinsicWidth ? request.NaturalWidth : request.NaturalHeight);
+    }
+
+    /// <summary>
+    /// <paramref name="image"/>'s current request when it is completely available, and <see langword="null"/>
+    /// otherwise — which is the one condition every dimension member above is guarded by.
+    /// </summary>
+    private static Media.ImageRequest? Available(PageRuntime runtime, IElement image)
+        => runtime.ImagesIfLoaded?.Find(image) is { State: Media.ImageAvailability.CompletelyAvailable } request
+            ? request
+            : null;
+
     /// <summary>https://html.spec.whatwg.org/multipage/dom.html#dom-document-referrer</summary>
     internal virtual JsValue Referrer(DomRealm realm, IDocument document)
         => JsString.Create(PageRuntime.Find(realm.Engine, document)?.Referrer ?? document.Referrer ?? "");
