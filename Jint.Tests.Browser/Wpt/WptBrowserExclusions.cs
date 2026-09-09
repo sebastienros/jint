@@ -1135,15 +1135,23 @@ internal static class WptBrowserExclusions
         new("dom/nodes/node-realm-preserved-across-frameless-adoption.html", "*", WptDivergence.NeedsIframeScripting),
     ];
 
-    // ---------------------------------------------------------------- relList on an element AngleSharp gives no interface
-    private static readonly WptExclusion[] _relListOnAnElementAngleSharpGivesNoInterface =
+    // ---------------------------------------------------------------- a relList on a MathML <a> that no standard defines
+    private static readonly WptExclusion[] _aRelListOnAMathMLAThatNoStandardDefines =
     [
-        // SVG 2 gives SVGAElement a relList and this corpus asks a MathML <a> for one too. AngleSharp builds
-        // a bare SvgElement and a MathElement for both, has no [DomName("SVGAElement")] anywhere, and so
-        // exposes no member the binding could project. Dom/divergences.md records it; nothing here can
-        // answer it without this package declaring an SVG interface of its own.
-        new("dom/lists/DOMTokenList-coverage-for-attributes.html", "a.relList in http://www.w3.org/1998*", WptDivergence.NeedsTriage),
-        new("dom/lists/DOMTokenList-coverage-for-attributes.html", "a.relList in http://www.w3.org/2000*", WptDivergence.NeedsTriage),
+        // The SVG half of this pair is gone: SVG 2 16.2 gives SVGAElement a rel/relList pair
+        // (https://svgwg.org/svg2-draft/linking.html#InterfaceSVGAElement) and DomManualInterfaces declares
+        // the interface by local name over AngleSharp's bare SvgElement, so
+        // "a.relList in http://www.w3.org/2000/svg namespace should be DOMTokenList." passes.
+        //
+        // The MathML half is the test's own divergence, which is why it is AssertsWhatNothingRequires and
+        // not debt. MathML Core's only interface is MathMLElement (https://w3c.github.io/mathml-core/#dom-and-javascript),
+        // which includes GlobalEventHandlers, HTMLOrSVGElement and ElementCSSInlineStyle and declares no
+        // rel and no relList; nothing else defines a member on a MathML <a> either. The file's own
+        // testAttr() lists the MathML namespace beside the SVG one and asserts a DOMTokenList for both, so
+        // it asks for a member no specification requires of anybody -- and on wpt.fyi the only browser with
+        // recorded results for this file is 174 of 175, one row short, with every other row of the file
+        // passing here. Answering it would mean this package inventing a MathML member.
+        new("dom/lists/DOMTokenList-coverage-for-attributes.html", "a.relList in http://www.w3.org/1998*", WptDivergence.AssertsWhatNothingRequires),
     ];
 
     // ---------------------------------------------------------------- a member of a DOM interface the bindings do not have
@@ -1622,7 +1630,7 @@ internal static class WptBrowserExclusions
         new("the parser", _theParser),
         new("one [CEReactions] member per file", _oneCEReactionsMemberPerFile),
         new("a frame that runs script", _aFrameThatRunsScript),
-        new("relList on an element AngleSharp gives no interface", _relListOnAnElementAngleSharpGivesNoInterface),
+        new("a relList on a MathML <a> that no standard defines", _aRelListOnAMathMLAThatNoStandardDefines),
         new("a member of a DOM interface the bindings do not have", _aMemberOfADOMInterfaceTheBindingsDoNotHave),
         new("DOM's validate-and-extract, and the XML name productions", _dOMSValidateAndExtractAndTheXMLNameProductions),
         new("a name AngleSharp refuses that the standard allows", _aNameAngleSharpRefusesThatTheStandardAllows),
@@ -1666,7 +1674,7 @@ internal static class WptBrowserExclusions
     /// </para>
     /// <para>
     /// <b>The DOM suites made it much bigger, and every one of those causes is bounded.</b> They hold 226
-    /// documents and 65,228 tests, of which 758 do not pass -- three figures <c>Wpt/README.md</c> generates
+    /// documents and 65,228 tests, of which 757 do not pass -- three figures <c>Wpt/README.md</c> generates
     /// and checks rather than states, and whose split <c>Wpt/README.md</c>'s "What the DOM corpus says about
     /// this browser" gives as thirteen causes with the count each accounts for. Ten families were filed as
     /// https://github.com/sebastienros/jint/issues/3765 to 3774 and one was already open as

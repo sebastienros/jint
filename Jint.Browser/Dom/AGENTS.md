@@ -74,10 +74,15 @@ beside the generator that reads the file.
 - **`DomManualInterfaces.For` answers three questions, including HTML's element interface rule**: a
   name in the HTML namespace that is a valid custom element name is an `HTMLElement`, and only a name that is
   not is an `HTMLUnknownElement`. AngleSharp builds the same `HtmlUnknownElement` for both.
-- **Five HTML element interfaces are declared by name and selected by local name.** AngleSharp models `<dl>`,
+- **Six element interfaces are declared by name and selected by local name.** AngleSharp models `<dl>`,
   `<dir>`, `<font>`, `<frame>` and `<frameset>` with internal sealed classes whose only public interface is
   `IHtmlElement` — there is no `IHtmlDListElement`, no `IHtmlFrameElement` and no `[DomName]` for any of the
-  five — so `DomTypeMap`, which keys on the CLR type, cannot tell one of them from a `<div>`. Each gets its
+  five — so `DomTypeMap`, which keys on the CLR type, cannot tell one of them from a `<div>`. An SVG `<a>`
+  is the sixth and the same gap in another namespace: it is a bare `SvgElement`, and SVG 2 §16.2 gives it
+  `rel` and `relList`. Its local-name test is case-**sensitive**, because SVG has no ASCII-case-insensitive
+  name matching, and its `relList` is the one place a `DOMTokenList`'s token set is not AngleSharp's
+  (`DomAttributeTokenList`, over the content attribute, because no public member hands out an `ITokenList`
+  for one). Each gets its
   own shape, constructor identity and `@@toStringTag`, and HTML §16.3.3's members are reflected onto it:
   the one place a `ReflectedAttribute` is declared outside `overrides.json`'s `reflected` list, because that
   list is read against the interfaces the generator can see. Putting the members on `HTMLElement` instead
