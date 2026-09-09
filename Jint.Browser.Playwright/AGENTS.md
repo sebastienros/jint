@@ -47,6 +47,12 @@ is not. **Never return `null`, an empty result, or a completed task for somethin
 A silent no-op turns a missing feature into a wrong answer, and an automation script cannot tell the
 difference between "the button was not there" and "clicking is not implemented".
 
+The same reasoning decides an edge the model underneath answers differently. `SetInputFilesAsync` given more
+than one file for an input without `multiple` throws in Playwright's own wording, while
+`Page.SetInputFilesAsync` keeps the first and drops the rest — which is what HTML says a user agent must do.
+Both are right for their own caller: a client of *this* interface is written against one that throws, and
+reporting success with one of its two files selected is the silent wrong answer above.
+
 ## An option that is not honoured throws; it is never ignored
 
 Every entry point taking an options object calls `OptionSupport.EnsureOnly(options, operation, …supported)`,

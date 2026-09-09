@@ -55,7 +55,11 @@ target/runtime split and the manifest are there and none of it is repeated here.
   one character at a time. `Input` is `dispatchMouseEvent`, `dispatchKeyEvent`, `insertText` and an
   `imeSetComposition` that is accepted and changes nothing; touch, drag and the synthesized gestures are
   honestly `-32601`, and the public `Page.ClickAsync`/`TypeAsync`/`PressAsync` reach the same dispatcher
-  rather than a second one. The keyboard's own rules are
+  rather than a second one. **`DOM.setFileInputFiles` is the file chooser there is none of**: clicking an
+  `<input type=file>` only records that a page asked for a picker, so this command, `Page.SetInputFilesAsync`
+  and the Playwright adapter all run one algorithm, `Dom/Files/FileSelection`. It reads the host paths on the
+  loop before it changes anything — a `File` here is memory the engine owns, not a handle, so a failed read
+  leaves the previous selection standing and is `-32000` naming the path rather than an empty selection. The keyboard's own rules are
   [above](../Events/AGENTS.md#the-keyboard-and-the-editor-under-it).
 - **A named isolated world is made again over every document.** Chrome does that, and Puppeteer and
   Playwright each create one utility world when they attach and then use it for the life of the page — so a

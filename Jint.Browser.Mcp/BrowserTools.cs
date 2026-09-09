@@ -126,6 +126,22 @@ public sealed class BrowserTools
         [Description("The option's value, or the text shown for it.")] string value)
         => AnswerAsync(() => _agent.SelectAsync(target, value), ToolJson.Default.ActionOutcome);
 
+    /// <summary>Chooses files for a file input.</summary>
+    [McpServerTool(Name = "upload", Title = "Choose files for a file input")]
+    [Description("""
+        Chooses files from this machine for a file upload field — an <input type=file> — exactly as picking
+        them in the file dialog would: the page sees a FileList, its input and change handlers run, and
+        submitting the form sends the bytes. Clicking a file input does nothing, so this is the only way to
+        fill one; use fill for a text field.
+        Files can only be read from the one directory this server was started with, and the tool answers an
+        error naming that restriction when the deployment allowed none — that is a configuration decision,
+        not something to work around by another route.
+        """)]
+    public Task<CallToolResult> UploadAsync(
+        [Description("A ref= value from an ax snapshot, or a CSS selector naming the <input type=file>.")] string target,
+        [Description("Paths of the files to choose, in order, inside the directory this server uploads from.")] string[] paths)
+        => AnswerAsync(() => _agent.UploadAsync(target, paths), ToolJson.Default.ActionOutcome);
+
     /// <summary>Moves the pointer over an element.</summary>
     [McpServerTool(Name = "hover", Title = "Hover over an element")]
     [Description("Moves the mouse pointer over an element. Only pages that listen for mousemove react; a menu that opens on mouseenter will not, because this browser tracks no pointer position between calls.")]

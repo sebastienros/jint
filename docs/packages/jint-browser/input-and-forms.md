@@ -8,6 +8,7 @@ await page.TypeAsync("#search", "jint");
 await page.PressAsync("Enter");
 await page.ClickAsync("#save");
 await page.SelectAsync("#country", "FR");
+await page.SetInputFilesAsync("#avatar", ["/tmp/portrait.png"]);
 await page.HoverAsync("#menu");
 await page.ScrollToAsync(800);
 ```
@@ -26,6 +27,7 @@ References belong to one document and stop resolving after navigation.
 - `PressAsync` targets the focused element, or the body when nothing is focused.
 - `ClickAsync` scrolls the target into view and runs link, button, checkbox, radio, label, summary, and option activation.
 - `SelectAsync` matches an option by value, then by visible text, and fires `input` followed by `change`.
+- `SetInputFilesAsync` selects files into an `<input type=file>`, which is what a file picker would do and what clicking one cannot: the files are read into memory, `input.files` becomes a `FileList`, `input.value` becomes a fake Windows path plus the first name, and `input` then `change` fire. An overload takes `PageFile` values for content that has no path. An input without `multiple` keeps only the first file, and passing no files clears the selection.
 
 Methods that name an element return `false` when no suitable target exists.
 

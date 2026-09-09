@@ -26,6 +26,12 @@ Locator support currently covers CSS selectors and a first set of role locators,
 waiting and trusted input dispatch. It does not yet reproduce Playwright's complete actionability,
 accessibility-name or atomic locator-resolution semantics.
 
+`SetInputFilesAsync` is supported on the locator, the page and the frame, in all four of its forms — a path,
+paths, a `FilePayload`, payloads — and runs the same file-selection algorithm the page API and the DevTools
+Protocol run. It waits for the element to be attached rather than visible, because a file input is usually
+hidden behind a styled label, and it refuses more than one file for an input without `multiple` in
+Playwright's own words rather than silently keeping the first.
+
 The package is built and tested against Microsoft.Playwright 1.62. Applications can use Playwright's public
 browser, context, page, frame and locator interfaces, but Playwright features that downcast those interfaces
 to its internal implementation, including its built-in assertions, cannot use a third-party implementation.

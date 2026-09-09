@@ -1,4 +1,5 @@
 using AngleSharp.Html.Dom;
+using Jint.Browser.Dom.Files;
 using Jint.Browser.Events;
 using Jint.Browser.Extraction;
 using Jint.Browser.Runtime;
@@ -344,6 +345,120 @@ public sealed partial class Page
             return true;
         });
     }
+
+    /// <summary>Selects host files into the file input <paramref name="target"/> names.</summary>
+    /// <param name="target">A CSS selector, or a <c>ref=</c> from an accessibility snapshot.</param>
+    /// <param name="paths">Paths on this machine, in the order they were chosen.</param>
+    /// <returns><see langword="true"/> when an <c>&lt;input type=file&gt;</c> matched.</returns>
+    /// <remarks>
+    /// <para>
+    /// This is the file chooser a headless browser does not have: clicking a file input records that a page
+    /// asked for a picker nobody could open, and this is what answers instead — the same algorithm the
+    /// protocol's <c>DOM.setFileInputFiles</c> and the Playwright adapter's <c>SetInputFilesAsync</c> run,
+    /// so neither can make a page do something the other cannot.
+    /// </para>
+    /// <para>
+    /// The page then sees a <c>FileList</c> on <c>input.files</c>, a fake Windows path plus the first file's name
+    /// on <c>input.value</c> — HTML's own answer, not a Windows detail — and one <c>input</c> event followed
+    /// by one <c>change</c> event, both trusted and both bubbling. A submission of the form carries the
+    /// bytes as <c>multipart/form-data</c> parts.
+    /// </para>
+    /// <para>
+    /// <b>The files are read here, before the page is touched.</b> The bytes become a <c>Blob</c> the page
+    /// owns, so a file that changes or is deleted afterwards changes nothing; and the read happens off the
+    /// page loop, so a slow disk does not spend the page's own turn budget. An input without the
+    /// <c>multiple</c> attribute takes the first file and no more, which is what HTML says a user agent must
+    /// allow. Passing no paths clears the selection, and still fires both events.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="target"/> or <paramref name="paths"/> is null.</exception>
+    /// <exception cref="FileNotFoundException">One of the paths names no file.</exception>
+    /// <exception cref="IOException">One of the files could not be read.</exception>
+    /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
+    public Task<bool> SetInputFilesAsync(string target, IReadOnlyList<string> paths)
+        => SetInputFilesAsync(target, 0, paths);
+
+    /// <summary>Selects host files into the indexed file input that <paramref name="target"/> names.</summary>
+    /// <param name="target">A CSS selector, or a <c>ref=</c> from an accessibility snapshot.</param>
+    /// <param name="index">The zero-based match, or a negative offset from the last match.</param>
+    /// <param name="paths">Paths on this machine, in the order they were chosen.</param>
+    /// <returns><see langword="true"/> when the indexed match was an <c>&lt;input type=file&gt;</c>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="target"/> or <paramref name="paths"/> is null.</exception>
+    /// <exception cref="FileNotFoundException">One of the paths names no file.</exception>
+    /// <exception cref="IOException">One of the files could not be read.</exception>
+    /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
+    public Task<bool> SetInputFilesAsync(string target, int index, IReadOnlyList<string> paths)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(paths);
+        ObjectDisposedException.ThrowIf(_closed, this);
+
+        var selected = new List<SelectedFile>(paths.Count);
+
+        foreach (var path in paths)
+        {
+            ArgumentNullException.ThrowIfNull(path, nameof(paths));
+            selected.Add(FileSelection.Read(path));
+        }
+
+        return SelectFilesAsync(target, index, selected);
+    }
+
+    /// <summary>Selects files held in memory into the file input <paramref name="target"/> names.</summary>
+    /// <param name="target">A CSS selector, or a <c>ref=</c> from an accessibility snapshot.</param>
+    /// <param name="files">The files, in the order they were chosen.</param>
+    /// <returns><see langword="true"/> when an <c>&lt;input type=file&gt;</c> matched.</returns>
+    /// <remarks>
+    /// The overload for content with no path — a generated document, a fixture in a resource. Everything
+    /// else is as <see cref="SetInputFilesAsync(string, IReadOnlyList{string})"/> describes it.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="target"/> or <paramref name="files"/> is null.</exception>
+    /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
+    public Task<bool> SetInputFilesAsync(string target, IReadOnlyList<PageFile> files)
+        => SetInputFilesAsync(target, 0, files);
+
+    /// <summary>Selects files held in memory into the indexed file input that <paramref name="target"/> names.</summary>
+    /// <param name="target">A CSS selector, or a <c>ref=</c> from an accessibility snapshot.</param>
+    /// <param name="index">The zero-based match, or a negative offset from the last match.</param>
+    /// <param name="files">The files, in the order they were chosen.</param>
+    /// <returns><see langword="true"/> when the indexed match was an <c>&lt;input type=file&gt;</c>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="target"/> or <paramref name="files"/> is null.</exception>
+    /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
+    public Task<bool> SetInputFilesAsync(string target, int index, IReadOnlyList<PageFile> files)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(files);
+        ObjectDisposedException.ThrowIf(_closed, this);
+
+        var selected = new List<SelectedFile>(files.Count);
+
+        foreach (var file in files)
+        {
+            ArgumentNullException.ThrowIfNull(file, nameof(files));
+            selected.Add(new SelectedFile(
+                file.Name,
+                file.MimeType,
+                file.Content,
+                file.LastModified.ToUnixTimeMilliseconds()));
+        }
+
+        return SelectFilesAsync(target, index, selected);
+    }
+
+    /// <summary>The one place a selection is made, whatever the files came from.</summary>
+    private Task<bool> SelectFilesAsync(string target, int index, List<SelectedFile> files)
+        => _loop.PostAsync(engine =>
+        {
+            if (PageRuntime.Find(engine) is not { } runtime
+                || ElementLocator.Find(runtime.Document, target, index) is not IHtmlInputElement input
+                || !FileSelection.IsFileInput(input))
+            {
+                return false;
+            }
+
+            FileSelection.Update(runtime, input, files);
+            return true;
+        });
 
     /// <summary>Scrolls the page to <paramref name="y"/>, clamped to the document.</summary>
     /// <param name="y">The offset from the top of the document, in CSS pixels.</param>

@@ -73,6 +73,7 @@ is what a deployment decides: the security posture, the budgets, the ceiling on 
 | `navigate(url, waitUntil?)` | Loads a URL; answers its final URL, title and status. |
 | `snapshot(mode?, mainContentOnly?, maxLength?)` | Reads the page. `ax` (the default) is the accessibility tree with a `ref=` on every element; `markdown` is the page as prose; `text` is the same without formatting. |
 | `click`, `fill`, `type`, `press`, `select`, `hover`, `scroll` | Drive the page. Each takes a `ref=` from an `ax` snapshot or a CSS selector. |
+| `upload(target, paths)` | Chooses files for an `<input type=file>`, as a file dialog would. **Refused unless a deployment set `BrowserAgentOptions.UploadDirectory`**, and refused for anything outside it. |
 | `back`, `forward`, `reload` | The three buttons above the page. |
 | `evaluate(expression)` | Runs one JavaScript expression and answers its JSON, serialized by the page. |
 | `wait_for(selector?, text?, timeoutSeconds?)` | Waits for the page to catch up with what an action started. |
@@ -101,6 +102,13 @@ cloud-metadata addresses are refused.
 `BrowserAgentOptions.Trusted` turns the profile off and `BlockPrivateNetwork` decides the network rule on its
 own, so a deployment pointing an agent at its own staging server says so once, out loud. `UrlFilter` is the
 narrower tool and the one to reach for: it is checked on the first hop and on every redirect.
+
+**`upload` is off until a directory is named, and it is the one tool that can move data outwards.** Every
+other tool sends a page only what that page already had; an upload sends a file from this machine to a site
+the model chose, and a model reading a page is a model that page can try to instruct. So
+`BrowserAgentOptions.UploadDirectory` names the one directory files may be read from — nothing outside it,
+and a symbolic link is followed before that is decided — and with no directory named the tool answers an
+error rather than a file.
 
 ## Sessions and HTTP
 
