@@ -153,14 +153,17 @@ internal static partial class DomInterfaces
     /// <summary>The <c>DOMImplementation</c> interface, projected from <c>AngleSharp.Dom.IImplementation</c>.</summary>
     internal static readonly DomInterfaceDefinition DOMImplementation;
 
+    /// <summary>The <c>DOMTokenList</c> interface, projected from <c>AngleSharp.Dom.ITokenList</c>.</summary>
+    internal static readonly DomInterfaceDefinition DOMTokenList;
+
+    /// <summary>The <c>DOMSettableTokenList</c> interface, projected from <c>AngleSharp.Dom.ISettableTokenList</c>.</summary>
+    internal static readonly DomInterfaceDefinition DOMSettableTokenList;
+
     /// <summary>The <c>DOMStringList</c> interface, projected from <c>AngleSharp.Dom.IStringList</c>.</summary>
     internal static readonly DomInterfaceDefinition DOMStringList;
 
     /// <summary>The <c>DOMStringMap</c> interface, projected from <c>AngleSharp.Dom.IStringMap</c>.</summary>
     internal static readonly DomInterfaceDefinition DOMStringMap;
-
-    /// <summary>The <c>DOMTokenList</c> interface, projected from <c>AngleSharp.Dom.ITokenList</c>.</summary>
-    internal static readonly DomInterfaceDefinition DOMTokenList;
 
     /// <summary>The <c>Document</c> interface, projected from <c>AngleSharp.Dom.IDocument</c>.</summary>
     internal static readonly DomInterfaceDefinition Document;
@@ -521,7 +524,7 @@ internal static partial class DomInterfaces
 
     static DomInterfaces()
     {
-        var all = new global::System.Collections.Generic.List<DomInterfaceDefinition>(167);
+        var all = new global::System.Collections.Generic.List<DomInterfaceDefinition>(168);
 
         ApplicationCache = Add(new DomInterfaceDefinition(
             "ApplicationCache",
@@ -999,6 +1002,26 @@ internal static partial class DomInterfaces
             hasInterfaceObject: true,
             DomWrapperKind.Object));
 
+        DOMTokenList = Add(new DomInterfaceDefinition(
+            "DOMTokenList",
+            typeof(global::AngleSharp.Dom.ITokenList),
+            BuildDOMTokenList,
+            null,
+            rootsAtEventTarget: false,
+            hasInterfaceObject: true,
+            DomWrapperKind.Collection,
+            collectionAccessor: DomAccessorDOMTokenList.Instance));
+
+        DOMSettableTokenList = Add(new DomInterfaceDefinition(
+            "DOMSettableTokenList",
+            typeof(global::AngleSharp.Dom.ISettableTokenList),
+            BuildDOMSettableTokenList,
+            DOMTokenList,
+            rootsAtEventTarget: false,
+            hasInterfaceObject: true,
+            DomWrapperKind.Collection,
+            collectionAccessor: DomAccessorDOMSettableTokenList.Instance));
+
         DOMStringList = Add(new DomInterfaceDefinition(
             "DOMStringList",
             typeof(global::AngleSharp.Dom.IStringList),
@@ -1018,16 +1041,6 @@ internal static partial class DomInterfaces
             hasInterfaceObject: true,
             DomWrapperKind.NamedMap,
             collectionAccessor: DomAccessorDOMStringMap.Instance));
-
-        DOMTokenList = Add(new DomInterfaceDefinition(
-            "DOMTokenList",
-            typeof(global::AngleSharp.Dom.ITokenList),
-            BuildDOMTokenList,
-            null,
-            rootsAtEventTarget: false,
-            hasInterfaceObject: true,
-            DomWrapperKind.Collection,
-            collectionAccessor: DomAccessorDOMTokenList.Instance));
 
         Document = Add(new DomInterfaceDefinition(
             "Document",

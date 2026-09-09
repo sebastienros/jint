@@ -114,6 +114,17 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.draggable");
                     self.Target.IsDraggable = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
                 }))
+            .Accessor("dropzone",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLElement.dropzone", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.dropzone");
+                    return self.Realm.Wrap(self.Target.DropZone);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLElement.dropzone", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.dropzone");
+                    var forwardTarget = self.Target.DropZone; if (forwardTarget is not null) { forwardTarget.Value = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLElement.dropzone"); } return global::Jint.Native.JsValue.Undefined;
+                }))
             .Accessor("enterKeyHint",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLElement.enterKeyHint", static (thisObj, args) =>
                 {
