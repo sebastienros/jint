@@ -273,4 +273,137 @@ public sealed class CustomElementTests
 
         (await page.EvaluateAsync<string>("window.log.join('|')")).Should().Be("ctor|true|false");
     }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/custom-elements.html#dom-customelementregistry-getname takes a
+    /// <c>CustomElementConstructor</c>, so a value that is not callable is refused by the WebIDL conversion
+    /// rather than looked up and answered as <see langword="null"/>.
+    /// </summary>
+    [TestCase("undefined")]
+    [TestCase("null")]
+    [TestCase("'foo-bar'")]
+    [TestCase("1")]
+    [TestCase("({})")]
+    [TestCase("[]")]
+    public async Task GetNameRefusesAnArgumentThatIsNotCallable(string argument)
+    {
+        await using var browser = new Browser();
+        var page = await PageWith(browser, "<p></p>");
+
+        (await page.EvaluateAsync<string>(
+                "(() => { try { customElements.getName(" + argument
+                + "); return 'no throw'; } catch (e) { return e.constructor.name; } })()"))
+            .Should().Be("TypeError");
+    }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/dom.html#html-element-constructors step 2: an interface object
+    /// registered as its own constructor cannot be the <c>NewTarget</c> of its own constructor.
+    /// </summary>
+    [Test]
+    public async Task ConstructingAnInterfaceObjectRegisteredAsItsOwnConstructorIsATypeError()
+    {
+        await using var browser = new Browser();
+        var page = await PageWith(browser,
+            """
+            <script>
+              customElements.define('x-html-element', HTMLElement);
+              window.direct = (() => { try { new HTMLElement(); return 'no throw'; } catch (e) { return e.constructor.name; } })();
+              window.viaProxy = (() => {
+                customElements.define('x-proxy-element', new Proxy(HTMLElement, {}));
+                try { new HTMLElement(); return 'no throw'; } catch (e) { return e.constructor.name; }
+              })();
+            </script>
+            """);
+
+        (await page.EvaluateAsync<string>("window.direct + '|' + window.viaProxy")).Should().Be("TypeError|TypeError");
+    }
+
+    /// <summary>
+    /// WebIDL's <c>[Global]</c> puts an interface's members on the global object itself, so a page can save
+    /// <c>customElements</c>'s descriptor, replace the global and put the descriptor back — and creation goes
+    /// on working while it is replaced, because nothing reads the registry through the global.
+    /// </summary>
+    [Test]
+    public async Task TheRegistryIsAnOwnPropertyOfTheGlobalThatSurvivesBeingReplaced()
+    {
+        await using var browser = new Browser();
+        var page = await PageWith(browser,
+            """
+            <script>
+              class Thing extends HTMLElement {}
+              customElements.define('x-thing', Thing);
+              const saved = Object.getOwnPropertyDescriptor(window, 'customElements');
+              Object.defineProperty(window, 'customElements', { value: {}, configurable: true });
+              const created = document.createElement('x-thing') instanceof Thing;
+              const constructed = new Thing() instanceof Thing;
+              Object.defineProperty(window, 'customElements', saved);
+              window.result = [typeof saved, created, constructed, customElements.get('x-thing') === Thing].join('|');
+            </script>
+            """);
+
+        (await page.EvaluateAsync<string>("window.result")).Should().Be("object|true|true|true");
+    }
+
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#validate-and-extract: a qualified name's <i>local</i> name is what the
+    /// definition is looked up under, and the element keeps the prefix.
+    /// </summary>
+    /// <remarks>
+    /// The prefix is readable inside the constructor, where DOM says it is still null: the divergence
+    /// <c>CustomElementRegistry.Construction</c> argues, because AngleSharp's <c>Prefix</c> is read-only.
+    /// </remarks>
+    [Test]
+    public async Task CreateElementNsWithAPrefixLooksTheDefinitionUpUnderTheLocalName()
+    {
+        await using var browser = new Browser();
+        var page = await PageWith(browser,
+            """
+            <script>
+              class Thing extends HTMLElement {}
+              customElements.define('x-thing', Thing);
+              const el = document.createElementNS('http://www.w3.org/1999/xhtml', 'p:x-thing');
+              const inner = document.createElementNS('http://www.w3.org/1999/xhtml', 'x-thing');
+              window.result = [el instanceof Thing, el.prefix, el.localName, el.tagName, String(inner.prefix)].join('|');
+            </script>
+            """);
+
+        (await page.EvaluateAsync<string>("window.result")).Should().Be("true|p|x-thing|P:X-THING|null");
+    }
+
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#concept-range-clone and #concept-range-extract reach "clone a node" for
+    /// every partially contained ancestor, and cloning an element a definition names enqueues an upgrade — so
+    /// the constructors run, in tree order, before the member returns.
+    /// </summary>
+    [Test]
+    public async Task RangeCloneAndExtractRunTheConstructorsOfTheElementsTheyClone()
+    {
+        await using var browser = new Browser();
+        var page = await PageWith(browser,
+            """
+            <x-thing id="root"><x-thing id="a"><span id="start"></span></x-thing><x-thing id="b"></x-thing><span id="end"></span></x-thing>
+            <script>
+              window.log = [];
+              class Thing extends HTMLElement { constructor() { super(); window.log.push(this.id); } }
+              customElements.define('x-thing', Thing);
+              function range() {
+                const r = new Range();
+                r.setStart(document.getElementById('start'), 0);
+                r.setEnd(document.getElementById('end'), 0);
+                return r;
+              }
+              window.log = [];
+              range().cloneContents();
+              window.cloned = window.log.join(',');
+              window.log = [];
+              range().extractContents();
+              window.extracted = window.log.join(',');
+            </script>
+            """);
+
+        (await page.EvaluateAsync<string>("window.cloned")).Should().Be("a,b");
+        (await page.EvaluateAsync<string>("window.extracted")).Should().Be("a");
+        page.Errors.Should().BeEmpty();
+    }
 }
