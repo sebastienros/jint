@@ -10,6 +10,8 @@ namespace Jint.Browser.Runtime.Parsing;
 internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFactory
 {
     private const string AnyLink = "any-link";
+    // The pseudo-class HTML calls "default"; the name is taken by the helper which reads AngleSharp's own.
+    private const string DefaultState = "default";
     private const string Disabled = "disabled";
     private const string Enabled = "enabled";
     private const string Link = "link";
@@ -19,6 +21,7 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
     private static readonly ISelector _target = new TargetSelector();
     private readonly DefaultPseudoClassSelectorFactory _defaults = new();
     private readonly ISelector _anyLink;
+    private readonly ISelector _default;
     private readonly ISelector _disabled;
     private readonly ISelector _enabled;
     private readonly ISelector _link;
@@ -26,6 +29,7 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
 
     internal PagePseudoClassSelectorFactory()
     {
+        _default = new DefaultSelector(Default(DefaultState));
         _enabled = new DisabledStateSelector(Default(Enabled), disabled: false);
         _disabled = new DisabledStateSelector(Default(Disabled), disabled: true);
         _link = new LinkStateSelector(Default(Link), visited: false);
@@ -49,6 +53,11 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
         if (string.Equals(name, Disabled, StringComparison.OrdinalIgnoreCase))
         {
             return _disabled;
+        }
+
+        if (string.Equals(name, DefaultState, StringComparison.OrdinalIgnoreCase))
+        {
+            return _default;
         }
 
         if (string.Equals(name, Link, StringComparison.OrdinalIgnoreCase))
@@ -80,6 +89,114 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
     private ISelector Default(string name)
         => _defaults.Create(name)
             ?? throw new InvalidOperationException($"AngleSharp no longer supplies the :{name} selector.");
+
+    /// <summary>
+    /// HTML §4.16.3: <c>:default</c> matches a submit button which is the default button of its form owner,
+    /// an <c>input</c> the <c>checked</c> attribute applies to and which carries it, and an <c>option</c>
+    /// carrying <c>selected</c>. Nothing here reads a control's current state: all three are about the
+    /// markup a form would be reset to.
+    /// </summary>
+    private sealed class DefaultSelector(ISelector defaults) : ISelector
+    {
+        public string Text => defaults.Text;
+
+        public Priority Specificity => defaults.Specificity;
+
+        public bool Match(IElement element, IElement? scope)
+        {
+            if (element is IHtmlOptionElement)
+            {
+                return element.HasAttribute("selected");
+            }
+
+            // §4.10.5.3.5 and §4.10.5.3.6: `checked` applies to exactly these two type states.
+            if (element is IHtmlInputElement input && IsOneOf(input.Type, "checkbox", "radio"))
+            {
+                return element.HasAttribute("checked");
+            }
+
+            return IsASubmitButton(element) && IsTheDefaultButtonOfItsForm(element);
+        }
+
+        public void Accept(ISelectorVisitor visitor) => defaults.Accept(visitor);
+
+        /// <summary>
+        /// §4.10.6: a <c>button</c>'s <c>type</c> is an enumerated attribute whose missing <i>and</i>
+        /// invalid value defaults are both Submit Button, so only the other two keywords are not one;
+        /// §4.10.5.1.20 and §4.10.5.1.21 make <c>submit</c> and <c>image</c> inputs submit buttons too.
+        /// </summary>
+        private static bool IsASubmitButton(IElement element)
+        {
+            if (element is IHtmlButtonElement button)
+            {
+                return !IsOneOf(button.Type, "reset", "button");
+            }
+
+            return element is IHtmlInputElement input && IsOneOf(input.Type, "submit", "image");
+        }
+
+        /// <summary>
+        /// §4.10.21.2: a form's default button is the first submit button in tree order whose form owner is
+        /// that form — ownership, not containment, so the <c>form</c> attribute puts a button outside the
+        /// form in the running and takes a contained one out of it. The scan stops at the first submit
+        /// button the form owns, which is the answer either way, and only a submit button ever starts one.
+        /// </summary>
+        private static bool IsTheDefaultButtonOfItsForm(IElement element)
+        {
+            if (FormOwnerOf(element) is not { } form)
+            {
+                return false;
+            }
+
+            var root = element;
+            while (root.ParentElement is { } parent)
+            {
+                root = parent;
+            }
+
+            for (var candidate = root; candidate is not null; candidate = NextInTreeOrder(candidate, root))
+            {
+                if (IsASubmitButton(candidate) && ReferenceEquals(FormOwnerOf(candidate), form))
+                {
+                    return ReferenceEquals(candidate, element);
+                }
+            }
+
+            return false;
+        }
+
+        private static IHtmlFormElement? FormOwnerOf(IElement element) => element switch
+        {
+            IHtmlButtonElement button => button.Form,
+            IHtmlInputElement input => input.Form,
+            _ => null,
+        };
+
+        /// <summary>The next element of <paramref name="root"/>'s subtree in tree order, or none.</summary>
+        private static IElement? NextInTreeOrder(IElement element, IElement root)
+        {
+            if (element.FirstElementChild is { } child)
+            {
+                return child;
+            }
+
+            for (IElement? current = element;
+                current is not null && !ReferenceEquals(current, root);
+                current = current.ParentElement)
+            {
+                if (current.NextElementSibling is { } sibling)
+                {
+                    return sibling;
+                }
+            }
+
+            return null;
+        }
+
+        private static bool IsOneOf(string value, string first, string second)
+            => string.Equals(value, first, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(value, second, StringComparison.OrdinalIgnoreCase);
+    }
 
     /// <summary>
     /// HTML §4.16.3: <c>:enabled</c> matches every <c>button</c>, <c>input</c>, <c>select</c>,
