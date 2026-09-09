@@ -275,6 +275,10 @@ internal static class DomReflected
     internal static readonly ReflectedAttribute HTMLImageElementHspace =
         ReflectedAttribute.Numeric("HTMLImageElement.hspace", "hspace", ReflectedKind.UnsignedLong, 0);
 
+    /// <summary><c>HTMLImageElement.loading</c> reflects <c>loading</c> as an enum.</summary>
+    internal static readonly ReflectedAttribute HTMLImageElementLoading =
+        ReflectedAttribute.Enumerated("HTMLImageElement.loading", "loading", ["lazy", "eager"], missing: "eager", invalid: "eager");
+
     /// <summary><c>HTMLImageElement.longDesc</c> reflects <c>longdesc</c> as an url.</summary>
     internal static readonly ReflectedAttribute HTMLImageElementLongDesc =
         ReflectedAttribute.Url("HTMLImageElement.longDesc", "longdesc");

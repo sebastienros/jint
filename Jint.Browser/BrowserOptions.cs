@@ -36,6 +36,7 @@ public sealed class BrowserOptions
     private TimeSpan _fetchTimeout = TimeSpan.FromSeconds(30);
     private int _maxDomNodes;
     private int _maxFrameDocuments = 16;
+    private int _maxImageRequests = 1000;
     private bool? _blockPrivateNetwork;
 
     /// <summary>What a page reports itself as, in script and on the wire.</summary>
@@ -271,6 +272,40 @@ public sealed class BrowserOptions
         set => _maxFrameDocuments = value >= 0
             ? value
             : throw new ArgumentOutOfRangeException(nameof(value), value, "MaxFrameDocuments cannot be negative.");
+    }
+
+    /// <summary>
+    /// How many images one document may fetch; 1000 by default, and zero to fetch none.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>What it bounds is the count, because nothing else does.</b>
+    /// <see cref="MaxSubresourceBytes"/> bounds each response and <see cref="SubresourceTimeout"/> each
+    /// wait; neither bounds a document with fifty thousand <c>&lt;img&gt;</c> elements, and unlike a script
+    /// or a style sheet that is an ordinary shape for a page rather than an abusive one. It counts requests
+    /// <i>started</i> over the life of the document, so a script rewriting one element's <c>src</c> in a
+    /// loop meets the same ceiling as a document full of elements.
+    /// </para>
+    /// <para>
+    /// <b>Zero is the opt-out, and it is exactly what this browser did before it had an image model</b>:
+    /// every <c>&lt;img src&gt;</c> is recorded in <see cref="Page.Requests"/> with a
+    /// <see cref="PageRequest.NotFetchedReason"/>, no socket is opened, no <c>load</c> or <c>error</c> is
+    /// fired, and <c>img.complete</c> stays <see langword="false"/>. A host that only wants a page's text
+    /// and its DOM pays nothing for the images it will never look at.
+    /// </para>
+    /// <para>
+    /// What is read out of an image is its container header: two numbers, for <c>naturalWidth</c> and
+    /// <c>naturalHeight</c>. There is no pixel decode and no bitmap retained, so the memory an image costs
+    /// once its request has settled is the two integers and its URL.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The value is negative.</exception>
+    public int MaxImageRequests
+    {
+        get => _maxImageRequests;
+        set => _maxImageRequests = value >= 0
+            ? value
+            : throw new ArgumentOutOfRangeException(nameof(value), value, "MaxImageRequests cannot be negative.");
     }
 
     /// <summary>The most bytes one document may be; 32 MiB by default.</summary>

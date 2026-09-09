@@ -585,12 +585,21 @@ internal sealed class ModelBuilder
 
             var descriptor = "global::Jint.Browser.Dom.DomReflected." + field;
 
+            // A getter hook beside a reflected entry is the shape of an IDL attribute whose *write* is
+            // HTML's reflection and whose *read* is not: `img.width` and `img.height` set the content
+            // attribute and answer the density-corrected intrinsic size of an available image, which no
+            // reflection algorithm can express. Reaching for `skip` + `additions` instead would give up the
+            // parsing rules the entry is here for.
+            var read = _overrides.Hooks.FirstOrDefault(h =>
+                h.Interface == model.DomName && h.Member == entry.Member && h.Half == "getter") is { } getterHook
+                ? "self.Realm.Hooks." + getterHook.Hook + "(self.Realm, self.Target)"
+                : descriptor + (entry.Type == "url" ? ".Get(self.Realm, self.Target)" : ".Get(self.Target)");
+
             model.Members.Add(new MemberModel
             {
                 DomName = entry.Member,
                 Kind = MemberKind.Attribute,
-                Body = Bind(model, qualified) + "return " + descriptor
-                    + (entry.Type == "url" ? ".Get(self.Realm, self.Target);" : ".Get(self.Target);"),
+                Body = Bind(model, qualified) + "return " + read + ";",
                 SetterBody = Bind(model, qualified) + "return " + descriptor + ".Set(self.Realm, self.Target, args);",
                 Origin = "overrides.json (reflected)",
             });

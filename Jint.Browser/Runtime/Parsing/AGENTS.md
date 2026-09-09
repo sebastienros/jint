@@ -108,12 +108,44 @@ to see the moment it starts the deferred queue. `DOMContentLoaded` (bubbling, at
 module scripts; `complete` and then `load` and `pageshow` (at the window) follow every subresource, which is
 the order HTML gives and the reason a `load` listener reads `"complete"`.
 
-**What is not fetched is recorded, not skipped.** An `<img>`, a non-stylesheet `<link>`: there is no
-rendering to need them, so the reference goes into `Page.Requests` with a `PageRequest.NotFetchedReason` and
-no socket is opened. A refusal and a failure are both a download that completes with a `null` response, which
-is the shape AngleSharp's own processors already test for; the `load` and `error` a *page* hears are
-dispatched through Jint's dispatcher, because AngleSharp's go into its own listener lists. `integrity` and
-`crossorigin` are accepted and ignored, and say so here rather than in a sentence nobody reads.
+**What is not fetched is recorded, not skipped.** A media element, an `<embed>`, a non-stylesheet `<link>`:
+there is no rendering to need them, so the reference goes into `Page.Requests` with a
+`PageRequest.NotFetchedReason` and no socket is opened. A refusal and a failure are both a download that
+completes with a `null` response, which is the shape AngleSharp's own processors already test for; the `load`
+and `error` a *page* hears are dispatched through Jint's dispatcher, because AngleSharp's go into its own
+listener lists. `integrity` and `crossorigin` are accepted and ignored, and say so here rather than in a
+sentence nobody reads.
+
+**An image *is* fetched, and what is read out of it is thirty bytes.** HTML §4.8.4.3's image request is what
+`img.complete`, `currentSrc`, `naturalWidth`/`naturalHeight`, `width`/`height` and the `load`/`error` events
+are answers about, and a page that has none of them is a page every lazy-loading library and every UI shell
+waits on for ever. `ParserDriver.FetchImage` serves the request AngleSharp's own `ImageRequestProcessor`
+makes — for an `<img>` and for an `<input type=image>` alike — and `Media/ImageHeader` reads the intrinsic
+size out of the container header and **never a pixel**: PNG, JPEG, GIF, WebP, BMP, ICO and SVG state one, and
+anything else is HTML's *broken* state with an `error` event rather than an available image of 0×0.
+`Media/PageImages` holds the current-request state the four members answer from, because AngleSharp's own
+`IsCompleted` is "an `IImageInfo` exists" and no `IResourceService<IImageInfo>` is registered — registering
+one would mean decoding. Four things follow and each is load-bearing:
+
+- **The bound is `BrowserOptions.MaxImageRequests`**, counted over the document, with `MaxSubresourceBytes`
+  and `SubresourceTimeout` bounding each request as they do a script's. **Zero is the opt-out and is exactly
+  what this browser did before**: the reference is recorded, no socket is opened, and no event is fired,
+  because nothing was attempted.
+- **An image's `load`/`error` waits for the tokenizer; a style sheet's does not.** Both are queued as element
+  tasks through `QueueResourceEvent`, and both delay the window's `load`. But this browser yields to its loop
+  while it *fetches* an image, where a browser would have carried on tokenizing — so delivering there would
+  make `<img src>` followed by a `<script>` that installs `onload` miss the event, which no browser does. The
+  parser really does wait for a style sheet, and `AStyleSheetLoadDuringAParserNetworkWaitSeesTheInstalledSheet`
+  pins that its `load` arrives while it does.
+- **`loading=lazy` loads eagerly**, because whether an image is within the lazy load root's scrolling area is
+  a question about a layout there is none of. Never loading one would leave every image of an infinite-scroll
+  page `complete === false` for ever, which is the state those libraries block on — the same argument
+  `IntersectionObserver` makes for reporting every target as intersecting.
+- **What no header can say is stated rather than guessed**: an animated GIF is its logical screen and has no
+  frames, there is no colour and no EXIF orientation, a file whose header disagrees with its pixels is
+  believed, and a broken container has no width at all. `Dom/divergences.md` carries the rows a page can see,
+  including the two AngleSharp gaps this leaves — `srcset`/`<picture>` selection ignores every descriptor and
+  every `media`, and an `<img src="">` fires no `error` because AngleSharp asks the loader for nothing.
 
 **Two schemes reach no socket, and one of them carries a body.** `about:blank` is answered as the empty HTML
 document a frame's `src` most often names. A `data:` URL is answered by

@@ -1531,6 +1531,48 @@
       "reason": "The Element spelling invokes the same live namespace/local-name collection algorithm as Document."
     },
     {
+      "interface": "HTMLImageElement",
+      "member": "complete",
+      "half": "getter",
+      "hook": "ImageComplete",
+      "reason": "HTML 4.8.4.2 makes complete true for an <img> with no src and no srcset at all, and true for a broken one; AngleSharp's IsCompleted is 'an IImageInfo exists', which is false in both cases and in every case where no IResourceService<IImageInfo> is registered. The page's own image lane holds HTML's current-request state instead -- see Jint.Browser/Media/PageImages."
+    },
+    {
+      "interface": "HTMLImageElement",
+      "member": "currentSrc",
+      "half": "getter",
+      "hook": "ImageCurrentSrc",
+      "reason": "HTML 4.8.4.2: the URL of the current request, which is the response's and therefore carries the redirects the fetch followed. AngleSharp's ActualSource reads the IImageInfo's source, which is null with no image service registered."
+    },
+    {
+      "interface": "HTMLImageElement",
+      "member": "naturalWidth",
+      "half": "getter",
+      "hook": "ImageNaturalWidth",
+      "reason": "HTML 4.8.4.2: the intrinsic width of an available image. AngleSharp's OriginalWidth reads a decoded IImageInfo; this browser reads the container header instead and never decodes a pixel -- see Jint.Browser/Media/ImageHeader."
+    },
+    {
+      "interface": "HTMLImageElement",
+      "member": "naturalHeight",
+      "half": "getter",
+      "hook": "ImageNaturalHeight",
+      "reason": "The height half of the same intrinsic size."
+    },
+    {
+      "interface": "HTMLImageElement",
+      "member": "width",
+      "half": "getter",
+      "hook": "ImageWidth",
+      "reason": "HTML 4.8.4.4 makes the width getter the element's box when it is being rendered, the density-corrected intrinsic width when it is available and not, and 0 otherwise -- never the content attribute, which is only what the setter writes. So the reflected entry beside this one is the setter alone. The flat box model gives every rendered element the viewport width, so the content attribute stands in for the box it maps to and the intrinsic size answers when there is none."
+    },
+    {
+      "interface": "HTMLImageElement",
+      "member": "height",
+      "half": "getter",
+      "hook": "ImageHeight",
+      "reason": "The height half of the same rule."
+    },
+    {
       "interface": "HTMLElement",
       "member": "dataset",
       "half": "getter",
@@ -2349,6 +2391,16 @@
       "type": "enum",
       "keywords": ["", "no-referrer", "no-referrer-when-downgrade", "same-origin", "origin", "strict-origin", "origin-when-cross-origin", "strict-origin-when-cross-origin", "unsafe-url"],
       "reason": "HTML \u00a72.6.7: a referrer policy attribute is an enumerated attribute whose keywords are the Referrer Policy specification's, with an empty invalid and missing value default. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLImageElement",
+      "member": "loading",
+      "attribute": "loading",
+      "type": "enum",
+      "keywords": ["lazy", "eager"],
+      "missing": "eager",
+      "invalid": "eager",
+      "reason": "HTML 4.8.4.1: loading is an enumerated attribute whose missing and invalid value defaults are both eager. AngleSharp has no member for it. This browser has no layout and therefore no lazy load root to intersect with, so a lazy image loads eagerly and the attribute is what a page reads back -- see ParserDriver.FetchImage."
     },
     {
       "interface": "HTMLImageElement",
