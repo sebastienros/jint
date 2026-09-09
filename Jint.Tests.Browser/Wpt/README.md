@@ -33,12 +33,12 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `dom/ranges/` | 17 | 0 | 82 | 4 |
 | `html/dom/` | 15 | 0 | 56,745 | 41 |
 | `html/webappapis/scripting/events/` | 12 | 0 | 37 | 5 |
-| `html/webappapis/scripting/processing-model-2/` | 25 | 0 | 44 | 12 |
+| `html/webappapis/scripting/processing-model-2/` | 25 | 0 | 44 | 5 |
 | `custom-elements/` | 16 | 0 | 513 | 248 |
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 52 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 3 |
-| **total** | **359** | **9** | **66,646** | **1,165** |
+| **total** | **359** | **9** | **66,646** | **1,158** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -67,30 +67,32 @@ passive value, one activation behaviour per click, the detached control's silent
 the window — and the three seams two of them needed in the engine are
 [#3696](https://github.com/sebastienros/jint/pull/3696).
 
-What `NeedsTriage` holds now is four things, each bounded and each named by the exclusion table:
+**Two more left `NeedsTriage` with the script-loading path, and both were about a URL.** A `data:` URL is a
+subresource now: `ParserDriver` answers the `data` arm of
+[scheme fetch](https://fetch.spec.whatwg.org/#scheme-fetch) out of
+[Fetch §5.2's processor](https://fetch.spec.whatwg.org/#data-url-processor) rather than over a socket, so
+`<script src="data:text/javascript,…">` runs and the three `processing-model-2/` documents about it pass.
+And a subresource's response URL carries its fragment, which is what
+[Fetch](https://fetch.spec.whatwg.org/#concept-response-url) says a response URL *is* — the fragment is left
+out of the request-target and of nothing else — so `<script src="support/syntax-error.js#">` reports the `#`
+that the same element's `src` already reflected, instead of losing it to a re-serialization. Five rows and
+two; the same processor also replaced the page's *second*, open-coded `data:` decoder, so a navigation to
+one now reads its `charset` and takes a payload `Convert.FromBase64String` refuses.
 
-1. **A `data:` URL is not fetched as a subresource.** A page navigates to one, so
-   `<script src="data:text/javascript,…">` is the one shape of external script that never runs; three
-   `processing-model-2/` documents are about exactly that script. The report site those documents test works,
-   which their `<script src>` and inline siblings say.
-2. **A URL's fragment is dropped between the element and the error report.** This entry used to be
-   "`script.src` does not reflect a URL" and four rows; [#3770](https://github.com/sebastienros/jint/issues/3770)'s
-   reflection machinery took the member over and two of the four are cases now. The two that remain load
-   `<script src="support/syntax-error.js#">` and the URL `onerror` reports has lost the trailing `#`, so what
-   goes missing is the (empty) fragment rather than the resolution — a re-serialization on the
-   script-loading path, and a change to `Jint.Browser/Runtime/` rather than to the binding.
-3. **A DOM prototype carries no `@@unscopables`.** WebIDL puts one on the interface prototype object of every
+What `NeedsTriage` holds now is two things, each bounded and each named by the exclusion table:
+
+1. **A DOM prototype carries no `@@unscopables`.** WebIDL puts one on the interface prototype object of every
    interface with an `[Unscopable]` member — `Element`'s and `Document`'s `append`, `prepend` and
    `replaceChildren` among them — and the generator emits none, because AngleSharp's metadata does not say
    which members are unscopable. `compile-event-handler-symbol-unscopables.html` never reaches its subject:
    it *writes* to `document[Symbol.unscopables]`.
-4. **A form-associated custom element has no form owner.** `window.customElements` exists now, and the one
+2. **A form-associated custom element has no form owner.** `window.customElements` exists now, and the one
    row of `compile-event-handler-lexical-scopes-form-owner.html` that is left asserts that a compiled handler
    on an `<x-foo static formAssociated>` sees the *form's* lexical scope — which needs the element to be a
    form-associated element and take part in `form.elements`. This package records the flag and nothing
    consults it: there is no `ElementInternals`. The file's other three rows pass.
 
-The twenty-two `<a>`/`<area>` shapes of `Event-dispatch-single-activation-behavior.html` were the fifth, and
+The twenty-two `<a>`/`<area>` shapes of `Event-dispatch-single-activation-behavior.html` were another, and
 they pass now. What kept them red was not the page loop's scheduling but the fragment arm being gated on the
 page's own load having returned and on the navigation gate being free: this file's tests run *during* the
 parse, where neither is true, so every one of their fragment moves was queued as a whole navigation behind

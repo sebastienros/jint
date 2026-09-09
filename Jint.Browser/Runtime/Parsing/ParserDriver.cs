@@ -8,6 +8,7 @@ using AngleSharp.Scripting;
 using Jint.Native;
 using Jint.Runtime;
 using Jint.WebApi.Events;
+using Jint.WebApi.Fetch;
 using Jint.Runtime.Modules;
 using Jint.WebApi.Url.Parsing;
 
@@ -474,8 +475,7 @@ internal sealed class ParserDriver : IDisposable
                 frame,
                 "frame document",
                 PageRequestKind.Frame,
-                handedOver,
-                documentResponse: true);
+                handedOver);
         });
     }
 
@@ -565,12 +565,22 @@ internal sealed class ParserDriver : IDisposable
         IElement source,
         string what,
         PageRequestKind kind,
-        bool mayPump,
-        bool documentResponse = false)
+        bool mayPump)
     {
         var target = UrlParser.Parse(url);
 
-        if (target is null || !PageUrl.IsNetworkScheme(target))
+        if (target is null)
+        {
+            FailSubresource(source, url, "'" + url + "' is not a URL a page can load.");
+            return null;
+        }
+
+        if (DataUrl.Is(target))
+        {
+            return FetchDataUrl(target, source, url, what);
+        }
+
+        if (!PageUrl.IsNetworkScheme(target))
         {
             FailSubresource(source, url, "'" + url + "' is not a URL a page can load.");
             return null;
@@ -599,7 +609,7 @@ internal sealed class ParserDriver : IDisposable
         {
             var fetched = mayPump ? _baton.PumpUntil(fetch) : fetch.GetAwaiter().GetResult();
             return PageResourceLoader.Answer(
-                documentResponse ? DocumentUrl(fetched.Url, fetched.Fragment) : fetched.Url,
+                ResponseUrl(fetched.Url, fetched.Fragment),
                 fetched.Bytes,
                 fetched.ContentType);
         }
@@ -621,15 +631,69 @@ internal sealed class ParserDriver : IDisposable
         }
     }
 
-    /// <summary>The response URL a nested document is opened with.</summary>
+    /// <summary>
+    /// https://fetch.spec.whatwg.org/#scheme-fetch's <c>data</c> arm: a URL that carries its own bytes,
+    /// answered without a socket.
+    /// </summary>
     /// <remarks>
+    /// <para>
+    /// <b>It is the one subresource scheme besides <c>http</c> and <c>https</c>, and it is not a network
+    /// position at all.</b> There is nothing here for the context's <c>UrlFilter</c>, the cookie jar, a
+    /// redirect budget or the request log to decide — the bytes were in the document that named them — which
+    /// is the same reason <c>fetch</c>'s <c>blob</c> arm runs before every one of those checks. Nothing is
+    /// recorded in <see cref="Page.Requests"/> for the same reason <c>about:blank</c> records nothing: a
+    /// page that asked for nothing made no request.
+    /// </para>
+    /// <para>
+    /// <b>The one bound that does apply is the size one.</b> A <c>data:</c> URL is as large as the markup
+    /// that carried it, so <see cref="BrowserOptions.MaxSubresourceBytes"/> is checked here exactly as
+    /// <see cref="SubresourceFetch"/> checks it over the wire; a page may not escape it by inlining.
+    /// </para>
+    /// </remarks>
+    private IResponse? FetchDataUrl(UrlRecord target, IElement source, string url, string what)
+    {
+        if (!DataUrl.TryProcess(target, out var content))
+        {
+            FailSubresource(source, url, "The " + what + " '" + url + "' is not a valid data: URL.");
+            return null;
+        }
+
+        if (content.Body.LongLength > _maxBytes)
+        {
+            FailSubresource(
+                source,
+                url,
+                "The " + what + " '" + url + "' carries more than the "
+                    + _maxBytes.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                    + " bytes a page may load.");
+            return null;
+        }
+
+        // https://fetch.spec.whatwg.org/#concept-response-url: the response URL is the request's, so the
+        // fragment a data: URL was written with survives into what an error report names.
+        return PageResourceLoader.Answer(target.Serialize(), content.Body, content.MimeType.Serialize());
+    }
+
+    /// <summary>The URL a fetched subresource is answered under.</summary>
+    /// <remarks>
+    /// <para>
     /// Fetch does not send a fragment to the server, and <see cref="SubresourceFetch"/> therefore serializes
     /// its public response URL without one. Its separate fragment preserves the final request URL's three
-    /// states across redirects: absent, explicitly empty, or non-empty. AngleSharp reads the reconstructed
-    /// URL for <c>location</c> and Selectors' <c>:target</c>; script and stylesheet response URLs remain the
-    /// fragment-free transport URL.
+    /// states across redirects: absent, explicitly empty, or non-empty.
+    /// </para>
+    /// <para>
+    /// <b>Every response carries it back, not only a nested document's.</b>
+    /// https://fetch.spec.whatwg.org/#concept-response-url is the request's URL, fragment and all — the
+    /// fragment is left out of the request-target and of nothing else — and
+    /// https://html.spec.whatwg.org/multipage/webappapis.html#report-an-exception names the script's own
+    /// URL, so <c>&lt;script src="a.js#"&gt;</c> has to report the <c>#</c> that
+    /// https://url.spec.whatwg.org/#concept-url-serializer keeps for a non-null empty fragment. Answering
+    /// the transport URL instead made <c>onerror</c> disagree with the <c>src</c> the same element
+    /// reflects. AngleSharp reads it for a document's <c>location</c> and Selectors' <c>:target</c>, and for
+    /// a script and a style sheet it is the base URL, which a fragment plays no part in resolving against.
+    /// </para>
     /// </remarks>
-    private static string DocumentUrl(string responseUrl, string? fragment)
+    private static string ResponseUrl(string responseUrl, string? fragment)
     {
         if (fragment is null || UrlParser.Parse(responseUrl) is not { } documentUrl)
         {
