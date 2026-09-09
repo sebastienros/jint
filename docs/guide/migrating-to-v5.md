@@ -6691,6 +6691,49 @@ What the read promises:
 A read waits for the whole body, so reading a response that never ends — a server-sent event stream — is
 bounded only by `Options.WebApi.Fetch.Timeout`. Decide per response whether to read.
 
+### 5.35 A collection can read its inherited `length` without invoking the accessor ([#3947](https://github.com/sebastienros/jint/issues/3947))
+
+An `ArrayLikeObject` that overrides `OwnsLength` to `false` — the WebIDL arrangement, where `length` is an
+accessor on the interface prototype — paid a full JavaScript function call for every `length` read. That is
+one call per iteration of the loop every such collection is written for:
+
+```js
+for (var j = 0; j < list.length; j++) { list[j]; }
+```
+
+A new hook lets the host name the accessor its prototype was created with, and the engine then answers the
+read from `Length` instead of invoking it:
+
+```csharp
+sealed class NodeList : ArrayLikeObject
+{
+    private readonly ObjectInstance _lengthGetter;
+
+    // captured when the prototype was created, and never re-read from it afterwards
+    protected override ObjectInstance? PristineLengthGetter => _lengthGetter;
+
+    protected override bool OwnsLength => false;
+}
+```
+
+| Member | What it is |
+| --- | --- |
+| `ArrayLikeObject.PristineLengthGetter` | `protected virtual ObjectInstance?`, default `null`. Return the `length` getter function **as the prototype declared it**; `null` keeps every read on the ordinary `[[Get]]` path |
+
+**Nothing changes for a collection that does not override it**, which is every one written before this
+release: the default is `null` and the accessor runs on every read exactly as it did. **Nothing changes for
+the default `OwnsLength` either** — `length` is an own data property there, answered from `Length` before the
+property bag or the prototype chain is consulted, so the shortcut was always the same read.
+
+What the hook obliges, and what the engine checks: invoking the named getter with the collection as its
+receiver must produce `Length`. The lane engages only while the accessor **currently** resolving for `length`
+is still that same function object, so all three ways a script can change the answer take effect on the very
+next read — an own `length` on the instance, a re-pointed prototype, and a redefinition of the accessor on
+the prototype. Those are the three `dom/nodes/NodeList-static-length-getter-tampered-{1,2,3}.html`
+web-platform-tests documents, and they run against this. A build with host-contract verification on
+(`AppContext.SetSwitch("Jint.EnableHostContractVerification", true)`) invokes the accessor on every read that
+takes the lane and fails on the first disagreement.
+
 ## 6. AOT and trimming
 
 Jint 4.16 asserted Native AOT compatibility with the `IsAotCompatible` property and nothing else. In

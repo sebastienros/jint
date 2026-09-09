@@ -58,6 +58,10 @@ internal sealed class JintMemberExpression : JintExpression
     private PropertyDescriptor? _cachedStringProtoDescriptor;
     private readonly bool _stringReceiverCallEligible;
 
+    // Whether this node reads the literal name `length`, decided once at build time so that the host
+    // array-like lane below costs every other member node a single field test rather than a type check.
+    private readonly bool _readsLengthName;
+
     // Member-call eligibility is a pure function of this node's shape, so it is decided once in the
     // constructor instead of re-deriving four type tests on every call this node is the callee of —
     // JintCallExpression probes it before every member call it dispatches.
@@ -127,6 +131,10 @@ internal sealed class JintMemberExpression : JintExpression
                             && _objectExpression is JintIdentifierExpression or JintThisExpression;
 
         _stringReceiverCallEligible = _fastCallEligible && !CanBeOwnStringInstanceProperty((JsString) _determinedProperty!);
+
+        _readsLengthName = _propertyExpression is null
+                           && _determinedProperty is JsString determinedName
+                           && CommonProperties.Length.Equals(determinedName);
     }
 
     /// <summary>
@@ -857,6 +865,16 @@ internal sealed class JintMemberExpression : JintExpression
     /// </summary>
     private JsValue ReadFromNonPlainReceiver(ObjectInstance baseObject, JsString property)
     {
+        // A host collection's `length`, answered from its own O(1) count with no descriptor and no accessor
+        // invocation - but only while ArrayLikeObject's guard proves that read is the one [[Get]] would make.
+        // The build-time name test is what keeps this off every other member node.
+        if (_readsLengthName
+            && baseObject is ArrayLikeObject arrayLikeReceiver
+            && arrayLikeReceiver.TryReadLength(out var arrayLikeLength))
+        {
+            return JsNumber.Create(arrayLikeLength);
+        }
+
         if ((baseObject._type & InternalTypes.OrdinaryGet) != InternalTypes.Empty)
         {
             // A host-defined object with ordinary [[Get]]. Its own properties live in the host, not in the
@@ -1086,54 +1104,9 @@ internal sealed class JintMemberExpression : JintExpression
     private static bool CanCacheAgainstVersions(ObjectInstance receiver, ObjectInstance holder, JsString property)
     {
         var receiverIsProvable = (receiver._type & InternalTypes.OrdinaryGet) != InternalTypes.Empty
-                                 || VersionWitnessesOwnProperty(receiver, property);
+                                 || ObjectInstance.VersionWitnessesOwnProperty(receiver, property);
 
-        return receiverIsProvable && VersionWitnessesOwnProperty(holder, property);
-    }
-
-    /// <summary>
-    /// Whether <paramref name="o"/>'s <c>_propertiesVersion</c> moves when a property named
-    /// <paramref name="property"/> joins or leaves its own-property set. See <see cref="CanCacheAgainstVersions"/>
-    /// for the two storage kinds it does not cover.
-    /// <para>
-    /// The <see cref="InternalTypes.OrdinaryGet"/> refusal is about <em>where an object's own properties
-    /// live</em>, not about how it reads them. The flag is derived from the .NET type — a subclass reaching
-    /// the protected <c>ObjectInstance(Engine)</c> constructor gets it — and for a host subclass it correctly
-    /// stands in for "this object's own-property set is outside the engine, so no engine-side counter can
-    /// witness it". A <see cref="InternalTypes.BuiltinShapeMode"/> object is the one case where that
-    /// inference is wrong, so it is carved out. Two facts make the carve-out sound, and it is only sound
-    /// while both hold:
-    /// </para>
-    /// <para>
-    /// <b>1. Its own-property set is entirely engine storage, and every change to that set bumps the
-    /// version.</b> The names are the shared layout's slots plus the hybrid side dictionary. Redefining a
-    /// declared slot (<c>SetProperty</c> / <c>SetOwnProperty</c>), adding a name
-    /// (<c>TryHybridAddToShapedHost</c>), removing one (<c>RemoveOwnProperty</c>) and falling back to the
-    /// dictionary (<c>DeoptBuiltinShape</c>, through <c>SetProperties</c>) each bump
-    /// <c>_propertiesVersion</c>. Lazily materializing a slot deliberately does not — but materialization
-    /// does not change the name set: the name was already an own property, only its descriptor was pending.
-    /// So the version witnesses exactly the question this method asks.
-    /// </para>
-    /// <para>
-    /// <b>2. No host type can carry the flag.</b> It is set only by <c>ObjectInstance.InitializeBuiltinShape</c>,
-    /// which is <c>private protected</c>, over the internal <c>IBuiltinShaped</c> storage protocol; both
-    /// <c>BuiltinShapeObject</c> and the object <c>JsObjectShape.Instantiate</c> returns are internal. A
-    /// third-party subclass therefore cannot reach builtin-shape mode, and the refusal this carve-out relaxes
-    /// stays in force for every object it was written for — the host subclasses whose properties the engine
-    /// genuinely cannot see. The array clause below is untouched and still applies to a shaped array-backed
-    /// holder such as <c>Array.prototype</c>, whose elements do live outside the counter.
-    /// </para>
-    /// </summary>
-    private static bool VersionWitnessesOwnProperty(ObjectInstance o, JsString property)
-    {
-        if ((o._type & InternalTypes.OrdinaryGet) != InternalTypes.Empty
-            && (o._type & InternalTypes.BuiltinShapeMode) == InternalTypes.Empty)
-        {
-            return false;
-        }
-
-        return (o._type & InternalTypes.Array) == InternalTypes.Empty
-               || !ArrayInstance.IsArrayIndex(property, out _);
+        return receiverIsProvable && ObjectInstance.VersionWitnessesOwnProperty(holder, property);
     }
 
     /// <summary>

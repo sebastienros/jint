@@ -114,6 +114,26 @@ public abstract class ArrayLikeObject : ObjectInstance, INamedProjection
     // derivation answers "yes", which costs those calls and never changes an answer.
     private readonly bool _hasNamedProjection;
 
+    // The inherited-`length` lane's guard state, and the whole of it. It is the prototype-method inline
+    // cache's guard set written per instance rather than per call site, because the sites that read a
+    // collection's length are not all interpreter nodes: the loop-test lane, the member lane, GetLength and
+    // GetLongLength (which is where the Array.prototype generics and the array iterator arrive, once per
+    // element) all ask the same question of the same object. Three facts are pinned, and the three tamper
+    // shapes the web-platform-tests define map onto them one for one - an own `length` on the instance moves
+    // _propertiesVersion, re-pointing the object moves the prototype, and redefining the accessor on the
+    // prototype moves the holder's version.
+    private ObjectInstance? _lengthGuardPrototype;
+    private uint _lengthGuardPrototypeVersion;
+    private uint _lengthGuardVersion;
+    private bool _lengthGuardPristine;
+
+    // Re-entrancy guard for the verifier below, which invokes the accessor it is checking: a host whose
+    // getter is written in JavaScript and reads `this.length` would otherwise re-enter this lane forever.
+    // Thread-static so that no instance grows a field for a check that is off in every process that did not
+    // ask for it.
+    [ThreadStatic]
+    private static bool _verifyingLength;
+
     /// <summary>
     /// Creates the object against <paramref name="engine"/>. Set <see cref="ObjectInstance.Prototype"/> afterwards
     /// to whatever the host wants inherited — nothing is attached automatically.
@@ -145,6 +165,30 @@ public abstract class ArrayLikeObject : ObjectInstance, INamedProjection
     /// <c>length</c> accessor. Array generics and iteration then read that accessor through <c>[[Get]]</c>.
     /// </remarks>
     protected virtual bool OwnsLength => true;
+
+    /// <summary>
+    /// Gets the <c>length</c> getter this collection's prototype was created with. Defaults to
+    /// <see langword="null"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Declaring it lets a collection that opted out of <see cref="OwnsLength"/> read its own length without
+    /// invoking that accessor; <see langword="null"/> keeps every read on the ordinary <c>[[Get]]</c> path
+    /// and is always safe.
+    /// </para>
+    /// <para>
+    /// Return the function object <b>as the prototype declared it</b>, captured when that prototype was
+    /// created. The shortcut applies only while the accessor currently resolving for <c>length</c> is still
+    /// that object, so redefining it, shadowing it with an own property or re-pointing the prototype each
+    /// take effect on the next read.
+    /// </para>
+    /// <para>
+    /// <b>Contract:</b> invoking the returned function with this object as its receiver must produce
+    /// <see cref="Length"/>. A build with host-contract verification on invokes the accessor on every read
+    /// that takes the shortcut and fails on the first disagreement.
+    /// </para>
+    /// </remarks>
+    protected virtual ObjectInstance? PristineLengthGetter => null;
 
     /// <summary>
     /// Whether assignment ignores projected named getters when selecting an own descriptor. Defaults to <see langword="false"/>.
@@ -620,11 +664,142 @@ public abstract class ArrayLikeObject : ObjectInstance, INamedProjection
 
     internal sealed override bool IsArrayLike => true;
 
-    internal sealed override uint GetLength() => OwnsLength ? Length : base.GetLength();
+    internal sealed override uint GetLength() => TryReadLength(out var length) ? length : base.GetLength();
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal ulong GetLongLength()
-        => OwnsLength ? Length : TypeConverter.ToLength(Get(CommonProperties.Length));
+        => TryReadLength(out var length) ? length : TypeConverter.ToLength(Get(CommonProperties.Length));
+
+    /// <summary>
+    /// <see cref="Length"/>, when reading it is indistinguishable from <c>[[Get]]("length")</c> - or
+    /// <see langword="false"/>, which obliges the caller to take the ordinary path.
+    /// </summary>
+    /// <remarks>
+    /// An owned <c>length</c> is an own data property this class answers from <see cref="Length"/> before the
+    /// property bag or the prototype chain is consulted, and neither <c>[[Set]]</c> nor
+    /// <c>[[DefineOwnProperty]]</c> can replace it, so the two are the same read by construction and there is
+    /// nothing to guard. A collection that opted out takes the guarded lane below.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal bool TryReadLength(out uint length)
+    {
+        if (OwnsLength)
+        {
+            length = Length;
+            return true;
+        }
+
+        return TryReadInheritedLength(out length);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private bool TryReadInheritedLength(out uint length)
+    {
+        var prototype = _lengthGuardPrototype;
+        if (prototype is not null
+            && _propertiesVersion == _lengthGuardVersion
+            // GetPrototypeOf(), not the _prototype field, for the reason the member lane's prototype cache
+            // gives: a subclass may shadow the field and override [[GetPrototypeOf]].
+            && ReferenceEquals(GetPrototypeOf(), prototype)
+            && prototype._propertiesVersion == _lengthGuardPrototypeVersion)
+        {
+            if (!_lengthGuardPristine)
+            {
+                length = 0;
+                return false;
+            }
+
+            length = Length;
+            if (HostContractVerification.Enabled)
+            {
+                AssertPristineLengthAgreesWithTheAccessor(this, length);
+            }
+
+            return true;
+        }
+
+        return ValidateInheritedLength(out length);
+    }
+
+    /// <summary>
+    /// Resolves <c>length</c> the ordinary way once and records the verdict, positive or negative, under the
+    /// guard <see cref="TryReadInheritedLength"/> checks. A negative verdict is cached too: a collection whose
+    /// accessor has been tampered with must not re-walk its prototype chain on every read of a loop.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private bool ValidateInheritedLength(out uint length)
+    {
+        length = 0;
+        _lengthGuardPrototype = null;
+        _lengthGuardPristine = false;
+
+        var prototype = GetPrototypeOf();
+        if (prototype is null)
+        {
+            return false;
+        }
+
+        // Record the verdict against the chain as it is now, so that a decline is as cheap to repeat as a hit
+        // - and as easy to leave, since restoring the accessor moves one of the two versions.
+        _lengthGuardPrototype = prototype;
+        _lengthGuardPrototypeVersion = prototype._propertiesVersion;
+        _lengthGuardVersion = _propertiesVersion;
+
+        if (PristineLengthGetter is not { } pristine
+            // A Proxy or another exotic holder resolves `length` through a trap this lane must not bypass.
+            // The receiver itself can never be exotic - Get is sealed and the constructor declares Ordinary -
+            // but the test costs one AND and states the requirement rather than relying on that.
+            || (_type & InternalTypes.ExoticGet) != InternalTypes.Empty
+            || (prototype._type & InternalTypes.ExoticGet) != InternalTypes.Empty
+            || !VersionWitnessesOwnProperty(prototype, CommonProperties.Length)
+            // An own `length` - the property bag's, since a collection here answers no owned one - shadows
+            // the accessor, exactly as it would on the ordinary path.
+            || ProbeOwnPropertyChecked(CommonProperties.Length) != OwnPropertyProbe.Missing
+            || !ReferenceEquals(prototype.GetOwnProperty(CommonProperties.Length).Get, pristine))
+        {
+            return false;
+        }
+
+        _lengthGuardPristine = true;
+        length = Length;
+        if (HostContractVerification.Enabled)
+        {
+            AssertPristineLengthAgreesWithTheAccessor(this, length);
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Verifier for the <see cref="PristineLengthGetter"/> contract: the accessor the lane skipped must answer
+    /// what the lane answered. Gated on <see cref="HostContractVerification.Enabled"/>, so a host's own
+    /// integration suite run against a Debug Jint - or against the shipped Release package with the
+    /// <c>Jint.EnableHostContractVerification</c> switch set - becomes the checker, and every other process
+    /// pays nothing. It redoes exactly the work the lane exists to avoid, so never quote a verifying build's
+    /// numbers as a cost.
+    /// </summary>
+    private static void AssertPristineLengthAgreesWithTheAccessor(ArrayLikeObject target, uint answered)
+    {
+        if (_verifyingLength)
+        {
+            return;
+        }
+
+        _verifyingLength = true;
+        try
+        {
+            var actual = TypeConverter.ToLength(target.Get(CommonProperties.Length));
+            if (actual != answered)
+            {
+                HostContractVerification.Fail(
+                    $"{target.GetType()}.PristineLengthGetter names a `length` accessor that answers {actual}, but the object's Length is {answered}. The engine reads Length instead of invoking it, so the two must agree; answer null from PristineLengthGetter for a prototype accessor that computes something else.");
+            }
+        }
+        finally
+        {
+            _verifyingLength = false;
+        }
+    }
 
     // Identity-compare the resolved @@iterator against the realm's captured %Array.prototype.values%, exactly as
     // ArrayInstance does: a host that wired the original array iterator gets the destructuring fast path, one

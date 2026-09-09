@@ -124,6 +124,16 @@ Divergences from a browser that are **ours** and deliberate:
 - **`length` on a collection is a prototype accessor**, as WebIDL requires. `DomCollectionBase` opts out of
   `ArrayLikeObject`'s compatible default own property, and every length-consuming lane must therefore observe
   `[[Get]]`; bypassing the prototype makes a redefined getter appear to succeed while iteration ignores it.
+  Observing it is not the same as *invoking* it, and the difference is what `for (var j = 0; j < list.length;
+  j++)` costs: `DomRealm` captures each collection prototype's `length` getter **at the moment it creates that
+  prototype** — before a page can have touched it — and `DomCollectionBase.PristineLengthGetter` hands that
+  object to the engine, which then answers the read from the wrapper's own count while the accessor currently
+  resolving for `length` is still it. Taking the capture any later would let a tampered getter be recorded as
+  the pristine one, so a new collection wrapper kind adds itself to `CaptureLengthAccessor` and nowhere else.
+  The claim it makes — that invoking the captured getter answers `Length` — holds because every generated
+  collection accessor reads the same AngleSharp member the interface's `length` attribute does, and
+  `HTMLCollection.prototype.length` is literally the wrapper's `Length`; `JINT_HOST_CONTRACT_VERIFICATION=1`
+  is what checks it, on every read.
 - **`Symbol.iterator` is declared by the interface that *supports* indexed properties**, never by one that
   merely inherits the getter, which is where a browser has it too: `NodeList.prototype` and
   `HTMLCollection.prototype` carry it, `HTMLOptionsCollection.prototype` does not. The value is a per-realm

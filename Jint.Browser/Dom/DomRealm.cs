@@ -45,6 +45,7 @@ internal sealed class DomRealm
 
     private readonly ObjectInstance?[] _prototypes;
     private readonly DomInterfaceObject?[] _interfaceObjects;
+    private readonly ObjectInstance?[] _pristineLengthGetters;
     private readonly ConditionalWeakTable<object, ObjectInstance> _wrappers = new();
     private readonly ConditionalWeakTable<IElement, AriaElementReflection.Cache> _ariaCaches = new();
     private int _nodes;
@@ -58,6 +59,7 @@ internal sealed class DomRealm
         var interfaceCount = DomInterfaces.All.Length + DomManualInterfaces.All.Length;
         _prototypes = new ObjectInstance?[interfaceCount];
         _interfaceObjects = new DomInterfaceObject?[interfaceCount];
+        _pristineLengthGetters = new ObjectInstance?[interfaceCount];
     }
 
     /// <summary>The engine every object in this realm belongs to.</summary>
@@ -184,8 +186,46 @@ internal sealed class DomRealm
             "constructor",
             new PropertyDescriptor(interfaceObject, PropertyFlag.NonEnumerable));
 
+        CaptureLengthAccessor(definition, prototype);
+
         return prototype;
     }
+
+    /// <summary>
+    /// Records the <c>length</c> getter a collection interface's prototype was created with, which is what
+    /// <see cref="DomCollectionBase.PristineLengthGetter"/> answers and the engine's length lane compares
+    /// against.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// It has to be taken <b>here</b>, while the prototype is exactly what the shape declared. Reading it
+    /// later would capture whatever a page had already put there, and the lane would then treat a tampered
+    /// accessor as the pristine one. Materializing the accessor pair costs one <c>ClrFunction</c> per
+    /// collection prototype per engine and does not move <c>_propertiesVersion</c>, which is what the lane's
+    /// guard is measured against.
+    /// </para>
+    /// <para>
+    /// Only the two collection wrapper kinds are asked, because only those are <c>ArrayLikeObject</c>s. A
+    /// node that merely carries an indexed getter — <c>form</c>, <c>select</c> — is a
+    /// <c>DomIndexedNodeObject</c> and reads its <c>length</c> the ordinary way.
+    /// </para>
+    /// </remarks>
+    private void CaptureLengthAccessor(DomInterfaceDefinition definition, ObjectInstance prototype)
+    {
+        if (definition.WrapperKind is not (DomWrapperKind.Collection or DomWrapperKind.HtmlCollection))
+        {
+            return;
+        }
+
+        _pristineLengthGetters[definition.Index] = prototype.GetOwnProperty("length").Get as ObjectInstance;
+    }
+
+    /// <summary>
+    /// The <c>length</c> getter <paramref name="definition"/>'s prototype was created with in this engine, or
+    /// <see langword="null"/> when the interface declares none.
+    /// </summary>
+    internal ObjectInstance? PristineLengthGetterOf(DomInterfaceDefinition definition)
+        => _pristineLengthGetters[definition.Index];
 
     /// <summary>
     /// The interface prototype when it has already been created, without making a page that never reached
