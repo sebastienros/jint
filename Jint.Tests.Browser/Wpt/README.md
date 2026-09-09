@@ -97,67 +97,48 @@ that the same element's `src` already reflected, instead of losing it to a re-se
 two; the same processor also replaced the page's *second*, open-coded `data:` decoder, so a navigation to
 one now reads its `charset` and takes a payload `Convert.FromBase64String` refuses.
 
-What `NeedsTriage` holds now is two things, each bounded and each named by the exclusion table:
+What `NeedsTriage` holds now is one thing, and the exclusion table names it: **a form-associated custom
+element has no form owner.** `window.customElements` exists now, and the one row of
+`compile-event-handler-lexical-scopes-form-owner.html` that is left asserts that a compiled handler on an
+`<x-foo static formAssociated>` sees the *form's* lexical scope — which needs the element to be a
+form-associated element and take part in `form.elements`. This package records the flag and nothing
+consults it: there is no `ElementInternals`. The file's other three rows pass.
 
-1. **A DOM prototype carries no `@@unscopables`.** WebIDL puts one on the interface prototype object of every
-   interface with an `[Unscopable]` member — `Element`'s and `Document`'s `append`, `prepend` and
-   `replaceChildren` among them — and the generator emits none, because AngleSharp's metadata does not say
-   which members are unscopable. `compile-event-handler-symbol-unscopables.html` never reaches its subject:
-   it *writes* to `document[Symbol.unscopables]`.
-2. **A form-associated custom element has no form owner.** `window.customElements` exists now, and the one
-What `NeedsTriage` holds now is three things, each bounded and each named by the exclusion table:
-
-1. **A `data:` URL is not fetched as a subresource.** A page navigates to one, so
-   `<script src="data:text/javascript,…">` is the one shape of external script that never runs; three
-   `processing-model-2/` documents are about exactly that script. The report site those documents test works,
-   which their `<script src>` and inline siblings say.
-2. **A URL's fragment is dropped between the element and the error report.** This entry used to be
-   "`script.src` does not reflect a URL" and four rows; [#3770](https://github.com/sebastienros/jint/issues/3770)'s
-   reflection machinery took the member over and two of the four are cases now. The two that remain load
-   `<script src="support/syntax-error.js#">` and the URL `onerror` reports has lost the trailing `#`, so what
-   goes missing is the (empty) fragment rather than the resolution — a re-serialization on the
-   script-loading path, and a change to `Jint.Browser/Runtime/` rather than to the binding.
-3. **A form-associated custom element has no form owner.** `window.customElements` exists now, and the one
-   row of `compile-event-handler-lexical-scopes-form-owner.html` that is left asserts that a compiled handler
-   on an `<x-foo static formAssociated>` sees the *form's* lexical scope — which needs the element to be a
-   form-associated element and take part in `form.elements`. This package records the flag and nothing
-   consults it: there is no `ElementInternals`. The file's other three rows pass.
-
-The twenty-two `<a>`/`<area>` shapes of `Event-dispatch-single-activation-behavior.html` were another, and
-`@@unscopables` was a fourth and is gone: WebIDL puts one on the interface prototype object of every
-interface with an `[Unscopable]` member, AngleSharp's metadata cannot say which members those are, and the
-answer is an `unscopables` list in `overrides.json` — the standard's half of the table, the way `reflected`
-is — rather than a hand-edited `.g.cs`. DOM §4.2.8 and §4.2.9 mark every member of `ChildNode` and
+**`@@unscopables` was another of them, and it is gone.** WebIDL puts one on the interface prototype object of
+every interface with an `[Unscopable]` member, AngleSharp's metadata cannot say which members those are, and
+the answer is an `unscopables` list in `overrides.json` — the standard's half of the table, the way
+`reflected` is — rather than a hand-edited `.g.cs`. DOM §4.2.8 and §4.2.9 mark every member of `ChildNode` and
 `ParentNode`, which is seven names on `Element` and three or four on each of the other four interfaces that
 include one; `compile-event-handler-symbol-unscopables.html` and `dom/nodes/remove-unscopable.html` pass
-whole, nine rows between them. It matters outside a conformance suite for one reason: HTML compiles an
-inline event handler with the element, its form owner and the document on the scope chain, so without it
+whole, nine rows between them. It matters outside a conformance suite for one reason: HTML compiles an inline
+event handler with the element, its form owner and the document on the scope chain, so without it
 `<div onclick="remove()">` calls the element's `remove()` instead of the page's own global.
 
-The twenty-two `<a>`/`<area>` shapes of `Event-dispatch-single-activation-behavior.html` were the fifth, and
-they pass now. What kept them red was not the page loop's scheduling but the fragment arm being gated on the
-page's own load having returned and on the navigation gate being free: this file's tests run *during* the
-parse, where neither is true, so every one of their fragment moves was queued as a whole navigation behind
-the gate and landed after the two turns the file allows. The move is a same-document one exactly when the
-request came from the document the page is showing, which is the question
+The twenty-two `<a>`/`<area>` shapes of `Event-dispatch-single-activation-behavior.html` were the last of
+them, and they pass now. What kept them red was not the page loop's scheduling but the fragment arm being
+gated on the page's own load having returned and on the navigation gate being free: this file's tests run
+*during* the parse, where neither is true, so every one of their fragment moves was queued as a whole
+navigation behind the gate and landed after the two turns the file allows. The move is a same-document one
+exactly when the request came from the document the page is showing, which is the question
 [`Jint.Browser/Runtime/AGENTS.md`](../../Jint.Browser/Runtime/AGENTS.md#navigation-is-a-fetch-and-a-new-engine)
 now says it asks.
 
 The five interfaces `document.createEvent`'s alias table named that this package did not build — `DragEvent`,
 `StorageEvent`, `TouchEvent` and the two device events — are built now, and the category they had
 (`NeedsMoreEventInterfaces`) is empty. What unlocked them was separating two questions the old reason ran
-together: whether the runtime ever *fires* such an event, and whether a page can *construct and dispatch*
-one. Only the second is what the corpus tests and what the alias table needs, so each interface is built from
-its own dictionary in full — `DragEvent` over the `DataTransfer` this package already has for file inputs,
+together: whether the runtime ever *fires* such an event, and whether a page can *construct and dispatch* one.
+Only the second is what the corpus tests and what the alias table needs, so each interface is built from its
+own dictionary in full — `DragEvent` over the `DataTransfer` this package already has for file inputs,
 `StorageEvent` with the `initStorageEvent` Web Storage still carries, `TouchEvent` with `Touch` and
 `TouchList`, and the two device events with the two readings a motion event carries — while nothing fires any
-of them and each class says so. `EventTarget-dispatchEvent.html` passes whole, and the only rows left in
-`Document-createEvent.https.html` are the six the file itself declines with
-`assert_implements_optional('ontouchstart' in document)`: touch detection belongs to a client here
-(`Runtime/TouchEmulation`), which is the same answer Firefox on a desktop gives that file. And eight rows of
-`Event-dispatch-single-activation-behavior.html` moved to
-`AssertsWhatNothingRequires`: the file's instrumentation is a `<form onsubmit>` handler and cannot tell an
-activation behaviour from an ordinary bubble, and `submit` and `reset` both bubble.
+of them and each class says so. `EventTarget-dispatchEvent.html` passes whole, and the six rows of
+`Document-createEvent.https.html` the file itself guards with `assert_implements_optional('ontouchstart' in
+document)` pass too: touch detection belongs to a client here (`Runtime/TouchEmulation`), so the lane opens
+that one document as a touch device (`WptBrowserExclusions.TouchDocuments`, an environment rather than an
+exclusion) and the row left in the file is its `TextEvent` one. And eight rows of
+`Event-dispatch-single-activation-behavior.html` moved to `AssertsWhatNothingRequires`: the file's
+instrumentation is a `<form onsubmit>` handler and cannot tell an activation behaviour from an ordinary
+bubble, and `submit` and `reset` both bubble.
 
 ## What the custom element corpus says
 

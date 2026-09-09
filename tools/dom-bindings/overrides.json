@@ -1499,7 +1499,7 @@
       "half": "operation",
       "hook": "GetElementsByClassName",
       "returns": true,
-      "reason": "DOM's class-name collection algorithm returns a live HTMLCollection. AngleSharp returns a snapshot, so the binding re-runs its class matching through DomLiveHtmlCollection on each read."
+      "reason": "DOM's class-name collection algorithm returns a live HTMLCollection whose comparison is ASCII case-insensitive in quirks mode. AngleSharp returns a snapshot and compares exactly in every mode, and #3899 moved the whole algorithm here after the upstream change was declined, so the hook owns it and DomLiveHtmlCollection re-runs it on each read."
     },
     {
       "interface": "Element",
@@ -1507,7 +1507,7 @@
       "half": "operation",
       "hook": "GetElementsByClassName",
       "returns": true,
-      "reason": "DOM's class-name collection algorithm returns a live HTMLCollection. AngleSharp returns a snapshot, so the binding re-runs its class matching through DomLiveHtmlCollection on each read."
+      "reason": "The element-rooted spelling of the same algorithm, and the mode it reads is the root's node document's."
     },
     {
       "interface": "Document",
