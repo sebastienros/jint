@@ -186,6 +186,33 @@ public sealed class BrowserAgent : IAsyncDisposable
     public Task<ActionOutcome> SelectAsync(string target, string value)
         => ActAsync(target, (page, t) => page.SelectAsync(t, value), "Selected an option in");
 
+    /// <summary>Chooses host files for the <c>&lt;input type=file&gt;</c> <paramref name="target"/> names.</summary>
+    /// <param name="target">A <c>ref=</c> from an <c>ax</c> snapshot, or a CSS selector.</param>
+    /// <param name="paths">Paths of the files to choose, inside <see cref="BrowserAgentOptions.UploadDirectory"/>.</param>
+    /// <returns>Whether a file input matched, and where the page is now.</returns>
+    /// <remarks>
+    /// <b>Refused unless a deployment named a directory to upload from</b>, and refused for anything
+    /// outside it — see <see cref="BrowserAgentOptions.UploadDirectory"/> for why this one tool is off by
+    /// default. What it then does is the page's own file-selection algorithm: the events fire and a
+    /// submission carries the bytes.
+    /// </remarks>
+    /// <exception cref="BrowserToolException">
+    /// Uploads are not enabled, a path is outside the allowed directory, or a path names no file.
+    /// </exception>
+    public Task<ActionOutcome> UploadAsync(string target, IReadOnlyList<string> paths)
+        => RunAsync(async page =>
+        {
+            var allowed = Uploadable(paths);
+            var done = await page.SetInputFilesAsync(target, allowed).ConfigureAwait(false);
+
+            return new ActionOutcome(
+                done,
+                page.Url,
+                done
+                    ? $"Chose {allowed.Count} file(s) for {target}."
+                    : $"Nothing matched {target}, or it is not a file input. Take an ax snapshot and use one of its ref= values.");
+        });
+
     /// <summary>Presses one key at whatever the page has focused.</summary>
     /// <param name="key">A <c>KeyboardEvent.key</c> value: a character, or <c>Enter</c>, <c>Tab</c>, <c>Escape</c>…</param>
     /// <returns>Where the page is now, which <c>Enter</c> in a form will have moved.</returns>
@@ -381,6 +408,81 @@ public sealed class BrowserAgent : IAsyncDisposable
                     ? $"{verb} {target}."
                     : $"Nothing matched {target}. Take an ax snapshot and use one of its ref= values.");
         });
+
+    /// <summary>The paths an upload may actually read, or the sentence saying why it may read none.</summary>
+    private List<string> Uploadable(IReadOnlyList<string> paths)
+    {
+        ArgumentNullException.ThrowIfNull(paths);
+
+        if (string.IsNullOrEmpty(_options.UploadDirectory))
+        {
+            throw new BrowserToolException(
+                "This server uploads no files. A deployment enables it by naming the one directory files may "
+                + "be read from, as BrowserAgentOptions.UploadDirectory.");
+        }
+
+        if (paths.Count == 0)
+        {
+            throw new BrowserToolException("Name at least one file to upload.");
+        }
+
+        var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(_options.UploadDirectory))
+            + Path.DirectorySeparatorChar;
+        var comparison = OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+
+        var allowed = new List<string>(paths.Count);
+
+        foreach (var path in paths)
+        {
+            if (string.IsNullOrEmpty(path))
+            {
+                throw new BrowserToolException("A file to upload was named as an empty path.");
+            }
+
+            var resolved = Path.GetFullPath(path);
+
+            // Containment is decided before existence, and that order is the point: answering "there is no
+            // file there" for a path outside the directory would turn this tool into a way of asking
+            // whether one exists, which is a thing the caller is not allowed to know.
+            Contain(path, resolved);
+
+            if (!File.Exists(resolved))
+            {
+                throw new BrowserToolException($"There is no file at '{path}'.");
+            }
+
+            // Then the link is followed to its final target and the check is made again, because a link
+            // inside the directory pointing outside it is the shape that survives the first one. A link
+            // that cannot be walked is refused rather than accepted as itself.
+            try
+            {
+                if (new FileInfo(resolved).ResolveLinkTarget(returnFinalTarget: true) is { } target)
+                {
+                    resolved = target.FullName;
+                    Contain(path, resolved);
+                }
+            }
+            catch (IOException failure)
+            {
+                throw new BrowserToolException($"'{path}' could not be resolved: {failure.Message}", failure);
+            }
+
+            allowed.Add(resolved);
+        }
+
+        return allowed;
+
+        void Contain(string named, string full)
+        {
+            if (!full.StartsWith(root, comparison))
+            {
+                throw new BrowserToolException(
+                    $"'{named}' is outside the one directory this server uploads from.");
+            }
+        }
+    }
 
     private async Task<Page> PageAsync()
     {

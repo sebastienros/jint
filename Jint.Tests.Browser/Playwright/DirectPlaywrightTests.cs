@@ -427,6 +427,92 @@ public sealed class DirectPlaywrightTests
     }
 
     [Test]
+    public async Task SetInputFilesTakesPathsPayloadsAndBothSelectorForms()
+    {
+        var directory = Directory.CreateTempSubdirectory("jint-playwright-files-");
+
+        try
+        {
+            var path = Path.Combine(directory.FullName, "from-disk.txt");
+            await File.WriteAllTextAsync(path, "read from a path");
+
+            await using var browser = await global::Jint.Browser.Playwright.JintPlaywright.BrowserType.LaunchAsync();
+            var page = await browser.NewPageAsync();
+            await page.SetContentAsync(
+                "<input id='upload' type='file' multiple><input id='single' type='file'>");
+
+            // A path, through the locator.
+            await page.Locator("#upload").SetInputFilesAsync(path);
+            (await Names(page, "#upload")).Should().Be("from-disk.txt");
+
+            // Payloads, through the locator — the form Playwright's own client uses for in-memory content.
+            await page.Locator("#upload").SetInputFilesAsync(
+            [
+                new FilePayload { Name = "a.txt", MimeType = "text/plain", Buffer = "one"u8.ToArray() },
+                new FilePayload { Name = "b.json", MimeType = "application/json", Buffer = "{}"u8.ToArray() },
+            ]);
+            (await Names(page, "#upload")).Should().Be("a.txt,b.json");
+
+            // And the selector forms on the page and the frame, which route to the same place.
+            await page.SetInputFilesAsync("#upload", new[] { path });
+            (await Names(page, "#upload")).Should().Be("from-disk.txt");
+
+            await page.MainFrame.SetInputFilesAsync(
+                "#upload",
+                new FilePayload { Name = "c.csv", MimeType = "text/csv", Buffer = "x"u8.ToArray() });
+            (await Names(page, "#upload")).Should().Be("c.csv");
+        }
+        finally
+        {
+            directory.Delete(recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task SetInputFilesRefusesMoreThanOneFileForAnInputWithoutMultiple()
+    {
+        await using var browser = await global::Jint.Browser.Playwright.JintPlaywright.BrowserType.LaunchAsync();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<input id='single' type='file'>");
+
+        var act = async () => await page.Locator("#single").SetInputFilesAsync(
+        [
+            new FilePayload { Name = "a.txt", MimeType = "text/plain", Buffer = "one"u8.ToArray() },
+            new FilePayload { Name = "b.txt", MimeType = "text/plain", Buffer = "two"u8.ToArray() },
+        ]);
+
+        // Playwright's own client wording. The model underneath would drop the second file, which is what
+        // HTML says a user agent must do — and is exactly the silently wrong answer this adapter refuses.
+        await act.Should().ThrowAsync<PlaywrightException>().WithMessage("*Non-multiple file input*");
+        (await Names(page, "#single")).Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task SetInputFilesFailsLoudlyForSomethingThatIsNotAFileInput()
+    {
+        await using var browser = await global::Jint.Browser.Playwright.JintPlaywright.BrowserType.LaunchAsync();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<input id='text'>");
+
+        var wrongKind = async () => await page.Locator("#text").SetInputFilesAsync(
+            new FilePayload { Name = "a.txt", MimeType = "text/plain", Buffer = "one"u8.ToArray() });
+        await wrongKind.Should().ThrowAsync<PlaywrightException>().WithMessage("*file input*");
+
+        // The only option either overload honours is Timeout, and anything else is refused rather than
+        // dropped: a Strict that did nothing would make a strictness test pass without strictness.
+        var unsupportedOption = async () => await page.SetInputFilesAsync(
+            "#text",
+            "a.txt",
+            new PageSetInputFilesOptions { Strict = true });
+        await unsupportedOption.Should().ThrowAsync<NotSupportedException>()
+            .WithMessage("*PageSetInputFilesOptions.Strict*");
+    }
+
+    private static async Task<string> Names(IPage page, string selector)
+        => await page.EvaluateAsync<string>(
+            $"() => Array.from(document.querySelector('{selector}').files, f => f.name).join(',')");
+
+    [Test]
     public async Task UnsupportedOperationsNameThePlaywrightMember()
     {
         await using var browser = await global::Jint.Browser.Playwright.JintPlaywright.BrowserType.LaunchAsync();

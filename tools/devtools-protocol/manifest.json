@@ -278,6 +278,7 @@
     "DOM.scrollIntoViewIfNeeded",
     "DOM.setAttributeValue",
     "DOM.setAttributesAsText",
+    "DOM.setFileInputFiles",
     "DOM.setNodeValue",
     "DOM.setOuterHTML",
     "Emulation.clearDeviceMetricsOverride",

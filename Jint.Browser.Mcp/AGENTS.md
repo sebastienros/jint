@@ -29,6 +29,16 @@ descriptions only through its source generator and only on `partial` methods, an
 The one thing every description must keep saying is that there are no screenshots. A model that believes it
 can see the page will keep asking for a picture instead of a snapshot.
 
+### One tool can move data outwards, and it is off until a deployment says otherwise
+
+`upload` is the only tool that sends this machine's own bytes to a page. Everything else gives a page what
+that page already had; an upload gives a site the model chose a file from the host, and a model reading a
+page is a model that page can try to instruct. So it is gated on `BrowserAgentOptions.UploadDirectory`
+(`null` by default, which refuses every upload), the containment check runs **before** the existence check —
+otherwise the refusal wording is a way of asking whether a file outside the directory exists — and a
+symbolic link is resolved to its final target and checked again. Do not relax any of the three, and do not
+give the tool a default directory.
+
 ### Errors are answers, not exceptions
 
 **Every tool returns a `CallToolResult` and none of them throws.** `ToolJson.Ok` fills both `content` (the

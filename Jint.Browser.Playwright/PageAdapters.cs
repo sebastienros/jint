@@ -76,6 +76,15 @@ internal sealed class PageTarget(BrowserContextTarget context, JintPage inner) :
                     (string) arguments[0]!,
                     arguments[1],
                     (PageWaitForFunctionOptions?) arguments[2]);
+            case nameof(IPage.SetInputFilesAsync):
+                OptionSupport.EnsureOnly(
+                    arguments[2],
+                    "IPage.SetInputFilesAsync",
+                    nameof(PageSetInputFilesOptions.Timeout));
+                return SetInputFilesAsync(
+                    (string) arguments[0]!,
+                    arguments[1],
+                    ((PageSetInputFilesOptions?) arguments[2])?.Timeout);
             case nameof(IPage.CloseAsync):
                 OptionSupport.EnsureOnly(arguments[0], "IPage.CloseAsync");
                 return CloseAsync();
@@ -95,6 +104,14 @@ internal sealed class PageTarget(BrowserContextTarget context, JintPage inner) :
     }
 
     internal IFrame MainFrame => _mainFrame ??= ProxyFactory.Create<IFrame>(new FrameTarget(this));
+
+    /// <summary>
+    /// The selector forms of <c>setInputFiles</c> on <see cref="IPage"/> and <see cref="IFrame"/>, which
+    /// Playwright itself deprecates in favour of the locator's — so they route to exactly the locator's
+    /// path rather than to a second implementation of it.
+    /// </summary>
+    internal Task SetInputFilesAsync(string selector, object? files, float? timeout)
+        => new LocatorTarget(this, LocatorDescriptor.Css(selector)).SetInputFilesAsync(files, timeout);
 
     private ILocator Locator(string selector)
         => ProxyFactory.Create<ILocator>(new LocatorTarget(this, LocatorDescriptor.Css(selector)));
@@ -397,8 +414,18 @@ internal sealed class FrameTarget(PageTarget page) : ProxyTarget
                 (FrameLocatorOptions?) arguments[1]),
             nameof(IFrame.ContentAsync) => page.Inner.ContentAsync(),
             nameof(IFrame.TitleAsync) => page.Inner.TitleAsync(),
+            nameof(IFrame.SetInputFilesAsync) => SetInputFilesAsync(
+                (string) arguments[0]!,
+                arguments[1],
+                (FrameSetInputFilesOptions?) arguments[2]),
             _ => Unsupported(method),
         };
+    }
+
+    private Task SetInputFilesAsync(string selector, object? files, FrameSetInputFilesOptions? options)
+    {
+        OptionSupport.EnsureOnly(options, "IFrame.SetInputFilesAsync", nameof(FrameSetInputFilesOptions.Timeout));
+        return page.SetInputFilesAsync(selector, files, options?.Timeout);
     }
 
     private ILocator Locator(string selector, FrameLocatorOptions? options)
@@ -428,6 +455,9 @@ internal sealed class LocatorTarget(PageTarget page, LocatorDescriptor descripto
             nameof(ILocator.ClickAsync) => ClickAsync((LocatorClickOptions?) arguments[0]),
             nameof(ILocator.FillAsync) => FillAsync((string) arguments[0]!, (LocatorFillOptions?) arguments[1]),
             nameof(ILocator.PressAsync) => PressAsync((string) arguments[0]!, (LocatorPressOptions?) arguments[1]),
+            nameof(ILocator.SetInputFilesAsync) => SetInputFilesAsync(
+                arguments[0],
+                (LocatorSetInputFilesOptions?) arguments[1]),
             _ => Unsupported(method),
         };
     }
@@ -559,6 +589,92 @@ internal sealed class LocatorTarget(PageTarget page, LocatorDescriptor descripto
                 timeout)
             .ConfigureAwait(false);
     }
+
+    private Task SetInputFilesAsync(object? files, LocatorSetInputFilesOptions? options)
+    {
+        OptionSupport.EnsureOnly(
+            options,
+            "ILocator.SetInputFilesAsync",
+            nameof(LocatorSetInputFilesOptions.Timeout));
+        return SetInputFilesAsync(files, options?.Timeout);
+    }
+
+    /// <summary>
+    /// Playwright's four <c>setInputFiles</c> overloads — a path, paths, a payload, payloads — over
+    /// <c>Page.SetInputFilesAsync</c>, which is the same file-selection algorithm
+    /// <c>DOM.setFileInputFiles</c> runs.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Attached rather than visible.</b> A file input is usually <c>display: none</c> behind a styled
+    /// <c>&lt;label&gt;</c>, so waiting for a box would time out on the commonest markup there is; this is
+    /// the one action here whose wait deliberately stops at attached.
+    /// </para>
+    /// <para>
+    /// <b>An input without <c>multiple</c> given more than one file is refused, in Playwright's own
+    /// words.</b> HTML makes the extra files the user agent's to drop, and <c>Page.SetInputFilesAsync</c>
+    /// drops them — but a caller of <i>this</i> interface is written against a client that throws, and
+    /// answering success with one of its two files selected is exactly the silent wrong answer this adapter
+    /// exists to avoid.
+    /// </para>
+    /// </remarks>
+    internal async Task SetInputFilesAsync(object? files, float? timeoutMilliseconds)
+    {
+        // Materialized once, before anything is awaited: an argument may be any IEnumerable, and one that
+        // can be walked only once would answer a count and then select nothing.
+        var (paths, payloads) = Chosen(files);
+        var count = paths?.Count ?? payloads!.Count;
+
+        var timeout = PageTarget.Timeout(timeoutMilliseconds, page.DefaultTimeout);
+        var started = Stopwatch.GetTimestamp();
+        await WaitForAsync(new LocatorWaitForOptions
+        {
+            State = WaitForSelectorState.Attached,
+            Timeout = timeoutMilliseconds,
+        }).ConfigureAwait(false);
+
+        var index = await descriptor.ResolveIndexAsync(page.Inner).ConfigureAwait(false);
+        var remaining = RequireRemaining(timeout, started);
+
+        if (count > 1
+            && await page.EvaluateValueAsync<bool?>(descriptor.PropertyScript("multiple")).ConfigureAwait(false) != true)
+        {
+            throw new PlaywrightException("Non-multiple file input can only accept single file");
+        }
+
+        if (index is null)
+        {
+            throw new PlaywrightException("The locator did not resolve to a file input element.");
+        }
+
+        // Started inside the branch rather than before it: a task created for an index that turned out to
+        // be nothing would go on making the selection with nobody awaiting it.
+        var selected = await (paths is not null
+                ? page.Inner.SetInputFilesAsync(descriptor.Selector, index.Value, paths)
+                : page.Inner.SetInputFilesAsync(descriptor.Selector, index.Value, payloads!))
+            .WaitAsync(remaining).ConfigureAwait(false);
+
+        if (!selected)
+        {
+            throw new PlaywrightException("The locator did not resolve to a file input element.");
+        }
+    }
+
+    /// <summary>The argument of one of the four overloads, read once into the shape the page member takes.</summary>
+    private static (List<string>? Paths, List<PageFile>? Payloads) Chosen(object? files)
+        => files switch
+        {
+            string path => ([path], null),
+            FilePayload payload => (null, [Convert(payload)]),
+            IEnumerable<string> paths => ([.. paths], null),
+            IEnumerable<FilePayload> payloads => (null, [.. payloads.Select(Convert)]),
+            _ => throw new NotSupportedException(
+                "Jint.Browser.Playwright does not support ILocator.SetInputFilesAsync for "
+                + (files?.GetType().Name ?? "null") + "."),
+        };
+
+    private static PageFile Convert(FilePayload payload)
+        => new(payload.Name, payload.MimeType, payload.Buffer);
 
     private static TimeSpan RequireRemaining(TimeSpan timeout, long started)
     {
