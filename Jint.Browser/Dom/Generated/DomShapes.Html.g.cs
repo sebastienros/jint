@@ -6216,6 +6216,78 @@ internal static partial class DomInterfaces
                 }))
             .Build();
 
+    /// <summary>The members of <c>Touch</c>.</summary>
+    private static global::Jint.Native.JsObjectShape BuildTouch()
+        => new global::Jint.Native.JsObjectShape.Builder()
+            .ToStringTag("Touch")
+            .PerRealmSlot("constructor", enumerable: false)
+            .Accessor("clientX",
+                global::Jint.Browser.Dom.DomFailures.Guard("Touch.clientX", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.Events.ITouchPoint>(thisObj, "Touch.clientX");
+                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.ClientX);
+                }))
+            .Accessor("clientY",
+                global::Jint.Browser.Dom.DomFailures.Guard("Touch.clientY", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.Events.ITouchPoint>(thisObj, "Touch.clientY");
+                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.ClientY);
+                }))
+            .Accessor("identifier",
+                global::Jint.Browser.Dom.DomFailures.Guard("Touch.identifier", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.Events.ITouchPoint>(thisObj, "Touch.identifier");
+                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Id);
+                }))
+            .Accessor("pageX",
+                global::Jint.Browser.Dom.DomFailures.Guard("Touch.pageX", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.Events.ITouchPoint>(thisObj, "Touch.pageX");
+                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.PageX);
+                }))
+            .Accessor("pageY",
+                global::Jint.Browser.Dom.DomFailures.Guard("Touch.pageY", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.Events.ITouchPoint>(thisObj, "Touch.pageY");
+                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.PageY);
+                }))
+            .Accessor("screenX",
+                global::Jint.Browser.Dom.DomFailures.Guard("Touch.screenX", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.Events.ITouchPoint>(thisObj, "Touch.screenX");
+                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.ScreenX);
+                }))
+            .Accessor("screenY",
+                global::Jint.Browser.Dom.DomFailures.Guard("Touch.screenY", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.Events.ITouchPoint>(thisObj, "Touch.screenY");
+                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.ScreenY);
+                }))
+            .Build();
+
+    /// <summary>The members of <c>TouchList</c>.</summary>
+    private static global::Jint.Native.JsObjectShape BuildTouchList()
+        => new global::Jint.Native.JsObjectShape.Builder()
+            .ToStringTag("TouchList")
+            .PerRealmSlot("constructor", enumerable: false)
+            .PerRealmSlot(
+                global::Jint.Native.Symbol.GlobalSymbolRegistry.Iterator,
+                global::Jint.Browser.Dom.Collections.DomIterator.ArrayValues)
+            .Method("item",
+                global::Jint.Browser.Dom.DomFailures.Guard("TouchList.item", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.Events.ITouchList>(thisObj, "TouchList.item");
+                    return self.Realm.Wrap(self.Target[global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "TouchList.item")]);
+                }),
+                length: 1)
+            .Accessor("length",
+                global::Jint.Browser.Dom.DomFailures.Guard("TouchList.length", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.Events.ITouchList>(thisObj, "TouchList.length");
+                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);
+                }))
+            .Build();
+
     /// <summary>The members of <c>ValidityState</c>.</summary>
     private static global::Jint.Native.JsObjectShape BuildValidityState()
         => new global::Jint.Native.JsObjectShape.Builder()
