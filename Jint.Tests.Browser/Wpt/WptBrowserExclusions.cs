@@ -1012,13 +1012,6 @@ internal static class WptBrowserExclusions
         new("custom-elements/reaction-timing.html", "*", WptDivergence.NeedsTriage),
     ];
 
-    // ---------------------------------------------------------------- the customized built-in table
-    private static readonly WptExclusion[] _theCustomizedBuiltInTable =
-    [
-        new("custom-elements/builtin-coverage.html", "*: Operator 'new' should instantiate a customized built-in element", WptDivergence.NeedsTriage),
-        new("custom-elements/builtin-coverage.html", "*: document.createElement() should instantiate a customized built-in element", WptDivergence.NeedsTriage),
-    ];
-
     // ---------------------------------------------------------------- the parser
     private static readonly WptExclusion[] _theParser =
     [
@@ -1030,14 +1023,6 @@ internal static class WptBrowserExclusions
         new("custom-elements/parser/parser-sets-attributes-and-children.html", "HTML parser should call connectedCallback before appending child nodes.", WptDivergence.NeedsTriage),
         new("custom-elements/parser/serializing-html-fragments-customized-builtins.html", "\"is\" value should be serialized even for an undefined element", WptDivergence.NeedsTriage),
         new("custom-elements/parser/serializing-html-fragments-customized-builtins.html", "\"is\" value should be serialized if the custom element has no \"is\" content attribute", WptDivergence.NeedsTriage),
-    ];
-
-    // ---------------------------------------------------------------- the upgrade
-    private static readonly WptExclusion[] _theUpgrade =
-    [
-        new("custom-elements/upgrading/Node-cloneNode-customized-builtins.html", "*", WptDivergence.NeedsTriage),
-        new("custom-elements/upgrading/upgrading-parser-created-element.html", "HTMLElement constructor must throw an TypeError when the top of the construction stack is marked AlreadyConstructed due to a custom element constructor constructing itself after super() call", WptDivergence.NeedsTriage),
-        new("custom-elements/upgrading/upgrading-parser-created-element.html", "HTMLElement constructor must throw an TypeError when the top of the construction stack is marked AlreadyConstructed due to a custom element constructor constructing itself before super() call", WptDivergence.NeedsTriage),
     ];
 
     // ---------------------------------------------------------------- one [CEReactions] member per file
@@ -1431,9 +1416,7 @@ internal static class WptBrowserExclusions
         new("a rendering", _aRendering),
         new("the registry, the constructor and the two creation members", _theRegistryTheConstructorAndTheTwoCreationMembers),
         new("the callbacks and when they run", _theCallbacksAndWhenTheyRun),
-        new("the customized built-in table", _theCustomizedBuiltInTable),
         new("the parser", _theParser),
-        new("the upgrade", _theUpgrade),
         new("one [CEReactions] member per file", _oneCEReactionsMemberPerFile),
         new("a frame that runs script", _aFrameThatRunsScript),
         new("relList on an element AngleSharp gives no interface", _relListOnAnElementAngleSharpGivesNoInterface),

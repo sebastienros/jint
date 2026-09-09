@@ -37,11 +37,11 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `html/webappapis/scripting/events/` | 12 | 0 | 37 | 2 |
 | `html/webappapis/scripting/processing-model-2/` | 25 | 0 | 44 | 5 |
 | `html/semantics/embedded-content/the-img-element/` | 4 | 0 | 99 | 0 |
-| `custom-elements/` | 16 | 0 | 513 | 235 |
+| `custom-elements/` | 16 | 0 | 513 | 13 |
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 52 |
-| `custom-elements/upgrading/` | 2 | 0 | 7 | 3 |
-| **total** | **365** | **9** | **66,794** | **1,077** |
+| `custom-elements/upgrading/` | 2 | 0 | 7 | 0 |
+| **total** | **365** | **9** | **66,794** | **852** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -157,7 +157,7 @@ table, now for the narrower reason: they are the ones about adoption, cross-real
 reaction queue. Re-vendoring against the window is a change of its own, because it moves the census's
 Documents and Tests columns.
 
-What the rest found is six causes, and every exclusion in the four new suites is one of them:
+What the rest found is five causes, and every exclusion in the four new suites is one of them:
 
 1. **The parser upgrades a custom element where HTML constructs one.** AngleSharp creates a parser element
    with no notification to hook, so `<my-el>` in the markup is undefined until the driver's next script
@@ -190,9 +190,16 @@ What the rest found is six causes, and every exclusion in the four new suites is
 5. **AngleSharp's CSS serialization**, already recorded as a divergence: `reactions/CSSStyleDeclaration.html`
    compares the style attribute the reaction reported against `"color: blue;"` and gets
    `"color: rgba(0, 0, 255, 1)"`. The reaction fired; the value did not match.
-6. **`builtin-coverage.html`'s two hundred and twenty rows** are the `'new'` and `createElement` halves of a
-   table over every HTML local name. Its `innerHTML` and parser halves pass for all one hundred and eight
-   tags, which is what says the customized-built-in path itself works.
+
+**`builtin-coverage.html` is green now**, all four hundred and forty-four rows of it. Its `'new'` and
+`createElement` halves were two hundred and twenty-two rows of one defect, and the defect was not the
+customized-built-in path at all — its `innerHTML` and parser halves always passed. Every one of those rows
+failed on `customized.cloneNode().constructor`: DOM creates a clone with the element's **is value**, which is
+a slot that `createElement(tag, { is })` and `new XY()` set without adding an attribute, and AngleSharp's
+clone copies attributes and nothing else. So the two halves that set the slot cloned into a plain built-in
+and the two that write the `is` attribute in markup did not. `custom-elements/upgrading/`'s own row was the
+same rule read from the other side — a clone must follow the slot even when the `is` attribute says
+something else — and it went with it.
 
 Two more things the corpus found are **not** defects and are recorded where they belong instead.
 `Element.insertAdjacentText` is missing, which upstream's own result renderer calls — the overlay turns the

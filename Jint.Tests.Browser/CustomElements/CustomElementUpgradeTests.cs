@@ -182,4 +182,49 @@ public sealed class CustomElementUpgradeTests
         (await page.EvaluateAsync<string>("window.log.join('|')")).Should().Be("ctor|count:1");
         page.Errors.Should().NotBeEmpty();
     }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/dom.html#html-element-constructors: "if element is an already
+    /// constructed marker, then throw a <b>TypeError</b>" — a plain one, not a <c>DOMException</c>, which is
+    /// what a constructor constructing its own class reaches whichever side of <c>super()</c> it does it on.
+    /// </summary>
+    [TestCase("after")]
+    [TestCase("before")]
+    public async Task AConstructorThatConstructsItsOwnClassGetsATypeError(string side)
+    {
+        await using var browser = new Browser();
+        var body = side == "after"
+            ? """
+              <x-self></x-self>
+              <script>
+                window.name_ = '';
+                window.onerror = function (message, url, line, column, error) { window.name_ = error.name; return true; };
+                class SelfAfter extends HTMLElement {
+                  constructor(doNotCreateItself) {
+                    super();
+                    if (!doNotCreateItself) { new SelfAfter(true); }
+                  }
+                }
+                customElements.define('x-self', SelfAfter);
+              </script>
+              """
+            : """
+              <x-self></x-self>
+              <script>
+                window.name_ = '';
+                window.onerror = function (message, url, line, column, error) { window.name_ = error.name; return true; };
+                class SelfBefore extends HTMLElement {
+                  constructor(doNotCreateItself) {
+                    if (!doNotCreateItself) { new SelfBefore(true); }
+                    super();
+                  }
+                }
+                customElements.define('x-self', SelfBefore);
+              </script>
+              """;
+
+        var page = await PageWith(browser, body);
+
+        (await page.EvaluateAsync<string>("window.name_")).Should().Be("TypeError");
+    }
 }

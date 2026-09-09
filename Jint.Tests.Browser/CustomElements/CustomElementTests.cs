@@ -219,7 +219,7 @@ public sealed class CustomElementTests
     }
 
     [Test]
-    public async Task ReachingTheBaseConstructorTwiceDuringAnUpgradeIsAnInvalidStateError()
+    public async Task ReachingTheBaseConstructorTwiceDuringAnUpgradeIsATypeError()
     {
         await using var browser = new Browser();
         var page = await PageWith(browser,
@@ -240,7 +240,7 @@ public sealed class CustomElementTests
         // The upgrade put the element on the construction stack and `super()` replaced it with the
         // already-constructed marker, which is what the second reach finds. A `new Thing()` outside an
         // upgrade has an empty stack and makes a second element instead, exactly as a browser does.
-        (await page.EvaluateAsync<string>("window.log.join('|')")).Should().Be("InvalidStateError");
+        (await page.EvaluateAsync<string>("window.log.join('|')")).Should().Be("TypeError");
     }
 
     [Test]

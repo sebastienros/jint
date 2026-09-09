@@ -257,7 +257,13 @@ that never mentions `customElements` builds no registry at all and pays for none
   is HTML's `HTMLElement` constructor and the only `new` that object ever answers; and a parser-created
   element is **upgraded**. `cloneNode` is re-declared too, so a clone of a custom element is one.
 - **The construction stack is the specification's**, which is what makes `super()` answer the element being
-  upgraded rather than a second one, and a constructor that reaches the base twice an `InvalidStateError`.
+  upgraded rather than a second one, and a constructor that reaches the base twice a `TypeError` — a plain
+  one, not a `DOMException`, which is the only refusal in that constructor a page reaches by constructing its
+  own class from inside its constructor.
+- **A clone carries the element's `is` *value*, not its `is` attribute.** DOM's clone creates the copy with
+  "node's is value", which `createElement(tag, { is })` and `new XY()` set without adding any attribute — so
+  `Cloned` walks the two trees in lockstep and copies the slot before the upgrade, and an element whose `is`
+  attribute says something else is the same rule read from the other side.
 
 **The `[CEReactions]` approximation, which is the one thing to know before changing any of it.** HTML
 processes the element queue when the outermost `[CEReactions]` operation returns to script. Nothing here can
