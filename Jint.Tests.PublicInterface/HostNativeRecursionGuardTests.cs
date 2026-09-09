@@ -45,11 +45,11 @@ public class HostNativeRecursionGuardTests
     {
         {
             "bound call",
-            "var f = function () { return 1; }; for (var i = 0; i < 10000; i++) f = f.bind(null); f();"
+            "var f = function () { return 1; }; for (var i = 0; i < 50000; i++) f = f.bind(null); f();"
         },
         {
             "proxy call",
-            "var f = function () { return 1; }; for (var i = 0; i < 10000; i++) f = new Proxy(f, {}); f();"
+            "var f = function () { return 1; }; for (var i = 0; i < 50000; i++) f = new Proxy(f, {}); f();"
         },
         {
             "proxy construct",
