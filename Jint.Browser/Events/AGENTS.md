@@ -116,11 +116,15 @@ everything else is the fallback submit button's (0, 0) — no `src`, a fetch tha
 `Media/ImageHeader` reads, `element.click()`, a dispatched `MouseEvent`, `requestSubmit`, a keyboard. Those
 are three conditions and `ActivationBehaviors.RunInput`'s image arm asks all three: `Media/PageImages` says
 *completely available*, the click says `isTrusted`, and `BrowserEventRealm.PendingImagePoint` says the
-pointer was measured inside **this** button. **That measurement is `InputDispatcher.DispatchMouse`'s, taken
-from the release's own hit test before `pointerup` fires**, because the activation behaviour that reads it
-runs after `pointerup`, `mouseup` and `click` and any of the three may move, adopt or detach the input first;
-measuring is not selecting, so a canceled click promotes nothing and leaves the coordinate the last
-activation selected. The result lives on the *element* — a weak table on `BrowserEventRealm`, beside the
+pointer was measured inside **this** button. **That measurement is taken from the release's own hit test
+before any listener fires**, because the activation behaviour that reads it runs after `pointerup`, `mouseup`
+and `click` and any of the three may move, adopt or detach the input first; measuring is not selecting, so a
+canceled click promotes nothing and leaves the coordinate the last activation selected. **A tap takes it
+too**, from the same hit test its compatibility mouse events are dispatched at: "activated using a pointing
+device" is the condition, and a finger is one, so `InputDispatcher.DispatchMouse`'s release arm and
+`InputDispatcher.Touch`'s compatibility sequence both park a point and both clear it in a `finally` — a
+coordinate a tap could not select while a click at the same point could would be one input model disagreeing
+with the other. The result lives on the *element* — a weak table on `BrowserEventRealm`, beside the
 mouse press target — rather than on the event, because `new FormData(form, submitter)` reads it arbitrarily
 long afterwards. `Runtime/FormSubmitter` appends x then y, with a name prefix only when nonempty. Its
 inventory is submittable controls, not `form.elements`, which excludes image inputs: AngleSharp's tree
@@ -141,7 +145,8 @@ on the button while the *mouse* events a tap leaves go where the finger really c
 
 **A tap is a click, made of the same parts.** §8's compatibility events — `mousemove`, `mousedown`, `mouseup`,
 `click` — are dispatched through the helpers `DispatchMouse` uses, at the released point, so one activation
-behaviour runs rather than two nearly identical ones. They are owed only by a *single-finger* gesture nothing
+behaviour runs rather than two nearly identical ones — including the image button's selected coordinate,
+which is measured from the released point's hit test the way the mouse's is (above). They are owed only by a *single-finger* gesture nothing
 cancelled: a second contact, a cancelled `touchstart` or first `touchmove`, or a `touchcancel` withdraws them.
 **No pointer event is fired for a touch** — `pointerType: "touch"` with a `pointerId` per contact and its own
 boundary events is a second pointer model over the same contacts, and this package has one.
