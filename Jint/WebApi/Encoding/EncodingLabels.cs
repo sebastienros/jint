@@ -30,13 +30,16 @@ internal static class EncodingLabels
     /// <summary>The name https://encoding.spec.whatwg.org/#utf-8 gives the encoding, already ASCII-lowercase.</summary>
     internal const string Utf8 = "utf-8";
 
+    /// <summary>The same name as https://encoding.spec.whatwg.org/#names-and-labels spells it.</summary>
+    internal const string Utf8Name = "UTF-8";
+
     /// <summary>
     /// https://encoding.spec.whatwg.org/#utf-8 itself, for an algorithm that names the encoding rather than
     /// resolving a label — "set up decoder with UTF-8", https://w3c.github.io/FileAPI/#dom-blob-textstream
     /// step 3, is the one that does. Written out rather than looked up because UTF-8 is the generated
     /// table's one fixed point: it is not a single-byte encoding, so it carries no index.
     /// </summary>
-    internal static readonly EncodingEntry Utf8Encoding = new(Utf8, EncodingKind.Utf8, SingleByteIndex.None);
+    internal static readonly EncodingEntry Utf8Encoding = new(Utf8Name, Utf8, EncodingKind.Utf8, SingleByteIndex.None);
 
     /// <summary>The name https://encoding.spec.whatwg.org/#utf-16le gives the encoding.</summary>
     internal const string Utf16Le = "utf-16le";
@@ -124,10 +127,22 @@ internal enum EncodingKind
 }
 
 /// <summary>
-/// An encoding, as "get an encoding" returns it: the specification's name (already ASCII-lowercased, which
-/// is what https://encoding.spec.whatwg.org/#dom-textdecoder-encoding reports) plus what it takes to decode.
+/// An encoding, as "get an encoding" returns it: the specification's name in both of the spellings that
+/// standard gives it, plus what it takes to decode.
 /// </summary>
-/// <param name="Name">The encoding's name, ASCII-lowercased.</param>
+/// <param name="Name">
+/// The encoding's name as https://encoding.spec.whatwg.org/#names-and-labels spells it — <c>UTF-8</c>,
+/// <c>Shift_JIS</c>, <c>windows-1252</c>, <c>macintosh</c>. This is what
+/// https://dom.spec.whatwg.org/#dom-document-characterset answers with, so its case is load-bearing and not
+/// a matter of presentation.
+/// </param>
+/// <param name="LowercasedName">
+/// The same name, ASCII-lowercased — which is also one of the encoding's own labels, since the standard
+/// notes that ASCII-lowercasing a name yields one. It is what
+/// https://encoding.spec.whatwg.org/#dom-textdecoder-encoding reports, in those words: "return this's
+/// encoding's name, ASCII lowercased". Both spellings are stored rather than one derived, so neither read
+/// allocates.
+/// </param>
 /// <param name="Kind">Which decoder the encoding uses.</param>
 /// <param name="Index">
 /// The index table a <see cref="EncodingKind.SingleByte"/> encoding decodes through, and
@@ -135,5 +150,5 @@ internal enum EncodingKind
 /// sharing one index, which is why this is not derivable from <see cref="Name"/>.
 /// </param>
 [StructLayout(LayoutKind.Auto)]
-internal readonly record struct EncodingEntry(string Name, EncodingKind Kind, SingleByteIndex Index);
+internal readonly record struct EncodingEntry(string Name, string LowercasedName, EncodingKind Kind, SingleByteIndex Index);
 #endif

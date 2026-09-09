@@ -464,6 +464,17 @@ public class LegacyEncodingTests
                     labels++;
                     engine.SetValue("label", label);
 
+                    // The other spelling of the same name, checked for every label including the ones the
+                    // constructor refuses. TextDecoder reports the lowercased name because its own
+                    // definition says so; https://dom.spec.whatwg.org/#dom-document-characterset reports
+                    // the name as the standard spells it, so both have to come out of one table.
+                    EncodingLabels.TryLookup(label, out var resolved).Should().BeTrue();
+                    if (!string.Equals(resolved.Name, name, StringComparison.Ordinal)
+                        || !string.Equals(resolved.LowercasedName, expected, StringComparison.Ordinal))
+                    {
+                        failures.Add($"{label}: expected the name {name}/{expected}, got {resolved.Name}/{resolved.LowercasedName}");
+                    }
+
                     if (refused.Contains(name))
                     {
                         try
@@ -483,6 +494,7 @@ public class LegacyEncodingTests
                     {
                         failures.Add($"{label}: expected {expected}, got {actual}");
                     }
+
                 }
             }
         }
@@ -581,8 +593,10 @@ public class LegacyEncodingTests
         // ISO-8859-8-I decodes through ISO-8859-8's index, and it is literally the same table.
         EncodingLabels.TryLookup("iso-8859-8-i", out var withDirection).Should().BeTrue();
         EncodingLabels.TryLookup("iso-8859-8", out var visual).Should().BeTrue();
-        withDirection.Name.Should().Be("iso-8859-8-i");
-        visual.Name.Should().Be("iso-8859-8");
+        withDirection.Name.Should().Be("ISO-8859-8-I");
+        visual.Name.Should().Be("ISO-8859-8");
+        withDirection.LowercasedName.Should().Be("iso-8859-8-i");
+        visual.LowercasedName.Should().Be("iso-8859-8");
         withDirection.Index.Should().Be(visual.Index);
     }
 

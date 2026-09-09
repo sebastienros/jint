@@ -618,20 +618,26 @@ internal enum WptDivergence
 
     /// <summary>
     /// <para>
-    /// The test is about an <b>XML document</b>, or about one of the two members that make one:
-    /// <c>DOMImplementation.createDocument</c>, which AngleSharp's <c>IImplementation</c> does not have at
-    /// all, and <c>Document.createCDATASection</c>, which only an XML document may carry. This package asks
-    /// AngleSharp to parse HTML; it builds no XML document, has no <c>XMLDocument</c> interface, and serves
-    /// this corpus as <c>text/html</c>, so a <c>.xhtml</c> or <c>.svg</c> case is a not-vendored row rather
-    /// than an exclusion and what is left here is the HTML-side half of the same fact.
+    /// The test is about a document that had to be <b>parsed as XML and was not</b>. What it does not mean
+    /// any more is "this package builds no XML document": <c>DOMImplementation.createDocument</c> and
+    /// <c>Document.createCDATASection</c> exist, a frame served an XML content type gets a real XML
+    /// document, <c>XMLDocument</c> has its WebIDL interface, and DOM's metadata for such a document — its
+    /// null <c>location</c>, its content type, its encoding's name, the case its <c>createElement</c> keeps
+    /// — is the binding's own.
     /// </para>
     /// <para>
-    /// It is <see cref="NeedsMoreEventInterfaces"/>'s shape rather than <see cref="NeedsTriage"/>'s: the
-    /// absence is a scope decision somebody made, the rows name exactly what would move them, and nobody
-    /// owes the engine a fix for them today. <b>It is not free of consequence</b>, and the consequence is in
-    /// the not-vendored table: <c>dom/common.js</c> calls <c>createCDATASection</c> at file scope, so
-    /// thirty-one documents — most of <c>dom/ranges/</c> among them — register no test at all. One member
-    /// lands all of them, which is why <c>Wpt/README.md</c> names it first.
+    /// What is left is one mapping. AngleSharp routes <c>application/xhtml+xml</c> to the <i>HTML</i>
+    /// parser even with the XML document factory registered, so an XHTML fixture comes back as an HTML
+    /// document — with the trailing newline an HTML skeleton adds — and every row of
+    /// <c>Document-createElement*</c> that is about an XHTML document fails on its first assertion. A
+    /// top-level navigation to an XML content type is refused before a parser sees it, which is why a
+    /// <c>.xhtml</c> or <c>.svg</c> case is a not-vendored row rather than an exclusion.
+    /// </para>
+    /// <para>
+    /// It is <see cref="NeedsMoreEventInterfaces"/>'s shape rather than <see cref="NeedsTriage"/>'s only
+    /// in that the rows name exactly what would move them; the mapping itself is AngleSharp's and is a row
+    /// in <c>Jint.Browser/Dom/divergences.md</c>. The category's own exclusion group is gone —
+    /// <c>Wpt/README.md</c>'s "The XML-document cause is gone" says what its 346 rows turned out to be.
     /// </para>
     /// </summary>
     NeedsXmlDocuments,

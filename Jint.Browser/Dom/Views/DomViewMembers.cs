@@ -226,10 +226,11 @@ internal static class DomViewMembers
     /// <c>createElementNS</c> for the document element, and DOM's own append for both children.
     /// </para>
     /// <para>
-    /// <b>The content-type step is the one this cannot do.</b> DOM sets the new document's content type from
-    /// the namespace — <c>application/xhtml+xml</c>, <c>image/svg+xml</c> or <c>application/xml</c> — and
-    /// AngleSharp's <c>Document.ContentType</c> setter is not public, so every document made here answers
-    /// <c>application/xml</c>. It is recorded in <c>Dom/AGENTS.md</c>'s divergence table rather than hidden.
+    /// <b>The content type is step 7 and is decided by the namespace</b> — <c>application/xhtml+xml</c> for
+    /// the XHTML namespace, <c>image/svg+xml</c> for SVG, <c>application/xml</c> for everything else. It is
+    /// declared on the browsing context the document is parsed into rather than set on the document, because
+    /// AngleSharp's <c>Document.ContentType</c> setter is <see langword="protected"/>; see
+    /// <see cref="DomContentType"/>.
     /// </para>
     /// </remarks>
     internal static JsValue CreateDocument(DomRealm realm, JsValue[] arguments)
@@ -250,7 +251,10 @@ internal static class DomViewMembers
         var qualifiedName = qualifiedNameValue.IsNull() ? "" : TypeConverter.ToString(qualifiedNameValue);
 
         var doctype = DomBindings.NullableArgument<IDocumentType>(arguments, 2, Member.CreateDocument);
-        var document = DomConstructors.NewXmlDocument();
+
+        // Step 7, taken first because the content type is what the document is parsed as rather than
+        // something set on it afterwards.
+        var document = DomConstructors.NewXmlDocument(ContentTypeFor(namespaceUri));
 
         // Step 3: the internal createElementNS steps, which is where a NamespaceError or an
         // InvalidCharacterError for a bad qualified name comes from — AngleSharp raises both.
@@ -270,6 +274,25 @@ internal static class DomViewMembers
         }
 
         return realm.WrapNode(document);
+    }
+
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#dom-domimplementation-createdocument step 7: the content type the new
+    /// document gets, decided by the namespace it was asked for and by nothing else.
+    /// </summary>
+    private static string ContentTypeFor(string? namespaceUri)
+    {
+        if (string.Equals(namespaceUri, NamespaceNames.HtmlUri, StringComparison.Ordinal))
+        {
+            return DomContentType.Xhtml;
+        }
+
+        if (string.Equals(namespaceUri, NamespaceNames.SvgUri, StringComparison.Ordinal))
+        {
+            return DomContentType.Svg;
+        }
+
+        return DomContentType.Xml;
     }
 
     /// <summary>

@@ -147,14 +147,49 @@ internal static class CustomElementCreation
     }
 
     /// <remarks>
+    /// <para>
     /// The two members are two AngleSharp overloads, and which one is called is decided by the *member* and
     /// never by whether the namespace happens to be null: `createElement` is the one-argument overload, which
     /// is where an HTML document lower-cases the name and puts the element in the HTML namespace, and
     /// `createElementNS` is the two-argument one, which takes a null namespace as no namespace and leaves the
     /// name exactly as the script wrote it.
+    /// </para>
+    /// <para>
+    /// <b>Which is why `createElement` on a document that is not an HTML one takes the two-argument
+    /// overload.</b> https://dom.spec.whatwg.org/#dom-document-createelement lower-cases the name at step 2
+    /// only "if this is an HTML document", and chooses the namespace at step 4 — the HTML namespace when this
+    /// is an HTML document or its content type is `application/xhtml+xml`, and null otherwise. AngleSharp's
+    /// one-argument overload does both unconditionally, so `xmlDoc.createElement('DIV')` came back as a
+    /// lower-cased `div` in the HTML namespace where DOM asks for `DIV` in none.
+    /// </para>
     /// </remarks>
     private static IElement Build(IDocument document, string localName, string? namespaceUri, bool namespaced)
-        => namespaced ? document.CreateElement(namespaceUri, localName) : document.CreateElement(localName);
+    {
+        if (namespaced)
+        {
+            return document.CreateElement(namespaceUri, localName);
+        }
+
+        if (document is AngleSharp.Html.Dom.IHtmlDocument)
+        {
+            return document.CreateElement(localName);
+        }
+
+        return document.CreateElement(NamespaceFor(document), localName);
+    }
+
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#dom-document-createelement step 4, for a document that is not an HTML
+    /// one: the HTML namespace when its content type is <c>application/xhtml+xml</c>, and no namespace
+    /// otherwise.
+    /// </summary>
+    private static string? NamespaceFor(IDocument document)
+        => string.Equals(
+            Dom.DomContentType.Of(document) ?? document.ContentType,
+            Dom.DomContentType.Xhtml,
+            StringComparison.Ordinal)
+            ? CustomElementRegistry.HtmlNamespace
+            : null;
 
     /// <summary>
     /// <c>ElementCreationOptions</c>'s one member. A dictionary is only read when it is an object, which is

@@ -715,7 +715,13 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.characterSet", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.characterSet");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.CharacterSet);
+                    return self.Realm.Hooks.CharacterSet(self.Realm, self.Target);
+                }))
+            .Accessor("charset",
+                global::Jint.Browser.Dom.DomFailures.Guard("Document.charset", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.charset");
+                    return self.Realm.Hooks.CharacterSet(self.Realm, self.Target);
                 }))
             .Accessor("childElementCount",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.childElementCount", static (thisObj, args) =>
@@ -745,7 +751,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.contentType", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.contentType");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.ContentType);
+                    return self.Realm.Hooks.ContentType(self.Realm, self.Target);
                 }))
             .Accessor("cookie",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.cookie", static (thisObj, args) =>
@@ -1070,6 +1076,12 @@ internal static partial class DomInterfaces
                     return self.Realm.Hooks.ImportNode(self.Realm, self.Target, args);
                 }),
                 length: 1)
+            .Accessor("inputEncoding",
+                global::Jint.Browser.Dom.DomFailures.Guard("Document.inputEncoding", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.inputEncoding");
+                    return self.Realm.Hooks.CharacterSet(self.Realm, self.Target);
+                }))
             .Accessor("lastElementChild",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.lastElementChild", static (thisObj, args) =>
                 {
@@ -1109,12 +1121,12 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.location", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.location");
-                    return self.Realm.Wrap(self.Target.Location);
+                    return self.Realm.Hooks.Location(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.location", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.location");
-                    var forwardTarget = self.Target.Location; if (forwardTarget is not null) { forwardTarget.Href = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.location"); } return global::Jint.Native.JsValue.Undefined;
+                    self.Realm.Hooks.SetLocation(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.location")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("origin",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.origin", static (thisObj, args) =>
@@ -1901,7 +1913,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.tagName", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.tagName");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.TagName);
+                    return self.Realm.Hooks.TagName(self.Realm, self.Target);
                 }))
             .Method("toggleAttribute",
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.toggleAttribute", static (thisObj, args) =>

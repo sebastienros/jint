@@ -367,6 +367,26 @@
       "reason": "DOM §4.5. AngleSharp's IDocument has no member for it — a CDATA section lives in AngleSharp.Xml, which is not in the generator's pin — and its first step is a NotSupportedError on an HTML document, which is what dom/common.js catches and a missing member is not."
     },
     {
+      "interface": "Document",
+      "member": "charset",
+      "kind": "attribute",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, \"Document.charset\");",
+        "return self.Realm.Hooks.CharacterSet(self.Realm, self.Target);"
+      ],
+      "reason": "DOM 4.5 declares `readonly attribute DOMString charset` on Document as a historical alias of characterSet, with the note 'legacy alias of .characterSet'. AngleSharp has no member of that name at all -- its [DomName(\"charset\")] members are HTMLAnchorElement's and HTMLScriptElement's content attributes -- so the alias has to be declared here."
+    },
+    {
+      "interface": "Document",
+      "member": "inputEncoding",
+      "kind": "attribute",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, \"Document.inputEncoding\");",
+        "return self.Realm.Hooks.CharacterSet(self.Realm, self.Target);"
+      ],
+      "reason": "The other of DOM 4.5's two legacy aliases of characterSet, absent from AngleSharp for the same reason and answered by the same hook, so all three can never disagree."
+    },
+    {
       "interface": "DOMImplementation",
       "member": "createDocument",
       "kind": "operation",
@@ -1527,6 +1547,41 @@
       "half": "setter",
       "hook": "SetCookie",
       "reason": "The write half of the same jar."
+    },
+    {
+      "interface": "Document",
+      "member": "location",
+      "half": "getter",
+      "hook": "Location",
+      "reason": "HTML 7.1: 'return this's relevant global object's Location object, if this is fully active, and null otherwise'. AngleSharp gives every document it builds a Location over about:blank, including the ones nothing is showing, so a document made by createDocument, createHTMLDocument, new Document() or DOMParser answered an object where DOM answers null."
+    },
+    {
+      "interface": "Document",
+      "member": "location",
+      "half": "setter",
+      "hook": "SetLocation",
+      "reason": "The [PutForwards=href] half: WebIDL's setter steps read the attribute and then set href on what came back, so a document with no browsing context is a TypeError rather than a silent navigation of a document nobody can see."
+    },
+    {
+      "interface": "Document",
+      "member": "characterSet",
+      "half": "getter",
+      "hook": "CharacterSet",
+      "reason": "DOM 4.5: the document's encoding's NAME, as the Encoding Standard's names-and-labels table spells it -- UTF-8, Shift_JIS, windows-1252. AngleSharp answers .NET's Encoding.WebName, which is that name ASCII-lowercased and is the spelling TextDecoder.encoding reports rather than the one a document does."
+    },
+    {
+      "interface": "Document",
+      "member": "contentType",
+      "half": "getter",
+      "hook": "ContentType",
+      "reason": "DOM 4.5: the content type the algorithm that created the document gave it -- createDocument derives one from the namespace, the Document() constructor states application/xml, and DOMParser uses the type it was handed. AngleSharp's Document.ContentType setter is protected and AngleSharp.Xml's document types have internal constructors, so DomContentType carries the value on the browsing context instead."
+    },
+    {
+      "interface": "Element",
+      "member": "tagName",
+      "half": "getter",
+      "hook": "TagName",
+      "reason": "DOM 4.9: the HTML-uppercased qualified name, which is uppercased only when the element is in the HTML namespace AND its node document is an HTML document. AngleSharp decides on the namespace alone, so an element adopted into an XML document went on answering DIV where DOM asks for div."
     },
     {
       "interface": "Document",

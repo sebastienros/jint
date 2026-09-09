@@ -44,7 +44,9 @@ internal sealed class TextDecoderCommon
 
     internal TextDecoderCommon(in EncodingEntry encoding, bool fatal, bool ignoreBom)
     {
-        Name = JsString.Create(encoding.Name);
+        // https://encoding.spec.whatwg.org/#dom-textdecoder-encoding: "return this's encoding's name,
+        // ASCII lowercased", which is the spelling the table carries beside the standard's own.
+        Name = JsString.Create(encoding.LowercasedName);
         Fatal = fatal;
         IgnoreBom = ignoreBom;
         _encodingName = encoding.Name;
