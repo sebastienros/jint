@@ -29,7 +29,7 @@ namespace Jint.Browser.Events;
 /// <c>Input.dispatchMouseEvent</c> is observably a user's.
 /// </para>
 /// </remarks>
-internal static class InputDispatcher
+internal static partial class InputDispatcher
 {
     /// <summary>The button number of the primary (left) mouse button, which is the one that clicks.</summary>
     private const double PrimaryButton = 0;

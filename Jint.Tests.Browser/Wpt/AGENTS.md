@@ -200,7 +200,11 @@ entries any more**: campaign item C4 mapped `testdriver.js` onto the same `Input
 `Input` domain reaches, and the seven documents that were waiting for it were re-examined one at a time —
 five are cases now, and the two that still cannot report are `NotVendored` rows naming what each really needs
 (a rendering, and a pseudo-element model) rather than the driver. The member stays, because the rest of
-`test_driver` is deliberately still upstream's rejections and the next suite this lane vendors may need it. `NeedsTriage` means what it means
+`test_driver` is deliberately still upstream's rejections and the next suite this lane vendors may need it.
+**`NeedsTouchEmulation` is the same shape and for the same reason**: its six rows were
+`Document-createEvent.https.html`'s, and that document is opened as a touch device now (the environment table
+above), so they run and pass. The member stays for a document whose subject needs an environment this browser
+has no way to give it. `NeedsTriage` means what it means
 everywhere: **a genuine defect the corpus found, recorded rather than fixed so that the change which
 first runs a suite is not also the change that moves the engine.** A non-zero count there is a list somebody
 owes a fix for, and `README.md` names each one.
@@ -212,6 +216,18 @@ the exclusion table. That is the ninth rule of the other lane's file, and it dec
 there: a document is a whole environment, and the ways one can fail to report — a frame that had to run script,
 a navigation the page really performed, a `javascript:` URL, a document that replaced itself — have no analogue
 in a file handed to an engine.
+
+### The fifth table: the environment a document needs
+
+`WptBrowserExclusions.TouchDocuments` names the documents this lane opens as a **touch device**, through the
+same `Page.SetTouchEmulationAsync` seam a client has and before the navigation, so the document parses in it.
+It is this lane's counterpart of upstream's per-test preferences, and it exists because a document that asks
+`assert_implements_optional('ontouchstart' in document)` is asking about the environment rather than about the
+engine: declined, its rows report `PRECONDITION_FAILED` and measure nothing. **An environment is not an
+exclusion** — a row here makes the document's rows *run*, and the exclusion discipline still has to account
+for whatever they then say, which is what holds the table from the other side: take the row away and the six
+rows of `Document-createEvent.https.html` go back to being unnamed failures. Held from the first side by
+`EveryVendoredDocumentIsAccountedFor`, which refuses a row that is not a case.
 
 ### The other generated table: what each failure is
 

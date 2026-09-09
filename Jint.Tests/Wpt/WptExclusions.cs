@@ -626,18 +626,19 @@ internal enum WptDivergence
     /// <summary>
     /// <para>
     /// The document <b>declines an optional feature</b> this browser exposes only when a client asks for it:
-    /// touch. <c>dom/nodes/Document-createEvent.https.html</c> guards its six <c>TouchEvent</c> rows with
-    /// <c>assert_implements_optional('ontouchstart' in document)</c>, so with touch emulation off they are
-    /// recorded <c>PRECONDITION_FAILED</c> and never reach their subject — which is <i>not</i> the interface:
-    /// <c>TouchEvent</c>, <c>Touch</c> and <c>TouchList</c> are all built, and
-    /// <c>document.createEvent('touchevent')</c> answers one.
+    /// touch. A file that guards its rows with
+    /// <c>assert_implements_optional('ontouchstart' in document)</c> records <c>PRECONDITION_FAILED</c> for
+    /// every one of them on a page nobody said was a touch device, and never reaches their subject.
     /// </para>
     /// <para>
-    /// What is deliberate is the exposure. <c>Jint.Browser/Runtime/TouchEmulation</c> argues it: whether
-    /// <c>ontouchstart</c> is present is what every responsive framework branches on, so a browser that has no
-    /// touch input must not claim one — and a client that asks for touch emulation gets it, along with
-    /// <c>navigator.maxTouchPoints</c>. Firefox on a desktop declines the same file's rows for the same
-    /// reason, which is what <c>assert_implements_optional</c> exists to record.
+    /// <b>It has no entries, and what replaced them is an environment rather than an exclusion.</b>
+    /// <c>dom/nodes/Document-createEvent.https.html</c> was its six rows; the browser lane opens that
+    /// document as a touch device now — <c>WptBrowserExclusions.TouchDocuments</c>, through the same
+    /// <c>Page.SetTouchEmulationAsync</c> seam a client has — so the rows run and pass. The member stays for
+    /// the next document whose subject needs an environment this browser has no way to give it: what is
+    /// deliberate is still the exposure, which <c>Jint.Browser/Runtime/TouchEmulation</c> argues, and a
+    /// document that needs touch and cannot be given it belongs here rather than in
+    /// <see cref="NeedsTriage"/>.
     /// </para>
     /// </summary>
     NeedsTouchEmulation,

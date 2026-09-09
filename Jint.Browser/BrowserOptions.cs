@@ -60,6 +60,23 @@ public sealed class BrowserOptions
     /// <summary>The size and pixel ratio every page reports; 1280 × 720 at a ratio of 1 by default.</summary>
     public Viewport Viewport { get; set; } = Viewport.Default;
 
+    /// <summary>Whether every page opens as a touch device.</summary>
+    /// <remarks>
+    /// <para>
+    /// The other half of a device profile, beside <see cref="Viewport"/>: it decides what a page
+    /// <i>detects</i> — <c>ontouchstart</c> and its three siblings, <c>navigator.maxTouchPoints</c>, and the
+    /// <c>(pointer: coarse)</c> / <c>(hover: none)</c> media features — from its <b>first</b> document, which
+    /// is the difference from <see cref="Page.SetTouchEmulationAsync"/>: a responsive framework branches on
+    /// them as it starts, so a page told after its parse has already decided.
+    /// </para>
+    /// <para>
+    /// It does not decide whether a touch <i>arrives</i>. <see cref="Page.TapAsync(string, NavigationOptions)"/>
+    /// and <c>Input.dispatchTouchEvent</c> deliver one either way, because a caller that taps is asking for a
+    /// tap.
+    /// </para>
+    /// </remarks>
+    public bool HasTouch { get; set; }
+
     /// <summary>Whether every context of this browser refuses loopback and private addresses.</summary>
     /// <remarks>
     /// <para>

@@ -16,6 +16,7 @@ internal sealed class PageTarget(BrowserContextTarget context, JintPage inner) :
     private static readonly MethodInfo EvaluateMethod = typeof(PageTarget)
         .GetMethod(nameof(EvaluateAsync), BindingFlags.Instance | BindingFlags.NonPublic)!;
     private EventHandler<IPage>? _closed;
+    private ITouchscreen? _touchscreen;
     private float? _defaultTimeout;
     private float? _defaultNavigationTimeout;
     private bool _isClosed;
@@ -49,6 +50,10 @@ internal sealed class PageTarget(BrowserContextTarget context, JintPage inner) :
                 return IsClosed;
             case "get_Url":
                 return inner.Url;
+            case "get_Touchscreen":
+                return Touchscreen;
+            case nameof(IPage.TapAsync):
+                return TapAsync((string) arguments[0]!, (PageTapOptions?) arguments[1]);
             case nameof(IPage.Locator):
                 OptionSupport.EnsureOnly(arguments[1], "IPage.Locator");
                 return Locator((string) arguments[0]!);
@@ -112,6 +117,33 @@ internal sealed class PageTarget(BrowserContextTarget context, JintPage inner) :
     /// </summary>
     internal Task SetInputFilesAsync(string selector, object? files, float? timeout)
         => new LocatorTarget(this, LocatorDescriptor.Css(selector)).SetInputFilesAsync(files, timeout);
+    internal ITouchscreen Touchscreen => _touchscreen ??= ProxyFactory.Create<ITouchscreen>(new TouchscreenTarget(this));
+
+    /// <summary>
+    /// Playwright's own gate: <c>tap</c> is refused unless the context was opened with <c>hasTouch</c>, in
+    /// its own words.
+    /// </summary>
+    /// <remarks>
+    /// Enforced rather than quietly allowed, because the value of this adapter is that a script written
+    /// against it behaves the same against Chromium — and one that taps a context with no touch fails there.
+    /// </remarks>
+    internal void RequireTouch()
+    {
+        if (!context.HasTouch)
+        {
+            throw new PlaywrightException("The page does not support tap. Use hasTouch context option to enable touch support.");
+        }
+    }
+
+    /// <summary>
+    /// https://playwright.dev/dotnet/docs/api/class-page#page-tap — the selector form, which is the locator
+    /// path with the selector in it rather than a second resolution of its own.
+    /// </summary>
+    private async Task TapAsync(string selector, PageTapOptions? options)
+    {
+        OptionSupport.EnsureOnly(options, "IPage.TapAsync", nameof(PageTapOptions.Timeout));
+        await Locator(selector).TapAsync(new LocatorTapOptions { Timeout = options?.Timeout }).ConfigureAwait(false);
+    }
 
     private ILocator Locator(string selector)
         => ProxyFactory.Create<ILocator>(new LocatorTarget(this, LocatorDescriptor.Css(selector)));
@@ -453,6 +485,7 @@ internal sealed class LocatorTarget(PageTarget page, LocatorDescriptor descripto
             nameof(ILocator.IsVisibleAsync) => IsVisibleAsync(),
             nameof(ILocator.WaitForAsync) => WaitForAsync((LocatorWaitForOptions?) arguments[0]),
             nameof(ILocator.ClickAsync) => ClickAsync((LocatorClickOptions?) arguments[0]),
+            nameof(ILocator.TapAsync) => TapAsync((LocatorTapOptions?) arguments[0]),
             nameof(ILocator.FillAsync) => FillAsync((string) arguments[0]!, (LocatorFillOptions?) arguments[1]),
             nameof(ILocator.PressAsync) => PressAsync((string) arguments[0]!, (LocatorPressOptions?) arguments[1]),
             nameof(ILocator.SetInputFilesAsync) => SetInputFilesAsync(
@@ -544,6 +577,34 @@ internal sealed class LocatorTarget(PageTarget page, LocatorDescriptor descripto
         if (!clicked)
         {
             throw new PlaywrightException("The locator did not resolve to a clickable element.");
+        }
+    }
+
+    /// <summary>
+    /// https://playwright.dev/dotnet/docs/api/class-locator#locator-tap — the same waiting and resolution a
+    /// click has, and then one finger down and up at the centre of the element's box.
+    /// </summary>
+    private async Task TapAsync(LocatorTapOptions? options)
+    {
+        OptionSupport.EnsureOnly(options, "ILocator.TapAsync", nameof(LocatorTapOptions.Timeout));
+        page.RequireTouch();
+        var timeout = PageTarget.Timeout(options?.Timeout, page.DefaultTimeout);
+        var started = Stopwatch.GetTimestamp();
+        await WaitForAsync(new LocatorWaitForOptions { Timeout = options?.Timeout }).ConfigureAwait(false);
+        var index = await descriptor.ResolveIndexAsync(page.Inner).ConfigureAwait(false);
+        var remaining = RequireRemaining(timeout, started);
+        var tapped = index is not null
+            && await PageTarget.AsActionTimeoutAsync(
+                    page.Inner.TapAsync(
+                            descriptor.Selector,
+                            index.Value,
+                            new Jint.Browser.NavigationOptions { Timeout = remaining })
+                        .WaitAsync(remaining),
+                    timeout)
+                .ConfigureAwait(false);
+        if (!tapped)
+        {
+            throw new PlaywrightException("The locator did not resolve to a tappable element.");
         }
     }
 
@@ -862,6 +923,28 @@ internal readonly record struct LocatorDescriptor(
         => Index is >= 0 ? Index.Value.ToString(CultureInfo.InvariantCulture)
             : Index is < 0 ? $"{collection}.length + {Index.Value.ToString(CultureInfo.InvariantCulture)}"
             : "0";
+}
+
+/// <summary>
+/// https://playwright.dev/dotnet/docs/api/class-touchscreen — one member, and it is the coordinate form of a
+/// tap: the point is hit-tested against the flat box model exactly as <c>Input.dispatchTouchEvent</c>'s is.
+/// </summary>
+internal sealed class TouchscreenTarget(PageTarget page) : ProxyTarget
+{
+    internal override object? Invoke(MethodInfo method, object?[] arguments)
+    {
+        return method.Name switch
+        {
+            nameof(ITouchscreen.TapAsync) => TapAsync((float) arguments[0]!, (float) arguments[1]!),
+            _ => Unsupported(method),
+        };
+    }
+
+    private async Task TapAsync(float x, float y)
+    {
+        page.RequireTouch();
+        await page.Inner.TapAsync(x, y).ConfigureAwait(false);
+    }
 }
 
 internal static class Scripts

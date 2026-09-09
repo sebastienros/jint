@@ -85,21 +85,12 @@ internal sealed class EmulationDomain : EmulationDomainBase
     /// <remarks>
     /// It reaches <c>navigator.maxTouchPoints</c>, the presence of <c>ontouchstart</c> on <c>window</c>,
     /// <c>document</c> and <c>Element.prototype</c>, and <c>(hover: none)</c> / <c>(pointer: coarse)</c>.
-    /// <b>No touch event is ever dispatched</b>: <c>Input</c> is the mouse and the keyboard, so what this
-    /// changes is what a page detects rather than what it receives — <c>Runtime/TouchEmulation</c> states the
-    /// trade.
+    /// <b>What it changes is what a page detects, not what it receives</b>: <c>Input.dispatchTouchEvent</c>
+    /// delivers a touch either way, and <c>Runtime/TouchEmulation</c> states why the two are separate.
     /// </remarks>
     protected override ValueTask<EmptyResult> SetTouchEmulationEnabledAsync(SetTouchEmulationEnabledRequest parameters, CommandContext context)
     {
-        State.TouchEnabled = parameters.Enabled;
-        State.MaxTouchPoints = parameters.MaxTouchPoints ?? 1;
-
-        if (Runtime() is { } runtime)
-        {
-            TouchEmulation.Apply(runtime);
-            runtime.SetMedia(State.MediaEnvironment);
-        }
-
+        TouchEmulation.Set(State, Runtime(), parameters.Enabled, parameters.MaxTouchPoints ?? 1);
         return new ValueTask<EmptyResult>(EmptyResult.Instance);
     }
 
@@ -363,9 +354,11 @@ internal sealed class EmulationDomain : EmulationDomainBase
 
     /// <summary>Accepted, and a mouse event stays a mouse event.</summary>
     /// <remarks>
-    /// There is no touch event interface at all here, so translating a mouse event into one would mean
-    /// firing an event whose type nothing can construct and whose members a page would read as
-    /// <c>undefined</c>. <c>Input.dispatchMouseEvent</c> is the whole of the pointer input.
+    /// Translating one input into another would be a second answer to what a mouse press does, and the page
+    /// would get a gesture no client described — a <c>mousemove</c> alone becoming a whole touch sequence
+    /// with a contact that never lifts. A client that wants a touch has <c>Input.dispatchTouchEvent</c>,
+    /// which is the one that carries the contacts, and a tap through it already produces the compatibility
+    /// mouse events in the direction Touch Events defines.
     /// </remarks>
     protected override ValueTask<EmptyResult> SetEmitTouchEventsForMouseAsync(SetEmitTouchEventsForMouseRequest parameters, CommandContext context)
         => new(EmptyResult.Instance);

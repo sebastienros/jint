@@ -68,11 +68,17 @@ internal sealed class BrowserTarget(JintBrowser browser, IBrowserType browserTyp
             case "get_Version":
                 return typeof(JintBrowser).Assembly.GetName().Version?.ToString() ?? "0.0.0";
             case nameof(IBrowser.NewContextAsync):
-                OptionSupport.EnsureOnly(arguments[0], "IBrowser.NewContextAsync");
-                return NewContextAsync();
+                OptionSupport.EnsureOnly(
+                    arguments[0],
+                    "IBrowser.NewContextAsync",
+                    nameof(BrowserNewContextOptions.HasTouch));
+                return NewContextAsync(((BrowserNewContextOptions?) arguments[0])?.HasTouch == true);
             case nameof(IBrowser.NewPageAsync):
-                OptionSupport.EnsureOnly(arguments[0], "IBrowser.NewPageAsync");
-                return NewPageAsync();
+                OptionSupport.EnsureOnly(
+                    arguments[0],
+                    "IBrowser.NewPageAsync",
+                    nameof(BrowserNewPageOptions.HasTouch));
+                return NewPageAsync(((BrowserNewPageOptions?) arguments[0])?.HasTouch == true);
             case nameof(IBrowser.CloseAsync):
                 OptionSupport.EnsureOnly(arguments[0], "IBrowser.CloseAsync");
                 return CloseAsync();
@@ -83,14 +89,18 @@ internal sealed class BrowserTarget(JintBrowser browser, IBrowserType browserTyp
         }
     }
 
-    private async Task<IBrowserContext> NewContextAsync()
-        => (await NewContextTargetAsync().ConfigureAwait(false)).Context;
+    private async Task<IBrowserContext> NewContextAsync(bool hasTouch)
+        => (await NewContextTargetAsync(hasTouch).ConfigureAwait(false)).Context;
 
-    private async Task<BrowserContextTarget> NewContextTargetAsync()
+    /// <summary>
+    /// <c>hasTouch</c> is Playwright's own gate on <c>tap</c>, and it is the context's rather than a page's:
+    /// every page a context opens gets touch emulation, which is what makes a device profile a profile.
+    /// </summary>
+    private async Task<BrowserContextTarget> NewContextTargetAsync(bool hasTouch)
     {
         ObjectDisposedException.ThrowIf(_closed, this);
         var inner = await browser.NewContextAsync(new JintBrowserContextOptions()).ConfigureAwait(false);
-        var target = new BrowserContextTarget(this, inner);
+        var target = new BrowserContextTarget(this, inner) { HasTouch = hasTouch };
         target.Context = ProxyFactory.Create<IBrowserContext>(target);
         _contexts.Add(target);
 
@@ -105,9 +115,9 @@ internal sealed class BrowserTarget(JintBrowser browser, IBrowserType browserTyp
         return target;
     }
 
-    private async Task<IPage> NewPageAsync()
+    private async Task<IPage> NewPageAsync(bool hasTouch)
     {
-        var context = await NewContextTargetAsync().ConfigureAwait(false);
+        var context = await NewContextTargetAsync(hasTouch).ConfigureAwait(false);
         context.CloseWithPage = true;
         return await context.NewPageAsync().ConfigureAwait(false);
     }
@@ -145,6 +155,12 @@ internal sealed class BrowserContextTarget(BrowserTarget owner, JintBrowserConte
     internal IBrowserContext Context { get; set; } = null!;
 
     internal bool CloseWithPage { get; set; }
+
+    /// <summary>
+    /// Whether the context was opened with Playwright's <c>hasTouch</c>, which is what decides both that its
+    /// pages report themselves as touch devices and that <c>tap</c> is allowed at all.
+    /// </summary>
+    internal bool HasTouch { get; init; }
 
     internal bool IsClosed => _isClosed || inner.IsClosed;
 
@@ -198,6 +214,14 @@ internal sealed class BrowserContextTarget(BrowserTarget owner, JintBrowserConte
     {
         ObjectDisposedException.ThrowIf(_isClosed, this);
         var page = await inner.NewPageAsync().ConfigureAwait(false);
+
+        if (HasTouch)
+        {
+            // Playwright's hasTouch is what a page detects — ontouchstart, navigator.maxTouchPoints and the
+            // coarse-pointer media features — and Jint.Browser spells the same thing this way.
+            await page.SetTouchEmulationAsync(enabled: true).ConfigureAwait(false);
+        }
+
         var target = new PageTarget(this, page);
         target.Page = ProxyFactory.Create<IPage>(target);
         _pages.Add(target);

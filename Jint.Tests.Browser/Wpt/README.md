@@ -27,6 +27,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | --- | --- | --- | --- | --- |
 | `dom/events/` | 56 | 9 | 544 | 11 |
 | `dom/nodes/` | 168 | 0 | 8,115 | 742 |
+| `dom/nodes/` | 168 | 0 | 8,115 | 778 |
 | `dom/collections/` | 8 | 0 | 43 | 0 |
 | `dom/lists/` | 5 | 0 | 189 | 2 |
 | `dom/traversal/` | 13 | 0 | 52 | 0 |
@@ -41,6 +42,8 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `custom-elements/reactions/` | 14 | 0 | 255 | 52 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 3 |
 | **total** | **361** | **9** | **66,689** | **1,116** |
+| **total** | **359** | **9** | **66,646** | **1,117** |
+| **total** | **359** | **9** | **66,646** | **1,170** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -237,6 +240,8 @@ has the upstream half of each, and `Dom/AGENTS.md` says which override list carr
 `dom/nodes/`, `dom/collections/`, `dom/lists/`, `dom/traversal/`, `dom/ranges/` and `html/dom/` are the DOM
 standard's own suites and HTML's DOM half — the corpus every other suite in this lane is written on top of.
 Across the six of them there are 226 documents and 65,226 tests, and **784 of those tests do not pass**.
+Across the six of them there are 226 documents and 65,226 tests, and **785 of those tests do not pass**.
+Across the six of them there are 226 documents and 65,226 tests, and **828 of those tests do not pass**.
 Those three figures are live and checked against the census. They arrived together as 207 documents and
 5,247 tests with 1,532 not passing; those arrival figures are historical and deliberately not re-derived.
 
@@ -267,6 +272,13 @@ table needs to be regenerated.
 | 2 | 1 | **A live range is not adjusted once its container moves to another document.** The two `Range-adopt-test.html` rows whose container is moved with `appendChild` — AngleSharp keeps its ranges on the document, so DOM's remove steps reach none of them. The two rows whose container never moves pass. <!-- cause: Range's own algorithms --> |
 | 2 | 1 | **`relList` on an element AngleSharp gives no interface.** SVG 2 puts `relList` on `SVGAElement` and this corpus asks a MathML `<a>` for one too; AngleSharp builds a bare `SvgElement` and a `MathElement` and declares neither interface, so there is no member to project. `Dom/divergences.md` records it. <!-- cause: relList on an element AngleSharp gives no interface --> |
 | 1 | 1 | **A saved implementation detached from its document answers null**, which needs a frame that runs script of its own. Every other half of this cause is gone: a document with no browsing context has no `location`, `characterSet`/`charset`/`inputEncoding` answer the Encoding Standard's name, and `createHTMLDocument` builds DOM's skeleton. <!-- cause: a document with no browsing context --> |
+| 6 | 1 | **Members the standard removed are still here**, which is exactly what `html/dom/historical.html` exists to find. <!-- cause: a member the standard removed and this browser still has --> |
+| 5 | 2 | [#3712](https://github.com/sebastienros/jint/issues/3712) **A nullable `DOMString` answers the string `"null"`.** The remaining rows are `CharacterData.data` and `Node.nodeValue` writes. <!-- cause: a nullable DOMString answers the string "null" --> |
+| 5 | 1 | [#3767](https://github.com/sebastienros/jint/issues/3767) **`DOMTokenList` has five remaining interface-shape differences.** They are the legacy `DOMSettableTokenList` surfaces and two namespace-specific `relList` rows. <!-- cause: DOMTokenList: the token validation, the indexed access and the iteration --> |
+| 4 | 2 | **`MutationObserver` records differ.** A document observer misses parser mutations, and an `outerHTML` replacement reports a different record set. <!-- cause: MutationObserver's records --> |
+| 4 | 2 | **A live range is not adjusted once its container moves to another document.** Two `Range-in-shadow-after-the-shadow-removed.html` rows, and the two `Range-adopt-test.html` rows whose container is moved with `appendChild` — AngleSharp keeps its ranges on the document, so DOM's remove steps reach none of them. <!-- cause: Range's own algorithms --> |
+| 3 | 1 | [#3769](https://github.com/sebastienros/jint/issues/3769) **A `(Node or DOMString)` union parameter takes only a `Node`.** Three `ChildNode.before` rows still reject strings. <!-- cause: a (Node or DOMString) union parameter takes only a Node --> |
+| 2 | 2 | **`createHTMLDocument` builds a different skeleton**, and a saved implementation detached from its document answers null. The `location` and encoding-alias halves of this cause are gone: a document with no browsing context has no `location` now, and `characterSet`/`charset`/`inputEncoding` answer the Encoding Standard's name. <!-- cause: a document with no browsing context --> |
 
 **The XML-document cause is gone, and it was four different things.** It arrived as a scope decision —
 "a page here parses HTML, AngleSharp builds no XML document" — and by the time it was re-measured that

@@ -211,9 +211,9 @@ there is none of.
 `Runtime/NavigatorInstaller` says how the page adds WebIDL accessors to the engine's shaped
 `Navigator.prototype` without replacing its shared layout, while the existing `userAgent` accessor reads the
 page's `BrowserOptions.UserAgent` or a client's override — the string every request the page makes carries.
-`Runtime/TouchEmulation` says that touch emulation changes what a page *detects* and not what it receives — no
-touch event is ever dispatched — and how conditional `Element.prototype.ontouchstart` uses that same hybrid
-shape storage. `PageRuntime.VisibilityState` says why visibility and focus are one flag here and cannot be
+`Runtime/TouchEmulation` says that touch emulation decides what a page *detects* and not what it receives —
+`Input.dispatchTouchEvent` delivers a touch either way — and how the four conditional handler attributes it
+adds to `Element.prototype` use that same hybrid shape storage. `PageRuntime.VisibilityState` says why visibility and focus are one flag here and cannot be
 two. And `Events/EventHandlerContentAttributes.Reconcile` is the one place scripting-disabled is checked,
 because it is the one place every path arrives at; the parse's own half is that the `IScriptingService` is
 not registered at all, which is how AngleSharp is told, and `Runtime.evaluate` is unaffected either way.

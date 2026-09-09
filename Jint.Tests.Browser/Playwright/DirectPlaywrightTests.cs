@@ -288,6 +288,48 @@ public sealed class DirectPlaywrightTests
         (await page.Locator("#log").TextContentAsync()).Should().Be("trusted");
     }
 
+    /// <summary>
+    /// https://playwright.dev/dotnet/docs/api/class-locator#locator-tap — a tap needs the context's
+    /// <c>hasTouch</c>, and with it a page reports itself a touch device, hears the touch events and gets the
+    /// compatibility click Touch Events §8 leaves behind.
+    /// </summary>
+    [Test]
+    public async Task TapNeedsHasTouchAndThenDeliversTheTouchEvents()
+    {
+        await using var browser = await global::Jint.Browser.Playwright.JintPlaywright.BrowserType.LaunchAsync();
+
+        var plain = await browser.NewPageAsync();
+        await plain.SetContentAsync("<button id='b'>tap</button>");
+
+        // Playwright's own refusal, in Playwright's own words: a context with no touch cannot tap.
+        var refused = async () => await plain.Locator("#b").TapAsync();
+        (await refused.Should().ThrowAsync<PlaywrightException>())
+            .WithMessage("*hasTouch context option*");
+
+        var context = await browser.NewContextAsync(new BrowserNewContextOptions { HasTouch = true });
+        var page = await context.NewPageAsync();
+        await page.SetContentAsync(
+            """
+            <button id='b'>tap</button>
+            <script>
+              window.log = [];
+              for (const type of ['touchstart', 'touchend', 'click']) {
+                document.addEventListener(type, e => window.log.push(type));
+              }
+            </script>
+            """);
+
+        (await page.EvaluateAsync<bool>("() => 'ontouchstart' in window")).Should().BeTrue();
+        (await page.EvaluateAsync<int>("() => navigator.maxTouchPoints")).Should().Be(1);
+
+        await page.Locator("#b").TapAsync();
+        await page.TapAsync("#b");
+        await page.Touchscreen.TapAsync(1, 1);
+
+        (await page.EvaluateAsync<string>("() => window.log.join('|')"))
+            .Should().Be("touchstart|touchend|click|touchstart|touchend|click|touchstart|touchend|click");
+    }
+
     /// <summary>A navigation that runs out of the action's time is this API's timeout, not the page's.</summary>
     /// <remarks>
     /// <para>

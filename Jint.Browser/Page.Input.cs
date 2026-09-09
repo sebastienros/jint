@@ -115,6 +115,152 @@ public sealed partial class Page
         return captured.Clicked;
     }
 
+    /// <summary>Makes the page report itself as a touch device, or stop reporting itself as one.</summary>
+    /// <param name="enabled">Whether the page is to be a touch device.</param>
+    /// <param name="maxTouchPoints">How many contacts it reports; ignored while <paramref name="enabled"/> is false.</param>
+    /// <remarks>
+    /// <para>
+    /// <b>This decides what a page detects, not what it receives.</b> It adds <c>ontouchstart</c> to
+    /// <c>window</c>, <c>document</c> and <c>Element.prototype</c> — the presence test every responsive
+    /// framework branches on — answers <c>navigator.maxTouchPoints</c> with the number, and makes
+    /// <c>(pointer: coarse)</c> and <c>(hover: none)</c> match, announcing the change to any
+    /// <c>MediaQueryList</c> whose answer moved. <see cref="TapAsync(string, NavigationOptions)"/> delivers a
+    /// touch whether or not this was ever called, exactly as <c>Input.dispatchTouchEvent</c> does: a page
+    /// that added a <c>touchstart</c> listener hears one either way, and this is what lets it decide to add
+    /// one.
+    /// </para>
+    /// <para>
+    /// It is the page's rather than a document's, so it survives every navigation after it — which is the
+    /// whole point of an override, and what lets a caller set it once and then drive a site.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
+    public Task SetTouchEmulationAsync(bool enabled, int maxTouchPoints = 1)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxTouchPoints, 1);
+        ObjectDisposedException.ThrowIf(_closed, this);
+
+        return _loop.PostAsync(engine =>
+        {
+            TouchEmulation.Set(Emulation, PageRuntime.Find(engine), enabled, maxTouchPoints);
+            return true;
+        });
+    }
+
+    /// <summary>Taps what <paramref name="target"/> names, and waits for any navigation it causes.</summary>
+    /// <param name="target">A CSS selector, or a <c>ref=</c> from an accessibility snapshot.</param>
+    /// <param name="options">How far to wait for a navigation the tap causes; the defaults when omitted.</param>
+    /// <returns><see langword="true"/> when an element matched and was tapped.</returns>
+    /// <remarks>
+    /// <para>
+    /// One finger down at the centre of the element's box and up again: <c>touchstart</c> then
+    /// <c>touchend</c>, and — because nothing cancelled the <c>touchstart</c> — the compatibility mouse
+    /// events Touch Events §8 says a tap leaves behind, which is <c>mousemove</c>, <c>mousedown</c>,
+    /// <c>mouseup</c> and <c>click</c>. <b>So a tap activates.</b> A link is followed, a submit button
+    /// submits, a checkbox toggles, and a navigation any of it starts is awaited before this task completes.
+    /// </para>
+    /// <para>
+    /// <b>A page that handles the touch itself gets no click.</b> <c>preventDefault()</c> on the
+    /// <c>touchstart</c> suppresses all four, which is exactly what a carousel or a custom gesture does and
+    /// what makes this different from <see cref="ClickAsync(string, NavigationOptions)"/> rather than a
+    /// synonym for it.
+    /// </para>
+    /// <para>
+    /// The element is scrolled into view first, and one with no box — <c>hidden</c>, <c>display: none</c>,
+    /// <c>visibility: hidden</c> — is not tapped and answers <see langword="false"/>.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
+    public Task<bool> TapAsync(string target, NavigationOptions? options = null) => TapAsync(target, 0, options);
+
+    /// <summary>Taps the indexed element that <paramref name="target"/> names.</summary>
+    /// <param name="target">A CSS selector, or a <c>ref=</c> from an accessibility snapshot.</param>
+    /// <param name="index">The zero-based match, or a negative offset from the last match.</param>
+    /// <param name="options">How far to wait for a navigation the tap causes; the defaults when omitted.</param>
+    /// <returns><see langword="true"/> when the indexed element matched and was tapped.</returns>
+    /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
+    public async Task<bool> TapAsync(string target, int index, NavigationOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        ObjectDisposedException.ThrowIf(_closed, this);
+
+        var captured = await _loop.PostAsync((bool Tapped, NavigationRequest? Navigation) (engine) =>
+        {
+            if (PageRuntime.Find(engine) is not { } runtime || ElementLocator.Find(runtime.Document, target, index) is not { } element)
+            {
+                return (Tapped: false, Navigation: (NavigationRequest?) null);
+            }
+
+            runtime.Layout.ScrollIntoView(element, "nearest");
+
+            if (runtime.Layout.Current().ClientBoxOf(element) is not { } box)
+            {
+                return (false, null);
+            }
+
+            return (true, TapAt(runtime, box.X + (box.Width / 2), box.Y + (box.Height / 2)));
+        }).ConfigureAwait(false);
+
+        if (captured.Navigation is { } navigation)
+        {
+            await NavigateCoreAsync(navigation with { Options = options ?? NavigationOptions.Default }).ConfigureAwait(false);
+        }
+
+        return captured.Tapped;
+    }
+
+    /// <summary>Taps the point <paramref name="x"/>, <paramref name="y"/> in the viewport.</summary>
+    /// <param name="x">The viewport <c>x</c> coordinate, in CSS pixels.</param>
+    /// <param name="y">The viewport <c>y</c> coordinate, in CSS pixels.</param>
+    /// <param name="options">How far to wait for a navigation the tap causes; the defaults when omitted.</param>
+    /// <remarks>
+    /// The coordinate form of <see cref="TapAsync(string, NavigationOptions)"/>, for a caller that already
+    /// has a point — a box it read, or a client library's touchscreen. The point is hit-tested against the
+    /// same flat box model, and one that hits no box lands on the document element rather than on nothing.
+    /// </remarks>
+    /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
+    public async Task TapAsync(double x, double y, NavigationOptions? options = null)
+    {
+        ObjectDisposedException.ThrowIf(_closed, this);
+
+        var captured = await _loop.PostAsync(NavigationRequest? (engine) =>
+            PageRuntime.Find(engine) is { } runtime ? TapAt(runtime, x, y) : null).ConfigureAwait(false);
+
+        if (captured is { } navigation)
+        {
+            await NavigateCoreAsync(navigation with { Options = options ?? NavigationOptions.Default }).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>One finger down and up at a point, on the loop, answering the navigation it caused.</summary>
+    /// <remarks>
+    /// Captured rather than started, for the reason <see cref="ClickAsync(string, int, NavigationOptions)"/>
+    /// captures: the navigation a tap causes is one this caller can be handed instead of one that runs off on
+    /// its own.
+    /// </remarks>
+    private NavigationRequest? TapAt(PageRuntime runtime, double x, double y)
+    {
+        _capturingNavigation = true;
+        _capturedNavigation = null;
+
+        try
+        {
+            InputDispatcher.DispatchTouch(
+                runtime,
+                new TouchInput(TouchInputKind.Start, [TouchPointInput.At(x, y)], EventModifiers.None));
+
+            // https://chromedevtools.github.io/devtools-protocol/tot/Input/#method-dispatchTouchEvent — an
+            // end carries no contacts and lifts whatever is down, which is the finger the start put there.
+            InputDispatcher.DispatchTouch(runtime, TouchInput.Of(TouchInputKind.End));
+            return _capturedNavigation;
+        }
+        finally
+        {
+            _capturingNavigation = false;
+            _capturedNavigation = null;
+        }
+    }
+
     /// <summary>Moves the pointer over what <paramref name="target"/> names.</summary>
     /// <param name="target">A CSS selector, or a <c>ref=</c> from an accessibility snapshot.</param>
     /// <returns><see langword="true"/> when an element matched and had a box to move to.</returns>

@@ -257,6 +257,27 @@ Editing is a string and two offsets, which needs no rendering: insertion at the 
 around all of it. `contenteditable` is deliberately light — text spliced in one text node, the caret kept in
 the document's own `Selection` — so `Enter` there does nothing rather than something structural and wrong.
 
+**Touch is a gesture rather than an event, so the contacts outlive the command.** `dispatchTouchEvent`
+hit-tests each contact against the same flat box model a mouse event uses and fires one event per *changed*
+contact, which is what the protocol defines its `touchPoints` as. What a page then reads is Touch Events
+§5.2's three lists — `touches` is every contact on the surface after this event's own change, so a `touchend`
+does not list the finger it is announcing; `targetTouches` is the subset that started on the event's target;
+`changedTouches` is the one contact the event is about — and a contact's `target` is fixed where it went
+down, so a finger dragged off its button still ends on the button. A single-finger tap that nothing cancelled
+then leaves §8's four compatibility mouse events at the point the finger came off, through the same helpers
+`dispatchMouseEvent` uses, so a tap activates what a click activates and there is one answer to "what does a
+click do" rather than two. `preventDefault()` on the `touchstart` or the first `touchmove` withdraws them, as
+does a second contact or a `touchcancel`. **No pointer event is fired for a touch**: `pointerType: "touch"`
+with a `pointerId` per contact and its own boundary events is a second pointer model over the same contacts.
+
+Whether a page can *detect* touch stays a separate decision and a separate command.
+`Emulation.setTouchEmulationEnabled` — and `Page.SetTouchEmulationAsync`, the same seam from the host's side
+— adds Touch Events §5.4's four handler IDL attributes to the window, the document and `Element.prototype`,
+answers `navigator.maxTouchPoints`, and makes `(pointer: coarse)` and `(hover: none)` match. A touch is
+delivered either way: a client that sends one is asking for one, and a page that added a `touchstart`
+listener hears it whether or not anybody said the device has a digitizer. Exposing `ontouchstart` unasked
+would tell every responsive framework in the world this is a touch device.
+
 WPT's `testdriver.js` is mapped onto the same dispatcher through `testdriver-vendor.js`, the file upstream
 ships empty for a vendor to replace: `click`, `send_keys` and `action_sequence` resolve a WebDriver origin to
 a point in the page and post it to a host function that runs the same `InputDispatcher` the `Input` domain

@@ -178,6 +178,14 @@ public class WptBrowserTestRunner
             problems.AddRange(FrameBodyProblems(body, reason));
         }
 
+        foreach (var (document, reason) in WptBrowserExclusions.TouchDocuments)
+        {
+            if (!cases.Contains(document))
+            {
+                problems.Add($"{document} is run as a touch device ({reason}) but is not a case of any suite");
+            }
+        }
+
         foreach (var path in cases)
         {
             if (!_minimumTests.ContainsKey(path))

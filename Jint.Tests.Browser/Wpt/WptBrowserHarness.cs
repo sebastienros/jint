@@ -167,6 +167,13 @@ internal sealed class WptBrowserHarness : IDisposable
             var page = await context.NewPageAsync().ConfigureAwait(false);
             _collectors[page] = collector;
 
+            if (WptBrowserExclusions.NeedsTouchEmulation(path))
+            {
+                // Before the navigation, so the document parses on a touch device rather than becoming one
+                // half way through: the emulation is the page's and survives every document after it.
+                await page.SetTouchEmulationAsync(enabled: true).ConfigureAwait(false);
+            }
+
             try
             {
                 // Recorded here rather than in the runner, because this is the single funnel every case's
