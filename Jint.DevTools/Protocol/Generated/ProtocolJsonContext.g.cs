@@ -4,7 +4,7 @@
 //
 //     source:   tools/devtools-protocol/js_protocol.json, browser_protocol.json, jint_protocol.json
 //     protocol: version 1.3, ChromeDevTools/devtools-protocol@ea39a11d80de9a08ce2af03f52125ed2e462cf84 (devtools-protocol@0.0.1687809)
-//     manifest: tools/devtools-protocol/manifest.json, whole file, sha256:190c8fa59465
+//     manifest: tools/devtools-protocol/manifest.json, whole file, sha256:a268bb8c038f
 //
 // Do not edit. Regenerate instead, and read the diff: it is the upstream change stated in the
 // vocabulary this repository compiles. tools/devtools-protocol/README.md has the command, and
@@ -640,6 +640,8 @@ namespace Jint.DevTools.Protocol
     [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.Security.SetIgnoreCertificateErrorsRequest), TypeInfoPropertyName = "SecuritySetIgnoreCertificateErrorsRequest")]
     [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.Overlay.SetPausedInDebuggerMessageRequest), TypeInfoPropertyName = "OverlaySetPausedInDebuggerMessageRequest")]
     [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.Overlay.SetShowViewportSizeOnResizeRequest), TypeInfoPropertyName = "OverlaySetShowViewportSizeOnResizeRequest")]
+    [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.CSS.CSSStyleSheetHeader), TypeInfoPropertyName = "CSSCSSStyleSheetHeader")]
+    [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.CSS.RuleUsage), TypeInfoPropertyName = "CSSRuleUsage")]
     [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.CSS.SourceRange), TypeInfoPropertyName = "CSSSourceRange")]
     [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.CSS.ShorthandEntry), TypeInfoPropertyName = "CSSShorthandEntry")]
     [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.CSS.CSSComputedStyleProperty), TypeInfoPropertyName = "CSSCSSComputedStyleProperty")]
@@ -650,6 +652,11 @@ namespace Jint.DevTools.Protocol
     [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.CSS.GetComputedStyleForNodeResponse), TypeInfoPropertyName = "CSSGetComputedStyleForNodeResponse")]
     [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.CSS.GetInlineStylesForNodeRequest), TypeInfoPropertyName = "CSSGetInlineStylesForNodeRequest")]
     [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.CSS.GetInlineStylesForNodeResponse), TypeInfoPropertyName = "CSSGetInlineStylesForNodeResponse")]
+    [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.CSS.GetStyleSheetTextRequest), TypeInfoPropertyName = "CSSGetStyleSheetTextRequest")]
+    [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.CSS.GetStyleSheetTextResponse), TypeInfoPropertyName = "CSSGetStyleSheetTextResponse")]
+    [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.CSS.StopRuleUsageTrackingResponse), TypeInfoPropertyName = "CSSStopRuleUsageTrackingResponse")]
+    [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.CSS.TakeCoverageDeltaResponse), TypeInfoPropertyName = "CSSTakeCoverageDeltaResponse")]
+    [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.CSS.StyleSheetAddedEvent), TypeInfoPropertyName = "CSSStyleSheetAddedEvent")]
     [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.Jint.GetMarkdownRequest), TypeInfoPropertyName = "JintGetMarkdownRequest")]
     [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.Jint.GetMarkdownResponse), TypeInfoPropertyName = "JintGetMarkdownResponse")]
     [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.Jint.GetTextRequest), TypeInfoPropertyName = "JintGetTextRequest")]
@@ -662,6 +669,7 @@ namespace Jint.DevTools.Protocol
     [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.Accessibility.AXValueSource[]), TypeInfoPropertyName = "AccessibilityAXValueSourceArray")]
     [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.CSS.CSSComputedStyleProperty[]), TypeInfoPropertyName = "CSSCSSComputedStylePropertyArray")]
     [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.CSS.CSSProperty[]), TypeInfoPropertyName = "CSSCSSPropertyArray")]
+    [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.CSS.RuleUsage[]), TypeInfoPropertyName = "CSSRuleUsageArray")]
     [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.CSS.ShorthandEntry[]), TypeInfoPropertyName = "CSSShorthandEntryArray")]
     [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.DOM.BackendNode[]), TypeInfoPropertyName = "DOMBackendNodeArray")]
     [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.DOM.CSSComputedStyleProperty[]), TypeInfoPropertyName = "DOMCSSComputedStylePropertyArray")]
