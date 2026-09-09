@@ -61,7 +61,11 @@ public sealed class ClrFunction : Function, IEquatable<ClrFunction>
         _bubbleExceptions = _engine.Options.Interop.ExceptionHandler == Options.InteropOptions._defaultExceptionHandler;
     }
 
-    protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments) => _bubbleExceptions ? _func(thisObject, arguments) : CallSlow(thisObject, arguments);
+    protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
+    {
+        _engine._stackGuard.EnsureNativeStackHeadroom();
+        return _bubbleExceptions ? _func(thisObject, arguments) : CallSlow(thisObject, arguments);
+    }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
     private JsValue CallSlow(JsValue thisObject, JsCallArguments arguments)

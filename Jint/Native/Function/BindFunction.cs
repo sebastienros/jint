@@ -43,6 +43,8 @@ public sealed class BindFunction : ObjectInstance, IConstructor, ICallable
 
     JsValue ICallable.Call(JsValue thisObject, params JsCallArguments arguments)
     {
+        _engine._stackGuard.EnsureNativeStackHeadroom();
+
         // Per https://tc39.es/ecma262/#sec-bound-function-exotic-objects-call-thisargument-argumentslist
         // the [[BoundTargetFunction]] only needs to be callable — it is not necessarily a
         // Function instance. Binding an already-bound function produces a BindFunction whose
@@ -56,14 +58,20 @@ public sealed class BindFunction : ObjectInstance, IConstructor, ICallable
         }
 
         var args = CreateArguments(arguments);
-        var value = f.Call(BoundThis, args);
-        _engine._jsValueArrayPool.ReturnArray(args);
-
-        return value;
+        try
+        {
+            return f.Call(BoundThis, args);
+        }
+        finally
+        {
+            _engine._jsValueArrayPool.ReturnArray(args);
+        }
     }
 
     ObjectInstance IConstructor.Construct(JsCallArguments arguments, JsValue newTarget)
     {
+        _engine._stackGuard.EnsureNativeStackHeadroom();
+
         var target = BoundTargetFunction as IConstructor;
         if (target is null)
         {
@@ -77,10 +85,14 @@ public sealed class BindFunction : ObjectInstance, IConstructor, ICallable
             newTarget = BoundTargetFunction;
         }
 
-        var value = target.Construct(args, newTarget);
-        _engine._jsValueArrayPool.ReturnArray(args);
-
-        return value;
+        try
+        {
+            return target.Construct(args, newTarget);
+        }
+        finally
+        {
+            _engine._jsValueArrayPool.ReturnArray(args);
+        }
     }
 
     internal override bool OrdinaryHasInstance(JsValue v)
