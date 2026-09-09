@@ -4,7 +4,7 @@
 //
 //     source:   tools/devtools-protocol/js_protocol.json, browser_protocol.json, jint_protocol.json
 //     protocol: version 1.3, ChromeDevTools/devtools-protocol@ea39a11d80de9a08ce2af03f52125ed2e462cf84 (devtools-protocol@0.0.1687809)
-//     manifest: tools/devtools-protocol/manifest.json, whole file, sha256:a268bb8c038f
+//     manifest: tools/devtools-protocol/manifest.json, whole file, sha256:6527aa1c52e2
 //
 // Do not edit. Regenerate instead, and read the diff: it is the upstream change stated in the
 // vocabulary this repository compiles. tools/devtools-protocol/README.md has the command, and
@@ -610,10 +610,12 @@ namespace Jint.DevTools.Protocol
     [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.DOM.SetChildNodesEvent), TypeInfoPropertyName = "DOMSetChildNodesEvent")]
     [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.DOM.ShadowRootPoppedEvent), TypeInfoPropertyName = "DOMShadowRootPoppedEvent")]
     [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.DOM.ShadowRootPushedEvent), TypeInfoPropertyName = "DOMShadowRootPushedEvent")]
+    [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.Input.TouchPoint), TypeInfoPropertyName = "InputTouchPoint")]
     [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.Input.DispatchKeyEventRequest), TypeInfoPropertyName = "InputDispatchKeyEventRequest")]
     [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.Input.InsertTextRequest), TypeInfoPropertyName = "InputInsertTextRequest")]
     [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.Input.ImeSetCompositionRequest), TypeInfoPropertyName = "InputImeSetCompositionRequest")]
     [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.Input.DispatchMouseEventRequest), TypeInfoPropertyName = "InputDispatchMouseEventRequest")]
+    [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.Input.DispatchTouchEventRequest), TypeInfoPropertyName = "InputDispatchTouchEventRequest")]
     [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.Accessibility.AXValueSource), TypeInfoPropertyName = "AccessibilityAXValueSource")]
     [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.Accessibility.AXRelatedNode), TypeInfoPropertyName = "AccessibilityAXRelatedNode")]
     [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.Accessibility.AXProperty), TypeInfoPropertyName = "AccessibilityAXProperty")]
@@ -688,6 +690,7 @@ namespace Jint.DevTools.Protocol
     [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.Emulation.UserAgentBrandVersion[]), TypeInfoPropertyName = "EmulationUserAgentBrandVersionArray")]
     [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.Fetch.HeaderEntry[]), TypeInfoPropertyName = "FetchHeaderEntryArray")]
     [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.Fetch.RequestPattern[]), TypeInfoPropertyName = "FetchRequestPatternArray")]
+    [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.Input.TouchPoint[]), TypeInfoPropertyName = "InputTouchPointArray")]
     [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.Log.ViolationSetting[]), TypeInfoPropertyName = "LogViolationSettingArray")]
     [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.Network.AdScriptIdentifier[]), TypeInfoPropertyName = "NetworkAdScriptIdentifierArray")]
     [global::System.Text.Json.Serialization.JsonSerializable(typeof(global::Jint.DevTools.Protocol.Network.AssociatedCookie[]), TypeInfoPropertyName = "NetworkAssociatedCookieArray")]

@@ -26,8 +26,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | Suite | Documents | Synthesized | Tests | Not passing |
 | --- | --- | --- | --- | --- |
 | `dom/events/` | 56 | 9 | 544 | 11 |
-| `dom/nodes/` | 168 | 0 | 8,115 | 742 |
-| `dom/nodes/` | 168 | 0 | 8,115 | 778 |
+| `dom/nodes/` | 168 | 0 | 8,115 | 736 |
 | `dom/collections/` | 8 | 0 | 43 | 0 |
 | `dom/lists/` | 5 | 0 | 189 | 2 |
 | `dom/traversal/` | 13 | 0 | 52 | 0 |
@@ -44,6 +43,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | **total** | **361** | **9** | **66,689** | **1,116** |
 | **total** | **359** | **9** | **66,646** | **1,117** |
 | **total** | **359** | **9** | **66,646** | **1,170** |
+| **total** | **359** | **9** | **66,646** | **1,111** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -242,6 +242,7 @@ standard's own suites and HTML's DOM half — the corpus every other suite in th
 Across the six of them there are 226 documents and 65,226 tests, and **784 of those tests do not pass**.
 Across the six of them there are 226 documents and 65,226 tests, and **785 of those tests do not pass**.
 Across the six of them there are 226 documents and 65,226 tests, and **828 of those tests do not pass**.
+Across the six of them there are 226 documents and 65,226 tests, and **779 of those tests do not pass**.
 Those three figures are live and checked against the census. They arrived together as 207 documents and
 5,247 tests with 1,532 not passing; those arrival figures are historical and deliberately not re-derived.
 
@@ -266,19 +267,11 @@ table needs to be regenerated.
 | 18 | 1 | **A reflected `double` is written with .NET's number format.** `<meter>`'s six setters write `Double.ToString(InvariantInfo)`, so `-0` keeps its sign and an exponent is spelled `1E-10` where HTML wants ECMAScript's `1e-10`. Their getters are *not* reflection and are right, so there is no row for them; three values per member differ. `Dom/divergences.md` records it. <!-- cause: 9. a double written with .NET's number format --> |
 | 16 | 1 | **AngleSharp.Css refuses an unparseable media query, from inside `Element.setAttribute`.** `<style>` registers an attribute observer that assigns the sheet's `MediaList.mediaText`, whose setter throws where Media Queries §2.1 requires `not all`; the sixteen rows are the values it cannot parse and the member's other thirty tests pass. `Dom/divergences.md` records it. <!-- cause: 8. AngleSharp.Css refuses an unparseable media query --> |
 | 8 | 2 | **The selector engine's escapes, `:scope` and `:has` differ.** `ParentNode-querySelector-escapes.html` contributes five rows and `Element-closest.html` three. <!-- cause: the selector engine: escapes, :scope and :has --> |
-| 6 | 1 | **The touch rows the document declines.** `Document-createEvent.https.html` guards them with `assert_implements_optional('ontouchstart' in document)`, and touch detection is a client's decision here, so the harness records `PRECONDITION_FAILED` before reaching the `TouchEvent` this browser now builds. <!-- cause: the touch rows the document declines --> |
 | 4 | 2 | **`MutationObserver` records differ**, and both halves are AngleSharp's. Its HTML parser inserts nodes without queueing a record, so a document observer hears nothing about the parse; and its `OuterHtml` setter inserts the replacement and then removes the element, which a page sees as two `childList` records where HTML's "replace this with fragment within parent" is one. <!-- cause: MutationObserver's records --> |
 | 2 | 1 | **A document upstream runs once per `<meta name=variant>`.** `Range-in-shadow-after-the-shadow-removed.html` reads its shadow-root mode out of `location.search`, and this lane serves the bare path — so `mode` is `null` and `attachShadow({mode: null})` is the `TypeError` WebIDL owes a browser too. Nothing about `Range` is reached. <!-- cause: a document upstream runs once per variant --> |
 | 2 | 1 | **A live range is not adjusted once its container moves to another document.** The two `Range-adopt-test.html` rows whose container is moved with `appendChild` — AngleSharp keeps its ranges on the document, so DOM's remove steps reach none of them. The two rows whose container never moves pass. <!-- cause: Range's own algorithms --> |
 | 2 | 1 | **`relList` on an element AngleSharp gives no interface.** SVG 2 puts `relList` on `SVGAElement` and this corpus asks a MathML `<a>` for one too; AngleSharp builds a bare `SvgElement` and a `MathElement` and declares neither interface, so there is no member to project. `Dom/divergences.md` records it. <!-- cause: relList on an element AngleSharp gives no interface --> |
 | 1 | 1 | **A saved implementation detached from its document answers null**, which needs a frame that runs script of its own. Every other half of this cause is gone: a document with no browsing context has no `location`, `characterSet`/`charset`/`inputEncoding` answer the Encoding Standard's name, and `createHTMLDocument` builds DOM's skeleton. <!-- cause: a document with no browsing context --> |
-| 6 | 1 | **Members the standard removed are still here**, which is exactly what `html/dom/historical.html` exists to find. <!-- cause: a member the standard removed and this browser still has --> |
-| 5 | 2 | [#3712](https://github.com/sebastienros/jint/issues/3712) **A nullable `DOMString` answers the string `"null"`.** The remaining rows are `CharacterData.data` and `Node.nodeValue` writes. <!-- cause: a nullable DOMString answers the string "null" --> |
-| 5 | 1 | [#3767](https://github.com/sebastienros/jint/issues/3767) **`DOMTokenList` has five remaining interface-shape differences.** They are the legacy `DOMSettableTokenList` surfaces and two namespace-specific `relList` rows. <!-- cause: DOMTokenList: the token validation, the indexed access and the iteration --> |
-| 4 | 2 | **`MutationObserver` records differ.** A document observer misses parser mutations, and an `outerHTML` replacement reports a different record set. <!-- cause: MutationObserver's records --> |
-| 4 | 2 | **A live range is not adjusted once its container moves to another document.** Two `Range-in-shadow-after-the-shadow-removed.html` rows, and the two `Range-adopt-test.html` rows whose container is moved with `appendChild` — AngleSharp keeps its ranges on the document, so DOM's remove steps reach none of them. <!-- cause: Range's own algorithms --> |
-| 3 | 1 | [#3769](https://github.com/sebastienros/jint/issues/3769) **A `(Node or DOMString)` union parameter takes only a `Node`.** Three `ChildNode.before` rows still reject strings. <!-- cause: a (Node or DOMString) union parameter takes only a Node --> |
-| 2 | 2 | **`createHTMLDocument` builds a different skeleton**, and a saved implementation detached from its document answers null. The `location` and encoding-alias halves of this cause are gone: a document with no browsing context has no `location` now, and `characterSet`/`charset`/`inputEncoding` answer the Encoding Standard's name. <!-- cause: a document with no browsing context --> |
 
 **The XML-document cause is gone, and it was four different things.** It arrived as a scope decision —
 "a page here parses HTML, AngleSharp builds no XML document" — and by the time it was re-measured that

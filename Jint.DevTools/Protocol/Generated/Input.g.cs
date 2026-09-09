@@ -4,7 +4,7 @@
 //
 //     source:   tools/devtools-protocol/browser_protocol.json
 //     protocol: version 1.3, ChromeDevTools/devtools-protocol@ea39a11d80de9a08ce2af03f52125ed2e462cf84 (devtools-protocol@0.0.1687809)
-//     manifest: tools/devtools-protocol/manifest.json, Input entries, sha256:b32e65ed1397
+//     manifest: tools/devtools-protocol/manifest.json, Input entries, sha256:48216c85ed4b
 //
 // Do not edit. Regenerate instead, and read the diff: it is the upstream change stated in the
 // vocabulary this repository compiles. tools/devtools-protocol/README.md has the command, and
@@ -14,6 +14,66 @@
 
 namespace Jint.DevTools.Protocol.Input
 {
+    /// <summary>The <c>Input.TouchPoint</c> protocol type.</summary>
+    /// <remarks>Generated from the pinned protocol; do not edit. See <see href="https://chromedevtools.github.io/devtools-protocol/tot/Input/#type-TouchPoint"/>.</remarks>
+    internal sealed record TouchPoint
+    {
+        /// <summary>X coordinate of the event relative to the main frame's viewport in CSS pixels.</summary>
+        [global::System.Text.Json.Serialization.JsonPropertyName("x")]
+        public required double X { get; init; }
+
+        /// <summary>Y coordinate of the event relative to the main frame's viewport in CSS pixels.</summary>
+        [global::System.Text.Json.Serialization.JsonPropertyName("y")]
+        public required double Y { get; init; }
+
+        /// <summary>The protocol's <c>radiusX</c> member.</summary>
+        [global::System.Text.Json.Serialization.JsonPropertyName("radiusX")]
+        [global::System.Text.Json.Serialization.JsonIgnore(Condition = global::System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+        public double? RadiusX { get; init; }
+
+        /// <summary>The protocol's <c>radiusY</c> member.</summary>
+        [global::System.Text.Json.Serialization.JsonPropertyName("radiusY")]
+        [global::System.Text.Json.Serialization.JsonIgnore(Condition = global::System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+        public double? RadiusY { get; init; }
+
+        /// <summary>The protocol's <c>rotationAngle</c> member.</summary>
+        [global::System.Text.Json.Serialization.JsonPropertyName("rotationAngle")]
+        [global::System.Text.Json.Serialization.JsonIgnore(Condition = global::System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+        public double? RotationAngle { get; init; }
+
+        /// <summary>The protocol's <c>force</c> member.</summary>
+        [global::System.Text.Json.Serialization.JsonPropertyName("force")]
+        [global::System.Text.Json.Serialization.JsonIgnore(Condition = global::System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+        public double? Force { get; init; }
+
+        /// <summary>The normalized tangential pressure, which has a range of [-1,1] (default: 0).</summary>
+        /// <remarks>Experimental in the protocol. </remarks>
+        [global::System.Text.Json.Serialization.JsonPropertyName("tangentialPressure")]
+        [global::System.Text.Json.Serialization.JsonIgnore(Condition = global::System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+        public double? TangentialPressure { get; init; }
+
+        /// <summary>The protocol's <c>tiltX</c> member.</summary>
+        [global::System.Text.Json.Serialization.JsonPropertyName("tiltX")]
+        [global::System.Text.Json.Serialization.JsonIgnore(Condition = global::System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+        public double? TiltX { get; init; }
+
+        /// <summary>The protocol's <c>tiltY</c> member.</summary>
+        [global::System.Text.Json.Serialization.JsonPropertyName("tiltY")]
+        [global::System.Text.Json.Serialization.JsonIgnore(Condition = global::System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+        public double? TiltY { get; init; }
+
+        /// <summary>The clockwise rotation of a pen stylus around its own major axis, in degrees in the range [0,359] (default: 0).</summary>
+        /// <remarks>Experimental in the protocol. </remarks>
+        [global::System.Text.Json.Serialization.JsonPropertyName("twist")]
+        [global::System.Text.Json.Serialization.JsonIgnore(Condition = global::System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+        public int? Twist { get; init; }
+
+        /// <summary>Identifier used to track touch sources between events, must be unique within an event.</summary>
+        [global::System.Text.Json.Serialization.JsonPropertyName("id")]
+        [global::System.Text.Json.Serialization.JsonIgnore(Condition = global::System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+        public double? Id { get; init; }
+    }
+
     /// <summary>The strings the protocol admits for <c>Input.MouseButton</c>.</summary>
     /// <remarks>Generated from the pinned protocol; do not edit. See <see href="https://chromedevtools.github.io/devtools-protocol/tot/Input/#type-MouseButton"/>.</remarks>
     internal static class MouseButtonValues
@@ -285,6 +345,47 @@ namespace Jint.DevTools.Protocol.Input
         /// <summary>The protocol's <c>pen</c> value.</summary>
         internal const string Pen = "pen";
     }
+
+    /// <summary>The parameters of the <c>Input.dispatchTouchEvent</c> command.</summary>
+    /// <remarks>Generated from the pinned protocol; do not edit. See <see href="https://chromedevtools.github.io/devtools-protocol/tot/Input/#method-dispatchTouchEvent"/>.</remarks>
+    internal sealed record DispatchTouchEventRequest
+    {
+        /// <summary>Type of the touch event.</summary>
+        /// <remarks>The protocol admits the constants of <see cref="DispatchTouchEventRequestTypeValues"/>.</remarks>
+        [global::System.Text.Json.Serialization.JsonPropertyName("type")]
+        public required string Type { get; init; }
+
+        /// <summary>Active touch points on the touch device.</summary>
+        [global::System.Text.Json.Serialization.JsonPropertyName("touchPoints")]
+        public required global::Jint.DevTools.Protocol.Input.TouchPoint[] TouchPoints { get; init; }
+
+        /// <summary>Bit field representing pressed modifier keys.</summary>
+        [global::System.Text.Json.Serialization.JsonPropertyName("modifiers")]
+        [global::System.Text.Json.Serialization.JsonIgnore(Condition = global::System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+        public int? Modifiers { get; init; }
+
+        /// <summary>Time at which the event occurred.</summary>
+        [global::System.Text.Json.Serialization.JsonPropertyName("timestamp")]
+        [global::System.Text.Json.Serialization.JsonIgnore(Condition = global::System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+        public double? Timestamp { get; init; }
+    }
+
+    /// <summary>The strings the protocol admits for <c>Input.DispatchTouchEventRequest.type</c>.</summary>
+    /// <remarks>Generated from the pinned protocol; do not edit. See <see href="https://chromedevtools.github.io/devtools-protocol/tot/Input/#method-dispatchTouchEvent"/>.</remarks>
+    internal static class DispatchTouchEventRequestTypeValues
+    {
+        /// <summary>The protocol's <c>touchStart</c> value.</summary>
+        internal const string TouchStart = "touchStart";
+
+        /// <summary>The protocol's <c>touchEnd</c> value.</summary>
+        internal const string TouchEnd = "touchEnd";
+
+        /// <summary>The protocol's <c>touchMove</c> value.</summary>
+        internal const string TouchMove = "touchMove";
+
+        /// <summary>The protocol's <c>touchCancel</c> value.</summary>
+        internal const string TouchCancel = "touchCancel";
+    }
 }
 
 namespace Jint.DevTools.Domains
@@ -316,6 +417,11 @@ namespace Jint.DevTools.Domains
         protected virtual global::System.Threading.Tasks.ValueTask<global::Jint.DevTools.Protocol.EmptyResult> DispatchMouseEventAsync(global::Jint.DevTools.Protocol.Input.DispatchMouseEventRequest parameters, global::Jint.DevTools.Session.CommandContext context)
             => global::Jint.DevTools.Throw.MethodNotFound<global::System.Threading.Tasks.ValueTask<global::Jint.DevTools.Protocol.EmptyResult>>("Input.dispatchMouseEvent");
 
+        /// <summary>Dispatches a touch event to the page.</summary>
+        /// <remarks>Reached only while manifest.json lists it. See <see href="https://chromedevtools.github.io/devtools-protocol/tot/Input/#method-dispatchTouchEvent"/>.</remarks>
+        protected virtual global::System.Threading.Tasks.ValueTask<global::Jint.DevTools.Protocol.EmptyResult> DispatchTouchEventAsync(global::Jint.DevTools.Protocol.Input.DispatchTouchEventRequest parameters, global::Jint.DevTools.Session.CommandContext context)
+            => global::Jint.DevTools.Throw.MethodNotFound<global::System.Threading.Tasks.ValueTask<global::Jint.DevTools.Protocol.EmptyResult>>("Input.dispatchTouchEvent");
+
         /// <inheritdoc/>
         internal sealed override async global::System.Threading.Tasks.ValueTask<string> DispatchAsync(string method, global::System.Text.Json.JsonElement? parameters, global::Jint.DevTools.Session.CommandContext context)
         {
@@ -342,6 +448,12 @@ namespace Jint.DevTools.Domains
                 case "dispatchMouseEvent":
                 {
                     var result = await DispatchMouseEventAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.InputDispatchMouseEventRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                case "dispatchTouchEvent":
+                {
+                    var result = await DispatchTouchEventAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.InputDispatchTouchEventRequest), context).ConfigureAwait(false);
                     return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
                 }
 
