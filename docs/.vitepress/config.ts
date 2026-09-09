@@ -100,7 +100,6 @@ export default defineConfig({
         items: [
           { text: "Jint.DevTools", link: "/packages/jint-devtools/" },
           { text: "Jint.Browser", link: "/packages/jint-browser/" },
-          { text: "Jint.Browser.Playwright", link: "/packages/jint-browser-playwright/" },
           { text: "Jint.Browser.Tool", link: "/packages/jint-browser-tool/" },
           { text: "Jint.Browser.Mcp", link: "/packages/jint-browser-mcp/" }
         ]
@@ -146,20 +145,6 @@ export default defineConfig({
             { text: "Untrusted Content", link: "/packages/jint-browser/untrusted-content" },
             { text: "Supported Features", link: "/packages/jint-browser/supported-features" },
             { text: "Limitations", link: "/packages/jint-browser/limitations" }
-          ]
-        }
-      ],
-      "/packages/jint-browser-playwright/": [
-        {
-          text: "Jint.Browser.Playwright",
-          items: [
-            { text: "Overview", link: "/packages/jint-browser-playwright/" },
-            { text: "Getting Started", link: "/packages/jint-browser-playwright/getting-started" },
-            { text: "Browser API", link: "/packages/jint-browser-playwright/browser-api" },
-            { text: "Locators and Actions", link: "/packages/jint-browser-playwright/locators-and-actions" },
-            { text: "Waiting and Navigation", link: "/packages/jint-browser-playwright/waiting-and-navigation" },
-            { text: "Supported API", link: "/packages/jint-browser-playwright/supported-api" },
-            { text: "Limitations", link: "/packages/jint-browser-playwright/limitations" }
           ]
         }
       ],
