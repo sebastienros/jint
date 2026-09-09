@@ -80,6 +80,9 @@ public class WptBrowserTestRunner
     [TestCaseSource(nameof(ImgElementCases))]
     public Task RunsTheImgElementSuite(string path) => RunCaseAsync(path);
 
+    [TestCaseSource(nameof(PseudoClassSelectorCases))]
+    public Task RunsThePseudoClassSelectorSuite(string path) => RunCaseAsync(path);
+
     [TestCaseSource(nameof(CustomElementsCases))]
     public Task RunsTheCustomElementsSuite(string path) => RunCaseAsync(path);
 
@@ -115,6 +118,8 @@ public class WptBrowserTestRunner
     public static IEnumerable<object[]> ScriptingProcessingModelCases() => Cases("html/webappapis/scripting/processing-model-2");
 
     public static IEnumerable<object[]> ImgElementCases() => Cases("html/semantics/embedded-content/the-img-element");
+
+    public static IEnumerable<object[]> PseudoClassSelectorCases() => Cases("html/semantics/selectors/pseudo-classes");
 
     public static IEnumerable<object[]> CustomElementsCases() => Cases("custom-elements");
 
