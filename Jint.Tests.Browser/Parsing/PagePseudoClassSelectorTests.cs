@@ -293,4 +293,176 @@ public sealed class PagePseudoClassSelectorTests
             """)).Should().Be(
             "anchor:false,anchorHref:false,area:false,areaHref:false,link:false|button,input|disabledButton,disabledInput");
     }
+
+    /// <summary>
+    /// HTML §4.16.3 limits <c>:enabled</c> to the seven element types which have a disabled state, and
+    /// §4.15 makes the <c>disabled</c> content attribute a boolean one. This is upstream's
+    /// <c>html/semantics/selectors/pseudo-classes/enabled.html</c>.
+    /// </summary>
+    [Test]
+    public async Task EnabledMatchesEveryControlThatIsNotActuallyDisabled()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <!doctype html><html><body>
+            <a id=link3></a>
+            <area id=link4>
+            <link id=link5>
+            <a href="http://www.w3.org" id=link6></a>
+            <area href="http://www.w3.org" id=link7>
+            <link href="http://www.w3.org" id=link8>
+            <button id=button1>button1</button>
+            <button id=button2 disabled>button2</button>
+            <input id=input1>
+            <input id=input2 disabled>
+            <select id=select1>
+             <optgroup label="options" id=optgroup1>
+              <option value="option1" id=option1 selected>option1
+            </select>
+            <select disabled id=select2>
+             <optgroup label="options" disabled id=optgroup2>
+              <option value="option2" disabled id=option2>option2
+            </select>
+            <textarea id=textarea1>textarea1</textarea>
+            <textarea disabled id=textarea2>textarea2</textarea>
+            <form>
+             <p><input type=submit id=submitbutton></p>
+            </form>
+            <fieldset id=fieldset1></fieldset>
+            <fieldset disabled id=fieldset2></fieldset>
+            </body></html>
+            """);
+
+        (await page.EvaluateAsync<string>("""
+            Array.from(document.querySelectorAll(':enabled'), element => element.id).join(',')
+            """)).Should().Be(
+            "button1,input1,select1,optgroup1,option1,textarea1,submitbutton,fieldset1");
+    }
+
+    /// <summary>
+    /// HTML §4.16.3 matches <c>:disabled</c> against every actually disabled element, which §4.15 defines
+    /// over the <c>disabled</c> attribute's presence, the disabled fieldset a control descends from and the
+    /// nearest ancestor <c>select</c> of an <c>optgroup</c> or <c>option</c>. This is upstream's
+    /// <c>html/semantics/selectors/pseudo-classes/disabled.html</c>.
+    /// </summary>
+    [Test]
+    public async Task DisabledMatchesEveryActuallyDisabledElement()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <!doctype html><html><body>
+            <button id=button1 type=submit>button1</button>
+            <button id=button2 disabled>button2</button>
+            <input id=input1>
+            <input id=input2 disabled>
+            <input id=input3 readonly>
+            <select id=select1>
+             <optgroup label="options" id=optgroup1>
+              <option value="option1" id=option1 selected>option1
+            </select>
+            <select disabled id=select2>
+             <optgroup label="options" disabled id=optgroup2>
+              <option value="option2" disabled id=option2>option2
+            </select>
+            <textarea id=textarea1>textarea1</textarea>
+            <textarea disabled id=textarea2>textarea2</textarea>
+            <fieldset id=fieldset1></fieldset>
+            <fieldset disabled id=fieldset2>
+              <legend><input type=checkbox id=club></legend>
+              <p><label>Name on card: <input id=clubname required></label></p>
+              <p><label>Card number: <input id=clubnum required pattern="[-0-9]+"></label></p>
+            </fieldset>
+            <label disabled></label>
+            <object disabled></object>
+            <output disabled></output>
+            <img disabled>
+            <meter disabled></meter>
+            <progress disabled></progress>
+            </body></html>
+            """);
+
+        (await page.EvaluateAsync<string>("""
+            (() => {
+              const ids = () => Array.from(document.querySelectorAll(':disabled'), element => element.id).join(',');
+              const initial = ids();
+              button2.removeAttribute('disabled');
+              const removed = ids();
+              button1.setAttribute('disabled', 'disabled');
+              const added = ids();
+              input2.setAttribute('type', 'submit');
+              const retyped = ids();
+              const detached = document.createElement('input');
+              detached.setAttribute('disabled', 'disabled');
+              const afterDetached = ids();
+
+              const nested = document.createElement('fieldset');
+              nested.id = 'fieldset_nested';
+              nested.innerHTML = `
+                <input id=input_nested>
+                <button id=button_nested>button nested</button>
+                <select id=select_nested>
+                  <optgroup label="options" id=optgroup_nested>
+                    <option value="options" id=option_nested>option nested</option>
+                  </optgroup>
+                </select>
+                <textarea id=textarea_nested>textarea nested</textarea>
+                <object id=object_nested></object>
+                <output id=output_nested></output>
+                <fieldset id=fieldset_nested2>
+                  <input id=input_nested2>
+                </fieldset>
+              `;
+              fieldset2.appendChild(nested);
+              const within = Array.from(document.querySelectorAll('#fieldset2 :disabled'), element => element.id).join(',');
+              return [initial, removed, added, retyped, afterDetached, within].join('|');
+            })()
+            """)).Should().Be(string.Join('|',
+            "button2,input2,select2,optgroup2,option2,textarea2,fieldset2,clubname,clubnum",
+            "input2,select2,optgroup2,option2,textarea2,fieldset2,clubname,clubnum",
+            "button1,input2,select2,optgroup2,option2,textarea2,fieldset2,clubname,clubnum",
+            "button1,input2,select2,optgroup2,option2,textarea2,fieldset2,clubname,clubnum",
+            "button1,input2,select2,optgroup2,option2,textarea2,fieldset2,clubname,clubnum",
+            "clubname,clubnum,fieldset_nested,input_nested,button_nested,select_nested,optgroup_nested," +
+            "option_nested,textarea_nested,fieldset_nested2,input_nested2"));
+    }
+
+    /// <summary>
+    /// HTML §4.15 excuses a control only from the first <c>legend</c> child of the disabled fieldset it
+    /// descends from, so an outer disabled fieldset still reaches a control sheltered by an inner one, and a
+    /// second <c>legend</c> shelters nothing.
+    /// </summary>
+    [Test]
+    public async Task ADisabledFieldsetExcusesOnlyItsOwnFirstLegend()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <!doctype html><html><body>
+            <fieldset disabled id=outer>
+              <fieldset disabled id=inner>
+                <legend><input id=innerLegend></legend>
+                <input id=innerBody>
+              </fieldset>
+            </fieldset>
+            <fieldset disabled id=twoLegends>
+              <legend><input id=firstLegend></legend>
+              <legend><input id=secondLegend></legend>
+            </fieldset>
+            <fieldset id=enabledOuter>
+              <legend><input id=enabledLegend></legend>
+              <input id=enabledBody>
+            </fieldset>
+            </body></html>
+            """);
+
+        (await page.EvaluateAsync<string>("""
+            ['outer', 'inner', 'innerLegend', 'innerBody', 'twoLegends', 'firstLegend', 'secondLegend',
+              'enabledOuter', 'enabledLegend', 'enabledBody']
+              .map(id => id + ':' + document.getElementById(id).matches(':disabled')).join(',')
+            """)).Should().Be(
+            "outer:true,inner:true,innerLegend:true,innerBody:true,twoLegends:true,firstLegend:false," +
+            "secondLegend:true,enabledOuter:false,enabledLegend:false,enabledBody:false");
+    }
 }
