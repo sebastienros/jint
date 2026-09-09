@@ -565,7 +565,10 @@ internal sealed class ParserDriver : IDisposable
     /// <c>img.src = …</c> and a <c>srcset</c> rewrite into exactly one fetch and what makes the document
     /// delay its <c>load</c> event while one is outstanding. What it cannot produce is HTML's current-request
     /// state or an intrinsic size, so <see cref="Media.PageImages"/> holds both — see that class for what a
-    /// browser with no pixels can and cannot say.
+    /// browser with no pixels can and cannot say. <b>The URL is the binding's too</b>: AngleSharp's source
+    /// set reads no descriptor and no <c>media</c>, so which candidate of a <c>srcset</c> or a
+    /// <c>&lt;picture&gt;</c> is actually fetched is <see cref="Media.ImageSourceSet"/>'s answer over the
+    /// page's own viewport, and only the request around it stays AngleSharp's.
     /// </para>
     /// <para>
     /// <b>The three endings are the standard's three.</b> Bytes whose container
@@ -592,13 +595,34 @@ internal sealed class ParserDriver : IDisposable
     /// nothing was attempted and an <c>error</c> would say something was.
     /// </para>
     /// </remarks>
-    internal IResponse? FetchImage(IElement image, string url)
+    internal IResponse? FetchImage(IElement image, string requested)
     {
         var handedOver = HandsOver;
 
         return Serve(() =>
         {
             var images = _runtime.Images;
+
+            // https://html.spec.whatwg.org/multipage/images.html#update-the-source-set — the candidate
+            // AngleSharp put in the request is the *first* one of the first srcset it found, whatever the
+            // descriptors and the media say, so the URL that is actually fetched is decided here instead.
+            // See Media/ImageSourceSet, and Dom/divergences.md for what AngleSharp's own answer misses.
+            var url = Media.ImageSourceSet.Select(_runtime, image);
+
+            if (url is null)
+            {
+                // The selection produced nothing — an empty `srcset`, or a `<picture>` whose every
+                // `<source>` was ruled out and whose `<img>` has no `src`. HTML fires `error` here and this
+                // does not: see Dom/divergences.md, which records why AngleSharp gives no notification to
+                // hang one on for the case it never asks the loader about at all.
+                _requests.RecordNotFetched(
+                    requested,
+                    RequestInitiator.Subresource,
+                    PageRequestKind.Image,
+                    "no image source was selected: every candidate was ruled out by its media, its type or "
+                        + "its descriptor");
+                return null;
+            }
 
             // https://html.spec.whatwg.org/multipage/images.html#update-the-image-data step 7.3: an image
             // already in the list of available images under this key is taken from it, with no request and

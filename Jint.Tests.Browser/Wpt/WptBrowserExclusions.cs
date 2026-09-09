@@ -480,6 +480,8 @@ internal static class WptBrowserExclusions
     {
         ["html/semantics/embedded-content/the-img-element/Image-constructor.html"] = 5,
         ["html/semantics/embedded-content/the-img-element/nonexistent-image.html"] = 1,
+        ["html/semantics/embedded-content/the-img-element/img-picture-ancestor.html"] = 4,
+        ["html/semantics/embedded-content/the-img-element/update-the-source-set.html"] = 89,
         ["custom-elements/CustomElementRegistry-constructor-and-callbacks-are-held-strongly.html"] = 5,
         ["html/infrastructure/common-dom-interfaces/collections/htmlallcollection.html"] = 41,
         ["html/obsolete/requirements-for-implementations/other-elements-attributes-and-apis/document-all.html"] = 2,

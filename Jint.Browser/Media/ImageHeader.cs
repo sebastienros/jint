@@ -42,6 +42,49 @@ internal static class ImageHeader
     private const int SvgPrefixBytes = 4096;
 
     /// <summary>
+    /// Whether <paramref name="mimeType"/> names a container <see cref="TryRead"/> can read a size out of.
+    /// </summary>
+    /// <remarks>
+    /// <b>This is the declaration-side question, and only a declaration ever asks it.</b>
+    /// <a href="https://html.spec.whatwg.org/multipage/images.html#update-the-source-set">HTML §4.8.4.3.6</a>
+    /// step 3.7 drops a <c>&lt;source&gt;</c> whose <c>type</c> is not a supported image MIME type, which is
+    /// how a page offers AVIF first and PNG as the fallback. The <i>bytes</i> are never asked: those are
+    /// sniffed, because a server's <c>Content-Type</c> is not evidence about them.
+    /// </remarks>
+    internal static bool SupportsType(string? mimeType)
+    {
+        if (mimeType is null)
+        {
+            return false;
+        }
+
+        var semicolon = mimeType.IndexOf(';');
+        var essence = (semicolon < 0 ? mimeType : mimeType.Substring(0, semicolon)).Trim();
+
+        // A type attribute holds one MIME type, so anything the essence cannot contain -- a comma, a space,
+        // a control character -- makes it not a MIME type at all rather than an unknown one.
+        foreach (var character in essence)
+        {
+            if (character is ',' or ' ' or '\t' or '\n' or '\r' or '\f')
+            {
+                return false;
+            }
+        }
+
+        return essence.ToLowerInvariant() switch
+        {
+            "image/png" or "image/apng" => true,
+            "image/jpeg" or "image/jpg" => true,
+            "image/gif" => true,
+            "image/webp" => true,
+            "image/bmp" or "image/x-bmp" or "image/x-ms-bmp" => true,
+            "image/svg+xml" => true,
+            "image/vnd.microsoft.icon" or "image/x-icon" or "image/ico" => true,
+            _ => false,
+        };
+    }
+
+    /// <summary>
     /// Reads the intrinsic size <paramref name="bytes"/> states, or answers <see langword="false"/> for a
     /// container this browser does not recognise.
     /// </summary>

@@ -141,11 +141,20 @@ one would mean decoding. Four things follow and each is load-bearing:
   a question about a layout there is none of. Never loading one would leave every image of an infinite-scroll
   page `complete === false` for ever, which is the state those libraries block on — the same argument
   `IntersectionObserver` makes for reporting every target as intersecting.
+- **Which URL is fetched is `Media/ImageSourceSet`'s, not AngleSharp's.** HTML §4.8.4.3.6's source set reads
+  the `x` and `w` descriptors, the `sizes` lengths and each `<source>`'s `media` and `type`; AngleSharp's
+  `SourceSet.GetCandidates` reads none of them and yields the first candidate it finds, so the request it
+  makes names the wrong image. The request stays AngleSharp's and only its URL is decided here, against the
+  page's own viewport and media environment — the value `matchMedia` answers from, so a client that emulates
+  a viewport moves the selection with it. `img.decode()` is `Media/ImageDecode` over the same state: it is
+  the availability the current request already has rather than a bitmap, because there is no paint for a
+  decode to be ahead of.
 - **What no header can say is stated rather than guessed**: an animated GIF is its logical screen and has no
   frames, there is no colour and no EXIF orientation, a file whose header disagrees with its pixels is
   believed, and a broken container has no width at all. `Dom/divergences.md` carries the rows a page can see,
-  including the two AngleSharp gaps this leaves — `srcset`/`<picture>` selection ignores every descriptor and
-  every `media`, and an `<img src="">` fires no `error` because AngleSharp asks the loader for nothing.
+  including the two AngleSharp gaps this leaves — an `<img src="">` fires no `error` because AngleSharp asks
+  the loader for nothing when it selects no source, and an `<img>` inside a `<template>` *is* fetched because
+  AngleSharp gives a template's contents no owner document of their own.
 
 **Two schemes reach no socket, and one of them carries a body.** `about:blank` is answered as the empty HTML
 document a frame's `src` most often names. A `data:` URL is answered by
