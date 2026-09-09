@@ -1301,16 +1301,6 @@ internal static class WptBrowserExclusions
         new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: *\"http://example.com/\",\";:a\",null*", WptDivergence.NeedsTriage),
     ];
 
-    // ---------------------------------------------------------------- a nullable DOMString answers the string "null"
-    private static readonly WptExclusion[] _aNullableDOMStringAnswersTheStringNull =
-    [
-        // a DOMString? parameter or attribute answers the string "null"
-        new("dom/nodes/CharacterData-data.html", "*null", WptDivergence.NeedsTriage),
-        new("dom/nodes/Node-nodeValue.html", "Comment*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Node-nodeValue.html", "ProcessingInstruction*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Node-nodeValue.html", "Text*", WptDivergence.NeedsTriage),
-    ];
-
     // ---------------------------------------------------------------- a document upstream runs once per variant
     private static readonly WptExclusion[] _aDocumentUpstreamRunsOncePerVariant =
     [
@@ -1427,8 +1417,6 @@ internal static class WptBrowserExclusions
         // computes the viable sibling before it converts the nodes into one, so the removal the conversion
         // performs cannot invalidate it; AngleSharp's IChildNode members work the other way round and raise
         // NotFoundError. The remaining `before` rows belong to the union-parameter cause.
-        new("dom/nodes/ChildNode-after.html", "*positions.", WptDivergence.NeedsTriage),
-        new("dom/nodes/ChildNode-before.html", "*positions.", WptDivergence.NeedsTriage),
         // one assertion each; see Wpt/README.md
         new("dom/nodes/Document-createElementNS.html", "Upper-case HTML*", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElementNS.html", "createElementNS test in HTML*:o\",null", WptDivergence.NeedsTriage),
@@ -1437,7 +1425,6 @@ internal static class WptBrowserExclusions
         // AngleSharp's: a parser-inserted namespaced attribute records no prefix, and IChildNode.Replace
         // converts its arguments before it checks whether the child has a parent at all.
         new("dom/nodes/Attr-prefix.html", "Attr.prefix present (SVG)", WptDivergence.NeedsTriage),
-        new("dom/nodes/ChildNode-replaceWith.html", "*with one sibling of child and child itself as arguments.", WptDivergence.NeedsTriage),
         // The one metadata row of createDocument that is not about a refused name. Its namespace is the
         // XHTML one, so DOM gives the document the content type application/xhtml+xml and createElement
         // puts the element in the HTML namespace while keeping its case (steps 2 and 4) -- and
@@ -1447,7 +1434,6 @@ internal static class WptBrowserExclusions
         // AngleSharp's: an Attr write does not carry its new value to the attribute observer, and a parser-
         // inserted namespaced attribute records no prefix.
         new("dom/nodes/Attr-prefix.html", "Attr.prefix present (SVG)", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-importNode.html", "*'deep' argument.", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "Basic functionality of getAttributeNode/getAttributeNodeNS", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "Basic functionality of setAttributeNode", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "setAttributeNode doesn't have case-insensitivity even with an HTMLElement 2", WptDivergence.NeedsTriage),
@@ -1536,8 +1522,7 @@ internal static class WptBrowserExclusions
         new("a member of a DOM interface the bindings do not have", _aMemberOfADOMInterfaceTheBindingsDoNotHave),
         new("DOM's validate-and-extract, and the XML name productions", _dOMSValidateAndExtractAndTheXMLNameProductions),
         new("a name AngleSharp refuses that the standard allows", _aNameAngleSharpRefusesThatTheStandardAllows),
-        new("a nullable DOMString answers the string \"null\"", _aNullableDOMStringAnswersTheStringNull),
-        new("a document upstream runs once per variant", _aDocumentUpstreamRunsOncePerVariant),
+                new("a document upstream runs once per variant", _aDocumentUpstreamRunsOncePerVariant),
         new("a tag query's namespace and local-name identity", _aTagQuerySNamespaceAndLocalNameIdentity),
         new("Range's own algorithms", _rangeSOwnAlgorithms),
         new("an event interface this browser does not build", _anEventInterfaceThisBrowserDoesNotBuild),

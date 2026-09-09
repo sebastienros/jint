@@ -178,7 +178,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Node.nodeValue", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INode>(thisObj, "Node.nodeValue");
-                    self.Target.NodeValue = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Node.nodeValue"); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.NodeValue = global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "Node.nodeValue"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Method("normalize",
                 global::Jint.Browser.Dom.DomFailures.Guard("Node.normalize", static (thisObj, args) =>
@@ -354,8 +354,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("CharacterData.after", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ICharacterData>(thisObj, "CharacterData.after");
-                    if (self.Target.Parent is null) { return global::Jint.Native.JsValue.Undefined; }
-                    self.Target.After(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, "CharacterData.after")); return global::Jint.Native.JsValue.Undefined;
+                    self.Realm.Hooks.After(self.Realm, self.Target, args); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Method("appendData",
@@ -369,8 +368,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("CharacterData.before", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ICharacterData>(thisObj, "CharacterData.before");
-                    if (self.Target.Parent is null) { return global::Jint.Native.JsValue.Undefined; }
-                    self.Target.Before(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, "CharacterData.before")); return global::Jint.Native.JsValue.Undefined;
+                    self.Realm.Hooks.Before(self.Realm, self.Target, args); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Accessor("data",
@@ -382,7 +380,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("CharacterData.data", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ICharacterData>(thisObj, "CharacterData.data");
-                    self.Target.Data = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CharacterData.data"); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.Data = global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CharacterData.data"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Method("deleteData",
                 global::Jint.Browser.Dom.DomFailures.Guard("CharacterData.deleteData", static (thisObj, args) =>
@@ -434,7 +432,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("CharacterData.replaceWith", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ICharacterData>(thisObj, "CharacterData.replaceWith");
-                    self.Target.Replace(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, "CharacterData.replaceWith")); return global::Jint.Native.JsValue.Undefined;
+                    self.Realm.Hooks.ReplaceWith(self.Realm, self.Target, args); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Method("substringData",
@@ -500,6 +498,43 @@ internal static partial class DomInterfaces
                     return global::Jint.Native.JsBoolean.True;
                 }),
                 length: 0)
+            .Build();
+
+    /// <summary>The members of <c>DOMStringList</c>.</summary>
+    private static global::Jint.Native.JsObjectShape BuildDOMStringList()
+        => new global::Jint.Native.JsObjectShape.Builder()
+            .ToStringTag("DOMStringList")
+            .PerRealmSlot("constructor", enumerable: false)
+            .PerRealmSlot(
+                global::Jint.Native.Symbol.GlobalSymbolRegistry.Iterator,
+                global::Jint.Browser.Dom.Collections.DomIterator.ArrayValues)
+            .Method("contains",
+                global::Jint.Browser.Dom.DomFailures.Guard("DOMStringList.contains", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IStringList>(thisObj, "DOMStringList.contains");
+                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Contains(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "DOMStringList.contains")));
+                }),
+                length: 1)
+            .Method("item",
+                global::Jint.Browser.Dom.DomFailures.Guard("DOMStringList.item", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IStringList>(thisObj, "DOMStringList.item");
+                    return global::Jint.Browser.Dom.DomConvert.Text(((global::System.Collections.Generic.IReadOnlyList<global::System.String>) self.Target)[global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "DOMStringList.item")]);
+                }),
+                length: 1)
+            .Accessor("length",
+                global::Jint.Browser.Dom.DomFailures.Guard("DOMStringList.length", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IStringList>(thisObj, "DOMStringList.length");
+                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);
+                }))
+            .Build();
+
+    /// <summary>The members of <c>DOMStringMap</c>.</summary>
+    private static global::Jint.Native.JsObjectShape BuildDOMStringMap()
+        => new global::Jint.Native.JsObjectShape.Builder()
+            .ToStringTag("DOMStringMap")
+            .PerRealmSlot("constructor", enumerable: false)
             .Build();
 
     /// <summary>The members of <c>DOMTokenList</c>.</summary>
@@ -588,50 +623,6 @@ internal static partial class DomInterfaces
         global::Jint.Browser.Dom.Collections.DomIterableMembers.ValueIterator(builder);
         return builder.Build();
     }
-
-    /// <summary>The members of <c>DOMSettableTokenList</c>.</summary>
-    private static global::Jint.Native.JsObjectShape BuildDOMSettableTokenList()
-        => new global::Jint.Native.JsObjectShape.Builder()
-            .ToStringTag("DOMSettableTokenList")
-            .PerRealmSlot("constructor", enumerable: false)
-            .Build();
-
-    /// <summary>The members of <c>DOMStringList</c>.</summary>
-    private static global::Jint.Native.JsObjectShape BuildDOMStringList()
-        => new global::Jint.Native.JsObjectShape.Builder()
-            .ToStringTag("DOMStringList")
-            .PerRealmSlot("constructor", enumerable: false)
-            .PerRealmSlot(
-                global::Jint.Native.Symbol.GlobalSymbolRegistry.Iterator,
-                global::Jint.Browser.Dom.Collections.DomIterator.ArrayValues)
-            .Method("contains",
-                global::Jint.Browser.Dom.DomFailures.Guard("DOMStringList.contains", static (thisObj, args) =>
-                {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IStringList>(thisObj, "DOMStringList.contains");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Contains(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "DOMStringList.contains")));
-                }),
-                length: 1)
-            .Method("item",
-                global::Jint.Browser.Dom.DomFailures.Guard("DOMStringList.item", static (thisObj, args) =>
-                {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IStringList>(thisObj, "DOMStringList.item");
-                    return global::Jint.Browser.Dom.DomConvert.Text(((global::System.Collections.Generic.IReadOnlyList<global::System.String>) self.Target)[global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "DOMStringList.item")]);
-                }),
-                length: 1)
-            .Accessor("length",
-                global::Jint.Browser.Dom.DomFailures.Guard("DOMStringList.length", static (thisObj, args) =>
-                {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IStringList>(thisObj, "DOMStringList.length");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);
-                }))
-            .Build();
-
-    /// <summary>The members of <c>DOMStringMap</c>.</summary>
-    private static global::Jint.Native.JsObjectShape BuildDOMStringMap()
-        => new global::Jint.Native.JsObjectShape.Builder()
-            .ToStringTag("DOMStringMap")
-            .PerRealmSlot("constructor", enumerable: false)
-            .Build();
 
     /// <summary>The members of <c>Document</c>.</summary>
     private static global::Jint.Native.JsObjectShape BuildDocument()
@@ -1000,7 +991,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.getElementById", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.getElementById");
-                    return self.Realm.WrapNodeValue(self.Target.GetElementById(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.getElementById")));
+                    return self.Realm.Hooks.GetElementById(self.Realm, self.Target, args);
                 }),
                 length: 1)
             .Method("getElementsByClassName",
@@ -1337,7 +1328,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("DocumentFragment.getElementById", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocumentFragment>(thisObj, "DocumentFragment.getElementById");
-                    return self.Realm.WrapNodeValue(self.Target.GetElementById(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "DocumentFragment.getElementById")));
+                    return self.Realm.Hooks.GetElementById(self.Realm, self.Target, args);
                 }),
                 length: 1)
             .Accessor("lastElementChild",
@@ -1385,16 +1376,14 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("DocumentType.after", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocumentType>(thisObj, "DocumentType.after");
-                    if (self.Target.Parent is null) { return global::Jint.Native.JsValue.Undefined; }
-                    self.Target.After(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, "DocumentType.after")); return global::Jint.Native.JsValue.Undefined;
+                    self.Realm.Hooks.After(self.Realm, self.Target, args); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Method("before",
                 global::Jint.Browser.Dom.DomFailures.Guard("DocumentType.before", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocumentType>(thisObj, "DocumentType.before");
-                    if (self.Target.Parent is null) { return global::Jint.Native.JsValue.Undefined; }
-                    self.Target.Before(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, "DocumentType.before")); return global::Jint.Native.JsValue.Undefined;
+                    self.Realm.Hooks.Before(self.Realm, self.Target, args); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Accessor("name",
@@ -1420,7 +1409,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("DocumentType.replaceWith", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocumentType>(thisObj, "DocumentType.replaceWith");
-                    self.Target.Replace(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, "DocumentType.replaceWith")); return global::Jint.Native.JsValue.Undefined;
+                    self.Realm.Hooks.ReplaceWith(self.Realm, self.Target, args); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Accessor("systemId",
@@ -1441,8 +1430,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.after", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.after");
-                    if (self.Target.Parent is null) { return global::Jint.Native.JsValue.Undefined; }
-                    self.Target.After(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, "Element.after")); return global::Jint.Native.JsValue.Undefined;
+                    self.Realm.Hooks.After(self.Realm, self.Target, args); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Method("append",
@@ -1475,8 +1463,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.before", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.before");
-                    if (self.Target.Parent is null) { return global::Jint.Native.JsValue.Undefined; }
-                    self.Target.Before(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, "Element.before")); return global::Jint.Native.JsValue.Undefined;
+                    self.Realm.Hooks.Before(self.Realm, self.Target, args); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Accessor("childElementCount",
@@ -1809,7 +1796,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.replaceWith", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.replaceWith");
-                    self.Target.Replace(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, "Element.replaceWith")); return global::Jint.Native.JsValue.Undefined;
+                    self.Realm.Hooks.ReplaceWith(self.Realm, self.Target, args); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Accessor("scrollHeight",
@@ -2290,7 +2277,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("NodeList.item", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INodeList>(thisObj, "NodeList.item");
-                    return self.Realm.WrapNodeValue(self.Target[global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "NodeList.item")]);
+                    return global::Jint.Browser.Dom.Collections.DomNodeListMembers.Item(self.Realm, self.Target, args);
                 }),
                 length: 1)
             .Accessor("length",
