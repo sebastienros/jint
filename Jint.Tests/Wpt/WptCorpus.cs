@@ -91,6 +91,8 @@ internal static class WptCorpus
         "dom/traversal",
         "dom/ranges",
         "html/dom",
+        "html/infrastructure/common-dom-interfaces/collections",
+        "html/obsolete/requirements-for-implementations/other-elements-attributes-and-apis",
         "html/webappapis/scripting/events",
         "html/webappapis/scripting/processing-model-2",
         "custom-elements",

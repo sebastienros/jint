@@ -11,6 +11,7 @@ internal enum WrapperKind
     Collection,
     NamedMap,
     HtmlCollection,
+    HtmlAllCollection,
 }
 
 /// <summary>What a generated member is, in WebIDL's vocabulary.</summary>

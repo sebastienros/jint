@@ -1,6 +1,7 @@
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
 using Jint.Native;
+using Jint.Native.Array;
 
 namespace Jint.Browser.Dom.Collections;
 
@@ -162,6 +163,12 @@ internal sealed class DomHtmlCollectionObject<T> : DomCollectionBase where T : c
             // advertise a projected name for it, or enumeration and lookup would disagree.
             if (!string.IsNullOrEmpty(candidate)
                 && !names.Contains(candidate!, StringComparer.Ordinal)
+                // A supported name spelling a canonical array index is unreachable as a property: the indexed
+                // half of the model answers that key and stops, which is why WebIDL leaves such a name out of
+                // [[OwnPropertyKeys]] and why ArrayLikeObject refuses to advertise one. namedItem still finds
+                // it. Without this, <div id="0"> made Object.keys() of a collection raise under
+                // host-contract verification, and listed a key that read as the element at index 0 without.
+                && ArrayInstance.ParseArrayIndex(candidate!) == uint.MaxValue
                 && !HasStoredProperty(candidate!))
             {
                 names.Add(candidate!);

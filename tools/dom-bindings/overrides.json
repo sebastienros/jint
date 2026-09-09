@@ -40,6 +40,13 @@
       "interface": "AngleSharp.Dom.IHtmlCollection`1",
       "shape": "DomManualShapes.HtmlCollection",
       "reason": "AngleSharp's IHtmlCollection<T> is generic and invariant, so a static member body cannot name the receiver type. item() and namedItem() are hand-written against DomCollectionBase's two virtuals instead, and the interface contributes no members to any closure — its refinements inherit them through the prototype chain, which is where a browser has them too."
+    },
+    {
+      "interface": "AngleSharp.Dom.IHtmlAllCollection",
+      "shape": "DomManualShapes.HtmlAllCollection",
+      "wrapper": "HtmlAllCollection",
+      "inherits": "",
+      "reason": "HTML §4.13.2.3 declares HTMLAllCollection as a standalone interface whose length, item(nameOrIndex) and namedItem(name) are its own, whose named lookup answers an element or an HTMLCollection, and which carries a legacy caller and ECMAScript Annex B.3.6's [[IsHTMLDDA]] slot. AngleSharp models it as IHtmlAllCollection : IHtmlCollection<IElement>, which is the one place the CLR hierarchy contradicts the IDL: `inherits: \"\"` roots the prototype at Object.prototype the way HTML does rather than at HTMLCollection, and `wrapper` selects the hand-written DomHtmlAllCollectionObject over the generic collection wrapper, which could carry neither the legacy caller nor the slot."
     }
   ],
   "skip": [

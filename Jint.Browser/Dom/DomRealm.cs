@@ -282,6 +282,15 @@ internal sealed class DomRealm
         }
 
         var definition = DomTypeMap.For(collection.GetType());
+
+        // document.all is the one collection whose own interface decides the wrapper: HTML gives it a named
+        // lookup, an item(), a legacy caller and an internal slot no HTMLCollection has, and it arrives here
+        // because the generated Document.all getter's declared return type is IHtmlCollection<IElement>.
+        if (definition?.WrapperKind == DomWrapperKind.HtmlAllCollection && collection is IHtmlAllCollection all)
+        {
+            return Cache(collection, new DomHtmlAllCollectionObject(this, definition, all));
+        }
+
         if (definition?.WrapperKind != DomWrapperKind.HtmlCollection)
         {
             // AngleSharp's QueryCollection also implements INodeList. The member's IDL return type,
@@ -316,6 +325,13 @@ internal sealed class DomRealm
         if (definition.WrapperKind is DomWrapperKind.Node or DomWrapperKind.IndexedNode)
         {
             return NewNode(definition, (INode) value);
+        }
+
+        if (definition.WrapperKind == DomWrapperKind.HtmlAllCollection)
+        {
+            return value is IHtmlAllCollection all
+                ? new DomHtmlAllCollectionObject(this, definition, all)
+                : Unsupported(value, "is projected as HTMLAllCollection but is not an IHtmlAllCollection");
         }
 
         if (definition.WrapperKind == DomWrapperKind.HtmlCollection)

@@ -1993,13 +1993,6 @@ internal static partial class DomInterfaces
         return builder.Build();
     }
 
-    /// <summary>The members of <c>HTMLAllCollection</c>.</summary>
-    private static global::Jint.Native.JsObjectShape BuildHTMLAllCollection()
-        => new global::Jint.Native.JsObjectShape.Builder()
-            .ToStringTag("HTMLAllCollection")
-            .PerRealmSlot("constructor", enumerable: false)
-            .Build();
-
     /// <summary>The members of <c>Location</c>.</summary>
     private static global::Jint.Native.JsObjectShape BuildLocation()
         => new global::Jint.Native.JsObjectShape.Builder()

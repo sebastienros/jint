@@ -31,14 +31,16 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `dom/lists/` | 5 | 0 | 189 | 2 |
 | `dom/traversal/` | 13 | 0 | 52 | 0 |
 | `dom/ranges/` | 17 | 0 | 82 | 4 |
-| `html/dom/` | 15 | 0 | 56,745 | 37 |
+| `html/dom/` | 15 | 0 | 56,745 | 36 |
+| `html/infrastructure/common-dom-interfaces/collections/` | 1 | 0 | 41 | 0 |
+| `html/obsolete/requirements-for-implementations/other-elements-attributes-and-apis/` | 1 | 0 | 2 | 0 |
 | `html/webappapis/scripting/events/` | 12 | 0 | 37 | 2 |
 | `html/webappapis/scripting/processing-model-2/` | 25 | 0 | 44 | 5 |
 | `custom-elements/` | 16 | 0 | 513 | 248 |
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 52 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 3 |
-| **total** | **359** | **9** | **66,646** | **1,117** |
+| **total** | **361** | **9** | **66,689** | **1,116** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -202,6 +204,23 @@ renderer off for its own reasons and `AGENTS.md` says so rather than letting tha
 document whose subject is that resolution is in the not-vendored table for the reason
 `performance-timeline/webtiming-resolution.any.js` is out of the engine lane.
 
+## The two smallest suites, and `document.all`
+
+`html/infrastructure/common-dom-interfaces/collections/htmlallcollection.html` and
+`html/obsolete/requirements-for-implementations/other-elements-attributes-and-apis/document-all.html` are the
+whole of what upstream asks about `document.all`, and **all 43 of their assertions pass, with no exclusions**.
+Between them they cover HTML §4.13.2.3 — the supported names, the "all"-named elements, the named lookup that
+answers a live `HTMLCollection` when several elements match, `item(nameOrIndex)`, `namedItem(name)` and the
+legacy caller, including that it is not a constructor and ignores its `this` — and ECMAScript Annex B.3.6's
+`[[IsHTMLDDA]]` slot, which is what makes `typeof document.all` answer `"undefined"` and
+`if (document.all)` take its else branch. `Dom/AGENTS.md` says which wrapper carries the slot and how the
+override table selects it.
+
+**One document is vendored out of each directory**, because a suite is a directory here and each of these two
+is one. Their siblings are about other interfaces — `HTMLFormControlsCollection`, `HTMLOptionsCollection`,
+`RadioNodeList`, `DOMStringList` and HTML's obsolete document colours — and vendoring one moves the census's
+`Documents` and `Tests` columns, so it is a change of its own rather than a passenger on this one.
+
 ## What the DOM corpus says about this browser
 
 All **43 assertions in the eight `dom/collections/` documents pass**, with no exclusions.
@@ -217,7 +236,7 @@ has the upstream half of each, and `Dom/AGENTS.md` says which override list carr
 
 `dom/nodes/`, `dom/collections/`, `dom/lists/`, `dom/traversal/`, `dom/ranges/` and `html/dom/` are the DOM
 standard's own suites and HTML's DOM half — the corpus every other suite in this lane is written on top of.
-Across the six of them there are 226 documents and 65,226 tests, and **785 of those tests do not pass**.
+Across the six of them there are 226 documents and 65,226 tests, and **784 of those tests do not pass**.
 Those three figures are live and checked against the census. They arrived together as 207 documents and
 5,247 tests with 1,532 not passing; those arrival figures are historical and deliberately not re-derived.
 
@@ -238,7 +257,7 @@ table needs to be regenerated.
 | 83 | 6 | [#3774](https://github.com/sebastienros/jint/issues/3774) **A name AngleSharp refuses that the standard allows, plus required refusals it does not make.** The rows cover element creation, namespace validation and document insertion. <!-- cause: a name AngleSharp refuses that the standard allows --> |
 | 50 | 2 | [#3772](https://github.com/sebastienros/jint/issues/3772) **DOM's current name-validation rules differ from the XML productions.** `createDocumentType` contributes 45 rows and `name-validation.html` five. <!-- cause: DOM's validate-and-extract, and the XML name productions --> |
 | 49 | 12 | **One assertion each or one small family per document.** These cover conversion order, import/clone identity, attribute selection and ordering, element-name identity, node equality and `accessKeyLabel`; each pattern is kept separate where neighboring rows pass. <!-- cause: one assertion each --> |
-| 20 | 7 | [#3949](https://github.com/sebastienros/jint/issues/3949) **A tag query's namespace and local-name identity is lost before the query runs.** `createElementNS(HTML, "ABC")` exposes a lower-case `localName` and a null-namespace `<body>` becomes an XHTML one on insertion, so the qualified-name, exact-namespace, empty-namespace and HTMLness assertions cannot be answered from the tree the query is given; `case.html` contributes ten of the rows and the two `getElementsByTagName`/`NS` pairs the rest. The queries themselves are DOM's. <!-- cause: a tag query's namespace and local-name identity --> |
+| 19 | 6 | [#3949](https://github.com/sebastienros/jint/issues/3949) **A tag query's namespace and local-name identity is lost before the query runs.** `createElementNS(HTML, "ABC")` exposes a lower-case `localName` and a null-namespace `<body>` becomes an XHTML one on insertion, so the qualified-name, exact-namespace, empty-namespace and HTMLness assertions cannot be answered from the tree the query is given; `case.html` contributes ten of the rows and the two `getElementsByTagName`/`NS` pairs the rest. The queries themselves are DOM's. <!-- cause: a tag query's namespace and local-name identity --> |
 | 18 | 1 | **A reflected `double` is written with .NET's number format.** `<meter>`'s six setters write `Double.ToString(InvariantInfo)`, so `-0` keeps its sign and an exponent is spelled `1E-10` where HTML wants ECMAScript's `1e-10`. Their getters are *not* reflection and are right, so there is no row for them; three values per member differ. `Dom/divergences.md` records it. <!-- cause: 9. a double written with .NET's number format --> |
 | 16 | 1 | **AngleSharp.Css refuses an unparseable media query, from inside `Element.setAttribute`.** `<style>` registers an attribute observer that assigns the sheet's `MediaList.mediaText`, whose setter throws where Media Queries §2.1 requires `not all`; the sixteen rows are the values it cannot parse and the member's other thirty tests pass. `Dom/divergences.md` records it. <!-- cause: 8. AngleSharp.Css refuses an unparseable media query --> |
 | 8 | 2 | **The selector engine's escapes, `:scope` and `:has` differ.** `ParentNode-querySelector-escapes.html` contributes five rows and `Element-closest.html` three. <!-- cause: the selector engine: escapes, :scope and :has --> |
@@ -276,10 +295,11 @@ one member the split carried — `scope` — comes back as a `reflected` row on 
 `document.applets` is the opposite: HTML §16.3 *keeps* it and defines it to answer an `HTMLCollection` whose
 filter matches nothing, which is a member the binding had to gain rather than lose. And `<applet>` is neither —
 the element still parses, and takes the `HTMLUnknownElement` every unlisted HTML name takes, which AngleSharp
-cannot say because it builds a real `HtmlAppletElement`. Four of the file's six failures went with those; the two
-that are left are somebody else's cause — `document.all`'s named properties are `HTMLCollection`'s rather than
-`HTMLAllCollection`'s, and `cssFloat` is not one of the ten properties `ResolvedStyle` answers an initial value
-for — so the row this file used to have is gone rather than shrunk.
+cannot say because it builds a real `HtmlAppletElement`. Four of the file's six failures went with those, and a
+fifth with `document.all` becoming a real `HTMLAllCollection`, whose supported names take a `name` attribute only
+from one of the fourteen "all"-named elements and `applet` is not among them. The one that is left is somebody
+else's cause — `cssFloat` is not one of the ten properties `ResolvedStyle` answers an initial value for — so the
+row this file used to have is gone rather than shrunk.
 
 **All ten of HTML's reflection documents are cases, and six of the ten pass whole**
 ([#3770](https://github.com/sebastienros/jint/issues/3770)). HTML §2.6.1's reflection algorithms are

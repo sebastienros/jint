@@ -760,6 +760,51 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     }
 
     /// <summary>
+    /// Declares the <a href="https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot">[[IsHTMLDDA]]</a> internal
+    /// slot on this object, which Annex B.3.6 makes behave like <c>undefined</c> in three places and three only.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>typeof</c> answers <c>"undefined"</c>, <see cref="JsValue.ToBoolean"/> is <see langword="false"/>, and
+    /// loose equality with <c>null</c> and with <c>undefined</c> is <see langword="true"/> — while strict
+    /// equality with either stays <see langword="false"/> and every other operation is ordinary. The three
+    /// behaviours are implemented once, here and in <c>JintUnaryExpression</c>, so a bearer of the slot declares
+    /// it rather than reproducing Annex B.
+    /// </para>
+    /// <para>
+    /// It is <see langword="internal"/> because the specification permits the slot only on an
+    /// implementation-defined object emulating <c>document.all</c>: the two bearers are Jint's own
+    /// <c>IsHTMLDDA</c> (test262's <c>$262.IsHTMLDDA</c>) and <c>Jint.Browser</c>'s <c>HTMLAllCollection</c>.
+    /// Call it from the constructor, before the object can be reached from script — the flag is read from
+    /// <c>_type</c> on fused comparison paths that do not re-check it.
+    /// </para>
+    /// </remarks>
+    internal void DeclareIsHtmlDda() => _type |= InternalTypes.IsHTMLDDA;
+
+    /// <summary>
+    /// Declares that this object implements <c>ICallable</c>, so it has a <c>[[Call]]</c> internal method
+    /// without being a <c>Function</c> — WebIDL's legacy caller, which is what <c>document.all(name)</c> is.
+    /// </summary>
+    /// <remarks>
+    /// Call sites decide callability from the flag rather than from an <c>is ICallable</c> interface-map scan,
+    /// so an implementer that does not declare it is silently not callable. It grants <c>[[Call]]</c> only:
+    /// <see cref="JsValue.IsConstructor"/> stays <see langword="false"/>, so <c>new</c> on such an object is
+    /// still a <c>TypeError</c>, and <c>typeof</c> answers <c>"function"</c> unless the object also declares
+    /// <see cref="DeclareIsHtmlDda"/>. Call it from the constructor.
+    /// </remarks>
+    internal void DeclareCallable()
+    {
+        Debug.Assert(this is ICallable, $"{GetType()} declared [[Call]] without implementing ICallable");
+        _type |= InternalTypes.Callable;
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-toboolean — Annex B.3.6.1 adds the first step: an object with the
+    /// [[IsHTMLDDA]] internal slot is <see langword="false"/>. Every other object is <see langword="true"/>.
+    /// </summary>
+    internal override bool ToBoolean() => (_type & InternalTypes.IsHTMLDDA) == InternalTypes.Empty;
+
+    /// <summary>
     /// Overrides the <see cref="PropertyAccessSemantics"/> the engine derived for this type. Needed only for
     /// the two shapes the derivation rule cannot see: a type that overrides
     /// <see cref="Get(JsValue, JsValue)"/> and is nevertheless ordinary (declare

@@ -47,7 +47,7 @@ version of AngleSharp nobody references.
 | List | What it is for |
 | --- | --- |
 | `excludedInterfaces` | An interface the runtime owns instead, or one the standard no longer has. Today: `IWindow` (campaign item R1), and `ISettableTokenList` — DOM merged `DOMSettableTokenList` into `DOMTokenList` in 2016 and AngleSharp still carries the `[DomName]`, so excluding it lets `DomTypeMap` fall through to `ITokenList`. Excluding an interface removes it from every member closure *and* from the conversion table, so a member typed with it is skipped: `area.ping` and `td.headers` are `reflected` string entries because of it, which is HTML's type for both. |
-| `manual` | An interface whose shape is hand-written in `DomManualShapes`. Today: `IHtmlCollection<T>`, whose generic invariance keeps a member body from naming its receiver. A manual interface contributes no members to any closure — its children inherit them through the prototype chain. |
+| `manual` | An interface the binding writes by hand: its shape in `DomManualShapes`, and optionally the two other things AngleSharp's metadata answers wrongly for it — `wrapper` names the `DomWrapperKind` its instances get, and `inherits` names what its prototype inherits, with the **empty string** meaning `Object.prototype`. Two entries. `IHtmlCollection<T>` uses the shape alone, because its generic invariance keeps a member body from naming its receiver. `IHtmlAllCollection` uses all three: HTML §4.13.2.3 makes `HTMLAllCollection` a standalone interface with a named lookup that answers an element *or* a collection, an `item` taking a name or an index, a legacy caller and Annex B's `[[IsHTMLDDA]]` slot — none of which an `HTMLCollection` can carry — while AngleSharp models it as an `IHtmlCollection<IElement>`. A manual interface contributes no members to any closure — its children inherit them through the prototype chain. |
 | `skip` | A member whose AngleSharp implementation must not be projected: HTML's two union-typed `add` operations (re-declared over `DomUnionMembers`), navigation (`location.assign`, `location.href`'s setter), the parser (`document.open`/`close`/`load`), `document.createEvent` whose AngleSharp `Event` must never reach script, `DOMImplementation.createHTMLDocument` whose title AngleSharp makes required, and the six the events bridge re-declares because AngleSharp's own do nothing — see the divergence table. These are re-declared in `additions`. A nonstandard member such as `HTMLMetaElement.charset` is instead omitted: a CLR annotation cannot add a member HTML's IDL does not declare. `half: "setter"` skips the write half only. |
 
 | `hooks` | A member routed through `DomHostHooks` so the package can replace its body: the `innerHTML` and `outerHTML` setters, `insertAdjacentHTML`, `document.write`/`writeln`, and `setAttribute`/`removeAttribute` — the one write of an attribute this package can see, and therefore where a handler content attribute takes its position in the element's listener list. The default implementations *are* the AngleSharp call, so the seam costs nothing until R3 uses it. `"half": "getter"` replaces the *read* of an attribute, which is what a member whose value the host has and AngleSharp does not needs: `document.currentScript`, `readyState`, `URL`, `documentURI`, `referrer`, `cookie` and `Node.baseURI` are accessors on their prototypes because of it, where they used to be own properties written onto the document wrapper. It is also the form for a member AngleSharp *has* and answers by a different rule than the standard's — `document.location` (null with no browsing context), `characterSet` (the Encoding Standard's name, with `charset` and `inputEncoding` added beside it), `contentType` (the one the algorithm that made the document gave it) and `Element.tagName` (uppercased only in an HTML document); [`divergences.md`](divergences.md) carries one row each. `"returns": true` is the form for a member whose *answer* belongs to the host rather than its effect, which is `document.createElement`, `createElementNS` and `Node.cloneNode`: with the synchronous custom elements flag set the element a defined name produces is the constructor's and not AngleSharp's. **Reach for it before `skip` + `additions`** — a hook stands in front of a generated member, so the member keeps its arity and its name, and a member AngleSharp later grows under that name is still reported rather than shadowed. The same class carries `WrapperCreated`, which is the other direction — a member the generator could not emit at all, added to one wrapper; it is also where the events bridge registers an element's handler content attributes. |
@@ -141,6 +141,13 @@ Divergences from a browser that are **ours** and deliberate:
   and for the several it does not — a namespaced write, an `Attr` node's value, the parser. The value it
   cannot tell apart is the empty string, which is what the IDL setter itself writes, so `el.setAttribute(
   'aria-owns', '')` over an explicit reference keeps it. Both spellings answer no elements from the ids.
+- **A repeated *property* read of `document.all['name']` that several elements match answers one
+  `HTMLCollection`**, where a browser makes a new one per read. The engine verifies an own read by asking
+  `TryGetOwnPropertyValue` and `GetOwnProperty` for the same key and comparing, so a named getter that
+  manufactures a value cannot be one that manufactures a *fresh* one; the property lane memoizes the last
+  name it built a sub-collection for, and it never goes stale because that collection is a live filter over
+  the name. `namedItem`, `item` and the legacy caller each build a new one, which is the part upstream's
+  corpus checks.
 - **`el.tabIndex` answers 0 when the attribute is absent**, where HTML's default is −1 for anything not
   inherently focusable. It was AngleSharp's answer and is this binding's now, because `reflected` took the
   member over to get HTML's integer parsing (`tabindex="5%"` is 5, not 0); what is still missing is a
@@ -217,6 +224,14 @@ The wrappers deliberately do **not** share a base class, and `IDomWrapper` is wh
   keeps one per node, so a form that became an `ArrayLikeObject` would stop being an `EventTarget` the
   dispatcher can walk. Three overrides, all reading the accessor at the same instant, which is what keeps
   `hasOwnProperty` and `Object.getOwnPropertyNames` agreeing about one object.
+- **`Collections/DomHtmlAllCollectionObject : DomCollectionBase`** — `document.all`, and the only wrapper
+  carrying an engine internal slot: it declares `[[IsHTMLDDA]]` and `[[Call]]` through
+  `ObjectInstance.DeclareIsHtmlDda`/`DeclareCallable` (see
+  [`Jint/Native/Object/AGENTS.md`](../../Jint/Native/Object/AGENTS.md#when-you-add-a-fast-lane-decide-who-can-reach-it)),
+  which is what makes `typeof document.all` answer `"undefined"` and `document.all('x')` a call. Its supported
+  names are HTML's rather than DOM's — an id always, a `name` only on one of the fourteen "all"-named
+  elements — and a name several elements match answers a **new live `HTMLCollection`** per call, which is the
+  one named getter in the surface whose value is not an element.
 - **`Collections/DomNamedMapObject : NamedPropertyObject`** — `dataset`, whose whole model is a named getter.
 - **`DomObject : ObjectInstance`** — everything else, overriding nothing, which is what keeps it on the
   engine's ordinary access lane.
