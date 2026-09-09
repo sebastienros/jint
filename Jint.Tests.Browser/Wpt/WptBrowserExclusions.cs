@@ -1162,13 +1162,6 @@ internal static class WptBrowserExclusions
         new("dom/nodes/case.html", "createElementNS http://www.w3.org/1999*Abc", WptDivergence.NeedsTriage),
     ];
 
-    // ---------------------------------------------------------------- a (Node or DOMString) union parameter takes only a Node
-    private static readonly WptExclusion[] _aNodeOrDOMStringUnionParameterTakesOnlyANode =
-    [
-        // a (Node or DOMString) union parameter takes only a Node
-        new("dom/nodes/ChildNode-before.html", "*the argument.", WptDivergence.NeedsTriage),
-    ];
-
     // ---------------------------------------------------------------- DOM's validate-and-extract, and the XML name productions
     private static readonly WptExclusion[] _dOMSValidateAndExtractAndTheXMLNameProductions =
     [
@@ -1474,9 +1467,10 @@ internal static class WptBrowserExclusions
     /// element.
     /// </para>
     /// <para>
-    /// <b>The DOM suites made it much bigger, and every one of those causes is bounded.</b> They now hold
-    /// 1,084 failing tests over 219 documents, and <c>Wpt/README.md</c>'s "What the DOM corpus says about this
-    /// browser" names eighteen causes with the count each accounts for. Ten families were filed as
+    /// <b>The DOM suites made it much bigger, and every one of those causes is bounded.</b> They hold 226
+    /// documents and 65,228 tests, of which 758 do not pass -- three figures <c>Wpt/README.md</c> generates
+    /// and checks rather than states, and whose split <c>Wpt/README.md</c>'s "What the DOM corpus says about
+    /// this browser" gives as thirteen causes with the count each accounts for. Ten families were filed as
     /// https://github.com/sebastienros/jint/issues/3765 to 3774 and one was already open as
     /// https://github.com/sebastienros/jint/issues/3712, so a row here that is not one of
     /// <see cref="WptDivergence.NeedsIframeScripting"/> or <see cref="WptDivergence.NeedsXmlDocuments"/> is a

@@ -24,7 +24,14 @@ here. Three consequences bind every change:
   never worked around silently.** A workaround in the binding hides a defect from the project that can fix it,
   and makes the next reader believe the standard says what AngleSharp does. The one thing a wrapper may do is
   implement Web IDL semantics AngleSharp's CLR surface does not represent — `DOMStringMap`'s property-name
-  conversion and named setter/deleter are the worked example, and the divergence register says so.
+  conversion and named setter/deleter are the worked example, and the divergence register says so. The one
+  standard-defined *algorithm* this package owns outright is DOM's class-name collection, whose comparison is
+  ASCII case-insensitive while the root's node document is in quirks mode: AngleSharp exposes no seam for
+  that and declined the change as out of scope
+  ([AngleSharp#1321](https://github.com/AngleSharp/AngleSharp/pull/1321)), so
+  [#3899](https://github.com/sebastienros/jint/issues/3899) moved the ownership to
+  `DomHostHooks.GetElementsByClassName` — a sanctioned exception, recorded in the register, and not a licence
+  to re-implement anything AngleSharp already answers.
 - **No document or README sentence positions this as a rival DOM stack.** It is "AngleSharp + Jint".
 - **A seam that proves useful is offered, not hoarded.** The tree-aware event dispatcher the engine grew for
   this package (`Jint/WebApi/Events/EventDispatch.cs`) knows nothing about a node; it asks the target. The
