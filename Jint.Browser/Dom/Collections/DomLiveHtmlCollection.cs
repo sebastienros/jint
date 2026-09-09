@@ -36,22 +36,20 @@ internal sealed class DomLiveHtmlCollection(Func<IEnumerable<IElement>> current)
         }
     }
 
+    /// <summary>
+    /// HTML's named lookup: the <b>first</b> element in tree order whose ID is <paramref name="id"/>, or which
+    /// is an HTML element whose <c>name</c> content attribute is. One pass, and the same rule
+    /// <c>DomHtmlCollectionObject.NamedItem</c> applies to the wrapper — which is the one script reaches.
+    /// </summary>
     public IElement? this[string id]
     {
         get
         {
             foreach (var element in Current())
             {
-                if (string.Equals(element.Id, id, StringComparison.Ordinal))
-                {
-                    return element;
-                }
-            }
-
-            foreach (var element in Current())
-            {
-                if (element is AngleSharp.Html.Dom.IHtmlElement
-                    && string.Equals(element.GetAttribute("name"), id, StringComparison.Ordinal))
+                if (string.Equals(element.Id, id, StringComparison.Ordinal)
+                    || (element is AngleSharp.Html.Dom.IHtmlElement
+                        && string.Equals(element.GetAttribute("name"), id, StringComparison.Ordinal)))
                 {
                     return element;
                 }

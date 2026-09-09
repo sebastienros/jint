@@ -1150,15 +1150,15 @@ internal static class WptBrowserExclusions
         new("dom/nodes/node-realm-preserved-across-frameless-adoption.html", "*", WptDivergence.NeedsIframeScripting),
     ];
 
-    // ---------------------------------------------------------------- DOMTokenList: the token validation, the indexed access and the iteration
-    private static readonly WptExclusion[] _dOMTokenListTheTokenValidationTheIndexedAccessAndTheIteration =
+    // ---------------------------------------------------------------- relList on an element AngleSharp gives no interface
+    private static readonly WptExclusion[] _relListOnAnElementAngleSharpGivesNoInterface =
     [
-        // DOMTokenList's validation and its indexed access
+        // SVG 2 gives SVGAElement a relList and this corpus asks a MathML <a> for one too. AngleSharp builds
+        // a bare SvgElement and a MathElement for both, has no [DomName("SVGAElement")] anywhere, and so
+        // exposes no member the binding could project. Dom/divergences.md records it; nothing here can
+        // answer it without this package declaring an SVG interface of its own.
         new("dom/lists/DOMTokenList-coverage-for-attributes.html", "a.relList in http://www.w3.org/1998*", WptDivergence.NeedsTriage),
         new("dom/lists/DOMTokenList-coverage-for-attributes.html", "a.relList in http://www.w3.org/2000*", WptDivergence.NeedsTriage),
-        new("dom/lists/DOMTokenList-coverage-for-attributes.html", "iframe.sandbox*DOMTokenList.", WptDivergence.NeedsTriage),
-        new("dom/lists/DOMTokenList-coverage-for-attributes.html", "link.sizes*DOMTokenList.", WptDivergence.NeedsTriage),
-        new("dom/lists/DOMTokenList-coverage-for-attributes.html", "output.htmlFor*DOMTokenList.", WptDivergence.NeedsTriage),
     ];
 
     // ---------------------------------------------------------------- a member of a DOM interface the bindings do not have
@@ -1195,29 +1195,22 @@ internal static class WptBrowserExclusions
         new("dom/nodes/processing-instruction-attributes.html", "Processing*", WptDivergence.NeedsTriage),
     ];
 
-    // ---------------------------------------------------------------- a collection's named and indexed properties, and its liveness
-    private static readonly WptExclusion[] _aCollectionSNamedAndIndexedPropertiesAndItsLiveness =
+    // ---------------------------------------------------------------- a tag query's namespace and local-name identity
+    private static readonly WptExclusion[] _aTagQuerySNamespaceAndLocalNameIdentity =
     [
-        // a collection's named and indexed properties
-        new("dom/nodes/Document-getElementById.html", "*string argument.", WptDivergence.NeedsTriage),
+        // https://github.com/sebastienros/jint/issues/3949 - every row here is one element whose namespace or
+        // local name AngleSharp has already normalized by the time the query runs: createElementNS(HTML, "ABC")
+        // exposes a lower-case localName, and a null-namespace <body> becomes an XHTML one when it is appended
+        // to an HTML document. The query itself is DOM's (DomHostHooks.GetElementsByTagName/NS); repairing the
+        // result here would need a second metadata layer that could not tell deliberate lower case from lost
+        // upper case.
         new("dom/nodes/Document-getElementsByTagName.html", "HTML*", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-getElementsByTagNameNS.html", "*namespace", WptDivergence.NeedsTriage),
-        new("dom/nodes/DocumentFragment-getElementById.html", "Empty*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Element-children.html", "*1", WptDivergence.NeedsTriage),
         new("dom/nodes/Element-getElementsByTagName-change-document-HTMLNess.html", "*", WptDivergence.NeedsTriage),
         new("dom/nodes/Element-getElementsByTagName.html", "HTML*", WptDivergence.NeedsTriage),
         new("dom/nodes/Element-getElementsByTagNameNS.html", "*namespace", WptDivergence.NeedsTriage),
-        new("dom/nodes/Node-childNodes.html", "*.", WptDivergence.NeedsTriage),
         new("dom/nodes/case.html", "createElementNS http://www.w3.org/1999*ABC", WptDivergence.NeedsTriage),
         new("dom/nodes/case.html", "createElementNS http://www.w3.org/1999*Abc", WptDivergence.NeedsTriage),
-        new("dom/nodes/getElementsByClassName-14.htm", "*)", WptDivergence.NeedsTriage),
-    ];
-
-    // ---------------------------------------------------------------- a (Node or DOMString) union parameter takes only a Node
-    private static readonly WptExclusion[] _aNodeOrDOMStringUnionParameterTakesOnlyANode =
-    [
-        // a (Node or DOMString) union parameter takes only a Node
-        new("dom/nodes/ChildNode-before.html", "*the argument.", WptDivergence.NeedsTriage),
     ];
 
     // ---------------------------------------------------------------- DOM's validate-and-extract, and the XML name productions
@@ -1306,16 +1299,6 @@ internal static class WptBrowserExclusions
         new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: *\"http://example.com/\",\"a:̀\",null*", WptDivergence.NeedsTriage),
         new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: *\"http://example.com/\",\"̀:a\",null*", WptDivergence.NeedsTriage),
         new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: *\"http://example.com/\",\";:a\",null*", WptDivergence.NeedsTriage),
-    ];
-
-    // ---------------------------------------------------------------- a nullable DOMString answers the string "null"
-    private static readonly WptExclusion[] _aNullableDOMStringAnswersTheStringNull =
-    [
-        // a DOMString? parameter or attribute answers the string "null"
-        new("dom/nodes/CharacterData-data.html", "*null", WptDivergence.NeedsTriage),
-        new("dom/nodes/Node-nodeValue.html", "Comment*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Node-nodeValue.html", "ProcessingInstruction*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Node-nodeValue.html", "Text*", WptDivergence.NeedsTriage),
     ];
 
     // ---------------------------------------------------------------- a document upstream runs once per variant
@@ -1434,8 +1417,7 @@ internal static class WptBrowserExclusions
         // computes the viable sibling before it converts the nodes into one, so the removal the conversion
         // performs cannot invalidate it; AngleSharp's IChildNode members work the other way round and raise
         // NotFoundError. The remaining `before` rows belong to the union-parameter cause.
-        new("dom/nodes/ChildNode-after.html", "*positions.", WptDivergence.NeedsTriage),
-        new("dom/nodes/ChildNode-before.html", "*positions.", WptDivergence.NeedsTriage),
+        // one assertion each; see Wpt/README.md
         new("dom/nodes/Document-createElementNS.html", "Upper-case HTML*", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElementNS.html", "createElementNS test in HTML*:o\",null", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElementNS.html", "createElementNS test in HTML*̀\",null", WptDivergence.NeedsTriage),
@@ -1443,13 +1425,15 @@ internal static class WptBrowserExclusions
         // AngleSharp's: a parser-inserted namespaced attribute records no prefix, and IChildNode.Replace
         // converts its arguments before it checks whether the child has a parent at all.
         new("dom/nodes/Attr-prefix.html", "Attr.prefix present (SVG)", WptDivergence.NeedsTriage),
-        new("dom/nodes/ChildNode-replaceWith.html", "*with one sibling of child and child itself as arguments.", WptDivergence.NeedsTriage),
         // The one metadata row of createDocument that is not about a refused name. Its namespace is the
         // XHTML one, so DOM gives the document the content type application/xhtml+xml and createElement
         // puts the element in the HTML namespace while keeping its case (steps 2 and 4) -- and
         // AngleSharp's HTML element factory ASCII-lowercases whatever local name it is handed, so
         // createElement("DIV").localName is "div". The same defect case.html names for createElementNS.
         new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: metadata for \"http://www.w3.org/1999/xhtml\",\"\",null", WptDivergence.NeedsTriage),
+        // AngleSharp's: an Attr write does not carry its new value to the attribute observer, and a parser-
+        // inserted namespaced attribute records no prefix.
+        new("dom/nodes/Attr-prefix.html", "Attr.prefix present (SVG)", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "Basic functionality of getAttributeNode/getAttributeNodeNS", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "Basic functionality of setAttributeNode", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "setAttributeNode doesn't have case-insensitivity even with an HTMLElement 2", WptDivergence.NeedsTriage),
@@ -1534,14 +1518,12 @@ internal static class WptBrowserExclusions
         new("the upgrade", _theUpgrade),
         new("one [CEReactions] member per file", _oneCEReactionsMemberPerFile),
         new("a frame that runs script", _aFrameThatRunsScript),
-        new("DOMTokenList: the token validation, the indexed access and the iteration", _dOMTokenListTheTokenValidationTheIndexedAccessAndTheIteration),
+        new("relList on an element AngleSharp gives no interface", _relListOnAnElementAngleSharpGivesNoInterface),
         new("a member of a DOM interface the bindings do not have", _aMemberOfADOMInterfaceTheBindingsDoNotHave),
-        new("a collection's named and indexed properties, and its liveness", _aCollectionSNamedAndIndexedPropertiesAndItsLiveness),
-        new("a (Node or DOMString) union parameter takes only a Node", _aNodeOrDOMStringUnionParameterTakesOnlyANode),
         new("DOM's validate-and-extract, and the XML name productions", _dOMSValidateAndExtractAndTheXMLNameProductions),
         new("a name AngleSharp refuses that the standard allows", _aNameAngleSharpRefusesThatTheStandardAllows),
-        new("a nullable DOMString answers the string \"null\"", _aNullableDOMStringAnswersTheStringNull),
-        new("a document upstream runs once per variant", _aDocumentUpstreamRunsOncePerVariant),
+                new("a document upstream runs once per variant", _aDocumentUpstreamRunsOncePerVariant),
+        new("a tag query's namespace and local-name identity", _aTagQuerySNamespaceAndLocalNameIdentity),
         new("Range's own algorithms", _rangeSOwnAlgorithms),
         new("an event interface this browser does not build", _anEventInterfaceThisBrowserDoesNotBuild),
         new("a document with no browsing context", _aDocumentWithNoBrowsingContext),

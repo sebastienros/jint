@@ -35,6 +35,13 @@ internal sealed class Overrides
     [JsonPropertyName("nullableStrings")]
     public List<NullableStringEntry> NullableStrings { get; init; } = [];
 
+    /// <summary>
+    /// The IDL attributes whose setter carries <c>[LegacyNullToEmptyString]</c>, or whose own steps say the
+    /// same thing in prose (DOM §4.4's <c>nodeValue</c>): JavaScript <c>null</c> is the empty string.
+    /// </summary>
+    [JsonPropertyName("nullToEmptyStrings")]
+    public List<NullableStringEntry> NullToEmptyStrings { get; init; } = [];
+
     [JsonPropertyName("nullableParameters")]
     public List<NullableParameterEntry> NullableParameters { get; init; } = [];
 
