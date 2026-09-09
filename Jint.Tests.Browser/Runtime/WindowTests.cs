@@ -149,6 +149,15 @@ public sealed class WindowTests
         (await page.EvaluateAsync<bool>("matchMedia('(bogus-feature: 1)').matches")).Should().BeFalse();
         (await page.EvaluateAsync<bool>("matchMedia('not (bogus-feature: 1)').matches")).Should().BeFalse();
         (await page.EvaluateAsync<bool>("matchMedia('only').matches")).Should().BeFalse();
+
+        // A media type is grammatical only in the first position -- what may follow `and` is a media
+        // condition -- so `not all and !` does not match the grammar at all, and Media Queries 4 replaces a
+        // query that does not with `not all`. Folding the unparseable half into the conjunction and then
+        // negating it answered *true*, which is what a `<source media="not all and !">` needed to select its
+        // own srcset over the `<img src>` beside it.
+        (await page.EvaluateAsync<bool>("matchMedia('not all and !').matches")).Should().BeFalse();
+        (await page.EvaluateAsync<bool>("matchMedia('all and screen').matches")).Should().BeFalse();
+        (await page.EvaluateAsync<bool>("matchMedia('screen and (min-width: 100px)').matches")).Should().BeTrue();
     }
 
     [Test]

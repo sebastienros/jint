@@ -538,6 +538,17 @@
       "reason": "DOM §4.2.5, the element-only half of assignedNodes."
     },
     {
+      "interface": "HTMLImageElement",
+      "member": "decode",
+      "kind": "operation",
+      "length": 0,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, \"HTMLImageElement.decode\");",
+        "return global::Jint.Browser.Media.ImageDecode.Decode(self.Realm, self.Target);"
+      ],
+      "reason": "HTML 4.8.4.2: Promise<undefined> decode(). AngleSharp has no member for it at all, and it is what every lazy-loading library and image-gallery shell awaits instead of racing the load event. What resolves it here is the current request being completely available rather than a decoded bitmap -- see Jint.Browser/Media/ImageDecode."
+    },
+    {
       "interface": "HTMLElement",
       "member": "click",
       "body": [

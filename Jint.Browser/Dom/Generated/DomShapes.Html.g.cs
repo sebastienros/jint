@@ -2356,6 +2356,13 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.currentSrc");
                     return self.Realm.Hooks.ImageCurrentSrc(self.Realm, self.Target);
                 }))
+            .Method("decode",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLImageElement.decode", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, "HTMLImageElement.decode");
+                    return global::Jint.Browser.Media.ImageDecode.Decode(self.Realm, self.Target);
+                }),
+                length: 0)
             .Accessor("decoding",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLImageElement.decoding", static (thisObj, args) =>
                 {

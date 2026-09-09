@@ -1635,8 +1635,8 @@ find . -type f \( $TYPES \) | sort | while read -r f; do
 done
 ```
 
-Silence is a clean corpus, and at this pin there are 906 files in 82 directories to be silent
-about — 372 of them the documents the browser lane navigates to, the rest the scripts, payloads and
+Silence is a clean corpus, and at this pin there are 908 files in 82 directories to be silent
+about — 374 of them the documents the browser lane navigates to, the rest the scripts, payloads and
 sidecars every lane reads.
 
 <!-- end generated -->
