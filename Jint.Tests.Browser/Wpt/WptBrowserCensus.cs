@@ -23,7 +23,9 @@ namespace Jint.Tests.Browser.Wpt;
 /// </para>
 /// <para>
 /// <b>Three equalities and a ceiling.</b> <c>Documents</c> and <c>Synthesized</c> are read off the embedded
-/// corpus, and <c>Tests</c> counts <i>registrations</i> — a document registers its cases as its scripts run,
+/// corpus and count <i>files</i> — a document that declares <c>&lt;meta name="variant"&gt;</c> is run once
+/// per variant and is still one document, so only the two counted columns move when a variant is added —
+/// and <c>Tests</c> counts <i>registrations</i> — a document registers its cases as its scripts run,
 /// and a document that cannot finish is a harness error that invalidates the measured census as well as its
 /// own suite. <c>Not passing</c> is the only column that counts <i>outcomes</i>,
 /// so a rise fails as a regression naming the suite and the size of it, a fall fails as staleness, and
@@ -181,9 +183,12 @@ internal static class WptBrowserCensus
             var tests = 0;
             var notPassing = 0;
 
-            foreach (var path in WptBrowserCorpus.Cases(suite))
+            // Documents and Synthesized count files — the table says of itself that they do — while Tests
+            // and Not passing count what ran. A document that declares `<meta name="variant">` is one file
+            // and several runs, so it is counted once here and once per variant below.
+            foreach (var document in WptBrowserCorpus.Documents(suite))
             {
-                if (WptBrowserCorpus.IsVendored(path))
+                if (WptBrowserCorpus.IsVendored(document))
                 {
                     documents++;
                 }
@@ -191,8 +196,11 @@ internal static class WptBrowserCensus
                 {
                     synthesized++;
                 }
+            }
 
-                if (measured)
+            if (measured)
+            {
+                foreach (var path in WptBrowserCorpus.Cases(suite))
                 {
                     var counts = observations![path];
                     tests += counts.Tests;
@@ -259,13 +267,17 @@ internal static class WptBrowserCensus
         {
             var name = suite.TrimEnd('/');
 
-            foreach (var path in WptBrowserCorpus.Cases(name))
+            // Documents are files and tests are runs, exactly as the rendered table counts them.
+            foreach (var document in WptBrowserCorpus.Documents(name))
             {
-                if (WptBrowserCorpus.IsVendored(path))
+                if (WptBrowserCorpus.IsVendored(document))
                 {
                     documents++;
                 }
+            }
 
+            foreach (var path in WptBrowserCorpus.Cases(name))
+            {
                 if (observations.TryGetValue(path, out var counts))
                 {
                     tests += counts.Tests;

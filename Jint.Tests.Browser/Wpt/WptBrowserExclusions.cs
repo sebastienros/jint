@@ -583,7 +583,11 @@ internal static class WptBrowserExclusions
         ["dom/events/event-handler-attribute-replace-preserves-passive.html"] = 2,
         ["dom/events/event-src-element-nullable.html"] = 1,
         ["dom/events/focus-event-document-move.html"] = 1,
-        ["dom/events/handler-count.html"] = 2,
+        // Three variants, three cases: the file reads `location.search` and hangs its two tests
+        // off the target the query names.
+        ["dom/events/handler-count.html?document"] = 2,
+        ["dom/events/handler-count.html?element"] = 2,
+        ["dom/events/handler-count.html?window"] = 2,
         ["dom/events/label-default-action.html"] = 1,
         ["dom/events/mouse-event-retarget.html"] = 1,
         ["dom/events/no-focus-events-at-clicking-editable-content-in-link.html"] = 2,
@@ -777,7 +781,8 @@ internal static class WptBrowserExclusions
         ["dom/ranges/Range-detach.html"] = 1,
         ["dom/ranges/Range-extractContents-dynamic-end.html"] = 1,
         ["dom/ranges/Range-extractContents-in-ShadowRoot.html"] = 4,
-        ["dom/ranges/Range-in-shadow-after-the-shadow-removed.html"] = 2,
+        ["dom/ranges/Range-in-shadow-after-the-shadow-removed.html?mode=closed"] = 2,
+        ["dom/ranges/Range-in-shadow-after-the-shadow-removed.html?mode=open"] = 2,
         ["dom/ranges/Range-intersectsNode-2.html"] = 1,
         ["dom/ranges/Range-intersectsNode-binding.html"] = 1,
         ["dom/ranges/Range-intersectsNode-shadow.html"] = 1,
@@ -1286,19 +1291,6 @@ internal static class WptBrowserExclusions
         new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: *\"http://example.com/\",\";:a\",null*", WptDivergence.NeedsTriage),
     ];
 
-    // ---------------------------------------------------------------- a document upstream runs once per variant
-    private static readonly WptExclusion[] _aDocumentUpstreamRunsOncePerVariant =
-    [
-        // Not about Range at all, which is what triaging the two rows one at a time said. The document
-        // declares `<meta name="variant" content="?mode=open">` and its closed sibling, and reads the mode
-        // out of location.search; upstream's runner turns each variant into a case of its own and this lane
-        // serves the bare path, so `mode` is null and `attachShadow({mode: null})` is the TypeError WebIDL's
-        // enum conversion owes a browser too. Running variants changes how a case is enumerated -- the case
-        // source, the minimum-test keys, the exclusion keys and both census columns -- so it is a change to
-        // the lane rather than to the engine.
-        new("dom/ranges/Range-in-shadow-after-the-shadow-removed.html", "*", WptDivergence.NeedsTriage),
-    ];
-
     // ---------------------------------------------------------------- Range's own algorithms
     private static readonly WptExclusion[] _rangeSOwnAlgorithms =
     [
@@ -1486,7 +1478,6 @@ internal static class WptBrowserExclusions
         new("a member of a DOM interface the bindings do not have", _aMemberOfADOMInterfaceTheBindingsDoNotHave),
         new("DOM's validate-and-extract, and the XML name productions", _dOMSValidateAndExtractAndTheXMLNameProductions),
         new("a name AngleSharp refuses that the standard allows", _aNameAngleSharpRefusesThatTheStandardAllows),
-                new("a document upstream runs once per variant", _aDocumentUpstreamRunsOncePerVariant),
         new("a tag query's namespace and local-name identity", _aTagQuerySNamespaceAndLocalNameIdentity),
         new("Range's own algorithms", _rangeSOwnAlgorithms),
         new("a document with no browsing context", _aDocumentWithNoBrowsingContext),

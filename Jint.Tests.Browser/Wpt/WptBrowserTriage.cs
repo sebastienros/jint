@@ -29,6 +29,18 @@ namespace Jint.Tests.Browser.Wpt;
 /// A path is what the server serves: a vendored document (<c>dom/events/Event-propagation.html</c>) or a
 /// wrapper it synthesizes for a vendored script (<c>dom/events/Event-constructors.any.html</c>).
 /// </example>
+/// <example>
+/// <b>A variant is part of the name</b>, because it is part of the case: a document that declares
+/// <c>&lt;meta name="variant"&gt;</c> is one case per declaration and the query is what it branches on
+/// (<see cref="WptBrowserVariants"/>). Naming the bare path runs it with no query, which for such a document
+/// is a run the lane does not have.
+/// <code>
+/// JINT_WPT_DOCUMENT='dom/events/handler-count.html?element;dom/events/handler-count.html?document' \
+///   dotnet test Jint.Tests.Browser/Jint.Tests.Browser.csproj -c Release -nr:false \
+///     --filter "FullyQualifiedName~WptBrowserTriage" -l "console;verbosity=detailed"
+/// </code>
+/// Separate several with <c>;</c> rather than <c>,</c> whenever a variant carries a comma of its own.
+/// </example>
 /// </remarks>
 [Explicit("Triage: prints every result of the documents JINT_WPT_DOCUMENT names, and records them in the census.")]
 [NonParallelizable]
@@ -46,7 +58,9 @@ public class WptBrowserTriage
         {
             Assert.Ignore(
                 $"Set {Variable} to the wpt path to triage — for example "
-                + $"{Variable}=dom/nodes/Node-cloneNode.html — separating several with ';' or ','.");
+                + $"{Variable}=dom/nodes/Node-cloneNode.html — separating several with ';' or ','. A document "
+                + "that declares <meta name=\"variant\"> is a case per variant, so name the query too: "
+                + $"{Variable}=dom/events/handler-count.html?element");
         }
 
         foreach (var path in documents)

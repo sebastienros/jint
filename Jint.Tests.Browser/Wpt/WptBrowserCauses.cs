@@ -173,7 +173,11 @@ internal static class WptBrowserCauses
 
                     already[i] = true;
                     tests++;
-                    documents.Add(exclusion.File);
+
+                    // An exclusion names a case and a case carries its variant, so two variants of one
+                    // document are two rows and still one document — which is what the census's own
+                    // Documents column counts and what this column has to mean beside it.
+                    documents.Add(WptBrowserVariants.DocumentOf(exclusion.File));
 
                     if (IsCounted(exclusion.File))
                     {

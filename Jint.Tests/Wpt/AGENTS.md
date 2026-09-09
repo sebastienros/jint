@@ -43,7 +43,10 @@ enable and shims one onto the event loop, this driver enables
 `WebApiFeatures.Timers` and pumps with `Tasks.ProcessTasks()` bounded by `Tasks.TimeUntilNextScheduledWork`,
 so a suite that schedules a timer exercises the shipped `TimerQueue`. **`// META: variant=` sharding is
 ignored**: the shim leaves `location.search` empty, so `subsetTest`/`subsetTestByKey` run everything and one
-run of a file is the union of all of its variants. And **every engine carries the fetch object model**:
+run of a file is the union of all of its variants. **The browser lane's answer is the other one and both
+are right**: a shard variant selects a subset of the same tests, while a `<meta name=variant>` query a
+*document* branches on selects different ones — so that lane runs a case per declared variant, and its
+case names carry the query. And **every engine carries the fetch object model**:
 `WptHarness.BuildEngine` installs `Headers`, `Request` and `Response` on top of `Default` — and, for all but
 the files `WptHarness.IsServerBacked` names, pointedly not `fetch`, which no feature flag names the model
 without. `url/urlencoded-parser.any.js` reaches the urlencoded parser through `Request.formData()` and
