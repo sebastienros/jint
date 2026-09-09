@@ -109,13 +109,25 @@ distinguishes it from `form.requestSubmit()` and from a submit button. Constrain
 readonly control and a control inside a disabled fieldset — without it every `<button type=button>` in the
 form would be examined.
 
-**An image input is a fallback submit button here, not an available displayed image.** HTML allows explicit
-coordinate selection only when `src` identifies an available image the user agent displays. This browser
-does not fetch/render images, so pointer and synthetic activation retain the initial (0, 0); a flat hit-test
-box must not manufacture a selected image coordinate. `Runtime/FormSubmitter` still appends x then y, with a
-name prefix only when nonempty. Its inventory is submittable controls, not `form.elements`, which excludes
-image inputs: AngleSharp's tree traversal and form-owner properties supply tree order and external
-association. Nonzero image coordinates require a real image availability/presentation model first.
+**An image input selects a coordinate only out of an image it really has, and the position is measured
+before any listener runs.** HTML gives an image button a *selected coordinate* and lets it be a real position
+only when `src` identifies an available image the user agent displays *and* a pointing device activated it;
+everything else is the fallback submit button's (0, 0) — no `src`, a fetch that failed, bytes in no container
+`Media/ImageHeader` reads, `element.click()`, a dispatched `MouseEvent`, `requestSubmit`, a keyboard. Those
+are three conditions and `ActivationBehaviors.RunInput`'s image arm asks all three: `Media/PageImages` says
+*completely available*, the click says `isTrusted`, and `BrowserEventRealm.PendingImagePoint` says the
+pointer was measured inside **this** button. **That measurement is `InputDispatcher.DispatchMouse`'s, taken
+from the release's own hit test before `pointerup` fires**, because the activation behaviour that reads it
+runs after `pointerup`, `mouseup` and `click` and any of the three may move, adopt or detach the input first;
+measuring is not selecting, so a canceled click promotes nothing and leaves the coordinate the last
+activation selected. The result lives on the *element* — a weak table on `BrowserEventRealm`, beside the
+mouse press target — rather than on the event, because `new FormData(form, submitter)` reads it arbitrarily
+long afterwards. `Runtime/FormSubmitter` appends x then y, with a name prefix only when nonempty. Its
+inventory is submittable controls, not `form.elements`, which excludes image inputs: AngleSharp's tree
+traversal and form-owner properties supply tree order and external association. **The position is in the flat
+box model's geometry** and so can exceed the image's own `naturalWidth`; [`../Dom/divergences.md`](../Dom/divergences.md)
+records why clamping it to the image would be a second geometry disagreeing with the one every box, hit test
+and `offsetX` already answers from.
 
 ### Touch: a gesture outlives the command
 

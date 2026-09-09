@@ -145,30 +145,20 @@ internal static partial class InputDispatcher
                 return;
 
             case MouseInputKind.Released:
-                Pointer(target, "pointerup", options, cancelable: true, layout);
-                Mouse(target, "mouseup", options, cancelable: true);
+                // https://html.spec.whatwg.org/multipage/input.html#image-button-state-(type=image) — an
+                // image button's selected coordinate is measured from the hit test that already preceded
+                // every listener, because the activation behaviour that reads it runs after all three of
+                // them and any one of them may move, adopt or detach the input first. Nothing is selected
+                // by measuring: the activation behaviour promotes it, or nothing does.
+                events.PendingImagePoint = ImagePointOf(hit, input, layout);
 
-                var clicked = dom.WrapNode(CommonAncestor(events.MousePressTarget, hit) ?? hit);
-                events.MousePressTarget = null;
-
-                // https://w3c.github.io/uievents/#event-type-contextmenu — the secondary button opens a menu
-                // rather than activating anything, so no click is dispatched for it at all.
-                if (input.Button == SecondaryButton)
+                try
                 {
-                    Mouse(clicked, "contextmenu", options, cancelable: true);
-                    return;
+                    Release(dom, events, target, hit, options, input, layout);
                 }
-
-                if (input.Button != PrimaryButton)
+                finally
                 {
-                    return;
-                }
-
-                DispatchClickEvent(clicked, options, trusted: true);
-
-                if (input.ClickCount == 2)
-                {
-                    Mouse(clicked, "dblclick", options, cancelable: true);
+                    events.PendingImagePoint = null;
                 }
 
                 return;
@@ -184,6 +174,88 @@ internal static partial class InputDispatcher
             default:
                 return;
         }
+    }
+
+    /// <summary>
+    /// The release half of <see cref="DispatchMouse"/>: <c>pointerup</c>, <c>mouseup</c>, and then either the
+    /// context menu the secondary button opens or the click the press and the release share.
+    /// </summary>
+    private static void Release(
+        DomRealm dom,
+        BrowserEventRealm events,
+        DomNodeObject target,
+        IElement hit,
+        in ClickOptions options,
+        in MouseInput input,
+        FlatLayout layout)
+    {
+        Pointer(target, "pointerup", options, cancelable: true, layout);
+        Mouse(target, "mouseup", options, cancelable: true);
+
+        var clicked = dom.WrapNode(CommonAncestor(events.MousePressTarget, hit) ?? hit);
+        events.MousePressTarget = null;
+
+        // https://w3c.github.io/uievents/#event-type-contextmenu — the secondary button opens a menu
+        // rather than activating anything, so no click is dispatched for it at all.
+        if (input.Button == SecondaryButton)
+        {
+            Mouse(clicked, "contextmenu", options, cancelable: true);
+            return;
+        }
+
+        if (input.Button != PrimaryButton)
+        {
+            return;
+        }
+
+        DispatchClickEvent(clicked, options, trusted: true);
+
+        if (input.ClickCount == 2)
+        {
+            Mouse(clicked, "dblclick", options, cancelable: true);
+        }
+    }
+
+    /// <summary>
+    /// The image button <paramref name="hit"/> lies in, if any, and where in that button's own box the
+    /// pointer was — <a href="https://html.spec.whatwg.org/multipage/input.html#image-button-state-(type=image)">
+    /// HTML §4.10.5.1.20</a>'s selected coordinate, "the position of the pointer relative to the image".
+    /// </summary>
+    /// <remarks>
+    /// The inclusive ancestors are walked rather than the hit element alone because a click inside an image
+    /// button activates the button, and the coordinate is relative to <i>its</i> edge. The component is the
+    /// distance truncated to an integer, which HTML's "valid integer" is, and never negative: a descendant's
+    /// box is inside its ancestor's in the flat box model, so a point inside one is inside the other.
+    /// </remarks>
+    private static (IElement Image, int X, int Y)? ImagePointOf(IElement hit, in MouseInput input, FlatLayout layout)
+    {
+        for (var element = hit; element is not null; element = element.ParentElement)
+        {
+            if (element is not IHtmlInputElement { Type: "image" } image)
+            {
+                continue;
+            }
+
+            if (layout.ClientBoxOf(image) is not { } box)
+            {
+                return null;
+            }
+
+            return (image, Component(input.X - box.X), Component(input.Y - box.Y));
+        }
+
+        return null;
+    }
+
+    /// <summary>One component of a selected coordinate, truncated and clamped to a non-negative integer.</summary>
+    private static int Component(double distance)
+    {
+        if (double.IsNaN(distance) || distance <= 0)
+        {
+            return 0;
+        }
+
+        return distance >= int.MaxValue ? int.MaxValue : (int) distance;
     }
 
     private static void DispatchClickEvent(DomNodeObject target, in ClickOptions options, bool trusted)

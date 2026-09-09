@@ -266,11 +266,14 @@ internal static class FormSubmitter
                     if (ReferenceEquals(element, submitter))
                     {
                         var prefix = string.IsNullOrEmpty(name) ? "" : name + ".";
-                        // HTML permits selecting a position only from an available image the UA displays.
-                        // This browser does not fetch/render images, so even a pointer click activates the
-                        // fallback submit button and retains the initial (0, 0). A flat box is not an image.
-                        entries.Add(new FormDataEntry(prefix + "x", JsString.Create("0")));
-                        entries.Add(new FormDataEntry(prefix + "y", JsString.Create("0")));
+
+                        // The coordinate is the input activation behaviour's — Events/ActivationBehaviors
+                        // selects it, out of a pointer inside an available image or out of nothing at all —
+                        // and it is kept per element because a FormData built long after that click, or a
+                        // requestSubmit that never was a click, reads it right here.
+                        var (x, y) = Events.BrowserEventRealm.Of(runtime.Engine).SelectedImageCoordinate(input);
+                        entries.Add(new FormDataEntry(prefix + "x", JsString.Create(x.ToString(System.Globalization.CultureInfo.InvariantCulture))));
+                        entries.Add(new FormDataEntry(prefix + "y", JsString.Create(y.ToString(System.Globalization.CultureInfo.InvariantCulture))));
                     }
 
                     return;
