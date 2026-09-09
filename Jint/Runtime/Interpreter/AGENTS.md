@@ -7,6 +7,15 @@
 > target, and the conventions that apply to every file in the repository. Nothing below is
 > repeated there.
 
+### The execution pipeline
+
+The repository-root [`AGENTS.md`](../../../AGENTS.md) states the shape in one line; these are the three
+stages it points at.
+
+1. **Parsing** — Acornima parses JavaScript source into an AST (`Acornima.Ast` nodes).
+2. **Jint wrapping** — AST nodes are wrapped in `Jint*` interpreter classes: `JintExpression` subclasses in `Runtime/Interpreter/Expressions/` (`JintCallExpression`, `JintBinaryExpression`, …) and `JintStatement` subclasses in `Runtime/Interpreter/Statements/` (`JintIfStatement`, `JintForStatement`, …).
+3. **Execution** — `Engine` drives execution. Statements return `Completion` (a value plus a completion type: Normal/Break/Continue/Return/Throw); expressions return `JsValue` or `Reference`.
+
 ### Engine-affine vs shareable state
 
 - **`Prepared<Script>` / `Prepared<Module>` are reusable and thread-safe** and may be shared across engines. The guarantee is documented on `Engine.PrepareScript` / `Engine.PrepareModule` (not on `Prepared<T>` itself); `Jint.Tests.CommonScripts/ConcurrencyTest.cs` runs one prepared AST on several engines in parallel.

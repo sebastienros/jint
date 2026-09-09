@@ -11,3 +11,5 @@ You are editing the opt-in WHATWG surface. `Jint/WebApi/AGENTS.md` carries the f
 `AGENTS.md`; that file's index says what each co-located instruction file covers.
 
 When what you are editing is `fetch`, a cookie jar, a redirect hop or `FetchObserver`, read [`Jint/WebApi/Fetch/AGENTS.md`](../../Jint/WebApi/Fetch/AGENTS.md) too.
+
+When it is `EventTarget`, a listener or the dispatch itself, the algorithm — both lanes, the microtask checkpoint a listener returns to, the tree seams and the bound on every walk — is beside the classes in [`Jint/WebApi/Events/event-dispatch.md`](../../Jint/WebApi/Events/event-dispatch.md), which that file points at.
