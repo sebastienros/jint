@@ -52,6 +52,16 @@ skipped with the reason the generator worked out, and the reason is in the repor
 an entry written for it describes a decision nobody made. That split is deliberate — this file is for
 decisions, the report is for consequences.
 
+A third bites once you are inside the `reflected` list, because a row there replaces the **whole accessor
+pair**. **`setterOnly` is what a member whose getter is not reflection needs**: HTML defines several as
+reflecting *on setting* while the read is a computation no reflection type expresses, and where the pinned
+assemblies already make that computation — `<meter>`'s six, whose getters are §4.10.14's clamping and its
+defaults — a whole replacement is a regression rather than a fix. The flag keeps the projected getter's body
+verbatim, and the generator refuses, as a diagnostic, a row that asks for it with no projected getter to keep
+or one that also routes its getter through a `hooks` entry, because the read cannot be both. Where the
+**host** rather than AngleSharp has the right answer (`img.width`), the getter hook beside the row is what
+supplies it, and `setterOnly` is the wrong tool.
+
 What each of the thirteen lists is for, the two forms an `additions` entry takes, and which lists state the
 **standard's** half of the table rather than correcting AngleSharp's, are in
 [`tools/dom-bindings/README.md`](../../tools/dom-bindings/README.md#what-every-list-in-overridesjson-is-for),

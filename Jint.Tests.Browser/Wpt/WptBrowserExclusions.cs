@@ -290,12 +290,10 @@ internal static class WptBrowserExclusions
 
         // ------------------------------------------------------------ HTML's reflection suite
         // **All ten generated documents are cases**, 56,660 assertions, because HTML §2.6.1's reflection
-        // algorithms are implemented (Jint.Browser/Dom/ReflectedAttribute.cs) and 185 `reflected` rows in
-        // overrides.json state, per member, which of them it takes. Six of the ten pass whole; the 540 rows
-        // the other four still need are never reflection and every one of them is the dependency — an
-        // element interface the pinned assemblies do not have (<dl>, <dir>, <font>, <frame>), <style>'s
-        // `media`, which AngleSharp.Css refuses from inside setAttribute, and <meter>'s six setters, which
-        // write a double with .NET's number format.
+        // algorithms are implemented (Jint.Browser/Dom/ReflectedAttribute.cs) and 191 `reflected` rows in
+        // overrides.json state, per member, which of them it takes. Nine of the ten pass whole; the 16 rows
+        // the tenth still needs are not reflection at all but the dependency — <style>'s `media`, which
+        // AngleSharp.Css refuses from inside setAttribute.
         //
         // The issue that vendored them is #3770, and what kept them out was never that they are slow: the
         // whole set runs in about 22 s, the largest (reflection-embedded.html, 8,922 tests) in 7.3 s, well
@@ -893,39 +891,6 @@ internal static class WptBrowserExclusions
         new("html/dom/reflection-metadata.html", "style.media: IDL set to \"\\0\"", WptDivergence.NeedsTriage),
     ];
 
-    // ------------------------------------------- 9. a double written with .NET's number format
-    private static readonly WptExclusion[] _9ADoubleWrittenWithNETSNumberFormat =
-    [
-        // <meter>'s six members are the one group in this suite whose getters are NOT reflection and are
-        // right: AngleSharp implements HTML §4.10.14's clamping and its defaults — max is 1 when absent,
-        // optimum is the midpoint, value is constrained to [min, max] — so a reflected row here would be a
-        // regression rather than a fix, and there is none. What their SETTERS do is reflection, and
-        // AngleSharp writes the number with Double.ToString(NumberFormatInfo.InvariantInfo) where HTML
-        // §2.6.1 wants "the best representation of the number as a floating-point number", which is
-        // ECMAScript's Number-to-String. The two disagree on exactly three values, and on the same three
-        // for every member: -0 keeps its sign, and an exponent is spelled E+25 rather than e+25.
-        //
-        // Eighteen exact rows and no glob: every other test of all six members passes.
-        new("html/dom/reflection-forms.html", "meter.value: IDL set to -0", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-forms.html", "meter.value: IDL set to 1e-10", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-forms.html", "meter.value: IDL set to 1e+25", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-forms.html", "meter.min: IDL set to -0", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-forms.html", "meter.min: IDL set to 1e-10", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-forms.html", "meter.min: IDL set to 1e+25", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-forms.html", "meter.max: IDL set to -0", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-forms.html", "meter.max: IDL set to 1e-10", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-forms.html", "meter.max: IDL set to 1e+25", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-forms.html", "meter.low: IDL set to -0", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-forms.html", "meter.low: IDL set to 1e-10", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-forms.html", "meter.low: IDL set to 1e+25", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-forms.html", "meter.high: IDL set to -0", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-forms.html", "meter.high: IDL set to 1e-10", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-forms.html", "meter.high: IDL set to 1e+25", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-forms.html", "meter.optimum: IDL set to -0", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-forms.html", "meter.optimum: IDL set to 1e-10", WptDivergence.NeedsTriage),
-        new("html/dom/reflection-forms.html", "meter.optimum: IDL set to 1e+25", WptDivergence.NeedsTriage),
-    ];
-
     // ---------------------------------------------------------------- 4b. a custom element
     private static readonly WptExclusion[] _4bACustomElement =
     [
@@ -1465,7 +1430,6 @@ internal static class WptBrowserExclusions
     internal static readonly WptCause[] Causes =
     [
         new("8. AngleSharp.Css refuses an unparseable media query", _8AngleSharpCssRefusesAnUnparseableMediaQuery),
-        new("9. a double written with .NET's number format", _9ADoubleWrittenWithNETSNumberFormat),
         new("4b. a custom element", _4bACustomElement),
         new("6. a frame that runs script: the scripting suites", _6AFrameThatRunsScriptTheScriptingSuites),
         new("7. a bubbling `submit` the file counts as an activation", _7ABubblingSubmitTheFileCountsAsAnActivation),

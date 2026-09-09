@@ -31,7 +31,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `dom/lists/` | 5 | 0 | 189 | 2 |
 | `dom/traversal/` | 13 | 0 | 52 | 0 |
 | `dom/ranges/` | 17 | 0 | 84 | 2 |
-| `html/dom/` | 15 | 0 | 56,745 | 36 |
+| `html/dom/` | 15 | 0 | 56,745 | 18 |
 | `html/infrastructure/common-dom-interfaces/collections/` | 1 | 0 | 41 | 0 |
 | `html/obsolete/requirements-for-implementations/other-elements-attributes-and-apis/` | 1 | 0 | 2 | 0 |
 | `html/webappapis/scripting/events/` | 12 | 0 | 37 | 2 |
@@ -41,7 +41,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 52 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 3 |
-| **total** | **365** | **9** | **66,794** | **1,108** |
+| **total** | **365** | **9** | **66,794** | **1,090** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -294,7 +294,7 @@ has the upstream half of each, and `Dom/AGENTS.md` says which override list carr
 
 `dom/nodes/`, `dom/collections/`, `dom/lists/`, `dom/traversal/`, `dom/ranges/` and `html/dom/` are the DOM
 standard's own suites and HTML's DOM half — the corpus every other suite in this lane is written on top of.
-Across the six of them there are 226 documents and 65,228 tests, and **776 of those tests do not pass**.
+Across the six of them there are 226 documents and 65,228 tests, and **758 of those tests do not pass**.
 Those three figures are live and checked against the census. They arrived together as 207 documents and
 5,247 tests with 1,532 not passing; those arrival figures are historical and deliberately not re-derived.
 
@@ -316,7 +316,6 @@ table needs to be regenerated.
 | 50 | 2 | [#3772](https://github.com/sebastienros/jint/issues/3772) **DOM's current name-validation rules differ from the XML productions.** `createDocumentType` contributes 45 rows and `name-validation.html` five. <!-- cause: DOM's validate-and-extract, and the XML name productions --> |
 | 49 | 12 | **One assertion each or one small family per document.** These cover conversion order, import/clone identity, attribute selection and ordering, element-name identity, node equality and `accessKeyLabel`; each pattern is kept separate where neighboring rows pass. <!-- cause: one assertion each --> |
 | 19 | 6 | [#3949](https://github.com/sebastienros/jint/issues/3949) **A tag query's namespace and local-name identity is lost before the query runs.** `createElementNS(HTML, "ABC")` exposes a lower-case `localName` and a null-namespace `<body>` becomes an XHTML one on insertion, so the qualified-name, exact-namespace, empty-namespace and HTMLness assertions cannot be answered from the tree the query is given; `case.html` contributes ten of the rows and the two `getElementsByTagName`/`NS` pairs the rest. The queries themselves are DOM's. <!-- cause: a tag query's namespace and local-name identity --> |
-| 18 | 1 | **A reflected `double` is written with .NET's number format.** `<meter>`'s six setters write `Double.ToString(InvariantInfo)`, so `-0` keeps its sign and an exponent is spelled `1E-10` where HTML wants ECMAScript's `1e-10`. Their getters are *not* reflection and are right, so there is no row for them; three values per member differ. `Dom/divergences.md` records it. <!-- cause: 9. a double written with .NET's number format --> |
 | 16 | 1 | **AngleSharp.Css refuses an unparseable media query, from inside `Element.setAttribute`.** `<style>` registers an attribute observer that assigns the sheet's `MediaList.mediaText`, whose setter throws where Media Queries §2.1 requires `not all`; the sixteen rows are the values it cannot parse and the member's other thirty tests pass. `Dom/divergences.md` records it. <!-- cause: 8. AngleSharp.Css refuses an unparseable media query --> |
 | 8 | 2 | **The selector engine's escapes, `:scope` and `:has` differ.** `ParentNode-querySelector-escapes.html` contributes five rows and `Element-closest.html` three. <!-- cause: the selector engine: escapes, :scope and :has --> |
 | 4 | 2 | **`MutationObserver` records differ**, and both halves are AngleSharp's. Its HTML parser inserts nodes without queueing a record, so a document observer hears nothing about the parse; and its `OuterHtml` setter inserts the replacement and then removes the element, which a page sees as two `childList` records where HTML's "replace this with fragment within parent" is one. <!-- cause: MutationObserver's records --> |
@@ -367,29 +366,19 @@ the bookkeeping. It is worth naming as a shape — a share of a cause that turns
 rather than the engine, whose fix is therefore a change to how a case is enumerated and not to the
 subject the document was about.
 
-**All ten of HTML's reflection documents are cases, and six of the ten pass whole**
+**All ten of HTML's reflection documents are cases, and nine of the ten pass whole**
 ([#3770](https://github.com/sebastienros/jint/issues/3770)). HTML §2.6.1's reflection algorithms are
 `Jint.Browser/Dom/ReflectedAttribute.cs` and the members that take them are `overrides.json`'s `reflected`
 list, so `reflection-misc.html` (4,877 assertions, 1,866 of them failing before), `reflection-text.html`
 (10,202, 3,360 failing before), `reflection-sections.html` (5,604, 2,189 failing before),
 `reflection-tabular.html` (6,116, 3,552 failing before), `reflection-forms-weekmonth.html` (1,579, 420
 failing before), `reflection-embedded.html` (8,922, 3,774 failing before), `reflection-grouping.html` (5,358,
-2,006 failing before) and `reflection-obsolete.html` (2,621, 1,483 failing before) pass with **nothing**
-excluded, and `reflection-metadata.html` (3,110, 1,218 failing before) and `reflection-forms.html` (8,271,
-2,160 failing before) have one cause each — and neither cause is reflection. **22,028 of 56,660
-assertions failed when the suite was measured; 34 do now.**
+2,006 failing before), `reflection-obsolete.html` (2,621, 1,483 failing before) and `reflection-forms.html`
+(8,271, 2,160 failing before) pass with **nothing** excluded, and `reflection-metadata.html` (3,110, 1,218
+failing before) has one cause left — and it is not reflection. **22,028 of 56,660
+assertions failed when the suite was measured; 16 do now.**
 
-185 rows did it, and the first fifteen were mostly the **global** attributes every element carries —
-
-**Six of HTML's ten reflection documents are cases, and three of the six pass whole.** HTML §2.6.1's
-reflection algorithms are `Jint.Browser/Dom/ReflectedAttribute.cs` and the members that take them are
-`overrides.json`'s `reflected` list, so `reflection-misc.html` (4,877 assertions, 1,866 of them failing
-before), `reflection-text.html` (10,202, 3,360 failing before) and `reflection-sections.html` (5,604, 2,189
-failing before) pass with **nothing** excluded, and `reflection-grouping.html` (5,358, 2,006 failing before),
-`reflection-metadata.html` (3,110, 1,218 failing before) and `reflection-obsolete.html` (2,621, 1,483 failing
-before) have one cause each — and none of the three causes is reflection.
-
-Seventy rows did it, and the first fifteen were mostly the **global** attributes every element carries —
+191 rows did it, and the first fifteen were mostly the **global** attributes every element carries —
 `dir`, `lang`, `tabIndex`, `autofocus`, `inputMode`, `enterKeyHint` — which is why `text` needed only eleven
 rows of its own for 3,360 assertions. The rest are element-specific, one `reflected` row each.
 `metadata` took seven of those —
@@ -424,8 +413,11 @@ attribute value while `<td>` answered the enumeration.
 **`formAction` answers the element's node document's URL when the content attribute is missing or empty**
 (§4.10.18.6), which is what a form posting to itself reads. `form.action` is the other member with that rule
 and the row model can say it now. Two more are `<input>`'s `width` and `height`, whose *getters* are the
-rendered image dimensions and are not reflection at all — but whose setters are, in as many words, so the
-rows fix the half that is.
+rendered image dimensions and are not reflection at all — but whose setters are, in as many words, so what
+the rows fix is the half that is. Both rows still take the whole accessor pair, and deliberately: this
+package renders no image, so the getter answers the content attribute either way, and answering it through
+HTML's rules for parsing non-negative integers rather than through AngleSharp's `DisplayWidth` is the
+difference between `width="-5"` reading 0 and reading −5 out of an `unsigned long`.
 
 `forms` took fifteen more — the rest of the form controls, and the two remaining numeric shapes: `textarea`'s
 `cols` and `rows` are **limited unsigned longs with fallback** (a zero or out-of-range set writes 20 and 2
@@ -435,6 +427,16 @@ than zero. `select.size` defaults to 0 where `input.size` defaults to 20, and `b
 `dialog` keyword `input.formMethod` does not — three facts about three members that no CLR signature carries
 and the `reflected` list has to state.
 
+Six more rows finished it, and they are the first that reflect **only a setter**. `<meter>`'s `value`, `min`,
+`max`, `low`, `high` and `optimum` are the case a whole replacement would have made worse: their getters are
+HTML §4.10.14's own algorithm — an absent `max` is 1, `optimum` is the midpoint, the value is constrained to
+the range — which AngleSharp implements and no reflection type can express, while their setters are plain
+§2.6.1 reflection and were writing `Double.ToString(InvariantInfo)` where HTML wants "the best representation
+of the number as a floating-point number", which is ECMAScript's Number-to-String. So the row model grew a
+`setterOnly` flag: the entry replaces the setter and the generator keeps the projected getter's body, and it
+refuses — as a diagnostic, not as generated code — a row that asks for it where there is no projected getter
+to keep or where a getter hook has already claimed the read.
+
 `embedded` took the last fifty, over ten interfaces, and was the largest single table: `<img>`'s twelve,
 `<object>`'s twelve, `<iframe>`'s nine, and the media elements' `preload`, `crossOrigin` and `loading` on
 `HTMLMediaElement` rather than on `<video>` and `<audio>` separately, which is where HTML puts them.
@@ -443,20 +445,21 @@ and the `reflected` list has to state.
 its three states, which is why the row picks `auto` and the corpus asserts membership of an array rather than
 one value.
 
-**Neither cause left is reflection**, and both are the dependency. A third was, and it is gone: four obsolete
-elements — `<dl>`, `<dir>`, `<font>` and `<frame>` — get an interface of their own from HTML and a plain
-`HTMLElement` from the pinned assemblies, so there was nowhere for `compact`, `color`, `src` and their kind
-to be reflected onto, and 506 rows named the tests. `DomManualInterfaces` declares all four by local name
+**The one cause left is not reflection**, and it is the dependency. Two others were, and both are gone: four
+obsolete elements — `<dl>`, `<dir>`, `<font>` and `<frame>` — get an interface of their own from HTML and a
+plain `HTMLElement` from the pinned assemblies, so there was nowhere for `compact`, `color`, `src` and their
+kind to be reflected onto, and 506 rows named the tests. `DomManualInterfaces` declares all four by local name
 now, the way it already declared `HTMLFrameSetElement` — one shape and one prototype chain per interface
 over the same AngleSharp element — so `reflection-grouping.html` and `reflection-obsolete.html` pass whole,
-and the divergence table records what the pinned assemblies are still missing. `<style>`'s `media` cannot be
-*written* at all when the value is not a media query AngleSharp.Css can parse — the exception comes out of
-`Element.setAttribute` itself, through the attribute observer AngleSharp core registers, where Media
-Queries §2.1 requires an unparseable query to be replaced by `not all`. And `<meter>`'s six setters write a
-`double` with .NET's number format, so `-0` keeps its sign and an exponent is `1E-10` where HTML wants
-ECMAScript's `1e-10` — three values per member, and their *getters* are not reflection and are right, which
-is why there is no row for them. Those 34 rows are the only failures this lane's `html/dom/` figure gained,
-against 51,783 assertions it did not have before.
+and the divergence table records what the pinned assemblies are still missing. `<meter>`'s six setters were
+writing a `double` with .NET's number format, so `-0` kept its sign and an exponent was `1E-10` where HTML
+wants ECMAScript's `1e-10` — three values per member, eighteen rows, and a whole `reflected` row would have
+been a regression because those getters are HTML §4.10.14's and are right; `setterOnly` is what took the
+half that was wrong, and `reflection-forms.html` passes whole. What is left is `<style>`'s `media`, which
+cannot be *written* at all when the value is not a media query AngleSharp.Css can parse — the exception comes
+out of `Element.setAttribute` itself, through the attribute observer AngleSharp core registers, where Media
+Queries §2.1 requires an unparseable query to be replaced by `not all`. Those 16 rows are the only failures
+this lane's `html/dom/` figure gained, against 51,783 assertions it did not have before.
 
 **Four documents did not terminate at all, and that was the finding this campaign put first.**
 `TreeWalker-currentNode.html`, `TreeWalker-previousNodeLastChildReject.html`, `TreeWalker-traversal-reject.html`
@@ -525,7 +528,7 @@ which is what a fixture sitting beside the cases that load it needs — see belo
 | a DOM marker, or not a document | 6 | `.window.js`, `.tentative.html` and `.sub.html` under the six new suites |
 | an XML document | 6 | `.xhtml`, `.xht`, `.svg` and the three `.xml` fixture globs: a page here parses HTML |
 | the WebIDL conformance harness, again | 2 | `html/dom/idlharness.https.html`, and one that needs an `RTCPeerConnection` |
-| HTML's reflection suite, seven of ten | 9 | [#3770](https://github.com/sebastienros/jint/issues/3770); `reflection-misc.html`, `-text.html` and `-grouping.html` are cases now and the other seven need the per-element attribute table each of them tests, one `reflected` row per content attribute. **Not** a time problem: 22.5 s for the whole set, 7.3 s for the largest. The exclusion table's own comment carries the per-family measurement |
+| HTML's reflection suite, the two files that are not the suite | 2 | [#3770](https://github.com/sebastienros/jint/issues/3770); all ten `reflection-*.html` documents are cases now, so what is left out is `reflection-original.html`, the same suite in the aggregating spelling, and the attribute table of a `.tentative.` document nothing here runs |
 | a DOM crash test or reftest | 5 | none loads `testharness.js` |
 | a helper document beside its test | 4 | three frames and a fragment; a document under a suite would have to be a case, and the fourth answer is the frame-bodies table below |
 | a DOM frame that runs script | 14 | listed when a frame had neither a document nor a realm; it has a document now ([#3771](https://github.com/sebastienros/jint/issues/3771)) and each row is owed a re-examination against the half that is left. Three have had it: the selector documents are cases |

@@ -402,6 +402,50 @@ public sealed class DomReflectionTests
             """).Should().Be("TypeError: Failed to execute 'HTMLElement.dir': Illegal invocation");
     }
 
+    /// <summary>
+    /// A <c>setterOnly</c> row supplies the write half and leaves the projected read alone, which is what
+    /// <c>&lt;meter&gt;</c>'s six members need: their setters are HTML §2.6.1 reflection and their getters
+    /// are HTML §4.10.14's own algorithm.
+    /// </summary>
+    /// <remarks>
+    /// "The best representation of the number as a floating-point number" is ECMAScript's Number-to-String,
+    /// which AngleSharp's <c>Double.ToString(NumberFormatInfo.InvariantInfo)</c> disagrees with on the sign
+    /// of negative zero and on the case of an exponent.
+    /// </remarks>
+    [TestCase("-0", "0")]
+    [TestCase("1e-10", "1e-10")]
+    [TestCase("1e+25", "1e+25")]
+    [TestCase("0.1 + 0.2", "0.30000000000000004")]
+    public void ASetterOnlyReflectedMemberWritesHtmlsNumber(string assigned, string written)
+    {
+        using var fixture = DomTestFixture.Create("<meter id='m'></meter>");
+
+        foreach (var member in new[] { "value", "min", "max", "low", "high", "optimum" })
+        {
+            fixture.Evaluate($"document.querySelector('#m').{member} = {assigned}");
+            fixture.Text($"document.querySelector('#m').getAttribute('{member}')").Should().Be(written);
+        }
+    }
+
+    /// <summary>
+    /// The other half of the same row: the getter is still the projection's, so <c>&lt;meter&gt;</c> keeps
+    /// the defaults and the clamping HTML §4.10.14 gives it and no reflection algorithm can express — an
+    /// absent <c>max</c> is 1 rather than the <c>double</c> type's 0, and the actual value is the content
+    /// attribute constrained to the range.
+    /// </summary>
+    [Test]
+    public void ASetterOnlyReflectedMemberKeepsItsProjectedGetter()
+    {
+        using var fixture = DomTestFixture.Create("<meter id='m'></meter>");
+
+        fixture.Number("document.querySelector('#m').max").Should().Be(1);
+        fixture.Number("document.querySelector('#m').optimum").Should().Be(0.5);
+
+        fixture.Evaluate("document.querySelector('#m').setAttribute('max', '10')");
+        fixture.Evaluate("document.querySelector('#m').setAttribute('value', '50')");
+        fixture.Number("document.querySelector('#m').value").Should().Be(10);
+    }
+
     // ---------------------------------------------------------------------------------------------------
     // The types no `reflected` row wires up yet. They are the numeric half of HTML §2.6.1 plus the nullable
     // string, and every one of them is #3770's remaining documents: `colSpan` and `span` are clamped unsigned
@@ -507,6 +551,38 @@ public sealed class DomReflectionTests
 
         reflected.Set(realm, element.Value, [JsNumber.Create(0)]);
         element.Value.GetAttribute("y").Should().Be("20");
+    }
+
+    /// <summary>
+    /// HTML's reflected integer range ends at 2147483647, and every unsigned setter writes its type's
+    /// <em>default</em> rather than the number it was handed when the number is above it.
+    /// </summary>
+    /// <remarks>
+    /// The rule has to be applied by the setter because WebIDL's <c>unsigned long</c> conversion is modulo
+    /// 2<sup>32</sup> and not a clamp: <c>el.width = 4294967295</c> arrives as 4294967295, so nothing before
+    /// this point has refused it. The parsing half is <see cref="AnUnsignedLongDefaultsToZero"/>; this is
+    /// the writing half, and the three kinds reach it by two different routes — the limited one through the
+    /// <c>IndexSizeError</c> floor check, the other two directly.
+    /// </remarks>
+    [Test]
+    public void AnUnsignedSetterWritesItsDefaultAboveTheReflectedRange()
+    {
+        using var fixture = DomTestFixture.Create("<div id='a'></div>");
+        var realm = DomRealm.Of(fixture.Engine);
+
+        foreach (var (kind, fallback, expected) in new[]
+                 {
+                     (ReflectedKind.UnsignedLong, 0d, "0"),
+                     (ReflectedKind.LimitedUnsignedLong, 20d, "20"),
+                     (ReflectedKind.ClampedUnsignedLong, 1d, "1"),
+                 })
+        {
+            using var element = Element();
+            var reflected = ReflectedAttribute.Numeric("X.y", "y", kind, fallback, min: 1, max: 1000);
+            reflected.Set(realm, element.Value, [JsNumber.Create(2147483648d)]);
+
+            element.Value.GetAttribute("y").Should().Be(expected, kind.ToString());
+        }
     }
 
     /// <summary>

@@ -161,13 +161,15 @@ internal sealed record SkipRecord(string Interface, string Member, string Reason
 /// <param name="Type">The reflection type, in HTML's vocabulary.</param>
 /// <param name="Factory">The C# expression that builds the descriptor.</param>
 /// <param name="Replaced">Whether the entry replaced a member the pinned assemblies project.</param>
+/// <param name="SetterOnly">Whether it replaced only that member's setter, keeping its projected getter.</param>
 internal sealed record ReflectedModel(
     string Field,
     string Qualified,
     string Attribute,
     string Type,
     string Factory,
-    bool Replaced);
+    bool Replaced,
+    bool SetterOnly = false);
 
 /// <summary>A WebIDL string enumeration projected from a CLR enum.</summary>
 internal sealed class EnumModel
