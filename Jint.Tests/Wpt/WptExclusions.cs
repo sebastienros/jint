@@ -681,7 +681,8 @@ internal enum WptDivergence
     /// arrived, whereas here the divergence is in the test and no change to this engine would move it.
     /// </para>
     /// <para>
-    /// Two divergences today. The second is <c>fetch/api/request/request-disturbed.any.js</c>, "Input request
+    /// Two divergences in this lane today, and the browser lane keeps its own beside its own table. The
+    /// second is <c>fetch/api/request/request-disturbed.any.js</c>, "Input request
     /// used for creating new request became disturbed even if body is not used", which asks that
     /// <c>new Request(input, { body })</c> disturb <c>input</c>. https://fetch.spec.whatwg.org/#dom-request
     /// creates the proxy that disturbs it only "if initBody is null and inputBody is non-null", so with an
@@ -705,6 +706,19 @@ internal enum WptDivergence
     /// empirical half agrees: on wpt.fyi's four aligned stable runs that row is 0/1 in Chrome, Edge, Firefox
     /// and Safari, where the file's thirteen other rows are 1/1 in all four. <c>Vendor/README.md</c> keeps
     /// the grammar and the measurement.
+    /// </para>
+    /// <para>
+    /// <b>The browser lane files two, and both argue their citation where its table is.</b> Eight rows of
+    /// <c>dom/events/Event-dispatch-single-activation-behavior.html</c> ask that exactly one activation
+    /// behaviour run, where the file's own instrumentation is a <c>&lt;form onsubmit&gt;</c> handler and
+    /// HTML fires <c>submit</c> and <c>reset</c> with <c>bubbles</c> true — so the parent's handler runs
+    /// because the child's event reached it, and no implementation may stop it. And one row of
+    /// <c>dom/lists/DOMTokenList-coverage-for-attributes.html</c> asks a <b>MathML</b> <c>&lt;a&gt;</c> for a
+    /// <c>relList</c>: MathML Core's only interface is <c>MathMLElement</c>
+    /// (https://w3c.github.io/mathml-core/#dom-and-javascript), which declares no <c>rel</c> and no
+    /// <c>relList</c>, and nothing else defines one on a MathML element either. Its SVG sibling is
+    /// SVG 2 §16.2's and really is required, which is why that row left the table rather than joining
+    /// this member.
     /// </para>
     /// <para>
     /// Age never promotes an entry into this category: a row nobody has got round to stays
