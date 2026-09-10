@@ -1016,8 +1016,6 @@ internal static class WptBrowserExclusions
     // ---------------------------------------------------------------- the registry, the constructor and the two creation members
     private static readonly WptExclusion[] _theRegistryTheConstructorAndTheTwoCreationMembers =
     [
-        new("custom-elements/CustomElementRegistry-constructor-and-callbacks-are-held-strongly.html", "adoptedCallback", WptDivergence.NeedsTriage),
-
         // DOM's create-an-element sets the namespace prefix on the element the constructor produced, after
         // it returns; AngleSharp's `Prefix` has no setter, so the element is created carrying it instead and
         // a constructor reading `this.prefix` sees it one step early. That is the whole of what is left of

@@ -110,6 +110,68 @@ internal sealed partial class CustomElementRegistry
     }
 
     /// <summary>
+    /// https://dom.spec.whatwg.org/#dom-document-adoptnode: <c>Adopt</c>, and then
+    /// <a href="https://dom.spec.whatwg.org/#concept-node-adopt">adopt</a>'s step 3.2 — "for each
+    /// inclusiveDescendant ... that is custom, enqueue a custom element callback reaction with callback name
+    /// <c>adoptedCallback</c> and « oldDocument, document »".
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The member is the door because a mutation record is not one.</b> The obvious alternative was to
+    /// read an adoption off the removal channel — a node that left the observed document and now belongs
+    /// to another one has been adopted — and it does not work: measured against the pinned AngleSharp, a
+    /// removal record is delivered <i>before</i> the node's owner changes, so at the moment the record
+    /// arrives the node is still this document's and there is nothing to report. The old document has to be
+    /// read before the call, which only the member can do.
+    /// </para>
+    /// <para>
+    /// <b>What that leaves is the adoption a page performs by inserting</b> —
+    /// <c>otherDocument.body.appendChild(el)</c> and its siblings, where DOM's pre-insert adopts on the way
+    /// past. Those enqueue no reaction here, and it is half of a larger gap rather than a hole of its own:
+    /// an element inserted into a document this page does not observe gets no <c>connectedCallback</c>
+    /// either, so the sequence <c>custom-elements/reactions/</c> asks for — disconnected, adopted,
+    /// connected — needs a second observed document and not a second reaction. Ten rows of
+    /// <c>WptBrowserExclusions</c>'s "one [CEReactions] member per file" group are that sequence, and they
+    /// stay excluded.
+    /// </para>
+    /// <para>
+    /// The removal that adopting a <i>connected</i> node performs still reports itself the ordinary way, so
+    /// <c>disconnectedCallback</c> runs from the record — inside <c>Adopt</c> — and
+    /// <c>adoptedCallback</c> is enqueued after it returns, which is DOM's own order.
+    /// </para>
+    /// </remarks>
+    internal static INode Adopt(Dom.DomRealm realm, IDocument document, INode node)
+    {
+        if (Of(realm.Engine) is not { HasDefinitions: true } registry)
+        {
+            return document.Adopt(node);
+        }
+
+        var oldDocument = node.Owner;
+        var adopted = document.Adopt(node);
+
+        if (oldDocument is not null && !ReferenceEquals(oldDocument, document))
+        {
+            registry.Adopted(adopted, oldDocument, document);
+            registry.Drain();
+        }
+
+        return adopted;
+    }
+
+    /// <summary>Step 3.2 itself, over the adopted node's subtree in tree order.</summary>
+    private void Adopted(INode root, IDocument oldDocument, IDocument newDocument)
+    {
+        Walk(root, element =>
+        {
+            if (TryGetRecord(element) is { State: CustomElementState.Custom } record)
+            {
+                EnqueueCallback(element, record, CustomElementReactionKind.Adopted, oldDocument: oldDocument, newDocument: newDocument);
+            }
+        });
+    }
+
+    /// <summary>
     /// https://dom.spec.whatwg.org/#handle-attribute-changes — what AngleSharp's <c>IAttributeObserver</c>
     /// reports, turned into an <c>attributeChangedCallback</c> reaction for an observed name.
     /// </summary>

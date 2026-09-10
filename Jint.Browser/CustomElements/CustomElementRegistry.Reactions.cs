@@ -115,7 +115,15 @@ internal sealed partial class CustomElementRegistry
     /// https://html.spec.whatwg.org/multipage/custom-elements.html#enqueue-a-custom-element-callback-reaction,
     /// which is a no-op unless the element is custom and the definition has the callback.
     /// </summary>
-    private void EnqueueCallback(IElement element, CustomElementRecord record, CustomElementReactionKind kind, string? name = null, string? oldValue = null, string? newValue = null)
+    private void EnqueueCallback(
+        IElement element,
+        CustomElementRecord record,
+        CustomElementReactionKind kind,
+        string? name = null,
+        string? oldValue = null,
+        string? newValue = null,
+        IDocument? oldDocument = null,
+        IDocument? newDocument = null)
     {
         if (record.State != CustomElementState.Custom || record.Definition is not { } definition)
         {
@@ -140,7 +148,7 @@ internal sealed partial class CustomElementRegistry
             return;
         }
 
-        Enqueue(element, record, new CustomElementReaction(kind, definition, name, oldValue, newValue));
+        Enqueue(element, record, new CustomElementReaction(kind, definition, name, oldValue, newValue, oldDocument, newDocument));
     }
 
     /// <summary>
@@ -246,16 +254,7 @@ internal sealed partial class CustomElementRegistry
         }
 
         var wrapper = _runtime.Dom.WrapNode(element);
-
-        JsValue[] arguments = reaction.Kind == CustomElementReactionKind.AttributeChanged
-            ?
-            [
-                JsString.Create(reaction.Name!),
-                reaction.OldValue is null ? JsValue.Null : JsString.Create(reaction.OldValue),
-                reaction.NewValue is null ? JsValue.Null : JsString.Create(reaction.NewValue),
-                JsValue.Null,
-            ]
-            : [];
+        var arguments = ArgumentsFor(reaction);
 
         try
         {
@@ -265,6 +264,43 @@ internal sealed partial class CustomElementRegistry
         {
             Report(exception, reaction.Definition.Name);
         }
+    }
+
+    /// <summary>
+    /// The arguments HTML gives each callback: none for <c>connectedCallback</c> and
+    /// <c>disconnectedCallback</c>, the four of
+    /// <a href="https://html.spec.whatwg.org/multipage/custom-elements.html#concept-element-attributes-change-ext">an
+    /// attribute change</a>, and — the arm that had none until now —
+    /// <a href="https://dom.spec.whatwg.org/#concept-node-adopt">adopt</a>'s
+    /// <c>« oldDocument, newDocument »</c>.
+    /// </summary>
+    /// <remarks>
+    /// The two documents are wrapped here rather than when the reaction was enqueued, because a wrapper is
+    /// an object in the engine's realm and the enqueue may have happened on the parser's thread.
+    /// </remarks>
+    private JsValue[] ArgumentsFor(in CustomElementReaction reaction)
+    {
+        if (reaction.Kind == CustomElementReactionKind.AttributeChanged)
+        {
+            return
+            [
+                JsString.Create(reaction.Name!),
+                reaction.OldValue is null ? JsValue.Null : JsString.Create(reaction.OldValue),
+                reaction.NewValue is null ? JsValue.Null : JsString.Create(reaction.NewValue),
+                JsValue.Null,
+            ];
+        }
+
+        if (reaction.Kind == CustomElementReactionKind.Adopted)
+        {
+            return
+            [
+                _runtime.Dom.WrapNodeValue(reaction.OldDocument),
+                _runtime.Dom.WrapNodeValue(reaction.NewDocument),
+            ];
+        }
+
+        return [];
     }
 
     /// <summary>
