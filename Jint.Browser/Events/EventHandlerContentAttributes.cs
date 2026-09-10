@@ -611,7 +611,7 @@ internal static class EventHandlerContentAttributes
                 scope = Wrap(engine, dom.WrapNode(owner), scope);
             }
 
-            if (FormOwner(element) is { } form)
+            if (FormOwner(engine, element) is { } form)
             {
                 scope = Wrap(engine, dom.WrapNode(form), scope);
             }
@@ -628,42 +628,15 @@ internal static class EventHandlerContentAttributes
         /// ancestor form.
         /// </summary>
         /// <remarks>
-        /// Computed rather than read off AngleSharp, whose <c>Form</c> property is declared separately on
-        /// each of the eight form-control interfaces and on no common one, so there is nothing to ask an
-        /// <c>IElement</c> for.
+        /// <see cref="HtmlFormOwner"/> is the whole answer for the elements whose category their local name
+        /// decides. A <b>form-associated custom element</b> is the one that needs this call site: its
+        /// category is its definition's <c>formAssociated</c>, which only the registry can say, and this is
+        /// the one lane that reads a form owner and can reach one.
         /// </remarks>
-        private static IHtmlFormElement? FormOwner(IElement element)
-        {
-            // https://html.spec.whatwg.org/multipage/forms.html#form-associated-element — only these have a
-            // form owner at all, which is why a `<div>` inside a `<form>` resolves an unqualified name against
-            // the document and the window and never against the form.
-            if (element is not (IHtmlButtonElement
-                or IHtmlFieldSetElement
-                or IHtmlInputElement
-                or IHtmlObjectElement
-                or IHtmlOutputElement
-                or IHtmlSelectElement
-                or IHtmlTextAreaElement
-                or IHtmlImageElement))
-            {
-                return null;
-            }
-
-            if (element.GetAttribute("form") is { Length: > 0 } id)
-            {
-                return element.Owner?.GetElementById(id) as IHtmlFormElement;
-            }
-
-            for (var current = element.ParentElement; current is not null; current = current.ParentElement)
-            {
-                if (current is IHtmlFormElement form)
-                {
-                    return form;
-                }
-            }
-
-            return null;
-        }
+        private static IHtmlFormElement? FormOwner(Engine engine, IElement element)
+            => CustomElements.CustomElementRegistry.Of(engine)?.TryGetRecord(element) is { FormAssociated: true }
+                ? HtmlFormOwner.OfFormAssociatedCustomElement(element)
+                : HtmlFormOwner.Of(element);
 
         /// <summary>
         /// HTML: a body that does not parse reports the error and leaves the handler null. Reporting is

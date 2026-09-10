@@ -2,6 +2,7 @@ using AngleSharp.Css;
 using AngleSharp.Css.Dom;
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
+using Jint.Browser.Dom;
 using Jint.Browser.Events;
 using Jint.WebApi.Url.Parsing;
 
@@ -310,54 +311,20 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
         /// </summary>
         private static bool IsTheDefaultButtonOfItsForm(IElement element)
         {
-            if (FormOwnerOf(element) is not { } form)
+            if (HtmlFormOwner.Of(element) is not { } form)
             {
                 return false;
             }
 
-            var root = element;
-            while (root.ParentElement is { } parent)
+            foreach (var candidate in HtmlFormOwner.ControlsOf(form))
             {
-                root = parent;
-            }
-
-            for (var candidate = root; candidate is not null; candidate = NextInTreeOrder(candidate, root))
-            {
-                if (IsASubmitButton(candidate) && ReferenceEquals(FormOwnerOf(candidate), form))
+                if (IsASubmitButton(candidate))
                 {
                     return ReferenceEquals(candidate, element);
                 }
             }
 
             return false;
-        }
-
-        private static IHtmlFormElement? FormOwnerOf(IElement element) => element switch
-        {
-            IHtmlButtonElement button => button.Form,
-            IHtmlInputElement input => input.Form,
-            _ => null,
-        };
-
-        /// <summary>The next element of <paramref name="root"/>'s subtree in tree order, or none.</summary>
-        private static IElement? NextInTreeOrder(IElement element, IElement root)
-        {
-            if (element.FirstElementChild is { } child)
-            {
-                return child;
-            }
-
-            for (IElement? current = element;
-                current is not null && !ReferenceEquals(current, root);
-                current = current.ParentElement)
-            {
-                if (current.NextElementSibling is { } sibling)
-                {
-                    return sibling;
-                }
-            }
-
-            return null;
         }
     }
 
@@ -1163,7 +1130,7 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
                 return false;
             }
 
-            var owner = radio.Form;
+            var owner = HtmlFormOwner.Of(radio);
             var root = RootElementOf(radio);
 
             for (var candidate = root; candidate is not null; candidate = NextInSubtree(candidate, root))
@@ -1171,7 +1138,7 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
                 if (candidate is IHtmlInputElement other
                     && other.IsChecked
                     && IsARadioButton(other)
-                    && ReferenceEquals(other.Form, owner)
+                    && ReferenceEquals(HtmlFormOwner.Of(other), owner)
                     && string.Equals(other.Name, name, StringComparison.OrdinalIgnoreCase))
                 {
                     return true;

@@ -129,6 +129,19 @@ internal class DomHostHooks
     internal virtual JsValue Labels(DomRealm realm, IHtmlElement element)
         => HtmlLabelAssociation.IsLabelable(element) ? realm.WrapLabels(element) : JsValue.Null;
 
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#dom-fae-form — the
+    /// <c>form</c> IDL attribute of every element that has one, from HTML's own ownership rule.
+    /// </summary>
+    /// <remarks>
+    /// One hook for eleven interfaces, because the member's value is one algorithm and the eleven differ only
+    /// in which of its branches they take (<see cref="HtmlFormOwner.FormIdlOf"/>). AngleSharp declares
+    /// <c>Form</c> separately on each and answers all of them from an ancestor-first walk that inverts the
+    /// standard's priority.
+    /// </remarks>
+    internal virtual JsValue FormOwner(DomRealm realm, IHtmlElement element)
+        => realm.WrapNodeValue(HtmlFormOwner.FormIdlOf(element));
+
     /// <summary>https://dom.spec.whatwg.org/#dom-range-comparepoint</summary>
     internal virtual JsValue ComparePoint(DomRealm realm, IRange range, JsValue[] arguments)
         => DomRangeMembers.ComparePoint(realm, range, arguments);

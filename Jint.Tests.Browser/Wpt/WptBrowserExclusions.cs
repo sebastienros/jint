@@ -925,15 +925,6 @@ internal static class WptBrowserExclusions
         new("html/dom/reflection-metadata.html", "style.media: IDL set to \"\\0\"", WptDivergence.NeedsTriage),
     ];
 
-    // ---------------------------------------------------------------- 4b. a custom element
-    private static readonly WptExclusion[] _4bACustomElement =
-    [
-        // The file's other three rows pass. This one defines a form-associated custom element, and
-        // `window.customElements` is a name this browser does not have — the same reason
-        // `EventTarget-add-listener-platform-object.html` is not vendored.
-        new("html/webappapis/scripting/events/compile-event-handler-lexical-scopes-form-owner.html", "form-associated <x-foo> has a form owner", WptDivergence.NeedsTriage),
-    ];
-
     // ---------------------------------------------------------------- 6. a frame that runs script
     private static readonly WptExclusion[] _6AFrameThatRunsScriptTheScriptingSuites =
     [
@@ -1540,7 +1531,6 @@ internal static class WptBrowserExclusions
     internal static readonly WptCause[] Causes =
     [
         new("8. AngleSharp.Css refuses an unparseable media query", _8AngleSharpCssRefusesAnUnparseableMediaQuery),
-        new("4b. a custom element", _4bACustomElement),
         new("6. a frame that runs script: the scripting suites", _6AFrameThatRunsScriptTheScriptingSuites),
         new("7. a bubbling `submit` the file counts as an activation", _7ABubblingSubmitTheFileCountsAsAnActivation),
         new("a frame that runs script: custom elements", _aFrameThatRunsScriptCustomElements),

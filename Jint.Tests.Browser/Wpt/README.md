@@ -34,7 +34,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `html/dom/` | 15 | 0 | 56,745 | 18 |
 | `html/infrastructure/common-dom-interfaces/collections/` | 1 | 0 | 41 | 0 |
 | `html/obsolete/requirements-for-implementations/other-elements-attributes-and-apis/` | 1 | 0 | 2 | 0 |
-| `html/webappapis/scripting/events/` | 12 | 0 | 37 | 2 |
+| `html/webappapis/scripting/events/` | 12 | 0 | 37 | 1 |
 | `html/webappapis/scripting/processing-model-2/` | 25 | 0 | 44 | 5 |
 | `html/semantics/embedded-content/the-img-element/` | 4 | 0 | 99 | 0 |
 | `html/semantics/selectors/pseudo-classes/` | 27 | 0 | 122 | 22 |
@@ -42,7 +42,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 52 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 0 |
-| **total** | **392** | **9** | **66,916** | **868** |
+| **total** | **392** | **9** | **66,916** | **867** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes

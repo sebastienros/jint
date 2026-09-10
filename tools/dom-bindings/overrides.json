@@ -1687,6 +1687,83 @@
       "reason": "HTML 4.10.4 resolves a label's explicit for target or first labelable descendant. AngleSharp returns null for the wrapping-label form, so the shared HTML association algorithm supplies the value."
     },
     {
+      "interface": "HTMLButtonElement",
+      "member": "form",
+      "half": "getter",
+      "hook": "FormOwner",
+      "reason": "HTML's reset the form owner gives a connected listed element's form content attribute priority over any ancestor form; AngleSharp's HtmlElement.GetAssignedForm() walks to an ancestor first and reads the attribute only when it found none, so a control inside one form pointing at another answered the wrong one (issue 3939). One hook for all eleven interfaces that declare the member, because the value is one algorithm and it is also the rule the entry list, interactive validation, the default button and :default read."
+    },
+    {
+      "interface": "HTMLFieldSetElement",
+      "member": "form",
+      "half": "getter",
+      "hook": "FormOwner",
+      "reason": "The fieldset half of the listed-element form attribute."
+    },
+    {
+      "interface": "HTMLInputElement",
+      "member": "form",
+      "half": "getter",
+      "hook": "FormOwner",
+      "reason": "The input half of the listed-element form attribute, and the one issue 3939 was reported against."
+    },
+    {
+      "interface": "HTMLObjectElement",
+      "member": "form",
+      "half": "getter",
+      "hook": "FormOwner",
+      "reason": "The object half of the listed-element form attribute."
+    },
+    {
+      "interface": "HTMLOutputElement",
+      "member": "form",
+      "half": "getter",
+      "hook": "FormOwner",
+      "reason": "The output half of the listed-element form attribute."
+    },
+    {
+      "interface": "HTMLSelectElement",
+      "member": "form",
+      "half": "getter",
+      "hook": "FormOwner",
+      "reason": "The select half of the listed-element form attribute."
+    },
+    {
+      "interface": "HTMLTextAreaElement",
+      "member": "form",
+      "half": "getter",
+      "hook": "FormOwner",
+      "reason": "The textarea half of the listed-element form attribute."
+    },
+    {
+      "interface": "HTMLKeygenElement",
+      "member": "form",
+      "half": "getter",
+      "hook": "FormOwner",
+      "reason": "No current standard defines keygen at all, but HTML 5.1 4.10.13 made it a listed element and AngleSharp still models one, so it keeps that rule rather than a new one."
+    },
+    {
+      "interface": "HTMLLabelElement",
+      "member": "form",
+      "half": "getter",
+      "hook": "FormOwner",
+      "reason": "HTML 4.10.4's form getter is the labeled control's form owner, and null when the label labels nothing: a label is not a form-associated element and never has an association of its own. AngleSharp answers GetAssignedForm() for it, which is the ancestor form of the label itself."
+    },
+    {
+      "interface": "HTMLLegendElement",
+      "member": "form",
+      "half": "getter",
+      "hook": "FormOwner",
+      "reason": "HTML 4.10.16's form getter is the form attribute of the legend's parent fieldset, so it has to be the same computation the fieldset's own member makes."
+    },
+    {
+      "interface": "HTMLOptionElement",
+      "member": "form",
+      "half": "getter",
+      "hook": "FormOwner",
+      "reason": "HTML 4.10.10's form getter is the nearest ancestor select's form owner, so an option inside an optgroup answers and one in no select answers null. AngleSharp answers GetAssignedForm() for it, which is the option's own ancestor form."
+    },
+    {
       "interface": "Document",
       "member": "body",
       "half": "getter",
