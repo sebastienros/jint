@@ -509,6 +509,25 @@ internal class DomHostHooks
         CustomElements.CustomElementRegistry.SubtreeCreated(realm, element.Parent ?? element);
     }
 
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#dom-document-adoptnode — the same AngleSharp call, bracketed so that
+    /// <a href="https://dom.spec.whatwg.org/#concept-node-adopt">adopt</a>'s step 3.2 happens: "for each
+    /// inclusiveDescendant ... that is custom, enqueue a custom element callback reaction with callback name
+    /// <c>adoptedCallback</c> and « oldDocument, document »".
+    /// </summary>
+    /// <remarks>
+    /// It is the member's own door because a mutation record cannot be one: the removal a connected node's
+    /// adoption performs is delivered <i>before</i> the node's owner changes, so the old document has to be
+    /// read before the call. What that leaves — the adoption DOM's pre-insert performs on the way into a
+    /// parent in another document — is argued in <c>CustomElements/CustomElementRegistry.Tree.cs</c>.
+    /// </remarks>
+    internal virtual JsValue AdoptNode(DomRealm realm, IDocument document, JsValue[] arguments)
+        => realm.WrapNodeValue(
+            CustomElements.CustomElementRegistry.Adopt(
+                realm,
+                document,
+                DomBindings.Argument<INode>(arguments, 0, "Document.adoptNode")));
+
     /// <summary>https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-document-write</summary>
     internal virtual void Write(DomRealm realm, IDocument document, JsValue[] arguments)
     {

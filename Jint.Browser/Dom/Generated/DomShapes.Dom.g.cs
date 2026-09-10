@@ -701,7 +701,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.adoptNode", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.adoptNode");
-                    return self.Realm.WrapNodeValue(self.Target.Adopt(global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Dom.INode>(args, 0, "Document.adoptNode")));
+                    return self.Realm.Hooks.AdoptNode(self.Realm, self.Target, args);
                 }),
                 length: 1)
             .Accessor("alinkColor",

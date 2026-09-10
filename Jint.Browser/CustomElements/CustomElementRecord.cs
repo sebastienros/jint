@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using AngleSharp.Dom;
 
 namespace Jint.Browser.CustomElements;
 
@@ -52,13 +53,26 @@ internal enum CustomElementReactionKind
 /// <param name="Name">The attribute's local name, for <see cref="CustomElementReactionKind.AttributeChanged"/>.</param>
 /// <param name="OldValue">The attribute's value before the change, or <see langword="null"/> when it was absent.</param>
 /// <param name="NewValue">The attribute's value after the change, or <see langword="null"/> when it was removed.</param>
+/// <param name="OldDocument">The node document the element left, for <see cref="CustomElementReactionKind.Adopted"/>.</param>
+/// <param name="NewDocument">The node document the element joined, for <see cref="CustomElementReactionKind.Adopted"/>.</param>
+/// <remarks>
+/// <b>The two documents are held strongly, and a reaction is the one place that may hold one</b>, because a
+/// reaction outlives nothing: it is enqueued and drained inside the DOM operation that caused it, or at the
+/// next microtask checkpoint when it arrived on the parser's thread, and the element queue already holds
+/// every element on it the same way for the same span. What must not happen is a document living on a
+/// <see cref="CustomElementRecord"/>, which is keyed on the element in a <c>ConditionalWeakTable</c> and
+/// lasts as long as the element does: a document parked there would be pinned by every element that ever
+/// left it.
+/// </remarks>
 [StructLayout(LayoutKind.Auto)]
 internal readonly record struct CustomElementReaction(
     CustomElementReactionKind Kind,
     CustomElementDefinition Definition,
     string? Name,
     string? OldValue,
-    string? NewValue);
+    string? NewValue,
+    IDocument? OldDocument = null,
+    IDocument? NewDocument = null);
 
 /// <summary>
 /// Everything one element carries because it is, or could become, a custom element: DOM's custom element

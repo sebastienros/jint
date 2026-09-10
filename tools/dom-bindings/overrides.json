@@ -1825,6 +1825,14 @@
     },
     {
       "interface": "Document",
+      "member": "adoptNode",
+      "half": "operation",
+      "hook": "AdoptNode",
+      "returns": true,
+      "reason": "The same AngleSharp call, bracketed by the reaction step DOM's adopt takes: \"for each inclusiveDescendant ... that is custom, enqueue a custom element callback reaction with callback name adoptedCallback and « oldDocument, document »\". A detached node's adoption mutates no tree and so queues no mutation record, and an adoption into this document removes the node from a document this page does not observe -- so adoptNode is the only door those two can come through."
+    },
+    {
+      "interface": "Document",
       "member": "importNode",
       "half": "operation",
       "hook": "ImportNode",
