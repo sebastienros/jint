@@ -1250,7 +1250,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.querySelectorAll", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.querySelectorAll");
-                    return self.Realm.Wrap((global::AngleSharp.Dom.INodeList) (self.Target.QuerySelectorAll(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.querySelectorAll"))), global::Jint.Browser.Dom.DomInterfaces.NodeList);
+                    return self.Realm.Hooks.QuerySelectorAll(self.Realm, self.Target, args);
                 }),
                 length: 1)
             .Accessor("readyState",
@@ -1419,7 +1419,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("DocumentFragment.querySelectorAll", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocumentFragment>(thisObj, "DocumentFragment.querySelectorAll");
-                    return self.Realm.Wrap((global::AngleSharp.Dom.INodeList) (self.Target.QuerySelectorAll(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "DocumentFragment.querySelectorAll"))), global::Jint.Browser.Dom.DomInterfaces.NodeList);
+                    return self.Realm.Hooks.QuerySelectorAll(self.Realm, self.Target, args);
                 }),
                 length: 1)
             .Method("replaceChildren",
@@ -1826,7 +1826,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.querySelectorAll", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.querySelectorAll");
-                    return self.Realm.Wrap((global::AngleSharp.Dom.INodeList) (self.Target.QuerySelectorAll(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Element.querySelectorAll"))), global::Jint.Browser.Dom.DomInterfaces.NodeList);
+                    return self.Realm.Hooks.QuerySelectorAll(self.Realm, self.Target, args);
                 }),
                 length: 1)
             .Method("remove",
