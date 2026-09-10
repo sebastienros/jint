@@ -120,8 +120,11 @@ internal sealed class ParserDriver : IDisposable
             // constraint, so a disabled control was :invalid and every fieldset was :valid. Three more
             // read an attribute without asking whether it applies to the type state it is written on -
             // :read-write, :placeholder-shown and, for a progress element, :indeterminate, whose radio
-            // button group rule is missing outright.
-            .WithOnly<AngleSharp.Css.IPseudoClassSelectorFactory>(new PagePseudoClassSelectorFactory())
+            // button group rule is missing outright. And one pair is why the factory takes the runtime at
+            // all: :focus and :focus-within are AngleSharp's IElement.IsFocused, a flag nothing assigns, so
+            // they have to read the page's own focus - Events/FocusController, which is what
+            // document.activeElement and every focus event already answer from.
+            .WithOnly<AngleSharp.Css.IPseudoClassSelectorFactory>(new PagePseudoClassSelectorFactory(_runtime))
             // https://html.spec.whatwg.org/multipage/document-lifecycle.html#read-xml — a document whose
             // content type is an XML MIME type is parsed by the XML parser, and without the factory
             // AngleSharp.Xml supplies there is no XML document for it to produce: `<foo>Dummy</foo>` served
