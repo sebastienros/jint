@@ -265,13 +265,36 @@ internal sealed partial class CustomElementRegistry : ObjectInstance
     /// https://html.spec.whatwg.org/multipage/custom-elements.html#look-up-a-custom-element-definition.
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// <b>Step 1 is "if document's browsing context is null, then return null", and it is here rather than at
+    /// each caller because that is where the standard puts it.</b> The document is DOM's create-an-element
+    /// argument where there is one, and the element's node document everywhere else. A document made by
+    /// <c>DOMParser</c>, <c>new Document()</c>, <c>DOMImplementation.createDocument</c> or
+    /// <c>createHTMLDocument</c> is the active document of nothing, so nothing it creates, clones, parses or
+    /// upgrades may consult a definition — <c>otherDocument.createElement('x-thing')</c> ran the page's
+    /// constructor and <c>otherDocument</c>'s own clone came back custom. Every path that consults one comes
+    /// through here: the two creation members, the customized-built-in upgrade, <c>cloneNode</c> and
+    /// <c>importNode</c>, the subtree creations (<c>innerHTML</c> and its siblings), insertion, and
+    /// <c>customElements.upgrade</c>. What is deliberately not gated is the <c>HTMLElement</c> constructor,
+    /// which HTML gives no document argument at all: it creates in "the current global object's associated
+    /// <c>Document</c>", which is the page's and always has a browsing context.
+    /// </para>
+    /// <para>
     /// The autonomous clause is tried first and the customized-built-in clause second, which is the order the
     /// standard gives: a name that is both a definition's name and a definition's local name cannot happen,
     /// since a valid custom element name may not be extended.
+    /// </para>
     /// </remarks>
-    internal CustomElementDefinition? Lookup(string? namespaceUri, string localName, string? isValue)
+    internal CustomElementDefinition? Lookup(IDocument? document, string? namespaceUri, string localName, string? isValue)
     {
         if (_byName.Count == 0)
+        {
+            return null;
+        }
+
+        // Step 1, asked after the "nothing is defined" test above because neither is observable and that one
+        // is a field read: a page with no definitions never asks a document anything.
+        if (DomBrowsingContext.Of(document) is null)
         {
             return null;
         }

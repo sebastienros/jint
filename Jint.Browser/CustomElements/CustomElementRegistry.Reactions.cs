@@ -46,6 +46,12 @@ internal sealed partial class CustomElementRegistry
     /// https://html.spec.whatwg.org/multipage/custom-elements.html#concept-try-upgrade — look up a definition
     /// for <paramref name="element"/> and, if there is one, enqueue an upgrade reaction.
     /// </summary>
+    /// <remarks>
+    /// The lookup is given the element's <b>node document</b>, which is the standard's own argument, and it
+    /// is what the one gate on a document with no browsing context is asked about: an element a parsed
+    /// document holds, or one a member just made in a <c>createHTMLDocument</c>, finds no definition however
+    /// many the page has defined. See <see cref="Lookup"/>.
+    /// </remarks>
     internal void TryUpgrade(IElement element)
     {
         if (_byName.Count == 0 || StateOf(element) != CustomElementState.Undefined)
@@ -53,7 +59,7 @@ internal sealed partial class CustomElementRegistry
             return;
         }
 
-        if (Lookup(element.NamespaceUri, element.LocalName, IsValueOf(element)) is { } definition)
+        if (Lookup(element.Owner, element.NamespaceUri, element.LocalName, IsValueOf(element)) is { } definition)
         {
             EnqueueUpgrade(element, definition);
         }
