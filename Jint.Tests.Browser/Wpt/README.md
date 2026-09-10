@@ -37,12 +37,12 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `html/webappapis/scripting/events/` | 12 | 0 | 37 | 2 |
 | `html/webappapis/scripting/processing-model-2/` | 25 | 0 | 44 | 5 |
 | `html/semantics/embedded-content/the-img-element/` | 4 | 0 | 99 | 0 |
-| `html/semantics/selectors/pseudo-classes/` | 27 | 0 | 122 | 34 |
+| `html/semantics/selectors/pseudo-classes/` | 27 | 0 | 122 | 29 |
 | `custom-elements/` | 16 | 0 | 513 | 10 |
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 52 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 0 |
-| **total** | **392** | **9** | **66,916** | **881** |
+| **total** | **392** | **9** | **66,916** | **876** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -271,15 +271,16 @@ is one. Their siblings are about other interfaces — `HTMLFormControlsCollectio
 ## What the pseudo-classes suite says about this browser
 
 `html/semantics/selectors/pseudo-classes/` is HTML §4.16.3's own suite: one document per selector, run
-against a page's real selector engine rather than against a table of strings. **27 documents, 122 tests, 34
-of which do not pass**, and every failure is one of eight bounded things AngleSharp's
+against a page's real selector engine rather than against a table of strings. **27 documents, 122 tests, 29
+of which do not pass**, and every failure is one of seven bounded things AngleSharp's
 `DefaultPseudoClassSelectorFactory` does. That is the reason the suite is here: the page owns
 `:target`, `:link`/`:visited`/`:any-link`, `:enabled`/`:disabled`, `:default`, `:open`/`:closed`,
-`:valid`/`:invalid`, `:in-range`/`:out-of-range`, `:read-only`/`:read-write`, `:placeholder-shown` and
-`:indeterminate` (`Runtime/Parsing/PagePseudoClassSelectorFactory`), and nothing until this suite arrived
+`:valid`/`:invalid`, `:in-range`/`:out-of-range`, `:read-only`/`:read-write`, `:placeholder-shown`,
+`:indeterminate` and `:focus`/`:focus-within`
+(`Runtime/Parsing/PagePseudoClassSelectorFactory`), and nothing until this suite arrived
 measured any of them.
 
-None of these eight has a row in the cause table above, and that is by construction: the table counts the
+None of these seven has a row in the cause table above, and that is by construction: the table counts the
 six DOM suites, and every one of these is a failure of this suite alone.
 
 | Tests | What it is |
@@ -287,7 +288,6 @@ six DOM suites, and every one of these is a failure of this suite alone.
 | 9 | **`:dir()` compares its argument with the `dir` content attribute of that element alone.** Directionality is inherited and its `auto` value is resolved from text, so an element declaring no `dir` matches neither keyword. |
 | 7 | **An opaque colour is serialized as `rgba(r, g, b, 1)`**, and these seven rows read `getComputedStyle().color` against a literal. Each already gets the colour the selector should produce; `Dom/divergences.md` records why the process-global switch is not flipped. |
 | 5 | **`:active` is a hyperlink-only flag nothing sets**, so no element matches while a click is in flight. |
-| 5 | **`:focus` is AngleSharp's `IElement.IsFocused`, which nothing assigns.** The page's own focus model is `Events/FocusController`, which is what `document.activeElement` reads, so `focus()` moves the active element where no selector can see it. |
 | 3 | **`:checked` answers for the historical `<menuitem>`**, which `checked.html` keeps two of precisely so that they do not match. |
 | 3 | **A reversed range is an underflow and an overflow at once.** §4.10.5.4 gives the time state a periodic domain, so `min` greater than `max` wraps midnight; `ValidityState` compares against both bounds unconditionally. `element.validity` says the same, so it is not the selector's. |
 | 1 | **`:required`/`:optional` read the attribute wherever it is written**, including on a hidden input, which it does not apply to. |
@@ -303,6 +303,17 @@ that is absent rather than empty. That retired 34 rows of this suite and one of
 `dom/nodes/Element-closest.html`. **Three type-change documents did not become green and moved instead**:
 their selectors answer correctly now and their remaining assertion compares a computed colour against a
 literal, so they sit in the `rgba()` row above beside the four that were always there.
+
+**`:focus` is the sixth, and it needed the page rather than the predicate.** AngleSharp answers `:focus` and
+`:focus-within` from `IElement.IsFocused`, a flag nothing in this package sets — its own `DoFocus()` assigns
+neither that flag nor `ActiveElement`, which is why `Events/FocusController` is the page's focus model — so
+the selector could not see a focus every event and `document.activeElement` already agreed about. The
+factory now reads that model, and HTML's focusing steps stop being confined to the displayed document: an
+`element.focus()` inside a child navigable takes the focus out of the page, which is exactly what
+`focus.html`'s last case asserts and what kept it passing while the other four did not.
+`:focus-visible` is deliberately still AngleSharp's and still matches nothing — Selectors §9.4 makes it a
+decision about drawing a focus indicator, which a browser with no rendering cannot make — and
+`Dom/divergences.md` records that.
 
 **Four of the directory's files are not vendored and none of the reasons is a defect.** `autofill.html`'s two
 assertions are `test_valid_selector`, which lives in `/css/support/parsing-testcommon.js` — a helper root this

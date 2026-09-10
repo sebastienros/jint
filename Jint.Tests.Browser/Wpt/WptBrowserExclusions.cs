@@ -1460,19 +1460,6 @@ internal static class WptBrowserExclusions
         new("html/semantics/selectors/pseudo-classes/active-disabled.html", "Clicking on a disabled textarea should make it match the :active selector.", WptDivergence.NeedsTriage),
     ];
 
-    // ---------------------------------------------------------------- the pseudo-classes suite: :focus
-    private static readonly WptExclusion[] _thePseudoClassesSuiteFocus =
-    [
-        // :focus is AngleSharp's IElement.IsFocused, which nothing in this package assigns. The page has a
-        // focus model of its own - Events/FocusController, which is what document.activeElement and every focus
-        // event read - so element.focus() moves the active element and no selector can see that it did.
-        new("html/semantics/selectors/pseudo-classes/focus.html", "input1 has the focus", WptDivergence.NeedsTriage),
-        new("html/semantics/selectors/pseudo-classes/focus.html", "tabindex attribute makes the element focusable", WptDivergence.NeedsTriage),
-        new("html/semantics/selectors/pseudo-classes/focus.html", "editable elements are focusable", WptDivergence.NeedsTriage),
-        new("html/semantics/selectors/pseudo-classes/focus.html", "':focus' matches focussed body with tabindex", WptDivergence.NeedsTriage),
-        new("html/semantics/selectors/pseudo-classes/focus-autofocus.html", ":focus selector should work with an autofocused element.", WptDivergence.NeedsTriage),
-    ];
-
     // ---------------------------------------------------------------- the pseudo-classes suite: :dir()
     private static readonly WptExclusion[] _thePseudoClassesSuiteDir =
     [
@@ -1591,7 +1578,6 @@ internal static class WptBrowserExclusions
         new("MutationObserver's records", _mutationObserverSRecords),
         new("one assertion each", _oneAssertionEach),
         new("the pseudo-classes suite: :active", _thePseudoClassesSuiteActive),
-        new("the pseudo-classes suite: :focus", _thePseudoClassesSuiteFocus),
         new("the pseudo-classes suite: :dir()", _thePseudoClassesSuiteDir),
         new("the pseudo-classes suite: :checked", _thePseudoClassesSuiteChecked),
         new("the pseudo-classes suite: a reversed range", _thePseudoClassesSuiteAReversedRange),

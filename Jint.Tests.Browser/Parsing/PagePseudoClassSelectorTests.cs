@@ -1,5 +1,7 @@
 #nullable enable
 
+using Jint.Tests.Browser.Navigation;
+
 namespace Jint.Tests.Browser.Parsing;
 
 using Browser = global::Jint.Browser.Browser;
@@ -1068,5 +1070,123 @@ public sealed class PagePseudoClassSelectorTests
             """)).Should().Be(
             "oneA:true,oneB:true,twoA:false,twoB:false,nameless:true,caseless:true,owned:false," +
             "checkbox:false,noValue:true,emptyValue:false,withValue:false|false:false:false|true");
+    }
+
+    /// <summary>
+    /// HTML §4.16.3: <c>:focus</c> matches the element which has the focus, which for this package is the one
+    /// <c>Events/FocusController</c> holds — the same element <c>document.activeElement</c> names and every
+    /// focus event is dispatched at. AngleSharp answers from <c>IElement.IsFocused</c>, which nothing assigns,
+    /// so before this the selector matched nothing however the focus moved.
+    /// </summary>
+    [Test]
+    public async Task FocusMatchesTheElementTheFocusModelHolds()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <!doctype html><html><body>
+              <input id="first"><input id="second"><input id="disabled" disabled>
+              <div id="plain">not focusable</div><div id="tabbable" tabindex="0">focusable</div>
+            </body></html>
+            """);
+
+        (await page.EvaluateAsync<string>("""
+            (() => {
+              const focused = () => Array.from(document.querySelectorAll(':focus'), element => element.id).join('+');
+              const answers = [focused()];
+              first.focus();
+              answers.push(focused() + ':' + first.matches(':focus') + ':' + document.activeElement.id);
+              second.focus();
+              answers.push(focused() + ':' + first.matches(':focus'));
+              tabbable.focus();
+              answers.push(focused());
+              plain.focus();
+              answers.push(focused());
+              disabled.focus();
+              answers.push(focused());
+              tabbable.blur();
+              answers.push('[' + focused() + ']:' + document.activeElement.tagName);
+              return answers.join('|');
+            })()
+            """)).Should().Be("|first:true:first|second:false|tabbable|tabbable|tabbable|[]:BODY");
+
+        page.Errors.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// Selectors §9.5: <c>:focus-within</c> is the focused element together with every element containing it,
+    /// so it answers for the ancestors of whatever <c>:focus</c> answers for and for nothing else.
+    /// <c>:focus-visible</c> is deliberately not answered — Selectors §9.4 makes it a decision about drawing a
+    /// focus indicator, which this browser has no rendering to draw — so it stays AngleSharp's and matches
+    /// nothing, which this pins rather than leaves to be discovered.
+    /// </summary>
+    [Test]
+    public async Task FocusWithinMatchesTheFocusedElementAndItsAncestorsAndFocusVisibleStaysUnanswered()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <!doctype html><html><body id="body">
+              <div id="outer"><fieldset id="inner"><input id="field"></fieldset></div>
+              <div id="sibling"><input id="other"></div>
+            </body></html>
+            """);
+
+        (await page.EvaluateAsync<string>("""
+            (() => {
+              const within = () => Array.from(document.querySelectorAll(':focus-within'), e => e.id || e.localName).join('+');
+              const visible = () => Array.from(document.querySelectorAll(':focus-visible'), e => e.id || e.localName).join('+');
+              const answers = [within() + '/' + visible()];
+              field.focus();
+              answers.push(within() + '/' + visible());
+              answers.push(outer.matches(':focus-within') + ':' + sibling.matches(':focus-within')
+                + ':' + field.matches(':focus-within'));
+              other.focus();
+              answers.push(within());
+              other.blur();
+              answers.push('[' + within() + ']');
+              return answers.join('|');
+            })()
+            """)).Should().Be(
+            "/|html+body+outer+inner+field/|true:false:true|html+body+sibling+other|[]");
+
+        page.Errors.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// HTML's focusing steps do not stop at a frame boundary, so focusing an element inside a child navigable
+    /// takes the focus away from the element of this document that had it: <c>:focus</c> then matches nothing
+    /// here, which is what <c>focus.html</c>'s last case asserts. A document with no browsing context —
+    /// <c>DOMParser</c>'s — is not in the tree and moves nothing, which <c>Events/FocusTests</c> pins from the
+    /// other side.
+    /// </summary>
+    [Test]
+    public async Task FocusingIntoAChildFrameTakesFocusOutOfThePageDocument()
+    {
+        await using var loopback = await LoopbackPage.CreateAsync(server => server
+            .MapHtml("/child.html", "<!doctype html><html><body><input id=inner></body></html>")
+            .MapHtml("/", """
+                <!doctype html><html><body>
+                <input id="outer"><iframe id="f" src="/child.html"></iframe>
+                </body></html>
+                """));
+
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+
+        (await loopback.Page.EvaluateAsync<string>("""
+            (() => {
+              const focused = () => Array.from(document.querySelectorAll(':focus'), element => element.id).join('+');
+              const frame = document.getElementById('f').contentDocument;
+              const inFrame = () => Array.from(frame.querySelectorAll(':focus'), element => element.id).join('+');
+              document.getElementById('outer').focus();
+              const before = focused();
+              frame.getElementById('inner').focus();
+              // Reading this document's active element must not take focus away from the frame that holds it.
+              const active = document.activeElement.tagName;
+              return before + '|[' + focused() + ']|' + active + '|[' + inFrame() + ']';
+            })()
+            """)).Should().Be("outer|[]|BODY|[inner]");
+
+        loopback.Page.Errors.Should().BeEmpty();
     }
 }

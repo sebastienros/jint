@@ -16,6 +16,8 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
     private const string DefaultState = "default";
     private const string Disabled = "disabled";
     private const string Enabled = "enabled";
+    private const string Focus = "focus";
+    private const string FocusWithin = "focus-within";
     private const string InRange = "in-range";
     private const string Indeterminate = "indeterminate";
     private const string Invalid = "invalid";
@@ -54,6 +56,8 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
     private readonly ISelector _default;
     private readonly ISelector _disabled;
     private readonly ISelector _enabled;
+    private readonly ISelector _focus;
+    private readonly ISelector _focusWithin;
     private readonly ISelector _inRange;
     private readonly ISelector _indeterminate;
     private readonly ISelector _invalid;
@@ -66,8 +70,15 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
     private readonly ISelector _valid;
     private readonly ISelector _visited;
 
-    internal PagePseudoClassSelectorFactory()
+    internal PagePseudoClassSelectorFactory(PageRuntime runtime)
     {
+        // The page's own focus, resolved once. BrowserEventRealm is per engine and this factory is built per
+        // document load on the page loop, so the realm is looked up here rather than on every element a
+        // selector is matched against.
+        var events = BrowserEventRealm.Of(runtime.Engine);
+        _focus = new FocusSelector(Default(Focus), events);
+        _focusWithin = new FocusWithinSelector(Default(FocusWithin), events);
+
         _default = new DefaultSelector(Default(DefaultState));
         _enabled = new DisabledStateSelector(Default(Enabled), disabled: false);
         _disabled = new DisabledStateSelector(Default(Disabled), disabled: true);
@@ -174,6 +185,16 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
         if (string.Equals(name, ReadOnly, StringComparison.OrdinalIgnoreCase))
         {
             return _readOnly;
+        }
+
+        if (string.Equals(name, Focus, StringComparison.OrdinalIgnoreCase))
+        {
+            return _focus;
+        }
+
+        if (string.Equals(name, FocusWithin, StringComparison.OrdinalIgnoreCase))
+        {
+            return _focusWithin;
         }
 
         return string.Equals(name, Visited, StringComparison.OrdinalIgnoreCase) ? _visited : _defaults.Create(name);
@@ -417,6 +438,59 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
 
             return false;
         }
+    }
+
+    /// <summary>
+    /// HTML §4.16.3: <c>:focus</c> matches the element which <b>has the focus</b>, and Selectors §9.5 makes
+    /// <c>:focus-within</c> that element together with every element containing it. AngleSharp answers both
+    /// from <c>IElement.IsFocused</c>, a flag nothing in this package sets — its own
+    /// <c>IHtmlElement.DoFocus()</c> assigns neither that flag nor <c>IDocument.ActiveElement</c>, which is
+    /// why <see cref="FocusController"/> is the page's focus model — so before this every element answered
+    /// <see langword="false"/> to both while <c>document.activeElement</c> named the focused one.
+    /// </summary>
+    /// <remarks>
+    /// <c>:focus-visible</c> is deliberately left as AngleSharp's, and so matches nothing: Selectors §9.4
+    /// makes it <c>:focus</c> <i>plus</i> "the UA has determined that a focus ring or other indicator should
+    /// be drawn", which is a heuristic about a rendering this browser does not produce. Answering it as
+    /// <c>:focus</c> would be a guess rather than a reading, and <c>Dom/divergences.md</c> records it.
+    /// </remarks>
+    private sealed class FocusSelector(ISelector defaults, BrowserEventRealm events) : ISelector
+    {
+        public string Text => defaults.Text;
+
+        public Priority Specificity => defaults.Specificity;
+
+        public bool Match(IElement element, IElement? scope) => ReferenceEquals(events.FocusedElement, element);
+
+        public void Accept(ISelectorVisitor visitor) => defaults.Accept(visitor);
+    }
+
+    /// <summary>
+    /// Selectors §9.5: an element which has the focus or contains an element which has it. The walk goes up
+    /// from the focused element rather than down from the candidate, because focus is one element: an
+    /// ancestor chain per match is the depth of the tree, where AngleSharp's own answer enumerates the
+    /// candidate's whole subtree through a LINQ pipeline it allocates per element.
+    /// </summary>
+    private sealed class FocusWithinSelector(ISelector defaults, BrowserEventRealm events) : ISelector
+    {
+        public string Text => defaults.Text;
+
+        public Priority Specificity => defaults.Specificity;
+
+        public bool Match(IElement element, IElement? scope)
+        {
+            for (var ancestor = events.FocusedElement; ancestor is not null; ancestor = ancestor.ParentElement)
+            {
+                if (ReferenceEquals(ancestor, element))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        public void Accept(ISelectorVisitor visitor) => defaults.Accept(visitor);
     }
 
     /// <summary>
