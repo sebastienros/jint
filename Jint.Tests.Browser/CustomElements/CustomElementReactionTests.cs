@@ -221,4 +221,83 @@ public sealed class CustomElementReactionTests
         (await page.EvaluateAsync<string>("window.log.join('|')")).Should().Be("attr:one|sync:1");
         (await page.EvaluateAsync<string>("document.querySelector('x-thing').className")).Should().Be("one");
     }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/custom-elements.html#custom-element-reactions-stack: every
+    /// <c>[CEReactions]</c> operation pushes an element queue of its own, so a reaction a callback causes
+    /// runs <b>inside</b> that callback and not after it.
+    /// </summary>
+    [Test]
+    public async Task AReactionCausedInsideACallbackRunsBeforeThatCallbackReturns()
+    {
+        await using var browser = new Browser();
+        var page = await PageWith(browser,
+            """
+            <script>
+              window.order = [];
+              class Thing extends HTMLElement {
+                static get observedAttributes() { return ['data-title', 'title']; }
+                attributeChangedCallback() { this.handler(); }
+                handler() { }
+              }
+              customElements.define('x-thing', Thing);
+
+              const first = document.createElement('x-thing');
+              const second = document.createElement('x-thing');
+              first.id = 'first';
+              second.id = 'second';
+              first.handler = function () {
+                window.order.push(this.id + ':begin');
+                second.setAttribute('data-title', 'x');
+                window.order.push(this.id + ':end');
+              };
+              second.handler = function () {
+                window.order.push(this.id + ':begin');
+                window.order.push(this.id + ':end');
+              };
+              first.setAttribute('title', 'x');
+            </script>
+            """);
+
+        (await page.EvaluateAsync<string>("window.order.join('|')"))
+            .Should().Be("first:begin|second:begin|second:end|first:end");
+        page.Errors.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// The same stack seen through a constructor: a clone made inside a custom element constructor is
+    /// upgraded before the outer constructor returns.
+    /// </summary>
+    [Test]
+    public async Task ACloneMadeInsideAConstructorIsUpgradedBeforeThatConstructorReturns()
+    {
+        await using var browser = new Browser();
+        var page = await PageWith(browser,
+            """
+            <script>
+              window.log = [];
+              let cloneNext = false;
+              let other;
+              class SelfCloning extends HTMLElement {
+                constructor() {
+                  super();
+                  const mark = window.log.length;
+                  window.log.push(mark + ':begin');
+                  if (cloneNext) { cloneNext = false; other.cloneNode(false); }
+                  window.log.push(mark + ':end');
+                }
+              }
+              customElements.define('x-self-cloning', SelfCloning);
+              const one = document.createElement('x-self-cloning');
+              other = document.createElement('x-self-cloning');
+              window.log = [];
+              cloneNext = true;
+              one.cloneNode(false);
+            </script>
+            """);
+
+        (await page.EvaluateAsync<string>("window.log.join('|')"))
+            .Should().Be("0:begin|1:begin|1:end|0:end");
+        page.Errors.Should().BeEmpty();
+    }
 }

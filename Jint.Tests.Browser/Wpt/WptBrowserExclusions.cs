@@ -1039,11 +1039,15 @@ internal static class WptBrowserExclusions
     ];
 
     // ---------------------------------------------------------------- the callbacks and when they run
+    // Both rows are the parser's, and they are the same cause README.md's first custom-element cause names:
+    // AngleSharp builds a parser element with no notification to hook, so an element written in the markup is
+    // upgraded at the driver's next boundary instead of constructed with an empty JavaScript stack. The two
+    // things this document asks about are what only that difference can answer -- a microtask checkpoint that
+    // runs inside the constructor, and the HTMLUnknownElement a failed *synchronous* construction leaves.
     private static readonly WptExclusion[] _theCallbacksAndWhenTheyRun =
     [
         new("custom-elements/microtasks-and-constructors.html", "Microtasks evaluate immediately when the stack is empty inside the parser", WptDivergence.NeedsTriage),
         new("custom-elements/microtasks-and-constructors.html", "Microtasks evaluate immediately when the stack is empty inside the parser, causing the checks on no attributes to fail", WptDivergence.NeedsTriage),
-        new("custom-elements/reaction-timing.html", "*", WptDivergence.NeedsTriage),
     ];
 
     // ---------------------------------------------------------------- the parser
