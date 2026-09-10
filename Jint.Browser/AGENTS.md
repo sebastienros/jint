@@ -255,7 +255,8 @@ that never mentions `customElements` builds no registry at all and pays for none
   `skip`ped in the override table and re-declared, because for a defined name the element is the
   *constructor's* rather than AngleSharp's; `new MyElement()` reaches `DomInterfaceObject.Construct`, which
   is HTML's `HTMLElement` constructor and the only `new` that object ever answers; and a parser-created
-  element is **upgraded**. `cloneNode` is re-declared too, so a clone of a custom element is one.
+  element is **upgraded**. `cloneNode` and `importNode` are hooked too, so a copy of a custom element is
+  one, and an imported customized built-in keeps its is value.
 - **The construction stack is the specification's**, which is what makes `super()` answer the element being
   upgraded rather than a second one, and a constructor that reaches the base twice a `TypeError` — a plain
   one, not a `DOMException`, which is the only refusal in that constructor a page reaches by constructing its

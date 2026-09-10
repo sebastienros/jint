@@ -569,24 +569,38 @@ internal class DomHostHooks
 
     /// <summary>
     /// https://dom.spec.whatwg.org/#dom-document-importnode — "return the result of cloning a node given
-    /// node with <b>document set to this</b>". Three things AngleSharp's <c>Import</c> leaves out: DOM's
+    /// node with <b>document set to this</b>". Four things AngleSharp's <c>Import</c> leaves out: DOM's
     /// import steps do not copy a file input's selected files, the clone's node document is the
-    /// <i>source</i> document rather than this one, and the IDL default for <c>deep</c> is
-    /// <see langword="false"/> where <c>Import</c>'s own is <see langword="true"/>.
+    /// <i>source</i> document rather than this one, the IDL default for <c>deep</c> is
+    /// <see langword="false"/> where <c>Import</c>'s own is <see langword="true"/>, and a copy is never
+    /// upgraded.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The second one is why the clone is adopted afterwards, which is the step DOM folds into "cloning a
     /// node given a document": an imported element went on belonging to the document it came from, so
     /// <c>importNode(x).ownerDocument === document</c> was false and every member that asks its node
     /// document a question — <c>tagName</c> among them — answered about the wrong document. AngleSharp
     /// refuses to adopt an <c>IAttr</c> where DOM adopts any node, so an imported attribute is the one node
     /// this cannot correct; the divergence table records both halves.
+    /// </para>
+    /// <para>
+    /// <b>The fourth is <see cref="CloneNode"/>'s defect on this member.</b> "Cloning a node" creates each
+    /// copy through DOM's create-an-element given <b>node's is value</b> with the synchronous custom
+    /// elements flag unset, which enqueues an upgrade reaction — so an imported autonomous element was never
+    /// constructed, and an imported customized built-in, whose is value is a slot and not the <c>is</c>
+    /// content attribute AngleSharp copies, came back a plain built-in.
+    /// <see cref="CustomElements.CustomElementRegistry.Cloned"/> is what carries the slot and upgrades, and
+    /// it runs <i>after</i> the adopt because DOM creates the copy in <b>this</b> document: the constructor
+    /// has to see <c>ownerDocument</c> already answering this one. That order is also what keeps the adopt
+    /// silent — the copy is not custom yet, so it enqueues no <c>adoptedCallback</c>, which is the answer
+    /// DOM gives for a member that clones rather than moves.
+    /// </para>
     /// </remarks>
     internal virtual JsValue ImportNode(DomRealm realm, IDocument document, JsValue[] arguments)
     {
-        var imported = document.Import(
-            DomBindings.Argument<INode>(arguments, 0, "Document.importNode"),
-            DomConvert.OptionalBool(arguments, 1, false));
+        var source = DomBindings.Argument<INode>(arguments, 0, "Document.importNode");
+        var imported = document.Import(source, DomConvert.OptionalBool(arguments, 1, false));
 
         if (imported is not IAttr && !ReferenceEquals(imported.Owner, document))
         {
@@ -594,6 +608,7 @@ internal class DomHostHooks
         }
 
         Files.FileTransferRealm.ResetCopiedInputs(imported);
+        CustomElements.CustomElementRegistry.Cloned(realm, source, imported);
         return realm.WrapNodeValue(imported);
     }
 
