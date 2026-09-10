@@ -797,8 +797,11 @@ internal class DomHostHooks
     /// asks before answering with a <c>Location</c>, a <c>defaultView</c> or anything else a document only
     /// has while something is showing it.
     /// </summary>
-    private static bool HasBrowsingContext(IDocument document)
-        => document.Context is { } context && ReferenceEquals(context.Active, document);
+    /// <remarks>
+    /// <see cref="DomBrowsingContext"/> is the one definition of it, because HTML §4.13.4's
+    /// look-up-a-custom-element-definition asks the same question of the same documents.
+    /// </remarks>
+    private static bool HasBrowsingContext(IDocument document) => DomBrowsingContext.Of(document) is not null;
 
     // ---------------------------------------------------------------------------------------------------
     // HTML §4.8.4's image members. Every one of them answers from the page's own image lane rather than

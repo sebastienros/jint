@@ -145,8 +145,10 @@ internal static class CustomElementCreation
         var lookupName = namespaced ? LocalNameOf(lowered) : lowered;
         // A definition is only ever in the HTML namespace, so the namespaced member looks up under the
         // namespace it was given — `createElementNS(null, 'x-thing')` is in *no* namespace and matches none —
-        // while `createElement` is the HTML one by definition.
-        var definition = registry.Lookup(namespaced ? namespaceUri : CustomElementRegistry.HtmlNamespace, lookupName, isValue);
+        // while `createElement` is the HTML one by definition. The document is create-an-element's own
+        // argument, and it is what makes the two members answer an uncustomized element for a document with
+        // no browsing context: see CustomElementRegistry.Lookup's step 1.
+        var definition = registry.Lookup(document, namespaced ? namespaceUri : CustomElementRegistry.HtmlNamespace, lookupName, isValue);
 
         if (definition is null)
         {
