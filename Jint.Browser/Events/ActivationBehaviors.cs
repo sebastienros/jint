@@ -191,10 +191,10 @@ internal static class ActivationBehaviors
         switch (button.Type)
         {
             case "submit":
-                FormSubmission.Submit(wrapper.DomRealm, button.Form, button);
+                FormSubmission.Submit(wrapper.DomRealm, HtmlFormOwner.Of(button), button);
                 break;
             case "reset":
-                FormSubmission.Reset(wrapper.DomRealm, button.Form);
+                FormSubmission.Reset(wrapper.DomRealm, HtmlFormOwner.Of(button));
                 break;
         }
     }
@@ -210,13 +210,13 @@ internal static class ActivationBehaviors
         switch (input.Type)
         {
             case "submit":
-                FormSubmission.Submit(wrapper.DomRealm, input.Form, input);
+                FormSubmission.Submit(wrapper.DomRealm, HtmlFormOwner.Of(input), input);
                 return;
 
             case "image":
                 // The image activation algorithm returns before selecting a coordinate if its document is
                 // no longer fully active (a click listener can adopt the input into another document).
-                if (input.Form is null)
+                if (HtmlFormOwner.Of(input) is not { } owner)
                 {
                     return;
                 }
@@ -228,11 +228,11 @@ internal static class ActivationBehaviors
                 }
 
                 SelectCoordinate(realm, page, input, ev);
-                FormSubmission.Submit(wrapper.DomRealm, input.Form, input);
+                FormSubmission.Submit(wrapper.DomRealm, owner, input);
                 return;
 
             case "reset":
-                FormSubmission.Reset(wrapper.DomRealm, input.Form);
+                FormSubmission.Reset(wrapper.DomRealm, HtmlFormOwner.Of(input));
                 return;
 
             case "checkbox":
@@ -434,21 +434,25 @@ internal static class ActivationBehaviors
     private static IEnumerable<IHtmlInputElement> Group(IHtmlInputElement radio)
     {
         var name = radio.Name;
-        var owner = radio.Form;
-        var root = (INode?) owner ?? radio.Owner;
 
-        if (root is null || string.IsNullOrEmpty(name))
+        if (string.IsNullOrEmpty(name))
         {
             yield return radio;
             yield break;
         }
 
-        foreach (var candidate in Descendants(root))
+        // The group is "the same tree", not the same form subtree: a radio the `form` attribute associated
+        // into this form is a member however far outside the form element it sits, and one associated away
+        // from it is not a member however deep inside. Scanning the form's own descendants would decide the
+        // second correctly and the first not at all.
+        var owner = HtmlFormOwner.Of(radio);
+
+        foreach (var candidate in Descendants(radio.GetRoot()))
         {
             if (candidate is IHtmlInputElement input
                 && IsType(input, "radio")
                 && string.Equals(input.Name, name, StringComparison.Ordinal)
-                && ReferenceEquals(input.Form, owner))
+                && ReferenceEquals(HtmlFormOwner.Of(input), owner))
             {
                 yield return input;
             }

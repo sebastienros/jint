@@ -24,14 +24,17 @@ here. Three consequences bind every change:
   never worked around silently.** A workaround in the binding hides a defect from the project that can fix it,
   and makes the next reader believe the standard says what AngleSharp does. The one thing a wrapper may do is
   implement Web IDL semantics AngleSharp's CLR surface does not represent — `DOMStringMap`'s property-name
-  conversion and named setter/deleter are the worked example, and the divergence register says so. The one
-  standard-defined *algorithm* this package owns outright is DOM's class-name collection, whose comparison is
-  ASCII case-insensitive while the root's node document is in quirks mode: AngleSharp exposes no seam for
-  that and declined the change as out of scope
-  ([AngleSharp#1321](https://github.com/AngleSharp/AngleSharp/pull/1321)), so
-  [#3899](https://github.com/sebastienros/jint/issues/3899) moved the ownership to
-  `DomHostHooks.GetElementsByClassName` — a sanctioned exception, recorded in the register, and not a licence
-  to re-implement anything AngleSharp already answers.
+  conversion and named setter/deleter are the worked example, and the divergence register says so. **Two
+  standard-defined *algorithms* this package owns outright**, each because AngleSharp exposes no seam for it
+  and closed the fix unmerged, and neither a licence to re-implement anything AngleSharp already answers:
+  DOM's class-name collection, whose comparison is ASCII case-insensitive while the root's node document is
+  in quirks mode ([AngleSharp#1321](https://github.com/AngleSharp/AngleSharp/pull/1321), so
+  [#3899](https://github.com/sebastienros/jint/issues/3899) moved it to
+  `DomHostHooks.GetElementsByClassName`); and HTML's form owner, where a connected listed element's `form`
+  attribute outranks every ancestor form
+  ([AngleSharp#1325](https://github.com/AngleSharp/AngleSharp/pull/1325), so
+  [#3939](https://github.com/sebastienros/jint/issues/3939) moved it to `Dom/HtmlFormOwner`, which every lane
+  that asks who owns a control now reads). Both are sanctioned exceptions, recorded in the register.
 - **No document or README sentence positions this as a rival DOM stack.** It is "AngleSharp + Jint".
 - **A seam that proves useful is offered, not hoarded.** The tree-aware event dispatcher the engine grew for
   this package (`Jint/WebApi/Events/EventDispatch.cs`) knows nothing about a node; it asks the target. The

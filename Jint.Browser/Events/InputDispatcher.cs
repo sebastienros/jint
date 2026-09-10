@@ -628,7 +628,7 @@ internal static partial class InputDispatcher
     /// </remarks>
     private static void ImplicitSubmission(DomRealm dom, IHtmlInputElement input)
     {
-        if (input.Form is not { } form)
+        if (HtmlFormOwner.Of(input) is not { } form)
         {
             return;
         }
@@ -657,7 +657,10 @@ internal static partial class InputDispatcher
     /// </summary>
     private static IHtmlElement? DefaultButton(IHtmlFormElement form)
     {
-        foreach (var element in form.Elements)
+        // The inventory is the form's owned controls in tree order rather than `form.elements`, which excludes
+        // image buttons — so a form whose only submit button is `<input type=image>` had no default button at
+        // all, and one whose submit button sits outside it under a `form` attribute now has one.
+        foreach (var element in HtmlFormOwner.ControlsOf(form))
         {
             if (element is IHtmlElement html && FormSubmission.IsSubmitButton(html))
             {
@@ -676,7 +679,7 @@ internal static partial class InputDispatcher
     {
         var count = 0;
 
-        foreach (var element in form.Elements)
+        foreach (var element in HtmlFormOwner.ControlsOf(form))
         {
             if (element is IHtmlInputElement input && input.Type is
                 "text" or "search" or "url" or "tel" or "email" or "password"

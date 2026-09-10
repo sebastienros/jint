@@ -180,21 +180,14 @@ internal static class FormSubmitter
         try
         {
             // HTML's entry-list inventory is submittable controls, not form.elements: the latter excludes
-            // image inputs. AngleSharp supplies both tree order and each control's form owner, including
-            // controls outside the form and controls in detached trees.
-            foreach (var node in form.GetRoot().GetDescendants())
+            // image inputs and decides ownership by AngleSharp's rule rather than the standard's. The walk is
+            // over the form's whole tree in tree order, so a control outside the form that the `form`
+            // attribute associated with it contributes, and one inside it that points elsewhere does not.
+            foreach (var element in HtmlFormOwner.ControlsOf(form))
             {
-                var owner = node switch
+                if (element is IHtmlElement html)
                 {
-                    IHtmlInputElement input => input.Form,
-                    IHtmlButtonElement button => button.Form,
-                    IHtmlSelectElement select => select.Form,
-                    IHtmlTextAreaElement textArea => textArea.Form,
-                    _ => null,
-                };
-                if (ReferenceEquals(owner, form))
-                {
-                    Append(runtime, entries, (IHtmlElement) node, submitter);
+                    Append(runtime, entries, html, submitter);
                 }
             }
 

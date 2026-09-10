@@ -103,7 +103,7 @@ internal static class FormSubmission
             return;
         }
 
-        if (!ReferenceEquals(FormOwnerOf(candidate), form))
+        if (!ReferenceEquals(HtmlFormOwner.Of(candidate), form))
         {
             // A NotFoundError DOMException, which is what the standard says and what a browser raises; the
             // wrong-kind refusal above is the TypeError, and the two are different on purpose.
@@ -144,6 +144,12 @@ internal static class FormSubmission
 
         if (target.DispatchEvent(resetEvent))
         {
+            // The default action is AngleSharp's, and its inventory is `form.elements` — AngleSharp's own
+            // ownership rule, which `Dom/divergences.md` records as the one half of #3939 the binding cannot
+            // reach. The file-input half deliberately walks the same collection rather than
+            // `HtmlFormOwner.ControlsOf`, so that both halves of one reset agree about which controls it is
+            // about; splitting them would clear an explicitly associated file input and leave the text input
+            // beside it alone.
             form.Reset();
             Dom.Files.FileTransferRealm.Of(realm.Engine).ResetForm(form);
         }
@@ -176,7 +182,12 @@ internal static class FormSubmission
 
         List<IElement>? invalid = null;
 
-        foreach (var element in form.Elements)
+        // https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#statically-validate-the-constraints:
+        // "let controls be a list of all the submittable elements whose form owner is form, in tree order" —
+        // form ownership, so a control associated into this form by its `form` attribute is validated here and
+        // one associated away from it is not. Reading `form.elements` instead would validate whatever
+        // AngleSharp's own ownership rule put in it, and then submit a different set.
+        foreach (var element in HtmlFormOwner.ControlsOf(form))
         {
             if (element is not IValidation validation)
             {
@@ -239,12 +250,5 @@ internal static class FormSubmission
         IHtmlButtonElement button => string.Equals(button.Type, "submit", StringComparison.Ordinal),
         IHtmlInputElement input => input.Type is "submit" or "image",
         _ => false,
-    };
-
-    internal static IHtmlFormElement? FormOwnerOf(IHtmlElement element) => element switch
-    {
-        IHtmlButtonElement button => button.Form,
-        IHtmlInputElement input => input.Form,
-        _ => null,
     };
 }

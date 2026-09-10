@@ -61,7 +61,7 @@ internal static class FormDataConstruction
                 Throw.TypeError(realm, "FormData: submitter must be a submit button");
             }
 
-            if (!ReferenceEquals(FormSubmission.FormOwnerOf(submitter), form))
+            if (!ReferenceEquals(HtmlFormOwner.Of(submitter), form))
             {
                 var exception = realm.Intrinsics.DomException.CreateException(
                     DomExceptionNames.NotFound, "The submitter is not owned by this form");

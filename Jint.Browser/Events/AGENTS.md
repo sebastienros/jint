@@ -109,6 +109,15 @@ distinguishes it from `form.requestSubmit()` and from a submit button. Constrain
 readonly control and a control inside a disabled fieldset — without it every `<button type=button>` in the
 form would be examined.
 
+**Which controls the two halves are about is one question with one answer, and it is not `form.elements`.**
+`Dom/HtmlFormOwner` is HTML's *reset the form owner* — a connected listed element's `form` attribute outranks
+every ancestor form — and `HtmlFormOwner.ControlsOf(form)` is the inventory the entry list, the static
+validity check, the default button, implicit submission and a radio button group all walk. Reading a control's
+`Form` off AngleSharp instead inverts that priority ([#3939](https://github.com/sebastienros/jint/issues/3939)),
+and reading `form.elements` takes AngleSharp's ownership rule *and* drops every image button, so a form would
+validate one set of controls and submit another. `form.elements` itself is AngleSharp's collection and stays
+wrong; [`../Dom/divergences.md`](../Dom/divergences.md) records both halves.
+
 **An image input selects a coordinate only out of an image it really has, and the position is measured
 before any listener runs.** HTML gives an image button a *selected coordinate* and lets it be a real position
 only when `src` identifies an available image the user agent displays *and* a pointing device activated it;
