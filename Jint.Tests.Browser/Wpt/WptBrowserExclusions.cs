@@ -1309,7 +1309,6 @@ internal static class WptBrowserExclusions
     [
         // the selector engine's escapes, :scope and :has
         new("dom/nodes/Element-closest.html", "*div > :scope'", WptDivergence.NeedsTriage),
-        new("dom/nodes/Element-closest.html", "*invalid'", WptDivergence.NeedsTriage),
         new("dom/nodes/Element-closest.html", "*scope)'", WptDivergence.NeedsTriage),
         new("dom/nodes/ParentNode-querySelector-escapes.html", "\"ab*", WptDivergence.NeedsTriage),
         new("dom/nodes/ParentNode-querySelector-escapes.html", "\"�\"*", WptDivergence.NeedsTriage),
@@ -1515,24 +1514,19 @@ internal static class WptBrowserExclusions
         new("html/semantics/selectors/pseudo-classes/indeterminate.html", "dynamically check a radio input in a radio button group", WptDivergence.NeedsTriage),
     ];
 
-    // ---------------------------------------------------------------- the pseudo-classes suite: :in-range and :out-of-range
-    private static readonly WptExclusion[] _thePseudoClassesSuiteInRange =
+    // ---------------------------------------------------------------- the pseudo-classes suite: a reversed range
+    private static readonly WptExclusion[] _thePseudoClassesSuiteAReversedRange =
     [
-        // Two things at once. AngleSharp's IsInRange() answers true for *any* IValidation element that is
-        // neither overflowing nor underflowing, so every input without range limitations - text, checkbox,
-        // hidden, button - matches :in-range, where HTML §4.16.3 asks for an element that has range limitations
-        // to begin with. And a range control's value is not clamped to its limits, so range2 and range3 report an
-        // overflow and an underflow that the value sanitization algorithm (§4.10.5.4) says cannot arise.
-        new("html/semantics/selectors/pseudo-classes/inrange-outofrange.html", "':in-range' matches all elements that are candidates for constraint validation, have range limitations, and that are neither suffering from an underflow nor suffering from an overflow", WptDivergence.NeedsTriage),
-        new("html/semantics/selectors/pseudo-classes/inrange-outofrange.html", "':out-of-range' matches all elements that are candidates for constraint validation, have range limitations, and that are either suffering from an underflow or suffering from an overflow", WptDivergence.NeedsTriage),
-        new("html/semantics/selectors/pseudo-classes/inrange-outofrange.html", "':in-range' update number1's value < min", WptDivergence.NeedsTriage),
-        new("html/semantics/selectors/pseudo-classes/inrange-outofrange.html", "':out-of-range' update number1's value < min", WptDivergence.NeedsTriage),
-        new("html/semantics/selectors/pseudo-classes/inrange-outofrange.html", "':in-range' update number3's min < value", WptDivergence.NeedsTriage),
-        new("html/semantics/selectors/pseudo-classes/inrange-outofrange.html", "':out-of-range' update number3's min < value", WptDivergence.NeedsTriage),
+        // What is left of the :in-range group once the selector asks for a candidate that has range
+        // limitations and stops believing an unclamped range value. §4.10.5.4 gives the time state a
+        // *periodic* domain: when min is greater than max the range wraps midnight, so a value is in range
+        // when it is at or after min OR at or before max. AngleSharp's ValidityState compares against both
+        // bounds unconditionally, so the whole of a reversed range reads as an underflow and an overflow at
+        // once. That is its constraint-validation arithmetic rather than the selector's category test, and
+        // element.validity reports it the same way, so it is not something this predicate can correct.
         new("html/semantics/selectors/pseudo-classes/inrange-outofrange-time-reversed.html", "':in-range' matches time inputs whose value is within a reversed range (>= min OR <= max)", WptDivergence.NeedsTriage),
         new("html/semantics/selectors/pseudo-classes/inrange-outofrange-time-reversed.html", "':out-of-range' matches time inputs whose value is in the gap of a reversed range (> max AND < min)", WptDivergence.NeedsTriage),
         new("html/semantics/selectors/pseudo-classes/inrange-outofrange-time-reversed.html", "Dynamic update from out-of-range to in-range in a reversed time range", WptDivergence.NeedsTriage),
-        new("html/semantics/selectors/pseudo-classes/inrange-outofrange-type-change.html", "Evaluation of :in-range changes for input type change.", WptDivergence.NeedsTriage),
     ];
 
     // ---------------------------------------------------------------- the pseudo-classes suite: :read-only and :read-write
@@ -1582,23 +1576,16 @@ internal static class WptBrowserExclusions
         new("html/semantics/selectors/pseudo-classes/required-optional-hidden.html", "Evaluation of :required and :optional changes for input type change.", WptDivergence.NeedsTriage),
     ];
 
-    // ---------------------------------------------------------------- the pseudo-classes suite: :valid and :invalid
-    private static readonly WptExclusion[] _thePseudoClassesSuiteValid =
+    // ---------------------------------------------------------------- the pseudo-classes suite: a cloned constraint state
+    private static readonly WptExclusion[] _thePseudoClassesSuiteAClonedConstraintState =
     [
-        // AngleSharp's IsValid()/IsInvalid() are CheckValidity() and its negation, and CheckValidity() is
-        // WillValidate && Validity.IsValid - so an element §4.10.19.2 bars from constraint validation answers
-        // false and comes back :invalid, where HTML §4.16.3 has it match neither. A fieldset is barred and
-        // carries no constraints of its own, so every one of them is :valid whatever it contains, where the
-        // standard makes it :invalid when a descendant candidate fails; the same document's form rows pass,
-        // which is what says the fieldset half is the missing one. The other two documents want a constraint
-        // state kept across a removal and across a clone.
-        new("html/semantics/selectors/pseudo-classes/valid-invalid.html", "':valid' matches fieldset elements that have no descendant elements that themselves are candidates for constraint validation but do not satisfy their constraints", WptDivergence.NeedsTriage),
-        new("html/semantics/selectors/pseudo-classes/valid-invalid.html", "':invalid' matches fieldset elements that have of one or more descendant elements that themselves are candidates for constraint validation but do not satisfy their constraints", WptDivergence.NeedsTriage),
-        new("html/semantics/selectors/pseudo-classes/valid-invalid.html", "invalid fieldset correctly styled on page-load", WptDivergence.NeedsTriage),
-        new("html/semantics/selectors/pseudo-classes/valid-invalid.html", "programmatically adding invalid to empty fieldset results in correct style", WptDivergence.NeedsTriage),
-        new("html/semantics/selectors/pseudo-classes/valid-invalid.html", "programmatically-invalidated fieldset correctly styled", WptDivergence.NeedsTriage),
-        new("html/semantics/selectors/pseudo-classes/valid-invalid-fieldset-disconnected.html", "<input> element becomes invalid inside disconnected <fieldset>", WptDivergence.NeedsTriage),
-        new("html/semantics/selectors/pseudo-classes/valid-invalid-fieldset-disconnected.html", "<select> element becomes valid inside disconnected <fieldset>", WptDivergence.NeedsTriage),
+        // What is left of the :valid/:invalid group once the pair asks whether the element is a candidate for
+        // constraint validation and answers a fieldset from its descendants. This row is neither: the file
+        // types into a control and sets maxLength to 0, and HTML §4.10.5.5's "suffering from being too long"
+        // is conditional on the element's *dirty value flag*, which cloneNode has to copy along with the
+        // value. AngleSharp's HtmlTextFormControlElement clones the custom validity error and not that flag,
+        // so the clone reports valid where the original does not. element.validity says the same, so it is a
+        // constraint-validation state rather than anything a selector can decide.
         new("html/semantics/selectors/pseudo-classes/invalid-after-clone.html", "Cloned invalid inputs / textareas with interactive changes get their validity state copied correctly", WptDivergence.NeedsTriage),
     ];
 
@@ -1614,6 +1601,10 @@ internal static class WptBrowserExclusions
         new("html/semantics/selectors/pseudo-classes/indeterminate-radio.html", ":indeterminate and input type=radio", WptDivergence.NeedsTriage),
         new("html/semantics/selectors/pseudo-classes/indeterminate-type-change.html", "Evaluation of :indeterminate changes on input type change.", WptDivergence.NeedsTriage),
         new("html/semantics/selectors/pseudo-classes/inrange-outofrange-type-change.html", "Evaluation of :out-of-range changes for input type change.", WptDivergence.NeedsTriage),
+
+        // Moved here from the :in-range group: with the selector asking for range limitations the text input
+        // no longer matches, so this row now gets the right colour in the wrong spelling like its neighbours.
+        new("html/semantics/selectors/pseudo-classes/inrange-outofrange-type-change.html", "Evaluation of :in-range changes for input type change.", WptDivergence.NeedsTriage),
     ];
 
     /// <summary>The causes this corpus found, each one the exclusions that are it.</summary>
@@ -1650,11 +1641,11 @@ internal static class WptBrowserExclusions
         new("the pseudo-classes suite: :dir()", _thePseudoClassesSuiteDir),
         new("the pseudo-classes suite: :checked", _thePseudoClassesSuiteChecked),
         new("the pseudo-classes suite: :indeterminate", _thePseudoClassesSuiteIndeterminate),
-        new("the pseudo-classes suite: :in-range and :out-of-range", _thePseudoClassesSuiteInRange),
+        new("the pseudo-classes suite: a reversed range", _thePseudoClassesSuiteAReversedRange),
         new("the pseudo-classes suite: :read-only and :read-write", _thePseudoClassesSuiteReadOnly),
         new("the pseudo-classes suite: :placeholder-shown", _thePseudoClassesSuitePlaceholderShown),
         new("the pseudo-classes suite: :required and :optional", _thePseudoClassesSuiteRequired),
-        new("the pseudo-classes suite: :valid and :invalid", _thePseudoClassesSuiteValid),
+        new("the pseudo-classes suite: a cloned constraint state", _thePseudoClassesSuiteAClonedConstraintState),
         new("the pseudo-classes suite: an opaque colour serialized as rgba()", _thePseudoClassesSuiteOpaqueColour),
     ];
 

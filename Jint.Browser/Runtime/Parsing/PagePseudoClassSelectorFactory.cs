@@ -15,9 +15,13 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
     private const string DefaultState = "default";
     private const string Disabled = "disabled";
     private const string Enabled = "enabled";
+    private const string InRange = "in-range";
+    private const string Invalid = "invalid";
     private const string Link = "link";
     private const string Open = "open";
+    private const string OutOfRange = "out-of-range";
     private const string Target = "target";
+    private const string Valid = "valid";
     private const string Visited = "visited";
 
     private static readonly ISelector _target = new TargetSelector();
@@ -27,8 +31,12 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
     private readonly ISelector _default;
     private readonly ISelector _disabled;
     private readonly ISelector _enabled;
+    private readonly ISelector _inRange;
+    private readonly ISelector _invalid;
     private readonly ISelector _link;
     private readonly ISelector _open;
+    private readonly ISelector _outOfRange;
+    private readonly ISelector _valid;
     private readonly ISelector _visited;
 
     internal PagePseudoClassSelectorFactory()
@@ -45,6 +53,10 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
         // DefaultPseudoClassSelectorFactory's table at all, so before this the whole selector failed to
         // parse and every API a page could spell it in raised a SyntaxError.
         _closed = new OpenStateSelector(defaults: null, Closed, closed: true);
+        _inRange = new RangeStateSelector(Default(InRange), outOfRange: false);
+        _outOfRange = new RangeStateSelector(Default(OutOfRange), outOfRange: true);
+        _valid = new ValidityStateSelector(Default(Valid), invalid: false);
+        _invalid = new ValidityStateSelector(Default(Invalid), invalid: true);
     }
 
     /// <inheritdoc />
@@ -88,6 +100,26 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
         if (string.Equals(name, Closed, StringComparison.OrdinalIgnoreCase))
         {
             return _closed;
+        }
+
+        if (string.Equals(name, InRange, StringComparison.OrdinalIgnoreCase))
+        {
+            return _inRange;
+        }
+
+        if (string.Equals(name, OutOfRange, StringComparison.OrdinalIgnoreCase))
+        {
+            return _outOfRange;
+        }
+
+        if (string.Equals(name, Valid, StringComparison.OrdinalIgnoreCase))
+        {
+            return _valid;
+        }
+
+        if (string.Equals(name, Invalid, StringComparison.OrdinalIgnoreCase))
+        {
+            return _invalid;
         }
 
         return string.Equals(name, Visited, StringComparison.OrdinalIgnoreCase) ? _visited : _defaults.Create(name);
@@ -212,10 +244,6 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
 
             return null;
         }
-
-        private static bool IsOneOf(string value, string first, string second)
-            => string.Equals(value, first, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(value, second, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -511,6 +539,174 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
         private static bool IsAsciiWhitespace(char character)
             => character is '\t' or '\n' or '\f' or '\r' or ' ';
     }
+
+    /// <summary>
+    /// HTML §4.16.3: <c>:in-range</c> and <c>:out-of-range</c> match an element which is a <b>candidate for
+    /// constraint validation</b> and <b>has range limitations</b>, and then split on whether it is suffering
+    /// from an underflow or an overflow. AngleSharp's <c>IsInRange()</c> asks neither question — it is "any
+    /// <c>IValidation</c> element which is neither overflowing nor underflowing" — so every input the
+    /// <c>min</c> and <c>max</c> attributes do not apply to matched <c>:in-range</c>, disabled and read-only
+    /// controls with them among them.
+    /// </summary>
+    private sealed class RangeStateSelector(ISelector defaults, bool outOfRange) : ISelector
+    {
+        public string Text => defaults.Text;
+
+        public Priority Specificity => defaults.Specificity;
+
+        public bool Match(IElement element, IElement? scope)
+        {
+            if (element is not IHtmlInputElement input || !IsACandidate(input) || !HasRangeLimitations(input))
+            {
+                return false;
+            }
+
+            // §4.10.5.4: the Range state's value sanitization algorithm clamps the value to the nearest
+            // boundary point, so a range control suffers neither an underflow nor an overflow whatever its
+            // content attribute says. AngleSharp reads the attribute back unclamped and reports both.
+            if (IsTheRangeState(input))
+            {
+                return !outOfRange;
+            }
+
+            var validity = input.Validity;
+            return (validity.IsRangeUnderflow || validity.IsRangeOverflow) == outOfRange;
+        }
+
+        public void Accept(ISelectorVisitor visitor) => defaults.Accept(visitor);
+
+        /// <summary>
+        /// §4.10.5.4: <c>min</c> and <c>max</c> apply to exactly seven type states, and only there can an
+        /// element have a minimum or a maximum at all. The Range state has both by default — 0 and 100 — so
+        /// it has range limitations whether or not either attribute is written.
+        /// </summary>
+        /// <remarks>
+        /// The attributes are read by presence rather than by parsing their values, which is the one place
+        /// this predicate is looser than the standard: a <c>min</c> that is not a valid string for the type
+        /// gives the element no minimum, and answering that would mean a second implementation of HTML's six
+        /// value formats beside AngleSharp's own input-type table. <c>Dom/divergences.md</c> records it.
+        /// </remarks>
+        private static bool HasRangeLimitations(IHtmlInputElement input)
+        {
+            if (IsTheRangeState(input))
+            {
+                return true;
+            }
+
+            if (!MinAndMaxApplyTo(input.Type))
+            {
+                return false;
+            }
+
+            return IsSpecified(input, "min") || IsSpecified(input, "max");
+        }
+
+        private static bool MinAndMaxApplyTo(string type)
+            => IsOneOf(type, "date", "month")
+                || IsOneOf(type, "week", "time")
+                || IsOneOf(type, "datetime-local", "number");
+
+        private static bool IsTheRangeState(IHtmlInputElement input)
+            => string.Equals(input.Type, "range", StringComparison.OrdinalIgnoreCase);
+
+        private static bool IsSpecified(IElement element, string name)
+            => element.GetAttribute(name) is { Length: > 0 };
+    }
+
+    /// <summary>
+    /// HTML §4.16.3: <c>:valid</c> matches an element which is a <b>candidate for constraint validation</b>
+    /// and satisfies its constraints, a <c>form</c> which owns no failing candidate, and a <c>fieldset</c>
+    /// with no failing candidate among its descendants; <c>:invalid</c> is the same three categories the
+    /// other way round. AngleSharp's pair is <c>CheckValidity()</c> and its negation, and
+    /// <c>CheckValidity()</c> is <c>WillValidate &amp;&amp; Validity.IsValid</c> — so an element §4.10.19.2
+    /// <i>bars</i> from constraint validation answers <c>false</c> and comes back <c>:invalid</c>, where the
+    /// standard has it match neither. A <c>fieldset</c> is barred and carries no constraints of its own, so
+    /// it came back <c>:valid</c> whatever it contained.
+    /// </summary>
+    private sealed class ValidityStateSelector(ISelector defaults, bool invalid) : ISelector
+    {
+        public string Text => defaults.Text;
+
+        public Priority Specificity => defaults.Specificity;
+
+        public bool Match(IElement element, IElement? scope)
+        {
+            // Before the IValidation arm, because a fieldset is one and is barred from constraint
+            // validation itself: what decides it is what its descendants say.
+            if (element is IHtmlFieldSetElement)
+            {
+                return AFailingCandidateIsADescendantOf(element) == invalid;
+            }
+
+            // A form's answer is AngleSharp's: it already walks the controls the form owns and asks each
+            // one whether it will validate before it asks whether it is valid, which is the standard's
+            // second category.
+            if (element is IHtmlFormElement)
+            {
+                return defaults.Match(element, scope);
+            }
+
+            return element is IValidation validation
+                && IsACandidate(validation)
+                && validation.Validity.IsValid != invalid;
+        }
+
+        public void Accept(ISelectorVisitor visitor) => defaults.Accept(visitor);
+
+        /// <summary>
+        /// Every descendant element, so a control inside a nested <c>fieldset</c> or a <c>legend</c> counts
+        /// for the outer one too. A nested fieldset is skipped as a candidate rather than as a subtree,
+        /// because it is barred from constraint validation and its own descendants are already on this walk.
+        /// </summary>
+        private static bool AFailingCandidateIsADescendantOf(IElement fieldset)
+        {
+            for (var candidate = NextInSubtree(fieldset, fieldset);
+                candidate is not null;
+                candidate = NextInSubtree(candidate, fieldset))
+            {
+                if (candidate is IValidation validation && IsACandidate(validation) && !validation.Validity.IsValid)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// §4.10.19.2: a submittable element is a candidate for constraint validation unless something bars it
+    /// — being disabled or read-only, being an input in the Hidden, Reset Button or Button state, or having a
+    /// <c>datalist</c> ancestor. AngleSharp's <c>WillValidate</c> is exactly that question and answers it
+    /// well; what its pseudo-classes do wrong is fold the answer into <c>CheckValidity()</c>, where "barred"
+    /// and "does not satisfy its constraints" become the same <c>false</c>.
+    /// </summary>
+    private static bool IsACandidate(IValidation validation) => validation.WillValidate;
+
+    /// <summary>The next element of <paramref name="root"/>'s subtree in tree order, or none.</summary>
+    private static IElement? NextInSubtree(IElement element, IElement root)
+    {
+        if (element.FirstElementChild is { } child)
+        {
+            return child;
+        }
+
+        for (IElement? current = element;
+            current is not null && !ReferenceEquals(current, root);
+            current = current.ParentElement)
+        {
+            if (current.NextElementSibling is { } sibling)
+            {
+                return sibling;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool IsOneOf(string value, string first, string second)
+        => string.Equals(value, first, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, second, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Selectors §8.2: the target element of a document.</summary>
     private sealed class TargetSelector : ISelector

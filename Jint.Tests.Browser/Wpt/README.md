@@ -26,7 +26,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | Suite | Documents | Synthesized | Tests | Not passing |
 | --- | --- | --- | --- | --- |
 | `dom/events/` | 56 | 9 | 548 | 11 |
-| `dom/nodes/` | 168 | 0 | 8,115 | 736 |
+| `dom/nodes/` | 168 | 0 | 8,115 | 735 |
 | `dom/collections/` | 8 | 0 | 43 | 0 |
 | `dom/lists/` | 5 | 0 | 189 | 1 |
 | `dom/traversal/` | 13 | 0 | 52 | 0 |
@@ -37,12 +37,12 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `html/webappapis/scripting/events/` | 12 | 0 | 37 | 2 |
 | `html/webappapis/scripting/processing-model-2/` | 25 | 0 | 44 | 5 |
 | `html/semantics/embedded-content/the-img-element/` | 4 | 0 | 99 | 0 |
-| `html/semantics/selectors/pseudo-classes/` | 27 | 0 | 122 | 68 |
+| `html/semantics/selectors/pseudo-classes/` | 27 | 0 | 122 | 55 |
 | `custom-elements/` | 16 | 0 | 513 | 10 |
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 52 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 0 |
-| **total** | **392** | **9** | **66,916** | **916** |
+| **total** | **392** | **9** | **66,916** | **902** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -271,7 +271,7 @@ is one. Their siblings are about other interfaces — `HTMLFormControlsCollectio
 ## What the pseudo-classes suite says about this browser
 
 `html/semantics/selectors/pseudo-classes/` is HTML §4.16.3's own suite: one document per selector, run
-against a page's real selector engine rather than against a table of strings. **27 documents, 122 tests, 68
+against a page's real selector engine rather than against a table of strings. **27 documents, 122 tests, 55
 of which do not pass**, and every failure is one of eleven bounded things AngleSharp's
 `DefaultPseudoClassSelectorFactory` does. That is the reason the suite is here: the page already owns
 `:target`, `:link`/`:visited`/`:any-link`, `:enabled`/`:disabled` and `:default`
@@ -283,16 +283,23 @@ six DOM suites, and every one of these is a failure of this suite alone.
 | Tests | What it is |
 | ---: | --- |
 | 20 | **`:read-write` is "mutable" rather than "the `readonly` attribute applies and the control is mutable".** So a checkbox is read-write; and `IsContentEditable` answers false, so an editing host and everything inside one is read-only. Two of the rows want a form-associated custom element. |
-| 10 | **`:in-range` matches any validation candidate that is neither overflowing nor underflowing**, where HTML asks for one that *has* range limitations — so `<input type=text min=0 max=10>` matches. A `range` control's value is also not clamped to its limits, so it can report an overflow §4.10.5.4 says cannot arise. |
 | 9 | **`:dir()` compares its argument with the `dir` content attribute of that element alone.** Directionality is inherited and its `auto` value is resolved from text, so an element declaring no `dir` matches neither keyword. |
-| 8 | **`:valid`/`:invalid` skip the `<fieldset>`.** They answer from `IValidation.CheckValidity()` and a form's; the same document's `<form>` rows pass. Two more documents want a constraint state kept across a removal and across a clone. |
 | 5 | **`:active` is a hyperlink-only flag nothing sets**, so no element matches while a click is in flight. |
 | 5 | **`:focus` is AngleSharp's `IElement.IsFocused`, which nothing assigns.** The page's own focus model is `Events/FocusController`, which is what `document.activeElement` reads, so `focus()` moves the active element where no selector can see it. |
-| 4 | **An opaque colour is serialized as `rgba(r, g, b, 1)`**, and these four rows read `getComputedStyle().color` against a literal. Each already gets the colour the selector should produce; `Dom/divergences.md` records why the process-global switch is not flipped. |
+| 5 | **An opaque colour is serialized as `rgba(r, g, b, 1)`**, and these five rows read `getComputedStyle().color` against a literal. Each already gets the colour the selector should produce; `Dom/divergences.md` records why the process-global switch is not flipped. |
 | 3 | **`:checked` answers for the historical `<menuitem>`**, which `checked.html` keeps two of precisely so that they do not match. |
+| 3 | **A reversed range is an underflow and an overflow at once.** §4.10.5.4 gives the time state a periodic domain, so `min` greater than `max` wraps midnight; `ValidityState` compares against both bounds unconditionally. `element.validity` says the same, so it is not the selector's. |
 | 2 | **`:indeterminate` has no radio-button-group rule**, so an unchecked radio in a group with no checked member never matches. |
 | 1 | **`:placeholder-shown` ignores whether `placeholder` applies to the type state, and never answers for a `<textarea>`.** |
 | 1 | **`:required`/`:optional` read the attribute wherever it is written**, including on a hidden input, which it does not apply to. |
+| 1 | **A cloned control loses its dirty value flag**, so `maxlength`'s "too long" state does not survive `cloneNode`. `element.validity` says the same. |
+
+**Two of the eleven are gone and two took their place.** `:in-range`/`:out-of-range` and `:valid`/`:invalid`
+are the page's now: both ask HTML's "candidate for constraint validation" question that AngleSharp folds into
+`CheckValidity()`, `:in-range` also asks for range limitations, and a `fieldset` is decided from its
+descendants. That retired 13 rows of this suite and one of `dom/nodes/Element-closest.html`; what is left of
+each group is a constraint-validation state rather than a selector, which is why the two rows above are
+named for what they are.
 
 **Four of the directory's files are not vendored and none of the reasons is a defect.** `autofill.html`'s two
 assertions are `test_valid_selector`, which lives in `/css/support/parsing-testcommon.js` — a helper root this
@@ -317,7 +324,7 @@ has the upstream half of each, and `Dom/AGENTS.md` says which override list carr
 
 `dom/nodes/`, `dom/collections/`, `dom/lists/`, `dom/traversal/`, `dom/ranges/` and `html/dom/` are the DOM
 standard's own suites and HTML's DOM half — the corpus every other suite in this lane is written on top of.
-Across the six of them there are 226 documents and 65,228 tests, and **757 of those tests do not pass**.
+Across the six of them there are 226 documents and 65,228 tests, and **756 of those tests do not pass**.
 Those three figures are live and checked against the census. They arrived together as 207 documents and
 5,247 tests with 1,532 not passing; those arrival figures are historical and deliberately not re-derived.
 
@@ -340,7 +347,7 @@ table needs to be regenerated.
 | 49 | 12 | **One assertion each or one small family per document.** These cover conversion order, import/clone identity, attribute selection and ordering, element-name identity, node equality and `accessKeyLabel`; each pattern is kept separate where neighboring rows pass. <!-- cause: one assertion each --> |
 | 19 | 6 | [#3949](https://github.com/sebastienros/jint/issues/3949) **A tag query's namespace and local-name identity is lost before the query runs.** `createElementNS(HTML, "ABC")` exposes a lower-case `localName` and a null-namespace `<body>` becomes an XHTML one on insertion, so the qualified-name, exact-namespace, empty-namespace and HTMLness assertions cannot be answered from the tree the query is given; `case.html` contributes ten of the rows and the two `getElementsByTagName`/`NS` pairs the rest. The queries themselves are DOM's. <!-- cause: a tag query's namespace and local-name identity --> |
 | 16 | 1 | **AngleSharp.Css refuses an unparseable media query, from inside `Element.setAttribute`.** `<style>` registers an attribute observer that assigns the sheet's `MediaList.mediaText`, whose setter throws where Media Queries §2.1 requires `not all`; the sixteen rows are the values it cannot parse and the member's other thirty tests pass. `Dom/divergences.md` records it. <!-- cause: 8. AngleSharp.Css refuses an unparseable media query --> |
-| 8 | 2 | **The selector engine's escapes, `:scope` and `:has` differ.** `ParentNode-querySelector-escapes.html` contributes five rows and `Element-closest.html` three. <!-- cause: the selector engine: escapes, :scope and :has --> |
+| 7 | 2 | **The selector engine's escapes, `:scope` and `:has` differ.** `ParentNode-querySelector-escapes.html` contributes five rows and `Element-closest.html` two. <!-- cause: the selector engine: escapes, :scope and :has --> |
 | 4 | 2 | **`MutationObserver` records differ**, and both halves are AngleSharp's. Its HTML parser inserts nodes without queueing a record, so a document observer hears nothing about the parse; and its `OuterHtml` setter inserts the replacement and then removes the element, which a page sees as two `childList` records where HTML's "replace this with fragment within parent" is one. <!-- cause: MutationObserver's records --> |
 | 2 | 1 | **A live range is not adjusted once its container moves to another document.** The two `Range-adopt-test.html` rows whose container is moved with `appendChild` — AngleSharp keeps its ranges on the document, so DOM's remove steps reach none of them. The two rows whose container never moves pass. <!-- cause: Range's own algorithms --> |
 | 1 | 1 | **A `relList` on a MathML `<a>` that no standard defines.** The file's own `testAttr()` asks for a `DOMTokenList` in the MathML namespace beside the SVG one, and MathML Core's only interface is [`MathMLElement`](https://w3c.github.io/mathml-core/#dom-and-javascript), which declares neither `rel` nor `relList`; nothing else defines one on a MathML element either, so this is `AssertsWhatNothingRequires` rather than debt. The SVG row passes now — [SVG 2 §16.2](https://svgwg.org/svg2-draft/linking.html#InterfaceSVGAElement)'s `SVGAElement` is one of `DomManualInterfaces`' local-name interfaces, and `Dom/divergences.md` records what is still missing. <!-- cause: a relList on a MathML <a> that no standard defines --> |
