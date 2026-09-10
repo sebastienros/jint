@@ -10,7 +10,9 @@ namespace Jint.Browser.Runtime.Parsing;
 /// <summary>The selector states whose default AngleSharp answer a page must refine.</summary>
 internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFactory
 {
+    private const string Active = "active";
     private const string AnyLink = "any-link";
+    private const string Checked = "checked";
     private const string Closed = "closed";
     // The pseudo-class HTML calls "default"; the name is taken by the helper which reads AngleSharp's own.
     private const string DefaultState = "default";
@@ -23,10 +25,12 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
     private const string Invalid = "invalid";
     private const string Link = "link";
     private const string Open = "open";
+    private const string Optional = "optional";
     private const string OutOfRange = "out-of-range";
     private const string PlaceholderShown = "placeholder-shown";
     private const string ReadOnly = "read-only";
     private const string ReadWrite = "read-write";
+    private const string Required = "required";
 
     /// <summary>The content attribute, whose name is not the one either selector goes by.</summary>
     private const string ReadOnlyAttributeName = "readonly";
@@ -50,8 +54,18 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
         "text", "search", "url", "tel", "email", "password",
         "date", "month", "week", "time", "datetime-local", "number",
     ];
+
+    /// <summary>§4.10.5.3.4: the fifteen type states the <c>required</c> attribute applies to.</summary>
+    private static readonly string[] _requiredAppliesTo =
+    [
+        "text", "search", "url", "tel", "email", "password",
+        "date", "month", "week", "time", "datetime-local", "number",
+        "checkbox", "radio", "file",
+    ];
     private readonly DefaultPseudoClassSelectorFactory _defaults = new();
+    private readonly ISelector _active;
     private readonly ISelector _anyLink;
+    private readonly ISelector _checked;
     private readonly ISelector _closed;
     private readonly ISelector _default;
     private readonly ISelector _disabled;
@@ -63,10 +77,12 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
     private readonly ISelector _invalid;
     private readonly ISelector _link;
     private readonly ISelector _open;
+    private readonly ISelector _optional;
     private readonly ISelector _outOfRange;
     private readonly ISelector _placeholderShown;
     private readonly ISelector _readOnly;
     private readonly ISelector _readWrite;
+    private readonly ISelector _required;
     private readonly ISelector _valid;
     private readonly ISelector _visited;
 
@@ -78,7 +94,11 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
         var events = BrowserEventRealm.Of(runtime.Engine);
         _focus = new FocusSelector(Default(Focus), events);
         _focusWithin = new FocusWithinSelector(Default(FocusWithin), events);
+        _active = new ActiveSelector(Default(Active), events);
 
+        _checked = new CheckedSelector(Default(Checked));
+        _required = new RequiredStateSelector(Default(Required), required: true);
+        _optional = new RequiredStateSelector(Default(Optional), required: false);
         _default = new DefaultSelector(Default(DefaultState));
         _enabled = new DisabledStateSelector(Default(Enabled), disabled: false);
         _disabled = new DisabledStateSelector(Default(Disabled), disabled: true);
@@ -195,6 +215,26 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
         if (string.Equals(name, FocusWithin, StringComparison.OrdinalIgnoreCase))
         {
             return _focusWithin;
+        }
+
+        if (string.Equals(name, Active, StringComparison.OrdinalIgnoreCase))
+        {
+            return _active;
+        }
+
+        if (string.Equals(name, Checked, StringComparison.OrdinalIgnoreCase))
+        {
+            return _checked;
+        }
+
+        if (string.Equals(name, Required, StringComparison.OrdinalIgnoreCase))
+        {
+            return _required;
+        }
+
+        if (string.Equals(name, Optional, StringComparison.OrdinalIgnoreCase))
+        {
+            return _optional;
         }
 
         return string.Equals(name, Visited, StringComparison.OrdinalIgnoreCase) ? _visited : _defaults.Create(name);
@@ -488,6 +528,123 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
             }
 
             return false;
+        }
+
+        public void Accept(ISelectorVisitor visitor) => defaults.Accept(visitor);
+    }
+
+    /// <summary>
+    /// HTML §4.16.3: <c>:active</c> matches an element while it is <b>being activated</b>. Four of its five
+    /// categories are a <i>formal activation state</i> — the interval between the user beginning to indicate
+    /// an intent to trigger an activation behaviour and stopping — which is a keyboard notion this browser
+    /// has no key-held state for; the fifth is <b>being actively pointed at</b>, "the user indicates the
+    /// element using a pointing device while that pointing device is in the 'down' state", and that one is
+    /// pure input and needs no rendering to decide. <see cref="BrowserEventRealm.MousePressTarget"/> is
+    /// already exactly it: the element a trusted pointer press landed on, cleared by its release. Selectors
+    /// §9.2 adds every flat-tree ancestor of such an element, and HTML adds the labeled control of a
+    /// <c>label</c> which is itself <c>:active</c> — which is why a press on a label activates the control it
+    /// labels and a press on a button's child activates the button.
+    /// </summary>
+    /// <remarks>
+    /// Nothing here asks whether the element is disabled, and the standard does not either: a disabled
+    /// control cannot be activated but it is still being pointed at, which is the whole subject of
+    /// <c>active-disabled.html</c>. AngleSharp's <c>IsActive()</c> answers for a hyperlink and nothing else,
+    /// off an <c>IElement.IsActive</c> flag no part of this package sets, so no element ever matched while a
+    /// press was in flight.
+    /// </remarks>
+    private sealed class ActiveSelector(ISelector defaults, BrowserEventRealm events) : ISelector
+    {
+        public string Text => defaults.Text;
+
+        public Priority Specificity => defaults.Specificity;
+
+        public bool Match(IElement element, IElement? scope)
+        {
+            if (events.MousePressTarget is not { } pressed)
+            {
+                return false;
+            }
+
+            // Up from the pressed element rather than down from the candidate: a press is one element, so
+            // the ancestor rule costs the depth of the tree and the label rule rides the same walk.
+            for (IElement? ancestor = pressed; ancestor is not null; ancestor = ancestor.ParentElement)
+            {
+                if (ReferenceEquals(ancestor, element))
+                {
+                    return true;
+                }
+
+                if (ancestor is IHtmlLabelElement label
+                    && Dom.HtmlLabelAssociation.ControlFor(label) is { } control
+                    && ReferenceEquals(control, element))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        public void Accept(ISelectorVisitor visitor) => defaults.Accept(visitor);
+    }
+
+    /// <summary>
+    /// HTML §4.16.3: <c>:checked</c> matches an <c>input</c> whose <c>type</c> is in the Checkbox or the Radio
+    /// Button state and whose checkedness is true, and an <c>option</c> whose selectedness is true. Those two
+    /// elements are the whole of it. AngleSharp adds the historical <c>menuitem</c> — which is why
+    /// <c>checked.html</c> keeps two checked ones precisely so that they do <i>not</i> match — and reads an
+    /// input's checkedness without asking about its type state, so a control whose <c>type</c> attribute is
+    /// taken away stays <c>:checked</c> in the Text state it falls back to.
+    /// </summary>
+    private sealed class CheckedSelector(ISelector defaults) : ISelector
+    {
+        public string Text => defaults.Text;
+
+        public Priority Specificity => defaults.Specificity;
+
+        public bool Match(IElement element, IElement? scope)
+        {
+            if (element is IHtmlOptionElement option)
+            {
+                return option.IsSelected;
+            }
+
+            // §4.10.5.3.5 and §4.10.5.3.6: `checked` applies to exactly these two type states, and the
+            // checkedness of anything else is not a state the selector is about.
+            return element is IHtmlInputElement input
+                && IsOneOf(input.Type, "checkbox", "radio")
+                && input.IsChecked;
+        }
+
+        public void Accept(ISelectorVisitor visitor) => defaults.Accept(visitor);
+    }
+
+    /// <summary>
+    /// HTML §4.16.3: <c>:required</c> matches an <c>input</c> which <b>is required</b>, and a <c>select</c> or
+    /// <c>textarea</c> carrying the attribute; <c>:optional</c> matches an <c>input</c> <b>to which the
+    /// <c>required</c> attribute applies</b> and which is not required, and a <c>select</c> or
+    /// <c>textarea</c> without it. So the pair is not a partition of every input: §4.10.5.3.4 makes the
+    /// attribute apply to fifteen type states, and an input outside them — a hidden one, a range, a colour, a
+    /// button — is in neither class however the attribute is written on it. AngleSharp reads the attribute
+    /// wherever it is written, so <c>&lt;input type=hidden required&gt;</c> was <c>:required</c>.
+    /// </summary>
+    private sealed class RequiredStateSelector(ISelector defaults, bool required) : ISelector
+    {
+        public string Text => defaults.Text;
+
+        public Priority Specificity => defaults.Specificity;
+
+        public bool Match(IElement element, IElement? scope)
+        {
+            if (element is IHtmlInputElement input)
+            {
+                return IsAnyOf(input.Type, _requiredAppliesTo) && element.HasAttribute(Required) == required;
+            }
+
+            // §4.10.7 and §4.10.11 give both elements the attribute unconditionally, so there is no
+            // applicability question for either and the presence of the attribute is the whole answer.
+            return element is IHtmlSelectElement or IHtmlTextAreaElement
+                && element.HasAttribute(Required) == required;
         }
 
         public void Accept(ISelectorVisitor visitor) => defaults.Accept(visitor);

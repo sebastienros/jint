@@ -1,10 +1,13 @@
 #nullable enable
 
+using Jint.Browser.Events;
+using Jint.Browser.Runtime;
 using Jint.Tests.Browser.Navigation;
 
 namespace Jint.Tests.Browser.Parsing;
 
 using Browser = global::Jint.Browser.Browser;
+using Page = global::Jint.Browser.Page;
 
 /// <summary>The selector states whose answer the page corrects around AngleSharp's defaults.</summary>
 public sealed class PagePseudoClassSelectorTests
@@ -1189,4 +1192,155 @@ public sealed class PagePseudoClassSelectorTests
 
         loopback.Page.Errors.Should().BeEmpty();
     }
+
+    /// <summary>
+    /// HTML §4.16.3: an element is <c>:active</c> while it is <b>being actively pointed at</b> — a pointing
+    /// device is down over it — and Selectors §9.2 adds its ancestors, while HTML adds the labeled control of
+    /// a <c>label</c> which is itself active. Being disabled excludes none of that: a disabled control cannot
+    /// be activated but it is still being pointed at. AngleSharp's <c>IsActive()</c> answers for a hyperlink
+    /// and nothing else, off a flag no part of this package sets.
+    /// </summary>
+    [Test]
+    public async Task ActiveIsThePressedElementItsAncestorsAndAnActiveLabelsControl()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <!doctype html><html><body>
+              <label id="label" for="button">label for the disabled button</label>
+              <button id="button" disabled>disabled</button>
+              <button id="parent" disabled><div id="child">child of disabled</div></button>
+              <input id="input" disabled>
+            </body></html>
+            """);
+
+        const string State = """
+            (() => ['label', 'button', 'parent', 'child', 'input']
+              .map(id => id + ':' + document.getElementById(id).matches(':active')).join(','))()
+            """;
+
+        (await page.EvaluateAsync<string>(State))
+            .Should().Be("label:false,button:false,parent:false,child:false,input:false");
+
+        await PressAsync(page, "child");
+        (await page.EvaluateAsync<string>(State))
+            .Should().Be("label:false,button:false,parent:true,child:true,input:false");
+        (await page.EvaluateAsync<string>(
+            "Array.from(document.querySelectorAll(':active'), e => e.id || e.localName).join('+')"))
+            .Should().Be("html+body+parent+child", "Selectors §9.2 adds every ancestor of the pressed element");
+
+        await ReleaseAsync(page, "child");
+        (await page.EvaluateAsync<string>(State))
+            .Should().Be("label:false,button:false,parent:false,child:false,input:false");
+
+        await PressAsync(page, "label");
+        (await page.EvaluateAsync<string>(State))
+            .Should().Be("label:true,button:true,parent:false,child:false,input:false");
+        await ReleaseAsync(page, "label");
+
+        await PressAsync(page, "input");
+        (await page.EvaluateAsync<string>(State))
+            .Should().Be("label:false,button:false,parent:false,child:false,input:true");
+        await ReleaseAsync(page, "input");
+
+        (await page.EvaluateAsync<string>(State))
+            .Should().Be("label:false,button:false,parent:false,child:false,input:false");
+        page.Errors.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// HTML §4.16.3: <c>:checked</c> is a checkbox or radio button whose checkedness is true and an
+    /// <c>option</c> whose selectedness is true, and nothing else — not the historical <c>menuitem</c>
+    /// AngleSharp still models, and not an input whose <c>type</c> attribute has been taken away, whose
+    /// checkedness AngleSharp keeps reading in the Text state it falls back to.
+    /// </summary>
+    [Test]
+    public async Task CheckedIsACheckedCheckboxOrRadioAndASelectedOptionAndNothingElse()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <!doctype html><html><body>
+              <select id="select"><option id="option1" selected>one</option><option id="option2">two</option></select>
+              <input type="checkbox" id="checkbox" checked><input type="radio" id="radio" checked>
+              <input type="checkbox" id="unchecked"><input type="text" id="text" checked>
+              <menu type="context"><menuitem type="checkbox" checked id="menuitem"></menuitem></menu>
+            </body></html>
+            """);
+
+        (await page.EvaluateAsync<string>("""
+            (() => {
+              const ids = ['option1', 'option2', 'checkbox', 'radio', 'unchecked', 'text', 'menuitem'];
+              const read = () => ids.map(id => id + ':' + document.getElementById(id).matches(':checked')).join(',');
+              const before = read();
+              const matched = Array.from(document.querySelectorAll(':checked'), e => e.id).join('+');
+              checkbox.removeAttribute('type');
+              radio.removeAttribute('type');
+              return before + '|' + matched + '|' + checkbox.matches(':checked') + ':' + radio.matches(':checked');
+            })()
+            """)).Should().Be(
+            "option1:true,option2:false,checkbox:true,radio:true,unchecked:false,text:false,menuitem:false" +
+            "|option1+checkbox+radio|false:false");
+    }
+
+    /// <summary>
+    /// HTML §4.16.3: <c>:required</c> is an <c>input</c> which is required and a <c>select</c> or
+    /// <c>textarea</c> carrying the attribute, and <c>:optional</c> is an <c>input</c> the attribute
+    /// <i>applies</i> to which is not required and the other two without it — so §4.10.5.3.4's fifteen type
+    /// states bound both, and an input outside them is in neither class. AngleSharp reads the attribute
+    /// wherever it is written.
+    /// </summary>
+    [Test]
+    public async Task RequiredAndOptionalAskWhetherTheAttributeAppliesToTheTypeState()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <!doctype html><html><body>
+              <input type="hidden" id="hidden" required><input type="range" id="range" required>
+              <input type="submit" id="submit" required><input type="checkbox" id="checkbox" required>
+              <input type="text" id="text" required><input type="text" id="plain">
+              <select id="select" required></select><select id="plainSelect"></select>
+              <textarea id="textarea" required></textarea><textarea id="plainTextarea"></textarea>
+              <div id="div" required></div>
+            </body></html>
+            """);
+
+        (await page.EvaluateAsync<string>("""
+            (() => {
+              const ids = ['hidden', 'range', 'submit', 'checkbox', 'text', 'plain', 'select', 'plainSelect',
+                'textarea', 'plainTextarea', 'div'];
+              const read = () => ids.map(id => {
+                const element = document.getElementById(id);
+                return id + ':' + element.matches(':required') + ':' + element.matches(':optional');
+              }).join(',');
+              const before = read();
+              hidden.type = 'text';
+              return before + '|' + hidden.matches(':required') + ':' + hidden.matches(':optional');
+            })()
+            """)).Should().Be(
+            "hidden:false:false,range:false:false,submit:false:false,checkbox:true:false,text:true:false," +
+            "plain:false:true,select:true:false,plainSelect:false:true,textarea:true:false," +
+            "plainTextarea:false:true,div:false:false|true:false");
+    }
+
+    /// <summary>
+    /// A pointer press over <paramref name="id"/>'s box, with no release: the state <c>:active</c> is about
+    /// exists only between the two, and this is the entry point <c>Input.dispatchMouseEvent</c> and
+    /// <c>testdriver.js</c>'s action sequences both reach.
+    /// </summary>
+    private static Task PressAsync(Page page, string id) => DispatchAsync(page, id, MouseInputKind.Pressed, buttons: 1);
+
+    private static Task ReleaseAsync(Page page, string id) => DispatchAsync(page, id, MouseInputKind.Released, buttons: 0);
+
+    private static Task DispatchAsync(Page page, string id, MouseInputKind kind, double buttons)
+        => page.RunOnLoopAsync(engine =>
+        {
+            var runtime = PageRuntime.Find(engine)!;
+            var element = runtime.Document!.GetElementById(id)!;
+            var box = runtime.Layout.Current().ClientBoxOf(element)!.Value;
+            InputDispatcher.DispatchMouse(runtime, new MouseInput(
+                kind, box.X + (box.Width / 2), box.Y + (box.Height / 2), 0, buttons, 1, EventModifiers.None, 0, 0));
+            return true;
+        });
 }
