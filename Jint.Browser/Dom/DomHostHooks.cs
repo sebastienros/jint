@@ -142,6 +142,22 @@ internal class DomHostHooks
     internal virtual JsValue FormOwner(DomRealm realm, IHtmlElement element)
         => realm.WrapNodeValue(HtmlFormOwner.FormIdlOf(element));
 
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/form-elements.html#dom-option-selected — the setter's three
+    /// steps: set the selectedness, set the dirtiness, and then cause the element to ask for a reset.
+    /// </summary>
+    /// <remarks>
+    /// AngleSharp's <c>IsSelected</c> setter is the first two — it does record the dirtiness, so adding or
+    /// removing the <c>selected</c> content attribute afterwards is already inert — and stops there. The
+    /// third step is the one that keeps a one-choice <c>select</c> to one choice; without it every option of
+    /// one could be selected at once and <c>selectedIndex</c> stayed where it was.
+    /// </remarks>
+    internal virtual void SetOptionSelected(DomRealm realm, IHtmlOptionElement option, bool selected)
+    {
+        option.IsSelected = selected;
+        HtmlSelectState.AskForAReset(option);
+    }
+
     /// <summary>https://dom.spec.whatwg.org/#dom-range-comparepoint</summary>
     internal virtual JsValue ComparePoint(DomRealm realm, IRange range, JsValue[] arguments)
         => DomRangeMembers.ComparePoint(realm, range, arguments);

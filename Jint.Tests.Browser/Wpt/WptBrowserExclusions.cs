@@ -1454,20 +1454,6 @@ internal static class WptBrowserExclusions
         new("html/semantics/selectors/pseudo-classes/dir-html-input-dynamic-text.html", ":dir on <input> isn't altered by text children", WptDivergence.NeedsTriage),
     ];
 
-    // ---------------------------------------------------------------- the pseudo-classes suite: a selectedness that never asks for a reset
-    private static readonly WptExclusion[] _thePseudoClassesSuiteASelectedness =
-    [
-        // What is left of the :checked group once the selector stops answering for the historical
-        // &lt;menuitem&gt; and starts asking an input for its type state. This row is neither: it sets
-        // option2.selected = true in a single-selection &lt;select&gt; whose option1 is already selected, and
-        // HTML §4.10.10 makes that setter "ask for a reset", which runs the selectedness setting algorithm and
-        // leaves only the last selected option selected. AngleSharp's IHtmlOptionElement.IsSelected setter runs
-        // neither, so all three options of a one-choice select can be selected at once and selectedIndex stays
-        // where it was. option.selected reports it the same way, so it is a selectedness rather than anything
-        // a selector can decide.
-        new("html/semantics/selectors/pseudo-classes/checked.html", "':checked' matches clicked checkbox and radio buttons", WptDivergence.NeedsTriage),
-    ];
-
     // ---------------------------------------------------------------- the pseudo-classes suite: a reversed range
     private static readonly WptExclusion[] _thePseudoClassesSuiteAReversedRange =
     [
@@ -1552,7 +1538,6 @@ internal static class WptBrowserExclusions
         new("MutationObserver's records", _mutationObserverSRecords),
         new("one assertion each", _oneAssertionEach),
         new("the pseudo-classes suite: :dir()", _thePseudoClassesSuiteDir),
-        new("the pseudo-classes suite: a selectedness that never asks for a reset", _thePseudoClassesSuiteASelectedness),
         new("the pseudo-classes suite: a reversed range", _thePseudoClassesSuiteAReversedRange),
         new("the pseudo-classes suite: a cloned constraint state", _thePseudoClassesSuiteAClonedConstraintState),
         new("the pseudo-classes suite: an opaque colour serialized as rgba()", _thePseudoClassesSuiteOpaqueColour),

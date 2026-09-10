@@ -1175,7 +1175,12 @@ internal sealed class ModelBuilder
 
         if (_overrides.Hooks.FirstOrDefault(h => h.Interface == model.DomName && h.Member == domName && h.Half == "setter") is { } hook)
         {
-            return "self.Realm.Hooks." + hook.Hook + "(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, " + CSharpNames.Literal(qualified) + ")); return global::Jint.Native.JsValue.Undefined;";
+            if (!TryHookedValue(model, property, domName, qualified, out var hooked))
+            {
+                return null;
+            }
+
+            return "self.Realm.Hooks." + hook.Hook + "(self.Realm, self.Target, " + hooked + "); return global::Jint.Native.JsValue.Undefined;";
         }
 
         if (extensionSetter is not null)
@@ -1219,6 +1224,30 @@ internal sealed class ModelBuilder
         }
 
         return "self.Target." + property.Name + " = " + assigned + "; return global::Jint.Native.JsValue.Undefined;";
+    }
+
+    /// <summary>
+    /// The value a <c>hooks</c> setter is handed. It is the attribute's <i>own</i> IDL conversion, read from
+    /// the CLR setter the hook stands in front of, because a hooked attribute is not necessarily a
+    /// <c>DOMString</c> one: <c>option.selected = 'x'</c> is WebIDL's <c>ToBoolean</c>. A hook over a member
+    /// with no writable CLR property is standing in front of a <c>[PutForwards]</c> pair instead
+    /// (<c>document.location</c>), whose own IDL type is a <c>DOMString</c>.
+    /// </summary>
+    private bool TryHookedValue(InterfaceModel model, PropertyInfo property, string domName, string qualified, out string value)
+    {
+        if (!property.CanWrite)
+        {
+            value = "global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, " + CSharpNames.Literal(qualified) + ")";
+            return true;
+        }
+
+        if (_conversions.TryParameter(property.SetMethod!.GetParameters()[0], 0, qualified, null, ParameterRole.AttributeValue, out value, out var reason))
+        {
+            return true;
+        }
+
+        _model.Diagnostics.Add(model.DomName + "." + domName + " routes its setter through a hook, but the value it would be handed " + reason + "; the attribute stays read-only.");
+        return false;
     }
 
     /// <summary>

@@ -37,12 +37,12 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `html/webappapis/scripting/events/` | 12 | 0 | 37 | 1 |
 | `html/webappapis/scripting/processing-model-2/` | 25 | 0 | 44 | 5 |
 | `html/semantics/embedded-content/the-img-element/` | 4 | 0 | 99 | 0 |
-| `html/semantics/selectors/pseudo-classes/` | 27 | 0 | 122 | 22 |
+| `html/semantics/selectors/pseudo-classes/` | 27 | 0 | 122 | 21 |
 | `custom-elements/` | 16 | 0 | 513 | 9 |
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 52 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 0 |
-| **total** | **392** | **9** | **66,916** | **867** |
+| **total** | **392** | **9** | **66,916** | **866** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -271,8 +271,8 @@ is one. Their siblings are about other interfaces — `HTMLFormControlsCollectio
 ## What the pseudo-classes suite says about this browser
 
 `html/semantics/selectors/pseudo-classes/` is HTML §4.16.3's own suite: one document per selector, run
-against a page's real selector engine rather than against a table of strings. **27 documents, 122 tests, 22
-of which do not pass**, and every failure is one of five bounded things AngleSharp does — only one of which
+against a page's real selector engine rather than against a table of strings. **27 documents, 122 tests, 21
+of which do not pass**, and every failure is one of four bounded things AngleSharp does — only one of which
 is still its `DefaultPseudoClassSelectorFactory`. That is the reason the suite is here: the page owns
 `:target`, `:link`/`:visited`/`:any-link`, `:enabled`/`:disabled`, `:default`, `:open`/`:closed`,
 `:valid`/`:invalid`, `:in-range`/`:out-of-range`, `:read-only`/`:read-write`, `:placeholder-shown`,
@@ -280,7 +280,7 @@ is still its `DefaultPseudoClassSelectorFactory`. That is the reason the suite i
 (`Runtime/Parsing/PagePseudoClassSelectorFactory`), and nothing until this suite arrived
 measured any of them.
 
-None of these five has a row in the cause table above, and that is by construction: the table counts the
+None of these four has a row in the cause table above, and that is by construction: the table counts the
 six DOM suites, and every one of these is a failure of this suite alone.
 
 | Tests | What it is |
@@ -288,7 +288,6 @@ six DOM suites, and every one of these is a failure of this suite alone.
 | 9 | **`:dir()` compares its argument with the `dir` content attribute of that element alone.** Directionality is inherited and its `auto` value is resolved from text, so an element declaring no `dir` matches neither keyword. |
 | 8 | **An opaque colour is serialized as `rgba(r, g, b, 1)`**, and these eight rows read `getComputedStyle().color` against a literal. Each already gets the colour the selector should produce; `Dom/divergences.md` records why the process-global switch is not flipped. |
 | 3 | **A reversed range is an underflow and an overflow at once.** §4.10.5.4 gives the time state a periodic domain, so `min` greater than `max` wraps midnight; `ValidityState` compares against both bounds unconditionally. `element.validity` says the same, so it is not the selector's. |
-| 1 | **A selectedness that never asks for a reset.** §4.10.10 makes `option.selected = true` run the select's selectedness setting algorithm, which leaves only the last selected option selected; AngleSharp's setter runs neither, so every option of a one-choice `<select>` can be selected at once. `option.selected` says the same. |
 | 1 | **A cloned control loses its dirty value flag**, so `maxlength`'s "too long" state does not survive `cloneNode`. `element.validity` says the same. |
 
 **Five of the eleven the suite arrived with are gone, and the two that are left of them are named for what
@@ -324,8 +323,17 @@ element is disabled and the standard does not either, which is the whole subject
 `:required`/`:optional` ask §4.10.5.3.4 whether the attribute *applies*, so an input outside its fifteen type
 states is in neither class — which is what `required-optional-hidden.html` is about, and that document's row
 moved to the `rgba()` group above rather than turning green, exactly as three type-change documents did
-before it. One row of `checked.html` moved too, and to a cause that is not a selector at all: it turned out
-that only two of that file's three rows were the `<menuitem>`.
+before it.
+
+**`checked.html` is green now, and its last row was never a selector at all.** Only two of that file's three
+rows were the `<menuitem>`; the third sets `option2.selected = "selected"` in a single-selection `<select>`
+whose `option1` is already selected, and [HTML §4.10.10](https://html.spec.whatwg.org/multipage/form-elements.html#dom-option-selected)
+makes that setter **ask for a reset** — the select's selectedness setting algorithm, which leaves only the
+last selected option selected. `option.selected`, `selectedIndex`, `value` and `selectedOptions` all reported
+the same three-choice one-choice select, so no predicate could have decided it: `HTMLOptionElement.selected`
+is a `hooks` setter now and `Dom/HtmlSelectState` owns the algorithm, the display size `:open` already needed
+and §4.10.10's disabled option `:disabled` already needed. What HTML also runs on an option's *insertion* and
+*removal* steps is still unrun, and `Dom/divergences.md` names it.
 
 **Four of the directory's files are not vendored and none of the reasons is a defect.** `autofill.html`'s two
 assertions are `test_valid_selector`, which lives in `/css/support/parsing-testcommon.js` — a helper root this

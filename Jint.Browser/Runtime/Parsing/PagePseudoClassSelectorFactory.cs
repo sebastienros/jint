@@ -372,12 +372,12 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
                 return IsDisabledAttributeSpecified(element) || NearestAncestorSelectIsDisabled(element);
             }
 
-            // §4.10.10: an option is disabled by its own attribute or by the optgroup it is a child of.
+            // §4.10.10: an option is disabled by its own attribute or by the optgroup it is a child of --
+            // the same rule the selectedness setting algorithm's first step reads, so it is shared with it
+            // rather than restated -- plus §4.15's clause about the select the option belongs to.
             if (element is IHtmlOptionElement)
             {
-                return IsDisabledAttributeSpecified(element)
-                    || (element.ParentElement is IHtmlOptionsGroupElement group && IsDisabledAttributeSpecified(group))
-                    || NearestAncestorSelectIsDisabled(element);
+                return Dom.HtmlSelectState.IsADisabledOption(element) || NearestAncestorSelectIsDisabled(element);
             }
 
             // §4.10.15: a fieldset is a disabled fieldset by the same two conditions a control is disabled by.
@@ -713,9 +713,14 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
         }
 
         /// <summary>HTML §4.16.3's four categories, which is what the pair is defined over.</summary>
+        /// <remarks>
+        /// §4.10.7's drop-down box — no <c>multiple</c> attribute and a display size of 1 — is the same
+        /// question the <c>selected</c> IDL setter's reset asks, so both read
+        /// <see cref="Dom.HtmlSelectState"/> rather than each parsing the <c>size</c> attribute.
+        /// </remarks>
         private static bool HasAnOpenAndAClosedState(IElement element)
             => element is IHtmlDetailsElement or IHtmlDialogElement
-                || IsADropDownBox(element)
+                || Dom.HtmlSelectState.IsADropDownBox(element)
                 || SupportsAPicker(element);
 
         /// <summary>
@@ -726,18 +731,6 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
             => element is IHtmlDetailsElement or IHtmlDialogElement && element.HasAttribute(Open);
 
         /// <summary>
-        /// §4.10.7: a <c>select</c> is a drop-down box when it has no <c>multiple</c> attribute and its
-        /// display size is 1, and the display size is the <c>size</c> attribute parsed as a non-negative
-        /// integer — or, when there is none or it does not parse, 4 with <c>multiple</c> and 1 without.
-        /// AngleSharp's <c>Size</c> answers 0 for an absent attribute, so the attribute is read here instead.
-        /// </summary>
-        private static bool IsADropDownBox(IElement element)
-            => element is IHtmlSelectElement select && !select.IsMultiple && DisplaySizeOf(select) == 1;
-
-        private static int DisplaySizeOf(IHtmlSelectElement select)
-            => TryParseNonNegativeInteger(select.GetAttribute("size"), out var size) ? size : 1;
-
-        /// <summary>
         /// §4.10.5: whether an <c>input</c> supports a picker is implementation-defined but for the File
         /// Upload state, where the standard requires one. This browser shows no picker of its own for any
         /// other type state, so File Upload is the whole of the category here.
@@ -745,51 +738,6 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
         private static bool SupportsAPicker(IElement element)
             => element is IHtmlInputElement input
                 && string.Equals(input.Type, "file", StringComparison.OrdinalIgnoreCase);
-
-        /// <summary>
-        /// HTML's rules for parsing non-negative integers: leading ASCII whitespace, an optional <c>+</c> and
-        /// then at least one ASCII digit, with anything after the digits ignored. A leading <c>-</c> or a
-        /// first character that is not a digit is a failure, which is what leaves the display size at its
-        /// default.
-        /// </summary>
-        private static bool TryParseNonNegativeInteger(string? value, out int result)
-        {
-            result = 0;
-
-            if (value is null)
-            {
-                return false;
-            }
-
-            var at = 0;
-            while (at < value.Length && IsAsciiWhitespace(value[at]))
-            {
-                at++;
-            }
-
-            if (at < value.Length && value[at] == '+')
-            {
-                at++;
-            }
-
-            if (at >= value.Length || !char.IsAsciiDigit(value[at]))
-            {
-                return false;
-            }
-
-            var parsed = 0L;
-            while (at < value.Length && char.IsAsciiDigit(value[at]))
-            {
-                parsed = Math.Min((parsed * 10) + (value[at] - '0'), int.MaxValue);
-                at++;
-            }
-
-            result = (int) parsed;
-            return true;
-        }
-
-        private static bool IsAsciiWhitespace(char character)
-            => character is '\t' or '\n' or '\f' or '\r' or ' ';
     }
 
     /// <summary>

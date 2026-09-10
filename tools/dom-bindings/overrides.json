@@ -1680,6 +1680,13 @@
       "reason": "The textarea half of the labelable-element labels attribute."
     },
     {
+      "interface": "HTMLOptionElement",
+      "member": "selected",
+      "half": "setter",
+      "hook": "SetOptionSelected",
+      "reason": "https://html.spec.whatwg.org/multipage/form-elements.html#dom-option-selected: the setter sets the selectedness, sets the dirtiness, and then causes the element to ask for a reset -- which runs the select's selectedness setting algorithm. AngleSharp's IsSelected setter is the first two steps and stops, so every option of a select with no multiple attribute could be selected at once while selectedIndex stayed where it was."
+    },
+    {
       "interface": "HTMLLabelElement",
       "member": "control",
       "half": "getter",
