@@ -38,17 +38,11 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `html/webappapis/scripting/processing-model-2/` | 25 | 0 | 44 | 5 |
 | `html/semantics/embedded-content/the-img-element/` | 4 | 0 | 99 | 0 |
 | `html/semantics/selectors/pseudo-classes/` | 27 | 0 | 122 | 22 |
-| `custom-elements/` | 16 | 0 | 513 | 10 |
-| `custom-elements/parser/` | 8 | 0 | 20 | 11 |
-| `custom-elements/reactions/` | 14 | 0 | 255 | 52 |
-| `custom-elements/upgrading/` | 2 | 0 | 7 | 0 |
-| **total** | **392** | **9** | **66,916** | **869** |
-| `html/semantics/selectors/pseudo-classes/` | 27 | 0 | 122 | 34 |
 | `custom-elements/` | 16 | 0 | 513 | 9 |
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 52 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 0 |
-| **total** | **392** | **9** | **66,916** | **880** |
+| **total** | **392** | **9** | **66,916** | **868** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
