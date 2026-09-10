@@ -117,7 +117,10 @@ internal sealed class ParserDriver : IDisposable
             // at all, so a page spelling the latter got a SyntaxError out of every selector API. And its
             // :valid, :invalid, :in-range and :out-of-range all read CheckValidity(), which folds
             // §4.10.19.2's "barred from constraint validation" into the same false as a failing
-            // constraint, so a disabled control was :invalid and every fieldset was :valid.
+            // constraint, so a disabled control was :invalid and every fieldset was :valid. Three more
+            // read an attribute without asking whether it applies to the type state it is written on -
+            // :read-write, :placeholder-shown and, for a progress element, :indeterminate, whose radio
+            // button group rule is missing outright.
             .WithOnly<AngleSharp.Css.IPseudoClassSelectorFactory>(new PagePseudoClassSelectorFactory())
             // https://html.spec.whatwg.org/multipage/document-lifecycle.html#read-xml — a document whose
             // content type is an XML MIME type is parsed by the XML parser, and without the factory
