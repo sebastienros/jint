@@ -37,12 +37,12 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `html/webappapis/scripting/events/` | 12 | 0 | 37 | 2 |
 | `html/webappapis/scripting/processing-model-2/` | 25 | 0 | 44 | 5 |
 | `html/semantics/embedded-content/the-img-element/` | 4 | 0 | 99 | 0 |
-| `html/semantics/selectors/pseudo-classes/` | 27 | 0 | 122 | 29 |
+| `html/semantics/selectors/pseudo-classes/` | 27 | 0 | 122 | 22 |
 | `custom-elements/` | 16 | 0 | 513 | 10 |
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 52 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 0 |
-| **total** | **392** | **9** | **66,916** | **876** |
+| **total** | **392** | **9** | **66,916** | **869** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -271,26 +271,24 @@ is one. Their siblings are about other interfaces — `HTMLFormControlsCollectio
 ## What the pseudo-classes suite says about this browser
 
 `html/semantics/selectors/pseudo-classes/` is HTML §4.16.3's own suite: one document per selector, run
-against a page's real selector engine rather than against a table of strings. **27 documents, 122 tests, 29
-of which do not pass**, and every failure is one of seven bounded things AngleSharp's
-`DefaultPseudoClassSelectorFactory` does. That is the reason the suite is here: the page owns
+against a page's real selector engine rather than against a table of strings. **27 documents, 122 tests, 22
+of which do not pass**, and every failure is one of five bounded things AngleSharp does — only one of which
+is still its `DefaultPseudoClassSelectorFactory`. That is the reason the suite is here: the page owns
 `:target`, `:link`/`:visited`/`:any-link`, `:enabled`/`:disabled`, `:default`, `:open`/`:closed`,
 `:valid`/`:invalid`, `:in-range`/`:out-of-range`, `:read-only`/`:read-write`, `:placeholder-shown`,
-`:indeterminate` and `:focus`/`:focus-within`
+`:indeterminate`, `:focus`/`:focus-within`, `:active`, `:checked` and `:required`/`:optional`
 (`Runtime/Parsing/PagePseudoClassSelectorFactory`), and nothing until this suite arrived
 measured any of them.
 
-None of these seven has a row in the cause table above, and that is by construction: the table counts the
+None of these five has a row in the cause table above, and that is by construction: the table counts the
 six DOM suites, and every one of these is a failure of this suite alone.
 
 | Tests | What it is |
 | ---: | --- |
 | 9 | **`:dir()` compares its argument with the `dir` content attribute of that element alone.** Directionality is inherited and its `auto` value is resolved from text, so an element declaring no `dir` matches neither keyword. |
-| 7 | **An opaque colour is serialized as `rgba(r, g, b, 1)`**, and these seven rows read `getComputedStyle().color` against a literal. Each already gets the colour the selector should produce; `Dom/divergences.md` records why the process-global switch is not flipped. |
-| 5 | **`:active` is a hyperlink-only flag nothing sets**, so no element matches while a click is in flight. |
-| 3 | **`:checked` answers for the historical `<menuitem>`**, which `checked.html` keeps two of precisely so that they do not match. |
+| 8 | **An opaque colour is serialized as `rgba(r, g, b, 1)`**, and these eight rows read `getComputedStyle().color` against a literal. Each already gets the colour the selector should produce; `Dom/divergences.md` records why the process-global switch is not flipped. |
 | 3 | **A reversed range is an underflow and an overflow at once.** §4.10.5.4 gives the time state a periodic domain, so `min` greater than `max` wraps midnight; `ValidityState` compares against both bounds unconditionally. `element.validity` says the same, so it is not the selector's. |
-| 1 | **`:required`/`:optional` read the attribute wherever it is written**, including on a hidden input, which it does not apply to. |
+| 1 | **A selectedness that never asks for a reset.** §4.10.10 makes `option.selected = true` run the select's selectedness setting algorithm, which leaves only the last selected option selected; AngleSharp's setter runs neither, so every option of a one-choice `<select>` can be selected at once. `option.selected` says the same. |
 | 1 | **A cloned control loses its dirty value flag**, so `maxlength`'s "too long" state does not survive `cloneNode`. `element.validity` says the same. |
 
 **Five of the eleven the suite arrived with are gone, and the two that are left of them are named for what
@@ -314,6 +312,20 @@ factory now reads that model, and HTML's focusing steps stop being confined to t
 `:focus-visible` is deliberately still AngleSharp's and still matches nothing — Selectors §9.4 makes it a
 decision about drawing a focus indicator, which a browser with no rendering cannot make — and
 `Dom/divergences.md` records that.
+
+**And the last three predicates went with them, which leaves `:dir()` as the only selector cause in the
+table above.**
+`:active`'s five categories are four *formal activation states* — a keyboard notion this browser has no
+key-held state for — and **being actively pointed at**, which is pure input: `BrowserEventRealm.MousePressTarget`
+is already the element a trusted pointer press landed on and is cleared by its release, so the predicate is
+that element, its ancestors, and the labeled control of a `label` among them. Nothing asks whether the
+element is disabled and the standard does not either, which is the whole subject of `active-disabled.html`.
+`:checked` stops answering for the historical `<menuitem>` and starts asking an input for its type state.
+`:required`/`:optional` ask §4.10.5.3.4 whether the attribute *applies*, so an input outside its fifteen type
+states is in neither class — which is what `required-optional-hidden.html` is about, and that document's row
+moved to the `rgba()` group above rather than turning green, exactly as three type-change documents did
+before it. One row of `checked.html` moved too, and to a cause that is not a selector at all: it turned out
+that only two of that file's three rows were the `<menuitem>`.
 
 **Four of the directory's files are not vendored and none of the reasons is a defect.** `autofill.html`'s two
 assertions are `test_valid_selector`, which lives in `/css/support/parsing-testcommon.js` — a helper root this
