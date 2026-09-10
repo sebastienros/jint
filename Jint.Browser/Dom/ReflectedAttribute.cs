@@ -484,7 +484,12 @@ internal sealed class ReflectedAttribute
     /// <a href="https://html.spec.whatwg.org/multipage/common-microsyntaxes.html#rules-for-parsing-non-negative-integers">The
     /// rules for parsing non-negative integers</a>: the integer parser, refusing a negative result.
     /// </summary>
-    private static bool TryParseNonNegative(string input, out long value)
+    /// <remarks>
+    /// Internal rather than private because HTML asks for this parse where no reflected attribute reaches —
+    /// a <c>select</c>'s display size, whose defaults are not the <c>size</c> IDL attribute's — and the point
+    /// of this file is that the parse exists once.
+    /// </remarks>
+    internal static bool TryParseNonNegative(string input, out long value)
         => TryParseInteger(input, out value) && value >= 0;
 
     /// <summary>
