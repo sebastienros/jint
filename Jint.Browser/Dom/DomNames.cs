@@ -254,6 +254,32 @@ internal static class DomNames
         int Arity,
         NameContext Context)
     {
+        internal JsValue[] ConvertFactoryArguments(JsValue thisObject, JsValue[] arguments)
+        {
+            if (arguments.Length < Arity || thisObject is not IDomWrapper wrapper || !Accepts(wrapper))
+            {
+                return arguments;
+            }
+
+            // These factories construct native Attr directly, so validation and construction must see
+            // the same converted strings. Never mutate the caller's argument array. Convert in WebIDL
+            // parameter order (namespace before name), with no copy for already-converted arguments.
+            var name = arguments[NameIndex];
+            var ns = NamespaceIndex < 0 ? JsValue.Null : arguments[NamespaceIndex];
+            if (name.IsString() && (ns.IsString() || ns.IsNullOrUndefined()))
+            {
+                return arguments;
+            }
+
+            var converted = (JsValue[]) arguments.Clone();
+            if (NamespaceIndex >= 0)
+            {
+                converted[NamespaceIndex] = ns.IsNullOrUndefined() ? JsValue.Null : JsString.Create(TypeConverter.ToString(ns));
+            }
+            converted[NameIndex] = JsString.Create(TypeConverter.ToString(name));
+            return converted;
+        }
+
         /// <summary>
         /// Runs the member's validation, or does nothing when this call would not get that far: a receiver
         /// the member's brand check will refuse, or an argument list too short for the conversion to happen.

@@ -3,6 +3,24 @@ namespace Jint.Tests.Browser.Views;
 
 public sealed class AttributeNameTests
 {
+    [Test]
+    public async Task FactoryArgumentsAreConvertedOnceInParameterOrder()
+    {
+        await using var browser = new Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<p>test</p>");
+        (await page.EvaluateAsync<string>("""
+            const log = [];
+            const ns = {toString() { log.push('namespace'); return 'urn:test'; }};
+            const name = {toString() { log.push('name'); return log.length === 2 ? 'p:0name' : 'bad name'; }};
+            const attr = document.createAttributeNS(ns, name);
+            let count = 0;
+            const plain = document.createAttribute({toString() { count++; return count === 1 ? '0name' : 'bad name'; }});
+            [log.join(','), attr.name, plain.name, count].join('|')
+            """)).Should().Be("namespace,name|p:0name|0name|1");
+        page.Errors.Should().BeEmpty();
+    }
+
     [TestCase("0name")]
     [TestCase("-name")]
     [TestCase(".name")]
