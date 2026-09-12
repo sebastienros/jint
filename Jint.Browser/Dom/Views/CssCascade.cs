@@ -296,9 +296,8 @@ internal static class CssCascade
         private sealed class ScopedStyles(IStyleCollection styles, StyleScope scope, bool includeVariables) : IStyleCollection
         {
             private readonly ICssStyleRule[] _rules = styles.Select(rule => new ScopedRule(rule,
-                    rule.Style.Where(property => Includes(scope, property.Name)
-                        || includeVariables && property.Name.StartsWith("--", StringComparison.Ordinal)).ToArray()))
-                .Where(rule => rule.Style.Length != 0).ToArray();
+                    name => Includes(scope, name) || includeVariables && name.StartsWith("--", StringComparison.Ordinal)))
+                .Where(rule => rule.Style.Length != 0 || rule.Rules.Length != 0).ToArray();
 
             public IRenderDevice Device => styles.Device;
 
@@ -311,12 +310,14 @@ internal static class CssCascade
     // The native merge enumerates Rule.Style. Filtering only the rule list still makes it copy every
     // paint declaration in a mixed rule for every element, then remove those declarations afterwards.
     // Keep the original property objects: serializing/reparsing would lose pending shorthand values.
-    private sealed class ScopedRule(ICssStyleRule source, ICssProperty[] properties) : ICssStyleRule
+    private sealed class ScopedRule(ICssStyleRule source, Func<string, bool> includes) : ICssStyleRule
     {
-        public ICssStyleDeclaration Style { get; } = new ScopedDeclaration(source.Style, properties);
+        public ICssStyleDeclaration Style { get; } = new ScopedDeclaration(source.Style, source.Style.Where(property => includes(property.Name)).ToArray());
         public string SelectorText { get => source.SelectorText; set => throw new NotSupportedException(); }
         public ISelector Selector => source.Selector;
-        public ICssRuleList Rules => source.Rules;
+        public ICssRuleList Rules { get; } = new ScopedRuleList(source.Rules.OfType<ICssStyleRule>()
+            .Select(rule => new ScopedRule(rule, includes))
+            .Where(rule => rule.Style.Length != 0 || rule.Rules.Length != 0).ToArray());
         public CssRuleType Type => source.Type;
         public string CssText { get => source.CssText; set => throw new NotSupportedException(); }
         public ICssRule Parent => source.Parent;
@@ -326,6 +327,14 @@ internal static class CssCascade
         public void SetParent(ICssRule rule) => throw new NotSupportedException();
         public void SetOwner(ICssStyleSheet sheet) => throw new NotSupportedException();
         public void ToCss(TextWriter writer, IStyleFormatter formatter) => source.ToCss(writer, formatter);
+    }
+
+    private sealed class ScopedRuleList(ICssRule[] rules) : ICssRuleList
+    {
+        public ICssRule this[int index] => (uint) index < (uint) rules.Length ? rules[index] : null!;
+        public int Length => rules.Length;
+        public IEnumerator<ICssRule> GetEnumerator() => ((IEnumerable<ICssRule>) rules).GetEnumerator();
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
     }
 
     /// <summary>Read-only merge input over the original native properties, never exposed to script.</summary>

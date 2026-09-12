@@ -13,6 +13,22 @@ namespace Jint.Tests.Browser.Layout;
 
 public sealed class CascadeTraversalTests
 {
+    [Test]
+    public async Task ScopedCascadeKeepsNestedRulesUnderEmptyParents()
+    {
+        using var context = BrowsingContext.New(Configuration.Default.WithCss());
+        using var document = await context.OpenAsync(response => response.Content(
+            "<style>main { & > button { display:none; color:red } }</style>"
+            + "<main><button>hidden</button></main>"));
+        var styles = document.DefaultView!.GetStyleCollection(new DefaultRenderDevice());
+        var button = document.QuerySelector("button")!;
+        new CssCascade.Traversal(styles).Of(button)!.GetPropertyValue("display").Should().Be("none");
+        foreach (var scope in new[] { CssCascade.StyleScope.Visibility, CssCascade.StyleScope.Layout })
+        {
+            new CssCascade.Traversal(styles, scope).Of(button)!.GetPropertyValue("display").Should().Be("none");
+        }
+    }
+
     [TestCase("block")]
     [TestCase("flex")]
     public async Task BoundedHeightPreservesExactMeasurements(string display)
