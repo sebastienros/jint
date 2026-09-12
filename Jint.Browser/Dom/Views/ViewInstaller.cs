@@ -47,7 +47,7 @@ internal static class ViewInstaller
     /// The configuration a <c>DOMParser</c> document is parsed with: the CSS services, so that
     /// <c>element.style</c> answers on the result, and nothing else — no requester, no scripting.
     /// </summary>
-    internal static IConfiguration ParserConfiguration { get; } = Configuration.Default.WithCss();
+    internal static IConfiguration ParserConfiguration { get; } = CaseSensitiveSvgFactory.Configure(Configuration.Default.WithCss());
 
     /// <summary>Installs the globals on <paramref name="runtime"/>'s engine. Called once, at construction.</summary>
     internal static void Install(PageRuntime runtime)
