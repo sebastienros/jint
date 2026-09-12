@@ -108,6 +108,80 @@ public sealed class ClassNameCollectionTests
         fixture.Number("items.length").Should().Be(1);
     }
 
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#concept-getelementsbyclassname matches "descendant elements that have
+    /// all their classes in classes", and an element's
+    /// <a href="https://dom.spec.whatwg.org/#concept-class">classes</a> are the token set of
+    /// <c>classList</c>, whose associated attribute DOM §7.1 reads by <b>getting an attribute value given
+    /// null namespace and the local name <c>class</c></b>. That is not
+    /// <a href="https://dom.spec.whatwg.org/#dom-element-getattribute"><c>getAttribute("class")</c></a>,
+    /// which matches a <i>qualified</i> name — so an attribute placed in a namespace under the qualified
+    /// name <c>class</c> is reachable through <c>getAttribute</c> and is still not the class content
+    /// attribute, exactly as <c>className</c> and <c>classList</c> already say it is not.
+    /// </summary>
+    [Test]
+    public void NamespacedAttributeSpelledClassIsNotOneOfTheElementsClasses()
+    {
+        using var fixture = DomTestFixture.Create(
+            "<!doctype html><body><span id='namespaced'></span><span id='own'></span></body>");
+        fixture.Execute("""
+            document.getElementById('namespaced').setAttributeNS('http://example.test/ns', 'class', 'match');
+            document.getElementById('own').setAttribute('class', 'match');
+            """);
+
+        // It is an attribute, and the qualified-name lookup finds it.
+        fixture.Text("document.getElementById('namespaced').getAttribute('class')").Should().Be("match");
+
+        // It is not the class content attribute, which is what every other reader of the element's classes
+        // already agrees about.
+        fixture.Text("document.getElementById('namespaced').className").Should().BeEmpty();
+        fixture.Number("document.getElementById('namespaced').classList.length").Should().Be(0);
+
+        // ... so the collection has to agree with them rather than with getAttribute.
+        fixture.Text("[...document.getElementsByClassName('match')].map(x => x.id).join(',')").Should().Be("own");
+    }
+
+    /// <summary>
+    /// The element walk behind a live collection keeps a stack of child indices whose first levels live
+    /// inside the walker and which spills to the heap below that, so a document deeper than the inline part
+    /// is the case that exercises the spill — and, on the way back up, the case that reads a level recorded
+    /// before it. Matches at every depth, and in tree order, is what says both halves of that stack agree.
+    /// </summary>
+    [Test]
+    public void DeeplyNestedDocumentIsWalkedInTreeOrderPastTheInlineIndexStack()
+    {
+        using var fixture = DomTestFixture.Create("<!doctype html><body><main id='root'></main></body>");
+        fixture.Execute("""
+            var depth = 40;
+            var parent = document.getElementById('root');
+            for (var i = 0; i < depth; i++) {
+                var child = document.createElement('div');
+                child.id = 'd' + i;
+                child.className = 'match';
+                // A sibling at every level, so unwinding has somewhere to go rather than running straight
+                // back to the root.
+                var sibling = document.createElement('span');
+                sibling.id = 's' + i;
+                sibling.className = 'match';
+                parent.appendChild(child);
+                parent.appendChild(sibling);
+                parent = child;
+            }
+            var items = document.getElementsByClassName('match');
+            // Pre-order: down the whole chain of divs first, then every span on the way back up, each one
+            // reached from the level its own index was pushed at.
+            var expected = [];
+            for (var i = 0; i < depth; i++) { expected.push('d' + i); }
+            for (var i = depth - 1; i >= 0; i--) { expected.push('s' + i); }
+            """);
+
+        fixture.Number("items.length").Should().Be(80);
+        fixture.Bool("[...items].map(x => x.id).join(',') === expected.join(',')").Should().BeTrue();
+        fixture.Bool("items[39].id === 'd39' && items.item(40).id === 's39' && items[79].id === 's0'").Should().BeTrue();
+        fixture.Bool("items.namedItem('s39') === document.getElementById('s39')").Should().BeTrue();
+        fixture.Bool("items[80] === undefined").Should().BeTrue();
+    }
+
     /// <summary>An XML document is never in quirks mode, so its comparison is exact from both roots.</summary>
     [Test]
     public void XmlDocumentRemainsCaseSensitive()

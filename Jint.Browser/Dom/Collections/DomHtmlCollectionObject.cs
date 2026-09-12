@@ -20,12 +20,18 @@ namespace Jint.Browser.Dom.Collections;
 internal sealed class DomHtmlCollectionObject<T> : DomCollectionBase where T : class, IElement
 {
     private readonly IHtmlCollection<T> _collection;
+    // The collection when it is the binding's own live one, and null when it is AngleSharp's -- read on
+    // every indexed access, so it is a field rather than a type test, the same shape and for the same reason
+    // as DomCollectionObject's static-NodeList branch.
+    private readonly DomLiveHtmlCollection? _live;
+
     private List<string> _names = [];
 
     internal DomHtmlCollectionObject(DomRealm realm, DomInterfaceDefinition definition, IHtmlCollection<T> collection)
         : base(realm, definition, collection)
     {
         _collection = collection;
+        _live = collection as DomLiveHtmlCollection;
     }
 
     /// <inheritdoc />
@@ -37,18 +43,66 @@ internal sealed class DomHtmlCollectionObject<T> : DomCollectionBase where T : c
     /// <inheritdoc />
     public override bool TryGetIndex(uint index, out JsValue value)
     {
-        if (index >= (uint) _collection.Length)
+        var element = ElementAt(index);
+
+        if (element is null)
         {
             value = JsValue.Undefined;
             return false;
         }
 
-        value = DomRealm.Wrap(_collection[(int) index]);
+        value = DomRealm.Wrap(element);
         return true;
     }
 
     /// <inheritdoc />
-    protected override bool HasIndex(uint index) => index < (uint) _collection.Length;
+    protected override bool HasIndex(uint index) => ElementAt(index) is not null;
+
+    /// <summary>
+    /// The <paramref name="index"/>th element, in <b>one</b> pass over the collection, or
+    /// <see langword="null"/> when it has none there.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Why no <c>Length</c> check stands in front of it.</b> Every implementation of
+    /// <c>IHtmlCollection&lt;T&gt;</c> this wrapper is given is a lazy view over a tree walk rather than a
+    /// list. AngleSharp's <c>HtmlCollection&lt;T&gt;</c> — <c>children</c>, and the snapshot collections —
+    /// holds an <c>IEnumerable&lt;T&gt;</c> whose <c>Length</c> is <c>Count()</c> and whose indexer is a
+    /// linear <c>GetItemByIndex</c>; its <c>HtmlFormControlsCollection</c> (<c>form.elements</c>) is a
+    /// <c>Where</c> over the document's form-control descendants; and the binding's own
+    /// <see cref="DomLiveHtmlCollection"/> re-runs its filter. So the bounds pre-check this method replaced
+    /// ran the entire query a second time on every element read — 36.3% of the <c>GetDescendantsAndSelf</c>
+    /// subtree in the profile on
+    /// <a href="https://github.com/sebastienros/jint/issues/4013">sebastienros/jint#4013</a>. Running out of
+    /// elements <i>is</i> the bounds answer, and it comes free with the walk that had to happen anyway.
+    /// </para>
+    /// <para>
+    /// The collections that really can be indexed in constant time — <c>childNodes</c>, <c>attributes</c>, a
+    /// token list — are not these. They reach <see cref="DomCollectionObject"/> and its generated accessor,
+    /// whose length probe is a field read, and it stays where it is.
+    /// </para>
+    /// </remarks>
+    private IElement? ElementAt(uint index)
+    {
+        if (_live is { } live)
+        {
+            return live.TryGetElementAt(index, out var element) ? element : null;
+        }
+
+        var remaining = index;
+
+        foreach (var candidate in _collection)
+        {
+            if (remaining == 0)
+            {
+                return candidate;
+            }
+
+            remaining--;
+        }
+
+        return null;
+    }
 
     /// <summary>
     /// https://dom.spec.whatwg.org/#interface-htmlcollection — the supported property names are every
@@ -142,9 +196,17 @@ internal sealed class DomHtmlCollectionObject<T> : DomCollectionBase where T : c
         return JsValue.Null;
     }
 
+    /// <remarks>
+    /// The duplicate check is a set rather than <c>names.Contains(…, StringComparer.Ordinal)</c>, which is
+    /// the LINQ overload: it is linear in the names found so far <em>and</em> allocates an enumerator per
+    /// candidate, so listing the names of a collection of <i>n</i> named elements cost O(n²) comparisons and
+    /// 2n allocations. The list is still what carries the order, which is the one thing the set cannot.
+    /// </remarks>
     private List<string> VisibleNames()
     {
         var names = new List<string>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
         foreach (var element in _collection)
         {
             Add(names, element.Id);
@@ -162,7 +224,7 @@ internal sealed class DomHtmlCollectionObject<T> : DomCollectionBase where T : c
             // The base class lists an ordinary own property itself, in property-bag order. Do not also
             // advertise a projected name for it, or enumeration and lookup would disagree.
             if (!string.IsNullOrEmpty(candidate)
-                && !names.Contains(candidate!, StringComparer.Ordinal)
+                && seen.Add(candidate!)
                 // A supported name spelling a canonical array index is unreachable as a property: the indexed
                 // half of the model answers that key and stops, which is why WebIDL leaves such a name out of
                 // [[OwnPropertyKeys]] and why ArrayLikeObject refuses to advertise one. namedItem still finds

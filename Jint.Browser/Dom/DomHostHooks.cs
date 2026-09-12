@@ -236,15 +236,24 @@ internal class DomHostHooks
         {
             // "If classes is the empty set, return an empty HTMLCollection" - and an empty one that is still
             // a collection, because a page holds it and reads its length.
-            return realm.WrapCollection<IElement>(new DomLiveHtmlCollection(static () => []));
+            return realm.WrapCollection<IElement>(new DomLiveHtmlCollection(root, DomElementFilter.None));
         }
 
-        return realm.WrapCollection<IElement>(new DomLiveHtmlCollection(() =>
-        {
-            // DOM §4.5: compatMode is "BackCompat" exactly while the node document's mode is "quirks".
-            var quirks = string.Equals((root as IDocument ?? root.Owner)?.CompatMode, "BackCompat", StringComparison.Ordinal);
-            return root.Descendants<IElement>().Where(element => HasEveryClass(element, classes, quirks));
-        }));
+        return realm.WrapCollection<IElement>(new DomLiveHtmlCollection(root, new ClassNameFilter(root, classes)));
+    }
+
+    /// <summary>
+    /// The filter of https://dom.spec.whatwg.org/#concept-getelementsbyclassname. A <see cref="DomElementFilter"/>
+    /// rather than a lambda so that a read allocates neither a closure nor an iterator; see that type.
+    /// </summary>
+    private sealed class ClassNameFilter(INode root, string[] classes) : DomElementFilter
+    {
+        private bool _quirks;
+
+        internal override void BeginRead()
+            => _quirks = string.Equals((root as IDocument ?? root.Owner)?.CompatMode, "BackCompat", StringComparison.Ordinal);
+
+        internal override bool Matches(IElement element) => HasEveryClass(element, classes, _quirks);
     }
 
     /// <summary>https://dom.spec.whatwg.org/#concept-getelementsbytagname</summary>
@@ -252,21 +261,26 @@ internal class DomHostHooks
     {
         var qualifiedName = DomConvert.RequiredText(arguments, 0, Member(root, "getElementsByTagName"));
         var htmlDocument = (root as IDocument ?? root.Owner) is IHtmlDocument;
-        var htmlName = AsciiLowercase(qualifiedName);
 
-        return realm.WrapCollection<IElement>(new DomLiveHtmlCollection(() =>
-            root.Descendants<IElement>().Where(element =>
+        return realm.WrapCollection<IElement>(
+            new DomLiveHtmlCollection(root, new TagNameFilter(qualifiedName, AsciiLowercase(qualifiedName), htmlDocument)));
+    }
+
+    /// <summary>The filter of https://dom.spec.whatwg.org/#concept-getelementsbytagname.</summary>
+    private sealed class TagNameFilter(string qualifiedName, string htmlName, bool htmlDocument) : DomElementFilter
+    {
+        internal override bool Matches(IElement element)
+        {
+            if (qualifiedName == "*")
             {
-                if (qualifiedName == "*")
-                {
-                    return true;
-                }
+                return true;
+            }
 
-                var candidate = QualifiedName(element);
-                return htmlDocument && string.Equals(element.NamespaceUri, NamespaceNames.HtmlUri, StringComparison.Ordinal)
-                    ? string.Equals(candidate, htmlName, StringComparison.Ordinal)
-                    : string.Equals(candidate, qualifiedName, StringComparison.Ordinal);
-            })));
+            var candidate = QualifiedName(element);
+            return htmlDocument && string.Equals(element.NamespaceUri, NamespaceNames.HtmlUri, StringComparison.Ordinal)
+                ? string.Equals(candidate, htmlName, StringComparison.Ordinal)
+                : string.Equals(candidate, qualifiedName, StringComparison.Ordinal);
+        }
     }
 
     /// <summary>https://dom.spec.whatwg.org/#concept-getelementsbynamespacename</summary>
@@ -280,16 +294,20 @@ internal class DomHostHooks
         }
 
         var localName = DomConvert.RequiredText(arguments, 1, member);
-        IEnumerable<IElement> Current()
-        {
-            // AngleSharp 1.8.1 preserves HTML local-name case, so the same DOM comparison now
-            // works in every namespace. Its native HTML namespace query still folds case.
-            return root.Descendants<IElement>().Where(element =>
-                (namespaceUri == "*" || string.Equals(NullIfEmpty(element.NamespaceUri), namespaceUri, StringComparison.Ordinal))
-                && (localName == "*" || string.Equals(element.LocalName, localName, StringComparison.Ordinal)));
-        }
 
-        return realm.WrapCollection<IElement>(new DomLiveHtmlCollection(Current));
+        return realm.WrapCollection<IElement>(new DomLiveHtmlCollection(root, new TagNameNSFilter(namespaceUri, localName)));
+    }
+
+    /// <summary>The filter of https://dom.spec.whatwg.org/#concept-getelementsbynamespacename.</summary>
+    /// <remarks>
+    /// AngleSharp 1.8.1 preserves HTML local-name case, so the same DOM comparison now works in every
+    /// namespace. Its native HTML namespace query still folds case.
+    /// </remarks>
+    private sealed class TagNameNSFilter(string? namespaceUri, string localName) : DomElementFilter
+    {
+        internal override bool Matches(IElement element)
+            => (namespaceUri == "*" || string.Equals(NullIfEmpty(element.NamespaceUri), namespaceUri, StringComparison.Ordinal))
+               && (localName == "*" || string.Equals(element.LocalName, localName, StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -327,13 +345,27 @@ internal class DomHostHooks
 
     /// <summary>Whether <paramref name="element"/>'s classes contain every one of <paramref name="classes"/>.</summary>
     /// <remarks>
+    /// <para>
     /// The element's own token set is scanned in place rather than split: this runs once per descendant per
     /// read of a live collection, and a page that keeps one and reads its <c>length</c> in a loop would
     /// otherwise allocate an array per element per read.
+    /// </para>
+    /// <para>
+    /// <b>The attribute is read by namespace and local name, not by qualified name.</b> DOM's
+    /// <a href="https://dom.spec.whatwg.org/#concept-class">classes</a> are the token set of
+    /// <c>classList</c>, and DOM §7.1 reads that attribute by "getting an attribute value given null
+    /// namespace and the local name <c>class</c>" — whereas <c>getAttribute("class")</c> is the
+    /// <i>qualified</i>-name lookup, which also finds an attribute someone put in a namespace under that
+    /// spelling and would answer its value in preference to the real one when an element carries both.
+    /// <c>className</c> and <c>classList</c> already read the content attribute, so the qualified-name form
+    /// made this algorithm the one reader of an element's classes that disagreed with them. It is also the
+    /// cheaper of the two on the hot path, because the qualified form ASCII-folds the name it is given on
+    /// every call for an element in the HTML namespace.
+    /// </para>
     /// </remarks>
     private static bool HasEveryClass(IElement element, string[] classes, bool quirks)
     {
-        var declared = element.GetAttribute("class");
+        var declared = element.GetAttribute(null, AttributeNames.Class);
 
         if (string.IsNullOrEmpty(declared))
         {

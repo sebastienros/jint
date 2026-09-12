@@ -139,6 +139,19 @@ internal sealed class DomAccessorDOMStringMap : DomCollectionAccessor
         return names;
     }
 
+    internal override bool HasSupportedName(object target, string name)
+    {
+        foreach (var entry in (global::System.Collections.Generic.IEnumerable<global::System.Collections.Generic.KeyValuePair<global::System.String, global::System.String>>) target)
+        {
+            if (entry.Value is not null && string.Equals(entry.Key, name, global::System.StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     internal override bool TryGetNamed(DomRealm realm, object target, string name, out global::Jint.Native.JsValue value)
     {
         var item = ((global::AngleSharp.Dom.IStringMap) target)[name];
@@ -234,8 +247,9 @@ internal sealed class DomAccessorHTMLFormElement : DomCollectionAccessor
     internal override global::System.Collections.Generic.IReadOnlyList<string> SupportedNames(object target)
     {
         var collection = (global::AngleSharp.Html.Dom.IHtmlFormElement) target;
-        var names = new global::System.Collections.Generic.List<string>(collection.Length);
-        for (var i = 0; i < collection.Length; i++)
+        var length = collection.Length;
+        var names = new global::System.Collections.Generic.List<string>(length);
+        for (var i = 0; i < length; i++)
         {
             var item = collection[i];
             if (item is null)
@@ -256,6 +270,29 @@ internal sealed class DomAccessorHTMLFormElement : DomCollectionAccessor
                 names.Add(name!);
             }
         }
+    }
+
+    internal override bool HasSupportedName(object target, string name)
+    {
+        if (string.IsNullOrEmpty(name))
+        {
+            return false;
+        }
+
+        var collection = (global::AngleSharp.Html.Dom.IHtmlFormElement) target;
+        var length = collection.Length;
+        for (var i = 0; i < length; i++)
+        {
+            var item = collection[i];
+            if (item is not null
+                && (string.Equals(item.GetAttribute("name"), name, global::System.StringComparison.Ordinal)
+                    || string.Equals(item.Id, name, global::System.StringComparison.Ordinal)))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     internal override bool TryGetNamed(DomRealm realm, object target, string name, out global::Jint.Native.JsValue value)
@@ -339,13 +376,29 @@ internal sealed class DomAccessorNamedNodeMap : DomCollectionAccessor
     internal override global::System.Collections.Generic.IReadOnlyList<string> SupportedNames(object target)
     {
         var collection = (global::AngleSharp.Dom.INamedNodeMap) target;
-        var names = new global::System.Collections.Generic.List<string>(collection.Length);
-        for (var i = 0; i < collection.Length; i++)
+        var length = collection.Length;
+        var names = new global::System.Collections.Generic.List<string>(length);
+        for (var i = 0; i < length; i++)
         {
             names.Add(collection[i]!.Name);
         }
 
         return names;
+    }
+
+    internal override bool HasSupportedName(object target, string name)
+    {
+        var collection = (global::AngleSharp.Dom.INamedNodeMap) target;
+        var length = collection.Length;
+        for (var i = 0; i < length; i++)
+        {
+            if (string.Equals(collection[i]!.Name, name, global::System.StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     internal override bool AreNamesEnumerable => false;

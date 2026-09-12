@@ -248,10 +248,7 @@ internal sealed class DomCollectionObject : DomCollectionBase, INamedPropertySup
             return names;
         }
 
-        var lowercaseOnly = DomTarget is INamedNodeMap { Length: > 0 } map
-                            && map[0] is { OwnerElement: { } owner }
-                            && string.Equals(owner.NamespaceUri, NamespaceNames.HtmlUri, StringComparison.Ordinal)
-                            && owner.Owner is IHtmlDocument;
+        var lowercaseOnly = LowercaseNamesOnly();
 
         var supported = new List<string>(names.Count);
 
@@ -271,6 +268,16 @@ internal sealed class DomCollectionObject : DomCollectionBase, INamedPropertySup
         return supported;
     }
 
+    /// <summary>
+    /// DOM §4.9.1's second step: whether this map's names are restricted to their own ASCII lowercase,
+    /// which they are exactly while the owning element is in the HTML namespace in an HTML document.
+    /// </summary>
+    private bool LowercaseNamesOnly()
+        => DomTarget is INamedNodeMap { Length: > 0 } map
+           && map[0] is { OwnerElement: { } owner }
+           && string.Equals(owner.NamespaceUri, NamespaceNames.HtmlUri, StringComparison.Ordinal)
+           && owner.Owner is IHtmlDocument;
+
     /// <summary>Whether <paramref name="name"/> ASCII-lowercased is <paramref name="name"/>.</summary>
     private static bool IsAsciiLowercase(string name)
     {
@@ -285,17 +292,32 @@ internal sealed class DomCollectionObject : DomCollectionBase, INamedPropertySup
         return true;
     }
 
+    /// <summary>
+    /// Whether <paramref name="name"/> is a supported property name — the membership question, asked on the
+    /// <b>read</b> path by <see cref="TryGetNamedValue"/> and by WebIDL's legacy <c>[[DefineOwnProperty]]</c>.
+    /// </summary>
+    /// <remarks>
+    /// It scans rather than asking <see cref="SupportedNames"/>, whose job is to <em>list</em>: for
+    /// <c>el.attributes.foo</c> that materialized every attribute name into a <c>List&lt;string&gt;</c>, then
+    /// a second filtered list, and then scanned it with a comparer overload that allocated an enumerator per
+    /// candidate — three allocations and a full walk of the map to answer a question about one member.
+    /// Membership is the same either way: duplicate removal cannot change it, and the one filter that can is
+    /// <see cref="LowercaseNamesOnly"/>, applied here to the name asked about instead of to every name there
+    /// is.
+    /// </remarks>
     private bool HasSupportedName(string name)
     {
-        foreach (var supportedName in SupportedNames())
+        if (!_accessor.HasNamedGetter)
         {
-            if (string.Equals(supportedName, name, StringComparison.Ordinal))
-            {
-                return true;
-            }
+            return false;
         }
 
-        return false;
+        if (ReferenceEquals(Definition, DomInterfaces.NamedNodeMap) && !IsAsciiLowercase(name) && LowercaseNamesOnly())
+        {
+            return false;
+        }
+
+        return _accessor.HasSupportedName(DomTarget, name);
     }
 
     bool INamedPropertySupport.HasSupportedName(string name) => HasSupportedName(name);

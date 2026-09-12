@@ -73,20 +73,46 @@ internal sealed class DomHtmlAllCollectionObject : DomCollectionBase, ICallable
     /// https://html.spec.whatwg.org/multipage/common-dom-interfaces.html#concept-get-all-indexed — the
     /// <c>index</c>th element, or nothing at all when there is no such element.
     /// </summary>
+    /// <remarks>
+    /// One walk, not two: AngleSharp's <c>HtmlAllCollection</c> is a lazy view over the document's element
+    /// descendants, so <c>Length</c> runs the whole query and the indexer runs it again. Running out of
+    /// elements <i>is</i> the bounds answer, which is the same reason
+    /// <see cref="DomHtmlCollectionObject{T}.TryGetIndex"/> stopped asking for a length first.
+    /// </remarks>
     public override bool TryGetIndex(uint index, out JsValue value)
     {
-        if (index >= (uint) _collection.Length)
+        var element = ElementAt(index);
+
+        if (element is null)
         {
             value = JsValue.Undefined;
             return false;
         }
 
-        value = DomRealm.Wrap(_collection[(int) index]);
+        value = DomRealm.Wrap(element);
         return true;
     }
 
     /// <inheritdoc />
-    protected override bool HasIndex(uint index) => index < (uint) _collection.Length;
+    protected override bool HasIndex(uint index) => ElementAt(index) is not null;
+
+    /// <summary>The <paramref name="index"/>th element of the collection, in one pass, or <see langword="null"/>.</summary>
+    private IElement? ElementAt(uint index)
+    {
+        var remaining = index;
+
+        foreach (var candidate in _collection)
+        {
+            if (remaining == 0)
+            {
+                return candidate;
+            }
+
+            remaining--;
+        }
+
+        return null;
+    }
 
     /// <summary>
     /// The supported property names: every element's non-empty <c>id</c> and every "all"-named element's
@@ -241,18 +267,18 @@ internal sealed class DomHtmlAllCollectionObject : DomCollectionBase, ICallable
         return _memoizedCollection;
     }
 
+    /// <remarks>
+    /// The source is this collection rather than a tree root, which is the one live collection in the
+    /// surface that is not "the element descendants of a node": <c>document.all</c>'s own membership is
+    /// already the filter's domain, and the wrapper has no reference to the document to root a walk at.
+    /// </remarks>
     private JsValue NewSubCollection(string name)
-        => DomRealm.WrapCollection<IElement>(new DomLiveHtmlCollection(() => Filtered(name)));
+        => DomRealm.WrapCollection<IElement>(new DomLiveHtmlCollection(_collection, new AllNamedFilter(name)));
 
-    private IEnumerable<IElement> Filtered(string name)
+    /// <summary>The filter of the sub-collection above: an id always, a <c>name</c> only on an "all"-named element.</summary>
+    private sealed class AllNamedFilter(string name) : DomElementFilter
     {
-        foreach (var element in _collection)
-        {
-            if (Matches(element, name))
-            {
-                yield return element;
-            }
-        }
+        internal override bool Matches(IElement element) => DomHtmlAllCollectionObject.Matches(element, name);
     }
 
     private static bool Matches(IElement element, string name)
@@ -262,9 +288,16 @@ internal sealed class DomHtmlAllCollectionObject : DomCollectionBase, ICallable
     private static bool IsAllNamed(IElement element)
         => element is IHtmlElement && _allNamed.Contains(element.LocalName);
 
+    /// <remarks>
+    /// The duplicate check is a set for the reason <c>DomHtmlCollectionObject.VisibleNames</c> gives: the
+    /// <c>Contains</c> overload taking a comparer is LINQ's, linear and one enumerator per candidate, and
+    /// <c>document.all</c> is the collection with the most of them.
+    /// </remarks>
     private List<string> VisibleNames()
     {
         var names = new List<string>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
         foreach (var element in _collection)
         {
             Add(names, element.Id);
@@ -280,7 +313,7 @@ internal sealed class DomHtmlAllCollectionObject : DomCollectionBase, ICallable
         void Add(List<string> names, string? candidate)
         {
             if (string.IsNullOrEmpty(candidate)
-                || names.Contains(candidate!, StringComparer.Ordinal)
+                || !seen.Add(candidate!)
                 // A supported name that spells a canonical array index is unreachable as a property — the
                 // indexed half answers first and stops — so WebIDL leaves it out of [[OwnPropertyKeys]] and
                 // ArrayLikeObject refuses to advertise it. namedItem still finds it.

@@ -1455,6 +1455,11 @@ internal sealed class ModelBuilder
             builder.Append("            // same instant, and TryGetNamed reads null as an authoritative miss. Otherwise a key could\n");
             builder.Append("            // enumerate while reading as undefined — the exact incoherence host verification catches.\n");
             builder.Append("            if (entry.Value is not null)\n            {\n                names.Add(entry.Key);\n            }\n        }\n\n        return names;\n    }\n\n");
+
+            builder.Append("    internal override bool HasSupportedName(object target, string name)\n    {\n");
+            builder.Append("        foreach (var entry in (").Append(CSharpNames.Render(pair)).Append(") target)\n        {\n");
+            builder.Append("            if (entry.Value is not null && string.Equals(entry.Key, name, global::System.StringComparison.Ordinal))\n");
+            builder.Append("            {\n                return true;\n            }\n        }\n\n        return false;\n    }\n\n");
         }
         else
         {
@@ -1473,18 +1478,34 @@ internal sealed class ModelBuilder
             var elementItems = FindIndexedGetter(model.ClrType) is { } indexedGetter
                 && Closure(indexedGetter.PropertyType).Any(t => t.FullName == "AngleSharp.Dom.IElement");
 
+            // The collection's count is read once into a local rather than left in the loop condition. It
+            // reads like a field on most of these interfaces and is one on several, but IHtmlFormElement's
+            // Length is its form-control collection's, which is a Count() over a filtered walk of the
+            // document: leaving it in the condition ran that query once per element listed.
             if (length is not null && itemName is null && elementItems)
             {
                 builder.Append("    internal override global::System.Collections.Generic.IReadOnlyList<string> SupportedNames(object target)\n    {\n");
                 builder.Append("        var collection = (").Append(target).Append(") target;\n");
-                builder.Append("        var names = new global::System.Collections.Generic.List<string>(collection.").Append(length.Name).Append(");\n");
-                builder.Append("        for (var i = 0; i < collection.").Append(length.Name).Append("; i++)\n        {\n");
+                builder.Append("        var length = collection.").Append(length.Name).Append(";\n");
+                builder.Append("        var names = new global::System.Collections.Generic.List<string>(length);\n");
+                builder.Append("        for (var i = 0; i < length; i++)\n        {\n");
                 builder.Append("            var item = collection[i];\n");
                 builder.Append("            if (item is null)\n            {\n                continue;\n            }\n\n");
                 builder.Append("            Add(names, item.GetAttribute(\"name\"));\n");
                 builder.Append("            Add(names, item.Id);\n        }\n\n        return names;\n\n");
                 builder.Append("        static void Add(global::System.Collections.Generic.List<string> names, string? name)\n        {\n");
                 builder.Append("            if (!string.IsNullOrEmpty(name) && !names.Contains(name!))\n            {\n                names.Add(name!);\n            }\n        }\n    }\n\n");
+
+                builder.Append("    internal override bool HasSupportedName(object target, string name)\n    {\n");
+                builder.Append("        if (string.IsNullOrEmpty(name))\n        {\n            return false;\n        }\n\n");
+                builder.Append("        var collection = (").Append(target).Append(") target;\n");
+                builder.Append("        var length = collection.").Append(length.Name).Append(";\n");
+                builder.Append("        for (var i = 0; i < length; i++)\n        {\n");
+                builder.Append("            var item = collection[i];\n");
+                builder.Append("            if (item is not null\n");
+                builder.Append("                && (string.Equals(item.GetAttribute(\"name\"), name, global::System.StringComparison.Ordinal)\n");
+                builder.Append("                    || string.Equals(item.Id, name, global::System.StringComparison.Ordinal)))\n");
+                builder.Append("            {\n                return true;\n            }\n        }\n\n        return false;\n    }\n\n");
             }
             else if (length is null || itemName is null)
             {
@@ -1494,9 +1515,17 @@ internal sealed class ModelBuilder
             {
                 builder.Append("    internal override global::System.Collections.Generic.IReadOnlyList<string> SupportedNames(object target)\n    {\n");
                 builder.Append("        var collection = (").Append(target).Append(") target;\n");
-                builder.Append("        var names = new global::System.Collections.Generic.List<string>(collection.").Append(length.Name).Append(");\n");
-                builder.Append("        for (var i = 0; i < collection.").Append(length.Name).Append("; i++)\n        {\n");
+                builder.Append("        var length = collection.").Append(length.Name).Append(";\n");
+                builder.Append("        var names = new global::System.Collections.Generic.List<string>(length);\n");
+                builder.Append("        for (var i = 0; i < length; i++)\n        {\n");
                 builder.Append("            names.Add(collection[i]!.").Append(itemName.Name).Append(");\n        }\n\n        return names;\n    }\n\n");
+
+                builder.Append("    internal override bool HasSupportedName(object target, string name)\n    {\n");
+                builder.Append("        var collection = (").Append(target).Append(") target;\n");
+                builder.Append("        var length = collection.").Append(length.Name).Append(";\n");
+                builder.Append("        for (var i = 0; i < length; i++)\n        {\n");
+                builder.Append("            if (string.Equals(collection[i]!.").Append(itemName.Name).Append(", name, global::System.StringComparison.Ordinal))\n");
+                builder.Append("            {\n                return true;\n            }\n        }\n\n        return false;\n    }\n\n");
             }
 
             // https://webidl.spec.whatwg.org/#LegacyUnenumerableNamedProperties, which NamedNodeMap and
