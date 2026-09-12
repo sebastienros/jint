@@ -149,7 +149,7 @@ public partial class PlaywrightCourseTests
             var operation = navigation.GetByRole(AriaRole.Button, new() { Name = "Open Group GetEndpoint", Exact = true });
             await operation.WaitForAsync();
             await operation.ClickAsync();
-            await navigation.GetByRole(AriaRole.Button, new() { Name = "/api/content/{contentItemId}HTTP Method: GET", Exact = true }).ClickAsync();
+            await navigation.GetByRole(AriaRole.Button, new() { Name = "/api/content/{contentItemId} HTTP Method: GET", Exact = true }).ClickAsync();
             await page.WaitForFunctionAsync("() => document.body.textContent.includes('/api/content/{contentItemId}')");
             await page.Locator("section[id='v1/tag/getendpoint/GET/api/content/{contentItemId}']")
                 .GetByRole(AriaRole.Button, new() { Name = "Test Request" }).ClickAsync();
@@ -175,6 +175,8 @@ public partial class PlaywrightCourseTests
         {
             if (!completed)
             {
+                TestContext.Out.WriteLine(await page.GetByRole(AriaRole.Navigation,
+                    new() { Name = "Sidebar for OpenApi V1", Exact = true }).AriaSnapshotAsync());
                 TestContext.Out.WriteLine(await page.EvaluateAsync<string>(
                     """
                     () => JSON.stringify({

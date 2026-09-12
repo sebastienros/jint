@@ -18,7 +18,7 @@ internal static class FlexRow
             return false;
         }
 
-        var style = cascade.CompleteOf(element);
+        var style = cascade.LayoutOf(element);
         return style is not null
             && CssCascade.ValueOf(style, "flex-direction") is not ("column" or "column-reverse")
             && CssCascade.ValueOf(style, "flex-wrap") is not ("wrap" or "wrap-reverse");
@@ -26,7 +26,7 @@ internal static class FlexRow
 
     internal static bool IsReversed(IElement element, CssCascade.Traversal? cascade)
     {
-        var style = cascade?.CompleteOf(element);
+        var style = cascade?.LayoutOf(element);
         return style is not null
             && ((CssCascade.ValueOf(style, "flex-direction") == "row-reverse")
                 != (CssCascade.ValueOf(style, "direction") == "rtl"));
@@ -34,11 +34,11 @@ internal static class FlexRow
 
     internal static string Alignment(IElement child, IElement parent, CssCascade.Traversal? cascade)
     {
-        var style = cascade?.CompleteOf(child);
+        var style = cascade?.LayoutOf(child);
         var alignment = style is null ? null : CssCascade.ValueOf(style, "align-self");
         if (alignment is null or "" or "auto")
         {
-            style = cascade?.CompleteOf(parent);
+            style = cascade?.LayoutOf(parent);
             alignment = style is null ? null : CssCascade.ValueOf(style, "align-items");
         }
 
@@ -56,7 +56,7 @@ internal static class FlexRow
         var shrinkageTotal = 0d;
         for (var i = 0; i < children.Length; i++)
         {
-            var style = cascade?.CompleteOf(children[i]);
+            var style = cascade?.LayoutOf(children[i]);
             var basis = style is null ? null : CssCascade.ValueOf(style, "flex-basis");
             var width = style is null ? null : CssCascade.ValueOf(style, "width");
             widths[i] = Length(basis, available) ?? Length(width, available) ?? FlatLayout.RowHeight;

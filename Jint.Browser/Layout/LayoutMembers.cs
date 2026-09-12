@@ -49,7 +49,7 @@ internal static class LayoutMembers
     /// </remarks>
     internal static JsValue ClientRects(DomRealm realm, IElement element)
     {
-        return Layout(realm, element)?.ClientBoxOf(element) is { } box
+        return PageOf(realm, element)?.Layout.ClientBoxOf(element) is { } box
             ? DomRects.List(realm, DomRects.Of(realm.Engine, box))
             : DomRects.List(realm);
     }
@@ -231,7 +231,7 @@ internal static class LayoutMembers
 
     /// <summary>The element's viewport-relative box, or the empty one when it has none.</summary>
     private static FlatBox ClientBox(DomRealm realm, IElement element)
-        => Layout(realm, element)?.ClientBoxOf(element) ?? FlatBox.Empty;
+        => PageOf(realm, element)?.Layout.ClientBoxOf(element) ?? FlatBox.Empty;
 
     private static double Extent(DomRealm realm, IElement element, bool horizontal)
     {

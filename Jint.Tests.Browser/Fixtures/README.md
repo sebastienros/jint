@@ -49,7 +49,7 @@ React does not) would otherwise read a draft it had already cleared.
 | `vue-folder-tree` | A Vue tree mounted while hidden, revealed after fetch, with child rendering gated by `ResizeObserver` height; async folder insertion and shallow root replacement | passes |
 | `monaco-amd` | Orchard's tenant-relative Monaco AMD configuration, the editor bundle's CSS plugin dependency, and creation of an editor model | passes |
 | `swagger-ui` | Orchard's Swagger UI bundle over CDP: schema loading, expanding operations, try-out controls and executing a request | passes |
-| `scalar-openapi` | Scalar.AspNetCore 2.12.9 with the full OrchardCore Blog OpenAPI schema; Vue/Floating UI geometry and visible GetEndpoint sidebar rendering over real Playwright CDP | pending native CSS recursion fix |
+| `scalar-openapi` | Scalar.AspNetCore 2.12.9 with the full OrchardCore Blog OpenAPI schema; Vue/Floating UI geometry and visible GetEndpoint sidebar rendering over real Playwright CDP | passes |
 | `todomvc-preact` | Preact hooks writing to the DOM directly, with no scheduler between them | passes |
 | `todomvc-svelte` | Svelte 5 compiled ahead of time: no framework runtime is loaded, only the component's own output | passes |
 | `ssr-hydration` | React `hydrateRoot` over server-rendered markup — the nodes are adopted, not replaced, and `onRecoverableError` stays empty | passes |
@@ -142,7 +142,10 @@ for [#3882](https://github.com/sebastienros/jint/issues/3882), SHA-256
 `e3396cef8f4d49580d4b63464c7d7dfc209a01b8f69bd506fc7e6c0d4e691be3`.
 The entry document preserves Scalar's generated bootstrap and empty proxy setting; the vendored assets are
 unmodified. `FixtureRoutes.Scalar` serves both root and tenant-prefixed endpoints, without OrchardCore or
-external services. Authentication is intentionally omitted: operation rendering fails before it is needed.
+external services. The fixture covers operation rendering and opening the API Client without authenticated API calls.
+Visibility and flex queries share only the CSS properties they need, and target rectangles use the same
+placement algorithm as full hit-test layouts without positioning unrelated descendants. Accessibility
+snapshots share their visibility cascade through name computation. No result survives a query.
 Both drivers retain Orchard's original 30-second task budget. Playwright uses the centrally pinned 1.62.0
 package and `ConnectOverCDPAsync`. The separate NetworkIdle bookkeeping defect was reduced in
 [#3883](https://github.com/sebastienros/jint/issues/3883) to an upstream Playwright issue,

@@ -195,7 +195,7 @@ public sealed class CascadeTraversalTests
             <div class="parent"><span id="inherited"></span><span id="visible" class="paint-only"></span></div>
             """));
         var styles = new CountingStyles(document.DefaultView!.GetStyleCollection(new DefaultRenderDevice()));
-        var traversal = new CssCascade.Traversal(styles, visibilityOnly: true);
+        var traversal = new CssCascade.Traversal(styles, scope: CssCascade.StyleScope.Visibility);
 
         var inherited = traversal.Of(document.GetElementById("inherited")!)!;
         inherited.GetPropertyValue("display").Should().Be("block");
@@ -231,6 +231,57 @@ public sealed class CascadeTraversalTests
         computed.GetPropertyPriority("color").Should().Be("important");
         computed.GetPropertyValue("color").Should().Be(native.GetPropertyValue("color"));
         computed.GetPropertyValue("visibility").Should().Be(native.GetPropertyValue("visibility"));
+    }
+
+    [Test]
+    public async Task AccessibilitySharesVisibilityWithinOneSnapshotOnly()
+    {
+        using var defaults = BrowsingContext.New(Configuration.Default.WithCss());
+        var provider = new CountingProvider(defaults.GetService<ICssDefaultStyleSheetProvider>()!);
+        using var context = BrowsingContext.New(Configuration.Default.WithCss().With(provider));
+        using var document = await context.OpenAsync(response => response.Content(
+            "<style>:root{--show:block} button{display:var(--show)}</style>"
+            + "<main><button><span>Save</span></button></main>"));
+        provider.Reads = 0;
+
+        var first = AccessibilityTree.Build(document, AccessibilityOptions.Snapshot);
+        provider.Reads.Should().Be(1, "visibility and accessible names share the snapshot's style collection");
+        AccessibilitySnapshot.Render(first).Should().Contain("Save");
+        document.DocumentElement!.SetAttribute("style", "--show:none");
+        var second = AccessibilityTree.Build(document, AccessibilityOptions.Snapshot);
+        provider.Reads.Should().Be(2, "a later snapshot must observe same-turn style changes");
+        AccessibilitySnapshot.Render(second).Should().NotContain("Save");
+    }
+
+    [Test]
+    public async Task LayoutScopePreservesFlexValuesAndVariableInheritance()
+    {
+        using var context = BrowsingContext.New(Configuration.Default.WithCss());
+        using var document = await context.OpenAsync(response => response.Content(
+            """
+            <style>
+              :root { --basis: 24px; --grow: 2; --flow: row-reverse; --align: center }
+              main { display: flex; flex-direction: var(--flow); align-items: var(--align); direction: rtl }
+              div { flex: var(--grow) 1 var(--basis); width: 48px; visibility: inherit }
+              .override { --basis: 32px; align-self: flex-end; flex-grow: 3 !important }
+            </style>
+            <main><div></div><div class="override"><span></span></div></main>
+            """));
+        var styles = document.DefaultView!.GetStyleCollection(new DefaultRenderDevice());
+        var complete = new CssCascade.Traversal(styles);
+        var layout = new CssCascade.Traversal(styles, CssCascade.StyleScope.Layout);
+        foreach (var element in document.All.Reverse())
+        {
+            var expected = complete.Of(element)!;
+            var actual = layout.Of(element)!;
+            actual.Should().NotBeNull();
+            foreach (var name in new[] { "display", "visibility", "flex-direction", "flex-wrap", "direction",
+                         "align-self", "align-items", "flex-basis", "width", "flex-grow", "flex-shrink" })
+            {
+                actual.GetPropertyValue(name).Should().Be(expected.GetPropertyValue(name),
+                    "{0} on {1} must retain the complete cascade's answer", name, element.LocalName);
+            }
+        }
     }
 
     private sealed class CountingStyles(IStyleCollection inner) : IStyleCollection

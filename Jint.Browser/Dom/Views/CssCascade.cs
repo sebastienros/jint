@@ -103,15 +103,24 @@ internal static class CssCascade
     /// uses directly. Its parent-computed overload is internal, so a traversal still needs this path to
     /// avoid rematching every ancestor for every element.
     /// </remarks>
-    internal sealed class Traversal(IStyleCollection styles, bool visibilityOnly = false, bool includeVariables = false)
+    internal enum StyleScope
     {
-        private readonly IStyleCollection _styles = visibilityOnly ? new VisibilityStyles(styles, includeVariables) : styles;
+        All,
+        Visibility,
+        Layout
+    }
+
+    internal sealed class Traversal(IStyleCollection styles, StyleScope scope = StyleScope.All, bool includeVariables = false)
+    {
+        private readonly IStyleCollection _styles = scope != StyleScope.All
+            ? new ScopedStyles(styles, scope, includeVariables)
+            : styles;
         private readonly Dictionary<IElement, Cascade> _cascaded = new();
         private readonly Stack<IElement> _pending = new();
         private Traversal? _variableTraversal;
-        private Traversal? _completeTraversal;
+        private Traversal? _layoutTraversal;
 
-        internal static Traversal? For(IDocument? document, bool visibilityOnly = false)
+        internal static Traversal? For(IDocument? document, StyleScope scope = StyleScope.All)
         {
             if (document?.DefaultView is not { } window)
             {
@@ -120,11 +129,11 @@ internal static class CssCascade
 
             var device = document.Context.GetService<IRenderDevice>() ?? new DefaultRenderDevice();
             var styles = window.GetStyleCollection(device);
-            return new Traversal(styles, visibilityOnly);
+            return new Traversal(styles, scope);
         }
 
-        internal ICssStyleDeclaration? CompleteOf(IElement element)
-            => visibilityOnly ? (_completeTraversal ??= new Traversal(styles)).Of(element) : Of(element);
+        internal ICssStyleDeclaration? LayoutOf(IElement element)
+            => scope == StyleScope.Visibility ? (_layoutTraversal ??= new Traversal(styles, StyleScope.Layout)).Of(element) : Of(element);
 
         internal ICssStyleDeclaration? Of(IElement element)
         {
@@ -147,17 +156,17 @@ internal static class CssCascade
                     // Capture local variables before inheritance. A rule matching both parent and
                     // child shares property objects, so reference identity cannot identify inheritance.
                     var cascade = _styles.ComputeExplicitStyle(current);
-                    if (visibilityOnly && !includeVariables)
+                    if (scope != StyleScope.All && !includeVariables)
                     {
-                        RetainVisibility(cascade);
+                        RetainScope(cascade, scope);
                     }
 
                     var variables = parent is not null && !cascade.Any(static property => property.Name.StartsWith("--", StringComparison.Ordinal))
                         ? parent.Variables
                         : new CustomProperties(cascade, parent?.Variables);
-                    if (visibilityOnly)
+                    if (scope != StyleScope.All)
                     {
-                        RetainVisibility(cascade);
+                        RetainScope(cascade, scope);
                     }
 
                     if (parent is not null)
@@ -171,16 +180,18 @@ internal static class CssCascade
                         && cascade.Any(static property => property.IsInherited && !property.CanBeInherited))
                     {
                         cascade = _styles.GetDeclarations(current);
-                        if (visibilityOnly)
+                        if (scope != StyleScope.All)
                         {
-                            RetainVisibility(cascade);
+                            RetainScope(cascade, scope);
                         }
                     }
 
-                    // Most boxes use literal display/visibility. Resolve a variable-dependent value
-                    // through the complete environment only when one actually consumes it.
-                    var computed = visibilityOnly && !includeVariables && cascade.Any(static property => property.RawValue is CssReferenceValue)
-                        ? (_variableTraversal ??= new Traversal(styles, visibilityOnly: true, includeVariables: true)).Of(current)
+                    // Literal values need no custom-property graph. A pending shorthand longhand
+                    // exposes an empty value through the public API; its internal child value may
+                    // reference variables too, so resolve that case with the complete environment.
+                    var computed = scope != StyleScope.All && !includeVariables && cascade.Any(static property => property.RawValue is CssReferenceValue
+                        || property.RawValue is not null && property.Value.Length == 0)
+                        ? (_variableTraversal ??= new Traversal(styles, scope, includeVariables: true)).Of(current)
                         : Compute(current, cascade, variables, parent?.Computed);
                     parent = new Cascade(cascade, variables, computed);
                     _cascaded.Add(current, parent);
@@ -228,7 +239,7 @@ internal static class CssCascade
             {
                 var context = new ComputeContext(_styles.Device, element.Owner?.Context, properties);
                 var computed = declarations.Compute(context);
-                if (!visibilityOnly)
+                if (scope == StyleScope.All)
                 {
                     properties.ApplyTo(computed);
                 }
@@ -262,27 +273,31 @@ internal static class CssCascade
 
         private sealed record Cascade(ICssStyleDeclaration Raw, CustomProperties Variables, ICssStyleDeclaration? Computed);
 
-        private static void RetainVisibility(ICssStyleDeclaration declarations)
+        private static void RetainScope(ICssStyleDeclaration declarations, StyleScope scope)
         {
             for (var index = declarations.Length - 1; index >= 0; index--)
             {
                 var name = declarations[index];
-                if (name is not ("display" or "visibility" or "all"))
+                if (!Includes(scope, name))
                 {
                     declarations.RemoveProperty(name);
                 }
             }
         }
 
-        // Visibility asks only whether a box exists. Keep native matching, specificity and inheritance,
-        // but do not match paint-only rules or compute unrelated (possibly unsupported) CSS values.
-        // This collection lives for one synchronous query, never across a DOM or CSSOM write.
-        private sealed class VisibilityStyles(IStyleCollection styles, bool includeVariables) : IStyleCollection
+        // CSS Flexbox layout consumes these declarations only. Preserve native matching and variable
+        // resolution, without computing paint values for every child whose synthetic box is requested.
+        private static bool Includes(StyleScope scope, string name)
+            => name is "display" or "visibility" or "all"
+                || scope == StyleScope.Layout && name is "flex-direction" or "flex-wrap" or "direction"
+                    or "align-self" or "align-items" or "flex-basis" or "width" or "flex-grow" or "flex-shrink"
+                    or "flex" or "flex-flow" or "place-items" or "place-self";
+
+        private sealed class ScopedStyles(IStyleCollection styles, StyleScope scope, bool includeVariables) : IStyleCollection
         {
-            private readonly ICssStyleRule[] _rules = styles.Where(includeVariables
-                ? static rule => rule.Style.Any(static property => property.Name is "display" or "visibility" or "all"
-                    || property.Name.StartsWith("--", StringComparison.Ordinal))
-                : static rule => rule.Style.Any(static property => property.Name is "display" or "visibility" or "all")).ToArray();
+            private readonly ICssStyleRule[] _rules = styles.Where(rule => rule.Style.Any(property =>
+                Includes(scope, property.Name)
+                || includeVariables && property.Name.StartsWith("--", StringComparison.Ordinal))).ToArray();
 
             public IRenderDevice Device => styles.Device;
 

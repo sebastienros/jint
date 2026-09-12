@@ -52,11 +52,16 @@ role (`html-abbr`, `html-audio`, `keyboard`, `variable` and their kind) the elem
 anything at all), and `Full` is what `Accessibility.getFullAXTree` answers with. A snapshot states each
 string once — text that is already a node's accessible name is not published again as a text node.
 
+**A snapshot owns one visibility cascade**, shared by its tree walk and accessible-name computations.
+The builder and cascade live only for that synchronous query; the next snapshot rebuilds them so same-turn
+CSSOM, class, attribute and media changes remain visible. A stand-alone name computation can still use
+an uncached visibility resolver.
+
 The four fixture pages under `Jint.Tests.Browser/Accessibility/Golden/` are rendered up to three ways each and the
 output is checked in. **`JINT_BROWSER_GOLDEN=update` rewrites them**, the same discipline `JINT_SPEC_ANCHORS`
 and `JINT_DOM_BINDINGS` use: the diff is the artefact, so a change to what an agent reads has to be looked at.
 
-Divergences that are **AngleSharp's**, found by this work, to be reported upstream rather than patched here:
+Divergences found by this work; Jint owns the missing browser semantics under the package guidance:
 
 | What | The standard | AngleSharp.Css divergence and current status |
 | --- | --- | --- |

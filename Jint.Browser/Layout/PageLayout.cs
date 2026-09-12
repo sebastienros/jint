@@ -64,6 +64,21 @@ internal sealed class PageLayout
     internal FlatLayout.SizeQuery MeasureSizes()
         => new(_runtime.Document, Visibility, _runtime.Viewport.Width, Visibility.CreateTraversal(_runtime.Document));
 
+    /// <summary>A single rectangle using the same placement and scroll clamp as a complete layout.</summary>
+    internal FlatBox? ClientBoxOf(IElement element)
+    {
+        var sizes = MeasureSizes();
+        var height = _runtime.Document?.DocumentElement is { } root ? sizes.Measure(root).Height : 0;
+        _scrollY = Math.Min(_scrollY, Math.Max(0, height - _runtime.Viewport.Height));
+        if (!sizes.HasBox(element))
+        {
+            return null;
+        }
+
+        var box = sizes.Place(element);
+        return box with { Y = box.Y - _scrollY };
+    }
+
     /// <summary>The layout of the document as it stands, with the current viewport and scroll offset.</summary>
     internal FlatLayout Current()
     {

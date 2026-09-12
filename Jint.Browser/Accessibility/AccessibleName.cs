@@ -2,6 +2,7 @@ using System.Text;
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
 using Jint.Browser.Dom;
+using Jint.Browser.Dom.Views;
 
 namespace Jint.Browser.Accessibility;
 
@@ -21,7 +22,13 @@ internal sealed class AccessibleName
 {
     private readonly ElementVisibility _visibility;
 
-    internal AccessibleName(ElementVisibility visibility) => _visibility = visibility;
+    private readonly CssCascade.Traversal? _cascade;
+
+    internal AccessibleName(ElementVisibility visibility, CssCascade.Traversal? cascade = null)
+    {
+        _visibility = visibility;
+        _cascade = cascade;
+    }
 
     /// <summary>Computes the accessible name of <paramref name="element"/>, or the empty string.</summary>
     internal string Compute(IElement element, string role)
@@ -107,7 +114,7 @@ internal sealed class AccessibleName
         {
             // Step 2A. A hidden node contributes nothing unless it is the direct target of the ARIA or
             // native host-language reference that reached it.
-            if (!referenced && _visibility.ReasonFor(element) != AxIgnoredReason.None)
+            if (!referenced && _visibility.ReasonFor(element, _cascade) != AxIgnoredReason.None)
             {
                 return string.Empty;
             }
@@ -207,7 +214,7 @@ internal sealed class AccessibleName
 
                 // Without a used display there is nothing to measure, so HTML's suggested rendering decides
                 // whether two children run together: "<b>a</b><b>b</b>" is "ab", "<p>a</p><p>b</p>" is "a b".
-                if (!HtmlDisplay.IsInlineLevel(HtmlDisplay.Resolve(childElement, _visibility.Style(childElement).Display)))
+                if (!HtmlDisplay.IsInlineLevel(HtmlDisplay.Resolve(childElement, _visibility.Style(childElement, _cascade).Display)))
                 {
                     Append(builder, contribution);
                 }

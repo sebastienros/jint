@@ -24,6 +24,19 @@ public class FlatLayoutTests
     private const int Row = 16;
 
     [Test]
+    public async Task AHiddenRectangleStillClampsScrollAfterTheDocumentShrinks()
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<main id='content'>"
+            + string.Concat(Enumerable.Repeat("<div>row</div>", 100)) + "</main>");
+        await page.EvaluateAsync("scrollTo(0, 500)");
+        (await page.EvaluateAsync<double>("scrollY")).Should().Be(500);
+        await page.EvaluateAsync("document.getElementById('content').hidden = true; document.getElementById('content').getBoundingClientRect()");
+        (await page.EvaluateAsync<double>("scrollY")).Should().Be(0);
+    }
+
+    [Test]
     public async Task AFailedRootComputationDoesNotForgetThatTheCascadePreviouslyAnswered()
     {
         await using var browser = new global::Jint.Browser.Browser();
