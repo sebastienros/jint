@@ -1230,9 +1230,6 @@ internal static class WptBrowserExclusions
         new("dom/nodes/Node-replaceChild.html", "*a doctype should throw a HierarchyRequestError.", WptDivergence.NeedsTriage),
         new("dom/nodes/Node-replaceChild.html", "*node should throw a HierarchyRequestError.", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "Basic*.", WptDivergence.NeedsTriage),
-        // Both halves of the same fact, on toggleAttribute: `toggleAttribute("")` does not raise the
-        // InvalidCharacterError DOM §4.9 requires, and a name the standard allows is refused with one.
-        new("dom/nodes/attributes.html", "*toggleAttribute)", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElementNS.html", "* XML document: \"http://example.com/\",\"0:a\",null", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElementNS.html", "* XML document: \"http://example.com/\",\"a:̀\",null", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElementNS.html", "* XML document: \"http://example.com/\",\"a:;\",null", WptDivergence.NeedsTriage),
