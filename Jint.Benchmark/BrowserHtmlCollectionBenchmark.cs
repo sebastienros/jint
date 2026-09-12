@@ -43,13 +43,13 @@ namespace Jint.Benchmark;
 /// children. Shallow, so it isolates the second walk from the cost of the walk itself.
 /// </description></item>
 /// <item><description>
-/// <see cref="LiveNodeList"/> — the identical loop over <c>childNodes</c>, whose elements are the same
-/// hundred nodes. It is a <c>NodeList</c>, so it reaches the generated accessor and a constant-time indexer,
-/// and nothing in this change touches that lane. <b>The control that must not move.</b>
+/// <see cref="LiveNodeList"/> — the same loop over <c>childNodes</c>, whose elements are the same hundred
+/// nodes. It is a <c>NodeList</c>, so it reaches the generated accessor and a constant-time indexer, and
+/// nothing in this change touches that lane. <b>The control that must not move.</b>
 /// </description></item>
 /// <item><description>
-/// <see cref="PlainArray"/> — the floor and the baseline: the identical loop over the <c>Array.from</c> of
-/// the same elements, so the gap is the price of the collection being a live projection.
+/// <see cref="PlainArray"/> — the floor and the baseline: the same loop over the <c>Array.from</c> of the
+/// same elements, so what a row has above it is the price of the collection being a live projection.
 /// </description></item>
 /// </list>
 /// <para>
@@ -59,8 +59,29 @@ namespace Jint.Benchmark;
 /// drives the same <c>ArrayLikeObject.TryGetIndex</c> call site, whose class profile holds one guess, and a
 /// shared engine would hand whichever row ran first a monomorphic read and the rest a cold indirect call.
 /// Page construction and the HTML parse stay outside the measurement; what the measured call adds over the
-/// loop itself is one mailbox round trip per operation, which is the same term in every row including the
-/// baseline.
+/// loop itself is one mailbox round trip per operation.
+/// </para>
+/// <para>
+/// <b>The pass counts differ per row, deliberately, and must not be tidied into one constant.</b> That
+/// round trip is an <i>additive</i> per-invocation cost with its own scheduling jitter, so it does not
+/// cancel against the baseline the way a multiplicative one does — see <b>"A row through
+/// <c>Page.EvaluateAsync</c> must amortise the mailbox round trip"</b> in
+/// <a href="AGENTS.md"><c>Jint.Benchmark/AGENTS.md</c></a>, which carries the rule and the paired run that
+/// established it. The four target rows walk the document and cost milliseconds at ten passes, so ten is
+/// all they need. The two <i>control</i> rows are the ones the rule bites: <c>childNodes</c> is indexed in
+/// constant time and a plain array more so, so at ten passes each was a few microseconds of work behind a
+/// round trip an order of magnitude larger — a row that could not have detected a regression in what it
+/// controls for, and that measured as multimodal (<c>MValue</c> 3.56 on <see cref="PlainArray"/>) because
+/// what it was mostly reporting was thread scheduling. Their counts are set so that every row is at least
+/// in the low milliseconds and the round trip is a per-cent-level term.
+/// </para>
+/// <para>
+/// <b>What that costs, and it is the one trap here: a row is comparable to itself across builds, and to no
+/// other row.</b> Because the counts differ, <c>Ratio</c> is not the price of a live projection per read —
+/// it is that price times a pass-count ratio. The counts are chosen so the six means land within about
+/// 1.7–2.5 ms of each other, which keeps the table readable, but that near-equality is arranged rather than
+/// measured and means nothing on its own. Read each row against the same row on the other build; a paired
+/// run (<c>measure-paired.ps1</c>) does exactly that and is the right instrument for this class.
 /// </para>
 /// </remarks>
 [MemoryDiagnoser]
@@ -74,60 +95,95 @@ public class BrowserHtmlCollectionBenchmark
     public int Count { get; set; }
 
     /// <summary>
-    /// 10 passes of the inner loop per operation. The read is quadratic in the collection's length by
-    /// construction — these collections are live, so nothing may memoize — so this is what keeps an
-    /// operation in the low milliseconds rather than the tens.
+    /// The four rows that walk the document. One pass is already milliseconds — the read is quadratic in the
+    /// collection's length by construction, because these collections are live and nothing may memoize — so
+    /// ten passes puts the row well clear of the round trip without making it absurd.
     /// </summary>
-    private const string Passes = "10";
+    private const int WalkPasses = 10;
+
+    /// <summary>
+    /// <see cref="Children"/> is the shallow one — element children of a single node rather than a walk of
+    /// the document — so it needs several times the passes of its siblings to sit in the same band.
+    /// </summary>
+    private const int ChildrenPasses = 60;
+
+    /// <summary>
+    /// <see cref="LiveNodeList"/> reads a <c>NodeList</c>, which is indexed in constant time, so a pass is
+    /// microseconds rather than milliseconds and it takes hundreds of them to amortise the round trip. This
+    /// is a <b>control</b> row, and a control that cannot resolve a change in what it controls for is worse
+    /// than no control at all.
+    /// </summary>
+    private const int NodeListPasses = 350;
+
+    /// <summary>
+    /// <see cref="PlainArray"/> is the floor, and its pass costs very nearly what
+    /// <see cref="NodeListPasses"/>' does — measured within about 10% of it, because at 51 iterations with a
+    /// <c>c.length</c> read apiece the interpreter's own loop dominates either element read. Sized to land
+    /// the floor in the same band as the rows it is a floor for, so the <c>Ratio</c> column means something.
+    /// </summary>
+    private const int ArrayPasses = 400;
 
     /// <summary>
     /// The loop, in shape from the wpt helper <see cref="BrowserNodeListBenchmark"/> takes it from: the match
     /// is at index 50, and the <c>break</c> is what makes an operation about half the collection.
     /// </summary>
-    private const string Loop = $$"""
+    /// <remarks>
+    /// The result accumulates the index found on <i>every</i> pass rather than overwriting one variable, so
+    /// no pass is dead code — the interpreter hoists nothing today, but a row whose answer does not depend
+    /// on its own loop is one runtime change away from measuring nothing.
+    /// </remarks>
+    private static string Loop(int passes) => $$"""
         (function () {
-            var index = -1;
-            for (var i = 0; i < {{Passes}}; i++) {
+            var total = 0;
+            for (var i = 0; i < {{passes}}; i++) {
                 for (var j = 0; j < c.length; j++) {
-                    if (c[j] === el) { index = j; break; }
+                    if (c[j] === el) { total += j; break; }
                 }
             }
-            return index;
+            return total;
         })()
         """;
 
     private Browser.Browser _browser = null!;
-    private Page _className = null!;
-    private Page _tagName = null!;
-    private Page _formElements = null!;
-    private Page _children = null!;
-    private Page _liveNodeList = null!;
-    private Page _plainArray = null!;
+    private CollectionRow _className = null!;
+    private CollectionRow _tagName = null!;
+    private CollectionRow _formElements = null!;
+    private CollectionRow _children = null!;
+    private CollectionRow _liveNodeList = null!;
+    private CollectionRow _plainArray = null!;
 
     [GlobalSetup]
     public async Task Setup()
     {
         _browser = new Browser.Browser();
 
-        _className = await CreatePageAsync("var c = document.getElementsByClassName('foo');");
-        _tagName = await CreatePageAsync("var c = document.getElementsByTagName('span');");
-        _formElements = await CreatePageAsync("var c = document.getElementById('form').elements;");
-        _children = await CreatePageAsync("var c = document.getElementById('root').children;");
-        _liveNodeList = await CreatePageAsync("var c = document.getElementById('root').childNodes;");
-        _plainArray = await CreatePageAsync("var c = Array.from(document.getElementsByClassName('foo'));");
+        _className = await CreateRowAsync("var c = document.getElementsByClassName('foo');", WalkPasses);
+        _tagName = await CreateRowAsync("var c = document.getElementsByTagName('span');", WalkPasses);
+        _formElements = await CreateRowAsync("var c = document.getElementById('form').elements;", WalkPasses);
+        _children = await CreateRowAsync("var c = document.getElementById('root').children;", ChildrenPasses);
+        _liveNodeList = await CreateRowAsync("var c = document.getElementById('root').childNodes;", NodeListPasses);
+        _plainArray = await CreateRowAsync(
+            "var c = Array.from(document.getElementsByClassName('foo'));", ArrayPasses);
+    }
+
+    /// <summary>One row's page and the script it is measured with, whose pass count is this row's own.</summary>
+    private sealed class CollectionRow(Page page, string script)
+    {
+        internal Task<double> Run() => page.EvaluateAsync<double>(script);
     }
 
     /// <summary>
     /// One page holding <paramref name="bind"/>'s <c>c</c> and the element the loop looks for, warmed with
-    /// this row's own loop and nothing else.
+    /// this row's own loop — at this row's own pass count — and nothing else.
     /// </summary>
-    private async Task<Page> CreatePageAsync(string bind)
+    private async Task<CollectionRow> CreateRowAsync(string bind, int passes)
     {
         var page = await _browser.NewPageAsync();
+        var script = Loop(passes);
         await page.SetContentAsync(Document(Count));
         await page.EvaluateAsync<double>(bind + " var el = c[50]; 0;");
-        await page.EvaluateAsync<double>(Loop);
-        return page;
+        await page.EvaluateAsync<double>(script);
+        return new CollectionRow(page, script);
     }
 
     /// <summary>
@@ -155,22 +211,22 @@ public class BrowserHtmlCollectionBenchmark
     }
 
     [Benchmark]
-    public Task<double> ClassName() => _className.EvaluateAsync<double>(Loop);
+    public Task<double> ClassName() => _className.Run();
 
     [Benchmark]
-    public Task<double> TagName() => _tagName.EvaluateAsync<double>(Loop);
+    public Task<double> TagName() => _tagName.Run();
 
     [Benchmark]
-    public Task<double> FormElements() => _formElements.EvaluateAsync<double>(Loop);
+    public Task<double> FormElements() => _formElements.Run();
 
     [Benchmark]
-    public Task<double> Children() => _children.EvaluateAsync<double>(Loop);
+    public Task<double> Children() => _children.Run();
 
     [Benchmark]
-    public Task<double> LiveNodeList() => _liveNodeList.EvaluateAsync<double>(Loop);
+    public Task<double> LiveNodeList() => _liveNodeList.Run();
 
     [Benchmark(Baseline = true)]
-    public Task<double> PlainArray() => _plainArray.EvaluateAsync<double>(Loop);
+    public Task<double> PlainArray() => _plainArray.Run();
 
     [GlobalCleanup]
     public async Task Cleanup() => await _browser.DisposeAsync();
