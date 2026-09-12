@@ -1,13 +1,13 @@
 # AngleSharp divergences found by the DOM bindings
 
-**Data, not instructions.** This is the register [`AGENTS.md`](AGENTS.md) points at: every place AngleSharp
-answers differently from the standard that the bindings had to work around, so the next agent recognises one
-it has already met and nobody patches around the same thing twice. The rule that governs it — record the
-divergence, never work around it silently, never open an issue on AngleSharp without being asked — is in that
-file, which is where an agent is told to look before it edits anything here.
+**Data, not instructions.** This register records differences between the browser behavior Jint needs and
+AngleSharp's behavior, including local corrections already implemented. The ownership and implementation
+rules are in [`Jint.Browser/AGENTS.md`](../AGENTS.md). AngleSharp may intentionally leave browser semantics
+outside its scope; that does not block a Jint fix or require a new upstream issue.
 
-Divergences that are **AngleSharp's**, found by this work and to be reported upstream rather than patched
-here:
+Historical rows describing behavior as "unreachable" or dependency-owned record the integration examined
+at the time, not a prohibition on implementing it here. Reassess the available factories, hooks and adapters,
+record any actual API limitation precisely, and keep regression coverage for the resulting browser behavior.
 
 | What | The standard | AngleSharp |
 | --- | --- | --- |
