@@ -15,6 +15,18 @@ namespace Jint.Runtime.Interpreter.Expressions;
 /// </summary>
 internal sealed class JintMemberExpression : JintExpression
 {
+    /// <summary>
+    /// How many links may sit between a cached receiver and the holder of the member it reads. It bounds two
+    /// things and nothing else: the array one warmed site allocates, and the reference-plus-integer comparisons
+    /// a warm hit runs before it may trust the entry — both of which stay far below the <c>GetOwnProperty</c>
+    /// per level they replace, which is why the bound is generous rather than tight. Eight covers what real
+    /// hierarchies reach: a DOM member declared on <c>EventTarget.prototype</c> and read off an
+    /// <c>HTMLParagraphElement</c> sits four links up, and a <c>class</c> hierarchy rarely reaches three. A
+    /// chain longer than this still resolves — <see cref="ReadAfterOwnMissUncached"/> hands the rest of the walk
+    /// to the deepest link it reached — it simply resolves uncached, every time.
+    /// </summary>
+    private const int MaxCachedPrototypeChainLinks = 8;
+
     private readonly MemberExpression _memberExpression;
     private readonly JintExpression _objectExpression;
     private readonly JintExpression? _propertyExpression;
@@ -33,19 +45,30 @@ internal sealed class JintMemberExpression : JintExpression
     private Shape? _cachedShape;
     private int _cachedShapeSlot;
 
-    // Prototype-method inline cache: resolves `obj.method` where `method` lives on obj's direct prototype
-    // (e.g. arr.push, date.getTime, obj.protoMethod). The own-property caches above only handle own
-    // properties, so without this every such read/call re-walks the prototype chain and probes the
-    // prototype's dictionary. Validity: same receiver (so a per-site monomorphic hit), receiver own-shape
-    // unchanged (no own property added that would shadow), direct prototype unchanged (not re-pointed),
-    // and the holder's own-property shape unchanged (method not redefined/removed). Exotic receivers and
-    // prototypes (Proxy/TypedArray/IteratorResult) are excluded via InternalTypes.ExoticGet, and objects
-    // whose _propertiesVersion cannot witness this property name are excluded by CanCacheAgainstVersions.
+    // Prototype-member inline cache: resolves `obj.member` where `member` lives anywhere on obj's prototype
+    // chain (arr.push, date.getTime, and — since the chain form below — a getter or method a
+    // `class C extends B extends A` declares on A.prototype, or a DOM member declared on Node.prototype and
+    // read off an element three interfaces below it). The own-property caches above only handle own
+    // properties, so without this every such read/call re-walks the chain and probes each level's dictionary.
+    //
+    // Validity: same receiver (so a per-site monomorphic hit), receiver own-shape unchanged (no own property
+    // added that would shadow), the chain from receiver to holder still linked exactly as recorded (nothing
+    // re-pointed by [[SetPrototypeOf]], nothing inserted or removed), no intermediate link having gained an
+    // own property of this name, and the holder's own-property shape unchanged (member not redefined or
+    // removed). Exotic receivers and links (Proxy/TypedArray/IteratorResult) are excluded via
+    // InternalTypes.ExoticGet, and every object whose _propertiesVersion cannot witness this property name is
+    // excluded by CanCacheAgainstReceiverVersion and ObjectInstance.VersionWitnessesOwnProperty.
     private ObjectInstance? _cachedProtoReceiver;
     private uint _cachedProtoReceiverVersion;
     private ObjectInstance? _cachedProtoHolder;
     private uint _cachedProtoHolderVersion;
     private PropertyDescriptor? _cachedProtoDescriptor;
+
+    // The links STRICTLY BETWEEN the receiver and the holder, nearest-first, each paired with the
+    // _propertiesVersion it carried when the entry was created. Null when the holder is the receiver's direct
+    // prototype — the shape every entry had before deep chains were cacheable, and the one the validity check
+    // still serves without touching this field beyond a single null test.
+    private PrototypeChainLink[]? _cachedProtoChain;
 
     // String-receiver method cache for member calls (str.slice(...)): a primitive string receiver has no
     // own properties beyond `length` and index-coercible names, and those are excluded at build time
@@ -885,7 +908,7 @@ internal sealed class JintMemberExpression : JintExpression
             // So the own-property question is asked again on every read, and the prototype-method cache is
             // consulted only once it has been answered "no". That order is also the whole reason such a
             // receiver may be cached at all: this is the only lane that reaches the cache with one, and it
-            // re-establishes the own miss before every consult (see CanCacheAgainstVersions).
+            // re-establishes the own miss before every consult (see CanCacheAgainstReceiverVersion).
             //
             // A host that overrides TryGetOwnPropertyValue answers it without a descriptor — one that projects
             // from native storage would otherwise allocate one per read purely for UnwrapJsValue to discard.
@@ -1005,11 +1028,11 @@ internal sealed class JintMemberExpression : JintExpression
 
     /// <summary>
     /// Resolves a member read from <paramref name="baseObject"/> after the own-property fast paths have
-    /// missed: tries the prototype-method inline cache, then falls back to the full
-    /// <see cref="ObjectInstance.Get(JsValue, JsValue)"/> (deeper prototype chains, exotic objects, absent).
+    /// missed: tries the prototype-member inline cache, then walks the prototype chain
+    /// (<see cref="ReadAfterOwnMissUncached"/>), which serves the read and records an entry for it when it can.
     /// <paramref name="ownMissConfirmed"/> is <c>true</c> when the caller already proved the receiver has no
     /// own property of this name (a shape slot miss or a <c>GetOwnProperty</c> that returned undefined), so
-    /// the populate path can skip re-probing it.
+    /// the walk can skip re-probing it.
     /// </summary>
     private JsValue ReadAfterOwnMiss(ObjectInstance baseObject, JsString property, bool ownMissConfirmed)
     {
@@ -1023,91 +1046,269 @@ internal sealed class JintMemberExpression : JintExpression
     }
 
     /// <summary>
-    /// The prototype-method inline cache's validity check, split out so the ordinary-semantics lane can consult
+    /// The prototype-member inline cache's validity check, split out so the ordinary-semantics lane can consult
     /// it after probing the receiver. <paramref name="holder"/> is the already-loaded <c>_cachedProtoHolder</c>,
-    /// non-null. Both version comparisons are only meaningful because
-    /// <see cref="CanCacheAgainstVersions"/> refused to create an entry whose versions cannot witness the name.
+    /// non-null. Every version comparison is only meaningful because
+    /// <see cref="CanCacheAgainstReceiverVersion"/> and <see cref="ObjectInstance.VersionWitnessesOwnProperty"/>
+    /// between them refused to create an entry any of whose versions cannot witness the name.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private bool TryReadFromPrototypeCache(ObjectInstance baseObject, ObjectInstance holder, out JsValue value)
     {
         if (ReferenceEquals(baseObject, _cachedProtoReceiver)
-            && baseObject._propertiesVersion == _cachedProtoReceiverVersion
+            && baseObject._propertiesVersion == _cachedProtoReceiverVersion)
+        {
             // GetPrototypeOf(), not the _prototype field: a subclass may shadow the field and override
             // [[GetPrototypeOf]] (e.g. interop instances), and base Get walks via the same accessor. The
             // receiver is pinned by identity, so this is a pure field read for ordinary objects and never
             // the proxy trap (proxies carry ExoticGet and are never cached as the receiver).
-            && ReferenceEquals(baseObject.GetPrototypeOf(), holder)
-            && holder._propertiesVersion == _cachedProtoHolderVersion)
-        {
-            value = ObjectInstance.UnwrapJsValue(_cachedProtoDescriptor!, baseObject);
-            return true;
+            var reached = baseObject.GetPrototypeOf();
+
+            // Null for a direct-prototype entry, so the common shape costs one predictable field test and
+            // the call below is never made.
+            var chain = _cachedProtoChain;
+            if (chain is not null)
+            {
+                reached = RevalidateChain(reached, chain);
+            }
+
+            if (ReferenceEquals(reached, holder)
+                && holder._propertiesVersion == _cachedProtoHolderVersion)
+            {
+                value = ObjectInstance.UnwrapJsValue(_cachedProtoDescriptor!, baseObject);
+                return true;
+            }
         }
 
         value = JsValue.Undefined;
         return false;
     }
 
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private JsValue ReadAfterOwnMissUncached(ObjectInstance baseObject, JsString property, bool ownMissConfirmed)
+    /// <summary>
+    /// Walks the recorded intermediate links and returns what the chain reaches past the last of them, or
+    /// <see langword="null"/> if it no longer runs as recorded. Two facts are re-proved per link, and they are
+    /// the two ways a chain stops meaning what it meant: the link is still the object that occupied this
+    /// position (so nothing was re-pointed by <c>[[SetPrototypeOf]]</c>, inserted or removed), and its
+    /// <c>_propertiesVersion</c> is unmoved (so it has not gained an own property of this name, which would
+    /// shadow the holder's from here on). A <see langword="null"/> return can never be mistaken for success:
+    /// the caller compares it against a non-null holder.
+    /// </summary>
+    private static ObjectInstance? RevalidateChain(ObjectInstance? reached, PrototypeChainLink[] chain)
     {
-        // Only ordinary receivers with an ordinary direct prototype: a Proxy / TypedArray / IteratorResult
-        // has a custom [[Get]] / [[GetOwnProperty]] this cache must not bypass.
-        if ((baseObject._type & InternalTypes.ExoticGet) == InternalTypes.Empty)
+        foreach (var recorded in chain)
         {
-            var proto = baseObject.GetPrototypeOf();
-            if (proto is not null
-                && (proto._type & InternalTypes.ExoticGet) == InternalTypes.Empty
-                // No own property on the receiver (which would shadow the prototype's). The caller usually
-                // already established this (shape slot miss / GetOwnProperty undefined), so re-probe only
-                // when it didn't (a non-plain receiver reached here unchecked).
-                && (ownMissConfirmed || baseObject.ProbeOwnPropertyChecked(property) == OwnPropertyProbe.Missing))
+            var link = recorded.Link;
+            if (!ReferenceEquals(reached, link) || link._propertiesVersion != recorded.Version)
             {
-                // ...and an own property on the *direct* prototype (deeper chains fall to the slow Get).
-                var descriptor = proto.GetOwnProperty(property);
-                if (!ReferenceEquals(descriptor, PropertyDescriptor.Undefined)
-                    && CanCacheAgainstVersions(baseObject, proto, property))
-                {
-                    _cachedProtoReceiver = baseObject;
-                    _cachedProtoReceiverVersion = baseObject._propertiesVersion;
-                    _cachedProtoHolder = proto;
-                    _cachedProtoHolderVersion = proto._propertiesVersion;
-                    _cachedProtoDescriptor = descriptor;
-                    return ObjectInstance.UnwrapJsValue(descriptor, baseObject);
-                }
+                return null;
             }
+
+            reached = link.GetPrototypeOf();
         }
 
-        return baseObject.Get(property, baseObject);
+        return reached;
     }
 
     /// <summary>
-    /// Whether an entry may be created for this (receiver, holder, name) triple — that is, whether the two
+    /// The uncached completion of a member read whose receiver has no own property of that name: walk the
+    /// prototype chain the way <c>[[Get]]</c> would, serve the read, and record an entry for it when every
+    /// link on the way can still be proved on a later read.
+    /// <para>
+    /// The walk is this lane's own rather than a call back into <see cref="ObjectInstance.Get(JsValue, JsValue)"/>
+    /// because the caller has already established the receiver's own miss: re-entering <c>Get</c> would re-probe
+    /// the receiver and then walk the very links this method has to walk anyway to find the holder. It hands
+    /// the rest of the walk to a link the instant it reaches one it may not walk itself — an exotic
+    /// <c>[[Get]]</c>, a host's own-value hook, or the depth past which an entry would no longer be recorded —
+    /// by calling that link's <c>Get</c> with the original receiver, which is exactly the continuation an
+    /// ordinary <c>[[Get]]</c> makes at that point.
+    /// </para>
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private JsValue ReadAfterOwnMissUncached(ObjectInstance baseObject, JsString property, bool ownMissConfirmed)
+    {
+        // Only ordinary receivers: a Proxy / TypedArray / IteratorResult / interop wrapper has a custom
+        // [[Get]] / [[GetOwnProperty]] this lane must not bypass. And no own property on the receiver (which
+        // would shadow the prototype's) — the caller usually already established that (shape slot miss /
+        // GetOwnProperty undefined), so re-probe only when it didn't (a non-plain receiver reached here
+        // unchecked).
+        if ((baseObject._type & InternalTypes.ExoticGet) != InternalTypes.Empty
+            || (!ownMissConfirmed && baseObject.ProbeOwnPropertyChecked(property) != OwnPropertyProbe.Missing))
+        {
+            return baseObject.Get(property, baseObject);
+        }
+
+        var link = baseObject.GetPrototypeOf();
+        if (link is null)
+        {
+            return JsValue.Undefined;
+        }
+
+        // Decided once, then narrowed by every link the walk passes through. A false only stops the entry
+        // being recorded; the walk itself stays correct and still serves the read.
+        var cacheable = CanCacheAgainstReceiverVersion(baseObject, property);
+
+        var intermediates = 0;
+        while (true)
+        {
+            // A link whose [[Get]] deviates, or which answers own reads from its own storage through
+            // TryGetOwnPropertyValue, must resolve the rest of the read itself: probing it with
+            // GetOwnProperty would run the wrong algorithm for the first and materialize a descriptor the
+            // second exists to avoid. Tested BEFORE the probe, so handing over costs nothing that has
+            // already been paid.
+            if ((link._type & (InternalTypes.ExoticGet | InternalTypes.OwnValueHook)) != InternalTypes.Empty)
+            {
+                return link.Get(property, baseObject);
+            }
+
+            var descriptor = link.GetOwnProperty(property);
+            if (!ReferenceEquals(descriptor, PropertyDescriptor.Undefined))
+            {
+                if (cacheable && ObjectInstance.VersionWitnessesOwnProperty(link, property))
+                {
+                    PopulatePrototypeCache(baseObject, link, descriptor, intermediates);
+                }
+
+                return ObjectInstance.UnwrapJsValue(descriptor, baseObject);
+            }
+
+            // Only now does this link become an intermediate — one whose *absence* of the name the entry
+            // would have to keep proving, which is what its version has to witness.
+            cacheable = cacheable && ObjectInstance.VersionWitnessesOwnProperty(link, property);
+
+            var next = link.GetPrototypeOf();
+            if (next is null)
+            {
+                // The whole chain was walked with ordinary semantics and nothing owns the name.
+                return JsValue.Undefined;
+            }
+
+            if (++intermediates > MaxCachedPrototypeChainLinks)
+            {
+                // Past the recordable depth: finish the read on the normal path, uncached. Nothing above
+                // has been skipped, so this is a continuation and not a restart.
+                return next.Get(property, baseObject);
+            }
+
+            link = next;
+        }
+    }
+
+    /// <summary>
+    /// Records an entry for a resolved (receiver, chain, holder) triple. The intermediate links are re-walked
+    /// rather than accumulated during the search, so the search allocates nothing on the paths that do not end
+    /// in an entry — a name absent from the whole chain, or a chain carrying a link no version can witness.
+    /// <para>
+    /// <b>The array is reused whenever the previous entry recorded a chain of the same length</b>, which is
+    /// what keeps this affordable on a site that is *polymorphic* over instances of one class. Such a site
+    /// re-caches on every receiver change, and allocating per read would be a new cost the direct-prototype
+    /// form never had — whereas instances of one hierarchy all sit at the same depth, so after the first read
+    /// the same array is overwritten. Every slot is written below before the entry is published.
+    /// </para>
+    /// <para>
+    /// The re-walk must land on <paramref name="holder"/>, and the entry is dropped rather than recorded if it
+    /// does not — dropped, not merely left alone, because the half-written array may be the live entry's own.
+    /// Only a materializing <c>GetOwnProperty</c> ran between the two walks — never script, since the
+    /// descriptor is unwrapped after this returns — but a host factory is still host code, and an entry whose
+    /// chain was written down from a chain that had already moved is the one failure this cache must not have.
+    /// </para>
+    /// </summary>
+    private void PopulatePrototypeCache(ObjectInstance baseObject, ObjectInstance holder, PropertyDescriptor descriptor, int intermediates)
+    {
+        PrototypeChainLink[]? chain = null;
+        if (intermediates > 0)
+        {
+            chain = _cachedProtoChain;
+            if (chain is null || chain.Length != intermediates)
+            {
+                chain = new PrototypeChainLink[intermediates];
+            }
+
+            var link = baseObject.GetPrototypeOf();
+            for (var i = 0; i < intermediates; i++)
+            {
+                if (link is null)
+                {
+                    DropPrototypeCacheEntry();
+                    return;
+                }
+
+                chain[i] = new PrototypeChainLink(link, link._propertiesVersion);
+                link = link.GetPrototypeOf();
+            }
+
+            if (!ReferenceEquals(link, holder))
+            {
+                DropPrototypeCacheEntry();
+                return;
+            }
+        }
+
+        _cachedProtoReceiver = baseObject;
+        _cachedProtoReceiverVersion = baseObject._propertiesVersion;
+        _cachedProtoChain = chain;
+        _cachedProtoHolder = holder;
+        _cachedProtoHolderVersion = holder._propertiesVersion;
+        _cachedProtoDescriptor = descriptor;
+    }
+
+    /// <summary>
+    /// Disarms the entry. <see cref="ReadAfterOwnMiss"/> consults the cache only for a non-null holder, so
+    /// clearing that field is what stops it being read; the rest is cleared so nothing is retained by a site
+    /// that is no longer serving from it.
+    /// </summary>
+    private void DropPrototypeCacheEntry()
+    {
+        _cachedProtoReceiver = null;
+        _cachedProtoHolder = null;
+        _cachedProtoChain = null;
+        _cachedProtoDescriptor = null;
+    }
+
+    /// <summary>
+    /// One recorded link of a cached prototype chain: the object that occupied the position, and the
+    /// <c>_propertiesVersion</c> it carried when the entry was created.
+    /// </summary>
+    private readonly struct PrototypeChainLink
+    {
+        internal readonly ObjectInstance Link;
+        internal readonly uint Version;
+
+        internal PrototypeChainLink(ObjectInstance link, uint version)
+        {
+            Link = link;
+            Version = version;
+        }
+    }
+
+    /// <summary>
+    /// Whether an entry may be created for this (receiver, chain, holder, name) tuple — that is, whether the
     /// <c>_propertiesVersion</c> comparisons <see cref="TryReadFromPrototypeCache"/> makes can still prove, on a
-    /// later read, that the name is absent from the receiver and owned by the holder.
+    /// later read, that the name is absent from the receiver, absent from every link between it and the holder,
+    /// and owned by the holder.
     /// <para>
     /// A version only witnesses the own properties the engine stores itself. Two kinds of object keep some of
     /// theirs elsewhere and move no version when that part of the set changes: an <b>array</b>, whose elements
     /// live in its own dense/sparse storage and are written straight there by the hot element paths, and a
     /// <b>host-defined subclass</b> with ordinary reads, whose whole own-property set lives outside the engine.
     /// So an array must not be validated by its version for an index-like name, and a host object must not be
-    /// validated by its version for any name.
+    /// validated by its version for any name. <see cref="ObjectInstance.VersionWitnessesOwnProperty"/> is that
+    /// predicate, and it is asked of <b>every</b> link — each intermediate one as the walk leaves it behind,
+    /// and the holder before the entry is recorded.
     /// </para>
     /// <para>
-    /// The receiver side has one exemption: <see cref="ReadFromNonPlainReceiver"/> is the only lane that reaches
-    /// this cache with a host receiver, and it establishes the own miss anew before every consult — with a real
-    /// <c>GetOwnProperty</c> probe, or with a <c>false</c> from
-    /// <see cref="ObjectInstance.TryGetOwnPropertyValue"/>, which states the same thing — so that receiver's
-    /// frozen version is never load-bearing. A holder has no such lane and must be witnessed outright.
+    /// Only the receiver is exempt, and this method is where that exemption lives.
+    /// <see cref="ReadFromNonPlainReceiver"/> is the only lane that reaches this cache with a host receiver, and
+    /// it establishes the own miss anew before every consult — with a real <c>GetOwnProperty</c> probe, or with
+    /// a <c>false</c> from <see cref="ObjectInstance.TryGetOwnPropertyValue"/>, which states the same thing — so
+    /// that receiver's frozen version is never load-bearing. <b>No intermediate link has such a lane</b>: nothing
+    /// re-establishes that a link three levels up still lacks the name, so an unwitnessable one is refused
+    /// outright exactly as a holder is. That asymmetry is the whole reason a host prototype cannot sit in the
+    /// middle of a cached chain any more than it can hold one.
     /// </para>
     /// </summary>
-    private static bool CanCacheAgainstVersions(ObjectInstance receiver, ObjectInstance holder, JsString property)
-    {
-        var receiverIsProvable = (receiver._type & InternalTypes.OrdinaryGet) != InternalTypes.Empty
-                                 || ObjectInstance.VersionWitnessesOwnProperty(receiver, property);
-
-        return receiverIsProvable && ObjectInstance.VersionWitnessesOwnProperty(holder, property);
-    }
+    private static bool CanCacheAgainstReceiverVersion(ObjectInstance receiver, JsString property)
+        => (receiver._type & InternalTypes.OrdinaryGet) != InternalTypes.Empty
+           || ObjectInstance.VersionWitnessesOwnProperty(receiver, property);
 
     /// <summary>
     /// Write-side counterpart of <see cref="GetValue"/>'s inline cache for <c>obj.prop = rhs</c>. Reuses the

@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using Jint.Native;
 using Jint.Native.Object;
@@ -33,7 +33,9 @@ namespace Jint.Tests.PublicInterface;
 /// <b>Ordinary</b> — a host overriding only <c>GetOwnProperty</c>. An own-property <i>hit</i> costs one probe,
 /// because the probe that proves the own property is not shadowed <i>is</i> the read. It used to cost two: one
 /// to prove that, discarded, and one inside <c>Get</c> to produce the value. Nothing had to be declared for
-/// this — not overriding <c>Get</c> is already proof that <c>Get</c> is the ordinary one.
+/// this — not overriding <c>Get</c> is already proof that <c>Get</c> is the ordinary one. An own-property
+/// <i>miss</i> costs one for the same reason, since the member lane walks the prototype chain itself rather
+/// than restarting the read through <c>Get</c>.
 /// </description></item>
 /// <item><description>
 /// <b>Ordinary + value hook</b> — the same host, additionally overriding <c>TryGetOwnPropertyValue</c>.
@@ -51,13 +53,22 @@ namespace Jint.Tests.PublicInterface;
 /// </list>
 ///
 /// <para>
-/// Two counts are worth reading twice. An own-property <i>miss</i> costs the <b>ordinary</b> host two probes,
-/// the same as before: the probe that establishes the miss cannot also produce a value, so the read still ends
-/// in a <c>Get</c> that re-probes the receiver before walking to the prototype. And a <i>prototype</i> hit
-/// costs it one, warm cache or cold — a host stores its own-property set itself, so nothing the engine
-/// versions moves when a projected member appears, and the own miss has to be re-established on every single
-/// read before the prototype-method cache may be trusted. The value hook is what removes both, because a
-/// <c>false</c> re-establishes exactly the same miss at no cost.
+/// One count is worth reading twice: a <i>prototype</i> hit costs the <b>ordinary</b> host one probe, warm
+/// cache or cold — a host stores its own-property set itself, so nothing the engine versions moves when a
+/// projected member appears, and the own miss has to be re-established on every single read before the
+/// prototype-member cache may be trusted. The value hook removes it, because a <c>false</c> re-establishes
+/// exactly the same miss at no cost.
+/// </para>
+///
+/// <para>
+/// <b>The own-property <i>miss</i> row moved, and it moved down.</b> It used to cost the ordinary host two
+/// probes and was described here as the one count the derivation could not improve: the probe that establishes
+/// the miss cannot also produce a value, so the read ended in a <c>Get</c> that re-probed the receiver before
+/// walking to the prototype. What was actually wrong with it was the word <i>ended</i>. The member lane now
+/// walks the prototype chain itself — it has to, in order to cache a holder deeper than the direct prototype —
+/// and once it walks it, re-entering <c>Get</c> at the receiver is a restart of a read that is already several
+/// links in. So the miss costs <b>one</b>, the same as a hit, and the same probe serves both. Nothing about
+/// what the host is asked changed; what changed is that it is asked once instead of twice.
 /// </para>
 ///
 /// <para>
@@ -81,11 +92,11 @@ public class HostObjectProbeCountTests
     private static ProbeCosts CostsFor(ProbeCountingHostKind kind) => kind switch
     {
         ProbeCountingHostKind.Ordinary => HostContractVerificationSwitch.Enabled
-            ? new ProbeCosts(OwnHit: 3, OwnMiss: 4, PrototypeHit: 3, MemberCallBase: 1)
-            : new ProbeCosts(OwnHit: 1, OwnMiss: 2, PrototypeHit: 1, MemberCallBase: 1),
+            ? new ProbeCosts(OwnHit: 3, OwnMiss: 3, PrototypeHit: 3, MemberCallBase: 1)
+            : new ProbeCosts(OwnHit: 1, OwnMiss: 1, PrototypeHit: 1, MemberCallBase: 1),
 
         ProbeCountingHostKind.OrdinaryWithValueHook => HostContractVerificationSwitch.Enabled
-            ? new ProbeCosts(OwnHit: 3, OwnMiss: 4, PrototypeHit: 3, MemberCallBase: 1)
+            ? new ProbeCosts(OwnHit: 3, OwnMiss: 3, PrototypeHit: 3, MemberCallBase: 1)
             : new ProbeCosts(OwnHit: 0, OwnMiss: 0, PrototypeHit: 0, MemberCallBase: 0),
 
         // The exotic host's Get delegates to base.Get, which probes once whatever the outcome: on a hit the
@@ -145,7 +156,7 @@ public class HostObjectProbeCountTests
     [TestCase(ProbeCountingHostKind.Ordinary)]
     [TestCase(ProbeCountingHostKind.OrdinaryWithValueHook)]
     [TestCase(ProbeCountingHostKind.Exotic)]
-    public void AMissingOwnPropertyReadIsNoCheaperThanAHit(ProbeCountingHostKind kind)
+    public void AMissingOwnPropertyReadCostsTheSameAsAHit(ProbeCountingHostKind kind)
     {
         var expectedProbes = CostsFor(kind).OwnMiss;
 
@@ -156,11 +167,11 @@ public class HostObjectProbeCountTests
         host.Reset();
         engine.Evaluate("host.notThere;").Should().BeUndefined();
 
-        // For the ordinary host a miss is not cheaper than a hit: the probe that establishes the miss cannot
-        // produce a value, so the read still ends in a Get that re-probes the receiver before walking to the
-        // prototype. That is the one count the derivation did not move, and the value hook is what moves it —
-        // its false answers the same question the discarded probe answered, for nothing. The exotic host pays
-        // one here simply because only its Get probes at all.
+        // For the ordinary host a miss costs exactly what a hit costs: one probe, which establishes the miss,
+        // after which the member lane continues up the prototype chain from where it stands instead of
+        // re-entering Get at the receiver. It used to cost two for want of that continuation. The value hook
+        // pays none, its false answering the same question for nothing. The exotic host pays one here simply
+        // because only its Get probes at all.
         host.GetOwnPropertyCallCount.Should().Be(expectedProbes);
     }
 
