@@ -22,6 +22,8 @@ dotnet run -c Release --project Jint.Benchmark\Jint.Benchmark.csproj -- --filter
 Running everything is slow — filter unless you need the full set.
 
 > **Do not report or compare numbers from `--job short`.** It reduces warmup and iteration counts to ~3, so its run-to-run variance (~10%) exceeds most of the wins we measure. It is a smoke-test that a benchmark *runs*; use the default job for any figure that reaches a README, PR, or commit message.
+>
+> A job named on the command line **replaces** this project's configured job rather than joining it. That is a deliberate behaviour of `JintBenchmarkConfig.Create(args)` and not BenchmarkDotNet's own: BDN merges `--job short` into the config it is handed, so before the replacement a "smoke test" ran the row **twice** — once short and once in full — and cost more than the measurement it was standing in for. The replacement also drops the affinity, GC and power-plan settings the configured job carries, which is why the run announces that nothing is pinned and no number from it may be quoted.
 
 The cross-engine comparison (`EngineComparisonBenchmark`) has its own notes and published results in [`Jint.Benchmark/README.md`](README.md). Run it from the `Jint.Benchmark` directory so the `Scripts/*.js` files resolve: `dotnet run -c Release -- --allCategories EngineComparison`.
 
@@ -54,6 +56,8 @@ So pinning and GC mode are kept because they are free and have a principled rati
 > **`MachineStateValidator` refuses to start on a busy machine**, naming the offending processes. BDN has no such notion and will happily format a beautiful table from a contaminated run — the failure is otherwise completely silent. `CompatTelRunner.exe` (Microsoft Compatibility Telemetry) is a repeat offender here and starts on its own schedule; it was caught taking 65% of a core. Override with `JINT_BENCH_SKIP_IDLE_CHECK=1` only when the numbers do not need to be gate-quality.
 
 > **After any interrupted run, `./setup-benchmark-machine.ps1 -Restore`.** BDN restores the power plan only on a clean exit. A killed run leaves the fixed-clock plan active *and* can leave an orphaned `Jint.Benchmark` process that re-applies it, so whatever runs next silently runs at nominal frequency.
+>
+> **`-Restore` sweeps only the working tree it is run from.** It used to kill every `Jint.Benchmark` process on the machine, which on a box where several worktrees are in flight means killing somebody else's measurement — and they see a load flake rather than a kill, because a killed BDN run looks exactly like a contended one. It now matches on the process image path and warns about a stray from another tree instead of stopping it. Reach for it when your *own* run was interrupted; it is not a way to clear the machine.
 
 **Tiered compilation and dynamic PGO stay at production defaults, and nothing works around them.** Turning tiering off does tighten the spread, but it measures code no embedder runs and forfeits PGO's devirtualization — most of the win for a tree-walking interpreter. Two mitigations were built and measured against a verified-idle baseline on `TypeofStringGuard` over ten launches, and **neither shipped**:
 

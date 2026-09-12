@@ -93,7 +93,7 @@ internal static class JintBenchmarkConfig
     /// </summary>
     public static readonly TimeInterval LongOperationIterationTime = TimeInterval.FromMilliseconds(2000);
 
-    public static IConfig Create()
+    public static IConfig Create(params string[] commandLine)
     {
         var mode = ResolveMode();
         var config = ManualConfig.Create(DefaultConfig.Instance);
@@ -149,8 +149,37 @@ internal static class JintBenchmarkConfig
             job = job.WithLaunchCount(GateLaunchCount).WithAnalyzeLaunchVariance(true);
         }
 
+        // A job named on the command line REPLACES this one rather than joining it. BenchmarkDotNet
+        // merges `--job short` into whatever config it is handed, so adding ours as well would run the
+        // benchmark twice - once short and once in full - and the "smoke test" that is supposed to prove a
+        // row executes would cost more than the real measurement. Ours is the job only when nobody asked
+        // for another; everything else this config carries (the columns, the machine-state validator) is
+        // not a job and stays either way.
+        if (NamesAJob(commandLine))
+        {
+            Console.WriteLine("// Jint measurement environment: job supplied on the command line, so the configured job is not added.");
+            Console.WriteLine("//   nothing here is pinned, clocked or launch-counted - never quote a number from this run.");
+            return config;
+        }
+
         Announce(mode, affinity, powerPlan, launchCount, concurrentGc);
         return config.AddJob(job);
+    }
+
+    /// <summary>Whether the command line names a BenchmarkDotNet job, e.g. <c>--job short</c> or <c>-j dry</c>.</summary>
+    private static bool NamesAJob(string[] commandLine)
+    {
+        foreach (var argument in commandLine)
+        {
+            if (argument.Equals("--job", StringComparison.OrdinalIgnoreCase)
+                || argument.Equals("-j", StringComparison.OrdinalIgnoreCase)
+                || argument.StartsWith("--job=", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static BenchmarkEnvironment ResolveMode()

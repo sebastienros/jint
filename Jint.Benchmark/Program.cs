@@ -123,6 +123,6 @@ if (args.Length > 0 && args[0] is "--disasm" or "--disasm-hw")
 
 BenchmarkSwitcher
     .FromAssembly(typeof(ArrayBenchmark).GetTypeInfo().Assembly)
-    .Run(args, JintBenchmarkConfig.Create());
+    .Run(args, JintBenchmarkConfig.Create(args));
 
 return 0;
