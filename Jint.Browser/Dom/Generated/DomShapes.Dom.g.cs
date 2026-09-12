@@ -1923,7 +1923,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.setAttributeNS", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.setAttributeNS");
-                    self.Target.SetAttribute(global::Jint.Browser.Dom.DomConvert.NullableText(args, 0), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Element.setAttributeNS"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 2, "Element.setAttributeNS")); return global::Jint.Native.JsValue.Undefined;
+                    self.Realm.Hooks.SetAttributeNS(self.Realm, self.Target, args); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 3)
             .Method("setAttributeNode",

@@ -3,6 +3,17 @@ namespace Jint.Tests.Browser.Views;
 
 public sealed class AttributeNameTests
 {
+    [TestCase("null", "null")]
+    [TestCase("undefined", "undefined")]
+    [TestCase("0", "0")]
+    [TestCase("true", "true")]
+    public void PrimitiveNamesAreConvertedByBothFactories(string source, string expected)
+    {
+        using var fixture = DomTestFixture.Create("<div></div>");
+        fixture.Text($"document.createAttribute({source}).name").Should().Be(expected);
+        fixture.Text($"document.createAttributeNS(null, {source}).name").Should().Be(expected);
+    }
+
     [Test]
     public async Task FactoryArgumentsAreConvertedOnceInParameterOrder()
     {
@@ -40,13 +51,75 @@ public sealed class AttributeNameTests
             const native = target.getAttributeNode(attributeName);
             const nsAttr = document.createAttributeNS('urn:test', 'p:' + attributeName);
             nsAttr.value = 'namespaced'; target.setAttributeNodeNS(nsAttr);
+            target.setAttribute(attributeName, 'updated');
+            target.setAttributeNS('urn:test', 'q:' + attributeName, 'updated namespace');
             const copy = target.cloneNode(true);
             attr === native && attr.ownerElement === target && attr.name === attributeName &&
-              target.getAttribute(attributeName) === 'value' &&
+              target.getAttribute(attributeName) === 'updated' && attr === target.getAttributeNode(attributeName) &&
               nsAttr.prefix === 'p' && nsAttr.localName === attributeName && nsAttr.namespaceURI === 'urn:test' &&
-              target.getAttributeNS('urn:test', attributeName) === 'namespaced' &&
-              copy.getAttribute(attributeName) === 'value' && copy.getAttributeNS('urn:test', attributeName) === 'namespaced'
+              target.getAttributeNS('urn:test', attributeName) === 'updated namespace' &&
+              nsAttr === target.getAttributeNodeNS('urn:test', attributeName) &&
+              copy.getAttribute(attributeName) === 'updated' && copy.getAttributeNS('urn:test', attributeName) === 'updated namespace'
             """)).Should().BeTrue();
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task MutationsConvertEveryArgumentOnceBeforeValidatingNames()
+    {
+        await using var browser = new Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<div id='target'></div>");
+        (await page.EvaluateAsync<string>("""
+            const log = [];
+            const text = (label, value) => ({toString() { log.push(label); return value; }});
+            target.setAttributeNS(text('namespace', 'urn:test'), text('name', 'p:0name'), text('value', 'v'));
+            target.setAttribute(text('plain name', '0name'), text('plain value', null));
+            let error;
+            try { target.setAttribute('bad name', {toString() { throw 'value conversion'; }}); }
+            catch (caught) { error = caught; }
+            [log.join(','), target.getAttributeNS('urn:test', '0name'), target.getAttribute('0name'), error].join('|');
+            """)).Should().Be("namespace,name,value,plain name,plain value|v|null|value conversion");
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task NamespacedWritesMatchNamespaceAndLocalNameAndPlainWritesMatchQualifiedName()
+    {
+        await using var browser = new Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<div></div>");
+        (await page.EvaluateAsync<string>("""
+            const target = document.querySelector('div');
+            target.setAttributeNS('urn:first', 'attr', 'first');
+            target.setAttributeNS('urn:second', 'attr', 'second');
+            const first = target.attributes[0]; const second = target.attributes[1];
+            target.setAttribute('attr', 'changed');
+            target.setAttributeNS('urn:second', 'p:attr', 'last');
+            [target.attributes.length, first === target.attributes[0], second === target.attributes[1],
+             first.value, second.value, second.prefix].join('|');
+            """)).Should().Be("2|true|true|changed|last|");
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task NewAttributesUseAsciiCaseRulesAndPreserveNativeMutationNotifications()
+    {
+        await using var browser = new Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<div></div>");
+        (await page.EvaluateAsync<string>("""
+            const target = document.querySelector('div');
+            const observer = new MutationObserver(() => {});
+            observer.observe(target, {attributes: true, attributeOldValue: true});
+            target.setAttribute('ÄFOO', 'first'); target.setAttribute('ÄFOO', 'second');
+            target.setAttributeNS('urn:test', '0:ÄFOO', 'third');
+            const xml = document.implementation.createDocument(null, 'root');
+            const xhtml = xml.createElementNS('http://www.w3.org/1999/xhtml', 'div');
+            xhtml.setAttribute('ÄFOO', 'xml');
+            const records = observer.takeRecords().map(r => [r.attributeName, r.attributeNamespace, r.oldValue]);
+            JSON.stringify([target.getAttributeNames(), xhtml.getAttributeNames(), records]);
+            """)).Should().Be("[[\"Äfoo\",\"0:ÄFOO\"],[\"ÄFOO\"],[[\"Äfoo\",null,null],[\"Äfoo\",null,\"first\"],[\"ÄFOO\",\"urn:test\",null]]]");
         page.Errors.Should().BeEmpty();
     }
 

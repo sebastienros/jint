@@ -254,29 +254,41 @@ internal static class DomNames
         int Arity,
         NameContext Context)
     {
-        internal JsValue[] ConvertFactoryArguments(JsValue thisObject, JsValue[] arguments)
+        internal JsValue[] ConvertAttributeArguments(JsValue thisObject, JsValue[] arguments)
         {
             if (arguments.Length < Arity || thisObject is not IDomWrapper wrapper || !Accepts(wrapper))
             {
                 return arguments;
             }
 
-            // These factories construct native Attr directly, so validation and construction must see
+            // These operations use native Attr directly, so validation and mutation must see
             // the same converted strings. Never mutate the caller's argument array. Convert in WebIDL
             // parameter order (namespace before name), with no copy for already-converted arguments.
             var name = arguments[NameIndex];
             var ns = NamespaceIndex < 0 ? JsValue.Null : arguments[NamespaceIndex];
-            if (name.IsString() && (ns.IsString() || ns.IsNullOrUndefined()))
+            var hasValue = On == Receiver.Element;
+            if (name.IsString() && (ns.IsString() || ns.IsNullOrUndefined())
+                && (!hasValue || arguments[NameIndex + 1].IsString()))
             {
                 return arguments;
             }
 
-            var converted = (JsValue[]) arguments.Clone();
+            // Engine argument pools can expose an object[] as JsValue[]. Clone would retain that
+            // runtime array type, so copy the values into an actual JsValue[] instead.
+            var converted = new JsValue[arguments.Length];
+            for (var i = 0; i < arguments.Length; i++)
+            {
+                converted[i] = arguments[i];
+            }
             if (NamespaceIndex >= 0)
             {
                 converted[NamespaceIndex] = ns.IsNullOrUndefined() ? JsValue.Null : JsString.Create(TypeConverter.ToString(ns));
             }
             converted[NameIndex] = JsString.Create(TypeConverter.ToString(name));
+            if (hasValue)
+            {
+                converted[NameIndex + 1] = JsString.Create(TypeConverter.ToString(arguments[NameIndex + 1]));
+            }
             return converted;
         }
 

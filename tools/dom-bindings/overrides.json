@@ -1958,7 +1958,14 @@
       "member": "setAttribute",
       "half": "operation",
       "hook": "SetAttribute",
-      "reason": "HTML activates an event handler when its content attribute is set, and the listener it creates keeps its position among the addEventListener listeners for ever. This is the one write of an attribute the package can see, so it is where `onclick=\"…\"` takes its place in the list; the hook's body is the AngleSharp call it replaced, plus that reconciliation."
+      "reason": "DOM's modern name validation and qualified-name matching run over native Attr storage; HTML activates an event handler when its content attribute is set, preserving its position among listeners."
+    },
+    {
+      "interface": "Element",
+      "member": "setAttributeNS",
+      "half": "operation",
+      "hook": "SetAttributeNS",
+      "reason": "DOM's modern validate-and-extract accepts names the native setter rejects. Native Attr and NamedNodeMap retain identity, namespace/local-name matching and mutation notifications."
     },
     {
       "interface": "Element",

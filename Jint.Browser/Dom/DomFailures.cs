@@ -64,14 +64,14 @@ internal static class DomFailures
         // name pay nothing for the six that do.
         if (DomNames.ValidationOf(member) is { } validation)
         {
-            var attributeFactory = member is "Document.createAttribute" or "Document.createAttributeNS";
+            var attributeOperation = validation.Context == DomNames.NameContext.Attribute;
             return (thisObject, arguments) =>
             {
                 try
                 {
-                    if (attributeFactory)
+                    if (attributeOperation)
                     {
-                        arguments = validation.ConvertFactoryArguments(thisObject, arguments);
+                        arguments = validation.ConvertAttributeArguments(thisObject, arguments);
                     }
                     validation.Run(thisObject, member, arguments);
                     return implementation(thisObject, arguments);

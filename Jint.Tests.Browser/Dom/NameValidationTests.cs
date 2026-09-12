@@ -111,6 +111,7 @@ public sealed class NameValidationTests
     [TestCase("document.createAttribute('f=oo')", "InvalidCharacterError")]
     [TestCase("document.createAttribute('b:')", null)]
     [TestCase("document.createAttribute('1foo')", null)]
+    [TestCase("document.getElementById('a').setAttributeNS(null, '1foo', 'v')", null)]
     [TestCase("document.getElementById('a').setAttribute('b:', 'v')", null)]
     [TestCase("document.getElementById('a').setAttribute('b=', 'v')", "InvalidCharacterError")]
     [TestCase("document.getElementById('a').setAttribute('b c', 'v')", "InvalidCharacterError")]
@@ -152,7 +153,6 @@ public sealed class NameValidationTests
     [TestCase("document.createElementNS(null, 'f}oo')", TestName = "createElementNS with a brace")]
     [TestCase("document.createElementNS(null, '\\uFFFFfoo')", TestName = "createElementNS with a non-character")]
     [TestCase("document.createElementNS('http://example.com/', '0:a')", TestName = "createElementNS with a digit prefix")]
-    [TestCase("document.getElementById('a').setAttributeNS(null, '1foo', 'v')", TestName = "setAttributeNS with a leading digit")]
     public void ANameAngleSharpRefusesStaysARefusal(string source)
     {
         Refusal(source).Should().Be("InvalidCharacterError");

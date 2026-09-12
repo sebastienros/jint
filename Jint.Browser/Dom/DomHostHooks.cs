@@ -106,8 +106,47 @@ internal class DomHostHooks
     internal virtual void SetAttribute(DomRealm realm, IElement element, JsValue[] arguments)
     {
         var name = DomConvert.RequiredText(arguments, 0, "Element.setAttribute");
-        element.SetAttribute(name, DomConvert.RequiredText(arguments, 1, "Element.setAttribute"));
+        var value = DomConvert.RequiredText(arguments, 1, "Element.setAttribute");
+        if (element.Owner is IHtmlDocument && element.NamespaceUri == NamespaceNames.HtmlUri)
+        {
+            name = AsciiLowercase(name);
+        }
+        var attribute = element.Attributes.GetNamedItem(name);
+        if (attribute is null)
+        {
+            element.Attributes.SetNamedItem(new Attr(name, value));
+        }
+        else
+        {
+            attribute.Value = value;
+        }
         Events.EventHandlerContentAttributes.AttributeChanged(realm, element, name);
+    }
+
+    /// <summary>https://dom.spec.whatwg.org/#dom-element-setattributens</summary>
+    internal virtual void SetAttributeNS(DomRealm realm, IElement element, JsValue[] arguments)
+    {
+        var namespaceUri = DomConvert.NullableText(arguments, 0);
+        var name = DomConvert.RequiredText(arguments, 1, "Element.setAttributeNS");
+        var value = DomConvert.RequiredText(arguments, 2, "Element.setAttributeNS");
+        namespaceUri = string.IsNullOrEmpty(namespaceUri) ? null : namespaceUri;
+        var colon = name.IndexOf(':', StringComparison.Ordinal);
+        var localName = colon < 0 ? name : name[(colon + 1)..];
+        var attribute = element.Attributes.GetNamedItem(namespaceUri, localName);
+        if (attribute is null)
+        {
+            element.Attributes.SetNamedItemWithNamespaceUri(new Attr(
+                colon < 0 ? null : name[..colon], localName, value, namespaceUri));
+        }
+        else
+        {
+            // Set-an-attribute-value preserves the existing node and its prefix.
+            attribute.Value = value;
+        }
+        if (namespaceUri is null)
+        {
+            Events.EventHandlerContentAttributes.AttributeChanged(realm, element, localName);
+        }
     }
 
     /// <summary>
