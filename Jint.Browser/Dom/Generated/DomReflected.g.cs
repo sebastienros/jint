@@ -317,7 +317,7 @@ internal static class DomReflected
 
     /// <summary><c>HTMLInputElement.formMethod</c> reflects <c>formmethod</c> as an enum.</summary>
     internal static readonly ReflectedAttribute HTMLInputElementFormMethod =
-        ReflectedAttribute.Enumerated("HTMLInputElement.formMethod", "formmethod", ["get", "post"], missing: "", invalid: "get");
+        ReflectedAttribute.Enumerated("HTMLInputElement.formMethod", "formmethod", ["get", "post", "dialog"], missing: "", invalid: "get");
 
     /// <summary><c>HTMLInputElement.height</c> reflects <c>height</c> as an unsigned long.</summary>
     internal static readonly ReflectedAttribute HTMLInputElementHeight =
