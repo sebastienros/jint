@@ -92,13 +92,15 @@ internal sealed class ModelBuilder
             LookupInterface,
             t => _stringEnums.Contains(t.FullName!),
             (member, index) => IsListedParameter(_overrides.NullableParameters, member, index),
-            (member, index) => IsListedParameter(_overrides.NonNullableParameters, member, index));
+            (member, index) => IsListedParameter(_overrides.NonNullableParameters, member, index),
+            IsNullToEmptyString);
 
         foreach (var model in _byClrName.Values)
         {
             model.Parent = FindParent(model.ClrType);
             model.RootsAtEventTarget = model.ClrType.GetInterfaces().Any(i => i.FullName == "AngleSharp.Dom.IEventTarget");
             model.Kind = KindOf(model.ClrType);
+            ApplyManualProjection(model);
         }
 
         foreach (var model in _byClrName.Values.OrderBy(m => m.DomName, StringComparer.Ordinal))
@@ -108,6 +110,7 @@ internal sealed class ModelBuilder
         }
 
         BuildConstants();
+        BuildUnscopables();
 
         _model.Interfaces.AddRange(TopologicalOrder());
         VerifyOverridesMatchTheAssemblies();
@@ -313,6 +316,56 @@ internal sealed class ModelBuilder
         return best;
     }
 
+    /// <summary>
+    /// The two halves of a <c>manual</c> entry the CLR metadata answers wrongly: which wrapper class the
+    /// interface's instances get, and what its prototype inherits. Both are absent for every entry that only
+    /// hand-writes a shape, and an unknown value is a diagnostic rather than a silent fallback.
+    /// </summary>
+    private void ApplyManualProjection(InterfaceModel model)
+    {
+        var entry = _overrides.Manual.FirstOrDefault(m => m.Interface == model.ClrType.FullName);
+        if (entry is null)
+        {
+            return;
+        }
+
+        if (entry.Wrapper is { Length: > 0 } wrapper)
+        {
+            if (Enum.TryParse<WrapperKind>(wrapper, out var kind))
+            {
+                model.Kind = kind;
+            }
+            else
+            {
+                _model.Diagnostics.Add(
+                    "overrides.json's manual entry for '" + entry.Interface + "' (" + entry.Reason
+                    + ") asks for wrapper kind '" + wrapper + "', which is not a DomWrapperKind.");
+            }
+        }
+
+        if (entry.Inherits is not { } inherits)
+        {
+            return;
+        }
+
+        if (inherits.Length == 0)
+        {
+            model.Parent = null;
+            return;
+        }
+
+        var parent = _byClrName.Values.FirstOrDefault(m => m.DomName == inherits);
+        if (parent is null)
+        {
+            _model.Diagnostics.Add(
+                "overrides.json's manual entry for '" + entry.Interface + "' (" + entry.Reason
+                + ") inherits '" + inherits + "', which the pinned assemblies do not project.");
+            return;
+        }
+
+        model.Parent = parent;
+    }
+
     private InterfaceModel? LookupInterface(Type type)
         => DefinitionName(type) is { } name && _byClrName.TryGetValue(name, out var model) ? model : null;
 
@@ -501,14 +554,14 @@ internal sealed class ModelBuilder
     /// <summary>
     /// HTML §2.6.1's reflected content attributes: the accessor pair is the reflection algorithm its type
     /// names, over the content attribute, and it <b>replaces</b> whatever the pinned assemblies projected
-    /// under that name.
+    /// under that name — or, when the entry is <c>setterOnly</c>, replaces that projection's setter alone.
     /// </summary>
     /// <remarks>
     /// The replacement is the whole point and is the opposite of what <c>additions</c> does. A reflected
     /// attribute is usually one AngleSharp <em>does</em> project, from a CLR property whose getter hands back
     /// the raw attribute value, or parses it with a different default, or lower-cases nothing; the entry says
     /// which of HTML's thirteen algorithms it really is. What the entry can never do is silently shadow: the
-    /// report names every one and says whether it replaced a projection or added a member.
+    /// report names every one and says whether it replaced a projection, added a member, or supplied a setter.
     /// </remarks>
     private void BuildReflectedMembers(InterfaceModel model)
     {
@@ -524,24 +577,85 @@ internal sealed class ModelBuilder
                 continue;
             }
 
+            // A getter hook beside a reflected entry is the shape of an IDL attribute whose *write* is
+            // HTML's reflection and whose *read* is not: `img.width` and `img.height` set the content
+            // attribute and answer the density-corrected intrinsic size of an available image, which no
+            // reflection algorithm can express. Reaching for `skip` + `additions` instead would give up the
+            // parsing rules the entry is here for.
+            var getterHook = _overrides.Hooks.FirstOrDefault(h =>
+                h.Interface == model.DomName && h.Member == entry.Member && h.Half == "getter");
+
+            var projected = model.Members.Find(m => m.DomName == entry.Member);
+            var preserved = "";
+
+            if (entry.SetterOnly && !TrySetterOnlyRead(model, entry, projected, getterHook, out preserved))
+            {
+                continue;
+            }
+
             var qualified = model.DomName + "." + entry.Member;
             var field = model.FieldName + char.ToUpperInvariant(entry.Member[0]) + entry.Member[1..];
             var replaced = model.Members.RemoveAll(m => m.DomName == entry.Member) > 0;
 
-            _model.Reflected.Add(new ReflectedModel(field, qualified, entry.Attribute, entry.Type, factory, replaced));
+            _model.Reflected.Add(
+                new ReflectedModel(field, qualified, entry.Attribute, entry.Type, factory, replaced, entry.SetterOnly));
 
             var descriptor = "global::Jint.Browser.Dom.DomReflected." + field;
+
+            var read = getterHook is null
+                ? descriptor + (entry.Type == "url" ? ".Get(self.Realm, self.Target)" : ".Get(self.Target)")
+                : "self.Realm.Hooks." + getterHook.Hook + "(self.Realm, self.Target)";
 
             model.Members.Add(new MemberModel
             {
                 DomName = entry.Member,
                 Kind = MemberKind.Attribute,
-                Body = Bind(model, qualified) + "return " + descriptor
-                    + (entry.Type == "url" ? ".Get(self.Realm, self.Target);" : ".Get(self.Target);"),
+                Body = entry.SetterOnly ? preserved : Bind(model, qualified) + "return " + read + ";",
                 SetterBody = Bind(model, qualified) + "return " + descriptor + ".Set(self.Realm, self.Target, args);",
                 Origin = "overrides.json (reflected)",
             });
         }
+    }
+
+    /// <summary>
+    /// The getter body a <c>setterOnly</c> entry keeps, or a diagnostic saying why the entry has none.
+    /// </summary>
+    /// <remarks>
+    /// <c>setterOnly</c> is the form for an IDL attribute HTML defines as reflecting <em>on setting</em>
+    /// while its getter computes something reflection cannot express — and where the pinned assemblies
+    /// already compute it. <c>&lt;meter&gt;</c>'s six members are that case: AngleSharp implements HTML
+    /// §4.10.14's clamping and defaults, so replacing their getters would be a regression, while their
+    /// setters write the number with .NET's format rather than HTML's. Both of the ways an entry can be
+    /// wrong about that are refused rather than generated: a member with nothing projected under its name
+    /// has no getter to keep, and one that also carries a getter hook has named two answers for one read.
+    /// </remarks>
+    private bool TrySetterOnlyRead(
+        InterfaceModel model,
+        Overrides.ReflectedEntry entry,
+        MemberModel? projected,
+        Overrides.HookEntry? getterHook,
+        out string read)
+    {
+        read = projected?.Body ?? "";
+
+        if (projected is null)
+        {
+            _model.Diagnostics.Add(
+                "overrides.json reflects only the setter of " + model.DomName + "." + entry.Member + " ("
+                + entry.Reason + "), but the pinned assemblies project no getter to keep.");
+            return false;
+        }
+
+        if (getterHook is not null)
+        {
+            _model.Diagnostics.Add(
+                "overrides.json reflects only the setter of " + model.DomName + "." + entry.Member + " ("
+                + entry.Reason + ") and also routes its getter through the " + getterHook.Hook
+                + " hook; the read cannot be both.");
+            return false;
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -923,22 +1037,12 @@ internal sealed class ModelBuilder
             DomName = domName,
             Kind = MemberKind.Operation,
             Length = DeclaredLength(method),
-            Body = Bind(model, qualified) + DetachedChildGuard(declaring, method) + (method.ReturnType.FullName == "System.Void"
+            Body = Bind(model, qualified) + (method.ReturnType.FullName == "System.Void"
                 ? body + "; return global::Jint.Native.JsValue.Undefined;"
                 : "return " + body + ";"),
             Origin = declaring.Name + "." + method.Name,
         });
     }
-
-    /// <summary>
-    /// DOM §4.2.7 returns before converting arguments when <c>before</c> or <c>after</c>'s receiver has no
-    /// parent. AngleSharp instead enters its insertion helper and raises a not-found exception, so the
-    /// generated binding performs the standard's early return before calling it.
-    /// </summary>
-    private static string DetachedChildGuard(Type declaring, MethodInfo method)
-        => declaring.FullName == "AngleSharp.Dom.IChildNode" && method.Name is "Before" or "After"
-            ? "if (self.Target.Parent is null) { return global::Jint.Native.JsValue.Undefined; }\n"
-            : "";
 
     private void BuildPropertyAsOperation(InterfaceModel model, Type declaring, PropertyInfo property, string domName, string qualified)
     {
@@ -1071,7 +1175,12 @@ internal sealed class ModelBuilder
 
         if (_overrides.Hooks.FirstOrDefault(h => h.Interface == model.DomName && h.Member == domName && h.Half == "setter") is { } hook)
         {
-            return "self.Realm.Hooks." + hook.Hook + "(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, " + CSharpNames.Literal(qualified) + ")); return global::Jint.Native.JsValue.Undefined;";
+            if (!TryHookedValue(model, property, domName, qualified, out var hooked))
+            {
+                return null;
+            }
+
+            return "self.Realm.Hooks." + hook.Hook + "(self.Realm, self.Target, " + hooked + "); return global::Jint.Native.JsValue.Undefined;";
         }
 
         if (extensionSetter is not null)
@@ -1115,6 +1224,30 @@ internal sealed class ModelBuilder
         }
 
         return "self.Target." + property.Name + " = " + assigned + "; return global::Jint.Native.JsValue.Undefined;";
+    }
+
+    /// <summary>
+    /// The value a <c>hooks</c> setter is handed. It is the attribute's <i>own</i> IDL conversion, read from
+    /// the CLR setter the hook stands in front of, because a hooked attribute is not necessarily a
+    /// <c>DOMString</c> one: <c>option.selected = 'x'</c> is WebIDL's <c>ToBoolean</c>. A hook over a member
+    /// with no writable CLR property is standing in front of a <c>[PutForwards]</c> pair instead
+    /// (<c>document.location</c>), whose own IDL type is a <c>DOMString</c>.
+    /// </summary>
+    private bool TryHookedValue(InterfaceModel model, PropertyInfo property, string domName, string qualified, out string value)
+    {
+        if (!property.CanWrite)
+        {
+            value = "global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, " + CSharpNames.Literal(qualified) + ")";
+            return true;
+        }
+
+        if (_conversions.TryParameter(property.SetMethod!.GetParameters()[0], 0, qualified, null, ParameterRole.AttributeValue, out value, out var reason))
+        {
+            return true;
+        }
+
+        _model.Diagnostics.Add(model.DomName + "." + domName + " routes its setter through a hook, but the value it would be handed " + reason + "; the attribute stays read-only.");
+        return false;
     }
 
     /// <summary>
@@ -1186,6 +1319,24 @@ internal sealed class ModelBuilder
         var member = qualified[(dot + 1)..];
 
         return entries.Any(n => n.Interface == iface && n.Member == member && n.Parameter == index);
+    }
+
+    /// <summary>
+    /// Whether an IDL attribute's setter carries <c>[LegacyNullToEmptyString]</c>. The qualified name is what
+    /// the emitted conversion already carries, so the lookup needs nothing the caller does not have.
+    /// </summary>
+    private bool IsNullToEmptyString(string qualified)
+    {
+        var dot = qualified.LastIndexOf('.');
+        if (dot <= 0)
+        {
+            return false;
+        }
+
+        var iface = qualified[..dot];
+        var member = qualified[(dot + 1)..];
+
+        return _overrides.NullToEmptyStrings.Any(n => n.Interface == iface && n.Member == member);
     }
 
     /// <summary>
@@ -1486,6 +1637,47 @@ internal sealed class ModelBuilder
 
     // ---------------------------------------------------------------------------------------------------
 
+    /// <summary>
+    /// https://webidl.spec.whatwg.org/#Unscopable - the <c>[Unscopable]</c> members of each interface, from
+    /// <c>overrides.json</c>'s <c>unscopables</c> list.
+    /// </summary>
+    /// <remarks>
+    /// It runs after the members are built, because that is what makes the check possible: a name the
+    /// interface does not declare is a diagnostic rather than a key silently added to an object Web IDL
+    /// builds out of the interface's own members. The list is sorted so the emitted array is stable whatever
+    /// order the table is written in.
+    /// </remarks>
+    private void BuildUnscopables()
+    {
+        foreach (var entry in _overrides.Unscopables)
+        {
+            var model = _byClrName.Values.FirstOrDefault(m => m.DomName == entry.Interface);
+
+            if (model is null)
+            {
+                _model.Diagnostics.Add(
+                    "overrides.json marks members of '" + entry.Interface + "' unscopable (" + entry.Reason
+                    + "), which the pinned assemblies do not project.");
+                continue;
+            }
+
+            foreach (var member in entry.Members)
+            {
+                if (!model.Members.Any(m => m.DomName == member))
+                {
+                    _model.Diagnostics.Add(
+                        "overrides.json marks '" + entry.Interface + "." + member + "' unscopable ("
+                        + entry.Reason + "), but that interface declares no such member.");
+                    continue;
+                }
+
+                model.Unscopables.Add(member);
+            }
+
+            model.Unscopables.Sort(StringComparer.Ordinal);
+        }
+    }
+
     private void VerifyOverridesMatchTheAssemblies()
     {
         var known = new HashSet<string>(StringComparer.Ordinal);
@@ -1521,6 +1713,11 @@ internal sealed class ModelBuilder
         foreach (var entry in _overrides.NullableStrings)
         {
             Check("nullableStrings", entry.Interface, entry.Member, entry.Reason);
+        }
+
+        foreach (var entry in _overrides.NullToEmptyStrings)
+        {
+            Check("nullToEmptyStrings", entry.Interface, entry.Member, entry.Reason);
         }
 
         foreach (var entry in _overrides.NullableParameters)
@@ -1586,6 +1783,16 @@ internal sealed class ModelBuilder
             if (!_assemblies.SelectMany(a => a.GetTypes()).Any(t => t.FullName == entry.Interface))
             {
                 _model.Diagnostics.Add("overrides.json excludes '" + entry.Interface + "' (" + entry.Reason + "), which is not in the pinned assemblies.");
+            }
+        }
+
+        // A manual entry names a CLR interface the generator has to have projected, or its hand-written shape
+        // reaches no prototype at all - which is silent, because nothing else in the pipeline reads the entry.
+        foreach (var entry in _overrides.Manual)
+        {
+            if (!_byClrName.ContainsKey(entry.Interface))
+            {
+                _model.Diagnostics.Add("overrides.json hand-writes '" + entry.Interface + "' (" + entry.Reason + "), which the pinned assemblies do not project.");
             }
         }
 

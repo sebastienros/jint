@@ -600,21 +600,48 @@ internal enum WptDivergence
     /// <para>
     /// The test names an <b>event interface this browser does not build</b>. <c>document.createEvent</c>'s
     /// alias table (https://dom.spec.whatwg.org/#dom-document-createevent) is the only place a page meets
-    /// them all at once, and five of its rows name interfaces <c>Jint.Browser</c> deliberately has not:
-    /// <c>DragEvent</c> and <c>ClipboardEvent</c> need a <c>DataTransfer</c>, <c>StorageEvent</c> a storage
-    /// area's change notification, <c>TouchEvent</c> a touch input, and <c>DeviceMotionEvent</c> and
-    /// <c>DeviceOrientationEvent</c> a sensor. <c>Jint.Browser/Events/BrowserEventInterfaces.cs</c> is the
-    /// list of the fourteen it does build, and the absence of the rest is stated there.
+    /// them all at once, and five of its rows used to name interfaces <c>Jint.Browser</c> did not have:
+    /// <c>DragEvent</c>, <c>StorageEvent</c>, <c>TouchEvent</c>, <c>DeviceMotionEvent</c> and
+    /// <c>DeviceOrientationEvent</c>.
+    /// </para>
+    /// <para>
+    /// <b>No entry carries this category any more.</b> All five are built, in full and from their own
+    /// dictionaries, and the reason they could be is that whether the runtime ever <i>fires</i> one is a
+    /// different question from whether a page can construct and dispatch one — the corpus only ever asked the
+    /// second. <c>Jint.Browser/Events/BrowserEventInterfaces.cs</c> is the list, and it states which of them
+    /// nothing fires. It stays, like <see cref="NeedsTestDriver"/>, because the alias table is not the only
+    /// place a suite can meet an interface: <c>ClipboardEvent</c> is still absent — there is no clipboard
+    /// model at all — and it is not in that table, so the next suite that reaches for one needs a row.
     /// </para>
     /// <para>
     /// It is <see cref="NeedsTriage"/>'s opposite in the way that matters: the interface is named, the reason
     /// it is absent is a scope decision somebody made rather than a defect somebody owes, and the rows move
-    /// the day one of them is built. Answering a plain <c>Event</c> under those names instead would be a lie
-    /// a page cannot detect, which is why <c>createEvent</c> refuses them with the <c>NotSupportedError</c>
-    /// the standard gives an alias it does not list.
+    /// the day one of them is built. Answering a plain <c>Event</c> under such a name instead would be a lie
+    /// a page cannot detect, which is why <c>createEvent</c> refuses an alias it does not carry with the
+    /// <c>NotSupportedError</c> the standard gives one it does not list.
     /// </para>
     /// </summary>
     NeedsMoreEventInterfaces,
+
+    /// <summary>
+    /// <para>
+    /// The document <b>declines an optional feature</b> this browser exposes only when a client asks for it:
+    /// touch. A file that guards its rows with
+    /// <c>assert_implements_optional('ontouchstart' in document)</c> records <c>PRECONDITION_FAILED</c> for
+    /// every one of them on a page nobody said was a touch device, and never reaches their subject.
+    /// </para>
+    /// <para>
+    /// <b>It has no entries, and what replaced them is an environment rather than an exclusion.</b>
+    /// <c>dom/nodes/Document-createEvent.https.html</c> was its six rows; the browser lane opens that
+    /// document as a touch device now — <c>WptBrowserExclusions.TouchDocuments</c>, through the same
+    /// <c>Page.SetTouchEmulationAsync</c> seam a client has — so the rows run and pass. The member stays for
+    /// the next document whose subject needs an environment this browser has no way to give it: what is
+    /// deliberate is still the exposure, which <c>Jint.Browser/Runtime/TouchEmulation</c> argues, and a
+    /// document that needs touch and cannot be given it belongs here rather than in
+    /// <see cref="NeedsTriage"/>.
+    /// </para>
+    /// </summary>
+    NeedsTouchEmulation,
 
     /// <summary>
     /// <para>
@@ -654,7 +681,8 @@ internal enum WptDivergence
     /// arrived, whereas here the divergence is in the test and no change to this engine would move it.
     /// </para>
     /// <para>
-    /// Two divergences today. The second is <c>fetch/api/request/request-disturbed.any.js</c>, "Input request
+    /// Two divergences in this lane today, and the browser lane keeps its own beside its own table. The
+    /// second is <c>fetch/api/request/request-disturbed.any.js</c>, "Input request
     /// used for creating new request became disturbed even if body is not used", which asks that
     /// <c>new Request(input, { body })</c> disturb <c>input</c>. https://fetch.spec.whatwg.org/#dom-request
     /// creates the proxy that disturbs it only "if initBody is null and inputBody is non-null", so with an
@@ -678,6 +706,19 @@ internal enum WptDivergence
     /// empirical half agrees: on wpt.fyi's four aligned stable runs that row is 0/1 in Chrome, Edge, Firefox
     /// and Safari, where the file's thirteen other rows are 1/1 in all four. <c>Vendor/README.md</c> keeps
     /// the grammar and the measurement.
+    /// </para>
+    /// <para>
+    /// <b>The browser lane files two, and both argue their citation where its table is.</b> Eight rows of
+    /// <c>dom/events/Event-dispatch-single-activation-behavior.html</c> ask that exactly one activation
+    /// behaviour run, where the file's own instrumentation is a <c>&lt;form onsubmit&gt;</c> handler and
+    /// HTML fires <c>submit</c> and <c>reset</c> with <c>bubbles</c> true — so the parent's handler runs
+    /// because the child's event reached it, and no implementation may stop it. And one row of
+    /// <c>dom/lists/DOMTokenList-coverage-for-attributes.html</c> asks a <b>MathML</b> <c>&lt;a&gt;</c> for a
+    /// <c>relList</c>: MathML Core's only interface is <c>MathMLElement</c>
+    /// (https://w3c.github.io/mathml-core/#dom-and-javascript), which declares no <c>rel</c> and no
+    /// <c>relList</c>, and nothing else defines one on a MathML element either. Its SVG sibling is
+    /// SVG 2 §16.2's and really is required, which is why that row left the table rather than joining
+    /// this member.
     /// </para>
     /// <para>
     /// Age never promotes an entry into this category: a row nobody has got round to stays

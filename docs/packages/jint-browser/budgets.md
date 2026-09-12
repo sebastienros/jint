@@ -26,6 +26,7 @@ Important defaults:
 | `SubresourceTimeout` | 30 s | One subresource |
 | `MaxDomNodes` | Unlimited | Document nodes and projected wrappers |
 | `MaxFrameDocuments` | 16 | Fetched child-frame documents per load |
+| `MaxImageRequests` | 1,000 | Image requests started per document; `0` fetches none |
 | `MaxRedirects` | 20 | One redirect chain |
 
 A turn is one posted page call, one event-loop drain, or one inline script. A host call exceeding its turn budget faults with `TimeoutException`; a runaway script or queued callback becomes a `PageErrorKind.BudgetExceeded`, and the page remains usable.

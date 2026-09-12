@@ -18,6 +18,8 @@ Puppeteer and Playwright attach with their **connect** APIs, not launch APIs. Ex
 
 The implementation covers the page, DOM, input, network, fetch interception, storage, accessibility, and selected emulation paths needed by supported clients. Unsupported protocol commands report protocol errors rather than silently succeeding.
 
+`DOM.setFileInputFiles` — the command behind Playwright's `setInputFiles` and Puppeteer's `uploadFile` — selects files by path on the machine the server is running on. The bytes are read when the command runs, so the page keeps them whatever happens to the file afterwards, and a path that names no readable file is a protocol error rather than an empty selection.
+
 With `Fetch.enable`'s `handleAuthRequests`, a `401` pauses as `Fetch.authRequired`, and
 `Fetch.continueWithAuth` answers it. Basic credentials are supported; other schemes are reported and
 credentials offered for them are refused with an error naming the scheme.

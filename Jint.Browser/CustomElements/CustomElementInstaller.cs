@@ -11,10 +11,19 @@ namespace Jint.Browser.CustomElements;
 /// object per engine, and the global that names it.
 /// </summary>
 /// <remarks>
-/// <c>window.customElements</c> itself is an accessor on <c>Window.prototype</c> rather than a global of its
-/// own, which is what WebIDL's <c>[SameObject] readonly attribute</c> asks for — and an accessor is safe
-/// there where a shape <i>method</i> would not be, because a bare identifier read goes through the global
-/// object's <c>[[Get]]</c> with the global as the receiver. <c>Runtime/AGENTS.md</c> has that trap in full.
+/// <para>
+/// <c>window.customElements</c> is an <b>own</b> property of the global object rather than an accessor on
+/// <c>Window.prototype</c>, because WebIDL's <c>[Global]</c> puts an interface's members on the global object
+/// itself and this is one of the two a page can tell apart — <c>window.event</c> is the other, and
+/// <c>Runtime/AGENTS.md</c> says why the rest stay on the shaped prototype. A page that saves
+/// <c>Object.getOwnPropertyDescriptor(window, "customElements")</c>, replaces the global and puts the
+/// descriptor back is the shape that noticed: with nothing own there, the descriptor was
+/// <see langword="undefined"/> and the restore threw.
+/// </para>
+/// <para>
+/// It is a <b>lazy</b> global, so a document that never mentions <c>customElements</c> still builds no
+/// registry: the factory runs on the first read and not before.
+/// </para>
 /// </remarks>
 internal static class CustomElementInstaller
 {
@@ -34,12 +43,25 @@ internal static class CustomElementInstaller
         return new CustomElementRegistry(runtime, prototype, interfaceObject);
     }
 
-    /// <summary>Installs the <c>CustomElementRegistry</c> global. Called once, with the window.</summary>
+    /// <summary>
+    /// Installs the <c>CustomElementRegistry</c> interface object and the <c>customElements</c> global.
+    /// Called once, with the window.
+    /// </summary>
+    /// <remarks>
+    /// The interface object is <c>NonEnumerable</c> as every interface object on the global is; the attribute
+    /// is enumerable, as every WebIDL member is.
+    /// </remarks>
     internal static void Install(PageRuntime runtime)
-        => runtime.Engine.AddLazyGlobal(
+    {
+        var engine = runtime.Engine;
+
+        engine.AddLazyGlobal(
             "CustomElementRegistry",
             static e => PageRuntime.Find(e)!.CustomElements.InterfaceObject,
             PropertyFlag.NonEnumerable);
+
+        engine.AddLazyGlobal("customElements", static e => PageRuntime.Find(e)!.CustomElements);
+    }
 
     /// <summary>The interface's shape, which is five operations and no attribute at all.</summary>
     private static JsObjectShape BuildShape() => new JsObjectShape.Builder()

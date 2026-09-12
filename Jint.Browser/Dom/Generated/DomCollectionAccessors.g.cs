@@ -93,48 +93,6 @@ internal sealed class DomAccessorCSSStyleDeclaration : DomCollectionAccessor
     }
 }
 
-/// <summary>How <c>DOMTokenList</c> answers indexed and named property lookups.</summary>
-internal sealed class DomAccessorDOMTokenList : DomCollectionAccessor
-{
-    internal static readonly DomAccessorDOMTokenList Instance = new();
-
-    internal override uint Length(object target) => (uint) ((global::AngleSharp.Dom.ITokenList) target).Length;
-
-    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
-    {
-        var collection = (global::AngleSharp.Dom.ITokenList) target;
-        if (index >= (uint) collection.Length)
-        {
-            value = global::Jint.Native.JsValue.Undefined;
-            return false;
-        }
-
-        value = global::Jint.Browser.Dom.DomConvert.Text(((global::System.Collections.Generic.IReadOnlyList<global::System.String>) collection)[(int) index]);
-        return true;
-    }
-}
-
-/// <summary>How <c>DOMSettableTokenList</c> answers indexed and named property lookups.</summary>
-internal sealed class DomAccessorDOMSettableTokenList : DomCollectionAccessor
-{
-    internal static readonly DomAccessorDOMSettableTokenList Instance = new();
-
-    internal override uint Length(object target) => (uint) ((global::AngleSharp.Dom.ISettableTokenList) target).Length;
-
-    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
-    {
-        var collection = (global::AngleSharp.Dom.ISettableTokenList) target;
-        if (index >= (uint) collection.Length)
-        {
-            value = global::Jint.Native.JsValue.Undefined;
-            return false;
-        }
-
-        value = global::Jint.Browser.Dom.DomConvert.Text(((global::System.Collections.Generic.IReadOnlyList<global::System.String>) collection)[(int) index]);
-        return true;
-    }
-}
-
 /// <summary>How <c>DOMStringList</c> answers indexed and named property lookups.</summary>
 internal sealed class DomAccessorDOMStringList : DomCollectionAccessor
 {
@@ -205,6 +163,27 @@ internal sealed class DomAccessorDOMStringMap : DomCollectionAccessor
     internal override bool TryDeleteNamed(object target, string name)
     {
         ((global::AngleSharp.Dom.IStringMap) target).Remove(name);
+        return true;
+    }
+}
+
+/// <summary>How <c>DOMTokenList</c> answers indexed and named property lookups.</summary>
+internal sealed class DomAccessorDOMTokenList : DomCollectionAccessor
+{
+    internal static readonly DomAccessorDOMTokenList Instance = new();
+
+    internal override uint Length(object target) => (uint) ((global::AngleSharp.Dom.ITokenList) target).Length;
+
+    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
+    {
+        var collection = (global::AngleSharp.Dom.ITokenList) target;
+        if (index >= (uint) collection.Length)
+        {
+            value = global::Jint.Native.JsValue.Undefined;
+            return false;
+        }
+
+        value = global::Jint.Browser.Dom.DomConvert.Text(((global::System.Collections.Generic.IReadOnlyList<global::System.String>) collection)[(int) index]);
         return true;
     }
 }
@@ -458,27 +437,6 @@ internal sealed class DomAccessorTextTrackList : DomCollectionAccessor
     internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
     {
         var collection = (global::AngleSharp.Media.Dom.ITextTrackList) target;
-        if (index >= (uint) collection.Length)
-        {
-            value = global::Jint.Native.JsValue.Undefined;
-            return false;
-        }
-
-        value = realm.Wrap(collection[(int) index]);
-        return true;
-    }
-}
-
-/// <summary>How <c>TouchList</c> answers indexed and named property lookups.</summary>
-internal sealed class DomAccessorTouchList : DomCollectionAccessor
-{
-    internal static readonly DomAccessorTouchList Instance = new();
-
-    internal override uint Length(object target) => (uint) ((global::AngleSharp.Html.Dom.Events.ITouchList) target).Length;
-
-    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
-    {
-        var collection = (global::AngleSharp.Html.Dom.Events.ITouchList) target;
         if (index >= (uint) collection.Length)
         {
             value = global::Jint.Native.JsValue.Undefined;

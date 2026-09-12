@@ -37,7 +37,7 @@ public sealed class BrowserToolsTests
         names.Should().Contain([
             "navigate", "back", "forward", "reload",
             "snapshot",
-            "click", "fill", "type", "press", "select", "hover", "scroll",
+            "click", "fill", "type", "press", "select", "hover", "scroll", "upload",
             "evaluate", "wait_for", "network_requests", "cookies", "set_cookie", "close",
         ]);
 
@@ -313,10 +313,63 @@ public sealed class BrowserToolsTests
             .Single().Text.Should().Contain("# Welcome");
     }
 
+    [Test]
+    public async Task UploadIsRefusedUntilADeploymentNamesADirectoryToUploadFrom()
+    {
+        var directory = Directory.CreateTempSubdirectory("jint-mcp-upload-");
+
+        try
+        {
+            var inside = Path.Combine(directory.FullName, "receipt.txt");
+            await File.WriteAllTextAsync(inside, "the receipt");
+
+            // Off by default, and the refusal says what would turn it on rather than what went wrong.
+            await using (var closed = await McpFixture.CreateAsync(UploadRoutes))
+            {
+                await closed.CallAsync("navigate", ("url", closed.Url("/upload")));
+                var refused = await closed.CallAsync("upload", ("target", "#f"), ("paths", new[] { inside }));
+
+                refused.IsError.Should().BeTrue();
+                McpFixture.TextOf(refused).Should().Contain("BrowserAgentOptions.UploadDirectory");
+            }
+
+            await using var fixture = await McpFixture.CreateAsync(
+                UploadRoutes,
+                agent => agent.UploadDirectory = directory.FullName);
+
+            await fixture.CallAsync("navigate", ("url", fixture.Url("/upload")));
+
+            var chosen = JsonDocument.Parse(McpFixture.TextOf(
+                await fixture.CallAsync("upload", ("target", "#f"), ("paths", new[] { inside })))).RootElement;
+            chosen.GetProperty("done").GetBoolean().Should().BeTrue();
+
+            var files = await fixture.CallAsync(
+                "evaluate",
+                ("expression", "Array.from(document.getElementById('f').files, f => f.name + ':' + f.size).join(',')"));
+            McpFixture.TextOf(files).Should().Contain("receipt.txt:11");
+
+            // And a path outside the directory is refused even though the directory is now named.
+            var outside = await fixture.CallAsync(
+                "upload",
+                ("target", "#f"),
+                ("paths", new[] { Path.Combine(directory.FullName, "..", "elsewhere.txt") }));
+
+            outside.IsError.Should().BeTrue();
+            McpFixture.TextOf(outside).Should().Contain("outside");
+        }
+        finally
+        {
+            directory.Delete(recursive: true);
+        }
+    }
+
     private static void Routes(LoopbackServer server)
     {
         server.MapHtml("/", Home);
         server.MapHtml("/about", "<!doctype html><title>About</title><h1>About us</h1>");
         server.MapHtml("/search", "<!doctype html><title>Results</title><h1>Results</h1>");
     }
+
+    private static void UploadRoutes(LoopbackServer server)
+        => server.MapHtml("/upload", "<!doctype html><title>Upload</title><input id='f' type='file'>");
 }

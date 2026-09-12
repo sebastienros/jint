@@ -224,6 +224,35 @@ public sealed class PageTests
     }
 
     [Test]
+    public async Task ADataUrlIsDecodedByTheStandardsProcessorRatherThanTheBclOne()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+
+        // https://infra.spec.whatwg.org/#forgiving-base64-decode accepts an unpadded payload -- the encoding
+        // of "<p id=x>decoded</p>" with its two "=" removed, twenty-six code points -- where
+        // Convert.FromBase64String throws on a length that does not divide by four, which is what this
+        // navigation used to be decoded with.
+        await page.NavigateAsync("data:text/html;base64,PHAgaWQ9eD5kZWNvZGVkPC9wPg");
+
+        (await page.EvaluateAsync<string>("document.getElementById('x').textContent")).Should().Be("decoded");
+    }
+
+    [Test]
+    public async Task ADataUrlsCharsetParameterDecidesTheEncoding()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+
+        // https://fetch.spec.whatwg.org/#data-url-processor step 13 parses the MIME type, and the response
+        // it produces is what the document's encoding is sniffed from — so a single 0xE9 byte is `é` here
+        // and the replacement character under UTF-8.
+        await page.NavigateAsync("data:text/html;charset=iso-8859-1,<p id='x'>caf%E9</p>");
+
+        (await page.EvaluateAsync<string>("document.getElementById('x').textContent")).Should().Be("café");
+    }
+
+    [Test]
     public async Task ASchemeThePageCannotReachIsRefusedWithASentence()
     {
         await using var browser = new Browser();

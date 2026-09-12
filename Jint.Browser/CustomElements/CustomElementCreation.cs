@@ -81,7 +81,7 @@ internal static class CustomElementCreation
         }
 
         Dom.Files.FileTransferRealm.ResetCopiedInputs(clone);
-        CustomElementRegistry.SubtreeCreated(realm, clone);
+        CustomElementRegistry.Cloned(realm, node, clone);
         return documentDefinition is null ? realm.WrapNodeValue(clone) : realm.Wrap(clone, documentDefinition);
     }
 
@@ -97,6 +97,7 @@ internal static class CustomElementCreation
     internal static bool TryConstruct(
         DomRealm realm,
         DomInterfaceDefinition interfaceDefinition,
+        ObjectInstance activeFunctionObject,
         JsValue newTarget,
         out ObjectInstance instance)
     {
@@ -107,6 +108,18 @@ internal static class CustomElementCreation
             || registry.DefinitionOf(target) is not { } definition)
         {
             return false;
+        }
+
+        // Step 2: "If NewTarget is equal to the active function object, then throw a TypeError." An
+        // interface object registered as its own constructor — `customElements.define('x-y', HTMLElement)` —
+        // is the only way to reach the constructor with the two equal, and HTML refuses it because there is
+        // no subclass whose prototype the element could take. Without this the definition is found and
+        // `new HTMLElement()` quietly answers an element.
+        if (ReferenceEquals(target, activeFunctionObject))
+        {
+            Throw.TypeError(
+                realm.Engine._mainRealm,
+                "Illegal constructor: '" + interfaceDefinition.Name + "' is registered as its own custom element constructor, so NewTarget is the active function object.");
         }
 
         instance = registry.ConstructBase(interfaceDefinition, definition, target);
@@ -125,10 +138,17 @@ internal static class CustomElementCreation
         // `createElement('X-THING')` find one.
         var lowered = document is AngleSharp.Html.Dom.IHtmlDocument ? localName.ToLowerInvariant() : localName;
         var isValue = ReadIs(realm, options);
+        // https://dom.spec.whatwg.org/#validate-and-extract: `createElementNS` takes a *qualified* name, and
+        // everything after it — the definition lookup, the element the constructor has to produce — is about
+        // the local name that validate-and-extract splits out of it. `createElement` does no extraction at
+        // all, so a colon there is part of the local name and this is the namespaced member's step alone.
+        var lookupName = namespaced ? LocalNameOf(lowered) : lowered;
         // A definition is only ever in the HTML namespace, so the namespaced member looks up under the
         // namespace it was given — `createElementNS(null, 'x-thing')` is in *no* namespace and matches none —
-        // while `createElement` is the HTML one by definition.
-        var definition = registry.Lookup(namespaced ? namespaceUri : CustomElementRegistry.HtmlNamespace, lowered, isValue);
+        // while `createElement` is the HTML one by definition. The document is create-an-element's own
+        // argument, and it is what makes the two members answer an uncustomized element for a document with
+        // no browsing context: see CustomElementRegistry.Lookup's step 1.
+        var definition = registry.Lookup(document, namespaced ? namespaceUri : CustomElementRegistry.HtmlNamespace, lookupName, isValue);
 
         if (definition is null)
         {
@@ -145,8 +165,10 @@ internal static class CustomElementCreation
         if (definition.IsAutonomous)
         {
             // Step 6.1: the constructor is called with an empty construction stack, so `super()` is what
-            // creates the element — which is why a constructor may call createElement of its own name.
-            return registry.ConstructAutonomous(definition, document, lowered);
+            // creates the element — which is why a constructor may call createElement of its own name. The
+            // prefix has to be handed to it, because DOM's step 5.1.3.9 sets the prefix *after* the
+            // constructor returns and AngleSharp has no setter for one: see PendingPrefix.
+            return registry.ConstructAutonomous(definition, document, lookupName, namespaced ? PrefixOf(localName) : null);
         }
 
         // Step 5: a customized built-in is created as its built-in and then upgraded, so `super()` answers
@@ -156,6 +178,35 @@ internal static class CustomElementCreation
         registry.Upgrade(element, definition);
         registry.Drain();
         return realm.WrapNodeValue(element);
+    }
+
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#validate-and-extract step 4: the local name of a qualified name is what
+    /// follows its first colon.
+    /// </summary>
+    /// <remarks>
+    /// The prefix itself is AngleSharp's to keep — it is given the qualified name and splits it the same way
+    /// — with one exception this cannot reach: an <b>autonomous</b> custom element is made by its own
+    /// constructor, which creates the element from the definition's local name, and AngleSharp's
+    /// <c>Prefix</c> is read-only, so DOM's "set result's namespace prefix to prefix" has nowhere to write.
+    /// <c>Dom/divergences.md</c> records it; a customized built-in is unaffected, being AngleSharp's own
+    /// element from the qualified name and then upgraded.
+    /// </remarks>
+    private static string LocalNameOf(string qualifiedName)
+    {
+        var colon = qualifiedName.IndexOf(':', StringComparison.Ordinal);
+        return colon < 0 ? qualifiedName : qualifiedName[(colon + 1)..];
+    }
+
+    /// <summary>The other half of validate-and-extract: what precedes the first colon, or nothing.</summary>
+    /// <remarks>
+    /// Read off the name as the script wrote it rather than off the lower-cased one, because a prefix keeps
+    /// its case.
+    /// </remarks>
+    private static string? PrefixOf(string qualifiedName)
+    {
+        var colon = qualifiedName.IndexOf(':', StringComparison.Ordinal);
+        return colon < 0 ? null : qualifiedName[..colon];
     }
 
     /// <remarks>

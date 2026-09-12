@@ -77,10 +77,6 @@ browser functionality. Jint is open source under the
     <strong>Jint.Browser</strong>
     <span>An in-process, non-rendering browser built with Jint and AngleSharp.</span>
   </a>
-  <a class="package-card" href="./packages/jint-browser-playwright/">
-    <strong>Jint.Browser.Playwright</strong>
-    <span>A direct implementation of public Microsoft.Playwright interfaces over Jint.Browser.</span>
-  </a>
   <a class="package-card" href="./packages/jint-browser-tool/">
     <strong>Jint.Browser.Tool</strong>
     <span>The <code>jint-browser</code> command for extraction, evaluation, CDP, and MCP.</span>

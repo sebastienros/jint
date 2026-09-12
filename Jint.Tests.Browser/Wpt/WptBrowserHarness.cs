@@ -146,8 +146,12 @@ internal sealed class WptBrowserHarness : IDisposable
     /// Runs one document and answers every result it reported, or the harness error that stopped it.
     /// </summary>
     /// <param name="path">
-    /// A path in the wpt tree: a vendored document (<c>dom/events/Event-propagation.html</c>) or a wrapper the
-    /// server synthesizes for a vendored script (<c>dom/events/Event-constructors.any.html</c>).
+    /// A case name: a path in the wpt tree — a vendored document (<c>dom/events/Event-propagation.html</c>)
+    /// or a wrapper the server synthesizes for a vendored script
+    /// (<c>dom/events/Event-constructors.any.html</c>) — with the variant it is being run at appended when
+    /// the document declares any (<c>dom/events/handler-count.html?element</c>). The query reaches the page's
+    /// own <c>location.search</c>, which is what such a document branches on, while the server finds the file
+    /// from the path alone exactly as wptserve's <c>filesystem_path</c> does.
     /// </param>
     internal async Task<WptBrowserOutcome> RunAsync(string path)
     {
@@ -166,6 +170,13 @@ internal sealed class WptBrowserHarness : IDisposable
         {
             var page = await context.NewPageAsync().ConfigureAwait(false);
             _collectors[page] = collector;
+
+            if (WptBrowserExclusions.NeedsTouchEmulation(path))
+            {
+                // Before the navigation, so the document parses on a touch device rather than becoming one
+                // half way through: the emulation is the page's and survives every document after it.
+                await page.SetTouchEmulationAsync(enabled: true).ConfigureAwait(false);
+            }
 
             try
             {
@@ -293,12 +304,15 @@ internal sealed class WptBrowserHarness : IDisposable
             return Timeout.InfiniteTimeSpan;
         }
 
-        var sourcePath = WptServerWrappers.IsWrapperPath(path)
-            ? WptServerWrappers.UnderlyingFile(path)
-            : path;
+        // The deadline belongs to the document, not to the variant it is being run at: upstream's
+        // `timeout=long` metadata is a property of the file and its manifest entries all carry it.
+        var document = WptBrowserVariants.DocumentOf(path);
+        var sourcePath = WptServerWrappers.IsWrapperPath(document)
+            ? WptServerWrappers.UnderlyingFile(document)
+            : document;
         var source = WptCorpus.Read(sourcePath);
 
-        if (WptServerWrappers.IsWrapperPath(path))
+        if (WptServerWrappers.IsWrapperPath(document))
         {
             foreach (var (key, value) in WptServerWrappers.ReadScriptMetadata(source))
             {

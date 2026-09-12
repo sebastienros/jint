@@ -39,6 +39,13 @@ internal static class DomExceptionNames
     internal const string NotAllowed = "NotAllowedError";
 
     /// <summary>
+    /// https://html.spec.whatwg.org/multipage/embedded-content.html#dom-img-decode — the name
+    /// <c>img.decode()</c> rejects with for image data it cannot decode. It is not in the legacy code
+    /// table, so <see cref="CodeFor"/>'s 0 is the right answer for it.
+    /// </summary>
+    internal const string Encoding = "EncodingError";
+
+    /// <summary>
     /// The two names the Web Cryptography API adds — https://w3c.github.io/webcrypto/#dfn-exceptions. Neither
     /// is in the legacy code table, so both report <c>code</c> 0, which is what
     /// <see cref="CodeFor"/> already answers for a name it does not know.

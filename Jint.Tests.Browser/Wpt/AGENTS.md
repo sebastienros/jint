@@ -68,6 +68,21 @@ document, and only two of them are cases:
   appears in no census column, because neither counts anything about a document that reports nothing. What
   holds a frame body to its job is the case that loads it.
 
+**And a case is a path *at one variant*.** A document may declare
+[`<meta name="variant" content="?query">`](https://web-platform-tests.org/writing-tests/testharness.html#variants),
+and upstream's manifest then makes one test per declaration, at that path with the string appended; the
+document reads which one it is out of `location.search`. `WptBrowserVariants` is the port of
+`SourceFile.test_variants` — a document's `<meta>` elements read off a real parse, a wrapped `.any.js`
+file's `// META: variant=` lines, upstream's two validity rules, and `[""]` for a file that declares
+none — and a case name is the path and the variant, spelled as the manifest spells it
+(`dom/events/handler-count.html?element`). So **every key in this lane is a case and never a document**: a
+minimum-test entry, an exclusion, a cause's file. There is deliberately **no spelling that means every
+variant**, because two variants are two runs and a divergence measured in one is not evidence about the
+other — which is also why the census's `Documents` and `Synthesized` columns keep counting *files*, so a
+variant moves `Tests` and leaves those two alone. The engine lane ignores `// META: variant=` for the
+opposite and equally correct reason: a shard variant selects a subset of the same tests and one unsharded
+run is their union, which a query the document itself branches on is not.
+
 **The dedicated-worker wrapper is deliberately not generated.** `WorkersHandler`'s document creates a *classic*
 worker whose generated body opens with `importScripts("/resources/testharness.js")`, and Jint runs module
 workers only — so it would throw before registering a test, which is why `workers/*.worker.js` is a
@@ -200,7 +215,11 @@ entries any more**: campaign item C4 mapped `testdriver.js` onto the same `Input
 `Input` domain reaches, and the seven documents that were waiting for it were re-examined one at a time —
 five are cases now, and the two that still cannot report are `NotVendored` rows naming what each really needs
 (a rendering, and a pseudo-element model) rather than the driver. The member stays, because the rest of
-`test_driver` is deliberately still upstream's rejections and the next suite this lane vendors may need it. `NeedsTriage` means what it means
+`test_driver` is deliberately still upstream's rejections and the next suite this lane vendors may need it.
+**`NeedsTouchEmulation` is the same shape and for the same reason**: its six rows were
+`Document-createEvent.https.html`'s, and that document is opened as a touch device now (the environment table
+above), so they run and pass. The member stays for a document whose subject needs an environment this browser
+has no way to give it. `NeedsTriage` means what it means
 everywhere: **a genuine defect the corpus found, recorded rather than fixed so that the change which
 first runs a suite is not also the change that moves the engine.** A non-zero count there is a list somebody
 owes a fix for, and `README.md` names each one.
@@ -212,6 +231,18 @@ the exclusion table. That is the ninth rule of the other lane's file, and it dec
 there: a document is a whole environment, and the ways one can fail to report — a frame that had to run script,
 a navigation the page really performed, a `javascript:` URL, a document that replaced itself — have no analogue
 in a file handed to an engine.
+
+### The fifth table: the environment a document needs
+
+`WptBrowserExclusions.TouchDocuments` names the documents this lane opens as a **touch device**, through the
+same `Page.SetTouchEmulationAsync` seam a client has and before the navigation, so the document parses in it.
+It is this lane's counterpart of upstream's per-test preferences, and it exists because a document that asks
+`assert_implements_optional('ontouchstart' in document)` is asking about the environment rather than about the
+engine: declined, its rows report `PRECONDITION_FAILED` and measure nothing. **An environment is not an
+exclusion** — a row here makes the document's rows *run*, and the exclusion discipline still has to account
+for whatever they then say, which is what holds the table from the other side: take the row away and the six
+rows of `Document-createEvent.https.html` go back to being unnamed failures. Held from the first side by
+`EveryVendoredDocumentIsAccountedFor`, which refuses a row that is not a case.
 
 ### The other generated table: what each failure is
 

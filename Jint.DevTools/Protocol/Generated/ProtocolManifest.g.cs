@@ -4,7 +4,7 @@
 //
 //     source:   tools/devtools-protocol/js_protocol.json, browser_protocol.json, jint_protocol.json
 //     protocol: version 1.3, ChromeDevTools/devtools-protocol@ea39a11d80de9a08ce2af03f52125ed2e462cf84 (devtools-protocol@0.0.1687809)
-//     manifest: tools/devtools-protocol/manifest.json, whole file, sha256:5a814e01293c
+//     manifest: tools/devtools-protocol/manifest.json, whole file, sha256:6527aa1c52e2
 //
 // Do not edit. Regenerate instead, and read the diff: it is the upstream change stated in the
 // vocabulary this repository compiles. tools/devtools-protocol/README.md has the command, and
@@ -79,6 +79,10 @@ namespace Jint.DevTools.Protocol
             "CSS.enable",
             "CSS.getComputedStyleForNode",
             "CSS.getInlineStylesForNode",
+            "CSS.getStyleSheetText",
+            "CSS.startRuleUsageTracking",
+            "CSS.stopRuleUsageTracking",
+            "CSS.takeCoverageDelta",
             "Debugger.continueToLocation",
             "Debugger.disable",
             "Debugger.enable",
@@ -127,6 +131,7 @@ namespace Jint.DevTools.Protocol
             "DOM.scrollIntoViewIfNeeded",
             "DOM.setAttributeValue",
             "DOM.setAttributesAsText",
+            "DOM.setFileInputFiles",
             "DOM.setNodeValue",
             "DOM.setOuterHTML",
             "Emulation.clearDeviceMetricsOverride",
@@ -160,6 +165,7 @@ namespace Jint.DevTools.Protocol
             "Fetch.getResponseBody",
             "Input.dispatchKeyEvent",
             "Input.dispatchMouseEvent",
+            "Input.dispatchTouchEvent",
             "Input.imeSetComposition",
             "Input.insertText",
             "Jint.getAccessibilitySnapshot",
@@ -268,6 +274,7 @@ namespace Jint.DevTools.Protocol
         /// <summary>The events this assembly emits.</summary>
         internal static global::System.Collections.Generic.IReadOnlyList<string> ImplementedEvents { get; } =
         [
+            "CSS.styleSheetAdded",
             "Console.messageAdded",
             "DOM.attributeModified",
             "DOM.attributeRemoved",

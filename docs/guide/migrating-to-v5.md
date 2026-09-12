@@ -311,6 +311,45 @@ The in-box overrides are gone with it — `ArrayInstance`, `Function`, `JsRegExp
 `ObjectWrapper`, `ArrayLikeObject`, `NamedPropertyObject` and six others each declared their keys twice, and
 now declare them once. Two of those pairs did not agree; see [4.45](#4-45-getownproperties-reports-what-the-key-enumerations-report-3461).
 
+### 2.8 `Jint.Browser.Playwright` is gone; drive the page over CDP instead
+
+The preview package `Jint.Browser.Playwright` — a direct implementation of Microsoft.Playwright's public
+browser interfaces over `Jint.Browser`, entered through `JintPlaywright.BrowserType` — is removed and will
+not ship in 5.0. It was never released outside the preview feed.
+
+**Why.** Playwright for .NET's interfaces are not an extension point. Its own code casts them straight to
+the concrete implementation types, so an object that is not Playwright's own cannot be passed back in:
+`Assertions.Expect(ILocator)` constructs a `LocatorAssertions` whose constructor runs `(Locator)locator`,
+`Assertions.Expect(IPage)` a `PageAssertions` whose constructor runs `(Page)page`, and
+`IBrowserContext.NewCDPSessionAsync(IPage)` reads `((Page)page).Guid`. And `IPlaywright` names exactly three
+browsers — `Chromium`, `Firefox` and `Webkit`, with `PlaywrightImpl`'s indexer throwing
+`ArgumentException("Unknown browser type: …")` for a fourth — so the thing the package was for, pointing
+existing Playwright code at Jint, was never reachable.
+
+**What to use instead.** Real Microsoft.Playwright, over the Chrome DevTools Protocol. `Jint.Browser` serves
+the protocol for a page it is already running, and Playwright attaches to it the same way it attaches to a
+Chrome you did not launch:
+
+```csharp
+// The endpoint: the jint-browser tool, or a DevToolsServer your own process starts.
+//   jint-browser serve --host 127.0.0.1 --port 9222
+using var playwright = await Playwright.CreateAsync();
+await using var browser = await playwright.Chromium.ConnectOverCDPAsync("http://127.0.0.1:9222");
+
+// connectOverCDP adopts the browser's existing contexts rather than making one.
+var page = await browser.Contexts[0].NewPageAsync();
+
+await page.GotoAsync("https://example.org/");
+await page.Locator("#save").ClickAsync();
+await Assertions.Expect(page.Locator("#saved")).ToBeVisibleAsync();
+```
+
+That path is real Playwright throughout — its locators, its waiting, its assertions — and it is the one the
+`browser clients` CI leg exercises on every run. No browser executable and no `playwright install` step is
+involved; the driver is Playwright's own Node process, talking to Jint. See
+[Serve CDP](../packages/jint-browser-tool/serve-cdp.md). Anything that needs pixels — screenshots, PDF,
+video — was outside the removed package as well, because this browser has no renderer.
+
 ## 3. Renamed and reshaped API
 
 ### 3.1 The `string` overloads of `Engine.Call` and `Engine.Construct` are gone ([#3309](https://github.com/sebastienros/jint/pull/3309))
@@ -5591,7 +5630,6 @@ none of it changes an engine that does not.
 | When each hop went out and when its response headers came back, so a host can report a real time to first byte | `ObservedFetchResponse.Timing`, on the observer you already set | [§5.29](#5-29-an-observed-response-says-when-its-hop-went-out-and-when-its-headers-came-back-3701) |
 | The Chrome DevTools Protocol over a WebSocket, so a debugging client can attach to an engine your host is already running | `dotnet add package Jint.DevTools`, then `options.UseDevTools()` | [Jint.DevTools](../packages/jint-devtools/index.md) |
 | A headless browser — AngleSharp's DOM under Jint, drivable by Puppeteer and Playwright, plus a `jint-browser` command line | `dotnet add package Jint.Browser`, or `dotnet tool install -g Jint.Browser.Tool` | [Jint.Browser](../packages/jint-browser/index.md) |
-| Playwright for .NET's public browser interfaces over that headless browser, without Node, CDP or a WebSocket | `dotnet add package Jint.Browser.Playwright`, then use `JintPlaywright.BrowserType` | [Jint.Browser.Playwright](../packages/jint-browser-playwright/index.md) |
 | A Model Context Protocol server over that browser, so an agent reads a page as its accessibility tree and clicks its way through it | `jint-browser mcp`, or `AddMcpServer().AddJintBrowser()` in a host of your own | [Jint.Browser.Mcp](../packages/jint-browser-mcp/index.md) |
 | The names of the global `let`/`const`/`class` declarations, which `globalThis` does not carry | `engine.Advanced.GetGlobalLexicalNames()` | [§5.27](#5-27-a-host-can-list-the-global-lexical-bindings-3610) |
 | The program a function value was parsed in, so a tooling protocol resolves its script by identity | `function.Program`, beside `FunctionDeclaration` | [§5.28](#5-28-a-function-value-names-the-program-it-was-parsed-in-3666) |
@@ -6400,15 +6438,13 @@ has none.
 guard can only fire for an event a host's own `createEvent` produced — `Jint.Browser`'s — and a re-entrant
 dispatch still reports the message it always did.
 
-### 5.26 Five packages of their own, outside the engine's contract ([#3575](https://github.com/sebastienros/jint/issues/3575))
+### 5.26 Four packages of their own, outside the engine's contract ([#3575](https://github.com/sebastienros/jint/issues/3575))
 
-Five new packages ship beside `Jint`, and nothing about them reaches an engine that does not reference one.
+Four new packages ship beside `Jint`, and nothing about them reaches an engine that does not reference one.
 `Jint.DevTools` serves the Chrome DevTools Protocol for an engine your host is already running;
 `Jint.Browser` adds AngleSharp's DOM, a page runtime and the page-level protocol domains on top of it;
-`Jint.Browser.Playwright` implements Playwright for .NET's public browser interfaces directly over that
-runtime, without Playwright's Node driver or a CDP connection;
 `Jint.Browser.Mcp` is a Model Context Protocol server over that, for an agent rather than a client; and
-`Jint.Browser.Tool` is the `jint-browser` command line over both, installed rather than referenced. All five
+`Jint.Browser.Tool` is the `jint-browser` command line over both, installed rather than referenced. All four
 are `net8.0` and later.
 
 **There is nothing to migrate.** They are additive, they are separate packages, and they are outside the
@@ -6690,6 +6726,82 @@ What the read promises:
 
 A read waits for the whole body, so reading a response that never ends — a server-sent event stream — is
 bounded only by `Options.WebApi.Fetch.Timeout`. Decide per response whether to read.
+
+### 5.35 A collection can read its inherited `length` without invoking the accessor ([#3947](https://github.com/sebastienros/jint/issues/3947))
+
+An `ArrayLikeObject` that overrides `OwnsLength` to `false` — the WebIDL arrangement, where `length` is an
+accessor on the interface prototype — paid a full JavaScript function call for every `length` read. That is
+one call per iteration of the loop every such collection is written for:
+
+```js
+for (var j = 0; j < list.length; j++) { list[j]; }
+```
+
+A new hook lets the host name the accessor its prototype was created with, and the engine then answers the
+read from `Length` instead of invoking it:
+
+```csharp
+sealed class NodeList : ArrayLikeObject
+{
+    private readonly ObjectInstance _lengthGetter;
+
+    // captured when the prototype was created, and never re-read from it afterwards
+    protected override ObjectInstance? PristineLengthGetter => _lengthGetter;
+
+    protected override bool OwnsLength => false;
+}
+### 5.36 A page can be a touch device, and be tapped ([#4003](https://github.com/sebastienros/jint/pull/4003))
+
+`Jint.Browser` drives a page with a mouse and a keyboard; it now drives one with a finger as well, and the two
+halves of that are deliberately separate.
+
+```csharp
+// What the page detects: ontouchstart & co., navigator.maxTouchPoints, (pointer: coarse) / (hover: none).
+await page.SetTouchEmulationAsync(enabled: true, maxTouchPoints: 5);
+
+// What the page receives: touchstart, touchend, and the compatibility mouse events a tap leaves behind,
+// so a tap on a link follows it and a tap on a checkbox toggles it.
+await page.TapAsync("#save");
+await page.TapAsync(x: 120, y: 48);
+```
+
+| Member | What it is |
+| --- | --- |
+| `ArrayLikeObject.PristineLengthGetter` | `protected virtual ObjectInstance?`, default `null`. Return the `length` getter function **as the prototype declared it**; `null` keeps every read on the ordinary `[[Get]]` path |
+
+**Nothing changes for a collection that does not override it**, which is every one written before this
+release: the default is `null` and the accessor runs on every read exactly as it did. **Nothing changes for
+the default `OwnsLength` either** — `length` is an own data property there, answered from `Length` before the
+property bag or the prototype chain is consulted, so the shortcut was always the same read.
+
+What the hook obliges, and what the engine checks: invoking the named getter with the collection as its
+receiver must produce `Length`. The lane engages only while the accessor **currently** resolving for `length`
+is still that same function object, so all three ways a script can change the answer take effect on the very
+next read — an own `length` on the instance, a re-pointed prototype, and a redefinition of the accessor on
+the prototype. Those are the three `dom/nodes/NodeList-static-length-getter-tampered-{1,2,3}.html`
+web-platform-tests documents, and they run against this. A build with host-contract verification on
+(`AppContext.SetSwitch("Jint.EnableHostContractVerification", true)`) invokes the accessor on every read that
+takes the lane and fails on the first disagreement.
+| `Page.SetTouchEmulationAsync(bool enabled, int maxTouchPoints = 1)` | Makes the page report itself a touch device. It is the page's, so it survives every navigation after it, and it is the same setting `Emulation.setTouchEmulationEnabled` writes |
+| `Page.TapAsync(string target, NavigationOptions?)` and the indexed overload | One finger down at the centre of the element's box and up again, waiting for any navigation it causes — the tap counterpart of `ClickAsync` |
+| `Page.TapAsync(double x, double y, NavigationOptions?)` | The same at a point, hit-tested against the flat box model |
+| `BrowserOptions.HasTouch` | The other half of a device profile, beside `Viewport`: every page opens as a touch device, so the detection is already true while its *first* document parses |
+
+**The two are independent, on purpose.** A client that taps gets the touch events whether or not it asked for
+emulation — a page that added a `touchstart` listener hears one either way — and what emulation adds is the
+half a page can *ask about* before deciding to listen at all. That is what every responsive framework's
+`'ontouchstart' in window` reads, so exposing it unasked would tell every page this is a touch device.
+
+**A tap is a click made of the same parts.** [Touch Events Level 2
+§8](https://w3c.github.io/touch-events/#mouse-events)'s compatibility events — `mousemove`, `mousedown`,
+`mouseup`, `click` — are dispatched through the same helpers a mouse click uses, at the point the finger came
+off, so one activation behaviour runs. A page that calls `preventDefault()` on the `touchstart` (or on the
+first `touchmove`) gets none of them, which is exactly what a carousel or a custom gesture does.
+
+The protocol reaches the same dispatcher through
+[`Input.dispatchTouchEvent`](https://chromedevtools.github.io/devtools-protocol/tot/Input/#method-dispatchTouchEvent),
+with the multi-touch, move and cancel cases the public API does not spell, so a client driving the page over
+CDP — Playwright's `hasTouch` and `TapAsync`, Puppeteer's `Page.tap` — reaches the same finger.
 
 ## 6. AOT and trimming
 

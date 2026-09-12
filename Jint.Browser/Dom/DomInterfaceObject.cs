@@ -80,7 +80,7 @@ internal sealed class DomInterfaceObject : Constructor
         // `super()` inside a registered custom element constructor is a `new` on this object, and it
         // answers the element being created. Every other `new`, `new HTMLElement()` included, falls
         // through to the refusal below.
-        if (CustomElements.CustomElementCreation.TryConstruct(_domRealm, _definition, newTarget, out var element))
+        if (CustomElements.CustomElementCreation.TryConstruct(_domRealm, _definition, this, newTarget, out var element))
         {
             return element;
         }

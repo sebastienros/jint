@@ -141,6 +141,7 @@ public class DocumentLoadTests
             .Map("/app.js", _ => LoopbackResponse.Script("window.ok = true;"))
             .Map("/site.css", _ => LoopbackResponse.Css("body { color: rgb(4, 5, 6); }"))
             .MapHtml("/frame.html", "<!doctype html><html><body>framed</body></html>")
+            .Map("/logo.png", _ => LoopbackResponse.Raw(ImageBytes.Png(8, 4), "image/png"))
             .MapHtml("/", """
                 <!doctype html><html><head>
                 <link rel="stylesheet" href="/site.css">
@@ -148,6 +149,7 @@ public class DocumentLoadTests
                 </head><body>
                 <img src="/logo.png">
                 <iframe src="/frame.html"></iframe>
+                <embed src="/plugin.dat">
                 </body></html>
                 """));
 
@@ -165,19 +167,28 @@ public class DocumentLoadTests
             && r.Initiator == RequestInitiator.Subresource
             && r.NotFetchedReason == null);
 
-        requests.Should().ContainSingle(r => r.Url.EndsWith("/logo.png", StringComparison.Ordinal)
+        // An <embed> is still a reference nothing follows: there is no plugin to hand it to. The recorded
+        // URL is the raw attribute rather than the resolved one, because AngleSharp hands the resource
+        // loader `new Url(Source)` for this element -- see Jint.Browser/Dom/divergences.md.
+        requests.Should().ContainSingle(r => r.Url.EndsWith("plugin.dat", StringComparison.Ordinal)
             && r.NotFetchedReason != null);
 
         // A frame's document is fetched like any other subresource, because a frame has a document here
-        // (#3771); an image still is not, because there is no rendering to need one.
+        // (#3771); an image is too, because HTML 4.8.4.3's image request is what complete, naturalWidth
+        // and the load event are answers about.
         requests.Should().ContainSingle(r => r.Url.EndsWith("/frame.html", StringComparison.Ordinal)
+            && r.Initiator == RequestInitiator.Subresource
+            && r.NotFetchedReason == null
+            && r.Status == 200);
+        requests.Should().ContainSingle(r => r.Url.EndsWith("/logo.png", StringComparison.Ordinal)
             && r.Initiator == RequestInitiator.Subresource
             && r.NotFetchedReason == null
             && r.Status == 200);
 
         // What is recorded as not fetched really was not: the server never saw it.
-        loopback.Server.Received.Should().NotContain(request => request.Path == "/logo.png");
+        loopback.Server.Received.Should().NotContain(request => request.Path == "/plugin.dat");
         loopback.Server.Received.Should().Contain(request => request.Path == "/frame.html");
+        loopback.Server.Received.Should().Contain(request => request.Path == "/logo.png");
     }
 
     [Test]

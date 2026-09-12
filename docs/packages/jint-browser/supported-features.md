@@ -8,6 +8,7 @@
 - Module scripts, import maps, and dynamic `import()`
 - `document.write` during parsing
 - External style sheets and a CSSOM through AngleSharp.Css
+- Image loading without a decoder: `complete`, `currentSrc`, `naturalWidth`/`naturalHeight`, the `load` and `error` events, `srcset`/`sizes`/`<picture>` selection, and `img.decode()`, all from the container header
 - Emulated viewport, media type, and supported preferences such as colour scheme, reduced motion, contrast, and pointer capabilities in both `matchMedia` and stylesheet `@media` rules
 - `about:blank`, `data:text/html`, direct content, and HTTP(S) navigation
 - Custom elements, shadow DOM, templates, ranges, traversal, selection, DOMParser, and XMLSerializer

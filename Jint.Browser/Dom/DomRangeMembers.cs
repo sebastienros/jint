@@ -15,6 +15,33 @@ internal static class DomRangeMembers
     internal static JsValue IsPointInRange(DomRealm realm, IRange range, JsValue[] arguments)
         => DomConvert.Bool(Compare(realm, range, arguments, contains: true) == 0);
 
+    /// <summary>https://dom.spec.whatwg.org/#dom-range-clonecontents</summary>
+    /// <remarks>
+    /// <b>The clone is what needs the hook, not the range.</b> DOM §5.5's clone-the-contents and
+    /// extract-the-contents both reach "clone a node" for every partially contained ancestor, and cloning an
+    /// element whose name a definition names enqueues an upgrade reaction
+    /// (https://dom.spec.whatwg.org/#concept-create-element step 6.2, the synchronous flag unset) — so the
+    /// constructors run, in tree order, before the <c>[CEReactions]</c> member returns. AngleSharp's own
+    /// clone knows nothing of a definition, and the fragment it answers is where every element it made can
+    /// be found at once, which is the same door <c>Node.cloneNode</c> already comes through.
+    /// </remarks>
+    internal static JsValue CloneContents(DomRealm realm, IRange range)
+        => Created(realm, range.CopyContent());
+
+    /// <summary>https://dom.spec.whatwg.org/#dom-range-extractcontents</summary>
+    /// <remarks>
+    /// The extracted fragment holds both the nodes that <i>moved</i> — already custom, and left alone by the
+    /// walk — and the clones of the partially contained ancestors, which are the ones an upgrade is for.
+    /// </remarks>
+    internal static JsValue ExtractContents(DomRealm realm, IRange range)
+        => Created(realm, range.ExtractContent());
+
+    private static JsValue Created(DomRealm realm, IDocumentFragment fragment)
+    {
+        CustomElements.CustomElementRegistry.SubtreeCreated(realm, fragment);
+        return realm.WrapNodeValue(fragment);
+    }
+
     private static int Compare(DomRealm realm, IRange range, JsValue[] arguments, bool contains)
     {
         var member = contains ? "Range.isPointInRange" : "Range.comparePoint";

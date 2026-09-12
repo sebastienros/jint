@@ -108,12 +108,71 @@ to see the moment it starts the deferred queue. `DOMContentLoaded` (bubbling, at
 module scripts; `complete` and then `load` and `pageshow` (at the window) follow every subresource, which is
 the order HTML gives and the reason a `load` listener reads `"complete"`.
 
-**What is not fetched is recorded, not skipped.** An `<img>`, a non-stylesheet `<link>`: there is no
-rendering to need them, so the reference goes into `Page.Requests` with a `PageRequest.NotFetchedReason` and
-no socket is opened. A refusal and a failure are both a download that completes with a `null` response, which
-is the shape AngleSharp's own processors already test for; the `load` and `error` a *page* hears are
-dispatched through Jint's dispatcher, because AngleSharp's go into its own listener lists. `integrity` and
-`crossorigin` are accepted and ignored, and say so here rather than in a sentence nobody reads.
+**What is not fetched is recorded, not skipped.** A media element, an `<embed>`, a non-stylesheet `<link>`:
+there is no rendering to need them, so the reference goes into `Page.Requests` with a
+`PageRequest.NotFetchedReason` and no socket is opened. A refusal and a failure are both a download that
+completes with a `null` response, which is the shape AngleSharp's own processors already test for; the `load`
+and `error` a *page* hears are dispatched through Jint's dispatcher, because AngleSharp's go into its own
+listener lists. `integrity` and `crossorigin` are accepted and ignored, and say so here rather than in a
+sentence nobody reads.
+
+**An image *is* fetched, and what is read out of it is thirty bytes.** HTML §4.8.4.3's image request is what
+`img.complete`, `currentSrc`, `naturalWidth`/`naturalHeight`, `width`/`height` and the `load`/`error` events
+are answers about, and a page that has none of them is a page every lazy-loading library and every UI shell
+waits on for ever. `ParserDriver.FetchImage` serves the request AngleSharp's own `ImageRequestProcessor`
+makes — for an `<img>` and for an `<input type=image>` alike — and `Media/ImageHeader` reads the intrinsic
+size out of the container header and **never a pixel**: PNG, JPEG, GIF, WebP, BMP, ICO and SVG state one, and
+anything else is HTML's *broken* state with an `error` event rather than an available image of 0×0.
+`Media/PageImages` holds the current-request state the four members answer from, because AngleSharp's own
+`IsCompleted` is "an `IImageInfo` exists" and no `IResourceService<IImageInfo>` is registered — registering
+one would mean decoding. Four things follow and each is load-bearing:
+
+- **The bound is `BrowserOptions.MaxImageRequests`**, counted over the document, with `MaxSubresourceBytes`
+  and `SubresourceTimeout` bounding each request as they do a script's. **Zero is the opt-out and is exactly
+  what this browser did before**: the reference is recorded, no socket is opened, and no event is fired,
+  because nothing was attempted.
+- **An image's `load`/`error` waits for the tokenizer; a style sheet's does not.** Both are queued as element
+  tasks through `QueueResourceEvent`, and both delay the window's `load`. But this browser yields to its loop
+  while it *fetches* an image, where a browser would have carried on tokenizing — so delivering there would
+  make `<img src>` followed by a `<script>` that installs `onload` miss the event, which no browser does. The
+  parser really does wait for a style sheet, and `AStyleSheetLoadDuringAParserNetworkWaitSeesTheInstalledSheet`
+  pins that its `load` arrives while it does.
+- **`loading=lazy` loads eagerly**, because whether an image is within the lazy load root's scrolling area is
+  a question about a layout there is none of. Never loading one would leave every image of an infinite-scroll
+  page `complete === false` for ever, which is the state those libraries block on — the same argument
+  `IntersectionObserver` makes for reporting every target as intersecting.
+- **Which URL is fetched is `Media/ImageSourceSet`'s, not AngleSharp's.** HTML §4.8.4.3.6's source set reads
+  the `x` and `w` descriptors, the `sizes` lengths and each `<source>`'s `media` and `type`; AngleSharp's
+  `SourceSet.GetCandidates` reads none of them and yields the first candidate it finds, so the request it
+  makes names the wrong image. The request stays AngleSharp's and only its URL is decided here, against the
+  page's own viewport and media environment — the value `matchMedia` answers from, so a client that emulates
+  a viewport moves the selection with it. `img.decode()` is `Media/ImageDecode` over the same state: it is
+  the availability the current request already has rather than a bitmap, because there is no paint for a
+  decode to be ahead of.
+- **What no header can say is stated rather than guessed**: an animated GIF is its logical screen and has no
+  frames, there is no colour and no EXIF orientation, a file whose header disagrees with its pixels is
+  believed, and a broken container has no width at all. `Dom/divergences.md` carries the rows a page can see,
+  including the two AngleSharp gaps this leaves — an `<img src="">` fires no `error` because AngleSharp asks
+  the loader for nothing when it selects no source, and an `<img>` inside a `<template>` *is* fetched because
+  AngleSharp gives a template's contents no owner document of their own.
+
+**Two schemes reach no socket, and one of them carries a body.** `about:blank` is answered as the empty HTML
+document a frame's `src` most often names. A `data:` URL is answered by
+[Fetch §5.2's processor](https://fetch.spec.whatwg.org/#data-url-processor) — `Jint/WebApi/Fetch/DataUrl.cs`,
+the *only* implementation of it in the repository, which `Page.Navigation` also uses so that a navigation and
+a `<script src="data:…">` cannot disagree about the same URL. It runs before the network-scheme check and
+therefore before the `UrlFilter`, the jar and the redirect budget, because there is nothing there for any of
+them to decide — the same order `fetch`'s `blob` arm takes. **`MaxSubresourceBytes` still applies**: a page
+may not escape a size ceiling by inlining, and nothing is written to `Page.Requests`, because a page that
+opened no socket made no request. Forgiving-base64 and percent-decoding are what the processor uses and the
+BCL's stricter pair is not it: `data:;base64,YQ` decodes in a browser and throws in `Convert`.
+
+**A response URL carries its fragment, and that includes a script's.**
+[Fetch's response URL](https://fetch.spec.whatwg.org/#concept-response-url) is the request's — the fragment
+is left out of the request-target and of nothing else — so `ParserDriver.ResponseUrl` puts
+`SubresourceFetch`'s separately-carried fragment back on every answer rather than only a nested document's.
+It is what [report an exception](https://html.spec.whatwg.org/multipage/webappapis.html#report-an-exception)
+names, so without it `<script src="a.js#">` reported a URL its own `src` did not reflect.
 
 **A linked stylesheet completes after CSS processing, not after its fetch.** `PageStylingService` delegates
 the parse to AngleSharp.Css, then hands the completion to the driver. Both `load` and `error` are engine

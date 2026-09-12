@@ -9,7 +9,6 @@
   <ItemGroup>
     <ProjectReference Include="../../../Jint/Jint.csproj" />
     <ProjectReference Include="../../../Jint.Browser/Jint.Browser.csproj" />
-    <ProjectReference Include="../../../Jint.Browser.Playwright/Jint.Browser.Playwright.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1621,7 +1621,7 @@ SHA=$(grep -oE '\b[0-9a-f]{40}\b' README.md | head -1)
 # every extension the corpus vendors, so a bump that brings a new one in is walked rather than skipped
 TYPES='-name *.asis -o -name *.headers -o -name *.htm -o -name *.html -o -name *.js -o -name *.json -o -name *.txt -o -name *.xhtml -o -name *.xml'
 
-# one call per directory that holds a vendored file (79 at this pin)
+# one call per directory that holds a vendored file (83 at this pin)
 for d in $(find . -type f \( $TYPES \) -printf '%h\n' | sort -u | sed 's|^\./||'); do
   gh api "repos/web-platform-tests/wpt/contents/$d?ref=$SHA" \
      --jq '.[] | select(.type=="file") | "\(.sha) \(.path)"'
@@ -1635,8 +1635,8 @@ find . -type f \( $TYPES \) | sort | while read -r f; do
 done
 ```
 
-Silence is a clean corpus, and at this pin there are 902 files in 79 directories to be silent
-about — 368 of them the documents the browser lane navigates to, the rest the scripts, payloads and
+Silence is a clean corpus, and at this pin there are 937 files in 83 directories to be silent
+about — 402 of them the documents the browser lane navigates to, the rest the scripts, payloads and
 sidecars every lane reads.
 
 <!-- end generated -->
@@ -1655,6 +1655,13 @@ were copied in the first place — `git show HEAD:<path>` out of such a clone �
 over the whole tree afterwards is the check, not the copy: 862 files, no drift, nothing absent upstream
 (the 863rd is `wpt-LICENSE.md`, whose blob id the paragraph above states).
 Use it when a clone is to hand and the recipe above when one is not; they compare the same bytes.
+
+**`html/semantics/selectors/pseudo-classes/` was compared the first way as it was vendored.** Its 29 files
+were read out of `repos/web-platform-tests/wpt/contents/html/semantics/selectors/pseudo-classes?ref=<pin>`
+and every blob id upstream reports matches `git hash-object` of what is here, which is the same comparison
+the loop above makes for one directory. The two generated figures moved with them, so by this file's own
+rule the whole-tree runs the two paragraphs above describe are runs of a smaller corpus — 937 files in 83
+directories is what a re-run would now have to be silent about.
 
 The figures above are what say which corpus that run was a run *of*: they were four vendored suites out of
 date when [#3647](https://github.com/sebastienros/jint/issues/3647) was filed, and the recipe was walking five

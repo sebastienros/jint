@@ -11,8 +11,28 @@
   ],
   "excludedInterfaces": [
     {
+      "interface": "AngleSharp.Dom.ISettableTokenList",
+      "reason": "DOM merged DOMSettableTokenList into DOMTokenList in 2016 and the interface no longer exists; AngleSharp still carries [DomName(\"DOMSettableTokenList\")] on ISettableTokenList, so `iframe.sandbox`, `output.htmlFor` and `link.sizes` were projected onto an interface no standard declares -- `Object.prototype.toString.call(iframe.sandbox)` read `[object DOMSettableTokenList]`. Excluding it makes DomTypeMap fall through to ITokenList, which is DOMTokenList, and takes the interface object off the global with it. Its one member was already skipped: ISettableTokenList.Value answers the SERIALIZED token set where DOM's `value` is the attribute verbatim, and the inherited DOMTokenList.value is the standard's."
+    },
+    {
       "interface": "AngleSharp.Dom.IWindow",
       "reason": "Window is the browser runtime's, not the binding's: the global object stays Jint's GlobalObject and gains Window.prototype in its chain (campaign item R1). Generating a second Window here would produce an interface object nothing could ever be an instance of. document.defaultView is skipped with it, by the conversion table rather than by name."
+    },
+    {
+      "interface": "AngleSharp.Html.Dom.Events.ITouchPoint",
+      "reason": "Touch is the events bridge's, for the reason every other event interface is: no type in either pinned assembly implements ITouchPoint, so nothing could ever produce one and the generated interface object was an unreachable shell. It also carries only eight of Touch Events Level 2's twelve members - radiusX, radiusY, rotationAngle and force are absent - and its Target is an IEventTarget this package wraps rather than owns. Jint.Browser/Events/TouchInterfaces.cs declares the whole interface, with the constructor WebIDL gives it. Recorded in Jint.Browser/Dom/divergences.md."
+    },
+    {
+      "interface": "AngleSharp.Html.Dom.Events.ITouchList",
+      "reason": "TouchList goes with Touch: nothing implements it either, and a list of an interface the binding no longer projects has nothing to hold. Declared beside it in Jint.Browser/Events/TouchInterfaces.cs, over the same ArrayLikeObject lane the generated collections use."
+    },
+    {
+      "interface": "AngleSharp.Html.Dom.IHtmlTableDataCellElement",
+      "reason": "HTML has no HTMLTableDataCellElement: it was merged into HTMLTableCellElement and html/dom/historical.html asserts the interface is gone from the window. AngleSharp splits the interface in two, which put a name on the global that no standard declares and gave <td> a prototype chain one link too long. Its shape carried no members of its own, so excluding it costs nothing; <td> is an HTMLTableCellElement now, which is also what the HTMLElement constructor's interface check wanted. Recorded in Jint.Browser/Dom/divergences.md."
+    },
+    {
+      "interface": "AngleSharp.Html.Dom.IHtmlTableHeaderCellElement",
+      "reason": "The other half of the same split, and the same removed name. Its one member, scope, is HTMLTableCellElement's in HTML, so it comes back as a reflected row on that interface rather than being lost with the interface."
     }
   ],
   "manual": [
@@ -20,6 +40,13 @@
       "interface": "AngleSharp.Dom.IHtmlCollection`1",
       "shape": "DomManualShapes.HtmlCollection",
       "reason": "AngleSharp's IHtmlCollection<T> is generic and invariant, so a static member body cannot name the receiver type. item() and namedItem() are hand-written against DomCollectionBase's two virtuals instead, and the interface contributes no members to any closure — its refinements inherit them through the prototype chain, which is where a browser has them too."
+    },
+    {
+      "interface": "AngleSharp.Dom.IHtmlAllCollection",
+      "shape": "DomManualShapes.HtmlAllCollection",
+      "wrapper": "HtmlAllCollection",
+      "inherits": "",
+      "reason": "HTML §4.13.2.3 declares HTMLAllCollection as a standalone interface whose length, item(nameOrIndex) and namedItem(name) are its own, whose named lookup answers an element or an HTMLCollection, and which carries a legacy caller and ECMAScript Annex B.3.6's [[IsHTMLDDA]] slot. AngleSharp models it as IHtmlAllCollection : IHtmlCollection<IElement>, which is the one place the CLR hierarchy contradicts the IDL: `inherits: \"\"` roots the prototype at Object.prototype the way HTML does rather than at HTMLCollection, and `wrapper` selects the hand-written DomHtmlAllCollectionObject over the generic collection wrapper, which could carry neither the legacy caller nor the slot."
     }
   ],
   "skip": [
@@ -37,11 +64,6 @@
       "interface": "HTMLLinkElement",
       "member": "nonce",
       "reason": "HTML §2.5.3 gives every element including HTMLOrSVGElement a nonce whose setter writes the [[CryptographicNonce]] slot and NOT the content attribute, which is what keeps a header-delivered policy's nonce out of a CSS selector. AngleSharp declares one attribute-backed property, on this interface alone, whose setter writes the attribute; skipped so the reflected HTMLElement.nonce row is what every element answers with."
-    },
-    {
-      "interface": "HTMLTableHeaderCellElement",
-      "member": "scope",
-      "reason": "HTML declares `scope` on HTMLTableCellElement (§4.9.10) and has no HTMLTableHeaderCellElement at all -- AngleSharp splits <th> and <td> into two [DomName] interfaces the standard does not have, which Dom/divergences.md records. Its `scope` shadowed the reflected HTMLTableCellElement.scope, so <th> kept the raw attribute value while <td> answered the enumeration. Skipped so both cells answer the one member."
     },
     {
       "interface": "HTMLMarqueeElement",
@@ -151,6 +173,11 @@
       "reason": "Re-declared in `additions`: WebIDL's indexed getter answers null for an index past the end, and AngleSharp's List<string> indexer throws ArgumentOutOfRange."
     },
     {
+      "interface": "NodeList",
+      "member": "item",
+      "reason": "Re-declared in `additions` for the same reason DOMTokenList.item is: DOM §4.2.10's `getter Node? item(unsigned long index)` is an indexed getter, so an index at or past the end is null, and AngleSharp's INodeList indexer throws ArgumentOutOfRange. See Dom/Collections/DomNodeListMembers."
+    },
+    {
       "interface": "DOMTokenList",
       "member": "remove",
       "reason": "Re-declared in `additions`: DOM §7.1's validation steps, `toggle`'s \"force is either not given or\" distinction, and the update steps that rewrite the attribute even when the token set did not change are all outside what `ITokenList` can express. See Dom/Collections/DomTokenListMembers."
@@ -206,24 +233,19 @@
       "reason": "Re-declared in `additions` so the projected `ITokenList` records the element and attribute it reflects: DOM §7.1 defines `value`, the stringifier and the update steps in terms of both, and AngleSharp's `ITokenList` names neither."
     },
     {
-      "interface": "DOMSettableTokenList",
-      "member": "value",
-      "reason": "DOM merged DOMSettableTokenList into DOMTokenList in 2016, and AngleSharp's ISettableTokenList.Value is the *serialized* token set where DOM's `value` is the attribute verbatim -- `sandbox=\"  x  y \"` reads back as `x y`. Skipped rather than re-declared: the inherited DOMTokenList.value is already the standard's, so this interface is left with no members of its own, which is what the standard leaves it with too."
-    },
-    {
       "interface": "CharacterData",
       "member": "replace",
-      "reason": "DOM §4.2.7 names it `replaceWith` and AngleSharp's IChildNode carries [DomName(\"replace\")], so the mixin projected a member the standard does not have under a name it does not use. Re-declared in `additions` over the same call; the divergence is in Dom/AGENTS.md's table."
+      "reason": "DOM §4.2.8 names it `replaceWith` and AngleSharp's IChildNode carries [DomName(\"replace\")], so the mixin projected a member the standard does not have under a name it does not use -- which is why this is an addition and not a hook. The body is the standard's algorithm rather than IChildNode.Replace: the viable next sibling is chosen before the arguments are converted, and the last step asks whether the receiver is still a child of the parent at all. See Dom/DomChildNodeMembers; the divergence is in Dom/divergences.md."
     },
     {
       "interface": "DocumentType",
       "member": "replace",
-      "reason": "DOM §4.2.7 names it `replaceWith` and AngleSharp's IChildNode carries [DomName(\"replace\")], so the mixin projected a member the standard does not have under a name it does not use. Re-declared in `additions` over the same call; the divergence is in Dom/AGENTS.md's table."
+      "reason": "DOM §4.2.8 names it `replaceWith` and AngleSharp's IChildNode carries [DomName(\"replace\")], so the mixin projected a member the standard does not have under a name it does not use -- which is why this is an addition and not a hook. The body is the standard's algorithm rather than IChildNode.Replace: the viable next sibling is chosen before the arguments are converted, and the last step asks whether the receiver is still a child of the parent at all. See Dom/DomChildNodeMembers; the divergence is in Dom/divergences.md."
     },
     {
       "interface": "Element",
       "member": "replace",
-      "reason": "DOM §4.2.7 names it `replaceWith` and AngleSharp's IChildNode carries [DomName(\"replace\")], so the mixin projected a member the standard does not have under a name it does not use. Re-declared in `additions` over the same call; the divergence is in Dom/AGENTS.md's table."
+      "reason": "DOM §4.2.8 names it `replaceWith` and AngleSharp's IChildNode carries [DomName(\"replace\")], so the mixin projected a member the standard does not have under a name it does not use -- which is why this is an addition and not a hook. The body is the standard's algorithm rather than IChildNode.Replace: the viable next sibling is chosen before the arguments are converted, and the last step asks whether the receiver is still a child of the parent at all. See Dom/DomChildNodeMembers; the divergence is in Dom/divergences.md."
     },
     {
       "interface": "DOMImplementation",
@@ -267,6 +289,16 @@
     }
   ],
   "additions": [
+    {
+      "interface": "Document",
+      "member": "applets",
+      "kind": "attribute",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, \"Document.applets\");",
+        "return global::Jint.Browser.Dom.DomObsoleteMembers.Applets(self.Realm, self.Target);"
+      ],
+      "reason": "HTML §16.3 keeps document.applets and defines it to answer an HTMLCollection whose filter matches nothing. AngleSharp has no member of that name at all, so the binding answered undefined where the standard requires an empty collection - a removed feature and a feature that must still answer nothing are different facts, and html/dom/historical.html is the file that tells them apart."
+    },
     {
       "interface": "Document",
       "member": "replaceChildren",
@@ -504,6 +536,17 @@
         "return global::Jint.Browser.Dom.Views.DomViewMembers.AssignedElements(self.Realm, self.Target);"
       ],
       "reason": "DOM §4.2.5, the element-only half of assignedNodes."
+    },
+    {
+      "interface": "HTMLImageElement",
+      "member": "decode",
+      "kind": "operation",
+      "length": 0,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlImageElement>(thisObj, \"HTMLImageElement.decode\");",
+        "return global::Jint.Browser.Media.ImageDecode.Decode(self.Realm, self.Target);"
+      ],
+      "reason": "HTML 4.8.4.2: Promise<undefined> decode(). AngleSharp has no member for it at all, and it is what every lazy-loading library and image-gallery shell awaits instead of racing the load event. What resolves it here is the current request being completely available rather than a decoded bitmap -- see Jint.Browser/Media/ImageDecode."
     },
     {
       "interface": "HTMLElement",
@@ -899,6 +942,17 @@
       "reason": "DOM §7.1: an index at or past the end is null. WebIDL's indexed getters never throw for one."
     },
     {
+      "interface": "NodeList",
+      "member": "item",
+      "kind": "operation",
+      "length": 1,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INodeList>(thisObj, \"NodeList.item\");",
+        "return global::Jint.Browser.Dom.Collections.DomNodeListMembers.Item(self.Realm, self.Target, args);"
+      ],
+      "reason": "DOM §4.2.10: the same indexed-getter contract, over INodeList. `node.childNodes.item(2)` on a two-child node is null, where the CLR indexer raises."
+    },
+    {
       "interface": "DOMTokenList",
       "member": "remove",
       "kind": "operation",
@@ -1097,9 +1151,9 @@
       "length": 0,
       "body": [
         "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ICharacterData>(thisObj, \"CharacterData.replaceWith\");",
-        "self.Target.Replace(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, \"CharacterData.replaceWith\")); return global::Jint.Native.JsValue.Undefined;"
+        "self.Realm.Hooks.ReplaceWith(self.Realm, self.Target, args); return global::Jint.Native.JsValue.Undefined;"
       ],
-      "reason": "DOM §4.2.7 names it `replaceWith` and AngleSharp's IChildNode carries [DomName(\"replace\")], so the mixin projected a member the standard does not have under a name it does not use. Re-declared in `additions` over the same call; the divergence is in Dom/AGENTS.md's table."
+      "reason": "DOM §4.2.8 names it `replaceWith` and AngleSharp's IChildNode carries [DomName(\"replace\")], so the mixin projected a member the standard does not have under a name it does not use -- which is why this is an addition and not a hook. The body is the standard's algorithm rather than IChildNode.Replace: the viable next sibling is chosen before the arguments are converted, and the last step asks whether the receiver is still a child of the parent at all. See Dom/DomChildNodeMembers; the divergence is in Dom/divergences.md."
     },
     {
       "interface": "DocumentType",
@@ -1108,9 +1162,9 @@
       "length": 0,
       "body": [
         "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocumentType>(thisObj, \"DocumentType.replaceWith\");",
-        "self.Target.Replace(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, \"DocumentType.replaceWith\")); return global::Jint.Native.JsValue.Undefined;"
+        "self.Realm.Hooks.ReplaceWith(self.Realm, self.Target, args); return global::Jint.Native.JsValue.Undefined;"
       ],
-      "reason": "DOM §4.2.7 names it `replaceWith` and AngleSharp's IChildNode carries [DomName(\"replace\")], so the mixin projected a member the standard does not have under a name it does not use. Re-declared in `additions` over the same call; the divergence is in Dom/AGENTS.md's table."
+      "reason": "DOM §4.2.8 names it `replaceWith` and AngleSharp's IChildNode carries [DomName(\"replace\")], so the mixin projected a member the standard does not have under a name it does not use -- which is why this is an addition and not a hook. The body is the standard's algorithm rather than IChildNode.Replace: the viable next sibling is chosen before the arguments are converted, and the last step asks whether the receiver is still a child of the parent at all. See Dom/DomChildNodeMembers; the divergence is in Dom/divergences.md."
     },
     {
       "interface": "Element",
@@ -1119,9 +1173,9 @@
       "length": 0,
       "body": [
         "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, \"Element.replaceWith\");",
-        "self.Target.Replace(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, \"Element.replaceWith\")); return global::Jint.Native.JsValue.Undefined;"
+        "self.Realm.Hooks.ReplaceWith(self.Realm, self.Target, args); return global::Jint.Native.JsValue.Undefined;"
       ],
-      "reason": "DOM §4.2.7 names it `replaceWith` and AngleSharp's IChildNode carries [DomName(\"replace\")], so the mixin projected a member the standard does not have under a name it does not use. Re-declared in `additions` over the same call; the divergence is in Dom/AGENTS.md's table."
+      "reason": "DOM §4.2.8 names it `replaceWith` and AngleSharp's IChildNode carries [DomName(\"replace\")], so the mixin projected a member the standard does not have under a name it does not use -- which is why this is an addition and not a hook. The body is the standard's algorithm rather than IChildNode.Replace: the viable next sibling is chosen before the arguments are converted, and the last step asks whether the receiver is still a child of the parent at all. See Dom/DomChildNodeMembers; the divergence is in Dom/divergences.md."
     },
     {
       "interface": "Element",
@@ -1382,12 +1436,86 @@
       "reason": "DOM §5.5 checks the supplied point root and unsigned offset, then includes both range endpoints. DomRangeMembers reuses AngleSharp boundary ordering after those checks."
     },
     {
+      "interface": "Range",
+      "member": "cloneContents",
+      "half": "operation",
+      "hook": "CloneContents",
+      "returns": true,
+      "reason": "DOM §5.5's clone-the-contents reaches \"clone a node\" for every partially contained ancestor, and cloning an element a definition names enqueues an upgrade reaction -- so the constructors run in tree order before this [CEReactions] member returns. AngleSharp's CopyContent knows nothing of a definition; the hook walks the fragment it answers, which is the same door Node.cloneNode comes through. See Dom/DomRangeMembers."
+    },
+    {
+      "interface": "Range",
+      "member": "extractContents",
+      "half": "operation",
+      "hook": "ExtractContents",
+      "returns": true,
+      "reason": "The same upgrade for DOM §5.5's extract-the-contents: the fragment holds the nodes that moved -- already custom -- and the clones of the partially contained ancestors, which are the ones the upgrade is for. See Dom/DomRangeMembers."
+    },
+    {
+      "interface": "CharacterData",
+      "member": "before",
+      "half": "operation",
+      "hook": "Before",
+      "reason": "DOM §4.2.8 picks the viable previous sibling -- the nearest preceding sibling that is not itself one of the arguments -- BEFORE converting the arguments into a node, because that conversion moves argument nodes into a fragment. AngleSharp's IChildNode.Before converts first and then inserts relative to the receiver, so `child.before('text', child)` reaches InsertBefore with a reference node that is no longer a child of the parent and raises NotFoundError. See Dom/DomChildNodeMembers."
+    },
+    {
+      "interface": "CharacterData",
+      "member": "after",
+      "half": "operation",
+      "hook": "After",
+      "reason": "The same step order for DOM §4.2.8's after: the viable NEXT sibling is chosen before the conversion moves anything. See Dom/DomChildNodeMembers."
+    },
+    {
+      "interface": "DocumentType",
+      "member": "before",
+      "half": "operation",
+      "hook": "Before",
+      "reason": "DOM §4.2.8 picks the viable previous sibling -- the nearest preceding sibling that is not itself one of the arguments -- BEFORE converting the arguments into a node, because that conversion moves argument nodes into a fragment. AngleSharp's IChildNode.Before converts first and then inserts relative to the receiver, so `child.before('text', child)` reaches InsertBefore with a reference node that is no longer a child of the parent and raises NotFoundError. See Dom/DomChildNodeMembers."
+    },
+    {
+      "interface": "DocumentType",
+      "member": "after",
+      "half": "operation",
+      "hook": "After",
+      "reason": "The same step order for DOM §4.2.8's after: the viable NEXT sibling is chosen before the conversion moves anything. See Dom/DomChildNodeMembers."
+    },
+    {
+      "interface": "Element",
+      "member": "before",
+      "half": "operation",
+      "hook": "Before",
+      "reason": "DOM §4.2.8 picks the viable previous sibling -- the nearest preceding sibling that is not itself one of the arguments -- BEFORE converting the arguments into a node, because that conversion moves argument nodes into a fragment. AngleSharp's IChildNode.Before converts first and then inserts relative to the receiver, so `child.before('text', child)` reaches InsertBefore with a reference node that is no longer a child of the parent and raises NotFoundError. See Dom/DomChildNodeMembers."
+    },
+    {
+      "interface": "Element",
+      "member": "after",
+      "half": "operation",
+      "hook": "After",
+      "reason": "The same step order for DOM §4.2.8's after: the viable NEXT sibling is chosen before the conversion moves anything. See Dom/DomChildNodeMembers."
+    },
+    {
+      "interface": "Document",
+      "member": "getElementById",
+      "half": "operation",
+      "hook": "GetElementById",
+      "returns": true,
+      "reason": "DOM §4.9 unsets an element's ID while its `id` content attribute is absent or empty, so no element can have the empty string as its ID. AngleSharp compares the attribute value, and answers the document element for getElementById(\"\")."
+    },
+    {
+      "interface": "DocumentFragment",
+      "member": "getElementById",
+      "half": "operation",
+      "hook": "GetElementById",
+      "returns": true,
+      "reason": "The fragment spelling of the same NonElementParentNode operation, and the same empty-ID rule."
+    },
+    {
       "interface": "Document",
       "member": "getElementsByClassName",
       "half": "operation",
       "hook": "GetElementsByClassName",
       "returns": true,
-      "reason": "DOM's class-name collection algorithm returns a live HTMLCollection. AngleSharp returns a snapshot, so the binding re-runs its class matching through DomLiveHtmlCollection on each read."
+      "reason": "DOM's class-name collection algorithm returns a live HTMLCollection whose comparison is ASCII case-insensitive in quirks mode. AngleSharp returns a snapshot and compares exactly in every mode, and #3899 moved the whole algorithm here after the upstream change was declined, so the hook owns it and DomLiveHtmlCollection re-runs it on each read."
     },
     {
       "interface": "Element",
@@ -1395,7 +1523,7 @@
       "half": "operation",
       "hook": "GetElementsByClassName",
       "returns": true,
-      "reason": "DOM's class-name collection algorithm returns a live HTMLCollection. AngleSharp returns a snapshot, so the binding re-runs its class matching through DomLiveHtmlCollection on each read."
+      "reason": "The element-rooted spelling of the same algorithm, and the mode it reads is the root's node document's."
     },
     {
       "interface": "Document",
@@ -1428,6 +1556,72 @@
       "hook": "GetElementsByTagNameNS",
       "returns": true,
       "reason": "The Element spelling invokes the same live namespace/local-name collection algorithm as Document."
+    },
+    {
+      "interface": "Document",
+      "member": "querySelectorAll",
+      "half": "operation",
+      "hook": "QuerySelectorAll",
+      "returns": true,
+      "reason": "DOM 4.2.6 makes the result the STATIC result of scope-match, and AngleSharp's QueryCollection already is a snapshot -- so this hook corrects no behaviour and exists to put the standard's word where the binding can act on it. Nothing about an INodeList says whether it is live (childNodes and labels are, this is not), so the hook wraps the match in DomStaticNodeList, whose staticness is a property of the type; that is what lets DomStaticNodeListObject keep one element wrapper per index instead of probing the realm's wrapper table on every list[j]. See sebastienros/jint#4013."
+    },
+    {
+      "interface": "DocumentFragment",
+      "member": "querySelectorAll",
+      "half": "operation",
+      "hook": "QuerySelectorAll",
+      "returns": true,
+      "reason": "The fragment spelling of the same ParentNode operation, and the same static result."
+    },
+    {
+      "interface": "Element",
+      "member": "querySelectorAll",
+      "half": "operation",
+      "hook": "QuerySelectorAll",
+      "returns": true,
+      "reason": "The element spelling of the same ParentNode operation, and the same static result."
+    },
+    {
+      "interface": "HTMLImageElement",
+      "member": "complete",
+      "half": "getter",
+      "hook": "ImageComplete",
+      "reason": "HTML 4.8.4.2 makes complete true for an <img> with no src and no srcset at all, and true for a broken one; AngleSharp's IsCompleted is 'an IImageInfo exists', which is false in both cases and in every case where no IResourceService<IImageInfo> is registered. The page's own image lane holds HTML's current-request state instead -- see Jint.Browser/Media/PageImages."
+    },
+    {
+      "interface": "HTMLImageElement",
+      "member": "currentSrc",
+      "half": "getter",
+      "hook": "ImageCurrentSrc",
+      "reason": "HTML 4.8.4.2: the URL of the current request, which is the response's and therefore carries the redirects the fetch followed. AngleSharp's ActualSource reads the IImageInfo's source, which is null with no image service registered."
+    },
+    {
+      "interface": "HTMLImageElement",
+      "member": "naturalWidth",
+      "half": "getter",
+      "hook": "ImageNaturalWidth",
+      "reason": "HTML 4.8.4.2: the intrinsic width of an available image. AngleSharp's OriginalWidth reads a decoded IImageInfo; this browser reads the container header instead and never decodes a pixel -- see Jint.Browser/Media/ImageHeader."
+    },
+    {
+      "interface": "HTMLImageElement",
+      "member": "naturalHeight",
+      "half": "getter",
+      "hook": "ImageNaturalHeight",
+      "reason": "The height half of the same intrinsic size."
+    },
+    {
+      "interface": "HTMLImageElement",
+      "member": "width",
+      "half": "getter",
+      "hook": "ImageWidth",
+      "reason": "HTML 4.8.4.4 makes the width getter the element's box when it is being rendered, the density-corrected intrinsic width when it is available and not, and 0 otherwise -- never the content attribute, which is only what the setter writes. So the reflected entry beside this one is the setter alone. The flat box model gives every rendered element the viewport width, so the content attribute stands in for the box it maps to and the intrinsic size answers when there is none."
+    },
+    {
+      "interface": "HTMLImageElement",
+      "member": "height",
+      "half": "getter",
+      "hook": "ImageHeight",
+      "reason": "The height half of the same rule."
     },
     {
       "interface": "HTMLElement",
@@ -1486,11 +1680,102 @@
       "reason": "The textarea half of the labelable-element labels attribute."
     },
     {
+      "interface": "HTMLOptionElement",
+      "member": "selected",
+      "half": "setter",
+      "hook": "SetOptionSelected",
+      "reason": "https://html.spec.whatwg.org/multipage/form-elements.html#dom-option-selected: the setter sets the selectedness, sets the dirtiness, and then causes the element to ask for a reset -- which runs the select's selectedness setting algorithm. AngleSharp's IsSelected setter is the first two steps and stops, so every option of a select with no multiple attribute could be selected at once while selectedIndex stayed where it was."
+    },
+    {
       "interface": "HTMLLabelElement",
       "member": "control",
       "half": "getter",
       "hook": "LabelControl",
       "reason": "HTML 4.10.4 resolves a label's explicit for target or first labelable descendant. AngleSharp returns null for the wrapping-label form, so the shared HTML association algorithm supplies the value."
+    },
+    {
+      "interface": "HTMLButtonElement",
+      "member": "form",
+      "half": "getter",
+      "hook": "FormOwner",
+      "reason": "HTML's reset the form owner gives a connected listed element's form content attribute priority over any ancestor form; AngleSharp's HtmlElement.GetAssignedForm() walks to an ancestor first and reads the attribute only when it found none, so a control inside one form pointing at another answered the wrong one (issue 3939). One hook for all eleven interfaces that declare the member, because the value is one algorithm and it is also the rule the entry list, interactive validation, the default button and :default read."
+    },
+    {
+      "interface": "HTMLFieldSetElement",
+      "member": "form",
+      "half": "getter",
+      "hook": "FormOwner",
+      "reason": "The fieldset half of the listed-element form attribute."
+    },
+    {
+      "interface": "HTMLInputElement",
+      "member": "form",
+      "half": "getter",
+      "hook": "FormOwner",
+      "reason": "The input half of the listed-element form attribute, and the one issue 3939 was reported against."
+    },
+    {
+      "interface": "HTMLObjectElement",
+      "member": "form",
+      "half": "getter",
+      "hook": "FormOwner",
+      "reason": "The object half of the listed-element form attribute."
+    },
+    {
+      "interface": "HTMLOutputElement",
+      "member": "form",
+      "half": "getter",
+      "hook": "FormOwner",
+      "reason": "The output half of the listed-element form attribute."
+    },
+    {
+      "interface": "HTMLSelectElement",
+      "member": "form",
+      "half": "getter",
+      "hook": "FormOwner",
+      "reason": "The select half of the listed-element form attribute."
+    },
+    {
+      "interface": "HTMLTextAreaElement",
+      "member": "form",
+      "half": "getter",
+      "hook": "FormOwner",
+      "reason": "The textarea half of the listed-element form attribute."
+    },
+    {
+      "interface": "HTMLKeygenElement",
+      "member": "form",
+      "half": "getter",
+      "hook": "FormOwner",
+      "reason": "No current standard defines keygen at all, but HTML 5.1 4.10.13 made it a listed element and AngleSharp still models one, so it keeps that rule rather than a new one."
+    },
+    {
+      "interface": "HTMLLabelElement",
+      "member": "form",
+      "half": "getter",
+      "hook": "FormOwner",
+      "reason": "HTML 4.10.4's form getter is the labeled control's form owner, and null when the label labels nothing: a label is not a form-associated element and never has an association of its own. AngleSharp answers GetAssignedForm() for it, which is the ancestor form of the label itself."
+    },
+    {
+      "interface": "HTMLLegendElement",
+      "member": "form",
+      "half": "getter",
+      "hook": "FormOwner",
+      "reason": "HTML 4.10.16's form getter is the form attribute of the legend's parent fieldset, so it has to be the same computation the fieldset's own member makes."
+    },
+    {
+      "interface": "HTMLOptionElement",
+      "member": "form",
+      "half": "getter",
+      "hook": "FormOwner",
+      "reason": "HTML 4.10.10's form getter is the nearest ancestor select's form owner, so an option inside an optgroup answers and one in no select answers null. AngleSharp answers GetAssignedForm() for it, which is the option's own ancestor form."
+    },
+    {
+      "interface": "Document",
+      "member": "body",
+      "half": "getter",
+      "hook": "Body",
+      "reason": "HTML 3.1.3: the body element is the first body or frameset child of the document's HTML ELEMENT, which is the document element only when that element is itself an HTML-namespace `html` element. AngleSharp walks DocumentElement.ChildNodes without asking what the document element is, so an XHTML `div` root -- or an `html` from another namespace -- answers a body the standard says is not one; its own example is a body under an SVG document element. The setter keeps AngleSharp's algorithm, which may append a body under a non-html root the getter then declines to answer."
     },
     {
       "interface": "Document",
@@ -1621,6 +1906,14 @@
       "hook": "CloneNode",
       "returns": true,
       "reason": "The same AngleSharp call, and then the upgrade DOM's clone steps enqueue -- so the node the page is handed is the host's answer rather than AngleSharp's."
+    },
+    {
+      "interface": "Document",
+      "member": "adoptNode",
+      "half": "operation",
+      "hook": "AdoptNode",
+      "returns": true,
+      "reason": "The same AngleSharp call, bracketed by the reaction step DOM's adopt takes: \"for each inclusiveDescendant ... that is custom, enqueue a custom element callback reaction with callback name adoptedCallback and « oldDocument, document »\". A detached node's adoption mutates no tree and so queues no mutation record, and an adoption into this document removes the node from a document this page does not observe -- so adoptNode is the only door those two can come through."
     },
     {
       "interface": "Document",
@@ -2111,6 +2404,54 @@
       "reason": "HTML \u00a74.10.6: an enumerated attribute whose missing and invalid value defaults are both `submit`, so `<button type=x>` is a submit button. AngleSharp's Type hands back the raw attribute value."
     },
     {
+      "interface": "HTMLMeterElement",
+      "member": "value",
+      "attribute": "value",
+      "type": "double",
+      "setterOnly": true,
+      "reason": "HTML §4.10.14: the GETTER is the actual value -- the content attribute constrained to [min, max] -- and AngleSharp implements that clamping and every one of the section's defaults, so replacing it would be a regression. The SETTER is plain reflection, and §2.6.1 wants \"the best representation of the number as a floating-point number\", which is ECMAScript's Number-to-String; AngleSharp writes Double.ToString(NumberFormatInfo.InvariantInfo), which spells 1e+25 as 1E+25 and keeps the sign of -0."
+    },
+    {
+      "interface": "HTMLMeterElement",
+      "member": "min",
+      "attribute": "min",
+      "type": "double",
+      "setterOnly": true,
+      "reason": "HTML §4.10.14: the same halves. The getter is the minimum value, 0 when the attribute is absent or unparseable, which AngleSharp answers; the setter is the reflection whose serialization is .NET's."
+    },
+    {
+      "interface": "HTMLMeterElement",
+      "member": "max",
+      "attribute": "max",
+      "type": "double",
+      "setterOnly": true,
+      "reason": "HTML §4.10.14: the getter is the maximum value, which is 1 when the attribute is absent and never less than the minimum -- a default no reflection type carries and AngleSharp already answers. The setter is the reflection whose serialization is .NET's."
+    },
+    {
+      "interface": "HTMLMeterElement",
+      "member": "low",
+      "attribute": "low",
+      "type": "double",
+      "setterOnly": true,
+      "reason": "HTML §4.10.14: the getter is the low boundary, which is the minimum when the attribute is absent and is clamped into [min, max]. The setter is the reflection whose serialization is .NET's."
+    },
+    {
+      "interface": "HTMLMeterElement",
+      "member": "high",
+      "attribute": "high",
+      "type": "double",
+      "setterOnly": true,
+      "reason": "HTML §4.10.14: the getter is the high boundary, which is the maximum when the attribute is absent and is clamped into [low, max]. The setter is the reflection whose serialization is .NET's."
+    },
+    {
+      "interface": "HTMLMeterElement",
+      "member": "optimum",
+      "attribute": "optimum",
+      "type": "double",
+      "setterOnly": true,
+      "reason": "HTML §4.10.14: the getter is the optimum point, which is the midpoint of [min, max] when the attribute is absent -- a computed default, not a reflected one. The setter is the reflection whose serialization is .NET's."
+    },
+    {
       "interface": "HTMLProgressElement",
       "member": "max",
       "attribute": "max",
@@ -2248,6 +2589,16 @@
       "type": "enum",
       "keywords": ["", "no-referrer", "no-referrer-when-downgrade", "same-origin", "origin", "strict-origin", "origin-when-cross-origin", "strict-origin-when-cross-origin", "unsafe-url"],
       "reason": "HTML \u00a72.6.7: a referrer policy attribute is an enumerated attribute whose keywords are the Referrer Policy specification's, with an empty invalid and missing value default. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLImageElement",
+      "member": "loading",
+      "attribute": "loading",
+      "type": "enum",
+      "keywords": ["lazy", "eager"],
+      "missing": "eager",
+      "invalid": "eager",
+      "reason": "HTML 4.8.4.1: loading is an enumerated attribute whose missing and invalid value defaults are both eager. AngleSharp has no member for it. This browser has no layout and therefore no lazy load root to intersect with, so a lazy image loads eagerly and the attribute is what a page reads back -- see ParserDriver.FetchImage."
     },
     {
       "interface": "HTMLImageElement",
@@ -2641,6 +2992,13 @@
       "reason": "HTML \u00a74.5.1: `ping` is a reflected DOMString. AngleSharp has no member for it."
     },
     {
+      "interface": "HTMLTableCellElement",
+      "member": "headers",
+      "attribute": "headers",
+      "type": "string",
+      "reason": "HTML §4.9.11: `headers` is a reflected DOMString -- the list of header cell ids is parsed by the table model and never exposed as a token list. AngleSharp types it as a DOMSettableTokenList, which this table excludes."
+    },
+    {
       "interface": "HTMLAnchorElement",
       "member": "type",
       "attribute": "type",
@@ -2957,13 +3315,6 @@
     },
     {
       "interface": "HTMLTableCellElement",
-      "member": "headers",
-      "attribute": "headers",
-      "type": "string",
-      "reason": "HTML \u00a74.9.11: `headers` is a reflected DOMString, not a token list, whatever the value's syntax is. AngleSharp has no member for it."
-    },
-    {
-      "interface": "HTMLTableCellElement",
       "member": "scope",
       "attribute": "scope",
       "type": "enum",
@@ -3092,6 +3443,33 @@
     }
   ],
 
+  "unscopables": [
+    {
+      "interface": "Element",
+      "members": ["after", "append", "before", "prepend", "remove", "replaceChildren", "replaceWith"],
+      "reason": "Element includes both ChildNode (DOM §4.2.8) and ParentNode (DOM §4.2.9), so its object carries all seven names. It is the one a page meets: an inline handler is compiled with the element on the scope chain."
+    },
+    {
+      "interface": "CharacterData",
+      "members": ["after", "before", "remove", "replaceWith"],
+      "reason": "DOM §4.2.8 marks every member of the ChildNode mixin [Unscopable], and Web IDL builds the interface prototype object's @@unscopables from them. Nothing in AngleSharp's metadata says which members are unscopable and nothing could: it is a statement about how a name behaves inside a `with`, which is what HTML compiles an inline event handler as, so without it `<div onclick=\"remove()\">` calls the element's remove() instead of the page's global of that name."
+    },
+    {
+      "interface": "DocumentType",
+      "members": ["after", "before", "remove", "replaceWith"],
+      "reason": "DOM §4.2.8 marks every member of the ChildNode mixin [Unscopable], and Web IDL builds the interface prototype object's @@unscopables from them. Nothing in AngleSharp's metadata says which members are unscopable and nothing could: it is a statement about how a name behaves inside a `with`, which is what HTML compiles an inline event handler as, so without it `<div onclick=\"remove()\">` calls the element's remove() instead of the page's global of that name."
+    },
+    {
+      "interface": "Document",
+      "members": ["append", "prepend", "replaceChildren"],
+      "reason": "DOM §4.2.9, the ParentNode half of the same rule. moveBefore is not listed because the pinned assemblies do not project it."
+    },
+    {
+      "interface": "DocumentFragment",
+      "members": ["append", "prepend", "replaceChildren"],
+      "reason": "DOM §4.2.9, the ParentNode half of the same rule. moveBefore is not listed because the pinned assemblies do not project it."
+    }
+  ],
   "nullableStrings": [
     {
       "interface": "Element",
@@ -3157,6 +3535,18 @@
       "interface": "Node",
       "member": "lookupNamespaceURI",
       "reason": "DOM §4.4: `DOMString? lookupNamespaceURI(DOMString? prefix)`."
+    }
+  ],
+  "nullToEmptyStrings": [
+    {
+      "interface": "CharacterData",
+      "member": "data",
+      "reason": "DOM §4.10: `[LegacyNullToEmptyString] attribute DOMString data`. The extended attribute is on the standard's side of the table -- a CLR `string` setter cannot carry it -- so `text.data = null` empties the node where the ordinary conversion writes the string \"null\". `undefined` still writes \"undefined\"."
+    },
+    {
+      "interface": "Node",
+      "member": "nodeValue",
+      "reason": "DOM §4.4 spells the same rule in prose rather than with the extended attribute: the nodeValue setter's first step is \"if the given value is null, act as if it was the empty string\". The getter stays nullable (see `nullableStrings`), which is the asymmetry the list exists for."
     }
   ],
   "nullableParameters": [

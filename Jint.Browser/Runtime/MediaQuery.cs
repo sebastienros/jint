@@ -116,6 +116,17 @@ internal static class MediaQuery
 
             if (!part.StartsWith('('))
             {
+                // A bare word is a media type, and a media type is only grammatical in the first position:
+                // what may follow `and` is a media condition. So `not all and !` does not match the grammar
+                // at all, and Media Queries 4 replaces a query that does not with `not all` -- false,
+                // whatever the `not` in front of it would otherwise have flipped. Folding it into `matched`
+                // answered *true* for that query, which is `<source media="not all and !">` selecting its
+                // own srcset over the `<img src>` the page meant.
+                if (terms > 1)
+                {
+                    return false;
+                }
+
                 matched &= MatchesType(part, environment);
                 continue;
             }

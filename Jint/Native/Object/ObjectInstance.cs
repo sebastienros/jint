@@ -760,6 +760,51 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     }
 
     /// <summary>
+    /// Declares the <a href="https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot">[[IsHTMLDDA]]</a> internal
+    /// slot on this object, which Annex B.3.6 makes behave like <c>undefined</c> in three places and three only.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>typeof</c> answers <c>"undefined"</c>, <see cref="JsValue.ToBoolean"/> is <see langword="false"/>, and
+    /// loose equality with <c>null</c> and with <c>undefined</c> is <see langword="true"/> — while strict
+    /// equality with either stays <see langword="false"/> and every other operation is ordinary. The three
+    /// behaviours are implemented once, here and in <c>JintUnaryExpression</c>, so a bearer of the slot declares
+    /// it rather than reproducing Annex B.
+    /// </para>
+    /// <para>
+    /// It is <see langword="internal"/> because the specification permits the slot only on an
+    /// implementation-defined object emulating <c>document.all</c>: the two bearers are Jint's own
+    /// <c>IsHTMLDDA</c> (test262's <c>$262.IsHTMLDDA</c>) and <c>Jint.Browser</c>'s <c>HTMLAllCollection</c>.
+    /// Call it from the constructor, before the object can be reached from script — the flag is read from
+    /// <c>_type</c> on fused comparison paths that do not re-check it.
+    /// </para>
+    /// </remarks>
+    internal void DeclareIsHtmlDda() => _type |= InternalTypes.IsHTMLDDA;
+
+    /// <summary>
+    /// Declares that this object implements <c>ICallable</c>, so it has a <c>[[Call]]</c> internal method
+    /// without being a <c>Function</c> — WebIDL's legacy caller, which is what <c>document.all(name)</c> is.
+    /// </summary>
+    /// <remarks>
+    /// Call sites decide callability from the flag rather than from an <c>is ICallable</c> interface-map scan,
+    /// so an implementer that does not declare it is silently not callable. It grants <c>[[Call]]</c> only:
+    /// <see cref="JsValue.IsConstructor"/> stays <see langword="false"/>, so <c>new</c> on such an object is
+    /// still a <c>TypeError</c>, and <c>typeof</c> answers <c>"function"</c> unless the object also declares
+    /// <see cref="DeclareIsHtmlDda"/>. Call it from the constructor.
+    /// </remarks>
+    internal void DeclareCallable()
+    {
+        Debug.Assert(this is ICallable, $"{GetType()} declared [[Call]] without implementing ICallable");
+        _type |= InternalTypes.Callable;
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-toboolean — Annex B.3.6.1 adds the first step: an object with the
+    /// [[IsHTMLDDA]] internal slot is <see langword="false"/>. Every other object is <see langword="true"/>.
+    /// </summary>
+    internal override bool ToBoolean() => (_type & InternalTypes.IsHTMLDDA) == InternalTypes.Empty;
+
+    /// <summary>
     /// Overrides the <see cref="PropertyAccessSemantics"/> the engine derived for this type. Needed only for
     /// the two shapes the derivation rule cannot see: a type that overrides
     /// <see cref="Get(JsValue, JsValue)"/> and is nevertheless ordinary (declare
@@ -2558,6 +2603,53 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     internal override bool IsIntegerIndexedArray => false;
 
     internal virtual uint GetLength() => (uint) TypeConverter.ToLength(Get(CommonProperties.Length));
+
+    /// <summary>
+    /// Whether <paramref name="o"/>'s <see cref="_propertiesVersion"/> moves when a property named
+    /// <paramref name="property"/> joins or leaves its own-property set — the guard every version-validated
+    /// inline cache in the engine is built on (the member lane's prototype-method cache, and
+    /// <see cref="ArrayLikeObject"/>'s inherited-<c>length</c> lane). Two storage kinds it refuses are
+    /// exactly the two whose own properties are not all engine storage.
+    /// <para>
+    /// The <see cref="InternalTypes.OrdinaryGet"/> refusal is about <em>where an object's own properties
+    /// live</em>, not about how it reads them. The flag is derived from the .NET type — a subclass reaching
+    /// the protected <c>ObjectInstance(Engine)</c> constructor gets it — and for a host subclass it correctly
+    /// stands in for "this object's own-property set is outside the engine, so no engine-side counter can
+    /// witness it". A <see cref="InternalTypes.BuiltinShapeMode"/> object is the one case where that
+    /// inference is wrong, so it is carved out. Two facts make the carve-out sound, and it is only sound
+    /// while both hold:
+    /// </para>
+    /// <para>
+    /// <b>1. Its own-property set is entirely engine storage, and every change to that set bumps the
+    /// version.</b> The names are the shared layout's slots plus the hybrid side dictionary. Redefining a
+    /// declared slot (<c>SetProperty</c> / <c>SetOwnProperty</c>), adding a name
+    /// (<c>TryHybridAddToShapedHost</c>), removing one (<c>RemoveOwnProperty</c>) and falling back to the
+    /// dictionary (<c>DeoptBuiltinShape</c>, through <c>SetProperties</c>) each bump
+    /// <c>_propertiesVersion</c>. Lazily materializing a slot deliberately does not — but materialization
+    /// does not change the name set: the name was already an own property, only its descriptor was pending.
+    /// So the version witnesses exactly the question this method asks.
+    /// </para>
+    /// <para>
+    /// <b>2. No host type can carry the flag.</b> It is set only by <c>ObjectInstance.InitializeBuiltinShape</c>,
+    /// which is <c>private protected</c>, over the internal <c>IBuiltinShaped</c> storage protocol; both
+    /// <c>BuiltinShapeObject</c> and the object <c>JsObjectShape.Instantiate</c> returns are internal. A
+    /// third-party subclass therefore cannot reach builtin-shape mode, and the refusal this carve-out relaxes
+    /// stays in force for every object it was written for — the host subclasses whose properties the engine
+    /// genuinely cannot see. The array clause below is untouched and still applies to a shaped array-backed
+    /// holder such as <c>Array.prototype</c>, whose elements do live outside the counter.
+    /// </para>
+    /// </summary>
+    internal static bool VersionWitnessesOwnProperty(ObjectInstance o, JsString property)
+    {
+        if ((o._type & InternalTypes.OrdinaryGet) != InternalTypes.Empty
+            && (o._type & InternalTypes.BuiltinShapeMode) == InternalTypes.Empty)
+        {
+            return false;
+        }
+
+        return (o._type & InternalTypes.Array) == InternalTypes.Empty
+               || !ArrayInstance.IsArrayIndex(property, out _);
+    }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-ordinarypreventextensions

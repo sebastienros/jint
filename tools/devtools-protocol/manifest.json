@@ -70,12 +70,12 @@
 
     "DOM",
 
-    // Left out: touch and drag input, synthesized scroll and pinch gestures, and the input-driver commands.
-    // The flat box model dispatches a key, a mouse event and text, which is what a client uses to drive a
+    // Left out: drag input, synthesized scroll and pinch gestures, and the input-driver commands. The flat
+    // box model dispatches a key, a mouse event, a touch and text, which is what a client uses to drive a
     // page here.
     {
       "domain": "Input",
-      "commands": ["dispatchKeyEvent", "dispatchMouseEvent", "imeSetComposition", "insertText"]
+      "commands": ["dispatchKeyEvent", "dispatchMouseEvent", "dispatchTouchEvent", "imeSetComposition", "insertText"]
     },
 
     "Accessibility",
@@ -100,11 +100,20 @@
       "commands": ["disable", "enable", "hideHighlight", "setPausedInDebuggerMessage", "setShowViewportSizeOnResize"]
     },
 
-    // Computed and inline styles are what the flat box model can answer for. Style sheet editing, rule
-    // matching, coverage, font and animation tracking are the other thirty-five commands.
+    // Computed and inline styles are what the flat box model can answer for, and rule-usage coverage is
+    // what Puppeteer's and Playwright's CSS coverage is built out of: startRuleUsageTracking,
+    // takeCoverageDelta and stopRuleUsageTracking, with the styleSheetAdded stream and getStyleSheetText a
+    // client needs to make sense of an offset. Style sheet editing, rule matching, font and animation
+    // tracking are the rest of the domain. styleSheetChanged and styleSheetRemoved are left out because
+    // AngleSharp raises no notification a sheet's arrival or departure could be published from; the sheets
+    // are reconciled when a client asks, which DevTools/AGENTS.md states.
     {
       "domain": "CSS",
-      "commands": ["disable", "enable", "getComputedStyleForNode", "getInlineStylesForNode"]
+      "commands": [
+        "disable", "enable", "getComputedStyleForNode", "getInlineStylesForNode", "getStyleSheetText",
+        "startRuleUsageTracking", "stopRuleUsageTracking", "takeCoverageDelta"
+      ],
+      "events": ["styleSheetAdded"]
     },
 
     "Jint"
@@ -230,6 +239,10 @@
     "CSS.enable",
     "CSS.getComputedStyleForNode",
     "CSS.getInlineStylesForNode",
+    "CSS.getStyleSheetText",
+    "CSS.startRuleUsageTracking",
+    "CSS.stopRuleUsageTracking",
+    "CSS.takeCoverageDelta",
     "Debugger.continueToLocation",
     "Debugger.disable",
     "Debugger.enable",
@@ -278,6 +291,7 @@
     "DOM.scrollIntoViewIfNeeded",
     "DOM.setAttributeValue",
     "DOM.setAttributesAsText",
+    "DOM.setFileInputFiles",
     "DOM.setNodeValue",
     "DOM.setOuterHTML",
     "Emulation.clearDeviceMetricsOverride",
@@ -311,6 +325,7 @@
     "Fetch.getResponseBody",
     "Input.dispatchKeyEvent",
     "Input.dispatchMouseEvent",
+    "Input.dispatchTouchEvent",
     "Input.imeSetComposition",
     "Input.insertText",
     "Jint.getAccessibilitySnapshot",
@@ -422,6 +437,7 @@
   // of a target while others live. Debugger.scriptFailedToParse is absent because the engine raises
   // BeforeEvaluate only for a program it did parse; a parse failure never reaches this package.
   "implementedEvents": [
+    "CSS.styleSheetAdded",
     "Console.messageAdded",
     "DOM.attributeModified",
     "DOM.attributeRemoved",

@@ -1582,6 +1582,7 @@ namespace Jint.Native.Object
         public abstract uint Length { get; }
         protected virtual int NameCount { get; }
         protected virtual bool OwnsLength { get; }
+        protected virtual Jint.Native.Object.ObjectInstance? PristineLengthGetter { get; }
         public override sealed bool DefineOwnProperty(Jint.Native.JsValue property, Jint.Runtime.Descriptors.PropertyDescriptor desc) { }
         public override sealed bool Delete(Jint.Native.JsValue property) { }
         public override sealed Jint.Native.JsValue Get(Jint.Native.JsValue property, Jint.Native.JsValue receiver) { }

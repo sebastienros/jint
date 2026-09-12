@@ -354,18 +354,21 @@ public sealed class UiEventTests
     }
 
     /// <summary>
-    /// <c>DragEvent</c> is a stated v1 non-goal: the transferable data store used by file inputs exists, but
-    /// drag dispatch and event-specific state do not. Feature detection has to be honest about it.
+    /// <c>ClipboardEvent</c> is the one event interface of DOM's and HTML's that this package still does not
+    /// build, because there is no clipboard model at all for its <c>clipboardData</c> to answer from. Feature
+    /// detection has to be honest about it — and about <c>DragEvent</c>, which <i>is</i> built now: nothing
+    /// dispatches a drag, but a page constructs and dispatches one itself and reads back the
+    /// <c>DataTransfer</c> it supplied.
     /// </summary>
     [Test]
-    public async Task DragEventIsAbsentSoFeatureDetectionIsHonest()
+    public async Task ClipboardEventIsAbsentSoFeatureDetectionIsHonest()
     {
         await using var browser = new Browser();
         var page = await browser.NewPageAsync();
         await page.SetContentAsync("<p>x</p>");
 
         (await page.EvaluateAsync<string>(
-            "[typeof DragEvent, typeof ClipboardEvent, typeof MouseEvent].join(',')"))
-            .Should().Be("undefined,undefined,function");
+            "[typeof ClipboardEvent, typeof DragEvent, typeof MouseEvent].join(',')"))
+            .Should().Be("undefined,function,function");
     }
 }

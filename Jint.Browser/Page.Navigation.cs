@@ -4,6 +4,7 @@ using System.Text;
 using AngleSharp.Html.Dom;
 using Jint.Browser.Runtime;
 using Jint.Native;
+using Jint.WebApi.Fetch;
 using Jint.WebApi.Url.Parsing;
 
 namespace Jint.Browser;
@@ -419,7 +420,7 @@ public sealed partial class Page
             {
                 try
                 {
-                    request = request with { InlineContent = ContentOf(href) };
+                    request = request with { InlineContent = ContentOf(target, href) };
                 }
                 catch (NavigationFailedException failure)
                 {
@@ -607,7 +608,7 @@ public sealed partial class Page
         }
         else
         {
-            html = request.InlineContent ?? ContentOf(href);
+            html = request.InlineContent ?? ContentOf(target, href);
             finalUrl = href;
         }
 
@@ -1050,44 +1051,39 @@ public sealed partial class Page
 
     /// <summary>
     /// The markup a URL that reaches no network carries: nothing for <c>about:</c>, and the payload of a
-    /// <c>data:</c> URL, percent-decoded or base64-decoded.
+    /// <c>data:</c> URL.
     /// </summary>
-    private static string ContentOf(string url)
+    /// <remarks>
+    /// The decoding is https://fetch.spec.whatwg.org/#data-url-processor, which is the same algorithm the
+    /// parser driver runs for a <c>&lt;script src="data:…"&gt;</c> — one answer to what a <c>data:</c> URL
+    /// carries rather than two. What that buys over the open-coded version this replaced: forgiving-base64
+    /// rather than <see cref="Convert"/>'s stricter one, percent-decoding that leaves a lone <c>%</c> alone,
+    /// and the <c>charset</c> parameter actually being read.
+    /// </remarks>
+    private static string ContentOf(UrlRecord target, string url)
     {
-        if (url.StartsWith("about:", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(target.Scheme, "about", StringComparison.Ordinal))
         {
             return "";
         }
 
-        if (!url.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+        if (!DataUrl.Is(target))
         {
             throw new NavigationFailedException(
                 url,
                 "Jint.Browser cannot load '" + url + "': a page loads http, https, about: and data: URLs.");
         }
 
-        var comma = url.IndexOf(',', StringComparison.Ordinal);
-        if (comma < 0)
+        if (!DataUrl.TryProcess(target, out var content))
         {
-            throw new NavigationFailedException(url, "'" + url + "' is not a valid data URL: it has no comma.");
+            throw new NavigationFailedException(
+                url,
+                "'" + url + "' is not a valid data URL: it has no comma, or its base64 payload does not decode.");
         }
 
-        var metadata = url[5..comma];
-        var payload = url[(comma + 1)..];
-
-        try
-        {
-            if (metadata.EndsWith(";base64", StringComparison.OrdinalIgnoreCase))
-            {
-                return Encoding.UTF8.GetString(System.Convert.FromBase64String(payload));
-            }
-
-            return Uri.UnescapeDataString(payload);
-        }
-        catch (FormatException exception)
-        {
-            throw new NavigationFailedException(url, "'" + url + "' is not a valid data URL: " + exception.Message, exception);
-        }
+        // The response's Content-Type is the type the URL claimed, so the document's encoding is decided the
+        // same way a fetched one's is.
+        return new FetchedSubresource(content.Body, content.MimeType.Serialize(), url, target.Fragment, 200).Text();
     }
 
     /// <summary>Where a navigation puts its result in the session history.</summary>
