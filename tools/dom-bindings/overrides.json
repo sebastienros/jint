@@ -2307,7 +2307,7 @@
       "member": "formMethod",
       "attribute": "formmethod",
       "type": "enum",
-      "keywords": ["get", "post"],
+      "keywords": ["get", "post", "dialog"],
       "invalid": "get",
       "reason": "HTML \u00a74.10.18.6: an enumerated attribute with an invalid value default of `get` and an empty missing value default. AngleSharp has no member for it."
     },
@@ -2392,7 +2392,7 @@
       "type": "enum",
       "keywords": ["get", "post", "dialog"],
       "invalid": "get",
-      "reason": "HTML \u00a74.10.18.6: `dialog` is a keyword here and not on <input>, which is why the two rows differ. AngleSharp has no member for it."
+      "reason": "HTML \u00a74.10.18.6: `dialog` is a keyword on both submit-button interfaces. AngleSharp has no member for it."
     },
     {
       "interface": "HTMLButtonElement",

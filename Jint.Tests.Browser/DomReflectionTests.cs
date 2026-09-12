@@ -176,6 +176,21 @@ public sealed class DomReflectionTests
         (await page.EvaluateAsync<string>("otherControl.formAction")).Should().Be(page2);
     }
 
+    /// <summary>https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#dom-fs-formmethod</summary>
+    [TestCase("input")]
+    [TestCase("button")]
+    public void AFormMethodRecognizesDialogCaseInsensitively(string tag)
+    {
+        using var fixture = DomTestFixture.Create($"<{tag} id='control'>");
+        fixture.Execute("var control = document.getElementById('control')");
+        fixture.Text("control.formMethod").Should().BeEmpty();
+        fixture.Execute("control.formMethod = 'DiAlOg'");
+        fixture.Text("control.getAttribute('formmethod')").Should().Be("DiAlOg");
+        fixture.Text("control.formMethod").Should().Be("dialog");
+        fixture.Execute("control.formMethod = 'invalid'");
+        fixture.Text("control.formMethod").Should().Be("get");
+    }
+
     [Test]
     public void ABooleanAttributeReflectsPresence()
     {
