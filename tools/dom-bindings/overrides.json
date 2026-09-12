@@ -1420,6 +1420,22 @@
   ],
   "hooks": [
     {
+      "interface": "Document",
+      "member": "createAttribute",
+      "half": "operation",
+      "hook": "CreateAttribute",
+      "returns": true,
+      "reason": "DOM modern attribute names: DomNames validates the name and namespace; construct the native Attr directly because the Document factory still applies the older XML Name production."
+    },
+    {
+      "interface": "Document",
+      "member": "createAttributeNS",
+      "half": "operation",
+      "hook": "CreateAttributeNS",
+      "returns": true,
+      "reason": "DOM modern attribute names: DomNames validates the name and namespace; construct the native Attr directly because the Document factory still applies the older XML Name production."
+    },
+    {
       "interface": "Range",
       "member": "comparePoint",
       "half": "operation",

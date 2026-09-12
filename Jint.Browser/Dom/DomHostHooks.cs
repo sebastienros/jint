@@ -623,6 +623,29 @@ internal class DomHostHooks
     internal virtual JsValue CreateElementNS(DomRealm realm, IDocument document, JsValue[] arguments)
         => CustomElements.CustomElementCreation.CreateElementNS(realm, document, arguments);
 
+    /// <summary>https://dom.spec.whatwg.org/#dom-document-createattribute</summary>
+    internal virtual JsValue CreateAttribute(DomRealm realm, IDocument document, JsValue[] arguments)
+    {
+        // DomNames has already checked the modern attribute-local-name predicate. The native document
+        // factory instead applies XML's older Name production; Attr itself has no such restriction.
+        var name = DomConvert.RequiredText(arguments, 0, "Document.createAttribute");
+        return realm.WrapNodeValue(new Attr(document is IHtmlDocument ? AsciiLowercase(name) : name));
+    }
+
+    /// <summary>https://dom.spec.whatwg.org/#dom-document-createattributens</summary>
+    internal virtual JsValue CreateAttributeNS(DomRealm realm, IDocument document, JsValue[] arguments)
+    {
+        // The generated guard performs validate-and-extract's validation before this construction.
+        var namespaceUri = DomConvert.NullableText(arguments, 0);
+        var name = DomConvert.RequiredText(arguments, 1, "Document.createAttributeNS");
+        var colon = name.IndexOf(':', StringComparison.Ordinal);
+        return realm.WrapNodeValue(new Attr(
+            colon < 0 ? null : name[..colon],
+            colon < 0 ? name : name[(colon + 1)..],
+            "",
+            string.IsNullOrEmpty(namespaceUri) ? null : namespaceUri));
+    }
+
     /// <inheritdoc cref="CreateElement" />
     internal virtual JsValue CloneNode(DomRealm realm, INode node, JsValue[] arguments)
         => CustomElements.CustomElementCreation.CloneNode(realm, node, arguments);
