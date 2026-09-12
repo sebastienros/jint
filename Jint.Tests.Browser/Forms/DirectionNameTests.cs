@@ -6,6 +6,24 @@ namespace Jint.Tests.Browser.Forms;
 public sealed class DirectionNameTests
 {
     [Test]
+    public async Task AutoDirectionClassifiesLoneSurrogatesWithoutReplacingThem()
+    {
+        await using var browser = new Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<form id='f' dir='auto'><span id='text'></span><input id='c' name='v' dirname='d'></form>");
+        (await page.EvaluateAsync<bool>("""
+            const read = () => new FormData(f).get('d');
+            text.textContent = '\uD800אב'; const ancestor = read();
+            c.dir = 'auto'; c.value = '\uD800אב'; const high = read();
+            c.value = '\uDC00אב'; const low = read();
+            c.value = '\uFFFDאב'; const replacement = read();
+            c.value = '\u{1E900}A'; const pair = read();
+            ancestor === 'ltr' && high === 'ltr' && low === 'ltr' && replacement === 'rtl' && pair === 'rtl'
+            """)).Should().BeTrue();
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
     public async Task DefaultDetachedBdiAndShadowHostDirections()
     {
         await using var browser = new Jint.Browser.Browser();

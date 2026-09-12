@@ -113,9 +113,17 @@ internal static class HtmlDirectionality
 
     private static string? FirstStrong(string value)
     {
-        foreach (var rune in value.EnumerateRunes())
+        for (var i = 0; i < value.Length; i++)
         {
-            switch (HtmlBidiData.ClassOf(rune.Value))
+            // DOMString retains lone surrogates. Classify their code points instead of replacing them
+            // with U+FFFD (whose bidi class differs), while decoding valid surrogate pairs normally.
+            var codePoint = (int) value[i];
+            if (char.IsHighSurrogate(value[i]) && i + 1 < value.Length && char.IsLowSurrogate(value[i + 1]))
+            {
+                codePoint = char.ConvertToUtf32(value[i], value[i + 1]);
+                i++;
+            }
+            switch (HtmlBidiData.ClassOf(codePoint))
             {
                 case 1: return "ltr";
                 case 2: return "rtl";
