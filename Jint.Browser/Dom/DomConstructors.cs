@@ -62,7 +62,7 @@ internal static class DomConstructors
     {
         if (ReferenceEquals(definition, DomInterfaces.Document))
         {
-            instance = (ObjectInstance) realm.WrapNode(NewXmlDocument());
+            instance = (ObjectInstance) realm.Wrap(NewXmlDocument(), DomInterfaces.Document);
             return true;
         }
 
@@ -141,7 +141,14 @@ internal static class DomConstructors
     /// HTML one, so the empty parse is what is left — and it is exact, because an XML document with no content
     /// has no document element, which is what the constructor promises.
     /// </summary>
-    internal static IDocument NewXmlDocument()
-        => new XmlParser(new XmlParserOptions { IsSuppressingErrors = true }, BrowsingContext.New(Views.ViewInstaller.ParserConfiguration))
+    /// <param name="contentType">
+    /// The content type DOM gives the document. <c>new Document()</c> takes the default, which is DOM §4.5's
+    /// own "content type: application/xml"; <c>createDocument</c> derives one from the namespace. See
+    /// <see cref="DomContentType"/> for why it cannot simply be set on the document.
+    /// </param>
+    internal static IDocument NewXmlDocument(string contentType = DomContentType.Xml)
+        => new XmlParser(
+                new XmlParserOptions { IsSuppressingErrors = true },
+                BrowsingContext.New(DomContentType.Declaring(Views.ViewInstaller.ParserConfiguration, contentType)))
             .ParseDocument(string.Empty);
 }

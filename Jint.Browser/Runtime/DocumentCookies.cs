@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using AngleSharp.Dom;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -68,8 +69,12 @@ internal static class DocumentCookies
     /// <c>HttpOnly</c> ones.
     /// </summary>
     internal static string Read(PageRuntime runtime)
+        => runtime.Document is { } document ? Read(runtime, document) : "";
+
+    /// <summary>The same jar, scoped to a document in the page's browsing-context tree.</summary>
+    internal static string Read(PageRuntime runtime, IDocument document)
     {
-        if (runtime.Page.Network is not { } network || DocumentUri(runtime) is not { } uri)
+        if (runtime.Page.Network is not { } network || DocumentUri(document) is not { } uri)
         {
             return "";
         }
@@ -109,7 +114,16 @@ internal static class DocumentCookies
     /// </remarks>
     internal static void Write(PageRuntime runtime, string header)
     {
-        if (runtime.Page.Network is not { } network || DocumentUri(runtime) is not { } uri)
+        if (runtime.Document is { } document)
+        {
+            Write(runtime, document, header);
+        }
+    }
+
+    /// <summary>The same jar, scoped to a document in the page's browsing-context tree.</summary>
+    internal static void Write(PageRuntime runtime, IDocument document, string header)
+    {
+        if (runtime.Page.Network is not { } network || DocumentUri(document) is not { } uri)
         {
             return;
         }
@@ -155,9 +169,9 @@ internal static class DocumentCookies
     /// document has no such URL — which is every document with an opaque origin, and which the storage
     /// model answers with no cookies rather than with an error.
     /// </summary>
-    private static Uri? DocumentUri(PageRuntime runtime)
+    private static Uri? DocumentUri(IDocument document)
     {
-        var url = runtime.Document?.Url;
+        var url = document.Url;
         if (string.IsNullOrEmpty(url))
         {
             return null;

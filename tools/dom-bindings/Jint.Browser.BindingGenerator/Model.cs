@@ -7,9 +7,11 @@ internal enum WrapperKind
 {
     Object,
     Node,
+    IndexedNode,
     Collection,
     NamedMap,
     HtmlCollection,
+    HtmlAllCollection,
 }
 
 /// <summary>What a generated member is, in WebIDL's vocabulary.</summary>
@@ -74,6 +76,12 @@ internal sealed class InterfaceModel
     internal List<MemberModel> Members { get; } = [];
 
     internal List<ConstantModel> Constants { get; } = [];
+
+    /// <summary>
+    /// The interface's <c>[Unscopable]</c> member names, sorted, or empty. A non-empty list is what puts an
+    /// <c>@@unscopables</c> object on the interface prototype object.
+    /// </summary>
+    internal List<string> Unscopables { get; } = [];
 
     /// <summary>The generated <c>DomCollectionAccessor</c> class body, or <see langword="null"/>.</summary>
     internal string? AccessorClass { get; set; }
@@ -153,13 +161,15 @@ internal sealed record SkipRecord(string Interface, string Member, string Reason
 /// <param name="Type">The reflection type, in HTML's vocabulary.</param>
 /// <param name="Factory">The C# expression that builds the descriptor.</param>
 /// <param name="Replaced">Whether the entry replaced a member the pinned assemblies project.</param>
+/// <param name="SetterOnly">Whether it replaced only that member's setter, keeping its projected getter.</param>
 internal sealed record ReflectedModel(
     string Field,
     string Qualified,
     string Attribute,
     string Type,
     string Factory,
-    bool Replaced);
+    bool Replaced,
+    bool SetterOnly = false);
 
 /// <summary>A WebIDL string enumeration projected from a CLR enum.</summary>
 internal sealed class EnumModel

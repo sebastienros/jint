@@ -380,12 +380,12 @@ corpus.
 | `html/webappapis/scripting/processing-model-2/` | 25 `.html` | `window.onerror` and `<body onerror>` over every way a script can fail |
 | `html/webappapis/scripting/processing-model-2/support/` | 2 `.js` | The two failing scripts those documents load |
 | `dom/nodes/Document-createEvent.js` | 1 | The alias table `dom/events/EventTarget-dispatchEvent.html` loads by absolute path — once vendored alone, because without it that document silently reported **one** of its twenty-five tests |
-| `dom/nodes/` | 159 `.html`/`.htm`, 15 `.js`, 1 `.xml` | The DOM standard's node suite, and the biggest thing this lane runs: 4,364 tests |
+| `dom/nodes/` | 165 `.html`/`.htm`, 16 `.js`, 1 `.xml` | The DOM standard's node suite, and the biggest thing this lane runs: 4,370 tests |
 | `dom/collections/`, `dom/lists/` | 13 `.html` | `HTMLCollection`, `NamedNodeMap`, `DOMStringMap` and `DOMTokenList` |
 | `dom/traversal/` | 13 `.html` | `NodeIterator` and `TreeWalker`; four of them are the walks that used to run forever ([#3765](https://github.com/sebastienros/jint/issues/3765)) |
 | `dom/traversal/support/` | 1 `.html`, 1 `.js` | An empty document a filter's realm comes from, and the node assertions |
 | `dom/ranges/` | 17 `.html` | The `Range` and `StaticRange` documents that do not load `dom/common.js`; the twenty-four that do are not-vendored rows |
-| `html/dom/` | 8 `.html`, 6 `.js` | ARIA reflection, `accessKeyLabel`, HTML's historical members, and `reflection-misc.html`, `-text.html` and `-grouping.html` with the helpers they load — three of HTML's ten reflection documents. The other seven are the browser lane's README |
+| `html/dom/` | 15 `.html`, 13 `.js` | ARIA reflection, `accessKeyLabel`, HTML's historical members, and **all ten** of HTML's reflection documents with the helpers they load — 56,660 assertions over every content attribute of every HTML element, which is the largest single body of conformance data this package runs |
 | `dom/constants.js` | 1 | The `Node` and `NodeFilter` constant tables, shared by `dom/nodes/` and `dom/traversal/` |
 | `dom/common.js` is *not* here | — | It calls `document.createCDATASection` at file scope, which the bindings do not have, so every document that loads it reports nothing at all |
 
@@ -933,6 +933,19 @@ space so `clearInterval` cancels a timeout, an interval cleared from its own cal
 `setInterval(0)` and `setTimeout(0)` firing in registration order, `setInterval(fn)` with no interval at all
 behaving as `0`, a negative delay clamping to `0`, and `2**32` wrapping to `0` through WebIDL's `long`
 conversion. Four of them are `setup({single_test: true})` files, which the shim did not previously implement.
+
+`negative-setinterval.any.js` has a separate pre-completion scheduling hazard: a host that does not pump
+for its one-second watchdog can report `Timer: reached unreachable code` before the twenty callbacks
+complete ([#3937](https://github.com/sebastienros/jint/issues/3937)). That is distinct from the late-error
+boundary described below. The harness now admits this exact file and shim by source hash to controlled
+**timer** time, advancing to the real queue's next due timer only after draining queued work and
+microtasks. Its reviewed path has no Date/performance reads, META dependencies, workers, Atomics deadlines
+or I/O, so no independent clock is compared or asynchronous producer skipped. `performance` shares the
+timer provider and must stay unused in this lane; Date and execution constraints retain separate clocks.
+A source change refuses admission until reviewed. All other files retain their existing clocks. Real
+execution/harness deadlines, pre-completion error reporting, the shipped TimerQueue and these vendored bytes remain unchanged; pump
+counts and timer/host elapsed time accompany a controlled run's outcome. Deterministic tests model host
+starvation and verify that an incorrectly delayed interval still loses to the unchanged watchdog.
 
 **The tenth file was a defect rather than a decline, and it is fixed.**
 `queue-microtask-exceptions.any.js` throws from a `queueMicrotask` callback and expects to observe it as an
@@ -1608,7 +1621,7 @@ SHA=$(grep -oE '\b[0-9a-f]{40}\b' README.md | head -1)
 # every extension the corpus vendors, so a bump that brings a new one in is walked rather than skipped
 TYPES='-name *.asis -o -name *.headers -o -name *.htm -o -name *.html -o -name *.js -o -name *.json -o -name *.txt -o -name *.xhtml -o -name *.xml'
 
-# one call per directory that holds a vendored file (78 at this pin)
+# one call per directory that holds a vendored file (83 at this pin)
 for d in $(find . -type f \( $TYPES \) -printf '%h\n' | sort -u | sed 's|^\./||'); do
   gh api "repos/web-platform-tests/wpt/contents/$d?ref=$SHA" \
      --jq '.[] | select(.type=="file") | "\(.sha) \(.path)"'
@@ -1622,8 +1635,8 @@ find . -type f \( $TYPES \) | sort | while read -r f; do
 done
 ```
 
-Silence is a clean corpus, and at this pin there are 873 files in 78 directories to be silent
-about — 351 of them the documents the browser lane navigates to, the rest the scripts, payloads and
+Silence is a clean corpus, and at this pin there are 937 files in 83 directories to be silent
+about — 402 of them the documents the browser lane navigates to, the rest the scripts, payloads and
 sidecars every lane reads.
 
 <!-- end generated -->
@@ -1642,6 +1655,13 @@ were copied in the first place — `git show HEAD:<path>` out of such a clone �
 over the whole tree afterwards is the check, not the copy: 862 files, no drift, nothing absent upstream
 (the 863rd is `wpt-LICENSE.md`, whose blob id the paragraph above states).
 Use it when a clone is to hand and the recipe above when one is not; they compare the same bytes.
+
+**`html/semantics/selectors/pseudo-classes/` was compared the first way as it was vendored.** Its 29 files
+were read out of `repos/web-platform-tests/wpt/contents/html/semantics/selectors/pseudo-classes?ref=<pin>`
+and every blob id upstream reports matches `git hash-object` of what is here, which is the same comparison
+the loop above makes for one directory. The two generated figures moved with them, so by this file's own
+rule the whole-tree runs the two paragraphs above describe are runs of a smaller corpus — 937 files in 83
+directories is what a re-run would now have to be silent about.
 
 The figures above are what say which corpus that run was a run *of*: they were four vendored suites out of
 date when [#3647](https://github.com/sebastienros/jint/issues/3647) was filed, and the recipe was walking five

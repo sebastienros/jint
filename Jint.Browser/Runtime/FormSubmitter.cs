@@ -98,6 +98,10 @@ internal static class FormSubmitter
         }
 
         var entries = ConstructEntryList(runtime, form, submitter);
+        if (entries is null)
+        {
+            return;
+        }
 
         // target=_blank opens a new page in a browser; there is no page-opening seam in this version, so
         // every target loads here and the page is told rather than left wondering.
@@ -161,19 +165,30 @@ internal static class FormSubmitter
     }
 
     /// <summary>
-    /// https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#constructing-form-data-set,
+    /// https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#constructing-the-form-data-set,
     /// including the <c>formdata</c> event a script may amend the result in.
     /// </summary>
-    internal static List<FormDataEntry> ConstructEntryList(PageRuntime runtime, IHtmlFormElement form, IElement? submitter)
+    internal static List<FormDataEntry>? ConstructEntryList(PageRuntime runtime, IHtmlFormElement form, IElement? submitter)
     {
+        if (!runtime.SubmittingForms.Add(form))
+        {
+            return null;
+        }
+
         var entries = new List<FormDataEntry>();
-        runtime.SubmittingForms.Add(form);
 
         try
         {
-            foreach (var element in form.Elements)
+            // HTML's entry-list inventory is submittable controls, not form.elements: the latter excludes
+            // image inputs and decides ownership by AngleSharp's rule rather than the standard's. The walk is
+            // over the form's whole tree in tree order, so a control outside the form that the `form`
+            // attribute associated with it contributes, and one inside it that points elsewhere does not.
+            foreach (var element in HtmlFormOwner.ControlsOf(form))
             {
-                Append(runtime, entries, element, submitter);
+                if (element is IHtmlElement html)
+                {
+                    Append(runtime, entries, html, submitter);
+                }
             }
 
             return FireFormData(runtime, form, entries);
@@ -211,7 +226,10 @@ internal static class FormSubmitter
             return;
         }
 
-        var name = element.GetAttribute("name");
+        // Creating an entry converts every name to a scalar value string, including file controls.
+        // https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#create-an-entry
+        var rawName = element.GetAttribute("name");
+        var name = rawName is null ? null : UrlCharacters.ToScalarValueString(rawName);
 
         if (element is IHtmlInputElement input)
         {
@@ -236,8 +254,21 @@ internal static class FormSubmitter
                     break;
 
                 case "image":
-                    // The coordinate pair an image button submits needs a click position, which is the input
-                    // model's (campaign item R2); until then an image button contributes nothing.
+                    // https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#constructing-the-entry-list
+                    // step 5.2: the selected image contributes x then y even when it has no name.
+                    if (ReferenceEquals(element, submitter))
+                    {
+                        var prefix = string.IsNullOrEmpty(name) ? "" : name + ".";
+
+                        // The coordinate is the input activation behaviour's — Events/ActivationBehaviors
+                        // selects it, out of a pointer inside an available image or out of nothing at all —
+                        // and it is kept per element because a FormData built long after that click, or a
+                        // requestSubmit that never was a click, reads it right here.
+                        var (x, y) = Events.BrowserEventRealm.Of(runtime.Engine).SelectedImageCoordinate(input);
+                        entries.Add(new FormDataEntry(prefix + "x", JsString.Create(x.ToString(System.Globalization.CultureInfo.InvariantCulture))));
+                        entries.Add(new FormDataEntry(prefix + "y", JsString.Create(y.ToString(System.Globalization.CultureInfo.InvariantCulture))));
+                    }
+
                     return;
 
                 case "file":
@@ -273,7 +304,14 @@ internal static class FormSubmitter
                 ? input.GetAttribute("value") ?? "on"
                 : input.Value ?? "";
 
-            entries.Add(new FormDataEntry(name!, JsString.Create(value)));
+            // This browser submits UTF-8; a constructor also uses HTML's default UTF-8 encoding.
+            // Only hidden controls receive the substitution, without changing their DOM value.
+            if (type == "hidden" && Ascii.EqualsIgnoreCase(name, "_charset_"))
+            {
+                value = "UTF-8";
+            }
+
+            entries.Add(StringEntry(name!, value));
             return;
         }
 
@@ -288,7 +326,7 @@ internal static class FormSubmitter
             {
                 if (option.IsSelected && !option.IsDisabled)
                 {
-                    entries.Add(new FormDataEntry(name!, JsString.Create(option.Value ?? "")));
+                    entries.Add(StringEntry(name!, option.Value ?? ""));
                 }
             }
 
@@ -297,15 +335,15 @@ internal static class FormSubmitter
 
         if (element is IHtmlTextAreaElement textArea)
         {
-            // The API value with newlines normalized to CRLF, which is what the algorithm asks for.
-            var text = (textArea.Value ?? "").Replace("\r\n", "\n", StringComparison.Ordinal).Replace("\n", "\r\n", StringComparison.Ordinal);
-            entries.Add(new FormDataEntry(name!, JsString.Create(text)));
+            // The textarea API value has LF newlines. CRLF normalization belongs to the submission
+            // encoding, after formdata listeners have observed and amended this entry list.
+            entries.Add(StringEntry(name!, textArea.Value ?? ""));
             return;
         }
 
         if (element is IHtmlButtonElement button)
         {
-            entries.Add(new FormDataEntry(name!, JsString.Create(button.Value ?? "")));
+            entries.Add(StringEntry(name!, button.Value ?? ""));
         }
     }
 
@@ -371,13 +409,16 @@ internal static class FormSubmitter
         };
     }
 
+    private static FormDataEntry StringEntry(string name, string value)
+        => new(name, JsString.Create(UrlCharacters.ToScalarValueString(value)));
+
     private static List<FormUrlEncodedEntry> UrlEncodedPairs(List<FormDataEntry> entries)
     {
         var pairs = new List<FormUrlEncodedEntry>(entries.Count);
 
         foreach (var entry in entries)
         {
-            pairs.Add(new FormUrlEncodedEntry(entry.Name, Text(entry.Value)));
+            pairs.Add(new FormUrlEncodedEntry(NormalizeNewlines(entry.Name), NormalizeNewlines(Text(entry.Value))));
         }
 
         return pairs;
@@ -392,11 +433,23 @@ internal static class FormSubmitter
 
         foreach (var entry in entries)
         {
-            builder.Append(entry.Name).Append('=').Append(Text(entry.Value)).Append("\r\n");
+            builder.Append(NormalizeNewlines(entry.Name)).Append('=').Append(NormalizeNewlines(Text(entry.Value))).Append("\r\n");
         }
 
         return builder.ToString();
     }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#converting-an-entry-list-to-a-list-of-name-value-pairs
+    /// Normalize CR and LF only, including file names in these text encodings. The multipart serializer
+    /// owns its separate normalization rules, which preserve file bytes and do not normalize file names.
+    /// </summary>
+    private static string NormalizeNewlines(string value)
+        => value.AsSpan().IndexOfAny('\r', '\n') < 0
+            ? value
+            : value.Replace("\r\n", "\n", StringComparison.Ordinal)
+                .Replace('\r', '\n')
+                .Replace("\n", "\r\n", StringComparison.Ordinal);
 
     /// <summary>A file in a text encoding contributes its name, which is what the standard says.</summary>
     private static string Text(JsValue value)

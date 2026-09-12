@@ -13,7 +13,13 @@ Test sources live in `..\test262\test`, which you may always read, and the harne
 
 ### Updating the test262 suite
 
-Bump `SuiteGitSha` in `Jint.Tests.Test262/Test262Harness.settings.json` to the new upstream commit. The next build notices the settings-file hash changed, wipes `Generated/` and regenerates it (`dotnet tool restore && dotnet test262 generate`); `Generated/` is gitignored, so the committed diff stays one line.
+Bump `SuiteGitSha` in `Jint.Tests.Test262/Test262Harness.settings.json` to the new upstream commit. The next build notices the settings-file hash changed, wipes `Generated/` and regenerates it (`dotnet tool restore && dotnet test262 generate`); `Generated/` is gitignored.
+
+The runtime half of that pin is `CorpusContentSha256` in `State.cs`: a canonical digest of every path and
+per-file digest under `harness/` and `test/`. Update it with the reviewed corpus whenever `SuiteGitSha` changes.
+Leaving the old value fails closed and reports the downloaded tree's actual digest; never bypass that failure
+or accept a directory-only archive, because generated source proves which tests exist but not which corpus
+content the runner opened.
 
 A bump is a **code** change, not just a pin change. An upstream normative change can turn a feature that passes today red tomorrow, so read the commits in the range rather than only the new test files — `git log --oneline <old>..<new>` in a test262 checkout, plus the `features.txt` diff for newly added features.
 

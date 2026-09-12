@@ -266,7 +266,7 @@ public class NavigatorTests
         // And still unmaterialized: an engine that never mentions `navigator` has built neither the object
         // nor the interface behind it. The interface object's own half is pinned by
         // InterfaceObjectExposureTests.CostsNothingUntilItIsRead.
-        descriptor.Should().BeOfType<LazyPropertyDescriptor<Engine>>();
+        descriptor.Should().BeOfType<LazyPropertyDescriptor<Realm>>();
         (descriptor._flags & PropertyFlag.CustomJsValue).Should().NotBe(PropertyFlag.None);
         descriptor._value.Should().BeNull();
     }

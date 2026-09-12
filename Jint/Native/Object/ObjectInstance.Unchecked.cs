@@ -38,11 +38,12 @@ public partial class ObjectInstance
     /// succeeds and can never raise a <c>TypeError</c>. That is what <em>Unchecked</em> names.
     /// </para>
     /// <para>
-    /// Storing a raw <see cref="PropertyDescriptor"/> under a string key is a dictionary-mode operation, so
-    /// a shape-mode receiver is deoptimized and permanently forfeits the shape inline cache used for
-    /// property reads and writes. Prefer this for setup-time writes only; for steady-state mutation of an
-    /// existing property use <see cref="ObjectInstance.Set(JsValue,JsValue,JsValue)"/>, which stores through
-    /// the existing descriptor and leaves the receiver's layout intact.
+    /// Storing a raw <see cref="PropertyDescriptor"/> under a string key deoptimizes an ordinary hidden-shape
+    /// receiver. An object returned by <see cref="JsObjectShape.Instantiate(Engine)"/> keeps its shared layout
+    /// for an existing slot or a new non-index-like string key, storing the latter in its hybrid side
+    /// dictionary. Prefer this for setup-time writes only; for steady-state mutation of an existing property
+    /// use <see cref="ObjectInstance.Set(JsValue,JsValue,JsValue)"/>, which stores through the existing
+    /// descriptor and leaves the receiver's layout intact.
     /// </para>
     /// </remarks>
     public void DefineOwnPropertyUnchecked(string name, PropertyDescriptor value)
@@ -69,10 +70,10 @@ public partial class ObjectInstance
     /// succeeds and can never raise a <c>TypeError</c>. That is what <em>Unchecked</em> names.
     /// </para>
     /// <para>
-    /// Storing a raw <see cref="PropertyDescriptor"/> under a string key is a dictionary-mode operation, so
-    /// a shape-mode receiver is deoptimized and permanently forfeits the shape inline cache used for
-    /// property reads and writes; a symbol key does not deopt. Prefer this for setup-time writes only; for
-    /// steady-state mutation of an existing property use
+    /// Storing a raw <see cref="PropertyDescriptor"/> under a string key deoptimizes an ordinary hidden-shape
+    /// receiver. An object returned by <see cref="JsObjectShape.Instantiate(Engine)"/> keeps its shared layout
+    /// for an existing slot or a new non-index-like string key; a symbol key is orthogonal to either layout.
+    /// Prefer this for setup-time writes only; for steady-state mutation of an existing property use
     /// <see cref="ObjectInstance.Set(JsValue,JsValue,JsValue)"/>, which stores through the existing
     /// descriptor and leaves the receiver's layout intact.
     /// </para>
@@ -101,11 +102,12 @@ public partial class ObjectInstance
     /// succeeds and can never raise a <c>TypeError</c>. That is what <em>Unchecked</em> names.
     /// </para>
     /// <para>
-    /// It stores a raw <see cref="PropertyDescriptor"/>, which is a dictionary-mode operation, so a
-    /// shape-mode receiver is deoptimized and permanently forfeits the shape inline cache used for property
-    /// reads and writes. Prefer this for setup-time writes only; for steady-state mutation of an existing
-    /// property use <see cref="ObjectInstance.Set(JsValue,JsValue,JsValue)"/>, which stores through the
-    /// existing descriptor and leaves the receiver's layout intact.
+    /// It stores a raw <see cref="PropertyDescriptor"/>, which deoptimizes an ordinary hidden-shape receiver.
+    /// An object returned by <see cref="JsObjectShape.Instantiate(Engine)"/> keeps its shared layout for an
+    /// existing slot or a new non-index-like string key. Prefer this for setup-time writes only; for
+    /// steady-state mutation of an existing property use
+    /// <see cref="ObjectInstance.Set(JsValue,JsValue,JsValue)"/>, which stores through the existing descriptor
+    /// and leaves the receiver's layout intact.
     /// </para>
     /// <para>
     /// A loop of these calls is therefore not the way to project a batch of host records into script: each

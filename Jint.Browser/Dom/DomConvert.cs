@@ -149,6 +149,22 @@ internal static class DomConvert
             ? TypeConverter.ToString(arguments[index])
             : fallback;
 
+    /// <summary>
+    /// A <c>DOMString</c> parameter carrying
+    /// <a href="https://webidl.spec.whatwg.org/#LegacyNullToEmptyString">[LegacyNullToEmptyString]</a>:
+    /// JavaScript <c>null</c> becomes the empty string, and everything else converts as usual.
+    /// </summary>
+    /// <remarks>
+    /// <c>undefined</c> deliberately still converts to the string <c>"undefined"</c> — the extended attribute
+    /// names <c>null</c> alone, and <c>dom/nodes/CharacterData-data.html</c> asserts both halves.
+    /// </remarks>
+    internal static string NullToEmptyText(JsValue[] arguments, int index, string member)
+    {
+        Require(arguments, index, member);
+        var value = arguments[index];
+        return value.IsNull() ? string.Empty : TypeConverter.ToString(value);
+    }
+
     /// <summary>A <c>DOMString?</c> parameter: <c>null</c> and <c>undefined</c> stay null.</summary>
     internal static string? NullableText(JsValue[] arguments, int index)
         => index < arguments.Length && !arguments[index].IsNullOrUndefined()
@@ -242,16 +258,54 @@ internal static class DomConvert
     }
 
     /// <summary>
-    /// A variadic interface-typed parameter — <c>(Node or DOMString)...</c> in IDL, where this binding
-    /// deliberately takes only the <c>Node</c> half.
+    /// https://dom.spec.whatwg.org/#converting-nodes-into-a-node {EM} the <c>(Node or DOMString)...</c> of
+    /// <c>append</c>, <c>prepend</c>, <c>before</c>, <c>after</c> and <c>replaceWith</c>: an argument that is
+    /// not a node is stringified and becomes a <c>Text</c> node in <paramref name="owner"/>'s node document.
     /// </summary>
     /// <remarks>
-    /// <c>append</c>, <c>prepend</c>, <c>before</c>, <c>after</c> and <c>replaceWith</c> all accept strings in
-    /// the DOM, which are converted to text nodes. AngleSharp's signature is <c>INode[]</c> and there is no
-    /// document to create a text node against inside a static member body, so a string argument is a
-    /// <c>TypeError</c> here where a browser inserts text. It is recorded as a divergence rather than
-    /// approximated, and closing it is a hand-written override once the runtime owns node creation.
+    /// AngleSharp's signature is <c>INode[]</c>, so the string half of the union has to be converted before
+    /// the call. It needs a document to create the text node against, which is why this takes the receiver:
+    /// a node's node document is its <c>Owner</c>, or itself when the receiver <em>is</em> the document.
     /// </remarks>
+    internal static AngleSharp.Dom.INode[] NodeOrTextRest(DomRealm realm, AngleSharp.Dom.INode owner, JsValue[] arguments, int from, string member)
+    {
+        if (arguments.Length <= from)
+        {
+            return [];
+        }
+
+        var document = owner as AngleSharp.Dom.IDocument ?? owner.Owner;
+        var values = new AngleSharp.Dom.INode[arguments.Length - from];
+
+        for (var i = 0; i < values.Length; i++)
+        {
+            var value = arguments[from + i];
+
+            if (value is IDomWrapper wrapper && wrapper.DomTarget is AngleSharp.Dom.INode node)
+            {
+                values[i] = node;
+                continue;
+            }
+
+            if (document is null)
+            {
+                // A node with no node document cannot make a text node, and inventing a document to make one
+                // in would put the result in a tree nothing else can reach. Only a detached DocumentType gets
+                // here, which is why this is a TypeError rather than a silent drop.
+                values[i] = DomBindings.Argument<AngleSharp.Dom.INode>(arguments, from + i, member);
+                continue;
+            }
+
+            values[i] = document.CreateTextNode(TypeConverter.ToString(value));
+        }
+
+        return values;
+    }
+
+    /// <summary>
+    /// A variadic interface-typed parameter whose element type is <em>not</em> a node, and so has no string
+    /// half to convert.
+    /// </summary>
     internal static T[] ObjectRest<T>(JsValue[] arguments, int from, string member) where T : class
     {
         if (arguments.Length <= from)
@@ -278,7 +332,8 @@ internal static class DomConvert
         return dictionary is ObjectInstance instance ? instance.Get(name) : JsValue.Undefined;
     }
 
-    private static void Require(JsValue[] arguments, int index, string member)
+    /// <summary>Checks a required argument exists without running its conversion.</summary>
+    internal static void Require(JsValue[] arguments, int index, string member)
     {
         if (index < arguments.Length)
         {

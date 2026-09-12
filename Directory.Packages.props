@@ -10,8 +10,12 @@
          binding generator's pin: tools/dom-bindings/pin.json repeats them, and DomBindingsPinTests fails when
          the two records disagree, because the checked-in Jint.Browser/Dom/Generated/ is a picture of exactly
          these assemblies' [DomName] surface. Bump both together, regenerate, and read the diff. -->
-    <PackageVersion Include="AngleSharp" Version="1.8.0" />
-    <PackageVersion Include="AngleSharp.Css" Version="1.1.0" />
+    <PackageVersion Include="AngleSharp" Version="1.8.1" />
+    <!-- Css 1.1.2 includes the converter re-entry and transform fixes first consumed in beta.308/310,
+         plus computed-value fixes for gradients, grid, points and border-image-slice. Keep the focused
+         IndividualTransformStyleTests and TransformFunctionStyleTests: converter re-entry used to end
+         the process with a stack overflow, which CssCascade cannot catch. -->
+    <PackageVersion Include="AngleSharp.Css" Version="1.1.2" />
     <!-- Neither of these is in the binding generator's pin, and deliberately: the generator reads AngleSharp
          and AngleSharp.Css and nothing else, and neither of these carries a [DomName] the binding could
          project. Each is referenced for one thing the package's own principle says must not be written here —

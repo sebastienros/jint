@@ -61,7 +61,6 @@ namespace Jint.WebApi.Idle;
 internal sealed class IdleCallbackQueue
 {
     private readonly Engine _engine;
-    private readonly Realm _realm;
     private readonly TimeProvider _timeProvider;
     private readonly TimerQueue _timers;
 
@@ -90,10 +89,9 @@ internal sealed class IdleCallbackQueue
     private bool _periodActive;
     private long _periodDeadline;
 
-    internal IdleCallbackQueue(Engine engine, Realm realm, TimeProvider timeProvider, TimerQueue timers, TimeSpan idleBudget)
+    internal IdleCallbackQueue(Engine engine, TimeProvider timeProvider, TimerQueue timers, TimeSpan idleBudget)
     {
         _engine = engine;
-        _realm = realm;
         _timeProvider = timeProvider;
         _timers = timers;
         _budgetTicks = idleBudget > TimeSpan.Zero
@@ -115,13 +113,14 @@ internal sealed class IdleCallbackQueue
     /// timeout algorithm to run it if no idle period reaches it first.
     /// </summary>
     /// <returns>The handle, which is what <c>requestIdleCallback</c> returns.</returns>
-    internal int Request(ICallable callback, long timeout)
+    internal int Request(Realm realm, ICallable callback, long timeout)
     {
         var handle = _nextHandle;
         _nextHandle = handle == int.MaxValue ? 1 : handle + 1;
 
         var entry = new IdleCallbackEntry(
             handle,
+            realm,
             callback,
             _engine.CaptureMemoryLimitState());
         _byHandle[handle] = entry;
@@ -135,6 +134,7 @@ internal sealed class IdleCallbackQueue
             // of the engine's timer slots until then.
             var timerEntry = new TimerEntry(
                 _timers,
+                realm,
                 new IdleTimeoutAlgorithm(this, entry),
                 [],
                 timeout,
@@ -308,7 +308,7 @@ internal sealed class IdleCallbackQueue
     {
         var deadline = new JsIdleDeadline(
             _engine,
-            _realm.Intrinsics.IdleDeadline.PrototypeObject,
+            entry.Realm.Intrinsics.IdleDeadline.PrototypeObject,
             _timeProvider,
             deadlineTimestamp,
             didTimeout);
@@ -346,7 +346,7 @@ internal sealed class IdleCallbackQueue
             // Report the exception is HTML's report an exception, whose step 5 fires an `error` event at the
             // global scope before step 6 reaches the console. A no-op unless the GlobalEvents feature is on and
             // a script is listening; see WebApiEngineState.FireGlobalErrorEvent.
-            _engine._webApi?.FireGlobalErrorEvent(exception);
+            _engine._webApi?.FireGlobalErrorEvent(entry.Realm, exception);
 
             // Only a JavaScriptException, which is exactly the class of failure a script could have caught
             // itself. Everything that exists to bound execution — ExecutionCanceledException,
@@ -405,16 +405,20 @@ internal sealed class IdleCallbackEntry
 {
     internal IdleCallbackEntry(
         int handle,
+        Realm realm,
         ICallable callback,
         MemoryLimitConstraint.OperationState? memoryState)
     {
         Handle = handle;
+        Realm = realm;
         Callback = callback;
         MemoryState = memoryState;
     }
 
     /// <summary>The value <c>requestIdleCallback</c> returned, and what <c>cancelIdleCallback</c> names.</summary>
     internal int Handle { get; }
+
+    internal Realm Realm { get; }
 
     internal ICallable Callback { get; }
 

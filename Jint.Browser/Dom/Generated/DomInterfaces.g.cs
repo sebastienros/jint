@@ -153,17 +153,14 @@ internal static partial class DomInterfaces
     /// <summary>The <c>DOMImplementation</c> interface, projected from <c>AngleSharp.Dom.IImplementation</c>.</summary>
     internal static readonly DomInterfaceDefinition DOMImplementation;
 
-    /// <summary>The <c>DOMTokenList</c> interface, projected from <c>AngleSharp.Dom.ITokenList</c>.</summary>
-    internal static readonly DomInterfaceDefinition DOMTokenList;
-
-    /// <summary>The <c>DOMSettableTokenList</c> interface, projected from <c>AngleSharp.Dom.ISettableTokenList</c>.</summary>
-    internal static readonly DomInterfaceDefinition DOMSettableTokenList;
-
     /// <summary>The <c>DOMStringList</c> interface, projected from <c>AngleSharp.Dom.IStringList</c>.</summary>
     internal static readonly DomInterfaceDefinition DOMStringList;
 
     /// <summary>The <c>DOMStringMap</c> interface, projected from <c>AngleSharp.Dom.IStringMap</c>.</summary>
     internal static readonly DomInterfaceDefinition DOMStringMap;
+
+    /// <summary>The <c>DOMTokenList</c> interface, projected from <c>AngleSharp.Dom.ITokenList</c>.</summary>
+    internal static readonly DomInterfaceDefinition DOMTokenList;
 
     /// <summary>The <c>Document</c> interface, projected from <c>AngleSharp.Dom.IDocument</c>.</summary>
     internal static readonly DomInterfaceDefinition Document;
@@ -182,9 +179,6 @@ internal static partial class DomInterfaces
 
     /// <summary>The <c>FileList</c> interface, projected from <c>AngleSharp.Io.Dom.IFileList</c>.</summary>
     internal static readonly DomInterfaceDefinition FileList;
-
-    /// <summary>The <c>HTMLCollection</c> interface, projected from <c>AngleSharp.Dom.IHtmlCollection`1</c>.</summary>
-    internal static readonly DomInterfaceDefinition HTMLCollection;
 
     /// <summary>The <c>HTMLAllCollection</c> interface, projected from <c>AngleSharp.Dom.IHtmlAllCollection</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLAllCollection;
@@ -218,6 +212,9 @@ internal static partial class DomInterfaces
 
     /// <summary>The <c>HTMLCanvasElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlCanvasElement</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLCanvasElement;
+
+    /// <summary>The <c>HTMLCollection</c> interface, projected from <c>AngleSharp.Dom.IHtmlCollection`1</c>.</summary>
+    internal static readonly DomInterfaceDefinition HTMLCollection;
 
     /// <summary>The <c>HTMLCommandElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlCommandElement</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLCommandElement;
@@ -372,14 +369,8 @@ internal static partial class DomInterfaces
     /// <summary>The <c>HTMLTableColElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlTableColumnElement</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLTableColElement;
 
-    /// <summary>The <c>HTMLTableDataCellElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlTableDataCellElement</c>.</summary>
-    internal static readonly DomInterfaceDefinition HTMLTableDataCellElement;
-
     /// <summary>The <c>HTMLTableElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlTableElement</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLTableElement;
-
-    /// <summary>The <c>HTMLTableHeaderCellElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlTableHeaderCellElement</c>.</summary>
-    internal static readonly DomInterfaceDefinition HTMLTableHeaderCellElement;
 
     /// <summary>The <c>HTMLTableRowElement</c> interface, projected from <c>AngleSharp.Html.Dom.IHtmlTableRowElement</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLTableRowElement;
@@ -501,12 +492,6 @@ internal static partial class DomInterfaces
     /// <summary>The <c>TimeRanges</c> interface, projected from <c>AngleSharp.Media.Dom.ITimeRanges</c>.</summary>
     internal static readonly DomInterfaceDefinition TimeRanges;
 
-    /// <summary>The <c>Touch</c> interface, projected from <c>AngleSharp.Html.Dom.Events.ITouchPoint</c>.</summary>
-    internal static readonly DomInterfaceDefinition Touch;
-
-    /// <summary>The <c>TouchList</c> interface, projected from <c>AngleSharp.Html.Dom.Events.ITouchList</c>.</summary>
-    internal static readonly DomInterfaceDefinition TouchList;
-
     /// <summary>The <c>TreeWalker</c> interface, projected from <c>AngleSharp.Dom.ITreeWalker</c>.</summary>
     internal static readonly DomInterfaceDefinition TreeWalker;
 
@@ -524,7 +509,7 @@ internal static partial class DomInterfaces
 
     static DomInterfaces()
     {
-        var all = new global::System.Collections.Generic.List<DomInterfaceDefinition>(168);
+        var all = new global::System.Collections.Generic.List<DomInterfaceDefinition>(163);
 
         ApplicationCache = Add(new DomInterfaceDefinition(
             "ApplicationCache",
@@ -1002,26 +987,6 @@ internal static partial class DomInterfaces
             hasInterfaceObject: true,
             DomWrapperKind.Object));
 
-        DOMTokenList = Add(new DomInterfaceDefinition(
-            "DOMTokenList",
-            typeof(global::AngleSharp.Dom.ITokenList),
-            BuildDOMTokenList,
-            null,
-            rootsAtEventTarget: false,
-            hasInterfaceObject: true,
-            DomWrapperKind.Collection,
-            collectionAccessor: DomAccessorDOMTokenList.Instance));
-
-        DOMSettableTokenList = Add(new DomInterfaceDefinition(
-            "DOMSettableTokenList",
-            typeof(global::AngleSharp.Dom.ISettableTokenList),
-            BuildDOMSettableTokenList,
-            DOMTokenList,
-            rootsAtEventTarget: false,
-            hasInterfaceObject: true,
-            DomWrapperKind.Collection,
-            collectionAccessor: DomAccessorDOMSettableTokenList.Instance));
-
         DOMStringList = Add(new DomInterfaceDefinition(
             "DOMStringList",
             typeof(global::AngleSharp.Dom.IStringList),
@@ -1041,6 +1006,16 @@ internal static partial class DomInterfaces
             hasInterfaceObject: true,
             DomWrapperKind.NamedMap,
             collectionAccessor: DomAccessorDOMStringMap.Instance));
+
+        DOMTokenList = Add(new DomInterfaceDefinition(
+            "DOMTokenList",
+            typeof(global::AngleSharp.Dom.ITokenList),
+            BuildDOMTokenList,
+            null,
+            rootsAtEventTarget: false,
+            hasInterfaceObject: true,
+            DomWrapperKind.Collection,
+            collectionAccessor: DomAccessorDOMTokenList.Instance));
 
         Document = Add(new DomInterfaceDefinition(
             "Document",
@@ -1097,23 +1072,14 @@ internal static partial class DomInterfaces
             DomWrapperKind.Collection,
             collectionAccessor: DomAccessorFileList.Instance));
 
-        HTMLCollection = Add(new DomInterfaceDefinition(
-            "HTMLCollection",
-            typeof(global::AngleSharp.Dom.IHtmlCollection<>),
-            DomManualShapes.HtmlCollection,
-            null,
-            rootsAtEventTarget: false,
-            hasInterfaceObject: true,
-            DomWrapperKind.HtmlCollection));
-
         HTMLAllCollection = Add(new DomInterfaceDefinition(
             "HTMLAllCollection",
             typeof(global::AngleSharp.Dom.IHtmlAllCollection),
-            BuildHTMLAllCollection,
-            HTMLCollection,
+            DomManualShapes.HtmlAllCollection,
+            null,
             rootsAtEventTarget: false,
             hasInterfaceObject: true,
-            DomWrapperKind.HtmlCollection));
+            DomWrapperKind.HtmlAllCollection));
 
         HTMLElement = Add(new DomInterfaceDefinition(
             "HTMLElement",
@@ -1217,6 +1183,15 @@ internal static partial class DomInterfaces
             hasInterfaceObject: true,
             DomWrapperKind.Node));
 
+        HTMLCollection = Add(new DomInterfaceDefinition(
+            "HTMLCollection",
+            typeof(global::AngleSharp.Dom.IHtmlCollection<>),
+            DomManualShapes.HtmlCollection,
+            null,
+            rootsAtEventTarget: false,
+            hasInterfaceObject: true,
+            DomWrapperKind.HtmlCollection));
+
         HTMLCommandElement = Add(new DomInterfaceDefinition(
             "HTMLCommandElement",
             typeof(global::AngleSharp.Html.Dom.IHtmlCommandElement),
@@ -1314,7 +1289,8 @@ internal static partial class DomInterfaces
             HTMLElement,
             rootsAtEventTarget: true,
             hasInterfaceObject: true,
-            DomWrapperKind.Node));
+            DomWrapperKind.IndexedNode,
+            collectionAccessor: DomAccessorHTMLFormElement.Instance));
 
         HTMLHRElement = Add(new DomInterfaceDefinition(
             "HTMLHRElement",
@@ -1611,7 +1587,8 @@ internal static partial class DomInterfaces
             HTMLElement,
             rootsAtEventTarget: true,
             hasInterfaceObject: true,
-            DomWrapperKind.Node));
+            DomWrapperKind.IndexedNode,
+            collectionAccessor: DomAccessorHTMLSelectElement.Instance));
 
         HTMLSlotElement = Add(new DomInterfaceDefinition(
             "HTMLSlotElement",
@@ -1676,29 +1653,11 @@ internal static partial class DomInterfaces
             hasInterfaceObject: true,
             DomWrapperKind.Node));
 
-        HTMLTableDataCellElement = Add(new DomInterfaceDefinition(
-            "HTMLTableDataCellElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlTableDataCellElement),
-            BuildHTMLTableDataCellElement,
-            HTMLTableCellElement,
-            rootsAtEventTarget: true,
-            hasInterfaceObject: true,
-            DomWrapperKind.Node));
-
         HTMLTableElement = Add(new DomInterfaceDefinition(
             "HTMLTableElement",
             typeof(global::AngleSharp.Html.Dom.IHtmlTableElement),
             BuildHTMLTableElement,
             HTMLElement,
-            rootsAtEventTarget: true,
-            hasInterfaceObject: true,
-            DomWrapperKind.Node));
-
-        HTMLTableHeaderCellElement = Add(new DomInterfaceDefinition(
-            "HTMLTableHeaderCellElement",
-            typeof(global::AngleSharp.Html.Dom.IHtmlTableHeaderCellElement),
-            BuildHTMLTableHeaderCellElement,
-            HTMLTableCellElement,
             rootsAtEventTarget: true,
             hasInterfaceObject: true,
             DomWrapperKind.Node));
@@ -2113,25 +2072,6 @@ internal static partial class DomInterfaces
             rootsAtEventTarget: false,
             hasInterfaceObject: true,
             DomWrapperKind.Object));
-
-        Touch = Add(new DomInterfaceDefinition(
-            "Touch",
-            typeof(global::AngleSharp.Html.Dom.Events.ITouchPoint),
-            BuildTouch,
-            null,
-            rootsAtEventTarget: false,
-            hasInterfaceObject: true,
-            DomWrapperKind.Object));
-
-        TouchList = Add(new DomInterfaceDefinition(
-            "TouchList",
-            typeof(global::AngleSharp.Html.Dom.Events.ITouchList),
-            BuildTouchList,
-            null,
-            rootsAtEventTarget: false,
-            hasInterfaceObject: true,
-            DomWrapperKind.Collection,
-            collectionAccessor: DomAccessorTouchList.Instance));
 
         TreeWalker = Add(new DomInterfaceDefinition(
             "TreeWalker",

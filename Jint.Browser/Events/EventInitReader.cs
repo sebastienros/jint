@@ -92,6 +92,18 @@ internal static class EventInitReader
         return value is null || value.IsUndefined() ? fallback : TypeConverter.ToString(value);
     }
 
+    /// <summary>
+    /// A <c>DOMString?</c> member — https://webidl.spec.whatwg.org/#idl-nullable-type. Both an absent member
+    /// and an explicit <c>null</c> answer <see langword="null"/>, which is the difference from
+    /// <see cref="Text"/>: a <c>StorageEvent</c> whose <c>key</c> is null is the one that says the whole area
+    /// was cleared, and the empty string would be a different event.
+    /// </summary>
+    internal static string? NullableText(ObjectInstance? init, JsString name)
+    {
+        var value = init?.Get(name);
+        return value is null || value.IsUndefined() || value.IsNull() ? null : TypeConverter.ToString(value);
+    }
+
     /// <summary>An <c>any</c> member, whose absence is <see langword="undefined"/> unless a default says otherwise.</summary>
     internal static JsValue Any(ObjectInstance? init, JsString name, JsValue fallback)
     {
@@ -229,4 +241,153 @@ internal static class EventInitReader
     /// <summary>The <c>relatedTarget</c> member on its own, for <c>FocusEventInit</c>.</summary>
     internal static JsEventTarget? RelatedTarget(Engine engine, ObjectInstance? init)
         => Target(engine, init, _relatedTarget);
+
+    /// <summary>
+    /// A <c>double?</c> member — https://webidl.spec.whatwg.org/#idl-nullable-type. The distinction from
+    /// <see cref="Number"/> is the whole point: an axis a device cannot read is <c>null</c> rather than zero,
+    /// and the two are what a page branches on.
+    /// </summary>
+    internal static double? NullableNumber(ObjectInstance? init, JsString name)
+    {
+        var value = init?.Get(name);
+        return value is null || value.IsUndefined() || value.IsNull() ? null : TypeConverter.ToNumber(value);
+    }
+
+    /// <summary>
+    /// https://w3c.github.io/deviceorientation/#dictdef-devicemotioneventaccelerationinit — a dictionary-typed
+    /// member with <b>no</b> default, so an absent one leaves the IDL attribute null and a present one (which
+    /// per https://webidl.spec.whatwg.org/#es-dictionary includes <c>null</c>) produces a real object whose
+    /// axes are the three <c>double?</c> members.
+    /// </summary>
+    internal static JsValue Acceleration(BrowserEventRealm realm, ObjectInstance? init, JsString name)
+    {
+        var value = init?.Get(name);
+        if (value is null || value.IsUndefined())
+        {
+            return JsValue.Null;
+        }
+
+        var members = value as ObjectInstance;
+        return realm.NewAcceleration(
+            NullableNumber(members, _x),
+            NullableNumber(members, _y),
+            NullableNumber(members, _z));
+    }
+
+    /// <summary>
+    /// https://w3c.github.io/deviceorientation/#dictdef-devicemotioneventrotationrateinit — the same shape as
+    /// <see cref="Acceleration"/> over the three rotation axes.
+    /// </summary>
+    internal static JsValue RotationRate(BrowserEventRealm realm, ObjectInstance? init, JsString name)
+    {
+        var value = init?.Get(name);
+        if (value is null || value.IsUndefined())
+        {
+            return JsValue.Null;
+        }
+
+        var members = value as ObjectInstance;
+        return realm.NewRotationRate(
+            NullableNumber(members, _alpha),
+            NullableNumber(members, _beta),
+            NullableNumber(members, _gamma));
+    }
+
+    /// <summary>
+    /// https://w3c.github.io/touch-events/#dictdef-touchinit — the <b>required</b> dictionary
+    /// <c>new Touch(…)</c> takes, whose <c>identifier</c> and <c>target</c> members are themselves required.
+    /// </summary>
+    internal static TouchState TouchInit(BrowserEventRealm realm, JsValue[] arguments)
+    {
+        var principal = realm.PrincipalRealm;
+
+        if (arguments.Length < 1)
+        {
+            Throw.TypeError(principal, "Failed to construct 'Touch': 1 argument required, but only 0 present.");
+        }
+
+        if (arguments[0] is not ObjectInstance init)
+        {
+            Throw.TypeError(principal, "Failed to construct 'Touch': The provided value is not of type 'TouchInit'.");
+            return default;
+        }
+
+        RequireTouchMember(principal, init, _identifier, "identifier");
+        RequireTouchMember(principal, init, _target, "target");
+
+        var target = TargetOf(realm.Engine, init.Get(_target));
+        if (target is null)
+        {
+            Throw.TypeError(principal, "Failed to construct 'Touch': member target is not of type 'EventTarget'.");
+        }
+
+        return new TouchState(
+            Long(init, _identifier),
+            target,
+            Number(init, _screenX),
+            Number(init, _screenY),
+            Number(init, _clientX),
+            Number(init, _clientY),
+            Number(init, _pageX),
+            Number(init, _pageY),
+            Number(init, _radiusX),
+            Number(init, _radiusY),
+            Number(init, _rotationAngle),
+            Number(init, _force));
+    }
+
+    /// <summary>
+    /// A <c>sequence&lt;Touch&gt;</c> member — https://webidl.spec.whatwg.org/#es-sequence, which is the
+    /// iterable protocol rather than an array test, so a page may hand over any iterable. An element that is
+    /// not a <c>Touch</c> is a <c>TypeError</c>, and the iterator is closed first as the conversion requires.
+    /// </summary>
+    internal static JsTouchList TouchSequence(BrowserEventRealm realm, ObjectInstance? init, JsString name)
+    {
+        var value = init?.Get(name);
+        if (value is null || value.IsUndefined())
+        {
+            return realm.NewTouchList([]);
+        }
+
+        var principal = realm.PrincipalRealm;
+        var iterator = value.GetIterator(principal);
+        var touches = new List<JsTouch>();
+
+        while (iterator.TryIteratorStepValue(out var item))
+        {
+            if (item is not JsTouch touch)
+            {
+                iterator.Close(CompletionType.Throw);
+                Throw.TypeError(principal, "Failed to construct 'TouchEvent': member " + name + " is not of type 'Touch'.");
+                return null!;
+            }
+
+            touches.Add(touch);
+        }
+
+        return realm.NewTouchList([.. touches]);
+    }
+
+    private static void RequireTouchMember(Realm realm, ObjectInstance init, JsString name, string member)
+    {
+        if (init.Get(name).IsUndefined())
+        {
+            Throw.TypeError(realm, "Failed to construct 'Touch': required member " + member + " is undefined.");
+        }
+    }
+
+    private static readonly JsString _x = new("x");
+    private static readonly JsString _y = new("y");
+    private static readonly JsString _z = new("z");
+    private static readonly JsString _alpha = new("alpha");
+    private static readonly JsString _beta = new("beta");
+    private static readonly JsString _gamma = new("gamma");
+    private static readonly JsString _identifier = new("identifier");
+    private static readonly JsString _target = new("target");
+    private static readonly JsString _pageX = new("pageX");
+    private static readonly JsString _pageY = new("pageY");
+    private static readonly JsString _radiusX = new("radiusX");
+    private static readonly JsString _radiusY = new("radiusY");
+    private static readonly JsString _rotationAngle = new("rotationAngle");
+    private static readonly JsString _force = new("force");
 }

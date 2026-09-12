@@ -99,7 +99,7 @@ internal sealed class IdleCallbackFunctions
             Throw.JavaScriptException(_engine, quotaExceeded, in location);
         }
 
-        return JsNumber.Create(_callbacks.Request(callback, timeout));
+        return JsNumber.Create(_callbacks.Request(_realm, callback, timeout));
     }
 
     /// <summary>

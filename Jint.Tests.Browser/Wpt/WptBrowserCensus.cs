@@ -23,9 +23,11 @@ namespace Jint.Tests.Browser.Wpt;
 /// </para>
 /// <para>
 /// <b>Three equalities and a ceiling.</b> <c>Documents</c> and <c>Synthesized</c> are read off the embedded
-/// corpus, and <c>Tests</c> counts <i>registrations</i> — a document registers its cases as its scripts run,
-/// and a document that reports at all reports every one of them, because a document that cannot is a harness
-/// error its own suite already fails on. <c>Not passing</c> is the only column that counts <i>outcomes</i>,
+/// corpus and count <i>files</i> — a document that declares <c>&lt;meta name="variant"&gt;</c> is run once
+/// per variant and is still one document, so only the two counted columns move when a variant is added —
+/// and <c>Tests</c> counts <i>registrations</i> — a document registers its cases as its scripts run,
+/// and a document that cannot finish is a harness error that invalidates the measured census as well as its
+/// own suite. <c>Not passing</c> is the only column that counts <i>outcomes</i>,
 /// so a rise fails as a regression naming the suite and the size of it, a fall fails as staleness, and
 /// <see cref="UpdateVariable"/><c>=update</c> lowers that figure and refuses to raise it. A check satisfiable
 /// by re-baselining a bad run is not a ceiling, it is a suggestion.
@@ -53,10 +55,7 @@ internal static class WptBrowserCensus
     private const string TableHeader = "| Suite | Documents | Synthesized | Tests | Not passing |";
     private const string TableDivider = "| --- | --- | --- | --- | --- |";
 
-    private static readonly ConcurrentDictionary<string, Counts> _observed = new(StringComparer.Ordinal);
-
-    /// <summary>What one case contributed to its suite's row.</summary>
-    private readonly record struct Counts(int Tests, int NotPassing);
+    private static readonly Measurements _observed = new();
 
     /// <summary>One line of the table, as the corpus and the run make it.</summary>
     [StructLayout(LayoutKind.Auto)]
@@ -81,18 +80,60 @@ internal static class WptBrowserCensus
     /// outcome comes back through — so the census sees the whole lane without the theories knowing it exists,
     /// and re-running one document simply overwrites its own entry.
     /// </summary>
-    internal static void Record(string path, WptBrowserOutcome outcome)
+    internal static void Record(string path, WptBrowserOutcome outcome) => _observed.Record(path, outcome);
+
+    /// <summary>
+    /// Per-document counts, including failed reports. A harness error is an invalid measurement, never a
+    /// successful observation of zero registrations. Keep it until rendering so the document's own runner
+    /// can still report its original outcome, and the census cannot silently retry or rewrite that failure.
+    /// </summary>
+    internal sealed class Measurements
     {
-        var notPassing = 0;
-        foreach (var result in outcome.Results)
+        private readonly ConcurrentDictionary<string, Counts> _counts = new(StringComparer.Ordinal);
+
+        private readonly record struct Counts(int Tests, int NotPassing, string? HarnessError);
+
+        internal bool ContainsKey(string path) => _counts.ContainsKey(path);
+
+        internal void Record(string path, WptBrowserOutcome outcome)
         {
-            if (!result.Passed)
+            var notPassing = 0;
+            foreach (var result in outcome.Results)
             {
-                notPassing++;
+                if (!result.Passed)
+                {
+                    notPassing++;
+                }
             }
+
+            _counts[path] = new Counts(outcome.Results.Count, notPassing, outcome.HarnessError);
         }
 
-        _observed[path] = new Counts(outcome.Results.Count, notPassing);
+        internal IReadOnlyDictionary<string, (int Tests, int NotPassing)> CompleteCounts()
+        {
+            var counts = new Dictionary<string, (int, int)>(StringComparer.Ordinal);
+            var errors = new List<string>();
+            foreach (var (path, observed) in _counts)
+            {
+                if (observed.HarnessError is { } error)
+                {
+                    errors.Add($"{path}: {error}");
+                }
+
+                counts[path] = (observed.Tests, observed.NotPassing);
+            }
+
+            if (errors.Count > 0)
+            {
+                errors.Sort(StringComparer.Ordinal);
+                throw new InvalidOperationException(
+                    "The web-platform-tests browser census is incomplete because these documents produced harness errors:\n"
+                    + string.Join("\n", errors)
+                    + "\nNo table can be rendered or rewritten from this run. Resolve the harness failures before measuring again.");
+            }
+
+            return counts;
+        }
     }
 
     /// <summary>
@@ -126,8 +167,12 @@ internal static class WptBrowserCensus
     /// comparison by rendering whatever the README already claims for them, so a caller that has not run the
     /// lane can still hold the two derived columns.
     /// </summary>
-    internal static string Render(bool measured, IReadOnlyList<string>? readmeLines = null)
+    internal static string Render(bool measured, IReadOnlyList<string>? readmeLines = null) =>
+        Render(measured, _observed, readmeLines);
+
+    internal static string Render(bool measured, Measurements measurements, IReadOnlyList<string>? readmeLines = null)
     {
+        var observations = measured ? measurements.CompleteCounts() : null;
         var claimed = measured ? null : ParseClaimedCounts(readmeLines ?? ReadReadme().Split('\n'));
         var rows = new List<Row>();
 
@@ -138,9 +183,12 @@ internal static class WptBrowserCensus
             var tests = 0;
             var notPassing = 0;
 
-            foreach (var path in WptBrowserCorpus.Cases(suite))
+            // Documents and Synthesized count files — the table says of itself that they do — while Tests
+            // and Not passing count what ran. A document that declares `<meta name="variant">` is one file
+            // and several runs, so it is counted once here and once per variant below.
+            foreach (var document in WptBrowserCorpus.Documents(suite))
             {
-                if (WptBrowserCorpus.IsVendored(path))
+                if (WptBrowserCorpus.IsVendored(document))
                 {
                     documents++;
                 }
@@ -148,10 +196,13 @@ internal static class WptBrowserCensus
                 {
                     synthesized++;
                 }
+            }
 
-                if (measured)
+            if (measured)
+            {
+                foreach (var path in WptBrowserCorpus.Cases(suite))
                 {
-                    var counts = _observed[path];
+                    var counts = observations![path];
                     tests += counts.Tests;
                     notPassing += counts.NotPassing;
                 }
@@ -196,6 +247,46 @@ internal static class WptBrowserCensus
             .Append('\n');
 
         return table.ToString();
+    }
+
+    /// <summary>What the lane measured for the named suites, totalled.</summary>
+    /// <remarks>
+    /// The same three quantities the table renders, for a caller that wants to hold a <i>sentence</i> to them
+    /// rather than a row — <c>WptBrowserCauseTests</c> is the one, and the sentence is the one above the cause
+    /// table. Read from the corpus and the run, never from the table, so the two cannot agree by copying. It
+    /// also validates that every report completed before any cause is reconciled or rendered.
+    /// </remarks>
+    internal static (int Documents, int Tests, int NotPassing) MeasuredTotals(IReadOnlyList<string> suites)
+    {
+        var observations = _observed.CompleteCounts();
+        var documents = 0;
+        var tests = 0;
+        var notPassing = 0;
+
+        foreach (var suite in suites)
+        {
+            var name = suite.TrimEnd('/');
+
+            // Documents are files and tests are runs, exactly as the rendered table counts them.
+            foreach (var document in WptBrowserCorpus.Documents(name))
+            {
+                if (WptBrowserCorpus.IsVendored(document))
+                {
+                    documents++;
+                }
+            }
+
+            foreach (var path in WptBrowserCorpus.Cases(name))
+            {
+                if (observations.TryGetValue(path, out var counts))
+                {
+                    tests += counts.Tests;
+                    notPassing += counts.NotPassing;
+                }
+            }
+        }
+
+        return (documents, tests, notPassing);
     }
 
     private static string Number(int value) => value.ToString("N0", CultureInfo.InvariantCulture);
@@ -360,7 +451,7 @@ internal static class WptBrowserCensus
         return path;
     }
 
-    private static string LocateReadmeOnDisk()
+    internal static string LocateReadmeOnDisk()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory is not null)

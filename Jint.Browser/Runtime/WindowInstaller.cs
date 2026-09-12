@@ -91,6 +91,8 @@ internal static class WindowInstaller
         var realm = engine._mainRealm;
         var global = realm.GlobalObject;
 
+        FormDataConstruction.Install(runtime);
+
         // https://html.spec.whatwg.org/multipage/nav-history-apis.html#named-access-on-the-window-object —
         // WebIDL's named properties object sits between the interface prototype object and its parent, which
         // is what makes named access a *miss* path: `document`, `alert` and every other name the global owns
@@ -227,7 +229,7 @@ internal static class WindowInstaller
     /// <para>
     /// <c>ontouchstart</c> stays, and is not an interface member at all: it is a presence test a responsive
     /// page writes (<c>'ontouchstart' in document</c>), and what it must answer depends on the emulation a
-    /// client set. See <c>TouchEmulation</c> for why <c>Element.prototype</c> deliberately does not get one.
+    /// client set. <c>TouchEmulation</c> also places the inherited copy on <c>Element.prototype</c>.
     /// </para>
     /// </remarks>
     internal static void AttachDocumentMembers(PageRuntime runtime, ObjectInstance wrapper)
@@ -254,7 +256,7 @@ internal static class WindowInstaller
         return wrapper;
     }
 
-    private static JsEventTarget WindowTargetOf(JsValue thisObject, string member, string verb)
+    internal static JsEventTarget WindowTargetOf(JsValue thisObject, string member, string verb)
     {
         if (thisObject is ObjectInstance instance
             && ReferenceEquals(instance, instance.Engine._mainRealm.GlobalObject)
@@ -322,7 +324,6 @@ internal static class WindowInstaller
                     return JsValue.Undefined;
                 })
             .Accessor("origin", static (t, _) => JsString.Create(PageRuntime.Of(t, "origin").Document?.Origin ?? "null"))
-            .Accessor("customElements", static (t, _) => PageRuntime.Of(t, "customElements").CustomElements)
             .Method("stop", static (_, _) => JsValue.Undefined)
             .Method("focus", static (_, _) => JsValue.Undefined)
             .Method("blur", static (_, _) => JsValue.Undefined)
@@ -461,8 +462,7 @@ internal static class WindowInstaller
         return value.IsUndefined() ? "" : TypeConverter.ToString(value);
     }
 
-    private static int FrameCount(PageRuntime runtime)
-        => runtime.Document is { } document ? document.QuerySelectorAll("iframe, frame").Length : 0;
+    private static int FrameCount(PageRuntime runtime) => FrameWindows.Count(runtime.Document);
 
     /// <summary>
     /// https://drafts.csswg.org/cssom-view/#dom-window-scroll — the vertical coordinate the two argument
@@ -547,7 +547,12 @@ internal static class WindowInstaller
     }
 
     /// <summary>One <c>on<i>type</i></c> attribute pair, holding the event type and nothing engine-specific.</summary>
-    private sealed class EventHandlerAccessor
+    /// <remarks>
+    /// Reachable outside the shape because touch emulation installs the same pair on the global object for a
+    /// handler name this shape cannot declare: whether <c>ontouchstart</c> is there at all is a client's
+    /// decision, and a shared shape is built once for the process (<c>Runtime/TouchEmulation</c>).
+    /// </remarks>
+    internal sealed class EventHandlerAccessor
     {
         private readonly string _type;
 

@@ -47,7 +47,8 @@ subtest pass": every judgement there is upstream's `testharness_result_converter
 descending, exactly as `TestFiles` does for `.any.js`. So a `resources/` or `support/` child holds the helpers
 a case loads and never a case of its own, and a document belongs to exactly one suite.
 
-A **case** is a path the server answers, which is not the same as a file on disk. Two kinds:
+A **case** is a path the server answers, which is not the same as a file on disk. Three kinds of vendored
+document, and only two of them are cases:
 
 * a **vendored document** — `dom/events/Event-propagation.html`, bytes in this repository;
 * a **synthesized wrapper** — `dom/events/Event-constructors.any.html`, which exists nowhere. Upstream's
@@ -56,6 +57,31 @@ A **case** is a path the server answers, which is not the same as a file on disk
   and then the file. So the `.any.js` corpus a suite already has runs **again** here, in a `Window` realm under
   the real harness, without being vendored twice — and the two lanes are allowed to disagree about a file,
   because a divergence only a document exposes is what this lane is for.
+
+* a **frame body** — `dom/nodes/ParentNode-querySelector-All-content.html`, vendored and served and never
+  run. A document directly under a suite is a case, which is `BrowserTestFiles` never descending; upstream
+  does not always agree, and a fixture with no `testharness.js` in it registers nothing and times out as a
+  case. `WptBrowserExclusions.FrameBodies` is the third answer, and it is the opposite of the not-vendored
+  table rather than a variant of it: a row there is a path the corpus does not hold, a row here is one it
+  holds and does not run, and **nothing may be in both**. Held from both ends like every other table here —
+  a row must name a vendored document directly under a suite — and it takes no minimum-test entry and
+  appears in no census column, because neither counts anything about a document that reports nothing. What
+  holds a frame body to its job is the case that loads it.
+
+**And a case is a path *at one variant*.** A document may declare
+[`<meta name="variant" content="?query">`](https://web-platform-tests.org/writing-tests/testharness.html#variants),
+and upstream's manifest then makes one test per declaration, at that path with the string appended; the
+document reads which one it is out of `location.search`. `WptBrowserVariants` is the port of
+`SourceFile.test_variants` — a document's `<meta>` elements read off a real parse, a wrapped `.any.js`
+file's `// META: variant=` lines, upstream's two validity rules, and `[""]` for a file that declares
+none — and a case name is the path and the variant, spelled as the manifest spells it
+(`dom/events/handler-count.html?element`). So **every key in this lane is a case and never a document**: a
+minimum-test entry, an exclusion, a cause's file. There is deliberately **no spelling that means every
+variant**, because two variants are two runs and a divergence measured in one is not evidence about the
+other — which is also why the census's `Documents` and `Synthesized` columns keep counting *files*, so a
+variant moves `Tests` and leaves those two alone. The engine lane ignores `// META: variant=` for the
+opposite and equally correct reason: a shard variant selects a subset of the same tests and one unsharded
+run is their union, which a query the document itself branches on is not.
 
 **The dedicated-worker wrapper is deliberately not generated.** `WorkersHandler`'s document creates a *classic*
 worker whose generated body opens with `importScripts("/resources/testharness.js")`, and Jint runs module
@@ -152,9 +178,16 @@ never a document deleted, and never one left in to hang the lane.
 * **`BrowserOptions.MaxTaskDuration` is `Timeout.InfiniteTimeSpan`.** `PageBudget` brackets every page turn with it and
   reports a `PageErrorKind.BudgetExceeded`; a legitimately slow wpt file would be cut mid-script and the
   failure would read as an engine defect three layers from its cause. The bound here is the **driver's own**
-  per-file deadline (`WptBrowserHarness.Deadline`, 30 s, and no deadline under a debugger because a breakpoint
-  is not a hang), and before that upstream's harness timeout, which is the one that usually fires first and is
-  left exactly as upstream sets it.
+  per-file deadline (30 s normally, 90 s when upstream's metadata grants its harness the 60-second
+  `timeout=long`, and no deadline under a debugger because a breakpoint is not a hang), and before that
+  upstream's harness timeout, which is the one that usually fires first and is left exactly as upstream sets it.
+* **The lane pins its culture to the invariant one.** A page's document culture is the engine's
+  (`Options.Culture`) since the parse started handing it to AngleSharp's browsing context, and AngleSharp
+  resolves `:lang()` on an element with **no** inherited language from it — so without a pin four rows of
+  `dom/nodes/ParentNode-querySelector-All.html` passed on the Linux leg, which runs with no culture, and
+  failed on the Windows one, which has a real one. **A gate whose answer depends on the runner's locale is
+  not a gate**, and no exclusion could name those rows on both legs; scoping one to an operating system
+  would have encoded the coincidence rather than removed it.
 * **The context's `UrlFilter` is the server's own `Owns`**, so the oldest promise this corpus makes is kept
   here too: no document can open a socket to anything but the loopback port, on the first hop and on every
   redirect.
@@ -173,13 +206,20 @@ minimum-test counts, and the exclusions — because the runner is a driver and t
 
 The vocabulary is `WptDivergence`, shared. Six of its members exist for this lane, and the first four say so on
 themselves: `NeedsLayout`, `NeedsIframeScripting`, `NeedsIndexedDb`, `NeedsTestDriver`, `NeedsXmlDocuments` and
-`NeedsMoreEventInterfaces` — the last two being a shape rather than `NeedsTriage`'s: a page here parses HTML, AngleSharp builds
-no XML document, and the rows name what would move them rather than a fix somebody owes. **`NeedsTestDriver` has no
+`NeedsMoreEventInterfaces` — the last of which is a shape rather than `NeedsTriage`'s, its rows naming what
+would move them rather than a fix somebody owes. **`NeedsXmlDocuments` stopped being that and is now one
+AngleSharp mapping**: XML documents, `createDocument` and their metadata are this package's own now, and what is
+left is that `application/xhtml+xml` reaches the HTML parser — its own exclusion group is gone, and
+`README.md` says what its rows turned out to be. **`NeedsTestDriver` has no
 entries any more**: campaign item C4 mapped `testdriver.js` onto the same `InputDispatcher` the protocol's
 `Input` domain reaches, and the seven documents that were waiting for it were re-examined one at a time —
 five are cases now, and the two that still cannot report are `NotVendored` rows naming what each really needs
 (a rendering, and a pseudo-element model) rather than the driver. The member stays, because the rest of
-`test_driver` is deliberately still upstream's rejections and the next suite this lane vendors may need it. `NeedsTriage` means what it means
+`test_driver` is deliberately still upstream's rejections and the next suite this lane vendors may need it.
+**`NeedsTouchEmulation` is the same shape and for the same reason**: its six rows were
+`Document-createEvent.https.html`'s, and that document is opened as a touch device now (the environment table
+above), so they run and pass. The member stays for a document whose subject needs an environment this browser
+has no way to give it. `NeedsTriage` means what it means
 everywhere: **a genuine defect the corpus found, recorded rather than fixed so that the change which
 first runs a suite is not also the change that moves the engine.** A non-zero count there is a list somebody
 owes a fix for, and `README.md` names each one.
@@ -191,6 +231,43 @@ the exclusion table. That is the ninth rule of the other lane's file, and it dec
 there: a document is a whole environment, and the ways one can fail to report — a frame that had to run script,
 a navigation the page really performed, a `javascript:` URL, a document that replaced itself — have no analogue
 in a file handed to an engine.
+
+### The fifth table: the environment a document needs
+
+`WptBrowserExclusions.TouchDocuments` names the documents this lane opens as a **touch device**, through the
+same `Page.SetTouchEmulationAsync` seam a client has and before the navigation, so the document parses in it.
+It is this lane's counterpart of upstream's per-test preferences, and it exists because a document that asks
+`assert_implements_optional('ontouchstart' in document)` is asking about the environment rather than about the
+engine: declined, its rows report `PRECONDITION_FAILED` and measure nothing. **An environment is not an
+exclusion** — a row here makes the document's rows *run*, and the exclusion discipline still has to account
+for whatever they then say, which is what holds the table from the other side: take the row away and the six
+rows of `Document-createEvent.https.html` go back to being unnamed failures. Held from the first side by
+`EveryVendoredDocumentIsAccountedFor`, which refuses a row that is not a case.
+
+### The other generated table: what each failure is
+
+`README.md`'s **cause table** — "What the DOM corpus says about this browser" — counts, per cause, how many
+tests fail and over how many documents. Both columns are generated, and the machinery is deliberately unlike
+the census's in one way and identical in another.
+
+**A cause is a value, not a comment.** `WptBrowserExclusions.Causes` is the exclusion table split into named
+groups and `All` is that flattened, so what used to be a `// ----` header is now the name of the array under
+it. That name is what a README row keys on, in an `<!-- cause: … -->` comment the rendered page does not show
+— **the prose stays hand-written and only the two numbers and the order are rendered.** A group renamed in
+one place and not the other is the mistake this exists to catch, and it fails for free.
+
+**Two properties make the arithmetic mean anything**, and `WptBrowserCauseTests` holds both: every failing
+test in the lane is claimed by **exactly one** cause — the runner already refuses a failing test no exclusion
+names, and this adds that no two name the same one — and a cause that accounts for anything in the six suites
+the section is about has a row while a row accounts for something in them.
+
+**Neither column is a ceiling**, and that is the difference from the census. `Not passing` bounds *how much*
+fails, so it may only go down; these two say what each failure *is*, so a cause that grew and a cause that
+shrank are equally a table that has stopped describing this browser. Both are equalities in both directions.
+
+The reason it is built this way is on the class: the columns were typed, nothing counted them, and nine of
+seventeen rows had gone stale in both directions before anybody measured — one cause growing 165 → 478 as a
+fix uncovered a table a missing member had been hiding, another shrinking 65 → 24 as its own fix landed.
 
 ### The census is a ceiling
 
@@ -206,6 +283,10 @@ failures, and it leaves the raised numbers in the diff.
 
 Like the engine lane's, the measured half is opt-in — totalling the table means running every document — and
 Windows-only, because a `TIMEOUT` is an outcome a loaded machine can produce on its own.
+**A harness error invalidates the census**, including a timeout after some subtests have reported. The census
+retains the document's failure and refuses to render or rewrite a measured table; it cannot count the empty
+results of a failed outcome as zero registrations or silently retry it. The unmeasured inventory check still
+works, because its document counts do not depend on a report.
 
 ### Adding a suite
 

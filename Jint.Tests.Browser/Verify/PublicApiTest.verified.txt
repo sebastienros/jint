@@ -39,11 +39,13 @@ namespace Jint.Browser
         public BrowserOptions() { }
         public bool BlockPrivateNetwork { get; set; }
         public System.TimeSpan FetchTimeout { get; set; }
+        public bool HasTouch { get; set; }
         public int MaxActiveTimers { get; set; }
         public long MaxCapturedResponseBytes { get; set; }
         public long MaxDocumentBytes { get; set; }
         public int MaxDomNodes { get; set; }
         public int MaxFrameDocuments { get; set; }
+        public int MaxImageRequests { get; set; }
         public int MaxRecordedEvents { get; set; }
         public int MaxRedirects { get; set; }
         public long MaxResponseBytes { get; set; }
@@ -144,7 +146,15 @@ namespace Jint.Browser
         public System.Threading.Tasks.Task<bool> SelectAsync(string target, string value) { }
         public System.Threading.Tasks.Task<bool> SelectAsync(string target, int index, string value) { }
         public System.Threading.Tasks.Task SetContentAsync(string html, string? baseUrl = null) { }
+        public System.Threading.Tasks.Task<bool> SetInputFilesAsync(string target, System.Collections.Generic.IReadOnlyList<Jint.Browser.PageFile> files) { }
+        public System.Threading.Tasks.Task<bool> SetInputFilesAsync(string target, System.Collections.Generic.IReadOnlyList<string> paths) { }
+        public System.Threading.Tasks.Task<bool> SetInputFilesAsync(string target, int index, System.Collections.Generic.IReadOnlyList<Jint.Browser.PageFile> files) { }
+        public System.Threading.Tasks.Task<bool> SetInputFilesAsync(string target, int index, System.Collections.Generic.IReadOnlyList<string> paths) { }
+        public System.Threading.Tasks.Task SetTouchEmulationAsync(bool enabled, int maxTouchPoints = 1) { }
         public System.Threading.Tasks.Task<Jint.Browser.PageResponse?> SubmitFormAsync(string selector, Jint.Browser.NavigationOptions? options = null) { }
+        public System.Threading.Tasks.Task<bool> TapAsync(string target, Jint.Browser.NavigationOptions? options = null) { }
+        public System.Threading.Tasks.Task TapAsync(double x, double y, Jint.Browser.NavigationOptions? options = null) { }
+        public System.Threading.Tasks.Task<bool> TapAsync(string target, int index, Jint.Browser.NavigationOptions? options = null) { }
         public System.Threading.Tasks.Task<string> TextAsync(bool mainContentOnly = false, int maxLength = 0) { }
         public System.Threading.Tasks.Task<string> TitleAsync() { }
         public System.Threading.Tasks.Task<bool> TypeAsync(string target, string text) { }
@@ -174,6 +184,14 @@ namespace Jint.Browser
         WorkerError = 3,
         ScriptError = 4,
         BudgetExceeded = 5,
+    }
+    public sealed class PageFile
+    {
+        public PageFile(string name, string mimeType, System.ReadOnlyMemory<byte> content, System.DateTimeOffset? lastModified = default) { }
+        public System.ReadOnlyMemory<byte> Content { get; }
+        public System.DateTimeOffset LastModified { get; }
+        public string MimeType { get; }
+        public string Name { get; }
     }
     public readonly struct PageHeader : System.IEquatable<Jint.Browser.PageHeader>
     {

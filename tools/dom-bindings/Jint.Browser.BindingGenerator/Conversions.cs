@@ -14,19 +14,22 @@ internal sealed class Conversions
     private readonly Func<Type, bool> _isStringEnum;
     private readonly Func<string, int, bool> _isNullableParameter;
     private readonly Func<string, int, bool> _isNonNullableParameter;
+    private readonly Func<string, bool> _isNullToEmptyString;
 
     internal Conversions(
         BindingModel model,
         Func<Type, InterfaceModel?> lookup,
         Func<Type, bool> isStringEnum,
         Func<string, int, bool> isNullableParameter,
-        Func<string, int, bool> isNonNullableParameter)
+        Func<string, int, bool> isNonNullableParameter,
+        Func<string, bool> isNullToEmptyString)
     {
         _model = model;
         _lookup = lookup;
         _isStringEnum = isStringEnum;
         _isNullableParameter = isNullableParameter;
         _isNonNullableParameter = isNonNullableParameter;
+        _isNullToEmptyString = isNullToEmptyString;
     }
 
     /// <summary>
@@ -170,6 +173,15 @@ internal sealed class Conversions
                     return true;
                 }
 
+                // https://webidl.spec.whatwg.org/#LegacyNullToEmptyString - the opposite direction, and the
+                // one no CLR signature can carry: the setter takes a non-nullable DOMString, and the value
+                // `null` is the empty string rather than the string "null". Only overrides.json knows.
+                if (role == ParameterRole.AttributeValue && _isNullToEmptyString(member))
+                {
+                    code = "global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, " + index + ", " + CSharpNames.Literal(member) + ")";
+                    return true;
+                }
+
                 code = optional
                     ? "global::Jint.Browser.Dom.DomConvert.OptionalText(args, " + index + ", " + DefaultString(parameter) + ")!"
                     : "global::Jint.Browser.Dom.DomConvert.RequiredText(args, " + index + ", " + CSharpNames.Literal(member) + ")";
@@ -222,6 +234,16 @@ internal sealed class Conversions
             if (element.FullName == "System.String")
             {
                 code = "global::Jint.Browser.Dom.DomConvert.TextRest(args, " + index + ")";
+                return true;
+            }
+
+            // https://dom.spec.whatwg.org/#converting-nodes-into-a-node - a variadic Node parameter is Web
+            // IDL's `(Node or DOMString)...`, and the string half becomes a text node in the receiver's node
+            // document. The receiver is in scope in every emitted body, which is the whole of what this
+            // needed: a static member body has no document until it is handed one.
+            if (element.FullName == "AngleSharp.Dom.INode")
+            {
+                code = "global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, " + index + ", " + CSharpNames.Literal(member) + ")";
                 return true;
             }
 

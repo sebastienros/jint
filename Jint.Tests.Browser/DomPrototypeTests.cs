@@ -132,7 +132,9 @@ public sealed class DomPrototypeTests
         // The whole reason the members are declared through JsObjectShape rather than defined one by one: a
         // shaped prototype is a valid holder for the prototype-method inline cache, and a dictionary-mode one
         // is not. Engine.Advanced.HasSharedShape is the sanctioned assertion that the shaping happened.
-        foreach (var definition in DomInterfaces.All)
+        // DomManualInterfaces' rows are walked with the generated ones: a shape written by hand has no
+        // emitter to be right once for, so it is the one most in need of the check.
+        foreach (var definition in DomInterfaces.All.Concat(DomManualInterfaces.All))
         {
             var prototype = realm.PrototypeOf(definition);
             fixture.Engine.Advanced.HasSharedShape(prototype)

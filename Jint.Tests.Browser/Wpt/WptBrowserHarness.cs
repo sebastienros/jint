@@ -47,7 +47,7 @@ using Browser = global::Jint.Browser.Browser;
 /// <para>
 /// <b>The deadline is the driver's own.</b> <see cref="BrowserOptions.MaxTaskDuration"/> is
 /// <see cref="Timeout.InfiniteTimeSpan"/>, so a legitimately slow wpt file is bounded by
-/// <see cref="Deadline"/> rather than cut mid-script into a <c>PageErrorKind.BudgetExceeded</c> that would
+    /// the per-file driver deadline rather than cut mid-script into a <c>PageErrorKind.BudgetExceeded</c> that would
 /// look like an engine defect. Upstream's own harness timeout is untouched and is the one that usually fires
 /// first: it is what turns a test waiting on something that never happens into a <c>TIMEOUT</c> row rather
 /// than into a file with no report at all.
@@ -59,16 +59,20 @@ internal sealed class WptBrowserHarness : IDisposable
     /// How long one file may take before the driver gives up on it, which is a harness error for the file.
     /// </summary>
     /// <remarks>
-    /// Upstream's harness times a file out at 10 s (60 s for <c>// META: timeout=long</c>) and reports it, so
+    /// Upstream's harness times a file out at 10 s (60 s for <c>timeout=long</c> metadata) and reports it, so
     /// this is the backstop for the case where the harness itself never reports — a document that failed to
     /// parse, a script that never ran, a page wedged before <c>testharness.js</c> loaded. Infinite under a
     /// debugger, because a breakpoint is not a hang.
     /// </remarks>
-    internal static TimeSpan Deadline { get; } =
-        Debugger.IsAttached ? Timeout.InfiniteTimeSpan : TimeSpan.FromSeconds(30);
+    private static TimeSpan DefaultDeadline { get; } = TimeSpan.FromSeconds(30);
 
     /// <summary>
-    /// The same ceiling as <see cref="Deadline"/>, expressed as something
+    /// The backstop for a file whose metadata grants upstream's harness its 60-second long timeout.
+    /// </summary>
+    private static TimeSpan LongDeadline { get; } = TimeSpan.FromSeconds(90);
+
+    /// <summary>
+    /// The selected per-file ceiling, expressed as something
     /// <see cref="NavigationOptions.Timeout"/> accepts.
     /// </summary>
     /// <remarks>
@@ -76,8 +80,8 @@ internal sealed class WptBrowserHarness : IDisposable
     /// call an automation host can never get back from — so the debugger's "no deadline" is spelled here as a
     /// day rather than as <see cref="Timeout.InfiniteTimeSpan"/>. Nothing else about the wait is clamped.
     /// </remarks>
-    private static TimeSpan NavigationTimeout =>
-        Deadline > TimeSpan.Zero ? Deadline : TimeSpan.FromDays(1);
+    private static TimeSpan NavigationTimeout(TimeSpan deadline) =>
+        deadline > TimeSpan.Zero ? deadline : TimeSpan.FromDays(1);
 
     /// <summary>
     /// How long the driver waits between asking the page whether it has gone idle, while it waits for the
@@ -117,6 +121,15 @@ internal sealed class WptBrowserHarness : IDisposable
             RecordConsoleMessages = true,
         };
 
+        // https://drafts.csswg.org/selectors-4/#the-lang-pseudo — an element whose language is unknown
+        // matches no `:lang()`, and AngleSharp answers one from the document's culture instead. The page's
+        // culture is the engine's through ParserDriver, so pinning it here is what makes a verdict the
+        // corpus's rather than the machine's: four `ParentNode-querySelector-All.html` rows pass under the
+        // invariant culture and fail under an English one, which is the Linux and the Windows leg exactly.
+        // A gate whose answer depends on the runner's locale is not a gate, and scoping the exclusion to an
+        // operating system would encode the coincidence rather than remove it.
+        options.ConfigureEngine(o => o.Culture = System.Globalization.CultureInfo.InvariantCulture);
+
         options.ConfigureEngine(o => o.Configure(engine =>
         {
             engine.SetValue("__jintWptReport", new Action<string>(json => Report(engine, json)));
@@ -133,12 +146,17 @@ internal sealed class WptBrowserHarness : IDisposable
     /// Runs one document and answers every result it reported, or the harness error that stopped it.
     /// </summary>
     /// <param name="path">
-    /// A path in the wpt tree: a vendored document (<c>dom/events/Event-propagation.html</c>) or a wrapper the
-    /// server synthesizes for a vendored script (<c>dom/events/Event-constructors.any.html</c>).
+    /// A case name: a path in the wpt tree — a vendored document (<c>dom/events/Event-propagation.html</c>)
+    /// or a wrapper the server synthesizes for a vendored script
+    /// (<c>dom/events/Event-constructors.any.html</c>) — with the variant it is being run at appended when
+    /// the document declares any (<c>dom/events/handler-count.html?element</c>). The query reaches the page's
+    /// own <c>location.search</c>, which is what such a document branches on, while the server finds the file
+    /// from the path alone exactly as wptserve's <c>filesystem_path</c> does.
     /// </param>
     internal async Task<WptBrowserOutcome> RunAsync(string path)
     {
         var collector = new WptBrowserCollector();
+        var diagnostics = new WptBrowserDiagnostics();
 
         var context = await _browser.NewContextAsync(new BrowserContextOptions
         {
@@ -153,13 +171,26 @@ internal sealed class WptBrowserHarness : IDisposable
             var page = await context.NewPageAsync().ConfigureAwait(false);
             _collectors[page] = collector;
 
+            if (WptBrowserExclusions.NeedsTouchEmulation(path))
+            {
+                // Before the navigation, so the document parses on a touch device rather than becoming one
+                // half way through: the emulation is the page's and survives every document after it.
+                await page.SetTouchEmulationAsync(enabled: true).ConfigureAwait(false);
+            }
+
             try
             {
                 // Recorded here rather than in the runner, because this is the single funnel every case's
                 // outcome comes back through — so the census sees the whole lane whatever the theory then
                 // asserts, and a file the theories already ran is tallied rather than run a second time.
                 var outcome = await RunAsync(page, collector, path).ConfigureAwait(false);
+                if (outcome.HarnessError is { } failure)
+                {
+                    outcome = WptBrowserOutcome.Failed(failure + diagnostics.Describe(page, collector));
+                }
+
                 WptBrowserCensus.Record(path, outcome);
+                WptBrowserCauses.Record(path, outcome);
                 return outcome;
             }
             finally
@@ -177,6 +208,7 @@ internal sealed class WptBrowserHarness : IDisposable
     {
         var started = Stopwatch.GetTimestamp();
         var url = _server.UrlFor(path);
+        var deadline = DeadlineFor(path);
 
         try
         {
@@ -187,7 +219,7 @@ internal sealed class WptBrowserHarness : IDisposable
                 // has already been given. Waiting for the navigation to commit is only waiting for the engine
                 // the results will come from to exist.
                 WaitUntil = WaitUntilState.Commit,
-                Timeout = NavigationTimeout,
+                Timeout = NavigationTimeout(deadline),
             }).ConfigureAwait(false);
         }
         catch (Exception exception)
@@ -197,10 +229,10 @@ internal sealed class WptBrowserHarness : IDisposable
 
         while (!collector.IsComplete)
         {
-            if (Remaining(started) is not { } remaining)
+            if (Remaining(started, deadline) is not { } remaining)
             {
                 return WptBrowserOutcome.Failed(
-                    $"the harness did not report completion within {Deadline.TotalSeconds:N0}s"
+                    $"the harness did not report completion within {deadline.TotalSeconds:N0}s"
                     + Describe(page, collector));
             }
 
@@ -265,14 +297,54 @@ internal sealed class WptBrowserHarness : IDisposable
         return described.Append(')').ToString();
     }
 
-    private static TimeSpan? Remaining(long started)
+    private static TimeSpan DeadlineFor(string path)
     {
-        if (Deadline == Timeout.InfiniteTimeSpan)
+        if (Debugger.IsAttached)
         {
             return Timeout.InfiniteTimeSpan;
         }
 
-        var remaining = Deadline - Stopwatch.GetElapsedTime(started);
+        // The deadline belongs to the document, not to the variant it is being run at: upstream's
+        // `timeout=long` metadata is a property of the file and its manifest entries all carry it.
+        var document = WptBrowserVariants.DocumentOf(path);
+        var sourcePath = WptServerWrappers.IsWrapperPath(document)
+            ? WptServerWrappers.UnderlyingFile(document)
+            : document;
+        var source = WptCorpus.Read(sourcePath);
+
+        if (WptServerWrappers.IsWrapperPath(document))
+        {
+            foreach (var (key, value) in WptServerWrappers.ReadScriptMetadata(source))
+            {
+                if (string.Equals(key, "timeout", StringComparison.Ordinal)
+                    && string.Equals(value, "long", StringComparison.Ordinal))
+                {
+                    return LongDeadline;
+                }
+            }
+
+            return DefaultDeadline;
+        }
+
+        // The vendored HTML documents currently use upstream's canonical unquoted spelling. Accept quoted
+        // attribute values too, so a future corpus bump does not silently shorten the driver's ceiling.
+        var hasTimeoutName = source.Contains("name=timeout", StringComparison.OrdinalIgnoreCase)
+            || source.Contains("name=\"timeout\"", StringComparison.OrdinalIgnoreCase)
+            || source.Contains("name='timeout'", StringComparison.OrdinalIgnoreCase);
+        var hasLongContent = source.Contains("content=long", StringComparison.OrdinalIgnoreCase)
+            || source.Contains("content=\"long\"", StringComparison.OrdinalIgnoreCase)
+            || source.Contains("content='long'", StringComparison.OrdinalIgnoreCase);
+        return hasTimeoutName && hasLongContent ? LongDeadline : DefaultDeadline;
+    }
+
+    private static TimeSpan? Remaining(long started, TimeSpan deadline)
+    {
+        if (deadline == Timeout.InfiniteTimeSpan)
+        {
+            return Timeout.InfiniteTimeSpan;
+        }
+
+        var remaining = deadline - Stopwatch.GetElapsedTime(started);
         return remaining > TimeSpan.Zero ? remaining : null;
     }
 
@@ -280,14 +352,16 @@ internal sealed class WptBrowserHarness : IDisposable
     /// Routes one posted report to the page whose engine posted it.
     /// </summary>
     /// <remarks>
-    /// Called on that page's own loop thread, from inside whatever turn the harness reported in. It touches
-    /// nothing of the engine's: the payload is already a string, and the collector it lands in is the driver's.
+    /// Called on that page's own loop thread, from inside whatever turn the harness reported in. The payload
+    /// is already a string; the only additional reads are the runtime's native readiness and script flags.
     /// </remarks>
     private void Report(Engine engine, string json)
     {
-        if (PageRuntime.Find(engine)?.Page is { } page && _collectors.TryGetValue(page, out var collector))
+        if (PageRuntime.Find(engine) is { Page: { } page } runtime && _collectors.TryGetValue(page, out var collector))
         {
-            collector.Add(json);
+            // Copy only native state on its owning loop. Do not evaluate script-visible getters or retain
+            // a runtime/node for the test thread to inspect after a timeout.
+            collector.Add(json, runtime.ReadyState, runtime.CurrentScript is not null);
         }
     }
 
@@ -340,6 +414,12 @@ internal sealed class WptBrowserCollector
     private volatile bool _complete;
     private int _harnessStatus;
     private string _harnessMessage = "";
+    private readonly long _started = Stopwatch.GetTimestamp();
+    private long _firstResult;
+    private long _lastResult;
+    private long _completion;
+    private string _readyState = "unreported";
+    private bool _scriptActive;
 
     /// <summary>Whether the harness has run its completion callback.</summary>
     internal bool IsComplete => _complete;
@@ -356,7 +436,7 @@ internal sealed class WptBrowserCollector
         }
     }
 
-    internal void Add(string json)
+    internal void Add(string json, string readyState = "unreported", bool scriptActive = false)
     {
         using var document = JsonDocument.Parse(json);
         var root = document.RootElement;
@@ -371,17 +451,46 @@ internal sealed class WptBrowserCollector
             lock (_gate)
             {
                 _results.Add(result);
+                var now = Stopwatch.GetTimestamp();
+                if (_firstResult == 0)
+                {
+                    _firstResult = now;
+                }
+
+                _lastResult = now;
+                _readyState = readyState;
+                _scriptActive = scriptActive;
             }
 
             return;
         }
 
-        _harnessStatus = root.GetProperty("status").GetInt32();
-        _harnessMessage = root.GetProperty("message").GetString() ?? "";
+        lock (_gate)
+        {
+            _harnessStatus = root.GetProperty("status").GetInt32();
+            _harnessMessage = root.GetProperty("message").GetString() ?? "";
+            _completion = Stopwatch.GetTimestamp();
+            _readyState = readyState;
+            _scriptActive = scriptActive;
+        }
 
-        // Last, and after the two fields it publishes: the test thread reads them the moment this turns true.
+        // Last, after the fields it publishes: the test thread reads them the moment this turns true.
         _complete = true;
     }
+
+    /// <summary>A failure-only rendering; callback work is limited to timestamps and native scalar fields.</summary>
+    internal string DescribeProgress()
+    {
+        lock (_gate)
+        {
+            return FormattableString.Invariant(
+                $"results={_results.Count}; firstResultMs={Elapsed(_firstResult)}; lastResultMs={Elapsed(_lastResult)}; completionMs={Elapsed(_completion)}; lastReportReadyState={_readyState}; lastReportScriptActive={_scriptActive}");
+        }
+    }
+
+    private string Elapsed(long timestamp) => timestamp == 0
+        ? "unreported"
+        : Stopwatch.GetElapsedTime(_started, timestamp).TotalMilliseconds.ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
 
     /// <summary>
     /// What the file produced. <paramref name="budgetFailure"/> is a harness error the harness itself could

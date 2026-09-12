@@ -1,3 +1,4 @@
+using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
 using Jint.Browser.Runtime;
 using Jint.Native;
@@ -10,17 +11,18 @@ namespace Jint.Browser.Dom;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <c>contentDocument</c> is generated from AngleSharp and re-declared over this because the generated body
-/// hands out a cross-origin document. Its sibling <c>contentWindow</c> is declared in
-/// <c>tools/dom-bindings/overrides.json</c> and answers <see langword="null"/> outright, so it needs no body
-/// here — AngleSharp declares it and the conversion table drops it with the rest of
-/// <c>AngleSharp.Dom.IWindow</c>, the window being the runtime's.
+/// Both are declared in <c>tools/dom-bindings/overrides.json</c> and answered here. <c>contentDocument</c>
+/// is generated from AngleSharp and re-declared over this because the generated body hands out a
+/// cross-origin document; <c>contentWindow</c> is added rather than re-declared, because AngleSharp's own
+/// declaration is an <c>AngleSharp.Dom.IWindow</c> and the conversion table drops that interface whole — the
+/// window a page gets is the runtime's (<c>Runtime/FrameWindows</c>).
 /// </para>
 /// <para>
-/// <b>A frame has a document here and no realm of its own</b> (<c>docs/design/headless-browser.md</c> §3):
-/// the parser driver fetches a frame's <c>src</c> and AngleSharp opens it into the nested browsing context
-/// it already made for the element, so the tree is real and readable, while nothing in it runs and there is
-/// no second global object for <c>contentWindow</c> to be.
+/// <b>A frame has a document and a window here and no realm of its own</b>
+/// (<c>docs/design/headless-browser.md</c> §3): the parser driver fetches a frame's <c>src</c> and AngleSharp
+/// opens it into the nested browsing context it already made for the element, so the tree is real and
+/// readable and <c>contentWindow</c> answers an object of the frame's own — while nothing in it runs, and
+/// every constructor that window reaches is the page's, there being one realm.
 /// </para>
 /// </remarks>
 internal static class DomFrameMembers
@@ -64,11 +66,51 @@ internal static class DomFrameMembers
 
         if (string.Equals(nested.Url, "about:blank", StringComparison.OrdinalIgnoreCase))
         {
+            Attach(realm, frame, nested);
             return realm.WrapNodeValue(nested);
         }
 
-        return string.Equals(here, PageUrl.OriginOf(nested.Url), StringComparison.Ordinal)
-            ? realm.WrapNodeValue(nested)
-            : JsValue.Null;
+        if (!string.Equals(here, PageUrl.OriginOf(nested.Url), StringComparison.Ordinal))
+        {
+            return JsValue.Null;
+        }
+
+        Attach(realm, frame, nested);
+        return realm.WrapNodeValue(nested);
+    }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/iframe-embed-object.html#dom-iframe-contentwindow — the frame's
+    /// <c>WindowProxy</c>, or <see langword="null"/> when it has no document to be the window of.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// It answers a window on the <i>page's</i> realm rather than a realm of its own —
+    /// <c>Runtime/FrameWindows</c> is the whole of what that means and why. Same origin decides whether there
+    /// is one to hand back at all, by the same rule <see cref="ContentDocument"/> uses: a window is a door to
+    /// a document, so handing one out cross-origin would hand out the document with it.
+    /// </para>
+    /// <para>
+    /// A page's own <c>window</c> is <b>not</b> this: <c>frame.contentWindow !== window</c>, which is the
+    /// property the corpus actually tests and the reason a frame gets an object at all.
+    /// </para>
+    /// </remarks>
+    /// <summary>Gives the frame's document its <c>defaultView</c>, whichever member reached it first.</summary>
+    private static void Attach(DomRealm realm, IHtmlInlineFrameElement frame, IDocument document)
+    {
+        if (PageRuntime.Find(realm.Engine) is { } runtime)
+        {
+            FrameWindows.AttachDefaultView(runtime, frame, document);
+        }
+    }
+
+    internal static JsValue ContentWindow(DomRealm realm, IHtmlInlineFrameElement frame)
+    {
+        if (ContentDocument(realm, frame).IsNull() || PageRuntime.Find(realm.Engine) is not { } runtime)
+        {
+            return JsValue.Null;
+        }
+
+        return FrameWindows.For(runtime, frame);
     }
 }

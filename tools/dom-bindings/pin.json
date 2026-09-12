@@ -6,8 +6,8 @@
     "see tools/dom-bindings/README.md."
   ],
   "packages": {
-    "AngleSharp": "1.8.0",
-    "AngleSharp.Css": "1.1.0"
+    "AngleSharp": "1.8.1",
+    "AngleSharp.Css": "1.1.2"
   },
-  "retrieved": "2026-09-05"
+  "retrieved": "2026-09-11"
 }

@@ -36,6 +36,7 @@ public sealed class BrowserOptions
     private TimeSpan _fetchTimeout = TimeSpan.FromSeconds(30);
     private int _maxDomNodes;
     private int _maxFrameDocuments = 16;
+    private int _maxImageRequests = 1000;
     private bool? _blockPrivateNetwork;
 
     /// <summary>What a page reports itself as, in script and on the wire.</summary>
@@ -59,6 +60,23 @@ public sealed class BrowserOptions
 
     /// <summary>The size and pixel ratio every page reports; 1280 × 720 at a ratio of 1 by default.</summary>
     public Viewport Viewport { get; set; } = Viewport.Default;
+
+    /// <summary>Whether every page opens as a touch device.</summary>
+    /// <remarks>
+    /// <para>
+    /// The other half of a device profile, beside <see cref="Viewport"/>: it decides what a page
+    /// <i>detects</i> — <c>ontouchstart</c> and its three siblings, <c>navigator.maxTouchPoints</c>, and the
+    /// <c>(pointer: coarse)</c> / <c>(hover: none)</c> media features — from its <b>first</b> document, which
+    /// is the difference from <see cref="Page.SetTouchEmulationAsync"/>: a responsive framework branches on
+    /// them as it starts, so a page told after its parse has already decided.
+    /// </para>
+    /// <para>
+    /// It does not decide whether a touch <i>arrives</i>. <see cref="Page.TapAsync(string, NavigationOptions)"/>
+    /// and <c>Input.dispatchTouchEvent</c> deliver one either way, because a caller that taps is asking for a
+    /// tap.
+    /// </para>
+    /// </remarks>
+    public bool HasTouch { get; set; }
 
     /// <summary>Whether every context of this browser refuses loopback and private addresses.</summary>
     /// <remarks>
@@ -228,8 +246,9 @@ public sealed class BrowserOptions
     /// A frame's document is fetched over the page's own network position, bounded by
     /// <see cref="MaxSubresourceBytes"/> and <see cref="SubresourceTimeout"/> like every other subresource,
     /// and parsed into the nested browsing context AngleSharp already makes for the element. It runs no
-    /// script: a frame has a document here and no realm of its own, so <c>iframe.contentWindow</c> is
-    /// <see langword="null"/> (<c>docs/design/headless-browser.md</c> §3).
+    /// script: a frame has a document and a window here and no <i>realm</i> of its own, so
+    /// <c>iframe.contentWindow</c> answers an object on the page's realm and nothing in the frame executes
+    /// (<c>docs/design/headless-browser.md</c> §3).
     /// </para>
     /// <para>
     /// <b>The count is over the whole load and not per document</b>, because a frame's document may hold
@@ -253,6 +272,40 @@ public sealed class BrowserOptions
         set => _maxFrameDocuments = value >= 0
             ? value
             : throw new ArgumentOutOfRangeException(nameof(value), value, "MaxFrameDocuments cannot be negative.");
+    }
+
+    /// <summary>
+    /// How many images one document may fetch; 1000 by default, and zero to fetch none.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>What it bounds is the count, because nothing else does.</b>
+    /// <see cref="MaxSubresourceBytes"/> bounds each response and <see cref="SubresourceTimeout"/> each
+    /// wait; neither bounds a document with fifty thousand <c>&lt;img&gt;</c> elements, and unlike a script
+    /// or a style sheet that is an ordinary shape for a page rather than an abusive one. It counts requests
+    /// <i>started</i> over the life of the document, so a script rewriting one element's <c>src</c> in a
+    /// loop meets the same ceiling as a document full of elements.
+    /// </para>
+    /// <para>
+    /// <b>Zero is the opt-out, and it is exactly what this browser did before it had an image model</b>:
+    /// every <c>&lt;img src&gt;</c> is recorded in <see cref="Page.Requests"/> with a
+    /// <see cref="PageRequest.NotFetchedReason"/>, no socket is opened, no <c>load</c> or <c>error</c> is
+    /// fired, and <c>img.complete</c> stays <see langword="false"/>. A host that only wants a page's text
+    /// and its DOM pays nothing for the images it will never look at.
+    /// </para>
+    /// <para>
+    /// What is read out of an image is its container header: two numbers, for <c>naturalWidth</c> and
+    /// <c>naturalHeight</c>. There is no pixel decode and no bitmap retained, so the memory an image costs
+    /// once its request has settled is the two integers and its URL.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The value is negative.</exception>
+    public int MaxImageRequests
+    {
+        get => _maxImageRequests;
+        set => _maxImageRequests = value >= 0
+            ? value
+            : throw new ArgumentOutOfRangeException(nameof(value), value, "MaxImageRequests cannot be negative.");
     }
 
     /// <summary>The most bytes one document may be; 32 MiB by default.</summary>
@@ -295,10 +348,12 @@ public sealed class BrowserOptions
     /// page nobody is driving pays nothing for this at all.
     /// </para>
     /// <para>
-    /// It is a bound on the <i>total</i> the page holds rather than on one body, and the oldest capture is
-    /// dropped to stay under it — so <c>Network.getResponseBody</c> for a request a client waited too long to
-    /// ask about answers that there is no body rather than the page growing without limit. A single response
-    /// larger than the whole budget is not kept at all, because half a body is not the body.
+    /// It counts retained response payload bytes, including in-progress captures, rather than one body.
+    /// Backing-buffer capacity and protocol strings are additional allocations, not a process-memory bound.
+    /// The oldest capture is dropped to stay under it — so <c>Network.getResponseBody</c> for a request a
+    /// client waited too long to ask about answers that there is no body rather than the page growing without
+    /// limit. A single response larger than the whole budget is not kept at all, because half a body is not
+    /// the body.
     /// </para>
     /// </remarks>
     /// <exception cref="ArgumentOutOfRangeException">The value is negative.</exception>

@@ -25,7 +25,6 @@
   <Project Path="Jint.Browser.Mcp/Jint.Browser.Mcp.csproj" />
   <Project Path="Jint.Browser.Tool/Jint.Browser.Tool.csproj" />
   <Project Path="Jint.DevTools/Jint.DevTools.csproj" />
-  <Project Path="Jint.Browser.Playwright/Jint.Browser.Playwright.csproj" />
   <Project Path="Jint.Repl/Jint.Repl.csproj" />
   <Project Path="Jint.SourceGenerators/Jint.SourceGenerators.csproj" />
   <Project Path="Jint.SourceGenerators.Interop/Jint.SourceGenerators.Interop.csproj" />
@@ -38,6 +37,8 @@
   <Project Path="Jint.Tests/Jint.Tests.csproj" />
   <Project Path="Jint/Jint.csproj" />
   <Project Path="docs/snippets/Jint.Documentation.Samples/Jint.Documentation.Samples.csproj" />
+  <Project Path="tools/browser-comparison/BrowserComparison.csproj" />
+  <Project Path="tools/browser-comparison.Tests/BrowserComparison.Tests.csproj" />
   <Project Path="tools/devtools-protocol/Jint.DevTools.ProtocolGenerator/Jint.DevTools.ProtocolGenerator.csproj" />
   <Project Path="tools/dom-bindings/Jint.Browser.BindingGenerator/Jint.Browser.BindingGenerator.csproj" />
 </Solution>

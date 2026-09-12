@@ -17,7 +17,7 @@ namespace Jint.Native.Object;
 /// </summary>
 /// <remarks>
 /// <para>
-/// A subclass supplies exactly two members — <see cref="Length"/> and <see cref="TryGetIndex"/> — and this class
+/// A subclass supplies two members — <see cref="Length"/> and <see cref="TryGetIndex"/> — and this class
 /// derives the whole JS-visible property model from them, keeping <c>GetOwnProperty</c>,
 /// <c>TryGetOwnPropertyValue</c>, <c>ProbeOwnProperty</c>, the key enumerations, <c>Set</c>, <c>Delete</c> and
 /// <c>DefineOwnProperty</c> mutually consistent. Both members are re-consulted on every operation, so a
@@ -33,21 +33,18 @@ namespace Jint.Native.Object;
 /// <para>
 /// <b>The JS-visible model.</b> Canonical array indices below <see cref="Length"/> for which
 /// <see cref="TryGetIndex"/> answers are own data properties
-/// <c>{ writable: false, enumerable: true, configurable: true }</c>; <c>length</c> is
-/// <c>{ writable: false, enumerable: false, configurable: true }</c>. Writes to either are ignored in sloppy
-/// mode and raise <c>TypeError</c> in strict mode, and <c>delete</c> / <c>Object.defineProperty</c> against an
-/// index key or <c>length</c> are refused — the WebIDL platform-object shape.
+/// <c>{ writable: false, enumerable: true, configurable: true }</c>. With the default <see cref="OwnsLength"/>,
+/// <c>length</c> is <c>{ writable: false, enumerable: false, configurable: true }</c>. Writes to those own
+/// properties are ignored in sloppy mode and raise <c>TypeError</c> in strict mode; <c>delete</c> and
+/// <c>Object.defineProperty</c> are refused.
 /// </para>
 /// <para>
-/// <b>Where <c>length</c> lives</b> is a known deviation. Here it is an <em>own</em> property, so
+/// <b>Where <c>length</c> lives.</b> By default it is an <em>own</em> property, so
 /// <c>list.hasOwnProperty('length')</c> is <c>true</c> and <c>Object.getOwnPropertyNames(list)</c> contains
-/// <c>"length"</c>; a browser puts it on <c>NodeList.prototype</c> as a WebIDL attribute and answers
-/// <c>false</c>. There is deliberately no opt-out in this version: the engine reads the length of an array-like
-/// through <c>[[Get]]("length")</c> in places that do not go through this type's operations
-/// (<c>JSON.stringify</c>'s array serialization, and every write-mode <c>Array.prototype</c> generic), so a
-/// collection that stopped owning the property would silently behave as empty unless it also installed an
-/// accessor on its prototype. Owning it keeps that impossible to get wrong, and moving it later is an additive
-/// change.
+/// <c>"length"</c>. Override <see cref="OwnsLength"/> to put the property on a prototype instead, as WebIDL does
+/// for DOM collections. That prototype must expose a numeric <c>length</c> accessor; array generics and iteration
+/// then read it through <c>[[Get]]</c>, so redefining the accessor has the same observable effect as it does in a
+/// browser.
 /// </para>
 /// <para>
 /// <b>What it deliberately is NOT: an Array.</b> <c>Array.isArray</c> answers <c>false</c>,
@@ -72,9 +69,8 @@ namespace Jint.Native.Object;
 /// <see cref="NameAt"/> and <see cref="TryGetNamedValue"/>, refined by <see cref="HasName"/>,
 /// <see cref="IsNameEnumerable"/>, <see cref="IsNameWritable"/>, <see cref="TrySetNamedValue"/> and
 /// <see cref="TryDeleteName"/>. All eight default to "the projection carries nothing", so a collection with no
-/// named state declares nothing and is not asked. The indexed collection owns every canonical array index and
-/// <c>length</c>, which are answered before the projection is ever consulted, so a projected name may not spell
-/// one of those.
+/// named state declares nothing and is not asked. Canonical array indices and <c>length</c> are reserved from the
+/// named projection, so a projected name may not spell one of those.
 /// </para>
 /// <para>
 /// <b>Extending it.</b> Every member this class derives is sealed, including
@@ -118,6 +114,26 @@ public abstract class ArrayLikeObject : ObjectInstance, INamedProjection
     // derivation answers "yes", which costs those calls and never changes an answer.
     private readonly bool _hasNamedProjection;
 
+    // The inherited-`length` lane's guard state, and the whole of it. It is the prototype-method inline
+    // cache's guard set written per instance rather than per call site, because the sites that read a
+    // collection's length are not all interpreter nodes: the loop-test lane, the member lane, GetLength and
+    // GetLongLength (which is where the Array.prototype generics and the array iterator arrive, once per
+    // element) all ask the same question of the same object. Three facts are pinned, and the three tamper
+    // shapes the web-platform-tests define map onto them one for one - an own `length` on the instance moves
+    // _propertiesVersion, re-pointing the object moves the prototype, and redefining the accessor on the
+    // prototype moves the holder's version.
+    private ObjectInstance? _lengthGuardPrototype;
+    private uint _lengthGuardPrototypeVersion;
+    private uint _lengthGuardVersion;
+    private bool _lengthGuardPristine;
+
+    // Re-entrancy guard for the verifier below, which invokes the accessor it is checking: a host whose
+    // getter is written in JavaScript and reads `this.length` would otherwise re-enter this lane forever.
+    // Thread-static so that no instance grows a field for a check that is off in every process that did not
+    // ask for it.
+    [ThreadStatic]
+    private static bool _verifyingLength;
+
     /// <summary>
     /// Creates the object against <paramref name="engine"/>. Set <see cref="ObjectInstance.Prototype"/> afterwards
     /// to whatever the host wants inherited — nothing is attached automatically.
@@ -139,6 +155,57 @@ public abstract class ArrayLikeObject : ObjectInstance, INamedProjection
     /// collection. Implementations should be O(1) and allocation-free.
     /// </summary>
     public abstract uint Length { get; }
+
+    /// <summary>
+    /// Whether <c>length</c> is an own property backed by <see cref="Length"/>. Defaults to
+    /// <see langword="true"/>.
+    /// </summary>
+    /// <remarks>
+    /// Override with <see langword="false"/> only when the object's prototype supplies a numeric
+    /// <c>length</c> accessor. Array generics and iteration then read that accessor through <c>[[Get]]</c>.
+    /// </remarks>
+    protected virtual bool OwnsLength => true;
+
+    /// <summary>
+    /// Gets the <c>length</c> getter this collection's prototype was created with. Defaults to
+    /// <see langword="null"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Declaring it lets a collection that opted out of <see cref="OwnsLength"/> read its own length without
+    /// invoking that accessor; <see langword="null"/> keeps every read on the ordinary <c>[[Get]]</c> path
+    /// and is always safe.
+    /// </para>
+    /// <para>
+    /// Return the function object <b>as the prototype declared it</b>, captured when that prototype was
+    /// created. The shortcut applies only while the accessor currently resolving for <c>length</c> is still
+    /// that object, so redefining it, shadowing it with an own property or re-pointing the prototype each
+    /// take effect on the next read.
+    /// </para>
+    /// <para>
+    /// <b>Contract:</b> invoking the returned function with this object as its receiver must produce
+    /// <see cref="Length"/>. A build with host-contract verification on invokes the accessor on every read
+    /// that takes the shortcut and fails on the first disagreement.
+    /// </para>
+    /// </remarks>
+    protected virtual ObjectInstance? PristineLengthGetter => null;
+
+    /// <summary>
+    /// Whether assignment ignores projected named getters when selecting an own descriptor. Defaults to <see langword="false"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Override with <see langword="true"/> for WebIDL legacy-platform-object assignment. An inheriting
+    /// receiver can then create its own property over a read-only projected name. Indexed properties,
+    /// ordinary stored properties, and the receiver's property-definition rules still apply.
+    /// </para>
+    /// <para>
+    /// A named setter still handles assignment to this object before descriptor selection. Reads and
+    /// property descriptors retain the named projection. The default preserves ordinary assignment
+    /// semantics for existing host subclasses.
+    /// </para>
+    /// </remarks>
+    protected virtual bool IgnoreNamedPropertiesInSet => false;
 
     /// <summary>
     /// Reads the element at <paramref name="index"/>. Return <see langword="true"/> with the value; return
@@ -352,7 +419,10 @@ public abstract class ArrayLikeObject : ObjectInstance, INamedProjection
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private bool TryGetProjectedName(JsValue property, [NotNullWhen(true)] out string? name)
     {
-        if (!_hasNamedProjection)
+        // Length belongs to the indexed collection even when a WebIDL-style host supplies it through
+        // its prototype. A NamedNodeMap may contain an attribute literally named "length"; that supported
+        // name must not shadow the prototype accessor.
+        if (!_hasNamedProjection || CommonProperties.Length.Equals(property))
         {
             name = null;
             return false;
@@ -370,8 +440,8 @@ public abstract class ArrayLikeObject : ObjectInstance, INamedProjection
     public sealed override JsValue Get(JsValue property, JsValue receiver) => base.Get(property, receiver);
 
     /// <summary>
-    /// Index, <c>length</c> and projected-name reads resolve straight out of the host with no descriptor at
-    /// all; every other key falls through to the ordinary property bag.
+    /// Index, an owned <c>length</c> and projected-name reads resolve straight out of the host with no descriptor;
+    /// every other key falls through to the ordinary property bag and prototype chain.
     /// </summary>
     protected internal sealed override bool TryGetOwnPropertyValue(JsValue property, JsValue receiver, out JsValue value)
     {
@@ -380,7 +450,7 @@ public abstract class ArrayLikeObject : ObjectInstance, INamedProjection
             return ReadIndex(index, out value);
         }
 
-        if (CommonProperties.Length.Equals(property))
+        if (OwnsLength && CommonProperties.Length.Equals(property))
         {
             value = JsNumber.Create(Length);
             return true;
@@ -404,7 +474,7 @@ public abstract class ArrayLikeObject : ObjectInstance, INamedProjection
                 : PropertyDescriptor.Undefined;
         }
 
-        if (CommonProperties.Length.Equals(property))
+        if (OwnsLength && CommonProperties.Length.Equals(property))
         {
             return new PropertyDescriptor(JsNumber.Create(Length), LengthFlags);
         }
@@ -431,7 +501,7 @@ public abstract class ArrayLikeObject : ObjectInstance, INamedProjection
             return ProbeIndex(index) ? OwnPropertyProbe.Enumerable : OwnPropertyProbe.Missing;
         }
 
-        if (CommonProperties.Length.Equals(property))
+        if (OwnsLength && CommonProperties.Length.Equals(property))
         {
             return OwnPropertyProbe.NonEnumerable;
         }
@@ -445,9 +515,9 @@ public abstract class ArrayLikeObject : ObjectInstance, INamedProjection
     }
 
     /// <summary>
-    /// Ordinary <c>[[OwnPropertyKeys]]</c> order: the present indices ascending, then <c>length</c>, then the
-    /// projected names in <see cref="NameAt"/> order, then the property bag's string keys in insertion order,
-    /// then symbols.
+    /// Ordinary <c>[[OwnPropertyKeys]]</c> order: the present indices ascending, an owned <c>length</c>, the
+    /// projected names in <see cref="NameAt"/> order, the property bag's string keys in insertion order, then
+    /// symbols.
     /// </summary>
     public sealed override List<JsValue> GetOwnPropertyKeys(Types types = Types.String | Types.Symbol)
     {
@@ -457,7 +527,7 @@ public abstract class ArrayLikeObject : ObjectInstance, INamedProjection
         }
 
         var length = CheckedLength();
-        var keys = new List<JsValue>((int) length + 1);
+        var keys = new List<JsValue>((int) length + (OwnsLength ? 1 : 0));
         for (uint i = 0; i < length; i++)
         {
             if (i > 0 && i % Engine.ConstraintCheckInterval == 0)
@@ -471,7 +541,10 @@ public abstract class ArrayLikeObject : ObjectInstance, INamedProjection
             }
         }
 
-        keys.Add(CommonProperties.Length);
+        if (OwnsLength)
+        {
+            keys.Add(CommonProperties.Length);
+        }
 
         var names = CollectNames();
         keys.AddRange(names);
@@ -491,14 +564,13 @@ public abstract class ArrayLikeObject : ObjectInstance, INamedProjection
 
     /// <summary>
     /// Routes an assignment to a name <see cref="IsNameWritable"/> claims to <see cref="TrySetNamedValue"/>.
-    /// Indices and <c>length</c> never reach it — they are non-writable, so the ordinary path refuses them with
-    /// the spec-shaped answer (sloppy mode: ignored; strict mode: <c>TypeError</c>).
+    /// Indices and <c>length</c> never reach it. The ordinary path applies their own or inherited descriptors.
     /// </summary>
     public sealed override bool Set(JsValue property, JsValue value, JsValue receiver)
     {
-        // The collection owns every index and `length`, and both are non-writable, so neither ever reaches the
-        // projection: base.Set finds the non-writable descriptor this class reports and refuses in the ordinary
-        // way. What is left is a name, offered to the projection ahead of the prototype chain and only when the
+        // Indices and `length` are reserved from the named projection. base.Set applies this class's indexed
+        // descriptor and either the default own length descriptor or the opt-out host's prototype descriptor.
+        // What is left is a name, offered to the projection ahead of the prototype chain and only when the
         // receiver is this object — the WebIDL named-property-setter shape.
         if (ReferenceEquals(this, receiver)
             && !ArrayInstance.IsArrayIndex(property, out _)
@@ -509,14 +581,24 @@ public abstract class ArrayLikeObject : ObjectInstance, INamedProjection
             return NamedProjection.Write(this, name, value);
         }
 
+        if (IgnoreNamedPropertiesInSet
+            && !ArrayInstance.IsArrayIndex(property, out _)
+            && !(OwnsLength && CommonProperties.Length.Equals(property)))
+        {
+            // https://webidl.spec.whatwg.org/#legacy-platform-object-set
+            // LegacyPlatformObjectGetOwnProperty's ignoreNamedProps flag skips only the named getter.
+            // Ordinary stored properties still participate; the receiver's DefineOwnProperty decides
+            // whether a new own property may be created (including a write back to this collection).
+            return OrdinarySetWithOwnDescriptor(property, value, receiver, base.GetOwnProperty(property));
+        }
+
         return base.Set(property, value, receiver);
     }
 
     /// <summary>
-    /// Refuses <c>delete</c> of an index the collection currently has and of <c>length</c> (sloppy mode: the
-    /// expression evaluates to <c>false</c>; strict mode: <c>TypeError</c>) — the WebIDL platform-object shape.
+    /// Refuses <c>delete</c> of an index the collection currently has and of the default owned <c>length</c>.
     /// An index the collection does not have deletes vacuously, like any absent property. A projected name is
-    /// offered to <see cref="TryDeleteName"/>, whose default refuses.
+    /// offered to <see cref="TryDeleteName"/>, whose default refuses; all other keys use ordinary deletion.
     /// </summary>
     public sealed override bool Delete(JsValue property)
     {
@@ -525,7 +607,7 @@ public abstract class ArrayLikeObject : ObjectInstance, INamedProjection
             return !ProbeIndex(index);
         }
 
-        if (CommonProperties.Length.Equals(property))
+        if (OwnsLength && CommonProperties.Length.Equals(property))
         {
             return false;
         }
@@ -539,8 +621,8 @@ public abstract class ArrayLikeObject : ObjectInstance, INamedProjection
     }
 
     /// <summary>
-    /// Refuses <c>[[DefineOwnProperty]]</c> on <c>length</c>, on <b>every</b> canonical array-index key,
-    /// in range or not, and on a projected name.
+    /// Refuses <c>[[DefineOwnProperty]]</c> on the default owned <c>length</c>, every canonical array-index key,
+    /// in range or not, and a projected name.
     /// </summary>
     /// <remarks>
     /// Refusing out-of-range indices as well is stricter than WebIDL, which lets an ordinary expando live at an
@@ -551,14 +633,30 @@ public abstract class ArrayLikeObject : ObjectInstance, INamedProjection
     /// </remarks>
     public sealed override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
     {
-        if (ArrayInstance.IsArrayIndex(property, out _) || CommonProperties.Length.Equals(property))
+        if (ArrayInstance.IsArrayIndex(property, out _) || (OwnsLength && CommonProperties.Length.Equals(property)))
         {
             return false;
         }
 
-        if (TryGetProjectedName(property, out var name) && NamedProjection.Probe(this, name))
+        if (TryGetProjectedName(property, out var name))
         {
-            return false;
+            if (this is INamedPropertySupport support)
+            {
+                // WebIDL's legacy [[DefineOwnProperty]] distinguishes a supported name from a visible one:
+                // a prototype may hide the projection from reads, but a supported name with no ordinary own
+                // property is still refused when the interface has no named setter. An ordinary own property
+                // takes the normal redefine path, which also lets an expando created before a name became
+                // supported remain an ordinary property.
+                if (base.GetOwnProperty(property) == PropertyDescriptor.Undefined
+                    && support.HasSupportedName(name))
+                {
+                    return false;
+                }
+            }
+            else if (NamedProjection.Probe(this, name))
+            {
+                return false;
+            }
         }
 
         return base.DefineOwnProperty(property, desc);
@@ -566,7 +664,142 @@ public abstract class ArrayLikeObject : ObjectInstance, INamedProjection
 
     internal sealed override bool IsArrayLike => true;
 
-    internal sealed override uint GetLength() => Length;
+    internal sealed override uint GetLength() => TryReadLength(out var length) ? length : base.GetLength();
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal ulong GetLongLength()
+        => TryReadLength(out var length) ? length : TypeConverter.ToLength(Get(CommonProperties.Length));
+
+    /// <summary>
+    /// <see cref="Length"/>, when reading it is indistinguishable from <c>[[Get]]("length")</c> - or
+    /// <see langword="false"/>, which obliges the caller to take the ordinary path.
+    /// </summary>
+    /// <remarks>
+    /// An owned <c>length</c> is an own data property this class answers from <see cref="Length"/> before the
+    /// property bag or the prototype chain is consulted, and neither <c>[[Set]]</c> nor
+    /// <c>[[DefineOwnProperty]]</c> can replace it, so the two are the same read by construction and there is
+    /// nothing to guard. A collection that opted out takes the guarded lane below.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal bool TryReadLength(out uint length)
+    {
+        if (OwnsLength)
+        {
+            length = Length;
+            return true;
+        }
+
+        return TryReadInheritedLength(out length);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private bool TryReadInheritedLength(out uint length)
+    {
+        var prototype = _lengthGuardPrototype;
+        if (prototype is not null
+            && _propertiesVersion == _lengthGuardVersion
+            // GetPrototypeOf(), not the _prototype field, for the reason the member lane's prototype cache
+            // gives: a subclass may shadow the field and override [[GetPrototypeOf]].
+            && ReferenceEquals(GetPrototypeOf(), prototype)
+            && prototype._propertiesVersion == _lengthGuardPrototypeVersion)
+        {
+            if (!_lengthGuardPristine)
+            {
+                length = 0;
+                return false;
+            }
+
+            length = Length;
+            if (HostContractVerification.Enabled)
+            {
+                AssertPristineLengthAgreesWithTheAccessor(this, length);
+            }
+
+            return true;
+        }
+
+        return ValidateInheritedLength(out length);
+    }
+
+    /// <summary>
+    /// Resolves <c>length</c> the ordinary way once and records the verdict, positive or negative, under the
+    /// guard <see cref="TryReadInheritedLength"/> checks. A negative verdict is cached too: a collection whose
+    /// accessor has been tampered with must not re-walk its prototype chain on every read of a loop.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private bool ValidateInheritedLength(out uint length)
+    {
+        length = 0;
+        _lengthGuardPrototype = null;
+        _lengthGuardPristine = false;
+
+        var prototype = GetPrototypeOf();
+        if (prototype is null)
+        {
+            return false;
+        }
+
+        // Record the verdict against the chain as it is now, so that a decline is as cheap to repeat as a hit
+        // - and as easy to leave, since restoring the accessor moves one of the two versions.
+        _lengthGuardPrototype = prototype;
+        _lengthGuardPrototypeVersion = prototype._propertiesVersion;
+        _lengthGuardVersion = _propertiesVersion;
+
+        if (PristineLengthGetter is not { } pristine
+            // A Proxy or another exotic holder resolves `length` through a trap this lane must not bypass.
+            // The receiver itself can never be exotic - Get is sealed and the constructor declares Ordinary -
+            // but the test costs one AND and states the requirement rather than relying on that.
+            || (_type & InternalTypes.ExoticGet) != InternalTypes.Empty
+            || (prototype._type & InternalTypes.ExoticGet) != InternalTypes.Empty
+            || !VersionWitnessesOwnProperty(prototype, CommonProperties.Length)
+            // An own `length` - the property bag's, since a collection here answers no owned one - shadows
+            // the accessor, exactly as it would on the ordinary path.
+            || ProbeOwnPropertyChecked(CommonProperties.Length) != OwnPropertyProbe.Missing
+            || !ReferenceEquals(prototype.GetOwnProperty(CommonProperties.Length).Get, pristine))
+        {
+            return false;
+        }
+
+        _lengthGuardPristine = true;
+        length = Length;
+        if (HostContractVerification.Enabled)
+        {
+            AssertPristineLengthAgreesWithTheAccessor(this, length);
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Verifier for the <see cref="PristineLengthGetter"/> contract: the accessor the lane skipped must answer
+    /// what the lane answered. Gated on <see cref="HostContractVerification.Enabled"/>, so a host's own
+    /// integration suite run against a Debug Jint - or against the shipped Release package with the
+    /// <c>Jint.EnableHostContractVerification</c> switch set - becomes the checker, and every other process
+    /// pays nothing. It redoes exactly the work the lane exists to avoid, so never quote a verifying build's
+    /// numbers as a cost.
+    /// </summary>
+    private static void AssertPristineLengthAgreesWithTheAccessor(ArrayLikeObject target, uint answered)
+    {
+        if (_verifyingLength)
+        {
+            return;
+        }
+
+        _verifyingLength = true;
+        try
+        {
+            var actual = TypeConverter.ToLength(target.Get(CommonProperties.Length));
+            if (actual != answered)
+            {
+                HostContractVerification.Fail(
+                    $"{target.GetType()}.PristineLengthGetter names a `length` accessor that answers {actual}, but the object's Length is {answered}. The engine reads Length instead of invoking it, so the two must agree; answer null from PristineLengthGetter for a prototype accessor that computes something else.");
+            }
+        }
+        finally
+        {
+            _verifyingLength = false;
+        }
+    }
 
     // Identity-compare the resolved @@iterator against the realm's captured %Array.prototype.values%, exactly as
     // ArrayInstance does: a host that wired the original array iterator gets the destructuring fast path, one

@@ -146,7 +146,7 @@ internal static class ActivationBehaviors
                 return;
 
             case IHtmlInputElement input:
-                RunInput(realm, wrapper, input);
+                RunInput(realm, wrapper, input, ev);
                 return;
 
             case IHtmlLabelElement label:
@@ -191,16 +191,16 @@ internal static class ActivationBehaviors
         switch (button.Type)
         {
             case "submit":
-                FormSubmission.Submit(wrapper.DomRealm, button.Form, button);
+                FormSubmission.Submit(wrapper.DomRealm, HtmlFormOwner.Of(button), button);
                 break;
             case "reset":
-                FormSubmission.Reset(wrapper.DomRealm, button.Form);
+                FormSubmission.Reset(wrapper.DomRealm, HtmlFormOwner.Of(button));
                 break;
         }
     }
 
     /// <summary>https://html.spec.whatwg.org/multipage/input.html#input-activation-behavior.</summary>
-    private static void RunInput(BrowserEventRealm realm, DomNodeObject wrapper, IHtmlInputElement input)
+    private static void RunInput(BrowserEventRealm realm, DomNodeObject wrapper, IHtmlInputElement input, JsEvent ev)
     {
         if (input.IsDisabled)
         {
@@ -210,12 +210,29 @@ internal static class ActivationBehaviors
         switch (input.Type)
         {
             case "submit":
+                FormSubmission.Submit(wrapper.DomRealm, HtmlFormOwner.Of(input), input);
+                return;
+
             case "image":
-                FormSubmission.Submit(wrapper.DomRealm, input.Form, input);
+                // The image activation algorithm returns before selecting a coordinate if its document is
+                // no longer fully active (a click listener can adopt the input into another document).
+                if (HtmlFormOwner.Of(input) is not { } owner)
+                {
+                    return;
+                }
+
+                var page = Runtime.PageRuntime.Find(wrapper.Engine);
+                if (page is not null && !ReferenceEquals(input.Owner, page.Document))
+                {
+                    return;
+                }
+
+                SelectCoordinate(realm, page, input, ev);
+                FormSubmission.Submit(wrapper.DomRealm, owner, input);
                 return;
 
             case "reset":
-                FormSubmission.Reset(wrapper.DomRealm, input.Form);
+                FormSubmission.Reset(wrapper.DomRealm, HtmlFormOwner.Of(input));
                 return;
 
             case "checkbox":
@@ -247,6 +264,41 @@ internal static class ActivationBehaviors
             default:
                 return;
         }
+    }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/input.html#image-button-state-(type=image): "if the element
+    /// has an image, and the user activated the button using a pointing device, the selected coordinate is
+    /// the position of the pointer relative to the image; otherwise it is (0, 0)". Every activation sets
+    /// one, which is what makes a synthetic <c>click()</c> after a real one select nothing again.
+    /// </summary>
+    /// <remarks>
+    /// <b>Three conditions, and each excludes a real case.</b> The image must be <i>completely available</i>
+    /// (<c>Media.PageImages</c>): an <c>&lt;input type=image&gt;</c> with no <c>src</c>, one whose fetch
+    /// failed and one whose bytes are not a container this browser reads have nothing to select within, and
+    /// HTML makes every one of them behave as a plain submit button. The activation must be trusted, because
+    /// <c>element.click()</c> and a dispatched <c>MouseEvent</c> are a script rather than a user — HTML asks
+    /// for a pointing device. And the pointer must have been measured inside <i>this</i> button
+    /// (<see cref="BrowserEventRealm.PendingImagePoint"/>), which excludes a keyboard activation, a
+    /// <c>&lt;label&gt;</c>'s forwarded click and a script's click fired from inside a listener of a real
+    /// release on some other element.
+    /// </remarks>
+    private static void SelectCoordinate(
+        BrowserEventRealm realm,
+        Runtime.PageRuntime? page,
+        IHtmlInputElement input,
+        JsEvent ev)
+    {
+        if (ev.IsTrusted
+            && realm.PendingImagePoint is { } point
+            && ReferenceEquals(point.Image, input)
+            && page?.ImagesIfLoaded?.Find(input) is { State: Media.ImageAvailability.CompletelyAvailable })
+        {
+            realm.SelectImageCoordinate(input, point.X, point.Y);
+            return;
+        }
+
+        realm.SelectImageCoordinate(input, 0, 0);
     }
 
     /// <summary>
@@ -382,21 +434,25 @@ internal static class ActivationBehaviors
     private static IEnumerable<IHtmlInputElement> Group(IHtmlInputElement radio)
     {
         var name = radio.Name;
-        var owner = radio.Form;
-        var root = (INode?) owner ?? radio.Owner;
 
-        if (root is null || string.IsNullOrEmpty(name))
+        if (string.IsNullOrEmpty(name))
         {
             yield return radio;
             yield break;
         }
 
-        foreach (var candidate in Descendants(root))
+        // The group is "the same tree", not the same form subtree: a radio the `form` attribute associated
+        // into this form is a member however far outside the form element it sits, and one associated away
+        // from it is not a member however deep inside. Scanning the form's own descendants would decide the
+        // second correctly and the first not at all.
+        var owner = HtmlFormOwner.Of(radio);
+
+        foreach (var candidate in Descendants(radio.GetRoot()))
         {
             if (candidate is IHtmlInputElement input
                 && IsType(input, "radio")
                 && string.Equals(input.Name, name, StringComparison.Ordinal)
-                && ReferenceEquals(input.Form, owner))
+                && ReferenceEquals(HtmlFormOwner.Of(input), owner))
             {
                 yield return input;
             }

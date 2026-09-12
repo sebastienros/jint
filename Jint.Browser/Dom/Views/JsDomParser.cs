@@ -82,10 +82,13 @@ internal sealed class JsDomParser : ObjectInstance
         var source = DomConvert.RequiredText(arguments, 0, "DOMParser.parseFromString");
         var type = DomConvert.RequiredText(arguments, 1, "DOMParser.parseFromString");
 
+        // https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-domparser-parsefromstring
+        // step 2.2 and step 3.2 both end "set document's content type to type", so the type the caller named
+        // is the document's own — AngleSharp's XML parser answers `text/xml` for all four of them.
         var document = type switch
         {
             "text/html" => ParseHtml(source),
-            "text/xml" or "application/xml" or "application/xhtml+xml" or "image/svg+xml" => ParseXml(source),
+            "text/xml" or "application/xml" or "application/xhtml+xml" or "image/svg+xml" => ParseXml(source, type),
             _ => Unsupported(_runtime.Engine, type),
         };
 
@@ -95,15 +98,15 @@ internal sealed class JsDomParser : ObjectInstance
     private static IDocument ParseHtml(string source)
         => new HtmlParser(new HtmlParserOptions { IsScripting = false }, NewContext()).ParseDocument(source);
 
-    private static IDocument ParseXml(string source)
+    private static IDocument ParseXml(string source, string type)
     {
         try
         {
-            return new XmlParser(default, NewContext()).ParseDocument(source);
+            return new XmlParser(default, NewContext(type)).ParseDocument(source);
         }
         catch (Exception exception) when (exception is not JavaScriptException)
         {
-            return ErrorDocument(exception.Message);
+            return ErrorDocument(exception.Message, type);
         }
     }
 
@@ -111,7 +114,7 @@ internal sealed class JsDomParser : ObjectInstance
     /// The document a failed XML parse answers: a <c>parsererror</c> element carrying the message, which is
     /// what a page looks for with <c>doc.querySelector('parsererror')</c>.
     /// </summary>
-    private static IDocument ErrorDocument(string message)
+    private static IDocument ErrorDocument(string message, string type)
     {
         var text = message
             .Replace("&", "&amp;", StringComparison.Ordinal)
@@ -123,7 +126,7 @@ internal sealed class JsDomParser : ObjectInstance
             + text
             + "</parsererror></body></html>";
 
-        return new XmlParser(new XmlParserOptions { IsSuppressingErrors = true }, NewContext()).ParseDocument(markup);
+        return new XmlParser(new XmlParserOptions { IsSuppressingErrors = true }, NewContext(type)).ParseDocument(markup);
     }
 
     /// <summary>
@@ -144,6 +147,14 @@ internal sealed class JsDomParser : ObjectInstance
     /// no network, and no scripting service, so its scripts are inert.
     /// </summary>
     private static IBrowsingContext NewContext() => BrowsingContext.New(ViewInstaller.ParserConfiguration);
+
+    /// <inheritdoc cref="NewContext()" />
+    /// <remarks>
+    /// The XML overload also carries the content type the caller named, because AngleSharp's document has
+    /// nowhere to put it — see <see cref="DomContentType"/>.
+    /// </remarks>
+    private static IBrowsingContext NewContext(string contentType)
+        => BrowsingContext.New(DomContentType.Declaring(ViewInstaller.ParserConfiguration, contentType));
 }
 
 /// <summary>

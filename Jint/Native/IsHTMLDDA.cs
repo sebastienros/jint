@@ -10,6 +10,12 @@ namespace Jint.Native;
 /// - loose equality with null/undefined returns true
 /// - calling it returns null (per test262 $262.IsHTMLDDA contract)
 /// </summary>
+/// <remarks>
+/// The three Annex B behaviours belong to the slot rather than to this class:
+/// <see cref="ObjectInstance.DeclareIsHtmlDda"/> and the flag it sets implement them once, for every bearer.
+/// What is this class's own is the [[Call]] test262's contract gives it. <c>Jint.Browser</c>'s
+/// <c>HTMLAllCollection</c> is the other bearer, and its [[Call]] is HTML's legacy caller instead.
+/// </remarks>
 internal sealed class IsHTMLDDA : ObjectInstance, ICallable
 {
     internal IsHTMLDDA(Engine engine, Realm realm) : base(engine, ObjectClass.Object, InternalTypes.Object | InternalTypes.IsHTMLDDA | InternalTypes.Callable)
@@ -20,20 +26,4 @@ internal sealed class IsHTMLDDA : ObjectInstance, ICallable
     }
 
     JsValue ICallable.Call(JsValue thisObject, JsCallArguments arguments) => Null;
-
-    /// <summary>
-    /// https://tc39.es/ecma262/#sec-toboolean
-    /// Step 1: If argument has an [[IsHTMLDDA]] internal slot, return false.
-    /// </summary>
-    internal override bool ToBoolean() => false;
-
-    protected internal override bool IsLooselyEqual(JsValue value)
-    {
-        if (value.IsNull() || value.IsUndefined())
-        {
-            return true;
-        }
-
-        return base.IsLooselyEqual(value);
-    }
 }

@@ -2683,7 +2683,7 @@ public sealed partial class Engine : IDisposable
     /// <returns>a Promise instance and functions to either resolve or reject it</returns>
     internal ManualPromise RegisterPromise(bool drainInline = true)
     {
-        var promise = new JsPromise(this)
+        var promise = new JsPromise(this, Realm)
         {
             _prototype = Realm.Intrinsics.Promise.PrototypeObject
         };
@@ -3046,7 +3046,7 @@ public sealed partial class Engine : IDisposable
         // pre-existing one behave exactly as it always did, which it cannot if a sink can run first. Null on
         // every engine whose host set no diagnostics sink, which is one predictable null test on a path that
         // only runs when a rejection had no handler.
-        return _webApi?.ReportPromiseRejection(promise, operation) ?? true;
+        return _webApi?.ReportPromiseRejection(promise.Realm, promise, operation) ?? true;
 #else
         return true;
 #endif
@@ -5087,6 +5087,7 @@ public sealed partial class Engine : IDisposable
             return Call(functionInstance, thisObject, arguments, expression);
         }
 
+        _stackGuard.EnsureNativeStackHeadroom();
         return callable.Call(thisObject, arguments);
     }
 
@@ -5129,6 +5130,7 @@ public sealed partial class Engine : IDisposable
             return Construct(functionInstance, arguments, newTarget, expression);
         }
 
+        _stackGuard.EnsureNativeStackHeadroom();
         return ((IConstructor) constructor).Construct(arguments, newTarget);
     }
 
@@ -5157,7 +5159,7 @@ public sealed partial class Engine : IDisposable
         {
             result = function is ScriptFunction scriptFunction
                 ? scriptFunction.CallWithStackFrame(thisObject, arguments)
-                : function.Call(thisObject, arguments);
+                : CallNativeFunction(function, thisObject, arguments);
         }
         finally
         {
@@ -5166,6 +5168,13 @@ public sealed partial class Engine : IDisposable
         }
 
         return result;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private JsValue CallNativeFunction(Function function, JsValue thisObject, JsCallArguments arguments)
+    {
+        _stackGuard.EnsureNativeStackHeadroom();
+        return function.Call(thisObject, arguments);
     }
 
     private ObjectInstance Construct(
@@ -5190,7 +5199,7 @@ public sealed partial class Engine : IDisposable
         {
             result = function is ScriptFunction scriptFunction
                 ? scriptFunction.ConstructWithStackFrame(arguments, newTarget)
-                : ((IConstructor) function).Construct(arguments, newTarget);
+                : ConstructNativeFunction((IConstructor) function, arguments, newTarget);
         }
         finally
         {
@@ -5199,6 +5208,13 @@ public sealed partial class Engine : IDisposable
         }
 
         return result;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private ObjectInstance ConstructNativeFunction(IConstructor function, JsCallArguments arguments, JsValue newTarget)
+    {
+        _stackGuard.EnsureNativeStackHeadroom();
+        return function.Construct(arguments, newTarget);
     }
 
     [DoesNotReturn]
@@ -5303,6 +5319,7 @@ public sealed partial class Engine : IDisposable
         // in both directions; the host's OnWorkerEnded callbacks come back as a list and are run at the very
         // bottom of this method, once the engine has finished letting go of everything else.
         var endedWorkers = _webApi?.Dispose();
+        _secondaryWebApiRealms?.Clear();
 #endif
 
         if (_objectWrapperCache is not null)

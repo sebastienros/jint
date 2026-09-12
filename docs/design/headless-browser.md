@@ -32,11 +32,15 @@ project founder's guidance for this campaign is the principle every decision bel
 
 > Jint should add value to AngleSharp without competing too much.
 
-So: AngleSharp is the parser, the DOM and the CSSOM; nothing here re-implements any of them. What Jint owns is
-what nobody else has — a binding layer built on Jint's own shape and layout machinery instead of a reflection
-trampoline, a page runtime that wires Jint's timers, fetch, storage and workers into a `Window` under Jint's
+AngleSharp supplies parsing, DOM storage and the CSSOM. Jint owns the browser semantics its embedding
+requires, including behavior AngleSharp intentionally leaves outside its scope. Local standards-defined
+algorithms are allowed and must compose with the existing tree, preserve identity and mutation behavior,
+and carry regression tests and a recorded divergence. Upstream acceptance or a future package release is
+not a prerequisite for fixing a Jint issue. The implementation includes a binding layer built on Jint's own
+shape and layout machinery instead of a reflection trampoline, a page runtime that wires Jint's timers, fetch, storage and workers into a `Window` under Jint's
 execution constraints, and the automation protocol. The generated bindings and the tree-aware event dispatcher
-are designed so that AngleSharp.Js can adopt them, and the offer is made as soon as they work; every AngleSharp
+are intended for adoption by AngleSharp.Js; the [X6 review drafts](../integration/upstream-adoption.md)
+record the current extraction blockers and delivery status; every AngleSharp
 or AngleSharp.Js divergence the conformance lane finds is recorded (in the PR that found it and in
 `Jint.Browser/AGENTS.md`'s divergence table) and presented to the maintainer, who decides what is raised
 upstream — an agent never opens an issue on a neighbouring project on its own. In every document and README
@@ -79,8 +83,9 @@ fraction of Chromium's CPU and memory per page, at some multiple of its wall-clo
   `Tasks.TimeUntilNextScheduledWork` — the `WptHarness.PumpWorker` shape. Every public `Page` API and every CDP
   command posts to the mailbox and awaits a completion; nothing else touches the engine or the DOM. Workers come
   from a `ThreadPerWorkerProvider` (the package is a host, so it may start threads; the engine still never does).
-- **Iframes parse but do not run script in v1**: frames are real in the frame tree and their documents are
-  fetched and parsed, but `contentWindow` is `null`. v1.1 adds one realm per frame on the same engine through an
+- **Iframes parse but do not run script in v1**: frames are real in the frame tree, their documents are
+  fetched and parsed, and each has a `contentWindow` of its own on the page's realm — what it has not got is a
+  realm, so nothing in a frame runs and its constructors are the page's. v1.1 adds one realm per frame on the same engine through an
   `Engine.WebApi.InstallInRealm(Realm)` seam (today `WebApiRegistration.InstallGlobals` targets the main realm
   only); a second engine could never satisfy `parent.document`.
 
@@ -101,10 +106,12 @@ protocol layer: reviewable diffs, an analyzer-free build, and swapping later is 
 
 Why generated on Jint shapes rather than AngleSharp.Js's reflection bindings: a shape-mode prototype per
 interface is what the inline caches and the prototype-method cache want, member bodies are static lambdas that
-call the AngleSharp interface member directly (interface dispatch, zero reflection), the output is AOT-safe, and
-it is the answer to the one actionable question Starling's "we will not embed Jint" poses — host-object cost.
-This is the piece offered upstream: AngleSharp.Js can adopt the generated bindings without adopting anything
-else here.
+call the AngleSharp interface member directly without reflection in that call. This is the intended host-object
+cost improvement; the isolated comparison in [#3898](https://github.com/sebastienros/jint/issues/3898) must
+measure it. Generated calls alone do not establish trimming or AOT compatibility for an adopting host.
+This is the proposed upstream contribution. The current runtime still uses internal realm and event APIs;
+[the adoption proposal](../integration/upstream-adoption.md#proposal-for-anglesharp-js) identifies the public
+seams and extraction experiment needed to use it independently of the browser runtime.
 
 **What was built also owns HTML §4.13**, which AngleSharp has nothing of: `Jint.Browser/CustomElements/` is
 the `CustomElementRegistry`, the element state (a side table keyed on the AngleSharp element), the
@@ -253,6 +260,27 @@ Editing is a string and two offsets, which needs no rendering: insertion at the 
 around all of it. `contenteditable` is deliberately light — text spliced in one text node, the caret kept in
 the document's own `Selection` — so `Enter` there does nothing rather than something structural and wrong.
 
+**Touch is a gesture rather than an event, so the contacts outlive the command.** `dispatchTouchEvent`
+hit-tests each contact against the same flat box model a mouse event uses and fires one event per *changed*
+contact, which is what the protocol defines its `touchPoints` as. What a page then reads is Touch Events
+§5.2's three lists — `touches` is every contact on the surface after this event's own change, so a `touchend`
+does not list the finger it is announcing; `targetTouches` is the subset that started on the event's target;
+`changedTouches` is the one contact the event is about — and a contact's `target` is fixed where it went
+down, so a finger dragged off its button still ends on the button. A single-finger tap that nothing cancelled
+then leaves §8's four compatibility mouse events at the point the finger came off, through the same helpers
+`dispatchMouseEvent` uses, so a tap activates what a click activates and there is one answer to "what does a
+click do" rather than two. `preventDefault()` on the `touchstart` or the first `touchmove` withdraws them, as
+does a second contact or a `touchcancel`. **No pointer event is fired for a touch**: `pointerType: "touch"`
+with a `pointerId` per contact and its own boundary events is a second pointer model over the same contacts.
+
+Whether a page can *detect* touch stays a separate decision and a separate command.
+`Emulation.setTouchEmulationEnabled` — and `Page.SetTouchEmulationAsync`, the same seam from the host's side
+— adds Touch Events §5.4's four handler IDL attributes to the window, the document and `Element.prototype`,
+answers `navigator.maxTouchPoints`, and makes `(pointer: coarse)` and `(hover: none)` match. A touch is
+delivered either way: a client that sends one is asking for one, and a page that added a `touchstart`
+listener hears it whether or not anybody said the device has a digitizer. Exposing `ontouchstart` unasked
+would tell every responsive framework in the world this is a touch device.
+
 WPT's `testdriver.js` is mapped onto the same dispatcher through `testdriver-vendor.js`, the file upstream
 ships empty for a vendor to replace: `click`, `send_keys` and `action_sequence` resolve a WebDriver origin to
 a point in the page and post it to a host function that runs the same `InputDispatcher` the `Input` domain
@@ -317,15 +345,21 @@ document's request carries the `loaderId` as its `requestId`, which is what make
 response object. A page's `WebSocket` takes the four events the protocol gives a socket — its creation, both
 handshakes and its close — over the engine's own `WebSocketObserver`, and is deliberately *not* in the
 request log, because a socket stays open for as long as the page wants it and an entry would stop
-`networkIdle` firing. What is not there: `Fetch.getResponseBody` and `takeResponseBodyAsStream` and with
-them the `IO` domain, because a response-stage pause has the response's *headers* while its body is still on
-the socket, so handing a client bytes means buffering them first — a budget decision, and
-`Network.getResponseBody` is what answers a body here; the three `webSocketFrame*` events and
+`networkIdle` firing. `Fetch.getResponseBody` answers the whole body of a response-stage pause, base64: the
+bytes are read off the socket through the engine's own seam and then **replayed ahead of the unread
+remainder**, so the page receives every original byte exactly once, and a client that never asks costs the
+page nothing. Both the body and the base64 reply are charged to `BrowserOptions.MaxCapturedResponseBytes` —
+the same allowance `Network`'s captured bodies spend — and a body that does not fit is a `-32000` error
+rather than a resolved pause. What is not there: `Fetch.takeResponseBodyAsStream` and with it the `IO`
+domain, because a stream handle is a second lifetime to bound for a shape no recorded client sends and the
+domain's only mainstream producers are `Page.printToPDF` and `Tracing`, neither of which this browser has;
+the three `webSocketFrame*` events and
 `eventSourceMessageReceived`, because the socket observer is never told about a frame and a stream is
 observed as bytes rather than as the events they decode into; and `Network`'s **timing** document, because
 no phase of a request is measured and a document of zeros reads as a page that loaded instantly. A paused
 request holds the transport thread it is being sent on and never the page loop — the one exception is a
-`<script src>` a running script inserted, which blocks the loop by design.
+`<script src>` a running script inserted, which blocks the loop by design, and which is exactly why the
+commands that release a pause, `getResponseBody` included, are answered off the loop.
 
 **`Emulation` is effective, and the question each command answers is *when*.** The viewport, the emulated
 media type and its Level 5 preference features, touch, focus, geolocation, the user agent and the hardware
@@ -453,7 +487,7 @@ planned. A blank last column means the section above describes what exists.
 | § | What shipped | PR | Where it differs |
 | --- | --- | --- | --- |
 | 3 | One `PageLoop` thread per page, a new engine per navigation, and the global's `Window.prototype` chain | [#3648](https://github.com/sebastienros/jint/pull/3648) | — |
-| 3 | Frames, parsed and listed; then given a document of their own ([#3771](https://github.com/sebastienros/jint/issues/3771)) | [#3667](https://github.com/sebastienros/jint/pull/3667) | A child frame has a document and no realm: `contentDocument` answers it same-origin and `load` arrives at the element, while `contentWindow` is `null` and nothing in the frame runs — so a document that needs a second global still cannot run here, which is what puts thirty-seven `custom-elements/` files in the not-vendored table |
+| 3 | Frames, parsed and listed; then given a document and a window of their own ([#3771](https://github.com/sebastienros/jint/issues/3771)) | [#3667](https://github.com/sebastienros/jint/pull/3667) | A child frame has a document and a window and no realm: `contentDocument` answers it same-origin, `load` arrives at the element, and `contentWindow`, `defaultView` and `frames[i]` answer an object of the frame's own on the page's realm — but nothing in a frame *runs*, and its constructors are the page's, so a document that needs a second **realm** still cannot report here. That is what keeps thirty-seven `custom-elements/` files in the not-vendored table: `create_window_in_test` now resolves, and what those files then compare is a constructor across realms |
 | 4 | The generator over the two pinned AngleSharp assemblies, and the checked-in `Dom/Generated/` | [#3634](https://github.com/sebastienros/jint/pull/3634) | A DOM prototype carries no `@@unscopables`, because AngleSharp's metadata does not say which members are unscopable; and a nullable `DOMString` parameter converts `null` to the string `"null"` ([#3712](https://github.com/sebastienros/jint/issues/3712)) |
 | 4 | HTML §4.13: the registry, the construction stack, the element state and the reaction lane | [#3709](https://github.com/sebastienros/jint/pull/3709) | The element queue is drained as a reaction *arrives* rather than when the outermost `[CEReactions]` operation returns, and a parser-created element is upgraded at the driver's next script boundary rather than constructed by the tokenizer. There is no `ElementInternals`, so `static formAssociated` is recorded and consulted by nothing |
 | 5 | The UI event interfaces, HTML's handler content attributes and every activation behaviour a click has | [#3671](https://github.com/sebastienros/jint/pull/3671), engine seams [#3696](https://github.com/sebastienros/jint/pull/3696) | — |

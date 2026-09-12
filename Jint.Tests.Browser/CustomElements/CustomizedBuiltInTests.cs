@@ -144,4 +144,61 @@ public sealed class CustomizedBuiltInTests
         (await page.EvaluateAsync<string>("window.log.join('|')")).Should().Be("attr|ok");
         page.Errors.Should().BeEmpty();
     }
+
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#concept-node-clone creates the copy with <b>node's is value</b> — the
+    /// slot <c>createElement(tag, { is })</c> and <c>new XY()</c> set without adding any attribute — so a
+    /// clone of a customized built-in is one, and an <c>is</c> attribute saying something else does not win.
+    /// </summary>
+    [Test]
+    public async Task ACloneOfACustomizedBuiltInFollowsTheIsValueAndNotTheIsAttribute()
+    {
+        await using var browser = new Browser();
+        var page = await PageWith(browser,
+            """
+            <script>
+              class One extends HTMLButtonElement {}
+              class Two extends HTMLButtonElement {}
+              customElements.define('x-one', One, { extends: 'button' });
+              customElements.define('x-two', Two, { extends: 'button' });
+
+              const created = document.createElement('button', { is: 'x-one' });
+              const constructed = new One();
+              const inconsistent = document.createElement('button', { is: 'x-one' });
+              inconsistent.setAttribute('is', 'x-two');
+
+              window.result = [
+                created.cloneNode() instanceof One,
+                constructed.cloneNode() instanceof One,
+                inconsistent.cloneNode() instanceof One,
+                inconsistent.cloneNode() instanceof Two
+              ].join('|');
+            </script>
+            """);
+
+        (await page.EvaluateAsync<string>("window.result")).Should().Be("true|true|true|false");
+        page.Errors.Should().BeEmpty();
+    }
+
+    /// <summary>A deep clone carries the is value of every element it copies, not just the root.</summary>
+    [Test]
+    public async Task ADeepCloneCarriesTheIsValueOfEveryElementItCopies()
+    {
+        await using var browser = new Browser();
+        var page = await PageWith(browser,
+            """
+            <div id="host"></div>
+            <script>
+              class Fancy extends HTMLButtonElement {}
+              customElements.define('x-fancy', Fancy, { extends: 'button' });
+              const host = document.getElementById('host');
+              host.appendChild(document.createElement('button', { is: 'x-fancy' }));
+              const copy = host.cloneNode(true);
+              window.result = [copy.firstChild instanceof Fancy, copy.firstChild.localName].join('|');
+            </script>
+            """);
+
+        (await page.EvaluateAsync<string>("window.result")).Should().Be("true|button");
+        page.Errors.Should().BeEmpty();
+    }
 }

@@ -16,9 +16,11 @@ namespace Jint.Browser.Events;
 /// </summary>
 /// <remarks>
 /// <para>
-/// One engine is one document — a navigation builds a new engine — so per-engine and per-document coincide,
-/// which is what lets the focused element live here rather than beside the AngleSharp document. It is stored
-/// in a <see cref="ConditionalWeakTable{TKey,TValue}"/> keyed on the engine for the reason
+/// One engine displays one document — a navigation builds a new engine — so the displayed document's state
+/// can live here rather than beside the AngleSharp document. The same engine may still wrap inert documents
+/// made by <c>DOMParser</c> and DOM factories; focus entry points verify the receiver belongs to the displayed
+/// document before reading or changing this state. It is stored in a
+/// <see cref="ConditionalWeakTable{TKey,TValue}"/> keyed on the engine for the reason
 /// <see cref="Dom.DomRealm"/> gives: <c>Engine.HostDefined</c> belongs to the embedder.
 /// </para>
 /// <para>
@@ -33,7 +35,10 @@ internal sealed class BrowserEventRealm
 
     private readonly ObjectInstance?[] _prototypes;
     private readonly BrowserEventInterfaceObject?[] _interfaceObjects;
+    private readonly ObjectInstance?[] _hostPrototypes;
+    private readonly Dom.HostInterfaceObject?[] _hostInterfaceObjects;
     private List<PendingActivation>? _pending;
+    private ConditionalWeakTable<IElement, SelectedCoordinate>? _imageCoordinates;
 
     private BrowserEventRealm(Engine engine)
     {
@@ -41,6 +46,8 @@ internal sealed class BrowserEventRealm
         PrincipalRealm = engine._mainRealm;
         _prototypes = new ObjectInstance?[BrowserEventInterfaces.All.Length];
         _interfaceObjects = new BrowserEventInterfaceObject?[BrowserEventInterfaces.All.Length];
+        _hostPrototypes = new ObjectInstance?[BrowserHostInterfaces.All.Length];
+        _hostInterfaceObjects = new Dom.HostInterfaceObject?[BrowserHostInterfaces.All.Length];
     }
 
     /// <summary>The engine every object in this realm belongs to.</summary>
@@ -81,6 +88,64 @@ internal sealed class BrowserEventRealm
     /// navigation between a press and a release leaves the new document with no press outstanding.
     /// </remarks>
     internal IElement? MousePressTarget { get; set; }
+
+    /// <summary>
+    /// The touch points currently on the surface, and what the sequence they belong to has already decided.
+    /// </summary>
+    /// <remarks>
+    /// https://w3c.github.io/touch-events/#touchevent-interface — <c>touches</c> and <c>targetTouches</c> are
+    /// about every point of contact rather than the one an event is for, so neither can be answered by
+    /// anything that lives for one <c>Input.dispatchTouchEvent</c>. Per engine, like
+    /// <see cref="MousePressTarget"/> and for the same reason: a navigation in the middle of a gesture leaves
+    /// the new document with nothing outstanding. <see langword="null"/> until a touch arrives, which is
+    /// every page nobody taps.
+    /// </remarks>
+    internal TouchSequence? Touches { get; set; }
+
+    /// <summary>
+    /// The image button a pointer release landed inside, and where inside its box, measured from the
+    /// hit-test geometry before any listener of that release could run.
+    /// </summary>
+    /// <remarks>
+    /// https://html.spec.whatwg.org/multipage/input.html#image-button-state-(type=image) — the selected
+    /// coordinate is read at the activation behaviour, which is after every <c>pointerup</c>,
+    /// <c>mouseup</c> and <c>click</c> listener, and any one of them may move the input, adopt it into
+    /// another document or take it out of the tree. So the geometry is captured up front and only
+    /// <i>promoted</i> to a selected coordinate if the activation actually runs; a release whose click was
+    /// cancelled leaves this behind and nothing reads it. It is per engine and lives for one release, like
+    /// <see cref="MousePressTarget"/>, which is why it holds no wrapper and pins no document.
+    /// </remarks>
+    internal (IElement Image, int X, int Y)? PendingImagePoint { get; set; }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/input.html#image-button-state-(type=image) — the coordinate
+    /// <paramref name="image"/>'s last activation selected, and (0, 0) for a button that has none.
+    /// </summary>
+    internal (int X, int Y) SelectedImageCoordinate(IElement image)
+        => _imageCoordinates is not null && _imageCoordinates.TryGetValue(image, out var selected)
+            ? (selected.X, selected.Y)
+            : (0, 0);
+
+    /// <summary>
+    /// What an image button's activation behaviour selected, which stands until that button is activated
+    /// again — a <c>FormData</c> constructed from the button long after the click reads exactly this.
+    /// </summary>
+    /// <remarks>
+    /// Per element rather than one slot, because HTML gives every image button a selected coordinate of its
+    /// own and a form may hold several; keyed weakly for the reason the wrapper cache is, so a button
+    /// dropped by both the tree and script takes its coordinate with it. The default costs no table at all:
+    /// the (0, 0) every activation that selected nothing sets is stored as the absence of an entry.
+    /// </remarks>
+    internal void SelectImageCoordinate(IElement image, int x, int y)
+    {
+        if (x == 0 && y == 0)
+        {
+            _imageCoordinates?.Remove(image);
+            return;
+        }
+
+        (_imageCoordinates ??= new ConditionalWeakTable<IElement, SelectedCoordinate>()).AddOrUpdate(image, new SelectedCoordinate(x, y));
+    }
 
     /// <summary>
     /// Where an activation behaviour's default action goes — a hyperlink to follow, a form to submit, a file
@@ -138,6 +203,19 @@ internal sealed class BrowserEventRealm
                 definition.Name,
                 new LazyPropertyDescriptor<BrowserEventRealm>(realm, r => r.InterfaceObjectOf(captured), PropertyFlag.NonEnumerable));
         }
+
+        foreach (var host in BrowserHostInterfaces.All)
+        {
+            if (global.HasOwnProperty(WebApiRegistration.NameOf(host.Name)))
+            {
+                continue;
+            }
+
+            var captured = host;
+            global.SetProperty(
+                host.Name,
+                new LazyPropertyDescriptor<BrowserEventRealm>(realm, r => r.InterfaceObjectOf(captured), PropertyFlag.NonEnumerable));
+        }
     }
 
     /// <summary>
@@ -189,6 +267,56 @@ internal sealed class BrowserEventRealm
     }
 
     /// <summary>
+    /// The prototype object of one of the four non-<c>Event</c> interfaces the bridge owns, created on first
+    /// use. Its <c>[[Prototype]]</c> is <c>%Object.prototype%</c> and its interface object's is
+    /// <c>%Function.prototype%</c>, which is what separates it from <see cref="PrototypeOf(BrowserEventDefinition)"/>.
+    /// </summary>
+    internal ObjectInstance PrototypeOf(BrowserHostInterface host)
+    {
+        var existing = _hostPrototypes[host.Index];
+        if (existing is not null)
+        {
+            return existing;
+        }
+
+        var construct = host.Construct;
+        var prototype = Dom.HostInterfaceObject.Instantiate(
+            Engine,
+            host.Shape,
+            host.Name,
+            host.ConstructorLength,
+            construct is null ? null : args => construct(this, args),
+            out var interfaceObject);
+
+        _hostPrototypes[host.Index] = prototype;
+        _hostInterfaceObjects[host.Index] = interfaceObject;
+        return prototype;
+    }
+
+    /// <summary>The interface object — the global <c>Touch</c> — in this engine, created on first use.</summary>
+    internal Dom.HostInterfaceObject InterfaceObjectOf(BrowserHostInterface host)
+    {
+        PrototypeOf(host);
+        return _hostInterfaceObjects[host.Index]!;
+    }
+
+    /// <summary>https://w3c.github.io/touch-events/#dom-touch-touch — one contact point.</summary>
+    internal JsTouch NewTouch(in TouchState state)
+        => new(Engine, PrototypeOf(BrowserHostInterfaces.Touch), state);
+
+    /// <summary>One of a <c>TouchEvent</c>'s three lists.</summary>
+    internal JsTouchList NewTouchList(JsTouch[] touches)
+        => new(Engine, PrototypeOf(BrowserHostInterfaces.TouchList), touches);
+
+    /// <summary>One <c>DeviceMotionEvent</c> acceleration reading.</summary>
+    internal JsDeviceMotionAcceleration NewAcceleration(double? x, double? y, double? z)
+        => new(Engine, PrototypeOf(BrowserHostInterfaces.DeviceMotionEventAcceleration), x, y, z);
+
+    /// <summary>One <c>DeviceMotionEvent</c> rotation-rate reading.</summary>
+    internal JsDeviceMotionRotationRate NewRotationRate(double? alpha, double? beta, double? gamma)
+        => new(Engine, PrototypeOf(BrowserHostInterfaces.DeviceMotionEventRotationRate), alpha, beta, gamma);
+
+    /// <summary>
     /// Builds an event of <paramref name="definition"/> that the engine itself created, so <c>isTrusted</c> is
     /// true — https://dom.spec.whatwg.org/#concept-event-fire step 2.
     /// </summary>
@@ -201,6 +329,9 @@ internal sealed class BrowserEventRealm
 
     /// <summary>https://dom.spec.whatwg.org/#inner-event-creation-steps step 3, the event's time stamp.</summary>
     internal double TimeStamp => Engine._webApi?.CurrentHighResolutionTime ?? 0;
+
+    /// <summary>One image button's selected coordinate, a class because a weak table's value is a reference.</summary>
+    private sealed record SelectedCoordinate(int X, int Y);
 }
 
 /// <summary>What kind of default action an activation behaviour asked its host for.</summary>

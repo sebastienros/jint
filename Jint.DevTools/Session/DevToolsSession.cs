@@ -156,6 +156,7 @@ internal sealed class DevToolsSession
 
         long? id = null;
         string? sessionId = null;
+        CommandContext? context = null;
 
         try
         {
@@ -164,13 +165,25 @@ internal sealed class DevToolsSession
             sessionId = request.SessionId;
 
             var session = Resolve(sessionId);
-            var context = new CommandContext(session, sessionId, cancellationToken);
+            context = new CommandContext(session, sessionId, cancellationToken);
 
             var result = session._gateway is { } gateway
                 ? await gateway.DispatchAsync(session, request, context).ConfigureAwait(false)
                 : await session.DispatchAsync(in request, context).ConfigureAwait(false);
 
-            await SendAsync(ProtocolMessage.WriteResponse(id.Value, result, sessionId), cancellationToken).ConfigureAwait(false);
+            var reply = ProtocolMessage.WriteResponse(id.Value, result, sessionId);
+
+            // A command that reserved memory for its own reply is answered through the tracked send, so the
+            // reservation is released once the string is on the wire rather than once it is queued. Every
+            // other command keeps the queue-and-return send it has always had.
+            if (context.HoldsUntilReplyWritten)
+            {
+                await _root._connection!.SendTrackedAsync(reply, cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                await SendAsync(reply, cancellationToken).ConfigureAwait(false);
+            }
         }
         catch (ProtocolException exception)
         {
@@ -184,6 +197,9 @@ internal sealed class DevToolsSession
         }
         finally
         {
+            // Whichever way the command ended -- written, refused, or failed before it produced a reply --
+            // nothing it reserved for that reply is still owed anything.
+            context?.ReleaseHeld();
             document.Dispose();
         }
     }

@@ -29,6 +29,7 @@ namespace Jint.Browser.Mcp
         public System.Threading.Tasks.Task<Jint.Browser.Mcp.ActionOutcome> SetCookieAsync(string name, string value, string? url = null) { }
         public System.Threading.Tasks.Task<Jint.Browser.Mcp.PageSnapshot> SnapshotAsync(string? mode = null, bool mainContentOnly = false, int? maxLength = default) { }
         public System.Threading.Tasks.Task<Jint.Browser.Mcp.ActionOutcome> TypeAsync(string target, string text) { }
+        public System.Threading.Tasks.Task<Jint.Browser.Mcp.ActionOutcome> UploadAsync(string target, System.Collections.Generic.IReadOnlyList<string> paths) { }
         public System.Threading.Tasks.Task<Jint.Browser.Mcp.ActionOutcome> WaitForAsync(string? selector = null, string? text = null, double? timeoutSeconds = default) { }
     }
     public sealed class BrowserAgentOptions
@@ -40,6 +41,7 @@ namespace Jint.Browser.Mcp
         public long? MemoryLimit { get; set; }
         public System.TimeSpan Timeout { get; set; }
         public bool Trusted { get; set; }
+        public string? UploadDirectory { get; set; }
         public System.Func<System.Uri, bool>? UrlFilter { get; set; }
         public string? UserAgent { get; set; }
     }
@@ -152,6 +154,16 @@ renders nothing.")]
             " there. The page sees every keystroke, which is what a search box with live sugg" +
             "estions is waiting for.")]
         public System.Threading.Tasks.Task<ModelContextProtocol.Protocol.CallToolResult> TypeAsync([System.ComponentModel.Description("A ref= value from an ax snapshot, or a CSS selector.")] string target, [System.ComponentModel.Description("The characters to type.")] string text) { }
+        [ModelContextProtocol.Server.McpServerTool(Name="upload", Title="Choose files for a file input")]
+        [System.ComponentModel.Description(@"Chooses files from this machine for a file upload field — an <input type=file> — exactly as picking
+them in the file dialog would: the page sees a FileList, its input and change handlers run, and
+submitting the form sends the bytes. Clicking a file input does nothing, so this is the only way to
+fill one; use fill for a text field.
+Files can only be read from the one directory this server was started with, and the tool answers an
+error naming that restriction when the deployment allowed none — that is a configuration decision,
+not something to work around by another route.")]
+        public System.Threading.Tasks.Task<ModelContextProtocol.Protocol.CallToolResult> UploadAsync([System.ComponentModel.Description("A ref= value from an ax snapshot, or a CSS selector naming the <input type=file>.")] string target, [System.ComponentModel.Description("Paths of the files to choose, in order, inside the directory this server uploads " +
+            "from.")] string[] paths) { }
         [ModelContextProtocol.Server.McpServerTool(Name="wait_for", ReadOnly=true, Title="Wait for the page to change")]
         [System.ComponentModel.Description("Waits until an element matching a CSS selector is in the page, or until some text" +
             " appears in it. Use it after an action that starts something the page finishes l" +

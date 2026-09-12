@@ -151,15 +151,13 @@ internal static class DomViewMembers
 
     /// <summary>https://w3c.github.io/selection-api/#dom-document-getselection.</summary>
     /// <remarks>
-    /// The page's selection, whichever document the call was made on: a selection belongs to a document's
-    /// browsing context, and a document a <c>DOMParser</c> produced has none. So
-    /// <c>parsed.getSelection()</c> answers the page's rather than a second empty one, where a browser gives
-    /// the parsed document its own. Nothing can select inside a parsed document, so the difference is what
-    /// the object is rather than what it holds.
+    /// A selection belongs to a document's browsing context. A document made by <c>DOMParser</c>,
+    /// <c>new Document()</c> or <c>DOMImplementation</c> has none, so its answer is <c>null</c> rather than
+    /// the selection of the displayed document that happens to share its engine.
     /// </remarks>
-    internal static JsValue GetSelection(DomRealm realm)
+    internal static JsValue GetSelection(DomRealm realm, IDocument document)
     {
-        var runtime = PageRuntime.Find(realm.Engine);
+        var runtime = PageRuntime.Find(realm.Engine, document);
         return runtime is null ? JsValue.Null : runtime.Views.Selection;
     }
 
@@ -218,6 +216,40 @@ internal static class DomViewMembers
             "This document is neither an HTML document nor an XML one, so it can hold no CDATA section.");
     }
 
+    /// <summary>https://dom.spec.whatwg.org/#dom-domimplementation-createhtmldocument.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The title is optional, and its absence is not the empty string.</b> DOM's step 6 is "<i>if title is
+    /// given</i>, create a <c>title</c> element … and append": <c>createHTMLDocument()</c> makes a document
+    /// whose <c>head</c> is empty, and <c>createHTMLDocument("")</c> makes one holding <c>&lt;title&gt;&lt;/title&gt;</c>
+    /// with an empty text node in it. AngleSharp's <c>CreateHtmlDocument</c> takes a required string and
+    /// creates the element only when that string is non-empty, so the two spellings were indistinguishable
+    /// from outside and the argument could not be made optional by projecting it — which is why the member is
+    /// <c>skip</c>ped and re-declared.
+    /// </para>
+    /// <para>
+    /// Adding the element the standard asks for is the whole of what this does beyond that call. It is Web
+    /// IDL semantics AngleSharp's CLR surface cannot represent rather than a behaviour worked around: there
+    /// is no overload that distinguishes an absent title from an empty one, and the divergence register
+    /// records that.
+    /// </para>
+    /// </remarks>
+    internal static JsValue CreateHtmlDocument(DomRealm realm, IImplementation implementation, JsValue[] arguments)
+    {
+        var given = arguments.Length > 0 && !arguments[0].IsUndefined();
+        var title = DomConvert.OptionalText(arguments, 0, "")!;
+        var document = implementation.CreateHtmlDocument(title);
+
+        if (given && document.Head is { } head && head.QuerySelector("title") is null)
+        {
+            var element = document.CreateElement("title");
+            element.AppendChild(document.CreateTextNode(title));
+            head.AppendChild(element);
+        }
+
+        return realm.WrapNode(document);
+    }
+
     /// <summary>https://dom.spec.whatwg.org/#dom-domimplementation-createdocument.</summary>
     /// <remarks>
     /// <para>
@@ -228,10 +260,11 @@ internal static class DomViewMembers
     /// <c>createElementNS</c> for the document element, and DOM's own append for both children.
     /// </para>
     /// <para>
-    /// <b>The content-type step is the one this cannot do.</b> DOM sets the new document's content type from
-    /// the namespace — <c>application/xhtml+xml</c>, <c>image/svg+xml</c> or <c>application/xml</c> — and
-    /// AngleSharp's <c>Document.ContentType</c> setter is not public, so every document made here answers
-    /// <c>application/xml</c>. It is recorded in <c>Dom/AGENTS.md</c>'s divergence table rather than hidden.
+    /// <b>The content type is step 7 and is decided by the namespace</b> — <c>application/xhtml+xml</c> for
+    /// the XHTML namespace, <c>image/svg+xml</c> for SVG, <c>application/xml</c> for everything else. It is
+    /// declared on the browsing context the document is parsed into rather than set on the document, because
+    /// AngleSharp's <c>Document.ContentType</c> setter is <see langword="protected"/>; see
+    /// <see cref="DomContentType"/>.
     /// </para>
     /// </remarks>
     internal static JsValue CreateDocument(DomRealm realm, JsValue[] arguments)
@@ -252,7 +285,10 @@ internal static class DomViewMembers
         var qualifiedName = qualifiedNameValue.IsNull() ? "" : TypeConverter.ToString(qualifiedNameValue);
 
         var doctype = DomBindings.NullableArgument<IDocumentType>(arguments, 2, Member.CreateDocument);
-        var document = DomConstructors.NewXmlDocument();
+
+        // Step 7, taken first because the content type is what the document is parsed as rather than
+        // something set on it afterwards.
+        var document = DomConstructors.NewXmlDocument(ContentTypeFor(namespaceUri));
 
         // Step 3: the internal createElementNS steps, which is where a NamespaceError or an
         // InvalidCharacterError for a bad qualified name comes from — AngleSharp raises both.
@@ -272,6 +308,25 @@ internal static class DomViewMembers
         }
 
         return realm.WrapNode(document);
+    }
+
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#dom-domimplementation-createdocument step 7: the content type the new
+    /// document gets, decided by the namespace it was asked for and by nothing else.
+    /// </summary>
+    private static string ContentTypeFor(string? namespaceUri)
+    {
+        if (string.Equals(namespaceUri, NamespaceNames.HtmlUri, StringComparison.Ordinal))
+        {
+            return DomContentType.Xhtml;
+        }
+
+        if (string.Equals(namespaceUri, NamespaceNames.SvgUri, StringComparison.Ordinal))
+        {
+            return DomContentType.Svg;
+        }
+
+        return DomContentType.Xml;
     }
 
     /// <summary>

@@ -23,6 +23,11 @@ namespace Jint.Browser.Layout;
 /// it is the honest one: there is no window for a box to be measured against.
 /// </para>
 /// <para>
+/// <b>The node must belong to the displayed document.</b> A page realm can also wrap documents made by
+/// <c>DOMParser</c> and DOM factories. They have no browsing context, so their nodes answer the same zeros,
+/// empty lists and null hit tests as a binding with no page and cannot read or move this page's scroll.
+/// </para>
+/// <para>
 /// <b>Only the scrolling element scrolls.</b> <c>scrollTop</c> on <c>document.scrollingElement</c> is the
 /// page's virtual scroll offset and writing it scrolls the page; on anything else it reads zero and a write
 /// is ignored, because no element here has content larger than its own box. <c>scrollLeft</c> is zero
@@ -44,18 +49,18 @@ internal static class LayoutMembers
     /// </remarks>
     internal static JsValue ClientRects(DomRealm realm, IElement element)
     {
-        return Layout(realm)?.ClientBoxOf(element) is { } box
+        return Layout(realm, element)?.ClientBoxOf(element) is { } box
             ? DomRects.List(realm, DomRects.Of(realm.Engine, box))
             : DomRects.List(realm);
     }
 
     /// <summary>https://drafts.csswg.org/cssom-view/#dom-element-clientwidth.</summary>
     internal static JsValue ClientWidth(DomRealm realm, IElement element)
-        => JsNumber.Create(IsScrollingElement(element) ? Viewport(realm).Width : Round(Extent(realm, element, horizontal: true)));
+        => JsNumber.Create(IsScrollingElement(element) ? Viewport(realm, element).Width : Round(Extent(realm, element, horizontal: true)));
 
     /// <summary>https://drafts.csswg.org/cssom-view/#dom-element-clientheight.</summary>
     internal static JsValue ClientHeight(DomRealm realm, IElement element)
-        => JsNumber.Create(IsScrollingElement(element) ? Viewport(realm).Height : Round(Extent(realm, element, horizontal: false)));
+        => JsNumber.Create(IsScrollingElement(element) ? Viewport(realm, element).Height : Round(Extent(realm, element, horizontal: false)));
 
     /// <summary>https://drafts.csswg.org/cssom-view/#dom-element-scrollwidth.</summary>
     /// <remarks>Horizontal overflow is not measured by the synthetic model.</remarks>
@@ -70,18 +75,18 @@ internal static class LayoutMembers
             return JsNumber.Create(Round(Extent(realm, element, horizontal: false)));
         }
 
-        var layout = Layout(realm);
+        var layout = Layout(realm, element);
         return JsNumber.Create(layout is null ? 0 : Round(Math.Max(layout.ContentHeight, layout.ViewportHeight)));
     }
 
     /// <summary>https://drafts.csswg.org/cssom-view/#dom-element-scrolltop.</summary>
     internal static JsValue ScrollTop(DomRealm realm, IElement element)
-        => JsNumber.Create(IsScrollingElement(element) && PageOf(realm) is { } page ? page.Layout.ScrollY : 0);
+        => JsNumber.Create(IsScrollingElement(element) && PageOf(realm, element) is { } page ? page.Layout.ScrollY : 0);
 
     /// <summary>The other half of <see cref="ScrollTop"/>: writing it scrolls the page.</summary>
     internal static JsValue SetScrollTop(DomRealm realm, IElement element, JsValue[] arguments)
     {
-        if (IsScrollingElement(element) && PageOf(realm) is { } page)
+        if (IsScrollingElement(element) && PageOf(realm, element) is { } page)
         {
             page.Layout.ScrollTo(TypeConverter.ToNumber(arguments.At(0)));
         }
@@ -111,7 +116,7 @@ internal static class LayoutMembers
     /// </remarks>
     internal static JsValue ScrollIntoView(DomRealm realm, IElement element, JsValue[] arguments)
     {
-        PageOf(realm)?.Layout.ScrollIntoView(element, Block(arguments));
+        PageOf(realm, element)?.Layout.ScrollIntoView(element, Block(arguments));
         return JsValue.Undefined;
     }
 
@@ -126,7 +131,7 @@ internal static class LayoutMembers
     /// <summary>https://drafts.csswg.org/cssom-view/#dom-htmlelement-offsetleft.</summary>
     internal static JsValue OffsetLeft(DomRealm realm, IElement element)
     {
-        if (Layout(realm) is not { } layout || layout.DocumentBoxOf(element) is not { } box)
+        if (Layout(realm, element) is not { } layout || layout.DocumentBoxOf(element) is not { } box)
         {
             return JsNumber.PositiveZero;
         }
@@ -142,7 +147,7 @@ internal static class LayoutMembers
     /// </summary>
     internal static JsValue OffsetTop(DomRealm realm, IElement element)
     {
-        if (Layout(realm) is not { } layout || layout.DocumentBoxOf(element) is not { } box)
+        if (Layout(realm, element) is not { } layout || layout.DocumentBoxOf(element) is not { } box)
         {
             return JsNumber.PositiveZero;
         }
@@ -162,7 +167,7 @@ internal static class LayoutMembers
     /// </remarks>
     internal static JsValue OffsetParent(DomRealm realm, IElement element)
     {
-        if (PageOf(realm)?.Layout.MeasureSizes().HasBox(element) != true)
+        if (PageOf(realm, element)?.Layout.MeasureSizes().HasBox(element) != true)
         {
             return JsValue.Null;
         }
@@ -171,9 +176,9 @@ internal static class LayoutMembers
     }
 
     /// <summary>https://drafts.csswg.org/cssom-view/#dom-document-elementfrompoint.</summary>
-    internal static JsValue ElementFromPoint(DomRealm realm, JsValue[] arguments)
+    internal static JsValue ElementFromPoint(DomRealm realm, IDocument document, JsValue[] arguments)
     {
-        var hit = Layout(realm)?.ElementFromPoint(Coordinate(arguments, 0), Coordinate(arguments, 1));
+        var hit = Layout(realm, document)?.ElementFromPoint(Coordinate(arguments, 0), Coordinate(arguments, 1));
         return hit is null ? JsValue.Null : realm.WrapNode(hit);
     }
 
@@ -181,11 +186,11 @@ internal static class LayoutMembers
     /// https://drafts.csswg.org/cssom-view/#dom-document-elementsfrompoint — the hit element and every
     /// rendered ancestor above it, innermost first.
     /// </summary>
-    internal static JsValue ElementsFromPoint(DomRealm realm, JsValue[] arguments)
+    internal static JsValue ElementsFromPoint(DomRealm realm, IDocument document, JsValue[] arguments)
     {
         var hits = new List<INode>();
 
-        if (Layout(realm) is { } layout &&
+        if (Layout(realm, document) is { } layout &&
             layout.ElementFromPoint(Coordinate(arguments, 0), Coordinate(arguments, 1)) is { } hit)
         {
             for (IElement? element = hit; element is not null; element = element.ParentElement)
@@ -209,7 +214,7 @@ internal static class LayoutMembers
     /// thing whose <c>scrollTop</c> moves the window.
     /// </remarks>
     internal static JsValue ScrollingElement(DomRealm realm, IDocument document)
-        => realm.WrapNodeValue(document.DocumentElement);
+        => PageOf(realm, document) is null ? JsValue.Null : realm.WrapNodeValue(document.DocumentElement);
 
     /// <summary>The element whose <c>scrollTop</c> is the page's own scroll offset.</summary>
     internal static bool IsScrollingElement(IElement element)
@@ -226,20 +231,20 @@ internal static class LayoutMembers
 
     /// <summary>The element's viewport-relative box, or the empty one when it has none.</summary>
     private static FlatBox ClientBox(DomRealm realm, IElement element)
-        => Layout(realm)?.ClientBoxOf(element) ?? FlatBox.Empty;
+        => Layout(realm, element)?.ClientBoxOf(element) ?? FlatBox.Empty;
 
     private static double Extent(DomRealm realm, IElement element, bool horizontal)
     {
-        var sizes = PageOf(realm)?.Layout.MeasureSizes();
+        var sizes = PageOf(realm, element)?.Layout.MeasureSizes();
         return sizes is null ? 0 : horizontal ? sizes.Width(element) : sizes.Measure(element).Height;
     }
 
-    /// <summary>The layout of the page this realm belongs to, or <see langword="null"/> when there is none.</summary>
-    private static FlatLayout? Layout(DomRealm realm) => PageOf(realm)?.Layout.Current();
+    /// <summary>The layout of the page <paramref name="node"/> belongs to, or <see langword="null"/>.</summary>
+    private static FlatLayout? Layout(DomRealm realm, INode node) => PageOf(realm, node)?.Layout.Current();
 
-    private static PageRuntime? PageOf(DomRealm realm) => PageRuntime.Find(realm.Engine);
+    private static PageRuntime? PageOf(DomRealm realm, INode node) => PageRuntime.Find(realm.Engine, node);
 
-    private static Viewport Viewport(DomRealm realm) => PageOf(realm)?.Viewport ?? new Viewport(0, 0);
+    private static Viewport Viewport(DomRealm realm, INode node) => PageOf(realm, node)?.Viewport ?? new Viewport(0, 0);
 
     /// <summary>
     /// CSSOM View declares every one of these <c>long</c>, so the box's <c>double</c> is rounded exactly as

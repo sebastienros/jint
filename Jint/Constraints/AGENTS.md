@@ -39,6 +39,16 @@ The in-engine option for a *budget* is a user-derived `Constraint` whose `Reset(
 
 For the wall-clock half of that budget case there is now an in-box class — `Jint.Constraints.OperationDeadlineConstraint`, which the host brackets with `Begin(budget, token)` / `End()` around the whole operation and whose no-op `Reset()` therefore survives every per-entry reset in between; it observes only a clock and a token, so unlike a hand-written exact budget it declares `IsAmortizable => true` and keeps the tight-loop lane armed, and it throws a real `OperationCanceledException` for the token (Jint's own `ExecutionCanceledException` is a `JintException` and is not one) and the usual `TimeoutException` for the budget. The allocation half has the same shape: `MemoryLimitConstraint.Begin` / `End` brackets one managed-allocation budget across every entry the operation makes, and unlike the deadline it stays *exact*, so it disarms the tight-loop lane for as long as a memory limit is configured at all.
 
+**Before changing any of it: the reset is not the mistake.** Per-run reset is exactly what
+`Constraint.Reset`'s doc promises and what makes a reused engine usable, and the nested case is handled
+deliberately — nesting is `_hostEntryDepth > 0 || _executionContexts.Count > 1`, so a host callback
+re-entering the engine from inside a running script does *not* re-arm, or `while (true) hostCallback()`
+would run forever. The host-side `Engine.Constraints.Check()` fails for the mechanism [Gotchas](#gotchas)
+states below: a run *ends* with `TimeConstraint`'s deadline re-armed at `now + interval`, so a check from
+the host loop measures the time since the last call returned. All of it is pinned from the embedder's side
+in `Jint.Tests.PublicInterface/HostCallLoopConstraintTests.cs` and `HostMemoryLimitTests.cs`; those tests
+assert the behaviour as it is, so changing it is a deliberate act that updates them.
+
 ### Gotchas
 
 Each of these cost a real integrator or a real bug. These are the ones that bite in this area; the

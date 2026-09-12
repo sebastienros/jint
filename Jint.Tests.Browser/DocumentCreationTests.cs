@@ -141,4 +141,118 @@ public sealed class DocumentCreationTests
             "(() => { try { document.implementation.createDocument(null, 'a:b') } catch (e) { return e.name } return 'no throw' })()")
             .Should().Be("NamespaceError");
     }
+
+    [Test]
+    public void CreateDocumentTakesItsContentTypeFromTheNamespace()
+    {
+        using var fixture = DomTestFixture.Create(Page);
+
+        // DOM §4.5.1 step 7. AngleSharp answers text/xml for every document its XML parser builds, and its
+        // ContentType setter is protected, so the value rides on the browsing context the document was
+        // parsed into — see DomContentType.
+        fixture.Text(
+            """
+            [
+              document.implementation.createDocument(null, null, null).contentType,
+              document.implementation.createDocument('http://www.w3.org/1999/xhtml', 'html', null).contentType,
+              document.implementation.createDocument('http://www.w3.org/2000/svg', 'svg', null).contentType,
+              document.implementation.createDocument('http://example.com/ns', 'root', null).contentType,
+              new Document().contentType,
+            ].join('|');
+            """)
+            .Should().Be("application/xml|application/xhtml+xml|image/svg+xml|application/xml|application/xml");
+
+        // And a clone keeps it, because DOM's clone steps make the clone's content type its source's.
+        fixture.Text(
+            "document.implementation.createDocument('http://www.w3.org/2000/svg', 'svg', null).cloneNode().contentType")
+            .Should().Be("image/svg+xml");
+    }
+
+    [Test]
+    public void ADocumentWithNoBrowsingContextHasNoLocation()
+    {
+        using var fixture = DomTestFixture.Create(Page);
+
+        // HTML's Document.location getter: the Location object while the document is fully active, and
+        // null otherwise. None of these three is showing anywhere.
+        fixture.Text(
+            """
+            [
+              document.implementation.createDocument(null, null, null).location,
+              document.implementation.createHTMLDocument('t').location,
+              new Document().location,
+            ].map(String).join('|');
+            """)
+            .Should().Be("null|null|null");
+
+        // The document that is showing keeps its Location, and WebIDL's [PutForwards=href] setter is a
+        // TypeError on the ones that have none rather than a navigation nobody can see.
+        fixture.Bool("document.location !== null").Should().BeTrue();
+        fixture.Text(
+            "(() => { const d = new Document(); try { d.location = '/x' } catch (e) { return e.constructor.name } return 'no throw' })()")
+            .Should().Be("TypeError");
+    }
+
+    [Test]
+    public void CharacterSetIsTheEncodingStandardsNameAndCarriesItsTwoAliases()
+    {
+        using var fixture = DomTestFixture.Create(Page);
+
+        // DOM §4.5 declares characterSet, charset and inputEncoding, the last two "legacy alias of
+        // .characterSet". The name is the Encoding Standard's own spelling, which is UTF-8 and not the
+        // ASCII-lowercased label AngleSharp answers from .NET's Encoding.WebName.
+        fixture.Text(
+            """
+            const doc = document.implementation.createDocument(null, null, null);
+            [document.characterSet, doc.characterSet, doc.charset, doc.inputEncoding].join('|');
+            """)
+            .Should().Be("UTF-8|UTF-8|UTF-8|UTF-8");
+    }
+
+    [Test]
+    public void CreateElementOnADocumentThatIsNotAnHtmlOneKeepsTheNameAndItsNamespace()
+    {
+        using var fixture = DomTestFixture.Create(Page);
+
+        // DOM §4.5 createElement steps 2 and 4: the name is ASCII-lowercased only for an HTML document,
+        // and the namespace is HTML's only for an HTML document or one whose content type is
+        // application/xhtml+xml. AngleSharp's one-argument overload does both unconditionally.
+        fixture.Text(
+            """
+            const xml = document.implementation.createDocument(null, null, null);
+            const el = xml.createElement('DIV');
+            [el.localName, String(el.namespaceURI), document.createElement('DIV').localName].join('|');
+            """)
+            .Should().Be("DIV|null|div");
+    }
+
+    [Test]
+    public void TagNameIsUppercasedOnlyWhileTheElementIsInAnHtmlDocument()
+    {
+        using var fixture = DomTestFixture.Create(Page);
+
+        // DOM §4.9's HTML-uppercased qualified name asks two questions, and AngleSharp asks only the
+        // first: the namespace, and the node document. importNode is what moves the second one — DOM's
+        // import steps clone "with document set to this", which AngleSharp's Import does not do.
+        fixture.Text(
+            """
+            const xml = document.implementation.createDocument(
+              'http://www.w3.org/1999/xhtml', 'foo:div', null);
+            const before = xml.documentElement.tagName;
+            const imported = document.importNode(xml.documentElement, true);
+            [before, imported.tagName, imported.ownerDocument === document].join('|');
+            """)
+            .Should().Be("foo:div|FOO:DIV|true");
+
+        // And the other direction: an element of the page adopted into an XML document loses the case.
+        fixture.Text(
+            """
+            const adopting = document.implementation.createDocument(null, null, null);
+            const moved = document.createElement('div');
+            const was = moved.tagName;
+            adopting.appendChild(moved);
+            [was, moved.tagName].join('|');
+            """)
+            .Should().Be("DIV|div");
+    }
 }

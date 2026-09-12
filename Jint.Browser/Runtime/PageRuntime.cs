@@ -35,7 +35,10 @@ internal sealed class PageRuntime
     private CustomElements.CustomElementRegistry? _customElements;
     private Dom.Views.ViewRealm? _views;
     private List<JsMediaQueryList>? _mediaQueryLists;
+    private ConditionalWeakTable<object, ObjectInstance>? _frameWindows;
     private PerformanceNavigation? _navigation;
+    private Media.PageImages? _images;
+
 
     private PageRuntime(
         Engine engine,
@@ -176,6 +179,23 @@ internal sealed class PageRuntime
     /// <summary>Where mutation records wait for the microtask checkpoint that delivers them.</summary>
     internal Observers.MutationObserverLane MutationObservers { get; }
 
+    /// <summary>
+    /// HTML §4.8.4.3's image requests, one per <c>&lt;img&gt;</c> and per <c>&lt;input type=image&gt;</c>
+    /// this document has loaded, built on first use.
+    /// </summary>
+    /// <remarks>
+    /// A document with no images never builds the table, which is why this is lazy where the lanes above are
+    /// not: an image is the one subresource kind a page can have none of and still be a page.
+    /// </remarks>
+    internal Media.PageImages Images => _images ??= new Media.PageImages();
+
+    /// <summary>The image requests this document has made, or <see langword="null"/> if it has made none.</summary>
+    /// <remarks>
+    /// The read-only half, for the members that must not make a table by being asked: <c>img.complete</c> on
+    /// a document with no image requests answers from the attributes alone.
+    /// </remarks>
+    internal Media.PageImages? ImagesIfLoaded => _images;
+
     /// <summary>The flat box model of this document, and the virtual scroll offset over it.</summary>
     /// <remarks>
     /// Per document rather than per page, because a navigation starts at the top of the new document and
@@ -248,8 +268,8 @@ internal sealed class PageRuntime
     internal string WindowName { get; set; } = "";
 
     /// <summary>
-    /// The document's URL as the page knows it, which is what <c>location</c>, <c>document.URL</c> and
-    /// relative resolution read.
+    /// The document's URL as the page knows it, which is what <c>location</c>, <c>document.URL</c>,
+    /// relative resolution and HTML §4.10.18.6's empty-<c>action</c> default read.
     /// </summary>
     /// <remarks>
     /// It is the runtime's rather than AngleSharp's because <c>pushState</c> and a fragment navigation move
@@ -356,6 +376,20 @@ internal sealed class PageRuntime
         }
     }
 
+    /// <summary>The window built for a frame element, or <see langword="null"/> when none has been.</summary>
+    /// <remarks>
+    /// Keyed on the AngleSharp element the way the binding's own wrapper cache is keyed, so a frame answers
+    /// the same window object every time it is asked — <c>frame.contentWindow === frame.contentWindow</c> and
+    /// <c>frames[0] === frame.contentWindow</c> are both things a page compares. The table is built on first
+    /// use, so a document with no frames pays nothing for it.
+    /// </remarks>
+    internal ObjectInstance? FrameWindowFor(object frame)
+        => _frameWindows is { } windows && windows.TryGetValue(frame, out var window) ? window : null;
+
+    /// <summary>Remembers the window of a frame element for the life of this document.</summary>
+    internal void RememberFrameWindow(object frame, ObjectInstance window)
+        => (_frameWindows ??= new ConditionalWeakTable<object, ObjectInstance>()).Add(frame, window);
+
     /// <summary>Replaces the viewport alone, leaving the emulated media and preferences where they are.</summary>
     internal void SetViewport(Viewport viewport) => SetMedia(Media with { Viewport = viewport });
 
@@ -413,4 +447,48 @@ internal sealed class PageRuntime
     /// <summary>The runtime attached to <paramref name="engine"/>, or <see langword="null"/> when it has none.</summary>
     internal static PageRuntime? Find(Engine engine)
         => _runtimes.TryGetValue(engine, out var runtime) ? runtime : null;
+
+    /// <summary>
+    /// The runtime attached to <paramref name="engine"/> when <paramref name="document"/> is the document
+    /// that runtime is showing, or <see langword="null"/> for a secondary document in the same engine.
+    /// </summary>
+    /// <remarks>
+    /// A DOM realm can wrap documents made by <c>DOMParser</c>, <c>new Document()</c> and
+    /// <c>DOMImplementation</c>. Per-engine state is page state only for <see cref="Document"/> itself;
+    /// selecting it for any other wrapped document leaks the page's URL, readiness and storage into a
+    /// document with no browsing context.
+    /// </remarks>
+    internal static PageRuntime? Find(Engine engine, IDocument? document)
+    {
+        var runtime = Find(engine);
+        return document is not null && ReferenceEquals(runtime?.Document, document) ? runtime : null;
+    }
+
+    /// <summary>
+    /// The runtime attached to <paramref name="engine"/> when <paramref name="document"/> belongs to the
+    /// displayed document's browsing-context tree, or <see langword="null"/> for a detached context.
+    /// </summary>
+    internal static PageRuntime? FindBrowsingContext(Engine engine, IDocument? document)
+    {
+        var runtime = Find(engine);
+        var displayedContext = runtime?.Document?.Context;
+        if (displayedContext is null || document is null)
+        {
+            return null;
+        }
+
+        for (AngleSharp.IBrowsingContext? context = document.Context; context is not null; context = context.Parent)
+        {
+            if (ReferenceEquals(context, displayedContext))
+            {
+                return runtime;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>The page runtime of <paramref name="node"/>'s node document, when it is the displayed one.</summary>
+    internal static PageRuntime? Find(Engine engine, INode node)
+        => Find(engine, node as IDocument ?? node.Owner);
 }

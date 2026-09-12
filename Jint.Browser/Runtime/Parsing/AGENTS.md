@@ -84,6 +84,22 @@ script runs before a module script that precedes it in the document, because the
 HTML's one; and the first import map found anywhere applies to every module, because none of them could have
 resolved before the parse ended anyway.
 
+**A frame served XML gets an XML document, and only a frame can.** `Configuration` carries AngleSharp.Xml's
+document factory, so a response whose content type is an XML MIME type is parsed by the XML parser rather
+than wrapped in an HTML skeleton — without it `<foo>x</foo>` served as `text/xml` came back with
+`documentElement.tagName === "HTML"` and every XML rule a page then asked about was the wrong document's.
+The page's own document cannot reach it: `Parse` states `text/html` for what a navigation produces, and a
+navigation to an XML content type is refused by `DocumentFetch` before a parser sees it. `application/xhtml+xml`
+is **still** routed to the HTML parser — that is AngleSharp's own content-type mapping, not this file's, and
+it is what `NeedsXmlDocuments` covers in the browser lane.
+
+**A document's culture is the engine's, not the thread's.** AngleSharp resolves `:lang()` on an element with
+no inherited language through its browsing context's culture, and a context given none takes
+`CultureInfo.CurrentCulture` off whatever thread is parsing — so the same document answered a selector
+differently on two machines. The parse hands the context `Options.Culture`, which is what a host sets through
+`ConfigureEngine` and which itself defaults to the current culture, so nothing moves for a host that sets
+none; what moves is that the answer is now the *page's* rather than the host's.
+
 **`document.readyState` is the page's shadow.** `PageRuntime.ReadyState` moves `loading` → `interactive` →
 `complete` and `ParserDriver.SetReadyState` fires the `readystatechange` that goes with each, because
 `Document.ReadyState`'s setter is protected and unreachable from outside AngleSharp's assembly. AngleSharp's
@@ -92,12 +108,71 @@ to see the moment it starts the deferred queue. `DOMContentLoaded` (bubbling, at
 module scripts; `complete` and then `load` and `pageshow` (at the window) follow every subresource, which is
 the order HTML gives and the reason a `load` listener reads `"complete"`.
 
-**What is not fetched is recorded, not skipped.** An `<img>`, a non-stylesheet `<link>`: there is no
-rendering to need them, so the reference goes into `Page.Requests` with a `PageRequest.NotFetchedReason` and
-no socket is opened. A refusal and a failure are both a download that completes with a `null` response, which
-is the shape AngleSharp's own processors already test for; the `load` and `error` a *page* hears are
-dispatched through Jint's dispatcher, because AngleSharp's go into its own listener lists. `integrity` and
-`crossorigin` are accepted and ignored, and say so here rather than in a sentence nobody reads.
+**What is not fetched is recorded, not skipped.** A media element, an `<embed>`, a non-stylesheet `<link>`:
+there is no rendering to need them, so the reference goes into `Page.Requests` with a
+`PageRequest.NotFetchedReason` and no socket is opened. A refusal and a failure are both a download that
+completes with a `null` response, which is the shape AngleSharp's own processors already test for; the `load`
+and `error` a *page* hears are dispatched through Jint's dispatcher, because AngleSharp's go into its own
+listener lists. `integrity` and `crossorigin` are accepted and ignored, and say so here rather than in a
+sentence nobody reads.
+
+**An image *is* fetched, and what is read out of it is thirty bytes.** HTML §4.8.4.3's image request is what
+`img.complete`, `currentSrc`, `naturalWidth`/`naturalHeight`, `width`/`height` and the `load`/`error` events
+are answers about, and a page that has none of them is a page every lazy-loading library and every UI shell
+waits on for ever. `ParserDriver.FetchImage` serves the request AngleSharp's own `ImageRequestProcessor`
+makes — for an `<img>` and for an `<input type=image>` alike — and `Media/ImageHeader` reads the intrinsic
+size out of the container header and **never a pixel**: PNG, JPEG, GIF, WebP, BMP, ICO and SVG state one, and
+anything else is HTML's *broken* state with an `error` event rather than an available image of 0×0.
+`Media/PageImages` holds the current-request state the four members answer from, because AngleSharp's own
+`IsCompleted` is "an `IImageInfo` exists" and no `IResourceService<IImageInfo>` is registered — registering
+one would mean decoding. Four things follow and each is load-bearing:
+
+- **The bound is `BrowserOptions.MaxImageRequests`**, counted over the document, with `MaxSubresourceBytes`
+  and `SubresourceTimeout` bounding each request as they do a script's. **Zero is the opt-out and is exactly
+  what this browser did before**: the reference is recorded, no socket is opened, and no event is fired,
+  because nothing was attempted.
+- **An image's `load`/`error` waits for the tokenizer; a style sheet's does not.** Both are queued as element
+  tasks through `QueueResourceEvent`, and both delay the window's `load`. But this browser yields to its loop
+  while it *fetches* an image, where a browser would have carried on tokenizing — so delivering there would
+  make `<img src>` followed by a `<script>` that installs `onload` miss the event, which no browser does. The
+  parser really does wait for a style sheet, and `AStyleSheetLoadDuringAParserNetworkWaitSeesTheInstalledSheet`
+  pins that its `load` arrives while it does.
+- **`loading=lazy` loads eagerly**, because whether an image is within the lazy load root's scrolling area is
+  a question about a layout there is none of. Never loading one would leave every image of an infinite-scroll
+  page `complete === false` for ever, which is the state those libraries block on — the same argument
+  `IntersectionObserver` makes for reporting every target as intersecting.
+- **Which URL is fetched is `Media/ImageSourceSet`'s, not AngleSharp's.** HTML §4.8.4.3.6's source set reads
+  the `x` and `w` descriptors, the `sizes` lengths and each `<source>`'s `media` and `type`; AngleSharp's
+  `SourceSet.GetCandidates` reads none of them and yields the first candidate it finds, so the request it
+  makes names the wrong image. The request stays AngleSharp's and only its URL is decided here, against the
+  page's own viewport and media environment — the value `matchMedia` answers from, so a client that emulates
+  a viewport moves the selection with it. `img.decode()` is `Media/ImageDecode` over the same state: it is
+  the availability the current request already has rather than a bitmap, because there is no paint for a
+  decode to be ahead of.
+- **What no header can say is stated rather than guessed**: an animated GIF is its logical screen and has no
+  frames, there is no colour and no EXIF orientation, a file whose header disagrees with its pixels is
+  believed, and a broken container has no width at all. `Dom/divergences.md` carries the rows a page can see,
+  including the two AngleSharp gaps this leaves — an `<img src="">` fires no `error` because AngleSharp asks
+  the loader for nothing when it selects no source, and an `<img>` inside a `<template>` *is* fetched because
+  AngleSharp gives a template's contents no owner document of their own.
+
+**Two schemes reach no socket, and one of them carries a body.** `about:blank` is answered as the empty HTML
+document a frame's `src` most often names. A `data:` URL is answered by
+[Fetch §5.2's processor](https://fetch.spec.whatwg.org/#data-url-processor) — `Jint/WebApi/Fetch/DataUrl.cs`,
+the *only* implementation of it in the repository, which `Page.Navigation` also uses so that a navigation and
+a `<script src="data:…">` cannot disagree about the same URL. It runs before the network-scheme check and
+therefore before the `UrlFilter`, the jar and the redirect budget, because there is nothing there for any of
+them to decide — the same order `fetch`'s `blob` arm takes. **`MaxSubresourceBytes` still applies**: a page
+may not escape a size ceiling by inlining, and nothing is written to `Page.Requests`, because a page that
+opened no socket made no request. Forgiving-base64 and percent-decoding are what the processor uses and the
+BCL's stricter pair is not it: `data:;base64,YQ` decodes in a browser and throws in `Convert`.
+
+**A response URL carries its fragment, and that includes a script's.**
+[Fetch's response URL](https://fetch.spec.whatwg.org/#concept-response-url) is the request's — the fragment
+is left out of the request-target and of nothing else — so `ParserDriver.ResponseUrl` puts
+`SubresourceFetch`'s separately-carried fragment back on every answer rather than only a nested document's.
+It is what [report an exception](https://html.spec.whatwg.org/multipage/webappapis.html#report-an-exception)
+names, so without it `<script src="a.js#">` reported a URL its own `src` did not reflect.
 
 **A linked stylesheet completes after CSS processing, not after its fetch.** `PageStylingService` delegates
 the parse to AngleSharp.Css, then hands the completion to the driver. Both `load` and `error` are engine
@@ -132,10 +207,21 @@ frame's own frames, comes back here. Four things follow and each is load-bearing
 - **`BrowserOptions.MaxFrameDocuments` is counted over the load and not per document**, because a page
   pointing a frame at itself would otherwise recurse until the parser thread's stack ran out. `srcdoc` is
   neither counted nor refused: there is no request to answer.
-- **`contentDocument` is `Dom/DomFrameMembers`, not the generated body**, because HTML answers `null` for a
-  document that is not same origin with the one asking. `contentWindow` is `null` rather than absent — a
-  frame has no second global object to be one, and `'contentWindow' in frame` and `if (frame.contentWindow)`
-  disagree about a member that is missing and one that is null.
+- **`contentDocument` and `contentWindow` are `Dom/DomFrameMembers`, not the generated bodies**, because
+  HTML answers `null` for a document that is not same origin with the one asking. `contentWindow` answers a
+  window built by `Runtime/FrameWindows` — one object per frame, whose `[[Prototype]]` is the page's global,
+  so the realm is shared and only what a frame answers differently is an own property. A frame with no
+  document has `contentWindow === null` rather than absent: `'contentWindow' in frame` and
+  `if (frame.contentWindow)` disagree about a member that is missing and one that is null.
+
+**A frame's window is an object on the page's realm, not a realm of its own.** `Runtime/FrameWindows` builds
+one object per frame whose `[[Prototype]]` is the page's global, so every interface object and intrinsic is
+inherited and only what a frame answers differently is an own property — itself for `window`/`self`/`frames`,
+the page for `parent`/`top`, its own `document`, `frameElement`, `length`, `name`, `origin` and `location`.
+`contentWindow !== window` and `frames[0] === contentWindow` hold; `contentWindow.DOMException ===
+DOMException` also holds, which is the divergence one realm buys and `Dom/divergences.md` records. A write to
+a frame's `location` throws rather than doing nothing, and the class says which corpus document taught it
+that a silent no-op is a hang.
 
 **`document.write` after the parse is refused.** During one it is AngleSharp's own call and it is right — its
 writable text source inserts at the parser's index and the script processor restores the index afterwards, so

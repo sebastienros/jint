@@ -35,7 +35,7 @@ public interface IParsingOptions
     /// <see langword="null"/> means the same thing for a prepared script or module as for any other source.
     /// Preparation happens where there is no engine, and through 4.16.x it therefore baked in Jint's own
     /// ten-second default: a host that had tightened the constraint for security and then adopted
-    /// <see cref="Engine.PrepareScript"/> ran at ten seconds and nothing said so. The timeout is now left
+    /// <see cref="Engine.PrepareScript(string, string, bool, ScriptPreparationOptions)"/> ran at ten seconds and nothing said so. The timeout is now left
     /// unresolved at prepare time and read from the executing engine instead, so one prepared program
     /// shared across engines observes each engine's own budget.
     /// </para>

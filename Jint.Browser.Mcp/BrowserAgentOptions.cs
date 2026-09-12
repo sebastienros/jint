@@ -63,6 +63,26 @@ public sealed class BrowserAgentOptions
     /// </remarks>
     public Func<Uri, bool>? UrlFilter { get; set; }
 
+    /// <summary>
+    /// The one directory the <c>upload</c> tool may read files from, or <see langword="null"/> — the
+    /// default — for none, which refuses every upload.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Off by default because it is the one tool that can move data outwards.</b> Everything else here
+    /// sends the page only what the page already had; an upload sends a file from the machine the server is
+    /// running on to a site a model chose, and a model reading a page is a model that can be told what to
+    /// do by one. So a deployment names the directory out loud, the way it turns
+    /// <see cref="Trusted"/> on out loud, and everything outside it is refused.
+    /// </para>
+    /// <para>
+    /// The check is on the resolved path, with a symbolic link followed to its final target first — a link
+    /// inside the directory pointing outside it is exactly the shape it exists to refuse — and it is
+    /// case-sensitive wherever the file system is.
+    /// </para>
+    /// </remarks>
+    public string? UploadDirectory { get; set; }
+
     /// <summary>Builds what every page of the server's browser is made from.</summary>
     internal BrowserOptions ToBrowserOptions()
     {

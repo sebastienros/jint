@@ -6,8 +6,9 @@ using Jint.Native.Symbol;
 namespace Jint.Tests.Browser;
 
 /// <summary>
-/// Every member the generator emits, held to the property attributes WebIDL gives its kind — which are the
-/// opposite of ECMAScript's for an operation, and therefore the opposite of a generator's natural default.
+/// Every member of every interface this package declares, held to the property attributes WebIDL gives its
+/// kind — which are the opposite of ECMAScript's for an operation, and therefore the opposite of a
+/// generator's natural default.
 /// </summary>
 /// <remarks>
 /// <para>The table, and the clause each row comes from:</para>
@@ -40,7 +41,8 @@ namespace Jint.Tests.Browser;
 /// <para>
 /// It walks every interface rather than a sample, because the attributes come from one call site per kind in
 /// the emitter and a mistake there is a mistake everywhere at once — which is exactly the shape of bug a
-/// spot-check misses.
+/// spot-check misses. <c>DomManualInterfaces</c>' rows are walked with them: a shape written by hand is the
+/// one that has no emitter to be right once for, so it is the one most in need of the check.
 /// </para>
 /// </remarks>
 public sealed class WebIdlPropertyAttributeTests
@@ -52,7 +54,7 @@ public sealed class WebIdlPropertyAttributeTests
         var realm = DomRealm.Of(fixture.Engine);
         var violations = new List<string>();
 
-        foreach (var definition in DomInterfaces.All)
+        foreach (var definition in Declared())
         {
             var prototype = realm.PrototypeOf(definition);
 
@@ -132,13 +134,19 @@ public sealed class WebIdlPropertyAttributeTests
         using var fixture = DomTestFixture.Create("<div></div>");
         var realm = DomRealm.Of(fixture.Engine);
 
-        foreach (var definition in DomInterfaces.All)
+        foreach (var definition in Declared())
         {
             var prototype = realm.PrototypeOf(definition);
             prototype.Get(GlobalSymbolRegistry.ToStringTag).AsString()
                 .Should().Be(definition.Name, "{0}.prototype declares its own @@toStringTag", definition.Name);
         }
     }
+
+    /// <summary>
+    /// Every interface with a prototype in the chain: the generated ones and the handful
+    /// <c>DomManualInterfaces</c> declares because AngleSharp has no <c>[DomName]</c> for them.
+    /// </summary>
+    private static IEnumerable<DomInterfaceDefinition> Declared() => DomInterfaces.All.Concat(DomManualInterfaces.All);
 
     private static Jint.Runtime.Descriptors.PropertyDescriptor PropertyDescriptorPlaceholder
         => Jint.Runtime.Descriptors.PropertyDescriptor.Undefined;

@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Reflection;
 using System.Text;
 using static Jint.Browser.BindingGenerator.Inventory;
@@ -92,13 +92,15 @@ internal sealed class ModelBuilder
             LookupInterface,
             t => _stringEnums.Contains(t.FullName!),
             (member, index) => IsListedParameter(_overrides.NullableParameters, member, index),
-            (member, index) => IsListedParameter(_overrides.NonNullableParameters, member, index));
+            (member, index) => IsListedParameter(_overrides.NonNullableParameters, member, index),
+            IsNullToEmptyString);
 
         foreach (var model in _byClrName.Values)
         {
             model.Parent = FindParent(model.ClrType);
             model.RootsAtEventTarget = model.ClrType.GetInterfaces().Any(i => i.FullName == "AngleSharp.Dom.IEventTarget");
             model.Kind = KindOf(model.ClrType);
+            ApplyManualProjection(model);
         }
 
         foreach (var model in _byClrName.Values.OrderBy(m => m.DomName, StringComparer.Ordinal))
@@ -108,6 +110,7 @@ internal sealed class ModelBuilder
         }
 
         BuildConstants();
+        BuildUnscopables();
 
         _model.Interfaces.AddRange(TopologicalOrder());
         VerifyOverridesMatchTheAssemblies();
@@ -313,6 +316,56 @@ internal sealed class ModelBuilder
         return best;
     }
 
+    /// <summary>
+    /// The two halves of a <c>manual</c> entry the CLR metadata answers wrongly: which wrapper class the
+    /// interface's instances get, and what its prototype inherits. Both are absent for every entry that only
+    /// hand-writes a shape, and an unknown value is a diagnostic rather than a silent fallback.
+    /// </summary>
+    private void ApplyManualProjection(InterfaceModel model)
+    {
+        var entry = _overrides.Manual.FirstOrDefault(m => m.Interface == model.ClrType.FullName);
+        if (entry is null)
+        {
+            return;
+        }
+
+        if (entry.Wrapper is { Length: > 0 } wrapper)
+        {
+            if (Enum.TryParse<WrapperKind>(wrapper, out var kind))
+            {
+                model.Kind = kind;
+            }
+            else
+            {
+                _model.Diagnostics.Add(
+                    "overrides.json's manual entry for '" + entry.Interface + "' (" + entry.Reason
+                    + ") asks for wrapper kind '" + wrapper + "', which is not a DomWrapperKind.");
+            }
+        }
+
+        if (entry.Inherits is not { } inherits)
+        {
+            return;
+        }
+
+        if (inherits.Length == 0)
+        {
+            model.Parent = null;
+            return;
+        }
+
+        var parent = _byClrName.Values.FirstOrDefault(m => m.DomName == inherits);
+        if (parent is null)
+        {
+            _model.Diagnostics.Add(
+                "overrides.json's manual entry for '" + entry.Interface + "' (" + entry.Reason
+                + ") inherits '" + inherits + "', which the pinned assemblies do not project.");
+            return;
+        }
+
+        model.Parent = parent;
+    }
+
     private InterfaceModel? LookupInterface(Type type)
         => DefinitionName(type) is { } name && _byClrName.TryGetValue(name, out var model) ? model : null;
 
@@ -320,7 +373,13 @@ internal sealed class ModelBuilder
     {
         if (type.GetInterfaces().Any(i => i.FullName == "AngleSharp.Dom.INode") || type.FullName == "AngleSharp.Dom.INode")
         {
-            return WrapperKind.Node;
+            // A node that also supports indexed or named properties. HTML gives two of them a getter -
+            // `form[0]` / `form.username` and `select[0]` - and the projection has to ride on the node
+            // wrapper, because a node's wrapper is what the tree-dispatch lane keys on and there is only
+            // ever one of it per node.
+            return FindIndexedGetter(type) is not null || FindNamedGetter(type) is not null
+                ? WrapperKind.IndexedNode
+                : WrapperKind.Node;
         }
 
         if (type.FullName == "AngleSharp.Dom.IHtmlCollection`1"
@@ -434,8 +493,16 @@ internal sealed class ModelBuilder
             {
                 if (!seen.Add(domName))
                 {
-                    _model.Diagnostics.Add(
-                        model.DomName + "." + domName + " is declared more than once in the interface closure; the first declaration wins (" + declaring.Name + "." + member.Name + " lost).");
+                    // A member the table has taken over is not news: `skip` means the projection of every
+                    // declaration under that name is replaced, so a second one losing is the decision rather
+                    // than a consequence of it. HTML's two union operations are exactly that, and a
+                    // collision anywhere else is still something nobody has looked at.
+                    if (!_overrides.Skip.Any(entry => entry.Interface == model.DomName && entry.Member == domName && entry.Half is null))
+                    {
+                        _model.Diagnostics.Add(
+                            model.DomName + "." + domName + " is declared more than once in the interface closure; the first declaration wins (" + declaring.Name + "." + member.Name + " lost).");
+                    }
+
                     continue;
                 }
 
@@ -487,14 +554,14 @@ internal sealed class ModelBuilder
     /// <summary>
     /// HTML §2.6.1's reflected content attributes: the accessor pair is the reflection algorithm its type
     /// names, over the content attribute, and it <b>replaces</b> whatever the pinned assemblies projected
-    /// under that name.
+    /// under that name — or, when the entry is <c>setterOnly</c>, replaces that projection's setter alone.
     /// </summary>
     /// <remarks>
     /// The replacement is the whole point and is the opposite of what <c>additions</c> does. A reflected
     /// attribute is usually one AngleSharp <em>does</em> project, from a CLR property whose getter hands back
     /// the raw attribute value, or parses it with a different default, or lower-cases nothing; the entry says
     /// which of HTML's thirteen algorithms it really is. What the entry can never do is silently shadow: the
-    /// report names every one and says whether it replaced a projection or added a member.
+    /// report names every one and says whether it replaced a projection, added a member, or supplied a setter.
     /// </remarks>
     private void BuildReflectedMembers(InterfaceModel model)
     {
@@ -510,23 +577,85 @@ internal sealed class ModelBuilder
                 continue;
             }
 
+            // A getter hook beside a reflected entry is the shape of an IDL attribute whose *write* is
+            // HTML's reflection and whose *read* is not: `img.width` and `img.height` set the content
+            // attribute and answer the density-corrected intrinsic size of an available image, which no
+            // reflection algorithm can express. Reaching for `skip` + `additions` instead would give up the
+            // parsing rules the entry is here for.
+            var getterHook = _overrides.Hooks.FirstOrDefault(h =>
+                h.Interface == model.DomName && h.Member == entry.Member && h.Half == "getter");
+
+            var projected = model.Members.Find(m => m.DomName == entry.Member);
+            var preserved = "";
+
+            if (entry.SetterOnly && !TrySetterOnlyRead(model, entry, projected, getterHook, out preserved))
+            {
+                continue;
+            }
+
             var qualified = model.DomName + "." + entry.Member;
             var field = model.FieldName + char.ToUpperInvariant(entry.Member[0]) + entry.Member[1..];
             var replaced = model.Members.RemoveAll(m => m.DomName == entry.Member) > 0;
 
-            _model.Reflected.Add(new ReflectedModel(field, qualified, entry.Attribute, entry.Type, factory, replaced));
+            _model.Reflected.Add(
+                new ReflectedModel(field, qualified, entry.Attribute, entry.Type, factory, replaced, entry.SetterOnly));
 
             var descriptor = "global::Jint.Browser.Dom.DomReflected." + field;
+
+            var read = getterHook is null
+                ? descriptor + (entry.Type == "url" ? ".Get(self.Realm, self.Target)" : ".Get(self.Target)")
+                : "self.Realm.Hooks." + getterHook.Hook + "(self.Realm, self.Target)";
 
             model.Members.Add(new MemberModel
             {
                 DomName = entry.Member,
                 Kind = MemberKind.Attribute,
-                Body = Bind(model, qualified) + "return " + descriptor + ".Get(self.Target);",
+                Body = entry.SetterOnly ? preserved : Bind(model, qualified) + "return " + read + ";",
                 SetterBody = Bind(model, qualified) + "return " + descriptor + ".Set(self.Realm, self.Target, args);",
                 Origin = "overrides.json (reflected)",
             });
         }
+    }
+
+    /// <summary>
+    /// The getter body a <c>setterOnly</c> entry keeps, or a diagnostic saying why the entry has none.
+    /// </summary>
+    /// <remarks>
+    /// <c>setterOnly</c> is the form for an IDL attribute HTML defines as reflecting <em>on setting</em>
+    /// while its getter computes something reflection cannot express — and where the pinned assemblies
+    /// already compute it. <c>&lt;meter&gt;</c>'s six members are that case: AngleSharp implements HTML
+    /// §4.10.14's clamping and defaults, so replacing their getters would be a regression, while their
+    /// setters write the number with .NET's format rather than HTML's. Both of the ways an entry can be
+    /// wrong about that are refused rather than generated: a member with nothing projected under its name
+    /// has no getter to keep, and one that also carries a getter hook has named two answers for one read.
+    /// </remarks>
+    private bool TrySetterOnlyRead(
+        InterfaceModel model,
+        Overrides.ReflectedEntry entry,
+        MemberModel? projected,
+        Overrides.HookEntry? getterHook,
+        out string read)
+    {
+        read = projected?.Body ?? "";
+
+        if (projected is null)
+        {
+            _model.Diagnostics.Add(
+                "overrides.json reflects only the setter of " + model.DomName + "." + entry.Member + " ("
+                + entry.Reason + "), but the pinned assemblies project no getter to keep.");
+            return false;
+        }
+
+        if (getterHook is not null)
+        {
+            _model.Diagnostics.Add(
+                "overrides.json reflects only the setter of " + model.DomName + "." + entry.Member + " ("
+                + entry.Reason + ") and also routes its getter through the " + getterHook.Hook
+                + " hook; the read cannot be both.");
+            return false;
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -541,6 +670,11 @@ internal sealed class ModelBuilder
 
         var qualified = CSharpNames.Literal(model.DomName + "." + entry.Member);
         var attribute = CSharpNames.Literal(entry.Attribute);
+
+        if (!TryReflectedTarget(model, entry, out var target))
+        {
+            return false;
+        }
 
         if (entry.Type == "enum")
         {
@@ -561,19 +695,23 @@ internal sealed class ModelBuilder
             var invalid = entry.Invalid is null ? "null" : CSharpNames.Literal(entry.Invalid);
 
             factory = "ReflectedAttribute.Enumerated(" + qualified + ", " + attribute + ", " + keywords
-                + ", missing: " + missing + ", invalid: " + invalid + ")";
+                + ", missing: " + missing + ", invalid: " + invalid + target + ")";
             return true;
         }
 
         if (entry.Type == "string")
         {
-            factory = "ReflectedAttribute.Text(" + qualified + ", " + attribute + (entry.Nullable ? ", nullable: true" : "") + ")";
+            factory = "ReflectedAttribute.Text(" + qualified + ", " + attribute
+                + (entry.Nullable ? ", nullable: true" : "")
+                + (entry.LegacyNullToEmptyString ? ", legacyNullToEmptyString: true" : "")
+                + target + ")";
             return true;
         }
 
         if (entry.Type == "url")
         {
-            factory = "ReflectedAttribute.Url(" + qualified + ", " + attribute + ")";
+            factory = "ReflectedAttribute.Url(" + qualified + ", " + attribute
+                + (entry.DocumentUrlWhenEmpty ? ", documentUrlWhenEmpty: true" : "") + ")";
             return true;
         }
 
@@ -581,6 +719,30 @@ internal sealed class ModelBuilder
         {
             factory = "ReflectedAttribute.Boolean(" + qualified + ", " + attribute + ")";
             return true;
+        }
+
+        // Not one of HTML §2.6.1's reflection types and deliberately spelled as its own: §2.5.3's `nonce`
+        // reads and writes an internal slot, so its setter leaves the content attribute alone.
+        if (entry.Type == "nonce")
+        {
+            factory = "ReflectedAttribute.Nonce(" + qualified + ", " + attribute + ")";
+            return true;
+        }
+
+        if (entry.DocumentUrlWhenEmpty)
+        {
+            _model.Diagnostics.Add(
+                "overrides.json reflects " + model.DomName + "." + entry.Member + " (" + entry.Reason
+                + ") as '" + entry.Type + "' with documentUrlWhenEmpty, which HTML only puts on a URL attribute.");
+            return false;
+        }
+
+        if (entry.LegacyNullToEmptyString)
+        {
+            _model.Diagnostics.Add(
+                "overrides.json reflects " + model.DomName + "." + entry.Member + " (" + entry.Reason
+                + ") as '" + entry.Type + "' with legacyNullToEmptyString, which WebIDL only puts on a DOMString.");
+            return false;
         }
 
         if (!_numericKinds.TryGetValue(entry.Type, out var numeric))
@@ -609,7 +771,58 @@ internal sealed class ModelBuilder
         return true;
     }
 
+    /// <summary>
+    /// The <c>target:</c> argument one entry's factory takes, or a diagnostic saying why the entry cannot
+    /// have one.
+    /// </summary>
+    /// <remarks>
+    /// HTML's six members that reflect an attribute of another element are all on <c>Document</c> and are
+    /// all a string or an enumeration — §3.2.6.4's <c>dir</c> off the <c>html</c> element and §16.3's five
+    /// obsolete colours off the <c>body</c> element. Both halves are checked here rather than assumed,
+    /// because a row that named a target on a member whose accessor pair could not take one would generate
+    /// a member that silently reflected the wrong element.
+    /// </remarks>
+    private bool TryReflectedTarget(InterfaceModel model, Overrides.ReflectedEntry entry, out string target)
+    {
+        target = "";
+
+        if (entry.Target is null)
+        {
+            return true;
+        }
+
+        if (entry.Type is not ("string" or "enum"))
+        {
+            _model.Diagnostics.Add(
+                "overrides.json reflects " + model.DomName + "." + entry.Member + " (" + entry.Reason
+                + ") onto another element as '" + entry.Type + "'; only a string or an enumeration can.");
+            return false;
+        }
+
+        if (model.DomName != "Document")
+        {
+            _model.Diagnostics.Add(
+                "overrides.json reflects " + model.DomName + "." + entry.Member + " (" + entry.Reason
+                + ") onto another element; only a Document member does that, because the accessor pair"
+                + " that resolves a target takes an IDocument.");
+            return false;
+        }
+
+        if (entry.Target is not ("documentElement" or "body"))
+        {
+            _model.Diagnostics.Add(
+                "overrides.json reflects " + model.DomName + "." + entry.Member + " (" + entry.Reason
+                + ") onto '" + entry.Target + "', which is neither documentElement nor body.");
+            return false;
+        }
+
+        target = ", target: ReflectedTarget."
+            + (entry.Target == "documentElement" ? "DocumentElement" : "Body");
+        return true;
+    }
+
     /// <summary>A C# <c>double</c> literal that round-trips, for a reflected attribute's default value.</summary>
+
     private static string Number(double value) => value.ToString("R", CultureInfo.InvariantCulture);
 
     /// <summary>
@@ -700,15 +913,6 @@ internal sealed class ModelBuilder
             return;
         }
 
-        // `length` on a collection is an OWN property of the wrapper, put there by ArrayLikeObject, so a
-        // prototype accessor of the same name could only ever be shadowed. The deviation from a browser —
-        // which has it on the interface prototype — is documented on DomCollectionBase.
-        if (domName == "length" && model.Kind is WrapperKind.Collection or WrapperKind.HtmlCollection)
-        {
-            _model.Skipped.Add(new SkipRecord(model.DomName, domName, "is an own property of the collection wrapper (ArrayLikeObject), a documented deviation from putting it on the prototype"));
-            return;
-        }
-
         if (member is MethodInfo method)
         {
             // An extension method carrying Accessors.Getter is an IDL attribute, not an operation: it is how
@@ -729,11 +933,11 @@ internal sealed class ModelBuilder
             {
                 if (model.Kind is WrapperKind.Node)
                 {
-                    // An indexed or named getter needs a property projection, and a node wrapper is a
-                    // JsEventTarget rather than an ArrayLikeObject, so it has none. `form[0]` and
-                    // `form.username` are the two that lose by it; `form.elements[0]` and
-                    // `form.elements.namedItem('username')` are the same values through the collection.
-                    _model.Skipped.Add(new SkipRecord(model.DomName, domName, "is an indexed or named getter on a node, and a node wrapper carries no property projection; the collection member beside it carries the same values"));
+                    // A node whose interface declares an indexed or named getter is an IndexedNode and
+                    // carries the projection; a plain Node reaching here would be one whose getter the
+                    // conversion table could not express, and the collection member beside it carries the
+                    // same values.
+                    _model.Skipped.Add(new SkipRecord(model.DomName, domName, "is an indexed or named getter the conversion table could not project; the collection member beside it carries the same values"));
                     return;
                 }
 
@@ -971,7 +1175,12 @@ internal sealed class ModelBuilder
 
         if (_overrides.Hooks.FirstOrDefault(h => h.Interface == model.DomName && h.Member == domName && h.Half == "setter") is { } hook)
         {
-            return "self.Realm.Hooks." + hook.Hook + "(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, " + CSharpNames.Literal(qualified) + ")); return global::Jint.Native.JsValue.Undefined;";
+            if (!TryHookedValue(model, property, domName, qualified, out var hooked))
+            {
+                return null;
+            }
+
+            return "self.Realm.Hooks." + hook.Hook + "(self.Realm, self.Target, " + hooked + "); return global::Jint.Native.JsValue.Undefined;";
         }
 
         if (extensionSetter is not null)
@@ -1015,6 +1224,30 @@ internal sealed class ModelBuilder
         }
 
         return "self.Target." + property.Name + " = " + assigned + "; return global::Jint.Native.JsValue.Undefined;";
+    }
+
+    /// <summary>
+    /// The value a <c>hooks</c> setter is handed. It is the attribute's <i>own</i> IDL conversion, read from
+    /// the CLR setter the hook stands in front of, because a hooked attribute is not necessarily a
+    /// <c>DOMString</c> one: <c>option.selected = 'x'</c> is WebIDL's <c>ToBoolean</c>. A hook over a member
+    /// with no writable CLR property is standing in front of a <c>[PutForwards]</c> pair instead
+    /// (<c>document.location</c>), whose own IDL type is a <c>DOMString</c>.
+    /// </summary>
+    private bool TryHookedValue(InterfaceModel model, PropertyInfo property, string domName, string qualified, out string value)
+    {
+        if (!property.CanWrite)
+        {
+            value = "global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, " + CSharpNames.Literal(qualified) + ")";
+            return true;
+        }
+
+        if (_conversions.TryParameter(property.SetMethod!.GetParameters()[0], 0, qualified, null, ParameterRole.AttributeValue, out value, out var reason))
+        {
+            return true;
+        }
+
+        _model.Diagnostics.Add(model.DomName + "." + domName + " routes its setter through a hook, but the value it would be handed " + reason + "; the attribute stays read-only.");
+        return false;
     }
 
     /// <summary>
@@ -1089,6 +1322,24 @@ internal sealed class ModelBuilder
     }
 
     /// <summary>
+    /// Whether an IDL attribute's setter carries <c>[LegacyNullToEmptyString]</c>. The qualified name is what
+    /// the emitted conversion already carries, so the lookup needs nothing the caller does not have.
+    /// </summary>
+    private bool IsNullToEmptyString(string qualified)
+    {
+        var dot = qualified.LastIndexOf('.');
+        if (dot <= 0)
+        {
+            return false;
+        }
+
+        var iface = qualified[..dot];
+        var member = qualified[(dot + 1)..];
+
+        return _overrides.NullToEmptyStrings.Any(n => n.Interface == iface && n.Member == member);
+    }
+
+    /// <summary>
     /// https://webidl.spec.whatwg.org/#dfn-create-operation-function - an operation's <c>length</c> is the
     /// number of arguments it requires, so an optional or variadic parameter does not count. Shared by the
     /// generated members and the hook-backed ones, because a hook standing in front of a member must not
@@ -1108,7 +1359,7 @@ internal sealed class ModelBuilder
 
     private void BuildAccessor(InterfaceModel model)
     {
-        if (model.Kind is not (WrapperKind.Collection or WrapperKind.NamedMap))
+        if (model.Kind is not (WrapperKind.Collection or WrapperKind.NamedMap or WrapperKind.IndexedNode))
         {
             return;
         }
@@ -1121,7 +1372,7 @@ internal sealed class ModelBuilder
         builder.Append("internal sealed class ").Append(className).Append(" : DomCollectionAccessor\n{\n");
         builder.Append("    internal static readonly ").Append(className).Append(" Instance = new();\n\n");
 
-        if (model.Kind == WrapperKind.Collection)
+        if (model.Kind is WrapperKind.Collection or WrapperKind.IndexedNode && FindIndexedGetter(model.ClrType) is not null)
         {
             var length = FindLength(model.ClrType);
             var indexed = FindIndexedGetter(model.ClrType)!;
@@ -1136,17 +1387,21 @@ internal sealed class ModelBuilder
                 ? readOnlyList.GetGenericArguments()[0]
                 : indexed.PropertyType;
 
+            // A node keeps its node wrapper whatever happens here, because the tree-dispatch lane keys on it;
+            // only the projection is lost.
+            var fallback = model.Kind == WrapperKind.IndexedNode ? WrapperKind.Node : WrapperKind.Object;
+
             if (length is null)
             {
-                _model.Diagnostics.Add(model.DomName + " has an indexed getter but no length; it is wrapped as a plain object instead.");
-                model.Kind = WrapperKind.Object;
+                _model.Diagnostics.Add(model.DomName + " has an indexed getter but no length; its indexed properties are dropped.");
+                model.Kind = fallback;
                 return;
             }
 
             if (!_conversions.TryReturn(elementType, access, "realm", nullableString: false, out var element, out var reason))
             {
-                _model.Diagnostics.Add(model.DomName + " has an indexed getter whose element " + reason + "; it is wrapped as a plain object instead.");
-                model.Kind = WrapperKind.Object;
+                _model.Diagnostics.Add(model.DomName + " has an indexed getter whose element " + reason + "; its indexed properties are dropped.");
+                model.Kind = fallback;
                 return;
             }
 
@@ -1209,7 +1464,29 @@ internal sealed class ModelBuilder
             // non-enumerable rather than hidden.
             var length = FindLength(model.ClrType);
             var itemName = ItemNameProperty(model.ClrType);
-            if (length is null || itemName is null)
+
+            // https://html.spec.whatwg.org/multipage/forms.html#dom-form-item - a form's supported property
+            // names are the `name` content attributes and the ids of its listed elements, in tree order, and
+            // an element carries neither as a [DomName] member the heuristic above could find: `name` is a
+            // content attribute rather than an IDL one on IElement. It is the one named getter over elements
+            // in the surface, so the rule is written once, here, rather than made a table entry.
+            var elementItems = FindIndexedGetter(model.ClrType) is { } indexedGetter
+                && Closure(indexedGetter.PropertyType).Any(t => t.FullName == "AngleSharp.Dom.IElement");
+
+            if (length is not null && itemName is null && elementItems)
+            {
+                builder.Append("    internal override global::System.Collections.Generic.IReadOnlyList<string> SupportedNames(object target)\n    {\n");
+                builder.Append("        var collection = (").Append(target).Append(") target;\n");
+                builder.Append("        var names = new global::System.Collections.Generic.List<string>(collection.").Append(length.Name).Append(");\n");
+                builder.Append("        for (var i = 0; i < collection.").Append(length.Name).Append("; i++)\n        {\n");
+                builder.Append("            var item = collection[i];\n");
+                builder.Append("            if (item is null)\n            {\n                continue;\n            }\n\n");
+                builder.Append("            Add(names, item.GetAttribute(\"name\"));\n");
+                builder.Append("            Add(names, item.Id);\n        }\n\n        return names;\n\n");
+                builder.Append("        static void Add(global::System.Collections.Generic.List<string> names, string? name)\n        {\n");
+                builder.Append("            if (!string.IsNullOrEmpty(name) && !names.Contains(name!))\n            {\n                names.Add(name!);\n            }\n        }\n    }\n\n");
+            }
+            else if (length is null || itemName is null)
             {
                 builder.Append("    internal override global::System.Collections.Generic.IReadOnlyList<string> SupportedNames(object target) => [];\n\n");
             }
@@ -1222,7 +1499,12 @@ internal sealed class ModelBuilder
                 builder.Append("            names.Add(collection[i]!.").Append(itemName.Name).Append(");\n        }\n\n        return names;\n    }\n\n");
             }
 
-            builder.Append("    internal override bool AreNamesEnumerable => false;\n\n");
+            // https://webidl.spec.whatwg.org/#LegacyUnenumerableNamedProperties, which NamedNodeMap and
+            // HTMLCollection carry and HTMLFormElement does not: a form's named properties enumerate.
+            if (!elementItems)
+            {
+                builder.Append("    internal override bool AreNamesEnumerable => false;\n\n");
+            }
         }
 
         builder.Append("    internal override bool TryGetNamed(DomRealm realm, object target, string name, out global::Jint.Native.JsValue value)\n    {\n");
@@ -1355,6 +1637,47 @@ internal sealed class ModelBuilder
 
     // ---------------------------------------------------------------------------------------------------
 
+    /// <summary>
+    /// https://webidl.spec.whatwg.org/#Unscopable - the <c>[Unscopable]</c> members of each interface, from
+    /// <c>overrides.json</c>'s <c>unscopables</c> list.
+    /// </summary>
+    /// <remarks>
+    /// It runs after the members are built, because that is what makes the check possible: a name the
+    /// interface does not declare is a diagnostic rather than a key silently added to an object Web IDL
+    /// builds out of the interface's own members. The list is sorted so the emitted array is stable whatever
+    /// order the table is written in.
+    /// </remarks>
+    private void BuildUnscopables()
+    {
+        foreach (var entry in _overrides.Unscopables)
+        {
+            var model = _byClrName.Values.FirstOrDefault(m => m.DomName == entry.Interface);
+
+            if (model is null)
+            {
+                _model.Diagnostics.Add(
+                    "overrides.json marks members of '" + entry.Interface + "' unscopable (" + entry.Reason
+                    + "), which the pinned assemblies do not project.");
+                continue;
+            }
+
+            foreach (var member in entry.Members)
+            {
+                if (!model.Members.Any(m => m.DomName == member))
+                {
+                    _model.Diagnostics.Add(
+                        "overrides.json marks '" + entry.Interface + "." + member + "' unscopable ("
+                        + entry.Reason + "), but that interface declares no such member.");
+                    continue;
+                }
+
+                model.Unscopables.Add(member);
+            }
+
+            model.Unscopables.Sort(StringComparer.Ordinal);
+        }
+    }
+
     private void VerifyOverridesMatchTheAssemblies()
     {
         var known = new HashSet<string>(StringComparer.Ordinal);
@@ -1390,6 +1713,11 @@ internal sealed class ModelBuilder
         foreach (var entry in _overrides.NullableStrings)
         {
             Check("nullableStrings", entry.Interface, entry.Member, entry.Reason);
+        }
+
+        foreach (var entry in _overrides.NullToEmptyStrings)
+        {
+            Check("nullToEmptyStrings", entry.Interface, entry.Member, entry.Reason);
         }
 
         foreach (var entry in _overrides.NullableParameters)
@@ -1455,6 +1783,16 @@ internal sealed class ModelBuilder
             if (!_assemblies.SelectMany(a => a.GetTypes()).Any(t => t.FullName == entry.Interface))
             {
                 _model.Diagnostics.Add("overrides.json excludes '" + entry.Interface + "' (" + entry.Reason + "), which is not in the pinned assemblies.");
+            }
+        }
+
+        // A manual entry names a CLR interface the generator has to have projected, or its hand-written shape
+        // reaches no prototype at all - which is silent, because nothing else in the pipeline reads the entry.
+        foreach (var entry in _overrides.Manual)
+        {
+            if (!_byClrName.ContainsKey(entry.Interface))
+            {
+                _model.Diagnostics.Add("overrides.json hand-writes '" + entry.Interface + "' (" + entry.Reason + "), which the pinned assemblies do not project.");
             }
         }
 

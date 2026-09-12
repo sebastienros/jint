@@ -1,6 +1,7 @@
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
 using Jint.Native;
+using Jint.Native.Array;
 
 namespace Jint.Browser.Dom.Collections;
 
@@ -31,6 +32,9 @@ internal sealed class DomHtmlCollectionObject<T> : DomCollectionBase where T : c
     public override uint Length => (uint) _collection.Length;
 
     /// <inheritdoc />
+    protected override bool IgnoreNamedPropertiesInSet => true;
+
+    /// <inheritdoc />
     public override bool TryGetIndex(uint index, out JsValue value)
     {
         if (index >= (uint) _collection.Length)
@@ -50,13 +54,14 @@ internal sealed class DomHtmlCollectionObject<T> : DomCollectionBase where T : c
     /// https://dom.spec.whatwg.org/#interface-htmlcollection — the supported property names are every
     /// element's non-empty <c>id</c> plus every HTML element's non-empty <c>name</c>, in tree order, without
     /// duplicates. The standard says "neither the empty string nor already in result" of both, which is the
-    /// half of the rule <see cref="TryGetNamedValue"/> carries the other half of.
+    /// half of the rule <see cref="TryGetNamedValue"/> carries the other half of. An ordinary own property
+    /// is listed by the base class instead of being projected here.
     /// </summary>
     protected override int NameCount
     {
         get
         {
-            _names = SupportedNames();
+            _names = VisibleNames();
             return _names.Count;
         }
     }
@@ -73,40 +78,71 @@ internal sealed class DomHtmlCollectionObject<T> : DomCollectionBase where T : c
     protected override bool IsNameEnumerable(string name) => false;
 
     /// <summary>
+    /// https://webidl.spec.whatwg.org/#dfn-named-property-visibility: an ordinary own property wins over
+    /// a supported name, including when the matching element appeared after the property was created.
+    /// </summary>
+    protected override bool TryGetNamedValue(string name, out JsValue value)
+    {
+        if (HasStoredProperty(name))
+        {
+            value = JsValue.Undefined;
+            return false;
+        }
+
+        value = NamedItem(name);
+        if (value.IsNull())
+        {
+            value = JsValue.Undefined;
+            return false;
+        }
+
+        return true;
+    }
+
+    // Query only ObjectInstance's ordinary property bag: GetOwnProperty would recurse through this projection.
+    private bool HasStoredProperty(string name) => base.TryGetProperty(name, out _);
+
+    /// <summary>
     /// <a href="https://html.spec.whatwg.org/multipage/common-dom-interfaces.html#dom-htmlcollection-nameditem">HTML's
     /// <c>namedItem</c></a>, whose first step is the empty string and whose second is the element lookup.
     /// </summary>
     /// <remarks>
-    /// <b>The empty string is refused before anything is searched, and it has to be here rather than left to
-    /// the search.</b> An element may carry <c>id=""</c> or <c>name=""</c> — the HTML parser builds both, and
-    /// AngleSharp's own named lookup matches them — so without step 1 a collection answered for a name
-    /// <see cref="NameCount"/> had already declined to list, which is the projection's three hooks
-    /// disagreeing at the same instant. It is one refusal for all three views, because <c>HasName</c> derives
-    /// from this and so does <c>NamedItem</c>: <c>'' in collection</c>, <c>collection['']</c> and
-    /// <c>collection.namedItem('')</c> are one answer.
+    /// <para>
+    /// The search is written out rather than delegated to AngleSharp's <c>this[string]</c>, because HTML's
+    /// second step is "the <b>first</b> element for which <i>either</i> its ID is key, <i>or</i> it is in the
+    /// HTML namespace and its <c>name</c> content attribute is key" — one pass in tree order, and the
+    /// <c>name</c> half restricted to HTML elements. AngleSharp matches <c>name</c> on any element and does
+    /// so in a second pass after every id, so <c>document.createElementNS("", "img")</c> with
+    /// <c>name="qux"</c> answered from a collection that must not expose it. That is what made this operation
+    /// and <see cref="VisibleNames"/> disagree about one object, which
+    /// <c>dom/nodes/Element-children.html</c> asserts they never do.
+    /// </para>
+    /// <para>
+    /// The empty-name check is HTML's first step, and it comes first because an element carrying
+    /// <c>id=""</c> or <c>name=""</c> would otherwise match. This operation looks through expandos; only
+    /// property lookup applies the visibility check.
+    /// </para>
     /// </remarks>
-    protected override bool TryGetNamedValue(string name, out JsValue value)
+    internal override JsValue NamedItem(string name)
     {
-        // Step 1.
         if (name.Length == 0)
         {
-            value = JsValue.Undefined;
-            return false;
+            return JsValue.Null;
         }
 
-        // Step 2.
-        var item = _collection[name];
-        if (item is null)
+        foreach (var element in _collection)
         {
-            value = JsValue.Undefined;
-            return false;
+            if (string.Equals(element.Id, name, StringComparison.Ordinal)
+                || (element is IHtmlElement && string.Equals(element.GetAttribute("name"), name, StringComparison.Ordinal)))
+            {
+                return DomRealm.Wrap(element);
+            }
         }
 
-        value = DomRealm.Wrap(item);
-        return true;
+        return JsValue.Null;
     }
 
-    private List<string> SupportedNames()
+    private List<string> VisibleNames()
     {
         var names = new List<string>();
         foreach (var element in _collection)
@@ -121,9 +157,19 @@ internal sealed class DomHtmlCollectionObject<T> : DomCollectionBase where T : c
 
         return names;
 
-        static void Add(List<string> names, string? candidate)
+        void Add(List<string> names, string? candidate)
         {
-            if (!string.IsNullOrEmpty(candidate) && !names.Contains(candidate!, StringComparer.Ordinal))
+            // The base class lists an ordinary own property itself, in property-bag order. Do not also
+            // advertise a projected name for it, or enumeration and lookup would disagree.
+            if (!string.IsNullOrEmpty(candidate)
+                && !names.Contains(candidate!, StringComparer.Ordinal)
+                // A supported name spelling a canonical array index is unreachable as a property: the indexed
+                // half of the model answers that key and stops, which is why WebIDL leaves such a name out of
+                // [[OwnPropertyKeys]] and why ArrayLikeObject refuses to advertise one. namedItem still finds
+                // it. Without this, <div id="0"> made Object.keys() of a collection raise under
+                // host-contract verification, and listed a key that read as the element at index 0 without.
+                && ArrayInstance.ParseArrayIndex(candidate!) == uint.MaxValue
+                && !HasStoredProperty(candidate!))
             {
                 names.Add(candidate!);
             }

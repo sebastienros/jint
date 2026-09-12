@@ -301,6 +301,57 @@ public class FlatLayoutTests
         (await page.EvaluateAsync<double>("document.getElementById('r3').scrollTop")).Should().Be(0);
     }
 
+    /// <summary>
+    /// Documents made inside the page's realm have no viewport or layout. Their CSSOM View members must not
+    /// borrow the displayed document's boxes or virtual scroll offset.
+    /// </summary>
+    [Test]
+    public async Task InertDocumentsDoNotReadOrChangeTheDisplayedDocumentsLayout()
+    {
+        await using var browser = new global::Jint.Browser.Browser(
+            new BrowserOptions { Viewport = new Viewport(800, 64) });
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(Rows(20));
+
+        (await page.EvaluateAsync<string>(
+            """
+            (() => {
+              window.scrollTo(0, 48);
+              const parsed = new DOMParser().parseFromString('<main><button>other</button></main>', 'text/html');
+              const constructed = document.implementation.createHTMLDocument('other');
+              constructed.body.innerHTML = '<main><button>other</button></main>';
+
+              const answers = [];
+              for (const other of [parsed, constructed]) {
+                const element = other.querySelector('main');
+                const rect = element.getBoundingClientRect();
+                answers.push([
+                  other.elementFromPoint(10, 10) === null,
+                  other.elementsFromPoint(10, 10).length,
+                  other.scrollingElement === null,
+                  element.getClientRects().length,
+                  rect.x, rect.y, rect.width, rect.height,
+                  element.clientWidth, element.clientHeight,
+                  element.scrollWidth, element.scrollHeight,
+                  element.scrollTop, element.scrollLeft,
+                  element.offsetWidth, element.offsetHeight,
+                  element.offsetTop, element.offsetLeft,
+                  element.offsetParent === null,
+                ].join(':'));
+
+                other.documentElement.scrollTop = 200;
+                element.scrollIntoView();
+              }
+
+              answers.push(window.scrollY);
+              return answers.join('|');
+            })()
+            """)).Should().Be(
+            "true:0:true:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:true|" +
+            "true:0:true:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:true|48");
+        page.Errors.Should().BeEmpty();
+    }
+
     [Test]
     public async Task ScrollIntoViewBringsAnElementsRowToTheTop()
     {

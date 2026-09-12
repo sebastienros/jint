@@ -452,19 +452,37 @@ internal static class FetchTransport
             Timing = exchange.Timing,
         };
 
-        var interception = await observation.ResponseAsync(snapshot, cancellationToken).ConfigureAwait(false);
+        // The read/replay primitive lives here and nowhere else: this is the one frame that owns the unread
+        // content, so a prefix an observer took can be put back in front of it before anybody else looks.
+        var context = new FetchResponseInterceptionContext(snapshot, response);
+
+        FetchResponseInterception? interception;
+        try
+        {
+            interception = await observation.ResponseAsync(context, cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            context.Discard();
+            throw;
+        }
+
         if (interception is null)
         {
+            context.AttachReplay();
             return exchange;
         }
 
         if (interception.Kind == FetchInterceptionKind.Fail)
         {
+            context.Discard();
             throw new FetchFailureException(FetchFailureKind.PolicyDenied, interception.Reason ?? "A fetch observer failed the response.");
         }
 
         if (interception.Kind == FetchInterceptionKind.Fulfill)
         {
+            context.Discard();
+
             var substitute = new FetchExchange
             {
                 Response = BuildResponse(interception.Status, interception.StatusText, interception.Headers, interception.Body),
@@ -511,6 +529,8 @@ internal static class FetchTransport
             }
         }
 
+        // Last, so the replay content is built from the header list the interception settled on.
+        context.AttachReplay();
         return exchange;
     }
 
@@ -1267,6 +1287,11 @@ internal static class FetchTransport
         {
             throw new FetchFailureException(FetchFailureKind.Network, $"'{current.Serialize()}' answered a redirect to an unparsable location.");
         }
+
+        // https://fetch.spec.whatwg.org/#concept-response-location-url step 4: an omitted fragment carries
+        // the request's current fragment into the next hop. An explicitly empty fragment is not omitted and
+        // therefore replaces it, which is why this checks for null rather than an empty string.
+        target.Fragment ??= current.Fragment;
 
         return target;
     }

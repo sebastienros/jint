@@ -147,6 +147,7 @@ internal sealed class TimerFunctions
 
         var entry = new TimerEntry(
             _timers,
+            _realm,
             callback,
             extraArguments,
             delay,
@@ -211,7 +212,7 @@ internal sealed class TimerFunctions
             // Report the exception is HTML's report an exception, whose step 5 fires an `error` event at the
             // global scope before step 6 reaches the console. A no-op unless the GlobalEvents feature is on and
             // a script is listening; see WebApiEngineState.FireGlobalErrorEvent.
-            _engine._webApi?.FireGlobalErrorEvent(exception);
+            _engine._webApi?.FireGlobalErrorEvent(_realm, exception);
 
             // Only a JavaScriptException, which is exactly the class of failure a script could have caught
             // itself. Everything that exists to bound execution — ExecutionCanceledException,

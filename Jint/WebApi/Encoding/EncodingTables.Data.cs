@@ -58,14 +58,14 @@ internal static class EncodingTables
             case "utf-8":
             case "utf8":
             case "x-unicode20utf8":
-                entry = new EncodingEntry("utf-8", EncodingKind.Utf8, SingleByteIndex.None);
+                entry = new EncodingEntry("UTF-8", "utf-8", EncodingKind.Utf8, SingleByteIndex.None);
                 return true;
 
             case "866":
             case "cp866":
             case "csibm866":
             case "ibm866":
-                entry = new EncodingEntry("ibm866", EncodingKind.SingleByte, SingleByteIndex.Ibm866);
+                entry = new EncodingEntry("IBM866", "ibm866", EncodingKind.SingleByte, SingleByteIndex.Ibm866);
                 return true;
 
             case "csisolatin2":
@@ -77,7 +77,7 @@ internal static class EncodingTables
             case "iso88592":
             case "l2":
             case "latin2":
-                entry = new EncodingEntry("iso-8859-2", EncodingKind.SingleByte, SingleByteIndex.Iso88592);
+                entry = new EncodingEntry("ISO-8859-2", "iso-8859-2", EncodingKind.SingleByte, SingleByteIndex.Iso88592);
                 return true;
 
             case "csisolatin3":
@@ -89,7 +89,7 @@ internal static class EncodingTables
             case "iso88593":
             case "l3":
             case "latin3":
-                entry = new EncodingEntry("iso-8859-3", EncodingKind.SingleByte, SingleByteIndex.Iso88593);
+                entry = new EncodingEntry("ISO-8859-3", "iso-8859-3", EncodingKind.SingleByte, SingleByteIndex.Iso88593);
                 return true;
 
             case "csisolatin4":
@@ -101,7 +101,7 @@ internal static class EncodingTables
             case "iso88594":
             case "l4":
             case "latin4":
-                entry = new EncodingEntry("iso-8859-4", EncodingKind.SingleByte, SingleByteIndex.Iso88594);
+                entry = new EncodingEntry("ISO-8859-4", "iso-8859-4", EncodingKind.SingleByte, SingleByteIndex.Iso88594);
                 return true;
 
             case "csisolatincyrillic":
@@ -112,7 +112,7 @@ internal static class EncodingTables
             case "iso-ir-144":
             case "iso8859-5":
             case "iso88595":
-                entry = new EncodingEntry("iso-8859-5", EncodingKind.SingleByte, SingleByteIndex.Iso88595);
+                entry = new EncodingEntry("ISO-8859-5", "iso-8859-5", EncodingKind.SingleByte, SingleByteIndex.Iso88595);
                 return true;
 
             case "arabic":
@@ -129,7 +129,7 @@ internal static class EncodingTables
             case "iso-ir-127":
             case "iso8859-6":
             case "iso88596":
-                entry = new EncodingEntry("iso-8859-6", EncodingKind.SingleByte, SingleByteIndex.Iso88596);
+                entry = new EncodingEntry("ISO-8859-6", "iso-8859-6", EncodingKind.SingleByte, SingleByteIndex.Iso88596);
                 return true;
 
             case "csisolatingreek":
@@ -144,7 +144,7 @@ internal static class EncodingTables
             case "iso8859-7":
             case "iso88597":
             case "sun_eu_greek":
-                entry = new EncodingEntry("iso-8859-7", EncodingKind.SingleByte, SingleByteIndex.Iso88597);
+                entry = new EncodingEntry("ISO-8859-7", "iso-8859-7", EncodingKind.SingleByte, SingleByteIndex.Iso88597);
                 return true;
 
             case "csiso88598e":
@@ -158,13 +158,13 @@ internal static class EncodingTables
             case "iso8859-8":
             case "iso88598":
             case "visual":
-                entry = new EncodingEntry("iso-8859-8", EncodingKind.SingleByte, SingleByteIndex.Iso88598);
+                entry = new EncodingEntry("ISO-8859-8", "iso-8859-8", EncodingKind.SingleByte, SingleByteIndex.Iso88598);
                 return true;
 
             case "csiso88598i":
             case "iso-8859-8-i":
             case "logical":
-                entry = new EncodingEntry("iso-8859-8-i", EncodingKind.SingleByte, SingleByteIndex.Iso88598);
+                entry = new EncodingEntry("ISO-8859-8-I", "iso-8859-8-i", EncodingKind.SingleByte, SingleByteIndex.Iso88598);
                 return true;
 
             case "csisolatin6":
@@ -174,19 +174,19 @@ internal static class EncodingTables
             case "iso885910":
             case "l6":
             case "latin6":
-                entry = new EncodingEntry("iso-8859-10", EncodingKind.SingleByte, SingleByteIndex.Iso885910);
+                entry = new EncodingEntry("ISO-8859-10", "iso-8859-10", EncodingKind.SingleByte, SingleByteIndex.Iso885910);
                 return true;
 
             case "iso-8859-13":
             case "iso8859-13":
             case "iso885913":
-                entry = new EncodingEntry("iso-8859-13", EncodingKind.SingleByte, SingleByteIndex.Iso885913);
+                entry = new EncodingEntry("ISO-8859-13", "iso-8859-13", EncodingKind.SingleByte, SingleByteIndex.Iso885913);
                 return true;
 
             case "iso-8859-14":
             case "iso8859-14":
             case "iso885914":
-                entry = new EncodingEntry("iso-8859-14", EncodingKind.SingleByte, SingleByteIndex.Iso885914);
+                entry = new EncodingEntry("ISO-8859-14", "iso-8859-14", EncodingKind.SingleByte, SingleByteIndex.Iso885914);
                 return true;
 
             case "csisolatin9":
@@ -195,11 +195,11 @@ internal static class EncodingTables
             case "iso8859-15":
             case "iso885915":
             case "l9":
-                entry = new EncodingEntry("iso-8859-15", EncodingKind.SingleByte, SingleByteIndex.Iso885915);
+                entry = new EncodingEntry("ISO-8859-15", "iso-8859-15", EncodingKind.SingleByte, SingleByteIndex.Iso885915);
                 return true;
 
             case "iso-8859-16":
-                entry = new EncodingEntry("iso-8859-16", EncodingKind.SingleByte, SingleByteIndex.Iso885916);
+                entry = new EncodingEntry("ISO-8859-16", "iso-8859-16", EncodingKind.SingleByte, SingleByteIndex.Iso885916);
                 return true;
 
             case "cskoi8r":
@@ -207,19 +207,19 @@ internal static class EncodingTables
             case "koi8":
             case "koi8_r":
             case "koi8-r":
-                entry = new EncodingEntry("koi8-r", EncodingKind.SingleByte, SingleByteIndex.Koi8R);
+                entry = new EncodingEntry("KOI8-R", "koi8-r", EncodingKind.SingleByte, SingleByteIndex.Koi8R);
                 return true;
 
             case "koi8-ru":
             case "koi8-u":
-                entry = new EncodingEntry("koi8-u", EncodingKind.SingleByte, SingleByteIndex.Koi8U);
+                entry = new EncodingEntry("KOI8-U", "koi8-u", EncodingKind.SingleByte, SingleByteIndex.Koi8U);
                 return true;
 
             case "csmacintosh":
             case "mac":
             case "macintosh":
             case "x-mac-roman":
-                entry = new EncodingEntry("macintosh", EncodingKind.SingleByte, SingleByteIndex.Macintosh);
+                entry = new EncodingEntry("macintosh", "macintosh", EncodingKind.SingleByte, SingleByteIndex.Macintosh);
                 return true;
 
             case "dos-874":
@@ -228,19 +228,19 @@ internal static class EncodingTables
             case "iso885911":
             case "tis-620":
             case "windows-874":
-                entry = new EncodingEntry("windows-874", EncodingKind.SingleByte, SingleByteIndex.Windows874);
+                entry = new EncodingEntry("windows-874", "windows-874", EncodingKind.SingleByte, SingleByteIndex.Windows874);
                 return true;
 
             case "cp1250":
             case "windows-1250":
             case "x-cp1250":
-                entry = new EncodingEntry("windows-1250", EncodingKind.SingleByte, SingleByteIndex.Windows1250);
+                entry = new EncodingEntry("windows-1250", "windows-1250", EncodingKind.SingleByte, SingleByteIndex.Windows1250);
                 return true;
 
             case "cp1251":
             case "windows-1251":
             case "x-cp1251":
-                entry = new EncodingEntry("windows-1251", EncodingKind.SingleByte, SingleByteIndex.Windows1251);
+                entry = new EncodingEntry("windows-1251", "windows-1251", EncodingKind.SingleByte, SingleByteIndex.Windows1251);
                 return true;
 
             case "ansi_x3.4-1968":
@@ -260,13 +260,13 @@ internal static class EncodingTables
             case "us-ascii":
             case "windows-1252":
             case "x-cp1252":
-                entry = new EncodingEntry("windows-1252", EncodingKind.SingleByte, SingleByteIndex.Windows1252);
+                entry = new EncodingEntry("windows-1252", "windows-1252", EncodingKind.SingleByte, SingleByteIndex.Windows1252);
                 return true;
 
             case "cp1253":
             case "windows-1253":
             case "x-cp1253":
-                entry = new EncodingEntry("windows-1253", EncodingKind.SingleByte, SingleByteIndex.Windows1253);
+                entry = new EncodingEntry("windows-1253", "windows-1253", EncodingKind.SingleByte, SingleByteIndex.Windows1253);
                 return true;
 
             case "cp1254":
@@ -281,36 +281,36 @@ internal static class EncodingTables
             case "latin5":
             case "windows-1254":
             case "x-cp1254":
-                entry = new EncodingEntry("windows-1254", EncodingKind.SingleByte, SingleByteIndex.Windows1254);
+                entry = new EncodingEntry("windows-1254", "windows-1254", EncodingKind.SingleByte, SingleByteIndex.Windows1254);
                 return true;
 
             case "cp1255":
             case "windows-1255":
             case "x-cp1255":
-                entry = new EncodingEntry("windows-1255", EncodingKind.SingleByte, SingleByteIndex.Windows1255);
+                entry = new EncodingEntry("windows-1255", "windows-1255", EncodingKind.SingleByte, SingleByteIndex.Windows1255);
                 return true;
 
             case "cp1256":
             case "windows-1256":
             case "x-cp1256":
-                entry = new EncodingEntry("windows-1256", EncodingKind.SingleByte, SingleByteIndex.Windows1256);
+                entry = new EncodingEntry("windows-1256", "windows-1256", EncodingKind.SingleByte, SingleByteIndex.Windows1256);
                 return true;
 
             case "cp1257":
             case "windows-1257":
             case "x-cp1257":
-                entry = new EncodingEntry("windows-1257", EncodingKind.SingleByte, SingleByteIndex.Windows1257);
+                entry = new EncodingEntry("windows-1257", "windows-1257", EncodingKind.SingleByte, SingleByteIndex.Windows1257);
                 return true;
 
             case "cp1258":
             case "windows-1258":
             case "x-cp1258":
-                entry = new EncodingEntry("windows-1258", EncodingKind.SingleByte, SingleByteIndex.Windows1258);
+                entry = new EncodingEntry("windows-1258", "windows-1258", EncodingKind.SingleByte, SingleByteIndex.Windows1258);
                 return true;
 
             case "x-mac-cyrillic":
             case "x-mac-ukrainian":
-                entry = new EncodingEntry("x-mac-cyrillic", EncodingKind.SingleByte, SingleByteIndex.XMacCyrillic);
+                entry = new EncodingEntry("x-mac-cyrillic", "x-mac-cyrillic", EncodingKind.SingleByte, SingleByteIndex.XMacCyrillic);
                 return true;
 
             case "chinese":
@@ -322,11 +322,11 @@ internal static class EncodingTables
             case "gbk":
             case "iso-ir-58":
             case "x-gbk":
-                entry = new EncodingEntry("gbk", EncodingKind.Unsupported, SingleByteIndex.None);
+                entry = new EncodingEntry("GBK", "gbk", EncodingKind.Unsupported, SingleByteIndex.None);
                 return true;
 
             case "gb18030":
-                entry = new EncodingEntry("gb18030", EncodingKind.Unsupported, SingleByteIndex.None);
+                entry = new EncodingEntry("gb18030", "gb18030", EncodingKind.Unsupported, SingleByteIndex.None);
                 return true;
 
             case "big5":
@@ -334,18 +334,18 @@ internal static class EncodingTables
             case "cn-big5":
             case "csbig5":
             case "x-x-big5":
-                entry = new EncodingEntry("big5", EncodingKind.Unsupported, SingleByteIndex.None);
+                entry = new EncodingEntry("Big5", "big5", EncodingKind.Unsupported, SingleByteIndex.None);
                 return true;
 
             case "cseucpkdfmtjapanese":
             case "euc-jp":
             case "x-euc-jp":
-                entry = new EncodingEntry("euc-jp", EncodingKind.Unsupported, SingleByteIndex.None);
+                entry = new EncodingEntry("EUC-JP", "euc-jp", EncodingKind.Unsupported, SingleByteIndex.None);
                 return true;
 
             case "csiso2022jp":
             case "iso-2022-jp":
-                entry = new EncodingEntry("iso-2022-jp", EncodingKind.Unsupported, SingleByteIndex.None);
+                entry = new EncodingEntry("ISO-2022-JP", "iso-2022-jp", EncodingKind.Unsupported, SingleByteIndex.None);
                 return true;
 
             case "csshiftjis":
@@ -356,7 +356,7 @@ internal static class EncodingTables
             case "sjis":
             case "windows-31j":
             case "x-sjis":
-                entry = new EncodingEntry("shift_jis", EncodingKind.Unsupported, SingleByteIndex.None);
+                entry = new EncodingEntry("Shift_JIS", "shift_jis", EncodingKind.Unsupported, SingleByteIndex.None);
                 return true;
 
             case "cseuckr":
@@ -369,7 +369,7 @@ internal static class EncodingTables
             case "ksc_5601":
             case "ksc5601":
             case "windows-949":
-                entry = new EncodingEntry("euc-kr", EncodingKind.Unsupported, SingleByteIndex.None);
+                entry = new EncodingEntry("EUC-KR", "euc-kr", EncodingKind.Unsupported, SingleByteIndex.None);
                 return true;
 
             case "csiso2022kr":
@@ -378,12 +378,12 @@ internal static class EncodingTables
             case "iso-2022-cn-ext":
             case "iso-2022-kr":
             case "replacement":
-                entry = new EncodingEntry("replacement", EncodingKind.Replacement, SingleByteIndex.None);
+                entry = new EncodingEntry("replacement", "replacement", EncodingKind.Replacement, SingleByteIndex.None);
                 return true;
 
             case "unicodefffe":
             case "utf-16be":
-                entry = new EncodingEntry("utf-16be", EncodingKind.Utf16Be, SingleByteIndex.None);
+                entry = new EncodingEntry("UTF-16BE", "utf-16be", EncodingKind.Utf16Be, SingleByteIndex.None);
                 return true;
 
             case "csunicode":
@@ -393,11 +393,11 @@ internal static class EncodingTables
             case "unicodefeff":
             case "utf-16":
             case "utf-16le":
-                entry = new EncodingEntry("utf-16le", EncodingKind.Utf16Le, SingleByteIndex.None);
+                entry = new EncodingEntry("UTF-16LE", "utf-16le", EncodingKind.Utf16Le, SingleByteIndex.None);
                 return true;
 
             case "x-user-defined":
-                entry = new EncodingEntry("x-user-defined", EncodingKind.XUserDefined, SingleByteIndex.None);
+                entry = new EncodingEntry("x-user-defined", "x-user-defined", EncodingKind.XUserDefined, SingleByteIndex.None);
                 return true;
 
             default:

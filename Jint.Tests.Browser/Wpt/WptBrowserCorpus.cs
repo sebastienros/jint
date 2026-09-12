@@ -22,18 +22,90 @@ namespace Jint.Tests.Browser.Wpt;
 /// the two lanes can disagree about it: a divergence that only a document exposes is exactly what this lane
 /// exists to find.
 /// </para>
+/// <para>
+/// A path is not the whole of a case either, because a document may declare
+/// <c>&lt;meta name="variant"&gt;</c> and upstream's manifest then makes one test per declaration, at the
+/// document's path with the variant appended. So a case is a path <i>and</i> a variant and its name is the
+/// two spelled as upstream spells them —
+/// <c>dom/ranges/Range-in-shadow-after-the-shadow-removed.html?mode=open</c>; <see cref="WptBrowserVariants"/>
+/// is the rule and the reason.
+/// </para>
 /// </remarks>
 internal static class WptBrowserCorpus
 {
     /// <summary>
     /// Every case of one suite, vendored documents first and then the synthesized wrappers, each group
-    /// ordered by path so the theory's cases are stable.
+    /// ordered by path — and each document followed by its own variants, in the order it declares them, so
+    /// the theory's cases are stable.
     /// </summary>
     internal static IReadOnlyList<string> Cases(string suite)
     {
-        var cases = new List<string>(WptCorpus.BrowserTestFiles(suite));
-        cases.AddRange(SynthesizedCases(suite));
+        var cases = new List<string>();
+
+        foreach (var file in WptCorpus.BrowserTestFiles(suite))
+        {
+            // A frame body is vendored and served and never run: it is the fixture a case loads, and running
+            // it as one is a page that registers no test. WptBrowserExclusions.FrameBodies argues it.
+            if (!IsFrameBody(file))
+            {
+                AddVariants(cases, file);
+            }
+        }
+
+        foreach (var wrapper in SynthesizedCases(suite))
+        {
+            AddVariants(cases, wrapper);
+        }
+
         return cases;
+    }
+
+    /// <summary>
+    /// The distinct documents one suite's cases are of, in the order the cases name them.
+    /// </summary>
+    /// <remarks>
+    /// The census's <c>Documents</c> and <c>Synthesized</c> columns count files rather than runs — the README
+    /// says so of itself — so a document that declares three variants is three cases and still one document.
+    /// </remarks>
+    internal static IReadOnlyList<string> Documents(string suite)
+    {
+        var documents = new List<string>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var name in Cases(suite))
+        {
+            var document = WptBrowserVariants.DocumentOf(name);
+            if (seen.Add(document))
+            {
+                documents.Add(document);
+            }
+        }
+
+        return documents;
+    }
+
+    private static void AddVariants(List<string> cases, string document)
+    {
+        foreach (var variant in WptBrowserVariants.Of(document))
+        {
+            cases.Add(document + variant);
+        }
+    }
+
+    /// <summary>Whether the path is one <see cref="WptBrowserExclusions.FrameBodies"/> names.</summary>
+    internal static bool IsFrameBody(string path)
+    {
+        var document = WptBrowserVariants.DocumentOf(path);
+
+        foreach (var (body, _) in WptBrowserExclusions.FrameBodies)
+        {
+            if (string.Equals(body, document, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -58,5 +130,5 @@ internal static class WptBrowserCorpus
     }
 
     /// <summary>Whether a case is a document this repository holds, rather than one the server makes up.</summary>
-    internal static bool IsVendored(string path) => WptCorpus.Contains(path);
+    internal static bool IsVendored(string path) => WptCorpus.Contains(WptBrowserVariants.DocumentOf(path));
 }

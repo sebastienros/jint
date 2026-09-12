@@ -1,5 +1,6 @@
 #if NET8_0_OR_GREATER
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using Jint.Native.Promise;
 using Jint.Native;
 using Jint.Runtime;
@@ -24,6 +25,12 @@ namespace Jint;
 
 public partial class Engine
 {
+    /// <summary>
+    /// The explicitly installed non-principal realms, or <see langword="null"/> until a host installs one.
+    /// The registry keeps its keys weak, so installation cannot extend a realm's lifetime.
+    /// </summary>
+    internal WebApiRealmRegistry? _secondaryWebApiRealms;
+
     /// <summary>
     /// The bridges between a WHATWG stream and a host <see cref="System.IO.Stream"/> this engine has open,
     /// or <see langword="null"/> — which is what every engine carries until the first
@@ -841,6 +848,24 @@ internal sealed class WebApiEngineState
     internal GlobalEventTarget GlobalEventTarget =>
         _globalEventTarget ??= new GlobalEventTarget(_engine, _engine._mainRealm);
 
+    /// <summary>The synthetic global target belonging to <paramref name="realm"/>.</summary>
+    internal GlobalEventTarget GlobalEventTargetFor(Realm realm)
+    {
+        if (ReferenceEquals(realm, _engine._mainRealm))
+        {
+            return GlobalEventTarget;
+        }
+
+        var realms = _engine._secondaryWebApiRealms;
+        if (realms is not null && realms.TryGet(realm, out var state))
+        {
+            return state.GlobalEventTarget ??= new GlobalEventTarget(_engine, realm);
+        }
+
+        Throw.InvalidOperationException("The realm does not have the web APIs installed.");
+        return null!;
+    }
+
     /// <summary>
     /// The same target, or <see langword="null"/> when nothing has built one yet. What
     /// <c>Engine.WebApi.InvokeFetchHandler</c> asks, because a host invoking a handler must not be the thing
@@ -848,6 +873,19 @@ internal sealed class WebApiEngineState
     /// question with one field read and allocates nothing.
     /// </summary>
     internal GlobalEventTarget? GlobalEventTargetIfCreated => _globalEventTarget;
+
+    /// <summary>The same target for <paramref name="realm"/>, without creating it.</summary>
+    internal GlobalEventTarget? GlobalEventTargetIfCreatedFor(Realm realm)
+    {
+        if (ReferenceEquals(realm, _engine._mainRealm))
+        {
+            return _globalEventTarget;
+        }
+
+        return _engine._secondaryWebApiRealms?.TryGet(realm, out var state) == true
+            ? state.GlobalEventTarget
+            : null;
+    }
 
     /// <summary>
     /// <c>reportError(e)</c>: HTML's <i>report an exception</i> —
@@ -863,14 +901,14 @@ internal sealed class WebApiEngineState
     /// <i>notHandled</i> is true, which is the half of the algorithm a script legitimately controls; see
     /// <see cref="FireErrorAndPropagate"/>.
     /// </remarks>
-    internal void ReportError(JsValue value)
+    internal void ReportError(Realm realm, JsValue value)
     {
-        if (HasSomewhereToReportAnError)
+        if (HasSomewhereToReportAnError(realm))
         {
             // The location the engine last saw, which for a call from script is the reportError call site —
             // the same fallback every web API that has to place a failure uses.
             var location = _engine._lastSyntaxElement?.Location ?? default;
-            FireErrorAndPropagate(ErrorEventDetails.FromReportedValue(value, in location));
+            FireErrorAndPropagate(realm, ErrorEventDetails.FromReportedValue(value, in location));
         }
 
         Diagnostics?.Report(DiagnosticEvent.ForReportedError(value));
@@ -888,10 +926,14 @@ internal sealed class WebApiEngineState
     /// being dispatched reaches the sink alone — see <see cref="GlobalEventTarget"/>.
     /// </remarks>
     internal void FireGlobalErrorEvent(JavaScriptException exception)
+        => FireGlobalErrorEvent(_engine._mainRealm, exception);
+
+    /// <summary>Reports a callback failure at the global scope belonging to <paramref name="realm"/>.</summary>
+    internal void FireGlobalErrorEvent(Realm realm, JavaScriptException exception)
     {
-        if (HasSomewhereToReportAnError)
+        if (HasSomewhereToReportAnError(realm))
         {
-            FireErrorAndPropagate(ErrorEventDetails.FromException(exception));
+            FireErrorAndPropagate(realm, ErrorEventDetails.FromException(exception));
         }
     }
 
@@ -906,7 +948,7 @@ internal sealed class WebApiEngineState
     /// </remarks>
     internal void ReportWorkerError(in ErrorEventDetails details)
     {
-        FireErrorAndPropagate(in details);
+        FireErrorAndPropagate(_engine._mainRealm, in details);
         Diagnostics?.Report(DiagnosticEvent.ForWorkerError(details.Message));
     }
 
@@ -915,7 +957,9 @@ internal sealed class WebApiEngineState
     /// parent of a worker. Two field reads, which is what every report site costs on an engine that has
     /// neither.
     /// </summary>
-    private bool HasSomewhereToReportAnError => _globalEventTarget is not null || OwningWorkerLink is not null;
+    private bool HasSomewhereToReportAnError(Realm realm)
+        => GlobalEventTargetIfCreatedFor(realm) is not null
+            || (ReferenceEquals(realm, _engine._mainRealm) && OwningWorkerLink is not null);
 
     /// <summary>
     /// <i>Report an exception</i> step 5: fire <c>error</c> at this global scope, and — <b>only</b> when the
@@ -940,13 +984,13 @@ internal sealed class WebApiEngineState
     /// same answer for the wrong reason.
     /// </para>
     /// </remarks>
-    private void FireErrorAndPropagate(in ErrorEventDetails details)
+    private void FireErrorAndPropagate(Realm realm, in ErrorEventDetails details)
     {
-        var target = _globalEventTarget;
+        var target = GlobalEventTargetIfCreatedFor(realm);
         var reporting = target is { IsReporting: true };
         var notHandled = target is null || target.FireError(in details);
 
-        if (notHandled && !reporting)
+        if (notHandled && !reporting && ReferenceEquals(realm, _engine._mainRealm))
         {
             OwningWorkerLink?.ReportErrorToParent(in details);
         }
@@ -975,10 +1019,10 @@ internal sealed class WebApiEngineState
     /// HTML's <i>notHandled</i> — false exactly when a listener called <c>preventDefault()</c> on an
     /// <c>unhandledrejection</c> event.
     /// </returns>
-    internal bool ReportPromiseRejection(JsPromise promise, PromiseRejectionOperation operation)
+    internal bool ReportPromiseRejection(Realm realm, JsPromise promise, PromiseRejectionOperation operation)
     {
         var notHandled = true;
-        if (_globalEventTarget is { } target)
+        if (GlobalEventTargetIfCreatedFor(realm) is { } target)
         {
             var handled = operation == PromiseRejectionOperation.Handle;
             var reason = promise.State == PromiseState.Rejected ? promise.Value : JsValue.Undefined;
@@ -1083,6 +1127,7 @@ internal sealed class WebApiEngineState
         // and nothing outside this class holds a reference to the old one — the three global operations ask
         // for it by property on every call.
         _globalEventTarget = null;
+        _engine._secondaryWebApiRealms?.ResetTransientState();
 
         // A signal bridged to a host token belongs to the cycle it was created in: its abort job carries that
         // cycle's generation and would be dropped at dequeue anyway, so keeping the registration alive could
@@ -1314,5 +1359,93 @@ internal sealed class WebApiEngineState
 
         return endedWorkers;
     }
+}
+
+/// <summary>
+/// Weakly tracks the non-principal realms whose globals have received the web APIs.
+/// </summary>
+internal sealed class WebApiRealmRegistry
+{
+    private readonly ConditionalWeakTable<Realm, WebApiRealmState> _states = new();
+    private readonly List<WeakReference<Realm>> _installed = [];
+
+    /// <summary>Records <paramref name="realm"/> and says whether it was newly installed.</summary>
+    internal bool Register(Realm realm)
+    {
+        if (_states.TryGetValue(realm, out _))
+        {
+            return false;
+        }
+
+        _states.Add(realm, new WebApiRealmState());
+        _installed.Add(new WeakReference<Realm>(realm));
+        return true;
+    }
+
+    /// <summary>Finds the state for an installed realm.</summary>
+    internal bool TryGet(Realm realm, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out WebApiRealmState? state)
+        => _states.TryGetValue(realm, out state);
+
+    /// <summary>Finds the installed realm whose global is <paramref name="global"/>.</summary>
+    internal bool TryFindByGlobal(JsValue global, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out Realm? realm)
+    {
+        Prune();
+        foreach (var reference in _installed)
+        {
+            if (reference.TryGetTarget(out var candidate) && ReferenceEquals(candidate.GlobalObject, global))
+            {
+                realm = candidate;
+                return true;
+            }
+        }
+
+        realm = null;
+        return false;
+    }
+
+    /// <summary>Returns the installed realms still alive at the start of the operation.</summary>
+    internal Realm[] Snapshot()
+    {
+        Prune();
+        var realms = new Realm[_installed.Count];
+        var count = 0;
+        foreach (var reference in _installed)
+        {
+            if (reference.TryGetTarget(out var realm))
+            {
+                realms[count++] = realm;
+            }
+        }
+
+        return count == realms.Length ? realms : realms[..count];
+    }
+
+    /// <summary>Drops every secondary global listener list at the end of an evaluation cycle.</summary>
+    internal void ResetTransientState()
+    {
+        foreach (var realm in Snapshot())
+        {
+            if (_states.TryGetValue(realm, out var state))
+            {
+                state.GlobalEventTarget = null;
+            }
+        }
+    }
+
+    /// <summary>Releases all registry state when the engine is disposed.</summary>
+    internal void Clear()
+    {
+        _states.Clear();
+        _installed.Clear();
+    }
+
+    private void Prune() => _installed.RemoveAll(static reference => !reference.TryGetTarget(out _));
+}
+
+/// <summary>The state that differs between two installed globals of one engine.</summary>
+internal sealed class WebApiRealmState
+{
+    internal GlobalEventTarget? GlobalEventTarget { get; set; }
+    internal PropertyDescriptor? InstalledSelf { get; set; }
 }
 #endif

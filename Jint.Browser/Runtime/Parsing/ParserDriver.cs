@@ -8,6 +8,7 @@ using AngleSharp.Scripting;
 using Jint.Native;
 using Jint.Runtime;
 using Jint.WebApi.Events;
+using Jint.WebApi.Fetch;
 using Jint.Runtime.Modules;
 using Jint.WebApi.Url.Parsing;
 
@@ -58,9 +59,10 @@ internal sealed class ParserDriver : IDisposable
     private IHtmlScriptElement? _importMapElement;
     private IBrowsingContext? _context;
     private int _frameDocuments;
-    private int _pendingStyleSheetEvents;
-    private TaskCompletionSource? _styleSheetEventsCompleted;
-    private Queue<(IHtmlLinkElement Link, string Type)>? _deferredStyleSheetEvents;
+    private bool _tokenizing;
+    private int _pendingResourceEvents;
+    private TaskCompletionSource? _resourceEventsCompleted;
+    private Queue<(IElement Element, string Type, bool AfterParse)>? _deferredResourceEvents;
 
     private ParserDriver(PageRuntime runtime, string url, CancellationToken cancellationToken)
     {
@@ -103,7 +105,47 @@ internal sealed class ParserDriver : IDisposable
         // service rather than replacing one, so AngleSharp's own observer keeps working.
         var configuration = Configuration.Default
             .WithCss()
+            // Selectors §8.2 matches :target only for the document's target element. AngleSharp compares
+            // each candidate's ID with its owner document's fragment, so duplicate IDs, shadow descendants
+            // and disconnected clones can all match instead of the one HTML indicated element. The same
+            // factory also owns HTML §4.15's disabled state, which is what :enabled and :disabled ask
+            // about: AngleSharp reads the boolean `disabled` attribute's value rather than its presence on
+            // an optgroup or a fieldset, disables neither of those from the select or the outer fieldset
+            // above it, and gives a link a disabled state at all. HTML §4.16.3's :default is the same
+            // shape: AngleSharp calls every button in a form its default button and no checkbox or radio
+            // one at all. The same section's :open is a `return false` there and :closed is not registered
+            // at all, so a page spelling the latter got a SyntaxError out of every selector API. And its
+            // :valid, :invalid, :in-range and :out-of-range all read CheckValidity(), which folds
+            // §4.10.19.2's "barred from constraint validation" into the same false as a failing
+            // constraint, so a disabled control was :invalid and every fieldset was :valid. Three more
+            // read an attribute without asking whether it applies to the type state it is written on -
+            // :read-write, :placeholder-shown and, for a progress element, :indeterminate, whose radio
+            // button group rule is missing outright. And one pair is why the factory takes the runtime at
+            // all: :focus and :focus-within are AngleSharp's IElement.IsFocused, a flag nothing assigns, so
+            // they have to read the page's own focus - Events/FocusController, which is what
+            // document.activeElement and every focus event already answer from.
+            .WithOnly<AngleSharp.Css.IPseudoClassSelectorFactory>(new PagePseudoClassSelectorFactory(_runtime))
+            // https://html.spec.whatwg.org/multipage/document-lifecycle.html#read-xml — a document whose
+            // content type is an XML MIME type is parsed by the XML parser, and without the factory
+            // AngleSharp.Xml supplies there is no XML document for it to produce: `<foo>Dummy</foo>` served
+            // as `text/xml` came back as an *HTML* document with the text inside an `<html><body>` skeleton,
+            // so `documentElement.tagName` was `HTML` and every XML rule a page then asked about was the
+            // wrong document's. Only a *frame* can reach this: `Parse` states `text/html` for the page's own
+            // document, which is what the navigate rules already decided. AngleSharp.Xml is referenced for
+            // `DOMParser` either way, so this costs a service registration and no dependency.
+            .WithXml()
+            // https://drafts.csswg.org/selectors-4/#the-lang-pseudo — a document's language is the
+            // document's. AngleSharp resolves an element with no inherited language through
+            // `IBrowsingContext.GetCulture()`, which without this is whatever `CultureInfo.CurrentCulture`
+            // the host thread happens to carry: `:lang(en)` then matches an element that declared no
+            // language at all on an English machine and matches nothing on an invariant one, so a page's
+            // selectors answer differently on two machines running the same document. The engine's own
+            // culture is the page's — `Options.Culture`, which a host sets through `ConfigureEngine` and
+            // which itself defaults to the current culture, so nothing moves for an embedder who sets
+            // none — and it is what a document is parsed and matched against here.
+            .WithCulture(_runtime.Engine.Options.Culture)
             .WithOnly<AngleSharp.Css.IStylingService>(new PageStylingService(this))
+
             .With(new PageResourceLoader(this))
             .With<AngleSharp.Css.IRenderDevice>(_ => new PageRenderDevice(_runtime))
             .With<AngleSharp.Dom.IAttributeObserver>(_ => new CustomElements.CustomElementAttributeObserver(_runtime))
@@ -241,12 +283,20 @@ internal sealed class ParserDriver : IDisposable
         };
 
         thread.Start();
+        _tokenizing = true;
 
-        if (!_baton.Serve(completion.Task))
+        try
         {
-            // The page is closing. The parser thread is a background one and its next hand-off fails, so
-            // there is nothing left to wait for and nothing to show.
-            throw new OperationCanceledException("The page was closed while its document was being parsed.");
+            if (!_baton.Serve(completion.Task))
+            {
+                // The page is closing. The parser thread is a background one and its next hand-off
+                // fails, so there is nothing left to wait for and nothing to show.
+                throw new OperationCanceledException("The page was closed while its document was being parsed.");
+            }
+        }
+        finally
+        {
+            _tokenizing = false;
         }
 
         if (failure is not null)
@@ -319,7 +369,7 @@ internal sealed class ParserDriver : IDisposable
         {
             if (error is null)
             {
-                QueueStyleSheetEvent(link, "load");
+                QueueResourceEvent(link, "load", afterParse: false);
             }
             else if (!_cancellationToken.IsCancellationRequested)
             {
@@ -330,29 +380,63 @@ internal sealed class ParserDriver : IDisposable
         });
     }
 
-    private void QueueStyleSheetEvent(IHtmlLinkElement link, string type)
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/webappapis.html#queue-an-element-task — a resource event is
+    /// queued at the element rather than fired where the bytes landed, and the document's <c>load</c> waits
+    /// for every one of them.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Two kinds of element come through here and both need the delay for the same reason.</b> A style
+    /// sheet's listener has to see <c>link.sheet</c>, which the CSS processor assigns after the fetch
+    /// returns; an image's has to see <c>complete</c>, <c>naturalWidth</c> and <c>currentSrc</c>, which the
+    /// image lane assigns at the same point. Queuing at the fetch instead would let a parser-time network
+    /// pump deliver before either exists.
+    /// </para>
+    /// <para>
+    /// <b>The count is what delays the window's <c>load</c></b>, which is
+    /// https://html.spec.whatwg.org/multipage/parsing.html#the-end step 6: spin until nothing delays the load
+    /// event. An image request in flight is one of the things that does.
+    /// </para>
+    /// </remarks>
+    /// <param name="element">The element the event is fired at.</param>
+    /// <param name="type">Either <c>load</c> or <c>error</c>.</param>
+    /// <param name="afterParse">
+    /// Whether the event has to wait for the tokenizer to finish, which an image's does and a style sheet's
+    /// does not. It is the one place this browser's synchronous subresource fetch is visible: a browser
+    /// yields to its event loop only for a parser-blocking script, so a queued task reaches a page mid-parse
+    /// only where a browser would also have yielded — and this browser yields while it fetches an image,
+    /// where a browser would have carried on tokenizing. Delivering there would make an
+    /// <c>&lt;img src&gt;</c> followed by a <c>&lt;script&gt;</c> that installs <c>onload</c> — the
+    /// commonest image pattern there is — miss the event, which no browser does, because a real network is
+    /// slower than the next fifty bytes of markup. A style sheet is deliberately not deferred: the parser
+    /// really does wait for one, and <c>AStyleSheetLoadDuringAParserNetworkWaitSeesTheInstalledSheet</c>
+    /// pins that its <c>load</c> arrives while it does.
+    /// </param>
+    private void QueueResourceEvent(IElement element, string type, bool afterParse)
     {
         if (_cancellationToken.IsCancellationRequested)
         {
             return;
         }
 
-        if (_pendingStyleSheetEvents++ == 0)
+        if (_pendingResourceEvents++ == 0)
         {
-            _styleSheetEventsCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            _resourceEventsCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         }
 
         // The processor assigns link.Sheet after the styling service returns, before the next hand-off.
-        _runtime.Engine.Tasks.Post(() => DeliverStyleSheetEvent(link, type));
+        _runtime.Engine.Tasks.Post(() => DeliverResourceEvent(element, type, afterParse));
     }
 
-    private void DeliverStyleSheetEvent(IHtmlLinkElement link, string type)
+    private void DeliverResourceEvent(IElement element, string type, bool afterParse)
     {
         // Engine.Execute drains tasks even for a script inserted by another script. Resource events must
-        // wait for the outermost script element to return and restore document.currentScript first.
-        if (_runtime.CurrentScript is not null)
+        // wait for the outermost script element to return and restore document.currentScript first — and an
+        // image's for the tokenizer as well, for the reason QueueResourceEvent gives.
+        if (_runtime.CurrentScript is not null || (afterParse && _tokenizing))
         {
-            (_deferredStyleSheetEvents ??= new()).Enqueue((link, type));
+            (_deferredResourceEvents ??= new()).Enqueue((element, type, afterParse));
             return;
         }
 
@@ -360,15 +444,46 @@ internal sealed class ParserDriver : IDisposable
         {
             if (!_cancellationToken.IsCancellationRequested)
             {
-                FireAt(link, type);
+                FireAt(element, type);
             }
         }
         finally
         {
-            if (--_pendingStyleSheetEvents == 0)
+            if (--_pendingResourceEvents == 0)
             {
-                _styleSheetEventsCompleted!.TrySetResult();
+                _resourceEventsCompleted!.TrySetResult();
             }
+        }
+    }
+
+    /// <summary>
+    /// Re-posts every resource event that was waiting for a script to return or for the parse to end.
+    /// </summary>
+    /// <remarks>
+    /// <b>It has to run before <see cref="FinishLoad"/>'s drain and not only after a script</b>: the drain
+    /// waits for the pending count to reach zero, and an entry parked in this queue with no task posted for
+    /// it would never be counted down.
+    /// </remarks>
+    private void FlushDeferredResourceEvents()
+    {
+        if (_deferredResourceEvents is not { } deferred)
+        {
+            return;
+        }
+
+        // One pass over what is there, keeping in the queue what is still waiting for the tokenizer: posting
+        // an image's event back only for it to park again would be one task per script per image.
+        for (var pending = deferred.Count; pending > 0; pending--)
+        {
+            var entry = deferred.Dequeue();
+
+            if (entry.AfterParse && _tokenizing)
+            {
+                deferred.Enqueue(entry);
+                continue;
+            }
+
+            _runtime.Engine.Tasks.Post(() => DeliverResourceEvent(entry.Element, entry.Type, entry.AfterParse));
         }
     }
 
@@ -443,7 +558,140 @@ internal sealed class ParserDriver : IDisposable
                 return PageResourceLoader.Answer(url, [], "text/html; charset=utf-8");
             }
 
-            return Fetch(url, frame, "frame document", PageRequestKind.Frame, handedOver);
+            return Fetch(
+                url,
+                frame,
+                "frame document",
+                PageRequestKind.Frame,
+                handedOver);
+        });
+    }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/images.html#update-the-image-data — the image an
+    /// <c>&lt;img&gt;</c> or an <c>&lt;input type=image&gt;</c> named, fetched over the page's own network
+    /// position and reduced to the two numbers a pixel-free browser can honestly hold.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>AngleSharp asks and this answers; the state is the binding's.</b> The request itself is
+    /// AngleSharp's <c>ImageRequestProcessor</c>, which is what turns a parsed <c>src</c>, a
+    /// <c>img.src = …</c> and a <c>srcset</c> rewrite into exactly one fetch and what makes the document
+    /// delay its <c>load</c> event while one is outstanding. What it cannot produce is HTML's current-request
+    /// state or an intrinsic size, so <see cref="Media.PageImages"/> holds both — see that class for what a
+    /// browser with no pixels can and cannot say. <b>The URL is the binding's too</b>: AngleSharp's source
+    /// set reads no descriptor and no <c>media</c>, so which candidate of a <c>srcset</c> or a
+    /// <c>&lt;picture&gt;</c> is actually fetched is <see cref="Media.ImageSourceSet"/>'s answer over the
+    /// page's own viewport, and only the request around it stays AngleSharp's.
+    /// </para>
+    /// <para>
+    /// <b>The three endings are the standard's three.</b> Bytes whose container
+    /// <see cref="Media.ImageHeader"/> recognises are <i>completely available</i> and the element hears
+    /// <c>load</c>; a fetch that failed and a container it does not recognise are both the <i>broken</i>
+    /// state and both hear <c>error</c>, which is step 25's "not in a supported file format" arm. Neither
+    /// event is fired here: both are queued as element tasks through
+    /// <see cref="QueueResourceEvent"/>, so a listener added after <c>img.src = …</c> in the same script
+    /// still hears them and every one of them delays the window's <c>load</c>.
+    /// </para>
+    /// <para>
+    /// <b><c>loading=lazy</c> loads eagerly, and it has to.</b> HTML defers a lazy image until it is within
+    /// the lazy load root's scrolling area, which is a question about a layout this browser does not have.
+    /// Never loading one would leave every image of an infinite-scroll page <c>complete === false</c>
+    /// forever, which is the state those libraries block on; so the attribute is parsed, reflected and
+    /// otherwise ignored, exactly as <see cref="Observers"/>' <c>IntersectionObserver</c> reports every
+    /// target as intersecting for the same reason.
+    /// </para>
+    /// <para>
+    /// <b>The ceiling is <see cref="BrowserOptions.MaxImageRequests"/></b>, counted over the document rather
+    /// than per element. Zero means images are not fetched at all, which is exactly what this browser did
+    /// before there was a model: the reference is recorded in <see cref="Page.Requests"/> with a
+    /// <see cref="PageRequest.NotFetchedReason"/>, no socket is opened, and no event is fired — because
+    /// nothing was attempted and an <c>error</c> would say something was.
+    /// </para>
+    /// </remarks>
+    internal IResponse? FetchImage(IElement image, string requested)
+    {
+        var handedOver = HandsOver;
+
+        return Serve(() =>
+        {
+            var images = _runtime.Images;
+
+            // https://html.spec.whatwg.org/multipage/images.html#update-the-source-set — the candidate
+            // AngleSharp put in the request is the *first* one of the first srcset it found, whatever the
+            // descriptors and the media say, so the URL that is actually fetched is decided here instead.
+            // See Media/ImageSourceSet, and Dom/divergences.md for what AngleSharp's own answer misses.
+            var url = Media.ImageSourceSet.Select(_runtime, image);
+
+            if (url is null)
+            {
+                // The selection produced nothing — an empty `srcset`, or a `<picture>` whose every
+                // `<source>` was ruled out and whose `<img>` has no `src`. HTML fires `error` here and this
+                // does not: see Dom/divergences.md, which records why AngleSharp gives no notification to
+                // hang one on for the case it never asks the loader about at all.
+                _requests.RecordNotFetched(
+                    requested,
+                    RequestInitiator.Subresource,
+                    PageRequestKind.Image,
+                    "no image source was selected: every candidate was ruled out by its media, its type or "
+                        + "its descriptor");
+                return null;
+            }
+
+            // https://html.spec.whatwg.org/multipage/images.html#update-the-image-data step 7.3: an image
+            // already in the list of available images under this key is taken from it, with no request and
+            // — the previous URL being this one — no event.
+            if (images.IsAlreadyAvailable(image, url))
+            {
+                return null;
+            }
+
+            var request = images.Begin(image, url);
+            var ceiling = _runtime.Options.MaxImageRequests;
+
+            if (!images.TryStart(ceiling))
+            {
+                _requests.RecordNotFetched(
+                    url,
+                    RequestInitiator.Subresource,
+                    PageRequestKind.Image,
+                    ceiling <= 0
+                        ? "images are not fetched: BrowserOptions.MaxImageRequests is zero"
+                        : "an image is not fetched: this document has already reached the "
+                            + ceiling.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                            + " image requests BrowserOptions.MaxImageRequests allows");
+                return null;
+            }
+
+            // From here the element has asked for this URL, so `currentSrc` names it whatever the fetch
+            // does next: HTML sets the current request's current URL from the selected source in both the
+            // success and the failure arm. A ceiling refusal above deliberately does not get here.
+            request.Requested = true;
+
+            var fetched = FetchBytes(url, image, "image", PageRequestKind.Image, handedOver);
+
+            if (fetched is null)
+            {
+                // FailSubresource has already recorded the failure and queued the element's `error`, unless
+                // the document is being abandoned — in which case there is nobody left to tell.
+                Media.PageImages.Break(request);
+                return null;
+            }
+
+            if (!Media.ImageHeader.TryRead(fetched.Value.Bytes, out var width, out var height))
+            {
+                Media.PageImages.Break(request);
+                FailSubresource(
+                    image,
+                    url,
+                    "The image '" + url + "' is not in a container format this browser can read a size out of.");
+                return null;
+            }
+
+            Media.PageImages.Complete(request, width, height);
+            QueueResourceEvent(image, "load", afterParse: true);
+
+            return PageResourceLoader.Answer(fetched.Value.Url, fetched.Value.Bytes, fetched.Value.ContentType);
         });
     }
 
@@ -528,11 +776,47 @@ internal sealed class ParserDriver : IDisposable
     /// during a parser-blocking load; a fetch a <i>script</i> triggered blocks instead, because pumping from
     /// inside a running script would run the page's jobs in the middle of one.
     /// </summary>
-    private IResponse? Fetch(string url, IElement source, string what, PageRequestKind kind, bool mayPump)
+    private IResponse? Fetch(
+        string url,
+        IElement source,
+        string what,
+        PageRequestKind kind,
+        bool mayPump)
+    {
+        return FetchBytes(url, source, what, kind, mayPump) is { } fetched
+            ? PageResourceLoader.Answer(fetched.Url, fetched.Bytes, fetched.ContentType)
+            : null;
+    }
+
+    /// <summary>
+    /// The bytes of one subresource, before anything has been made of them.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Fetch"/> wraps them into the response AngleSharp reads; the image lane needs the bytes
+    /// themselves, because <see cref="Media.ImageHeader"/> is what decides between the completely-available
+    /// and the broken state and it has to decide before the element hears anything.
+    /// </remarks>
+    private FetchedBody? FetchBytes(
+        string url,
+        IElement source,
+        string what,
+        PageRequestKind kind,
+        bool mayPump)
     {
         var target = UrlParser.Parse(url);
 
-        if (target is null || !PageUrl.IsNetworkScheme(target))
+        if (target is null)
+        {
+            FailSubresource(source, url, "'" + url + "' is not a URL a page can load.");
+            return null;
+        }
+
+        if (DataUrl.Is(target))
+        {
+            return FetchDataUrl(target, source, url, what);
+        }
+
+        if (!PageUrl.IsNetworkScheme(target))
         {
             FailSubresource(source, url, "'" + url + "' is not a URL a page can load.");
             return null;
@@ -560,7 +844,10 @@ internal sealed class ParserDriver : IDisposable
         try
         {
             var fetched = mayPump ? _baton.PumpUntil(fetch) : fetch.GetAwaiter().GetResult();
-            return PageResourceLoader.Answer(fetched.Url, fetched.Bytes, fetched.ContentType);
+            return new FetchedBody(
+                fetched.Bytes,
+                ResponseUrl(fetched.Url, fetched.Fragment),
+                fetched.ContentType);
         }
         catch (OperationCanceledException) when (_cancellationToken.IsCancellationRequested)
         {
@@ -581,15 +868,95 @@ internal sealed class ParserDriver : IDisposable
     }
 
     /// <summary>
+    /// https://fetch.spec.whatwg.org/#scheme-fetch's <c>data</c> arm: a URL that carries its own bytes,
+    /// answered without a socket.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>It is the one subresource scheme besides <c>http</c> and <c>https</c>, and it is not a network
+    /// position at all.</b> There is nothing here for the context's <c>UrlFilter</c>, the cookie jar, a
+    /// redirect budget or the request log to decide — the bytes were in the document that named them — which
+    /// is the same reason <c>fetch</c>'s <c>blob</c> arm runs before every one of those checks. Nothing is
+    /// recorded in <see cref="Page.Requests"/> for the same reason <c>about:blank</c> records nothing: a
+    /// page that asked for nothing made no request.
+    /// </para>
+    /// <para>
+    /// <b>The one bound that does apply is the size one.</b> A <c>data:</c> URL is as large as the markup
+    /// that carried it, so <see cref="BrowserOptions.MaxSubresourceBytes"/> is checked here exactly as
+    /// <see cref="SubresourceFetch"/> checks it over the wire; a page may not escape it by inlining.
+    /// </para>
+    /// </remarks>
+    private FetchedBody? FetchDataUrl(UrlRecord target, IElement source, string url, string what)
+    {
+        if (!DataUrl.TryProcess(target, out var content))
+        {
+            FailSubresource(source, url, "The " + what + " '" + url + "' is not a valid data: URL.");
+            return null;
+        }
+
+        if (content.Body.LongLength > _maxBytes)
+        {
+            FailSubresource(
+                source,
+                url,
+                "The " + what + " '" + url + "' carries more than the "
+                    + _maxBytes.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                    + " bytes a page may load.");
+            return null;
+        }
+
+        // https://fetch.spec.whatwg.org/#concept-response-url: the response URL is the request's, so the
+        // fragment a data: URL was written with survives into what an error report names.
+        return new FetchedBody(content.Body, target.Serialize(), content.MimeType.Serialize());
+    }
+
+    /// <summary>One subresource's bytes, the URL they were answered under, and what the server called them.</summary>
+    private readonly record struct FetchedBody(byte[] Bytes, string Url, string? ContentType);
+
+    /// <summary>The URL a fetched subresource is answered under.</summary>
+    /// <remarks>
+    /// <para>
+    /// Fetch does not send a fragment to the server, and <see cref="SubresourceFetch"/> therefore serializes
+    /// its public response URL without one. Its separate fragment preserves the final request URL's three
+    /// states across redirects: absent, explicitly empty, or non-empty.
+    /// </para>
+    /// <para>
+    /// <b>Every response carries it back, not only a nested document's.</b>
+    /// https://fetch.spec.whatwg.org/#concept-response-url is the request's URL, fragment and all — the
+    /// fragment is left out of the request-target and of nothing else — and
+    /// https://html.spec.whatwg.org/multipage/webappapis.html#report-an-exception names the script's own
+    /// URL, so <c>&lt;script src="a.js#"&gt;</c> has to report the <c>#</c> that
+    /// https://url.spec.whatwg.org/#concept-url-serializer keeps for a non-null empty fragment. Answering
+    /// the transport URL instead made <c>onerror</c> disagree with the <c>src</c> the same element
+    /// reflects. AngleSharp reads it for a document's <c>location</c> and Selectors' <c>:target</c>, and for
+    /// a script and a style sheet it is the base URL, which a fragment plays no part in resolving against.
+    /// </para>
+    /// </remarks>
+    private static string ResponseUrl(string responseUrl, string? fragment)
+    {
+        if (fragment is null || UrlParser.Parse(responseUrl) is not { } documentUrl)
+        {
+            return responseUrl;
+        }
+
+        documentUrl.Fragment = fragment;
+        return documentUrl.Serialize();
+    }
+
+    /// <summary>
     /// https://html.spec.whatwg.org/multipage/webappapis.html — a resource that failed to load fires
     /// <c>error</c> at the element that asked for it, and the page carries on loading.
     /// </summary>
     private void FailSubresource(IElement source, string url, string message)
     {
         Report(PageErrorKind.ReportedError, message, url);
-        if (source is IHtmlLinkElement link)
+        if (source is IHtmlLinkElement)
         {
-            QueueStyleSheetEvent(link, "error");
+            QueueResourceEvent(source, "error", afterParse: false);
+        }
+        else if (source is IHtmlImageElement or IHtmlInputElement)
+        {
+            QueueResourceEvent(source, "error", afterParse: true);
         }
         else
         {
@@ -715,12 +1082,9 @@ internal sealed class ParserDriver : IDisposable
         finally
         {
             _runtime.CurrentScript = previous;
-            if (previous is null && _deferredStyleSheetEvents is { } deferred)
+            if (previous is null)
             {
-                while (deferred.TryDequeue(out var entry))
-                {
-                    _runtime.Engine.Tasks.Post(() => DeliverStyleSheetEvent(entry.Link, entry.Type));
-                }
+                FlushDeferredResourceEvents();
             }
         }
 
@@ -744,7 +1108,8 @@ internal sealed class ParserDriver : IDisposable
         var bytes = ReadAll(response.Content);
         var contentType = response.Headers.TryGetValue(HeaderNames.ContentType, out var declared) ? declared : null;
         var fallback = element.CharacterSet is { Length: > 0 } charset ? charset : element.Owner?.CharacterSet;
-        return new FetchedSubresource(bytes, contentType, response.Address?.Href ?? "", 200).Text(fallback);
+        var address = response.Address?.Href ?? "";
+        return new FetchedSubresource(bytes, contentType, address, UrlParser.Parse(address)?.Fragment, 200).Text(fallback);
     }
 
     private static byte[] ReadAll(Stream? stream)
@@ -821,11 +1186,16 @@ internal sealed class ParserDriver : IDisposable
         // window's load.
         FireFrameLoads(document);
 
-        // Stylesheet completion handlers can insert further stylesheets. Keep their load-event delay
-        // until the entire chain has delivered, with each event on its own budgeted task.
-        while (_pendingStyleSheetEvents > 0 && !_cancellationToken.IsCancellationRequested)
+        // The tokenizer has finished, so every image event that was waiting for it is posted now — after
+        // DOMContentLoaded, which is where a browser's images land too, and before the window's load, which
+        // an image request delays.
+        FlushDeferredResourceEvents();
+
+        // A style sheet's or an image's completion handler can insert further subresources. Keep their
+        // load-event delay until the entire chain has delivered, each event on its own budgeted task.
+        while (_pendingResourceEvents > 0 && !_cancellationToken.IsCancellationRequested)
         {
-            _baton.PumpUntil(_styleSheetEventsCompleted!.Task);
+            _baton.PumpUntil(_resourceEventsCompleted!.Task);
         }
 
         // Step 9: readiness becomes "complete" and only then does load fire, which is why a load listener
@@ -1116,19 +1486,15 @@ internal sealed class ParserDriver : IDisposable
 
     /// <summary>What kind of resource a reference the page will not follow was, for the request log.</summary>
     /// <remarks>
-    /// A frame is deliberately not here any more: <see cref="PageResourceLoader"/> routes one to
-    /// <see cref="FetchFrame"/>, which records its own refusal with the reason it has and this one has not.
+    /// Neither a frame nor an image is here any more: <see cref="PageResourceLoader"/> routes each to
+    /// <see cref="FetchFrame"/> and <see cref="FetchImage"/>, which record their own refusals with the
+    /// reason each has and this one has not.
     /// </remarks>
-    private static PageRequestKind KindNotFetched(IElement source) => source switch
-    {
-        IHtmlImageElement => PageRequestKind.Image,
-        _ when IsLegacyFrame(source) => PageRequestKind.Frame,
-        _ => PageRequestKind.Other,
-    };
+    private static PageRequestKind KindNotFetched(IElement source)
+        => IsLegacyFrame(source) ? PageRequestKind.Frame : PageRequestKind.Other;
 
     private static string ReasonNotFetched(IElement source) => source switch
     {
-        IHtmlImageElement => "images are not fetched: there is no rendering to need them",
         IHtmlLinkElement link => "a <link rel=\"" + (link.Relation ?? "") + "\"> is not fetched: only a stylesheet is",
         _ when IsLegacyFrame(source) => "a <frame>'s document is not fetched: AngleSharp has no HTMLFrameElement "
             + "interface, so nothing script can reach would answer it",

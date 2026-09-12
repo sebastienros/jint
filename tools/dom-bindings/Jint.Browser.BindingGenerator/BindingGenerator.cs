@@ -113,7 +113,14 @@ public static class BindingGenerator
             .Append(", of which ").Append(model.Reflected.Count(r => r.Replaced)).Append(" replace a projection)\n");
         foreach (var reflected in model.Reflected.OrderBy(r => r.Qualified, StringComparer.Ordinal))
         {
-            builder.Append("  ").Append(reflected.Qualified.PadRight(44)).Append(reflected.Replaced ? "replaces  " : "adds      ")
+            var disposition = reflected switch
+            {
+                { SetterOnly: true } => "sets      ",
+                { Replaced: true } => "replaces  ",
+                _ => "adds      ",
+            };
+
+            builder.Append("  ").Append(reflected.Qualified.PadRight(44)).Append(disposition)
                 .Append(reflected.Attribute.PadRight(20)).Append(reflected.Type).Append('\n');
         }
 

@@ -90,7 +90,7 @@ internal sealed class TimerQueue
     /// <summary>
     /// Where a callback's exception is reported, or <see langword="null"/> when the host set no sink and the
     /// exception must therefore erupt instead. Held here rather than reached through the engine so that
-    /// <see cref="TimerEntry.Fire"/> costs one field read and an entry costs no extra reference at all.
+    /// <see cref="TimerEntry.Fire"/> costs one field read and an entry need not retain the sink itself.
     /// </summary>
     internal DiagnosticsSink? Diagnostics { get; }
 
@@ -283,12 +283,14 @@ internal readonly record struct TimerDue(long Timestamp, long Sequence) : ICompa
 internal sealed class TimerEntry
 {
     private readonly TimerQueue _queue;
+    private readonly Realm _realm;
     private readonly ICallable _callback;
     private readonly JsValue[] _arguments;
     private Action? _job;
 
     internal TimerEntry(
         TimerQueue queue,
+        Realm realm,
         ICallable callback,
         JsValue[] arguments,
         long requestedDelay,
@@ -296,6 +298,7 @@ internal sealed class TimerEntry
         EventLoopRegistration registration)
     {
         _queue = queue;
+        _realm = realm;
         _callback = callback;
         _arguments = arguments;
         RequestedDelay = requestedDelay;
@@ -378,7 +381,7 @@ internal sealed class TimerEntry
             // WebIDL's "report" behavior is HTML's report an exception, whose step 5 fires an `error` event at
             // the global scope before step 6 reaches the console. A no-op unless the GlobalEvents feature is on
             // and a script is listening; see WebApiEngineState.FireGlobalErrorEvent.
-            _queue.Engine._webApi?.FireGlobalErrorEvent(exception);
+            _queue.Engine._webApi?.FireGlobalErrorEvent(_realm, exception);
 
             // Only a JavaScriptException, which is exactly the class of failure a script could have caught
             // itself. Everything that exists to bound execution — ExecutionCanceledException,

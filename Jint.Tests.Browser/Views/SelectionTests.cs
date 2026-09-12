@@ -26,6 +26,33 @@ public sealed class SelectionTests
     }
 
     [Test]
+    public async Task SecondaryDocumentsHaveNoSelection()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<p id='page'>page text</p>");
+
+        (await page.EvaluateAsync<string>("""
+            (() => {
+              const pageSelection = window.getSelection();
+              pageSelection.selectAllChildren(document.getElementById('page'));
+
+              const parsed = new DOMParser().parseFromString('<p>parsed</p>', 'text/html');
+              const implemented = document.implementation.createHTMLDocument('implemented');
+              const constructed = new Document();
+
+              return [
+                parsed.getSelection() === null,
+                implemented.getSelection() === null,
+                constructed.getSelection() === null,
+                pageSelection.toString(),
+                pageSelection === document.getSelection(),
+              ].join('|');
+            })()
+            """)).Should().Be("true|true|true|page text|true");
+    }
+
+    [Test]
     public async Task AnEmptySelectionAnswersTheEmptyState()
     {
         await using var browser = new Browser();

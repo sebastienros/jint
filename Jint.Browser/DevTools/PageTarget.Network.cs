@@ -162,6 +162,7 @@ internal sealed partial class PageTarget : IPageNetworkListener
     async ValueTask<PageNetworkResponseDecision> IPageNetworkListener.ResponseWillBeDeliveredAsync(
         PageNetworkRequest request,
         PageNetworkResponse response,
+        PageResponseBodyReader body,
         CancellationToken cancellationToken)
     {
         if (_interceptor is not { } interceptor || !interceptor.WantsResponse(request))
@@ -169,7 +170,7 @@ internal sealed partial class PageTarget : IPageNetworkListener
             return PageNetworkResponseDecision.Proceed;
         }
 
-        return await interceptor.PauseResponseAsync(request, response, FrameId, cancellationToken).ConfigureAwait(false);
+        return await interceptor.PauseResponseAsync(request, response, body, FrameId, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>

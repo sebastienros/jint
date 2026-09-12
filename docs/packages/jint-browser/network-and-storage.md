@@ -33,6 +33,6 @@ foreach (var request in page.Requests)
 
 Entries include initiator, final-hop URL and method, status, response headers, redirect count, body length, and failure details. Bodies and request headers are not retained. A request in flight has status `0`.
 
-References intentionally not fetched, such as images, still appear with `NotFetchedReason`. The log spans navigations and is bounded by `BrowserOptions.MaxRecordedEvents`.
+References intentionally not fetched, such as a media element or a non-stylesheet `<link>`, still appear with `NotFetchedReason`. The log spans navigations and is bounded by `BrowserOptions.MaxRecordedEvents`.
 
 Use `UrlFilter` for an application allow-list. `BlockPrivateNetwork` is a coarse additional defense; see [Untrusted content](./untrusted-content).

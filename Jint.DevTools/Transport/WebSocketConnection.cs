@@ -38,11 +38,12 @@ internal sealed class WebSocketConnection : IDevToolsConnection, IAsyncDisposabl
     private readonly int _maxMessageBytes;
 
     /// <summary>
-    /// What the single writer task drains. A <see langword="null"/> item is the close request: it travels
-    /// the queue like any other message, so everything already queued -- the reply to the very command that
-    /// asked for the close -- reaches the client before the socket goes.
+    /// What the single writer task drains. An item whose <see cref="Outgoing.Message"/> is
+    /// <see langword="null"/> is the close request: it travels the queue like any other message, so
+    /// everything already queued -- the reply to the very command that asked for the close -- reaches the
+    /// client before the socket goes.
     /// </summary>
-    private readonly Channel<string?> _outgoing = Channel.CreateUnbounded<string?>(new UnboundedChannelOptions
+    private readonly Channel<Outgoing> _outgoing = Channel.CreateUnbounded<Outgoing>(new UnboundedChannelOptions
     {
         SingleReader = true,
         SingleWriter = false,
@@ -66,9 +67,37 @@ internal sealed class WebSocketConnection : IDevToolsConnection, IAsyncDisposabl
     /// <inheritdoc/>
     public ValueTask SendAsync(string message, CancellationToken cancellationToken = default)
     {
-        _outgoing.Writer.TryWrite(message);
+        _outgoing.Writer.TryWrite(new Outgoing(message, Written: null));
         return default;
     }
+
+    /// <inheritdoc/>
+    /// <remarks>
+    /// The completion travels with the message rather than being awaited here, because the writer is a
+    /// single task draining one queue and this call may be made from any thread. Every way the item can
+    /// leave the queue completes it -- written, failed, socket already gone, queue abandoned at shutdown --
+    /// so a caller holding a reservation for the encoded bytes is never left holding it.
+    /// </remarks>
+    public ValueTask SendTrackedAsync(string message, CancellationToken cancellationToken = default)
+    {
+        var written = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        if (!_outgoing.Writer.TryWrite(new Outgoing(message, written)))
+        {
+            // The queue is already closed, so nothing will ever drain this one.
+            return default;
+        }
+
+        return new ValueTask(written.Task);
+    }
+
+    /// <summary>One queued message, and whoever is waiting for it to leave.</summary>
+    /// <param name="Message">The message, or <see langword="null"/> for the close request.</param>
+    /// <param name="Written">
+    /// Completed once the message has left the queue one way or another, or <see langword="null"/> when
+    /// nobody is waiting.
+    /// </param>
+    private readonly record struct Outgoing(string? Message, TaskCompletionSource? Written);
 
     /// <summary>
     /// Asks for the connection to close once the command that asked for it has been answered.
@@ -126,7 +155,20 @@ internal sealed class WebSocketConnection : IDevToolsConnection, IAsyncDisposabl
             {
             }
 
+            // The writer may have left early -- a socket already gone -- with items behind it, and a tracked
+            // send racing the close can land after it. Nothing is waiting on this connection once it is over.
+            DrainPending();
+
             RaiseClosed();
+        }
+    }
+
+    /// <summary>Completes every tracked send still queued, because nothing will ever write them.</summary>
+    private void DrainPending()
+    {
+        while (_outgoing.Reader.TryRead(out var abandoned))
+        {
+            abandoned.Written?.TrySetResult();
         }
     }
 
@@ -134,6 +176,7 @@ internal sealed class WebSocketConnection : IDevToolsConnection, IAsyncDisposabl
     public async ValueTask DisposeAsync()
     {
         _outgoing.Writer.TryComplete();
+        DrainPending();
 
         try
         {
@@ -251,7 +294,7 @@ internal sealed class WebSocketConnection : IDevToolsConnection, IAsyncDisposabl
                 if (Volatile.Read(ref _closeRequested) != 0)
                 {
                     // The command's reply is already queued, so the close goes in behind it.
-                    _outgoing.Writer.TryWrite(null);
+                    _outgoing.Writer.TryWrite(new Outgoing(Message: null, Written: null));
                     return;
                 }
             }
@@ -268,18 +311,20 @@ internal sealed class WebSocketConnection : IDevToolsConnection, IAsyncDisposabl
 
     private async Task WriteAsync(CancellationToken cancellationToken)
     {
+        Outgoing outgoing = default;
+
         try
         {
             while (await _outgoing.Reader.WaitToReadAsync(cancellationToken).ConfigureAwait(false))
             {
-                while (_outgoing.Reader.TryRead(out var message))
+                while (_outgoing.Reader.TryRead(out outgoing))
                 {
                     if (_socket.State != WebSocketState.Open)
                     {
                         return;
                     }
 
-                    if (message is null)
+                    if (outgoing.Message is not { } message)
                     {
                         await CloseAsync(WebSocketCloseStatus.NormalClosure, statusDescription: null).ConfigureAwait(false);
                         return;
@@ -287,6 +332,11 @@ internal sealed class WebSocketConnection : IDevToolsConnection, IAsyncDisposabl
 
                     var bytes = Encoding.UTF8.GetBytes(message);
                     await _socket.SendAsync(bytes.AsMemory(), WebSocketMessageType.Text, endOfMessage: true, cancellationToken).ConfigureAwait(false);
+
+                    // The one moment a tracked send is waiting for: the bytes are on the socket and the
+                    // string is nobody's any more.
+                    outgoing.Written?.TrySetResult();
+                    outgoing = default;
                 }
             }
         }
@@ -296,6 +346,18 @@ internal sealed class WebSocketConnection : IDevToolsConnection, IAsyncDisposabl
         catch (WebSocketException)
         {
             // The client went away mid-write. The reader notices too, and the connection ends there.
+        }
+        finally
+        {
+            // Nothing left waiting, whichever way this ended: the message in hand when the socket went, and
+            // everything still queued behind it. A tracked send completes on failure exactly as on success —
+            // what its caller is waiting for is that the message is no longer its own.
+            outgoing.Written?.TrySetResult();
+
+            while (_outgoing.Reader.TryRead(out var abandoned))
+            {
+                abandoned.Written?.TrySetResult();
+            }
         }
     }
 

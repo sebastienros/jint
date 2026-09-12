@@ -15,6 +15,30 @@ namespace Jint.Browser.Dom;
 /// </summary>
 internal static class DomReflected
 {
+    /// <summary><c>Document.alinkColor</c> reflects <c>alink</c> as a string.</summary>
+    internal static readonly ReflectedAttribute DocumentAlinkColor =
+        ReflectedAttribute.Text("Document.alinkColor", "alink", legacyNullToEmptyString: true, target: ReflectedTarget.Body);
+
+    /// <summary><c>Document.bgColor</c> reflects <c>bgcolor</c> as a string.</summary>
+    internal static readonly ReflectedAttribute DocumentBgColor =
+        ReflectedAttribute.Text("Document.bgColor", "bgcolor", legacyNullToEmptyString: true, target: ReflectedTarget.Body);
+
+    /// <summary><c>Document.dir</c> reflects <c>dir</c> as an enum.</summary>
+    internal static readonly ReflectedAttribute DocumentDir =
+        ReflectedAttribute.Enumerated("Document.dir", "dir", ["ltr", "rtl", "auto"], missing: "", invalid: null, target: ReflectedTarget.DocumentElement);
+
+    /// <summary><c>Document.fgColor</c> reflects <c>text</c> as a string.</summary>
+    internal static readonly ReflectedAttribute DocumentFgColor =
+        ReflectedAttribute.Text("Document.fgColor", "text", legacyNullToEmptyString: true, target: ReflectedTarget.Body);
+
+    /// <summary><c>Document.linkColor</c> reflects <c>link</c> as a string.</summary>
+    internal static readonly ReflectedAttribute DocumentLinkColor =
+        ReflectedAttribute.Text("Document.linkColor", "link", legacyNullToEmptyString: true, target: ReflectedTarget.Body);
+
+    /// <summary><c>Document.vlinkColor</c> reflects <c>vlink</c> as a string.</summary>
+    internal static readonly ReflectedAttribute DocumentVlinkColor =
+        ReflectedAttribute.Text("Document.vlinkColor", "vlink", legacyNullToEmptyString: true, target: ReflectedTarget.Body);
+
     /// <summary><c>HTMLAnchorElement.charset</c> reflects <c>charset</c> as a string.</summary>
     internal static readonly ReflectedAttribute HTMLAnchorElementCharset =
         ReflectedAttribute.Text("HTMLAnchorElement.charset", "charset");
@@ -47,9 +71,69 @@ internal static class DomReflected
     internal static readonly ReflectedAttribute HTMLAnchorElementType =
         ReflectedAttribute.Text("HTMLAnchorElement.type", "type");
 
+    /// <summary><c>HTMLAreaElement.noHref</c> reflects <c>nohref</c> as a boolean.</summary>
+    internal static readonly ReflectedAttribute HTMLAreaElementNoHref =
+        ReflectedAttribute.Boolean("HTMLAreaElement.noHref", "nohref");
+
+    /// <summary><c>HTMLAreaElement.ping</c> reflects <c>ping</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLAreaElementPing =
+        ReflectedAttribute.Text("HTMLAreaElement.ping", "ping");
+
+    /// <summary><c>HTMLAreaElement.referrerPolicy</c> reflects <c>referrerpolicy</c> as an enum.</summary>
+    internal static readonly ReflectedAttribute HTMLAreaElementReferrerPolicy =
+        ReflectedAttribute.Enumerated("HTMLAreaElement.referrerPolicy", "referrerpolicy", ["", "no-referrer", "no-referrer-when-downgrade", "same-origin", "origin", "strict-origin", "origin-when-cross-origin", "strict-origin-when-cross-origin", "unsafe-url"], missing: "", invalid: null);
+
     /// <summary><c>HTMLBRElement.clear</c> reflects <c>clear</c> as a string.</summary>
     internal static readonly ReflectedAttribute HTMLBRElementClear =
         ReflectedAttribute.Text("HTMLBRElement.clear", "clear");
+
+    /// <summary><c>HTMLBodyElement.aLink</c> reflects <c>alink</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLBodyElementALink =
+        ReflectedAttribute.Text("HTMLBodyElement.aLink", "alink", legacyNullToEmptyString: true);
+
+    /// <summary><c>HTMLBodyElement.background</c> reflects <c>background</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLBodyElementBackground =
+        ReflectedAttribute.Text("HTMLBodyElement.background", "background");
+
+    /// <summary><c>HTMLBodyElement.bgColor</c> reflects <c>bgcolor</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLBodyElementBgColor =
+        ReflectedAttribute.Text("HTMLBodyElement.bgColor", "bgcolor", legacyNullToEmptyString: true);
+
+    /// <summary><c>HTMLBodyElement.link</c> reflects <c>link</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLBodyElementLink =
+        ReflectedAttribute.Text("HTMLBodyElement.link", "link", legacyNullToEmptyString: true);
+
+    /// <summary><c>HTMLBodyElement.text</c> reflects <c>text</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLBodyElementText =
+        ReflectedAttribute.Text("HTMLBodyElement.text", "text", legacyNullToEmptyString: true);
+
+    /// <summary><c>HTMLBodyElement.vLink</c> reflects <c>vlink</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLBodyElementVLink =
+        ReflectedAttribute.Text("HTMLBodyElement.vLink", "vlink", legacyNullToEmptyString: true);
+
+    /// <summary><c>HTMLButtonElement.formAction</c> reflects <c>formaction</c> as an url.</summary>
+    internal static readonly ReflectedAttribute HTMLButtonElementFormAction =
+        ReflectedAttribute.Url("HTMLButtonElement.formAction", "formaction", documentUrlWhenEmpty: true);
+
+    /// <summary><c>HTMLButtonElement.formEnctype</c> reflects <c>formenctype</c> as an enum.</summary>
+    internal static readonly ReflectedAttribute HTMLButtonElementFormEnctype =
+        ReflectedAttribute.Enumerated("HTMLButtonElement.formEnctype", "formenctype", ["application/x-www-form-urlencoded", "multipart/form-data", "text/plain"], missing: "", invalid: "application/x-www-form-urlencoded");
+
+    /// <summary><c>HTMLButtonElement.formMethod</c> reflects <c>formmethod</c> as an enum.</summary>
+    internal static readonly ReflectedAttribute HTMLButtonElementFormMethod =
+        ReflectedAttribute.Enumerated("HTMLButtonElement.formMethod", "formmethod", ["get", "post", "dialog"], missing: "", invalid: "get");
+
+    /// <summary><c>HTMLButtonElement.type</c> reflects <c>type</c> as an enum.</summary>
+    internal static readonly ReflectedAttribute HTMLButtonElementType =
+        ReflectedAttribute.Enumerated("HTMLButtonElement.type", "type", ["submit", "reset", "button"], missing: "submit", invalid: null);
+
+    /// <summary><c>HTMLCanvasElement.height</c> reflects <c>height</c> as an unsigned long.</summary>
+    internal static readonly ReflectedAttribute HTMLCanvasElementHeight =
+        ReflectedAttribute.Numeric("HTMLCanvasElement.height", "height", ReflectedKind.UnsignedLong, 150);
+
+    /// <summary><c>HTMLCanvasElement.width</c> reflects <c>width</c> as an unsigned long.</summary>
+    internal static readonly ReflectedAttribute HTMLCanvasElementWidth =
+        ReflectedAttribute.Numeric("HTMLCanvasElement.width", "width", ReflectedKind.UnsignedLong, 300);
 
     /// <summary><c>HTMLDivElement.align</c> reflects <c>align</c> as a string.</summary>
     internal static readonly ReflectedAttribute HTMLDivElementAlign =
@@ -75,9 +159,33 @@ internal static class DomReflected
     internal static readonly ReflectedAttribute HTMLElementLang =
         ReflectedAttribute.Text("HTMLElement.lang", "lang");
 
+    /// <summary><c>HTMLElement.nonce</c> reflects <c>nonce</c> as a nonce.</summary>
+    internal static readonly ReflectedAttribute HTMLElementNonce =
+        ReflectedAttribute.Nonce("HTMLElement.nonce", "nonce");
+
     /// <summary><c>HTMLElement.tabIndex</c> reflects <c>tabindex</c> as a long.</summary>
     internal static readonly ReflectedAttribute HTMLElementTabIndex =
         ReflectedAttribute.Numeric("HTMLElement.tabIndex", "tabindex", ReflectedKind.Long, 0);
+
+    /// <summary><c>HTMLEmbedElement.align</c> reflects <c>align</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLEmbedElementAlign =
+        ReflectedAttribute.Text("HTMLEmbedElement.align", "align");
+
+    /// <summary><c>HTMLEmbedElement.name</c> reflects <c>name</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLEmbedElementName =
+        ReflectedAttribute.Text("HTMLEmbedElement.name", "name");
+
+    /// <summary><c>HTMLEmbedElement.src</c> reflects <c>src</c> as an url.</summary>
+    internal static readonly ReflectedAttribute HTMLEmbedElementSrc =
+        ReflectedAttribute.Url("HTMLEmbedElement.src", "src");
+
+    /// <summary><c>HTMLFormElement.action</c> reflects <c>action</c> as an url.</summary>
+    internal static readonly ReflectedAttribute HTMLFormElementAction =
+        ReflectedAttribute.Url("HTMLFormElement.action", "action", documentUrlWhenEmpty: true);
+
+    /// <summary><c>HTMLFormElement.autocomplete</c> reflects <c>autocomplete</c> as an enum.</summary>
+    internal static readonly ReflectedAttribute HTMLFormElementAutocomplete =
+        ReflectedAttribute.Enumerated("HTMLFormElement.autocomplete", "autocomplete", ["on", "off"], missing: "on", invalid: null);
 
     /// <summary><c>HTMLHRElement.align</c> reflects <c>align</c> as a string.</summary>
     internal static readonly ReflectedAttribute HTMLHRElementAlign =
@@ -99,9 +207,145 @@ internal static class DomReflected
     internal static readonly ReflectedAttribute HTMLHRElementWidth =
         ReflectedAttribute.Text("HTMLHRElement.width", "width");
 
+    /// <summary><c>HTMLHeadingElement.align</c> reflects <c>align</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLHeadingElementAlign =
+        ReflectedAttribute.Text("HTMLHeadingElement.align", "align");
+
     /// <summary><c>HTMLHtmlElement.version</c> reflects <c>version</c> as a string.</summary>
     internal static readonly ReflectedAttribute HTMLHtmlElementVersion =
         ReflectedAttribute.Text("HTMLHtmlElement.version", "version");
+
+    /// <summary><c>HTMLIFrameElement.align</c> reflects <c>align</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLIFrameElementAlign =
+        ReflectedAttribute.Text("HTMLIFrameElement.align", "align");
+
+    /// <summary><c>HTMLIFrameElement.frameBorder</c> reflects <c>frameborder</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLIFrameElementFrameBorder =
+        ReflectedAttribute.Text("HTMLIFrameElement.frameBorder", "frameborder");
+
+    /// <summary><c>HTMLIFrameElement.height</c> reflects <c>height</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLIFrameElementHeight =
+        ReflectedAttribute.Text("HTMLIFrameElement.height", "height");
+
+    /// <summary><c>HTMLIFrameElement.longDesc</c> reflects <c>longdesc</c> as an url.</summary>
+    internal static readonly ReflectedAttribute HTMLIFrameElementLongDesc =
+        ReflectedAttribute.Url("HTMLIFrameElement.longDesc", "longdesc");
+
+    /// <summary><c>HTMLIFrameElement.marginHeight</c> reflects <c>marginheight</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLIFrameElementMarginHeight =
+        ReflectedAttribute.Text("HTMLIFrameElement.marginHeight", "marginheight", legacyNullToEmptyString: true);
+
+    /// <summary><c>HTMLIFrameElement.marginWidth</c> reflects <c>marginwidth</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLIFrameElementMarginWidth =
+        ReflectedAttribute.Text("HTMLIFrameElement.marginWidth", "marginwidth", legacyNullToEmptyString: true);
+
+    /// <summary><c>HTMLIFrameElement.referrerPolicy</c> reflects <c>referrerpolicy</c> as an enum.</summary>
+    internal static readonly ReflectedAttribute HTMLIFrameElementReferrerPolicy =
+        ReflectedAttribute.Enumerated("HTMLIFrameElement.referrerPolicy", "referrerpolicy", ["", "no-referrer", "no-referrer-when-downgrade", "same-origin", "origin", "strict-origin", "origin-when-cross-origin", "strict-origin-when-cross-origin", "unsafe-url"], missing: "", invalid: null);
+
+    /// <summary><c>HTMLIFrameElement.scrolling</c> reflects <c>scrolling</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLIFrameElementScrolling =
+        ReflectedAttribute.Text("HTMLIFrameElement.scrolling", "scrolling");
+
+    /// <summary><c>HTMLIFrameElement.width</c> reflects <c>width</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLIFrameElementWidth =
+        ReflectedAttribute.Text("HTMLIFrameElement.width", "width");
+
+    /// <summary><c>HTMLImageElement.align</c> reflects <c>align</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLImageElementAlign =
+        ReflectedAttribute.Text("HTMLImageElement.align", "align");
+
+    /// <summary><c>HTMLImageElement.border</c> reflects <c>border</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLImageElementBorder =
+        ReflectedAttribute.Text("HTMLImageElement.border", "border", legacyNullToEmptyString: true);
+
+    /// <summary><c>HTMLImageElement.crossOrigin</c> reflects <c>crossorigin</c> as an enum.</summary>
+    internal static readonly ReflectedAttribute HTMLImageElementCrossOrigin =
+        ReflectedAttribute.Enumerated("HTMLImageElement.crossOrigin", "crossorigin", ["anonymous", "use-credentials"], missing: null, invalid: "anonymous");
+
+    /// <summary><c>HTMLImageElement.decoding</c> reflects <c>decoding</c> as an enum.</summary>
+    internal static readonly ReflectedAttribute HTMLImageElementDecoding =
+        ReflectedAttribute.Enumerated("HTMLImageElement.decoding", "decoding", ["async", "sync", "auto"], missing: "auto", invalid: "auto");
+
+    /// <summary><c>HTMLImageElement.height</c> reflects <c>height</c> as an unsigned long.</summary>
+    internal static readonly ReflectedAttribute HTMLImageElementHeight =
+        ReflectedAttribute.Numeric("HTMLImageElement.height", "height", ReflectedKind.UnsignedLong, 0);
+
+    /// <summary><c>HTMLImageElement.hspace</c> reflects <c>hspace</c> as an unsigned long.</summary>
+    internal static readonly ReflectedAttribute HTMLImageElementHspace =
+        ReflectedAttribute.Numeric("HTMLImageElement.hspace", "hspace", ReflectedKind.UnsignedLong, 0);
+
+    /// <summary><c>HTMLImageElement.loading</c> reflects <c>loading</c> as an enum.</summary>
+    internal static readonly ReflectedAttribute HTMLImageElementLoading =
+        ReflectedAttribute.Enumerated("HTMLImageElement.loading", "loading", ["lazy", "eager"], missing: "eager", invalid: "eager");
+
+    /// <summary><c>HTMLImageElement.longDesc</c> reflects <c>longdesc</c> as an url.</summary>
+    internal static readonly ReflectedAttribute HTMLImageElementLongDesc =
+        ReflectedAttribute.Url("HTMLImageElement.longDesc", "longdesc");
+
+    /// <summary><c>HTMLImageElement.lowsrc</c> reflects <c>lowsrc</c> as an url.</summary>
+    internal static readonly ReflectedAttribute HTMLImageElementLowsrc =
+        ReflectedAttribute.Url("HTMLImageElement.lowsrc", "lowsrc");
+
+    /// <summary><c>HTMLImageElement.name</c> reflects <c>name</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLImageElementName =
+        ReflectedAttribute.Text("HTMLImageElement.name", "name");
+
+    /// <summary><c>HTMLImageElement.referrerPolicy</c> reflects <c>referrerpolicy</c> as an enum.</summary>
+    internal static readonly ReflectedAttribute HTMLImageElementReferrerPolicy =
+        ReflectedAttribute.Enumerated("HTMLImageElement.referrerPolicy", "referrerpolicy", ["", "no-referrer", "no-referrer-when-downgrade", "same-origin", "origin", "strict-origin", "origin-when-cross-origin", "strict-origin-when-cross-origin", "unsafe-url"], missing: "", invalid: null);
+
+    /// <summary><c>HTMLImageElement.vspace</c> reflects <c>vspace</c> as an unsigned long.</summary>
+    internal static readonly ReflectedAttribute HTMLImageElementVspace =
+        ReflectedAttribute.Numeric("HTMLImageElement.vspace", "vspace", ReflectedKind.UnsignedLong, 0);
+
+    /// <summary><c>HTMLImageElement.width</c> reflects <c>width</c> as an unsigned long.</summary>
+    internal static readonly ReflectedAttribute HTMLImageElementWidth =
+        ReflectedAttribute.Numeric("HTMLImageElement.width", "width", ReflectedKind.UnsignedLong, 0);
+
+    /// <summary><c>HTMLInputElement.align</c> reflects <c>align</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLInputElementAlign =
+        ReflectedAttribute.Text("HTMLInputElement.align", "align");
+
+    /// <summary><c>HTMLInputElement.formAction</c> reflects <c>formaction</c> as an url.</summary>
+    internal static readonly ReflectedAttribute HTMLInputElementFormAction =
+        ReflectedAttribute.Url("HTMLInputElement.formAction", "formaction", documentUrlWhenEmpty: true);
+
+    /// <summary><c>HTMLInputElement.formEnctype</c> reflects <c>formenctype</c> as an enum.</summary>
+    internal static readonly ReflectedAttribute HTMLInputElementFormEnctype =
+        ReflectedAttribute.Enumerated("HTMLInputElement.formEnctype", "formenctype", ["application/x-www-form-urlencoded", "multipart/form-data", "text/plain"], missing: "", invalid: "application/x-www-form-urlencoded");
+
+    /// <summary><c>HTMLInputElement.formMethod</c> reflects <c>formmethod</c> as an enum.</summary>
+    internal static readonly ReflectedAttribute HTMLInputElementFormMethod =
+        ReflectedAttribute.Enumerated("HTMLInputElement.formMethod", "formmethod", ["get", "post"], missing: "", invalid: "get");
+
+    /// <summary><c>HTMLInputElement.height</c> reflects <c>height</c> as an unsigned long.</summary>
+    internal static readonly ReflectedAttribute HTMLInputElementHeight =
+        ReflectedAttribute.Numeric("HTMLInputElement.height", "height", ReflectedKind.UnsignedLong, 0);
+
+    /// <summary><c>HTMLInputElement.maxLength</c> reflects <c>maxlength</c> as a limited long.</summary>
+    internal static readonly ReflectedAttribute HTMLInputElementMaxLength =
+        ReflectedAttribute.Numeric("HTMLInputElement.maxLength", "maxlength", ReflectedKind.LimitedLong, -1);
+
+    /// <summary><c>HTMLInputElement.minLength</c> reflects <c>minlength</c> as a limited long.</summary>
+    internal static readonly ReflectedAttribute HTMLInputElementMinLength =
+        ReflectedAttribute.Numeric("HTMLInputElement.minLength", "minlength", ReflectedKind.LimitedLong, -1);
+
+    /// <summary><c>HTMLInputElement.size</c> reflects <c>size</c> as a limited unsigned long.</summary>
+    internal static readonly ReflectedAttribute HTMLInputElementSize =
+        ReflectedAttribute.Numeric("HTMLInputElement.size", "size", ReflectedKind.LimitedUnsignedLong, 20);
+
+    /// <summary><c>HTMLInputElement.src</c> reflects <c>src</c> as an url.</summary>
+    internal static readonly ReflectedAttribute HTMLInputElementSrc =
+        ReflectedAttribute.Url("HTMLInputElement.src", "src");
+
+    /// <summary><c>HTMLInputElement.useMap</c> reflects <c>usemap</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLInputElementUseMap =
+        ReflectedAttribute.Text("HTMLInputElement.useMap", "usemap");
+
+    /// <summary><c>HTMLInputElement.width</c> reflects <c>width</c> as an unsigned long.</summary>
+    internal static readonly ReflectedAttribute HTMLInputElementWidth =
+        ReflectedAttribute.Numeric("HTMLInputElement.width", "width", ReflectedKind.UnsignedLong, 0);
 
     /// <summary><c>HTMLLIElement.type</c> reflects <c>type</c> as a string.</summary>
     internal static readonly ReflectedAttribute HTMLLIElementType =
@@ -111,9 +355,113 @@ internal static class DomReflected
     internal static readonly ReflectedAttribute HTMLLIElementValue =
         ReflectedAttribute.Numeric("HTMLLIElement.value", "value", ReflectedKind.Long, 0);
 
+    /// <summary><c>HTMLLegendElement.align</c> reflects <c>align</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLLegendElementAlign =
+        ReflectedAttribute.Text("HTMLLegendElement.align", "align");
+
+    /// <summary><c>HTMLLinkElement.as</c> reflects <c>as</c> as an enum.</summary>
+    internal static readonly ReflectedAttribute HTMLLinkElementAs =
+        ReflectedAttribute.Enumerated("HTMLLinkElement.as", "as", ["fetch", "audio", "document", "embed", "font", "image", "manifest", "object", "report", "script", "sharedworker", "style", "track", "video", "worker", "xslt"], missing: "", invalid: null);
+
+    /// <summary><c>HTMLLinkElement.charset</c> reflects <c>charset</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLLinkElementCharset =
+        ReflectedAttribute.Text("HTMLLinkElement.charset", "charset");
+
+    /// <summary><c>HTMLLinkElement.crossOrigin</c> reflects <c>crossorigin</c> as an enum.</summary>
+    internal static readonly ReflectedAttribute HTMLLinkElementCrossOrigin =
+        ReflectedAttribute.Enumerated("HTMLLinkElement.crossOrigin", "crossorigin", ["anonymous", "use-credentials"], missing: null, invalid: "anonymous");
+
+    /// <summary><c>HTMLLinkElement.href</c> reflects <c>href</c> as an url.</summary>
+    internal static readonly ReflectedAttribute HTMLLinkElementHref =
+        ReflectedAttribute.Url("HTMLLinkElement.href", "href");
+
+    /// <summary><c>HTMLLinkElement.referrerPolicy</c> reflects <c>referrerpolicy</c> as an enum.</summary>
+    internal static readonly ReflectedAttribute HTMLLinkElementReferrerPolicy =
+        ReflectedAttribute.Enumerated("HTMLLinkElement.referrerPolicy", "referrerpolicy", ["", "no-referrer", "no-referrer-when-downgrade", "same-origin", "origin", "strict-origin", "origin-when-cross-origin", "strict-origin-when-cross-origin", "unsafe-url"], missing: "", invalid: null);
+
+    /// <summary><c>HTMLLinkElement.target</c> reflects <c>target</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLLinkElementTarget =
+        ReflectedAttribute.Text("HTMLLinkElement.target", "target");
+
+    /// <summary><c>HTMLMarqueeElement.bgColor</c> reflects <c>bgcolor</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLMarqueeElementBgColor =
+        ReflectedAttribute.Text("HTMLMarqueeElement.bgColor", "bgcolor");
+
+    /// <summary><c>HTMLMarqueeElement.height</c> reflects <c>height</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLMarqueeElementHeight =
+        ReflectedAttribute.Text("HTMLMarqueeElement.height", "height");
+
+    /// <summary><c>HTMLMarqueeElement.hspace</c> reflects <c>hspace</c> as an unsigned long.</summary>
+    internal static readonly ReflectedAttribute HTMLMarqueeElementHspace =
+        ReflectedAttribute.Numeric("HTMLMarqueeElement.hspace", "hspace", ReflectedKind.UnsignedLong, 0);
+
+    /// <summary><c>HTMLMarqueeElement.scrollAmount</c> reflects <c>scrollamount</c> as an unsigned long.</summary>
+    internal static readonly ReflectedAttribute HTMLMarqueeElementScrollAmount =
+        ReflectedAttribute.Numeric("HTMLMarqueeElement.scrollAmount", "scrollamount", ReflectedKind.UnsignedLong, 6);
+
+    /// <summary><c>HTMLMarqueeElement.scrollDelay</c> reflects <c>scrolldelay</c> as an unsigned long.</summary>
+    internal static readonly ReflectedAttribute HTMLMarqueeElementScrollDelay =
+        ReflectedAttribute.Numeric("HTMLMarqueeElement.scrollDelay", "scrolldelay", ReflectedKind.UnsignedLong, 85);
+
+    /// <summary><c>HTMLMarqueeElement.trueSpeed</c> reflects <c>truespeed</c> as a boolean.</summary>
+    internal static readonly ReflectedAttribute HTMLMarqueeElementTrueSpeed =
+        ReflectedAttribute.Boolean("HTMLMarqueeElement.trueSpeed", "truespeed");
+
+    /// <summary><c>HTMLMarqueeElement.vspace</c> reflects <c>vspace</c> as an unsigned long.</summary>
+    internal static readonly ReflectedAttribute HTMLMarqueeElementVspace =
+        ReflectedAttribute.Numeric("HTMLMarqueeElement.vspace", "vspace", ReflectedKind.UnsignedLong, 0);
+
+    /// <summary><c>HTMLMarqueeElement.width</c> reflects <c>width</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLMarqueeElementWidth =
+        ReflectedAttribute.Text("HTMLMarqueeElement.width", "width");
+
+    /// <summary><c>HTMLMediaElement.crossOrigin</c> reflects <c>crossorigin</c> as an enum.</summary>
+    internal static readonly ReflectedAttribute HTMLMediaElementCrossOrigin =
+        ReflectedAttribute.Enumerated("HTMLMediaElement.crossOrigin", "crossorigin", ["anonymous", "use-credentials"], missing: null, invalid: "anonymous");
+
+    /// <summary><c>HTMLMediaElement.loading</c> reflects <c>loading</c> as an enum.</summary>
+    internal static readonly ReflectedAttribute HTMLMediaElementLoading =
+        ReflectedAttribute.Enumerated("HTMLMediaElement.loading", "loading", ["lazy", "eager"], missing: "eager", invalid: "eager");
+
+    /// <summary><c>HTMLMediaElement.preload</c> reflects <c>preload</c> as an enum.</summary>
+    internal static readonly ReflectedAttribute HTMLMediaElementPreload =
+        ReflectedAttribute.Enumerated("HTMLMediaElement.preload", "preload", ["none", "metadata", "auto"], missing: "auto", invalid: "auto");
+
     /// <summary><c>HTMLMenuElement.compact</c> reflects <c>compact</c> as a boolean.</summary>
     internal static readonly ReflectedAttribute HTMLMenuElementCompact =
         ReflectedAttribute.Boolean("HTMLMenuElement.compact", "compact");
+
+    /// <summary><c>HTMLMetaElement.media</c> reflects <c>media</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLMetaElementMedia =
+        ReflectedAttribute.Text("HTMLMetaElement.media", "media");
+
+    /// <summary><c>HTMLMetaElement.scheme</c> reflects <c>scheme</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLMetaElementScheme =
+        ReflectedAttribute.Text("HTMLMetaElement.scheme", "scheme");
+
+    /// <summary><c>HTMLMeterElement.high</c> reflects <c>high</c> as a double.</summary>
+    internal static readonly ReflectedAttribute HTMLMeterElementHigh =
+        ReflectedAttribute.Numeric("HTMLMeterElement.high", "high", ReflectedKind.Double, 0);
+
+    /// <summary><c>HTMLMeterElement.low</c> reflects <c>low</c> as a double.</summary>
+    internal static readonly ReflectedAttribute HTMLMeterElementLow =
+        ReflectedAttribute.Numeric("HTMLMeterElement.low", "low", ReflectedKind.Double, 0);
+
+    /// <summary><c>HTMLMeterElement.max</c> reflects <c>max</c> as a double.</summary>
+    internal static readonly ReflectedAttribute HTMLMeterElementMax =
+        ReflectedAttribute.Numeric("HTMLMeterElement.max", "max", ReflectedKind.Double, 0);
+
+    /// <summary><c>HTMLMeterElement.min</c> reflects <c>min</c> as a double.</summary>
+    internal static readonly ReflectedAttribute HTMLMeterElementMin =
+        ReflectedAttribute.Numeric("HTMLMeterElement.min", "min", ReflectedKind.Double, 0);
+
+    /// <summary><c>HTMLMeterElement.optimum</c> reflects <c>optimum</c> as a double.</summary>
+    internal static readonly ReflectedAttribute HTMLMeterElementOptimum =
+        ReflectedAttribute.Numeric("HTMLMeterElement.optimum", "optimum", ReflectedKind.Double, 0);
+
+    /// <summary><c>HTMLMeterElement.value</c> reflects <c>value</c> as a double.</summary>
+    internal static readonly ReflectedAttribute HTMLMeterElementValue =
+        ReflectedAttribute.Numeric("HTMLMeterElement.value", "value", ReflectedKind.Double, 0);
 
     /// <summary><c>HTMLModElement.cite</c> reflects <c>cite</c> as an url.</summary>
     internal static readonly ReflectedAttribute HTMLModElementCite =
@@ -131,13 +479,73 @@ internal static class DomReflected
     internal static readonly ReflectedAttribute HTMLOListElementStart =
         ReflectedAttribute.Numeric("HTMLOListElement.start", "start", ReflectedKind.Long, 1);
 
+    /// <summary><c>HTMLObjectElement.align</c> reflects <c>align</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLObjectElementAlign =
+        ReflectedAttribute.Text("HTMLObjectElement.align", "align");
+
+    /// <summary><c>HTMLObjectElement.archive</c> reflects <c>archive</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLObjectElementArchive =
+        ReflectedAttribute.Text("HTMLObjectElement.archive", "archive");
+
+    /// <summary><c>HTMLObjectElement.border</c> reflects <c>border</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLObjectElementBorder =
+        ReflectedAttribute.Text("HTMLObjectElement.border", "border", legacyNullToEmptyString: true);
+
+    /// <summary><c>HTMLObjectElement.code</c> reflects <c>code</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLObjectElementCode =
+        ReflectedAttribute.Text("HTMLObjectElement.code", "code");
+
+    /// <summary><c>HTMLObjectElement.codeBase</c> reflects <c>codebase</c> as an url.</summary>
+    internal static readonly ReflectedAttribute HTMLObjectElementCodeBase =
+        ReflectedAttribute.Url("HTMLObjectElement.codeBase", "codebase");
+
+    /// <summary><c>HTMLObjectElement.codeType</c> reflects <c>codetype</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLObjectElementCodeType =
+        ReflectedAttribute.Text("HTMLObjectElement.codeType", "codetype");
+
+    /// <summary><c>HTMLObjectElement.declare</c> reflects <c>declare</c> as a boolean.</summary>
+    internal static readonly ReflectedAttribute HTMLObjectElementDeclare =
+        ReflectedAttribute.Boolean("HTMLObjectElement.declare", "declare");
+
+    /// <summary><c>HTMLObjectElement.height</c> reflects <c>height</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLObjectElementHeight =
+        ReflectedAttribute.Text("HTMLObjectElement.height", "height");
+
+    /// <summary><c>HTMLObjectElement.hspace</c> reflects <c>hspace</c> as an unsigned long.</summary>
+    internal static readonly ReflectedAttribute HTMLObjectElementHspace =
+        ReflectedAttribute.Numeric("HTMLObjectElement.hspace", "hspace", ReflectedKind.UnsignedLong, 0);
+
+    /// <summary><c>HTMLObjectElement.standby</c> reflects <c>standby</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLObjectElementStandby =
+        ReflectedAttribute.Text("HTMLObjectElement.standby", "standby");
+
+    /// <summary><c>HTMLObjectElement.vspace</c> reflects <c>vspace</c> as an unsigned long.</summary>
+    internal static readonly ReflectedAttribute HTMLObjectElementVspace =
+        ReflectedAttribute.Numeric("HTMLObjectElement.vspace", "vspace", ReflectedKind.UnsignedLong, 0);
+
+    /// <summary><c>HTMLObjectElement.width</c> reflects <c>width</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLObjectElementWidth =
+        ReflectedAttribute.Text("HTMLObjectElement.width", "width");
+
     /// <summary><c>HTMLParagraphElement.align</c> reflects <c>align</c> as a string.</summary>
     internal static readonly ReflectedAttribute HTMLParagraphElementAlign =
         ReflectedAttribute.Text("HTMLParagraphElement.align", "align");
 
+    /// <summary><c>HTMLParamElement.type</c> reflects <c>type</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLParamElementType =
+        ReflectedAttribute.Text("HTMLParamElement.type", "type");
+
+    /// <summary><c>HTMLParamElement.valueType</c> reflects <c>valuetype</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLParamElementValueType =
+        ReflectedAttribute.Text("HTMLParamElement.valueType", "valuetype");
+
     /// <summary><c>HTMLPreElement.width</c> reflects <c>width</c> as a long.</summary>
     internal static readonly ReflectedAttribute HTMLPreElementWidth =
         ReflectedAttribute.Numeric("HTMLPreElement.width", "width", ReflectedKind.Long, 0);
+
+    /// <summary><c>HTMLProgressElement.max</c> reflects <c>max</c> as a limited double.</summary>
+    internal static readonly ReflectedAttribute HTMLProgressElementMax =
+        ReflectedAttribute.Numeric("HTMLProgressElement.max", "max", ReflectedKind.LimitedDouble, 1);
 
     /// <summary><c>HTMLQuoteElement.cite</c> reflects <c>cite</c> as an url.</summary>
     internal static readonly ReflectedAttribute HTMLQuoteElementCite =
@@ -163,9 +571,197 @@ internal static class DomReflected
     internal static readonly ReflectedAttribute HTMLScriptElementSrc =
         ReflectedAttribute.Url("HTMLScriptElement.src", "src");
 
+    /// <summary><c>HTMLSelectElement.autocomplete</c> reflects <c>autocomplete</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLSelectElementAutocomplete =
+        ReflectedAttribute.Text("HTMLSelectElement.autocomplete", "autocomplete");
+
+    /// <summary><c>HTMLSelectElement.size</c> reflects <c>size</c> as an unsigned long.</summary>
+    internal static readonly ReflectedAttribute HTMLSelectElementSize =
+        ReflectedAttribute.Numeric("HTMLSelectElement.size", "size", ReflectedKind.UnsignedLong, 0);
+
+    /// <summary><c>HTMLTableCaptionElement.align</c> reflects <c>align</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableCaptionElementAlign =
+        ReflectedAttribute.Text("HTMLTableCaptionElement.align", "align");
+
+    /// <summary><c>HTMLTableCellElement.abbr</c> reflects <c>abbr</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableCellElementAbbr =
+        ReflectedAttribute.Text("HTMLTableCellElement.abbr", "abbr");
+
+    /// <summary><c>HTMLTableCellElement.align</c> reflects <c>align</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableCellElementAlign =
+        ReflectedAttribute.Text("HTMLTableCellElement.align", "align");
+
+    /// <summary><c>HTMLTableCellElement.axis</c> reflects <c>axis</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableCellElementAxis =
+        ReflectedAttribute.Text("HTMLTableCellElement.axis", "axis");
+
+    /// <summary><c>HTMLTableCellElement.bgColor</c> reflects <c>bgcolor</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableCellElementBgColor =
+        ReflectedAttribute.Text("HTMLTableCellElement.bgColor", "bgcolor", legacyNullToEmptyString: true);
+
+    /// <summary><c>HTMLTableCellElement.ch</c> reflects <c>char</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableCellElementCh =
+        ReflectedAttribute.Text("HTMLTableCellElement.ch", "char");
+
+    /// <summary><c>HTMLTableCellElement.chOff</c> reflects <c>charoff</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableCellElementChOff =
+        ReflectedAttribute.Text("HTMLTableCellElement.chOff", "charoff");
+
+    /// <summary><c>HTMLTableCellElement.colSpan</c> reflects <c>colspan</c> as a clamped unsigned long.</summary>
+    internal static readonly ReflectedAttribute HTMLTableCellElementColSpan =
+        ReflectedAttribute.Numeric("HTMLTableCellElement.colSpan", "colspan", ReflectedKind.ClampedUnsignedLong, 1, min: 1, max: 1000);
+
+    /// <summary><c>HTMLTableCellElement.headers</c> reflects <c>headers</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableCellElementHeaders =
+        ReflectedAttribute.Text("HTMLTableCellElement.headers", "headers");
+
+    /// <summary><c>HTMLTableCellElement.height</c> reflects <c>height</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableCellElementHeight =
+        ReflectedAttribute.Text("HTMLTableCellElement.height", "height");
+
+    /// <summary><c>HTMLTableCellElement.noWrap</c> reflects <c>nowrap</c> as a boolean.</summary>
+    internal static readonly ReflectedAttribute HTMLTableCellElementNoWrap =
+        ReflectedAttribute.Boolean("HTMLTableCellElement.noWrap", "nowrap");
+
+    /// <summary><c>HTMLTableCellElement.rowSpan</c> reflects <c>rowspan</c> as a clamped unsigned long.</summary>
+    internal static readonly ReflectedAttribute HTMLTableCellElementRowSpan =
+        ReflectedAttribute.Numeric("HTMLTableCellElement.rowSpan", "rowspan", ReflectedKind.ClampedUnsignedLong, 1, min: 0, max: 65534);
+
+    /// <summary><c>HTMLTableCellElement.scope</c> reflects <c>scope</c> as an enum.</summary>
+    internal static readonly ReflectedAttribute HTMLTableCellElementScope =
+        ReflectedAttribute.Enumerated("HTMLTableCellElement.scope", "scope", ["row", "col", "rowgroup", "colgroup"], missing: "", invalid: null);
+
+    /// <summary><c>HTMLTableCellElement.vAlign</c> reflects <c>valign</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableCellElementVAlign =
+        ReflectedAttribute.Text("HTMLTableCellElement.vAlign", "valign");
+
+    /// <summary><c>HTMLTableCellElement.width</c> reflects <c>width</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableCellElementWidth =
+        ReflectedAttribute.Text("HTMLTableCellElement.width", "width");
+
+    /// <summary><c>HTMLTableColElement.align</c> reflects <c>align</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableColElementAlign =
+        ReflectedAttribute.Text("HTMLTableColElement.align", "align");
+
+    /// <summary><c>HTMLTableColElement.ch</c> reflects <c>char</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableColElementCh =
+        ReflectedAttribute.Text("HTMLTableColElement.ch", "char");
+
+    /// <summary><c>HTMLTableColElement.chOff</c> reflects <c>charoff</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableColElementChOff =
+        ReflectedAttribute.Text("HTMLTableColElement.chOff", "charoff");
+
+    /// <summary><c>HTMLTableColElement.span</c> reflects <c>span</c> as a clamped unsigned long.</summary>
+    internal static readonly ReflectedAttribute HTMLTableColElementSpan =
+        ReflectedAttribute.Numeric("HTMLTableColElement.span", "span", ReflectedKind.ClampedUnsignedLong, 1, min: 1, max: 1000);
+
+    /// <summary><c>HTMLTableColElement.vAlign</c> reflects <c>valign</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableColElementVAlign =
+        ReflectedAttribute.Text("HTMLTableColElement.vAlign", "valign");
+
+    /// <summary><c>HTMLTableColElement.width</c> reflects <c>width</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableColElementWidth =
+        ReflectedAttribute.Text("HTMLTableColElement.width", "width");
+
+    /// <summary><c>HTMLTableElement.align</c> reflects <c>align</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableElementAlign =
+        ReflectedAttribute.Text("HTMLTableElement.align", "align");
+
+    /// <summary><c>HTMLTableElement.bgColor</c> reflects <c>bgcolor</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableElementBgColor =
+        ReflectedAttribute.Text("HTMLTableElement.bgColor", "bgcolor", legacyNullToEmptyString: true);
+
+    /// <summary><c>HTMLTableElement.border</c> reflects <c>border</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableElementBorder =
+        ReflectedAttribute.Text("HTMLTableElement.border", "border");
+
+    /// <summary><c>HTMLTableElement.cellPadding</c> reflects <c>cellpadding</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableElementCellPadding =
+        ReflectedAttribute.Text("HTMLTableElement.cellPadding", "cellpadding", legacyNullToEmptyString: true);
+
+    /// <summary><c>HTMLTableElement.cellSpacing</c> reflects <c>cellspacing</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableElementCellSpacing =
+        ReflectedAttribute.Text("HTMLTableElement.cellSpacing", "cellspacing", legacyNullToEmptyString: true);
+
+    /// <summary><c>HTMLTableElement.frame</c> reflects <c>frame</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableElementFrame =
+        ReflectedAttribute.Text("HTMLTableElement.frame", "frame");
+
+    /// <summary><c>HTMLTableElement.rules</c> reflects <c>rules</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableElementRules =
+        ReflectedAttribute.Text("HTMLTableElement.rules", "rules");
+
+    /// <summary><c>HTMLTableElement.summary</c> reflects <c>summary</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableElementSummary =
+        ReflectedAttribute.Text("HTMLTableElement.summary", "summary");
+
+    /// <summary><c>HTMLTableElement.width</c> reflects <c>width</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableElementWidth =
+        ReflectedAttribute.Text("HTMLTableElement.width", "width");
+
+    /// <summary><c>HTMLTableRowElement.align</c> reflects <c>align</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableRowElementAlign =
+        ReflectedAttribute.Text("HTMLTableRowElement.align", "align");
+
+    /// <summary><c>HTMLTableRowElement.bgColor</c> reflects <c>bgcolor</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableRowElementBgColor =
+        ReflectedAttribute.Text("HTMLTableRowElement.bgColor", "bgcolor", legacyNullToEmptyString: true);
+
+    /// <summary><c>HTMLTableRowElement.ch</c> reflects <c>char</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableRowElementCh =
+        ReflectedAttribute.Text("HTMLTableRowElement.ch", "char");
+
+    /// <summary><c>HTMLTableRowElement.chOff</c> reflects <c>charoff</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableRowElementChOff =
+        ReflectedAttribute.Text("HTMLTableRowElement.chOff", "charoff");
+
+    /// <summary><c>HTMLTableRowElement.vAlign</c> reflects <c>valign</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableRowElementVAlign =
+        ReflectedAttribute.Text("HTMLTableRowElement.vAlign", "valign");
+
+    /// <summary><c>HTMLTableSectionElement.align</c> reflects <c>align</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableSectionElementAlign =
+        ReflectedAttribute.Text("HTMLTableSectionElement.align", "align");
+
+    /// <summary><c>HTMLTableSectionElement.ch</c> reflects <c>char</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableSectionElementCh =
+        ReflectedAttribute.Text("HTMLTableSectionElement.ch", "char");
+
+    /// <summary><c>HTMLTableSectionElement.chOff</c> reflects <c>charoff</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableSectionElementChOff =
+        ReflectedAttribute.Text("HTMLTableSectionElement.chOff", "charoff");
+
+    /// <summary><c>HTMLTableSectionElement.vAlign</c> reflects <c>valign</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTableSectionElementVAlign =
+        ReflectedAttribute.Text("HTMLTableSectionElement.vAlign", "valign");
+
+    /// <summary><c>HTMLTextAreaElement.autocomplete</c> reflects <c>autocomplete</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTextAreaElementAutocomplete =
+        ReflectedAttribute.Text("HTMLTextAreaElement.autocomplete", "autocomplete");
+
+    /// <summary><c>HTMLTextAreaElement.cols</c> reflects <c>cols</c> as a limited unsigned long with fallback.</summary>
+    internal static readonly ReflectedAttribute HTMLTextAreaElementCols =
+        ReflectedAttribute.Numeric("HTMLTextAreaElement.cols", "cols", ReflectedKind.LimitedUnsignedLongWithFallback, 20);
+
+    /// <summary><c>HTMLTextAreaElement.maxLength</c> reflects <c>maxlength</c> as a limited long.</summary>
+    internal static readonly ReflectedAttribute HTMLTextAreaElementMaxLength =
+        ReflectedAttribute.Numeric("HTMLTextAreaElement.maxLength", "maxlength", ReflectedKind.LimitedLong, -1);
+
+    /// <summary><c>HTMLTextAreaElement.minLength</c> reflects <c>minlength</c> as a limited long.</summary>
+    internal static readonly ReflectedAttribute HTMLTextAreaElementMinLength =
+        ReflectedAttribute.Numeric("HTMLTextAreaElement.minLength", "minlength", ReflectedKind.LimitedLong, -1);
+
+    /// <summary><c>HTMLTextAreaElement.rows</c> reflects <c>rows</c> as a limited unsigned long with fallback.</summary>
+    internal static readonly ReflectedAttribute HTMLTextAreaElementRows =
+        ReflectedAttribute.Numeric("HTMLTextAreaElement.rows", "rows", ReflectedKind.LimitedUnsignedLongWithFallback, 2);
+
     /// <summary><c>HTMLTimeElement.dateTime</c> reflects <c>datetime</c> as a string.</summary>
     internal static readonly ReflectedAttribute HTMLTimeElementDateTime =
         ReflectedAttribute.Text("HTMLTimeElement.dateTime", "datetime");
+
+    /// <summary><c>HTMLTrackElement.kind</c> reflects <c>kind</c> as an enum.</summary>
+    internal static readonly ReflectedAttribute HTMLTrackElementKind =
+        ReflectedAttribute.Enumerated("HTMLTrackElement.kind", "kind", ["subtitles", "captions", "descriptions", "chapters", "metadata"], missing: "subtitles", invalid: "metadata");
 
     /// <summary><c>HTMLUListElement.compact</c> reflects <c>compact</c> as a boolean.</summary>
     internal static readonly ReflectedAttribute HTMLUListElementCompact =
@@ -174,4 +770,16 @@ internal static class DomReflected
     /// <summary><c>HTMLUListElement.type</c> reflects <c>type</c> as a string.</summary>
     internal static readonly ReflectedAttribute HTMLUListElementType =
         ReflectedAttribute.Text("HTMLUListElement.type", "type");
+
+    /// <summary><c>HTMLVideoElement.height</c> reflects <c>height</c> as an unsigned long.</summary>
+    internal static readonly ReflectedAttribute HTMLVideoElementHeight =
+        ReflectedAttribute.Numeric("HTMLVideoElement.height", "height", ReflectedKind.UnsignedLong, 0);
+
+    /// <summary><c>HTMLVideoElement.playsInline</c> reflects <c>playsinline</c> as a boolean.</summary>
+    internal static readonly ReflectedAttribute HTMLVideoElementPlaysInline =
+        ReflectedAttribute.Boolean("HTMLVideoElement.playsInline", "playsinline");
+
+    /// <summary><c>HTMLVideoElement.width</c> reflects <c>width</c> as an unsigned long.</summary>
+    internal static readonly ReflectedAttribute HTMLVideoElementWidth =
+        ReflectedAttribute.Numeric("HTMLVideoElement.width", "width", ReflectedKind.UnsignedLong, 0);
 }

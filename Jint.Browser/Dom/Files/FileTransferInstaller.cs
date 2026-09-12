@@ -84,13 +84,5 @@ internal static class FileTransferInstaller
         int length,
         Func<JsValue[], ObjectInstance>? construct,
         out HostInterfaceObject interfaceObject)
-    {
-        var realm = engine._mainRealm;
-        var prototype = shape.Instantiate(engine, realm.Intrinsics.Object.PrototypeObject);
-        interfaceObject = new HostInterfaceObject(engine, realm, name, prototype, length, construct);
-        prototype.DefineOwnPropertyUnchecked(
-            "constructor",
-            new PropertyDescriptor(interfaceObject, PropertyFlag.NonEnumerable));
-        return prototype;
-    }
+        => HostInterfaceObject.Instantiate(engine, shape, name, length, construct, out interfaceObject);
 }

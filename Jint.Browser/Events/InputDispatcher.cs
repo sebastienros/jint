@@ -1,6 +1,7 @@
 ﻿using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
 using Jint.Browser.Dom;
+using Jint.Browser.Layout;
 using Jint.Browser.Runtime;
 using Jint.Native;
 using Jint.WebApi.Events;
@@ -28,7 +29,7 @@ namespace Jint.Browser.Events;
 /// <c>Input.dispatchMouseEvent</c> is observably a user's.
 /// </para>
 /// </remarks>
-internal static class InputDispatcher
+internal static partial class InputDispatcher
 {
     /// <summary>The button number of the primary (left) mouse button, which is the one that clicks.</summary>
     private const double PrimaryButton = 0;
@@ -127,12 +128,12 @@ internal static class InputDispatcher
         switch (input.Kind)
         {
             case MouseInputKind.Moved:
-                Pointer(target, "pointermove", options, cancelable: true);
+                Pointer(target, "pointermove", options, cancelable: true, layout);
                 Mouse(target, "mousemove", options, cancelable: true);
                 return;
 
             case MouseInputKind.Pressed:
-                Pointer(target, "pointerdown", options, cancelable: true);
+                Pointer(target, "pointerdown", options, cancelable: true, layout);
 
                 if (Mouse(target, "mousedown", options, cancelable: true)
                     && NearestFocusable(hit) is { } focusTarget)
@@ -144,36 +145,26 @@ internal static class InputDispatcher
                 return;
 
             case MouseInputKind.Released:
-                Pointer(target, "pointerup", options, cancelable: true);
-                Mouse(target, "mouseup", options, cancelable: true);
+                // https://html.spec.whatwg.org/multipage/input.html#image-button-state-(type=image) — an
+                // image button's selected coordinate is measured from the hit test that already preceded
+                // every listener, because the activation behaviour that reads it runs after all three of
+                // them and any one of them may move, adopt or detach the input first. Nothing is selected
+                // by measuring: the activation behaviour promotes it, or nothing does.
+                events.PendingImagePoint = ImagePointOf(hit, input.X, input.Y, layout);
 
-                var clicked = dom.WrapNode(CommonAncestor(events.MousePressTarget, hit) ?? hit);
-                events.MousePressTarget = null;
-
-                // https://w3c.github.io/uievents/#event-type-contextmenu — the secondary button opens a menu
-                // rather than activating anything, so no click is dispatched for it at all.
-                if (input.Button == SecondaryButton)
+                try
                 {
-                    Mouse(clicked, "contextmenu", options, cancelable: true);
-                    return;
+                    Release(dom, events, target, hit, options, input, layout);
                 }
-
-                if (input.Button != PrimaryButton)
+                finally
                 {
-                    return;
-                }
-
-                DispatchClickEvent(clicked, options, trusted: true);
-
-                if (input.ClickCount == 2)
-                {
-                    Mouse(clicked, "dblclick", options, cancelable: true);
+                    events.PendingImagePoint = null;
                 }
 
                 return;
 
             case MouseInputKind.Wheel:
-                if (Wheel(target, options, input.DeltaX, input.DeltaY))
+                if (Wheel(target, options, input.DeltaX, input.DeltaY, layout))
                 {
                     runtime.Layout.ScrollBy(input.DeltaY);
                 }
@@ -185,6 +176,96 @@ internal static class InputDispatcher
         }
     }
 
+    /// <summary>
+    /// The release half of <see cref="DispatchMouse"/>: <c>pointerup</c>, <c>mouseup</c>, and then either the
+    /// context menu the secondary button opens or the click the press and the release share.
+    /// </summary>
+    private static void Release(
+        DomRealm dom,
+        BrowserEventRealm events,
+        DomNodeObject target,
+        IElement hit,
+        in ClickOptions options,
+        in MouseInput input,
+        FlatLayout layout)
+    {
+        Pointer(target, "pointerup", options, cancelable: true, layout);
+        Mouse(target, "mouseup", options, cancelable: true);
+
+        var clicked = dom.WrapNode(CommonAncestor(events.MousePressTarget, hit) ?? hit);
+        events.MousePressTarget = null;
+
+        // https://w3c.github.io/uievents/#event-type-contextmenu — the secondary button opens a menu
+        // rather than activating anything, so no click is dispatched for it at all.
+        if (input.Button == SecondaryButton)
+        {
+            Mouse(clicked, "contextmenu", options, cancelable: true);
+            return;
+        }
+
+        if (input.Button != PrimaryButton)
+        {
+            return;
+        }
+
+        DispatchClickEvent(clicked, options, trusted: true);
+
+        if (input.ClickCount == 2)
+        {
+            Mouse(clicked, "dblclick", options, cancelable: true);
+        }
+    }
+
+    /// <summary>
+    /// The image button <paramref name="hit"/> lies in, if any, and where in that button's own box the
+    /// pointer was — <a href="https://html.spec.whatwg.org/multipage/input.html#image-button-state-(type=image)">
+    /// HTML §4.10.5.1.20</a>'s selected coordinate, "the position of the pointer relative to the image".
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The inclusive ancestors are walked rather than the hit element alone because a click inside an image
+    /// button activates the button, and the coordinate is relative to <i>its</i> edge. The component is the
+    /// distance truncated to an integer, which HTML's "valid integer" is, and never negative: a descendant's
+    /// box is inside its ancestor's in the flat box model, so a point inside one is inside the other.
+    /// </para>
+    /// <para>
+    /// It takes the two coordinates rather than a <see cref="MouseInput"/> because a <b>tap</b> selects one
+    /// too: HTML asks whether "the user activated the button using a pointing device", and a touch is one.
+    /// The point a tap measures from is where the finger came off, which is also the point its compatibility
+    /// mouse events are dispatched at.
+    /// </para>
+    /// </remarks>
+    private static (IElement Image, int X, int Y)? ImagePointOf(IElement hit, double x, double y, FlatLayout layout)
+    {
+        for (var element = hit; element is not null; element = element.ParentElement)
+        {
+            if (element is not IHtmlInputElement { Type: "image" } image)
+            {
+                continue;
+            }
+
+            if (layout.ClientBoxOf(image) is not { } box)
+            {
+                return null;
+            }
+
+            return (image, Component(x - box.X), Component(y - box.Y));
+        }
+
+        return null;
+    }
+
+    /// <summary>One component of a selected coordinate, truncated and clamped to a non-negative integer.</summary>
+    private static int Component(double distance)
+    {
+        if (double.IsNaN(distance) || distance <= 0)
+        {
+            return 0;
+        }
+
+        return distance >= int.MaxValue ? int.MaxValue : (int) distance;
+    }
+
     private static void DispatchClickEvent(DomNodeObject target, in ClickOptions options, bool trusted)
     {
         var click = PointerEvent(target, "click", options, cancelable: true);
@@ -193,8 +274,12 @@ internal static class InputDispatcher
     }
 
     /// <summary>Dispatches one <c>PointerEvent</c>, answering whether nothing cancelled it.</summary>
-    private static bool Pointer(DomNodeObject target, string type, in ClickOptions options, bool cancelable)
-        => target.DispatchEvent(PointerEvent(target, type, options, cancelable));
+    private static bool Pointer(DomNodeObject target, string type, in ClickOptions options, bool cancelable, FlatLayout layout)
+    {
+        var ev = PointerEvent(target, type, options, cancelable);
+        PrepareOffsets(ev, target, layout);
+        return target.DispatchEvent(ev);
+    }
 
     /// <summary>Dispatches one <c>MouseEvent</c>, answering whether nothing cancelled it.</summary>
     private static bool Mouse(DomNodeObject target, string type, in ClickOptions options, bool cancelable)
@@ -216,7 +301,7 @@ internal static class InputDispatcher
     }
 
     /// <summary>Dispatches one <c>WheelEvent</c>, answering whether nothing cancelled it.</summary>
-    private static bool Wheel(DomNodeObject target, in ClickOptions options, double deltaX, double deltaY)
+    private static bool Wheel(DomNodeObject target, in ClickOptions options, double deltaX, double deltaY, FlatLayout layout)
     {
         var realm = BrowserEventRealm.Of(target.DomRealm.Engine);
         var ev = new JsWheelEvent(
@@ -237,7 +322,19 @@ internal static class InputDispatcher
 
         ev._prototype = realm.PrototypeOf(BrowserEventInterfaces.WheelEvent);
         ev.IsTrusted = true;
+        PrepareOffsets(ev, target, layout);
         return target.DispatchEvent(ev);
+    }
+
+    private static void PrepareOffsets(JsMouseEvent ev, DomNodeObject target, FlatLayout layout)
+    {
+        // The hit-test query precedes every listener. Reuse it only for the first event: a pointer
+        // listener can move the target before the following mouse/click event begins. Keeping just
+        // these numbers adds no layout walk and retains no query across a callback.
+        if (target.Node is IElement element && layout.ClientBoxOf(element) is { } box)
+        {
+            ev.PrepareOffsets(ev.ClientX - box.X, ev.ClientY - box.Y);
+        }
     }
 
     /// <summary>
@@ -531,7 +628,7 @@ internal static class InputDispatcher
     /// </remarks>
     private static void ImplicitSubmission(DomRealm dom, IHtmlInputElement input)
     {
-        if (input.Form is not { } form)
+        if (HtmlFormOwner.Of(input) is not { } form)
         {
             return;
         }
@@ -560,7 +657,10 @@ internal static class InputDispatcher
     /// </summary>
     private static IHtmlElement? DefaultButton(IHtmlFormElement form)
     {
-        foreach (var element in form.Elements)
+        // The inventory is the form's owned controls in tree order rather than `form.elements`, which excludes
+        // image buttons — so a form whose only submit button is `<input type=image>` had no default button at
+        // all, and one whose submit button sits outside it under a `form` attribute now has one.
+        foreach (var element in HtmlFormOwner.ControlsOf(form))
         {
             if (element is IHtmlElement html && FormSubmission.IsSubmitButton(html))
             {
@@ -579,7 +679,7 @@ internal static class InputDispatcher
     {
         var count = 0;
 
-        foreach (var element in form.Elements)
+        foreach (var element in HtmlFormOwner.ControlsOf(form))
         {
             if (element is IHtmlInputElement input && input.Type is
                 "text" or "search" or "url" or "tel" or "email" or "password"

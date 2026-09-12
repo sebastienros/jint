@@ -34,6 +34,29 @@ public class PuppeteerSharpPageTests
     private static readonly TimeSpan Bound = TimeSpan.FromSeconds(120);
 
     [Test]
+    public async Task PuppeteerBrowserSessionCoexistsWithPageAutomation()
+    {
+        await using var pages = new global::Jint.Browser.Browser();
+        await using var server = new DevToolsServer();
+        await server.AddBrowser(pages);
+        await server.StartAsync();
+        await using var browser = await Puppeteer.ConnectAsync(new ConnectOptions
+        {
+            BrowserWSEndpoint = server.BrowserWebSocketUrl,
+            DefaultViewport = null,
+        }).WaitAsync(Bound);
+
+        var session = await browser.CreateCDPSessionAsync().WaitAsync(Bound);
+        var version = await session.SendAsync("Browser.getVersion").WaitAsync(Bound);
+        version!.Value.GetProperty("product").GetString().Should().StartWith("Jint/");
+        await using var page = await browser.NewPageAsync().WaitAsync(Bound);
+        await session.DetachAsync().WaitAsync(Bound);
+        (await page.EvaluateExpressionAsync<int>("6 * 7").WaitAsync(Bound)).Should().Be(42);
+        await page.CloseAsync().WaitAsync(Bound);
+        browser.Disconnect();
+    }
+
+    [Test]
     public async Task PuppeteerOpensAPageNavigatesEvaluatesAndCloses()
     {
         using var origin = new LoopbackServer();
@@ -615,6 +638,65 @@ public class PuppeteerSharpPageTests
         var found = await WaitForPageAsync(browser, origin.Url("/one"));
         (await found.EvaluateExpressionAsync<string>("document.title").WaitAsync(Bound)).Should().Be("Existing");
 
+        browser.Disconnect();
+        await context.CloseAsync();
+    }
+
+    /// <summary>
+    /// <c>page.coverage.startCSSCoverage()</c>, which is the whole reason the <c>CSS</c> domain's
+    /// rule-usage half exists.
+    /// </summary>
+    /// <remarks>
+    /// Puppeteer builds this out of five calls and this test asserts none of them: what it asserts is the
+    /// thing only a client can, which is that the five fit together. The library enables <c>DOM</c> and
+    /// <c>CSS</c>, starts rule-usage tracking, collects a <c>styleSheetAdded</c> and reads that sheet's text,
+    /// stops tracking and then <b>slices that text with the offsets it was handed</b>. A header with an empty
+    /// <c>sourceURL</c>, a text that did not come from the same serialization as the offsets, or a range past
+    /// the end of it, and what comes back is empty or garbage rather than the rules the page used.
+    /// </remarks>
+    [Test]
+    public async Task PuppeteerReadsCssCoverageOffThePage()
+    {
+        using var origin = new LoopbackServer();
+        origin.MapHtml(
+            "/styled",
+            """
+            <html><head><title>Styled</title><style>
+            .used { color: rgb(1, 2, 3) }
+            .never { color: rgb(4, 5, 6) }
+            </style></head>
+            <body><p id="box" class="used">text</p></body></html>
+            """);
+
+        await using var pages = new global::Jint.Browser.Browser();
+        var context = await pages.NewContextAsync(new PageContextOptions { UrlFilter = origin.Owns });
+
+        await using var server = new DevToolsServer();
+        await server.AddBrowser(pages);
+        await server.StartAsync();
+
+        await using var browser = await Puppeteer.ConnectAsync(new ConnectOptions
+        {
+            BrowserWSEndpoint = server.BrowserWebSocketUrl,
+        }).WaitAsync(Bound);
+
+        var page = await browser.NewPageAsync().WaitAsync(Bound);
+        await page.GoToAsync(origin.Url("/styled")).WaitAsync(Bound);
+
+        await page.Coverage.StartCSSCoverageAsync().WaitAsync(Bound);
+        var entries = await page.Coverage.StopCSSCoverageAsync().WaitAsync(Bound);
+
+        entries.Should().NotBeEmpty("the page has a style sheet and one of its rules matched an element");
+
+        var entry = entries.Single(candidate => candidate.Text.Contains(".used", StringComparison.Ordinal));
+        entry.Url.Should().Be(origin.Url("/styled"), "an inline sheet is reported under the document's URL");
+        entry.Ranges.Should().NotBeEmpty();
+
+        var covered = string.Concat(entry.Ranges.Select(range => entry.Text[range.Start..range.End]));
+        covered.Should().Contain(".used");
+        covered.Should().NotContain(".never", "no element carries that class");
+
+        await page.CloseAsync().WaitAsync(Bound);
         browser.Disconnect();
         await context.CloseAsync();
     }

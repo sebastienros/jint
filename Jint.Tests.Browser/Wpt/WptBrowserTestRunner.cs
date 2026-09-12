@@ -5,9 +5,9 @@ using Jint.Tests.Wpt;
 namespace Jint.Tests.Browser.Wpt;
 
 /// <summary>
-/// Runs the vendored web-platform-tests <b>documents</b> — one theory case per <c>.html</c> file and per
-/// synthesized <c>.any.html</c> wrapper — in a real <see cref="Page"/>, under upstream's own
-/// <c>testharness.js</c>.
+/// Runs the vendored web-platform-tests <b>documents</b> — one theory case per <c>.html</c> file, per
+/// synthesized <c>.any.html</c> wrapper, and per <c>&lt;meta name="variant"&gt;</c> either of them declares —
+/// in a real <see cref="Page"/>, under upstream's own <c>testharness.js</c>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -65,11 +65,23 @@ public class WptBrowserTestRunner
     [TestCaseSource(nameof(HtmlDomCases))]
     public Task RunsTheHtmlDomSuite(string path) => RunCaseAsync(path);
 
+    [TestCaseSource(nameof(CommonDomInterfaceCollectionsCases))]
+    public Task RunsTheCommonDomInterfaceCollectionsSuite(string path) => RunCaseAsync(path);
+
+    [TestCaseSource(nameof(ObsoleteApisCases))]
+    public Task RunsTheObsoleteApisSuite(string path) => RunCaseAsync(path);
+
     [TestCaseSource(nameof(ScriptingEventsCases))]
     public Task RunsTheScriptingEventsSuite(string path) => RunCaseAsync(path);
 
     [TestCaseSource(nameof(ScriptingProcessingModelCases))]
     public Task RunsTheScriptingProcessingModelSuite(string path) => RunCaseAsync(path);
+
+    [TestCaseSource(nameof(ImgElementCases))]
+    public Task RunsTheImgElementSuite(string path) => RunCaseAsync(path);
+
+    [TestCaseSource(nameof(PseudoClassSelectorCases))]
+    public Task RunsThePseudoClassSelectorSuite(string path) => RunCaseAsync(path);
 
     [TestCaseSource(nameof(CustomElementsCases))]
     public Task RunsTheCustomElementsSuite(string path) => RunCaseAsync(path);
@@ -97,9 +109,17 @@ public class WptBrowserTestRunner
 
     public static IEnumerable<object[]> HtmlDomCases() => Cases("html/dom");
 
+    public static IEnumerable<object[]> CommonDomInterfaceCollectionsCases() => Cases("html/infrastructure/common-dom-interfaces/collections");
+
+    public static IEnumerable<object[]> ObsoleteApisCases() => Cases("html/obsolete/requirements-for-implementations/other-elements-attributes-and-apis");
+
     public static IEnumerable<object[]> ScriptingEventsCases() => Cases("html/webappapis/scripting/events");
 
     public static IEnumerable<object[]> ScriptingProcessingModelCases() => Cases("html/webappapis/scripting/processing-model-2");
+
+    public static IEnumerable<object[]> ImgElementCases() => Cases("html/semantics/embedded-content/the-img-element");
+
+    public static IEnumerable<object[]> PseudoClassSelectorCases() => Cases("html/semantics/selectors/pseudo-classes");
 
     public static IEnumerable<object[]> CustomElementsCases() => Cases("custom-elements");
 
@@ -126,13 +146,24 @@ public class WptBrowserTestRunner
     /// <see cref="WptBrowserExclusions.NotVendored"/> reason would quietly go red for a cause somebody already
     /// decided about. The <c>.any.js</c> half of the corpus is not this lane's business and is checked by
     /// <c>WptTestRunner</c>; what <i>is</i> checked here is that every document under a suite this lane claims
-    /// is either a case or accounted for.
+    /// is either a case or accounted for — and "accounted for" is now two things rather than one, since
+    /// <see cref="WptBrowserExclusions.FrameBodies"/> names the documents that are vendored and served and
+    /// never run. Both of those tables are held from both ends: a row naming nothing is as much a failure as
+    /// a document naming no row, and a path in both would be claiming to be absent and served at once.
     /// </remarks>
     [Test]
     public void EveryVendoredDocumentIsAccountedFor()
     {
         var problems = new List<string>();
         var cases = new HashSet<string>(AllCases(), StringComparer.Ordinal);
+
+        // A case name carries the variant it is run at, so "is this document reached?" is asked of the
+        // documents the cases are of rather than of the case names themselves.
+        var documents = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var name in cases)
+        {
+            documents.Add(WptBrowserVariants.DocumentOf(name));
+        }
 
         foreach (var path in WptCorpus.Paths)
         {
@@ -150,11 +181,26 @@ public class WptBrowserTestRunner
             }
 
             // A document directly under a suite is a case; one under its resources/ or support/ directory is
-            // a helper the cases load, which is why WptCorpus.BrowserTestFiles never descends.
+            // a helper the cases load, which is why WptCorpus.BrowserTestFiles never descends. A frame body
+            // is the third answer: directly under a suite, vendored, served and deliberately never run.
             if (Array.Exists(WptCorpus.BrowserSuites, suite => string.Equals(WptCorpus.DirectoryOf(path), suite, StringComparison.Ordinal))
-                && !cases.Contains(path))
+                && !documents.Contains(path)
+                && !WptBrowserCorpus.IsFrameBody(path))
             {
                 problems.Add($"{path} is vendored under a browser-lane suite but no theory case reaches it");
+            }
+        }
+
+        foreach (var (body, reason) in WptBrowserExclusions.FrameBodies)
+        {
+            problems.AddRange(FrameBodyProblems(body, reason));
+        }
+
+        foreach (var (document, reason) in WptBrowserExclusions.TouchDocuments)
+        {
+            if (!cases.Contains(document))
+            {
+                problems.Add($"{document} is run as a touch device ({reason}) but is not a case of any suite");
             }
         }
 
@@ -170,7 +216,7 @@ public class WptBrowserTestRunner
         {
             if (!cases.Contains(declared))
             {
-                problems.Add($"{declared} has a minimum-test entry but is not a case of any suite");
+                problems.Add($"{declared} has a minimum-test entry but is not a case of any suite{WptBrowserVariants.HintFor(declared)}");
             }
         }
 
@@ -178,7 +224,7 @@ public class WptBrowserTestRunner
         {
             if (!cases.Contains(exclusion.File))
             {
-                problems.Add($"{exclusion.File} carries an exclusion but is not a case of any suite");
+                problems.Add($"{exclusion.File} carries an exclusion but is not a case of any suite{WptBrowserVariants.HintFor(exclusion.File)}");
             }
         }
 
@@ -186,6 +232,46 @@ public class WptBrowserTestRunner
 
         // The theory cases are generated from the corpus, so an empty corpus would be an empty, green run.
         cases.Should().HaveCountGreaterThan(330, "the lane runs the documents of thirteen suites");
+    }
+
+    [Test]
+    public void AFrameBodyRowMustNameADocument()
+    {
+        FrameBodyProblems("dom/nodes/selectors.js", "fixture")
+            .Should().ContainSingle().Which.Should().Be(
+                "dom/nodes/selectors.js is named as a frame body (fixture) but is not a browser test document");
+
+        FrameBodyProblems("dom/nodes/ParentNode-querySelector-All-content.html", "fixture")
+            .Should().BeEmpty();
+    }
+
+    private static IReadOnlyList<string> FrameBodyProblems(string body, string reason)
+    {
+        var problems = new List<string>();
+
+        if (!WptCorpus.Contains(body))
+        {
+            problems.Add($"{body} is named as a frame body ({reason}) but is not vendored, so nothing serves it");
+        }
+        else if (!WptCorpus.IsBrowserTestFile(body))
+        {
+            problems.Add($"{body} is named as a frame body ({reason}) but is not a browser test document");
+        }
+        else if (!WptCorpus.IsUnderABrowserSuite(body)
+            || !Array.Exists(WptCorpus.BrowserSuites, suite => string.Equals(WptCorpus.DirectoryOf(body), suite, StringComparison.Ordinal)))
+        {
+            problems.Add($"{body} is named as a frame body ({reason}) but is not directly under a browser-lane suite, where a case is the default");
+        }
+
+        foreach (var (pattern, notVendored) in WptBrowserExclusions.NotVendored)
+        {
+            if (WptExclusion.MatchesPattern(pattern, body))
+            {
+                problems.Add($"{body} is named as a frame body and \"{pattern}\" says it should not be vendored at all ({notVendored})");
+            }
+        }
+
+        return problems;
     }
 
     /// <summary>
@@ -255,9 +341,13 @@ public class WptBrowserTestRunner
     {
         var synthesized = 0;
 
-        foreach (var path in AllCases())
+        foreach (var name in AllCases())
         {
-            if (WptBrowserCorpus.IsVendored(path))
+            // The wrapper is the document half of a case; the variant is a query the server never sees when
+            // it decides what to synthesize.
+            var path = WptBrowserVariants.DocumentOf(name);
+
+            if (WptBrowserCorpus.IsVendored(name))
             {
                 WptServerWrappers.IsWrapperPath(path).Should().BeFalse(
                     $"{path} is a vendored document, so nothing should be synthesizing it");

@@ -14,17 +14,32 @@
 > Jint should add value to AngleSharp without competing too much.
 
 That is the project founder's guidance for the whole headless-browser campaign, and it decides arguments here
-rather than merely decorating them. **AngleSharp is the parser, the DOM and the CSSOM; nothing in this package
-re-implements any of them.** What Jint owns is the binding layer — a projection built on the engine's own
-shape and layout machinery instead of a reflection trampoline — and the output is deliberately shaped so that
+rather than merely decorating them. **AngleSharp supplies the parser, DOM storage and CSSOM. Jint owns
+the browser semantics its embedding requires, including standards-defined behavior AngleSharp does not
+implement.** The binding layer projects onto the engine's own shape and layout machinery instead of using
+a reflection trampoline, and the output is deliberately shaped so that
 [AngleSharp.Js](https://github.com/AngleSharp/AngleSharp.Js) could adopt it without adopting anything else
-here. Three consequences bind every change:
+here. These rules bind every change:
 
-- **Every AngleSharp behaviour that disagrees with the DOM standard is reported upstream and recorded below,
-  never worked around silently.** A workaround in the binding hides a defect from the project that can fix it,
-  and makes the next reader believe the standard says what AngleSharp does. The one thing a wrapper may do is
-  implement Web IDL semantics AngleSharp's CLR surface does not represent — `DOMStringMap`'s property-name
-  conversion and named setter/deleter are the worked example, and the divergence register says so.
+- **Record each divergence and implement the required browser behavior in Jint.** The maintainer's
+  direction is that AngleSharp's decision to treat behavior as intentional or outside its scope must not
+  leave a Jint conformance issue waiting indefinitely for an upstream fix. A local implementation is
+  authorized; upstream acceptance, a new upstream report and a dependency release are not prerequisites.
+  This applies to the remaining selector, namespace/name-creation, secondary-document-write and
+  directionality issues as well as the algorithms already owned here.
+- **Compose with AngleSharp's existing tree and services.** Prefer a supported factory, hook, adapter or
+  shared algorithm over a second parser or DOM store. That preference does not prohibit implementing a
+  missing algorithm: class-name collections, form ownership and TreeWalker already do so. Keep one answer
+  across binding calls, selectors, forms, events and automation, preserving node/wrapper identity,
+  mutation behavior, per-page state and execution limits. If the public API cannot express the fix, record
+  the exact inaccessible operation and investigate a local integration design; do not label the issue
+  blocked solely because it was previously assigned to AngleSharp. Private reflection is not a supported
+  extension point.
+- **A local correction needs a specification citation, regression coverage and a divergence entry.**
+  Remove or narrow only the exclusions its tests prove stale, then refresh the required census. Keep
+  historical upstream links as context; do not present an upstream scope decision as a promise of a fix.
+  Reuse a later upstream implementation when it satisfies the same tests. Do not file or reopen upstream
+  issues without an explicit request.
 - **No document or README sentence positions this as a rival DOM stack.** It is "AngleSharp + Jint".
 - **A seam that proves useful is offered, not hoarded.** The tree-aware event dispatcher the engine grew for
   this package (`Jint/WebApi/Events/EventDispatch.cs`) knows nothing about a node; it asks the target. The
@@ -63,6 +78,12 @@ exist. That register's `getComputedStyle` row points back at this table.
 | the default style sheet's `display` rules | HTML's rendering section gives `display: block` to `section`, `article`, `nav`, `aside`, `header`, `footer`, `main`, `figure`, `figcaption`, `details`, `summary`, `dialog`, `hgroup` | no rule at all, so every one of them falls through to CSS's initial value and `getComputedStyle` reads `inline` |
 | a longhand nothing declared, through `getComputedStyle` | CSSOM's *resolved value*: every supported longhand answers, and a property nothing declared answers its initial value | the empty string, which read every element of every page as hidden to an automation client (`style.visibility !== "visible"` is where Playwright's actionability check ends). `Dom/Views/ResolvedStyle` is the exception this bought — **ten** properties, and it argues which ten. Everything else is still the declared cascade, a declaration always wins, and `length`/`item(i)` stay the declared set |
 | a relative length through `getComputedStyle` | the used value in `px` for `width`/`height`, resolved against the containing block; the percentage *kept* in the computed value of `min-width`, a margin and a padding | `px` against the **viewport** for every one of them, and against its *width* whichever axis the property is on — so `height: 50%` is half the window's width. `Runtime/PageRenderDevice` is the device that makes any of it computable: with none registered AngleSharp.Css raises `ArgumentException` rather than skipping the declaration, and one `width: 100%` rule took `getComputedStyle` **and every box query** down with it ([#3730](https://github.com/sebastienros/jint/issues/3730)). `ch` and `ex` have no conversion at all and still raise, which is why `Dom/Views/CssCascade` is the one guarded door all four callers come through |
+
+**That door is also where rule-usage coverage is recorded.** `Dom/Views/CssRuleUsage` is a static arming
+switch every cascade computation reads — a volatile array read and a length test with nothing armed — and
+the `CSS` domain's `startRuleUsageTracking` is what arms it
+([`DevTools/AGENTS.md`](DevTools/AGENTS.md)). Adding a fifth caller of the cascade adds a fifth place a
+client's coverage hears from; removing one silently narrows what "used" means.
 
 ### DOM §7's XPath, and CSSOM's `CSS`
 
@@ -202,12 +223,12 @@ execution (the parse is what refuses) reach the next one; and the remainder are 
 there is none of.
 
 **Four decisions are made in the code and argued there**, and each is one an edit can undo without noticing.
-`Runtime/NavigatorInstaller` says why the page's `navigator` members are own non-enumerable properties of the
-instance rather than accessors on the shaped `Navigator.prototype`, and why `userAgent` is *shadowed* — a
-page's is `BrowserOptions.UserAgent` and a client's override, and it has to be the string every request the
-page makes carries. `Runtime/TouchEmulation` says that touch emulation changes what a page *detects* and not
-what it receives — no touch event is ever dispatched — and why `Element.prototype` deliberately gets no
-`ontouchstart`. `PageRuntime.VisibilityState` says why visibility and focus are one flag here and cannot be
+`Runtime/NavigatorInstaller` says how the page adds WebIDL accessors to the engine's shaped
+`Navigator.prototype` without replacing its shared layout, while the existing `userAgent` accessor reads the
+page's `BrowserOptions.UserAgent` or a client's override — the string every request the page makes carries.
+`Runtime/TouchEmulation` says that touch emulation decides what a page *detects* and not what it receives —
+`Input.dispatchTouchEvent` delivers a touch either way — and how the four conditional handler attributes it
+adds to `Element.prototype` use that same hybrid shape storage. `PageRuntime.VisibilityState` says why visibility and focus are one flag here and cannot be
 two. And `Events/EventHandlerContentAttributes.Reconcile` is the one place scripting-disabled is checked,
 because it is the one place every path arrives at; the parse's own half is that the `IScriptingService` is
 not registered at all, which is how AngleSharp is told, and `Runtime.evaluate` is unaffected either way.
@@ -242,9 +263,16 @@ that never mentions `customElements` builds no registry at all and pays for none
   `skip`ped in the override table and re-declared, because for a defined name the element is the
   *constructor's* rather than AngleSharp's; `new MyElement()` reaches `DomInterfaceObject.Construct`, which
   is HTML's `HTMLElement` constructor and the only `new` that object ever answers; and a parser-created
-  element is **upgraded**. `cloneNode` is re-declared too, so a clone of a custom element is one.
+  element is **upgraded**. `cloneNode` and `importNode` are hooked too, so a copy of a custom element is
+  one, and an imported customized built-in keeps its is value.
 - **The construction stack is the specification's**, which is what makes `super()` answer the element being
-  upgraded rather than a second one, and a constructor that reaches the base twice an `InvalidStateError`.
+  upgraded rather than a second one, and a constructor that reaches the base twice a `TypeError` — a plain
+  one, not a `DOMException`, which is the only refusal in that constructor a page reaches by constructing its
+  own class from inside its constructor.
+- **A clone carries the element's `is` *value*, not its `is` attribute.** DOM's clone creates the copy with
+  "node's is value", which `createElement(tag, { is })` and `new XY()` set without adding any attribute — so
+  `Cloned` walks the two trees in lockstep and copies the slot before the upgrade, and an element whose `is`
+  attribute says something else is the same rule read from the other side.
 
 **The `[CEReactions]` approximation, which is the one thing to know before changing any of it.** HTML
 processes the element queue when the outermost `[CEReactions]` operation returns to script. Nothing here can
@@ -254,9 +282,12 @@ Two channels deliver those arrivals and both run inline, for the reason
 [the observer section](#the-observers-and-when-each-of-them-delivers) gives: AngleSharp's mutation records
 say what entered and left the document, and its `IAttributeObserver` service says what attribute changed —
 the service and not the records, because a record needs the element to be under the observed document and
-`el.setAttribute` before insertion is the commonest thing a component does. What is deliberately **not**
-drained on arrival is a reaction that arrived on the parser's thread or while the queue was already
-draining: those wait for the enclosing drain, or for the microtask checkpoint. So
+`el.setAttribute` before insertion is the commonest thing a component does. **Each drain takes the queue the
+arrivals landed on and leaves a fresh one behind**, which is the reactions *stack* rather than one flat
+queue: an arrival during a callback is a queue of its own and runs before that callback returns, so a
+callback that writes an attribute on a second element sees that element's callback run *inside* its own. What
+is deliberately **not** drained on arrival is a reaction that arrived on the parser's thread: those wait for
+the microtask checkpoint. So
 `el.setAttribute('x', 1); assert(calls === 1)` holds as it does in a browser, and a reaction from a mutation
 inside a *host* operation — one the page loop makes with no script to return to — runs at the checkpoint
 rather than before that operation returns.

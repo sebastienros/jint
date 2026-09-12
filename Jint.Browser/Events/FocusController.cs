@@ -1,6 +1,7 @@
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
 using Jint.Browser.Dom;
+using Jint.Browser.Runtime;
 using Jint.Native;
 using Jint.WebApi.Events;
 
@@ -38,17 +39,27 @@ internal static class FocusController
     /// </summary>
     internal static IElement? ActiveElement(BrowserEventRealm realm, IDocument document)
     {
-        var focused = realm.FocusedElement;
-
-        // A focused element removed from the tree stops being the active element, which is what HTML's
-        // "if the element is no longer being rendered" clause amounts to without a rendering.
-        if (focused is not null && ReferenceEquals(focused.Owner, document) && IsConnectedTo(focused, document))
+        if (PageRuntime.Find(realm.Engine, document) is null)
         {
-            return focused;
+            return document.Body;
         }
 
-        realm.FocusedElement = null;
-        return document.Body;
+        if (realm.FocusedElement is not { } focused)
+        {
+            return document.Body;
+        }
+
+        // A focused element removed from the tree stops being the active element, which is what HTML's
+        // "if the element is no longer being rendered" clause amounts to without a rendering. Its own node
+        // document is what it has to be connected to, so that focus held by a child navigable's document
+        // survives a read of this one's active element rather than being cleared by it.
+        if (focused.Owner is not { } owner || !IsConnectedTo(focused, owner))
+        {
+            realm.FocusedElement = null;
+            return document.Body;
+        }
+
+        return ReferenceEquals(owner, document) ? focused : document.Body;
     }
 
     /// <summary>
@@ -63,7 +74,7 @@ internal static class FocusController
     /// </remarks>
     internal static void Focus(DomRealm dom, IElement element)
     {
-        if (!IsFocusable(element))
+        if (!IsInAPageDocument(dom, element) || !IsFocusable(element))
         {
             return;
         }
@@ -87,6 +98,11 @@ internal static class FocusController
     /// </summary>
     internal static void Blur(DomRealm dom, IElement element)
     {
+        if (!IsInAPageDocument(dom, element))
+        {
+            return;
+        }
+
         var realm = BrowserEventRealm.Of(dom.Engine);
 
         if (!ReferenceEquals(realm.FocusedElement, element))
@@ -97,6 +113,12 @@ internal static class FocusController
         realm.FocusedElement = null;
         RunFocusUpdateSteps(dom, element, next: null);
     }
+
+    /// <summary>
+    /// Whether <paramref name="document"/> is the displayed document and its viewport has focus.
+    /// </summary>
+    internal static bool HasFocus(BrowserEventRealm realm, IDocument document)
+        => PageRuntime.Find(realm.Engine, document) is not null && realm.DocumentHasFocus;
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/interaction.html#focus-update-steps, reduced to the two chains a
@@ -307,6 +329,21 @@ internal static class FocusController
         IHtmlOptionElement option => option.IsDisabled,
         _ => false,
     };
+
+    /// <summary>
+    /// Whether <paramref name="element"/> belongs to a document this page is showing — its own, or one of a
+    /// child navigable's.
+    /// </summary>
+    /// <remarks>
+    /// The browsing-context tree rather than the displayed document alone, because HTML's focusing steps do
+    /// not stop at a frame boundary: focusing an element inside an <c>iframe</c> takes focus away from the
+    /// element that had it, and a page whose focus could not leave its own document would keep answering
+    /// <c>:focus</c> for an element a browser has already blurred. A document with no browsing context —
+    /// <c>DOMParser</c>, <c>createHTMLDocument</c>, <c>new Document()</c> — is not in the tree and still
+    /// neither takes focus nor moves it.
+    /// </remarks>
+    private static bool IsInAPageDocument(DomRealm dom, IElement element)
+        => PageRuntime.FindBrowsingContext(dom.Engine, element.Owner) is not null;
 
     private static bool IsConnectedTo(IElement element, IDocument document)
     {

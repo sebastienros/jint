@@ -55,6 +55,8 @@ internal static class CssCascade
     /// </summary>
     internal static ICssStyleDeclaration? Of(IElement element, bool resolveInheritance = true)
     {
+        CssRuleUsage.Observe(element);
+
         try
         {
             var computed = element.ComputeCurrentStyle();
@@ -140,6 +142,8 @@ internal static class CssCascade
                 var parent = current is null ? null : _cascaded[current];
                 while (_pending.TryPop(out current))
                 {
+                    CssRuleUsage.Observe(element);
+
                     // Capture local variables before inheritance. A rule matching both parent and
                     // child shares property objects, so reference identity cannot identify inheritance.
                     var cascade = _styles.ComputeExplicitStyle(current);

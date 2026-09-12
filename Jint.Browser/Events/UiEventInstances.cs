@@ -120,6 +120,11 @@ internal class JsUiEvent : JsEvent
 /// needs the cheap layout-invalidation signal the same issue records as its first half.
 /// </para>
 /// <para>
+/// The first trusted pointer event and a wheel event can use the input dispatcher's existing hit-test
+/// box instead. Only the numeric offsets survive into that dispatch; no layout survives a listener, and
+/// a later script redispatch goes back to lazy capture.
+/// </para>
+/// <para>
 /// Outside a dispatch all four follow their step 2, which <i>is</i> live: <c>pageY</c> is <c>clientY</c> plus
 /// the window's current <c>scrollY</c>, and <c>offsetY</c> is <c>pageY</c>.
 /// </para>
@@ -206,7 +211,19 @@ internal class JsMouseEvent : JsUiEvent
     {
         _pageX = ClientX + ScrollX;
         _pageY = ClientY + ScrollY;
-        _offsetsCaptured = false;
+        _offsetsCaptured = _offsetsPrepared;
+        _offsetsPrepared = false;
+    }
+
+    /// <summary>
+    /// CSSOM View's offset position, captured from a hit test immediately before the first dispatch.
+    /// Consumed once so redispatching the event cannot reuse its original target's box.
+    /// </summary>
+    internal void PrepareOffsets(double x, double y)
+    {
+        _offsetX = x;
+        _offsetY = y;
+        _offsetsPrepared = true;
     }
 
     /// <summary>The page's scroll offset, or zero for an engine that is not showing one.</summary>
@@ -235,10 +252,12 @@ internal class JsMouseEvent : JsUiEvent
 
         if (Target is Dom.DomNodeObject { Node: AngleSharp.Dom.IElement element } wrapper &&
             Runtime.PageRuntime.Find(wrapper.DomRealm.Engine) is { } runtime &&
-            runtime.Layout.Current().ClientBoxOf(element) is { } box)
+            runtime.Layout.Current().DocumentBoxOf(element) is { } box)
         {
-            _offsetX = ClientX - box.X;
-            _offsetY = ClientY - box.Y;
+            // The event occurred at the captured document position. A listener may have scrolled
+            // before this first read, so the current viewport-relative box would move the answer.
+            _offsetX = _pageX - box.X;
+            _offsetY = _pageY - box.Y;
         }
     }
 
@@ -247,6 +266,7 @@ internal class JsMouseEvent : JsUiEvent
     private double _offsetX;
     private double _offsetY;
     private bool _offsetsCaptured;
+    private bool _offsetsPrepared;
 
     /// <summary>
     /// https://w3c.github.io/uievents/#dom-mouseevent-initmouseevent — the legacy initializer.

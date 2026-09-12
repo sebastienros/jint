@@ -43,7 +43,10 @@ enable and shims one onto the event loop, this driver enables
 `WebApiFeatures.Timers` and pumps with `Tasks.ProcessTasks()` bounded by `Tasks.TimeUntilNextScheduledWork`,
 so a suite that schedules a timer exercises the shipped `TimerQueue`. **`// META: variant=` sharding is
 ignored**: the shim leaves `location.search` empty, so `subsetTest`/`subsetTestByKey` run everything and one
-run of a file is the union of all of its variants. And **every engine carries the fetch object model**:
+run of a file is the union of all of its variants. **The browser lane's answer is the other one and both
+are right**: a shard variant selects a subset of the same tests, while a `<meta name=variant>` query a
+*document* branches on selects different ones — so that lane runs a case per declared variant, and its
+case names carry the query. And **every engine carries the fetch object model**:
 `WptHarness.BuildEngine` installs `Headers`, `Request` and `Response` on top of `Default` — and, for all but
 the files `WptHarness.IsServerBacked` names, pointedly not `fetch`, which no feature flag names the model
 without. `url/urlencoded-parser.any.js` reaches the urlencoded parser through `Request.formData()` and
@@ -80,6 +83,22 @@ result (`tests.tests[0].phase >= HAS_RESULT` upstream, `__wpt.fileTestComplete` 
 afterwards is ignored, because the four such files arm a guard timer a browser lets fire. The predicate is
 "the file's one test has a result" and never "nothing is outstanding" — the latter would silence a file whose
 tests are all synchronous, which has an empty outstanding list from its first line.
+
+**One pure-timer file uses controlled timer time:** `WptTimerClock` admits only
+`html/webappapis/timers/negative-setinterval.any.js`, pinned by SHA-256 along with the shim (only the
+locally authored shim's CRLF is normalized). Any change refuses admission until its isolation is reviewed.
+The admitted source has no META helpers, Date/performance reads, workers, Atomics deadlines or I/O; its
+shim path only registers the file test and records `done()`. `performance` shares the timer provider, so
+its absence from that path is essential; Date and execution constraints retain their independent clocks. Do not extend that lane based on a filename
+pattern or use it for mixed clocks. It changes only `Options.WebApi.Timers.TimeProvider`, leaves the
+shipped `TimerQueue` in charge, and advances to the next due timer only after `ProcessTasks` drains all
+queued work and transitive microtasks. Real execution and harness deadlines stay real and fail the run;
+there are no retries, suppressed pre-completion errors, changed watchdogs or census exemptions. The outcome
+records pump/advance counts and timer/host elapsed time, also included in harness-failure output.
+`WptTimerDeadlineTests` applies identical simulated host starvation to elapsed and controlled clocks through
+the real queue, preserves both completion boundaries, and proves a wrong interval delay still loses to
+the watchdog. Every other corpus file, worker and browser lane keeps its original clock. See
+[#3937](https://github.com/sebastienros/jint/issues/3937) for the host-pump failure this isolates.
 
 A seventh thing is worth knowing because it decides *where* a divergence gets recorded. The driver's unit of
 report is a test, so a file that cannot produce one — a throw at file scope, a run that **stalls**, or a file
@@ -144,5 +163,8 @@ byte-verified and run by nothing. `WptServer` **synthesizes** `<name>.any.html` 
 way `WptServerFiles` is held to `tools/wptserve/`; the dedicated-worker wrapper is deliberately not generated,
 for the reason `workers/*.worker.js` is a not-vendored row. And `_notVendored` here covers `.any.js` while the
 lane's own table covers documents, so a directory both lanes touch has a row in each and neither may name a
-file the other vendors. [`Jint.Tests.Browser/Wpt/AGENTS.md`](../../Jint.Tests.Browser/Wpt/AGENTS.md) is the
+file the other vendors. That lane has a **third** table this one has no use for: `FrameBodies` names a
+vendored document it serves and never runs — the fixture a case loads into a frame — which is a distinction
+only a lane that loads documents can make, and it is the opposite of a not-vendored row rather than a
+variant of it. [`Jint.Tests.Browser/Wpt/AGENTS.md`](../../Jint.Tests.Browser/Wpt/AGENTS.md) is the
 rest of it.
