@@ -263,8 +263,11 @@ jobs:
     - name: Checkout source code
       uses: actions/checkout@v7
 
+    # NonParallelizable isolates application fixtures within one testhost, not between frameworks.
+    # Running both hosts together made Scalar's 30-second client actions compete for the runner.
+    # Keep both complete suites and their deadlines, with one framework using the runner at a time.
     - name: Test Jint.Tests.Browser with both client suites
-      run: dotnet test Jint.Tests.Browser/Jint.Tests.Browser.csproj --configuration Release --logger "console;verbosity=quiet" --logger "GitHubActions;summary-include-passed=false;summary-include-skipped=false"
+      run: dotnet test Jint.Tests.Browser/Jint.Tests.Browser.csproj -p:TestTfmsInParallel=false --configuration Release --logger "console;verbosity=quiet" --logger "GitHubActions;summary-include-passed=false;summary-include-skipped=false"
 
     # The gate is only a gate if it is switched: a suite that ignored the variable and ran everywhere would
     # make the leg above pointless, and one that ignored it and ran nowhere would make this leg a lie. So the

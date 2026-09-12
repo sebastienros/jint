@@ -146,6 +146,10 @@ external services. The fixture covers operation rendering and opening the API Cl
 Visibility and flex queries share only the CSS properties they need, and target rectangles use the same
 placement algorithm as full hit-test layouts without positioning unrelated descendants. Accessibility
 snapshots share their visibility cascade through name computation. No result survives a query.
+The client CI leg runs the target frameworks sequentially: NUnit's nonparallel fixture scheduling only
+isolates tests within one process, while the SDK otherwise starts both framework hosts together. Both
+complete client suites still run with their original deadlines.
+
 Both drivers retain Orchard's original 30-second task budget. Playwright uses the centrally pinned 1.62.0
 package and `ConnectOverCDPAsync`. The separate NetworkIdle bookkeeping defect was reduced in
 [#3883](https://github.com/sebastienros/jint/issues/3883) to an upstream Playwright issue,
