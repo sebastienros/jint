@@ -295,9 +295,10 @@ internal static class CssCascade
 
         private sealed class ScopedStyles(IStyleCollection styles, StyleScope scope, bool includeVariables) : IStyleCollection
         {
-            private readonly ICssStyleRule[] _rules = styles.Where(rule => rule.Style.Any(property =>
-                Includes(scope, property.Name)
-                || includeVariables && property.Name.StartsWith("--", StringComparison.Ordinal))).ToArray();
+            private readonly ICssStyleRule[] _rules = styles.Select(rule => new ScopedRule(rule,
+                    rule.Style.Where(property => Includes(scope, property.Name)
+                        || includeVariables && property.Name.StartsWith("--", StringComparison.Ordinal)).ToArray()))
+                .Where(rule => rule.Style.Length != 0).ToArray();
 
             public IRenderDevice Device => styles.Device;
 
@@ -305,6 +306,51 @@ internal static class CssCascade
 
             System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
         }
+    }
+
+    // The native merge enumerates Rule.Style. Filtering only the rule list still makes it copy every
+    // paint declaration in a mixed rule for every element, then remove those declarations afterwards.
+    // Keep the original property objects: serializing/reparsing would lose pending shorthand values.
+    private sealed class ScopedRule(ICssStyleRule source, ICssProperty[] properties) : ICssStyleRule
+    {
+        public ICssStyleDeclaration Style { get; } = new ScopedDeclaration(source.Style, properties);
+        public string SelectorText { get => source.SelectorText; set => throw new NotSupportedException(); }
+        public ISelector Selector => source.Selector;
+        public ICssRuleList Rules => source.Rules;
+        public CssRuleType Type => source.Type;
+        public string CssText { get => source.CssText; set => throw new NotSupportedException(); }
+        public ICssRule Parent => source.Parent;
+        public ICssStyleSheet Owner => source.Owner;
+        public bool TryMatch(IElement element, IElement? scope, out Priority specificity)
+            => source.TryMatch(element, scope, out specificity);
+        public void SetParent(ICssRule rule) => throw new NotSupportedException();
+        public void SetOwner(ICssStyleSheet sheet) => throw new NotSupportedException();
+        public void ToCss(TextWriter writer, IStyleFormatter formatter) => source.ToCss(writer, formatter);
+    }
+
+    /// <summary>Read-only merge input over the original native properties, never exposed to script.</summary>
+    private sealed class ScopedDeclaration(ICssStyleDeclaration source, ICssProperty[] properties) : ICssStyleDeclaration
+    {
+        public string this[int index] => (uint) index < (uint) properties.Length ? properties[index].Name : "";
+        public string this[string name] => GetPropertyValue(name);
+        public int Length => properties.Length;
+        public ICssRule? Parent => source.Parent;
+        public event Action<string>? Changed { add { } remove { } }
+        public void SetParent(ICssRule? rule) => throw new NotSupportedException();
+        public string CssText { get => source.CssText; set => throw new NotSupportedException(); }
+        public ICssProperty GetProperty(string name)
+            => properties.FirstOrDefault(property => string.Equals(property.Name, name,
+                name.StartsWith("--", StringComparison.Ordinal) ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase))!;
+        public string GetPropertyValue(string name) => GetProperty(name)?.Value ?? "";
+        public string GetPropertyPriority(string name) => GetProperty(name)?.IsImportant == true ? "important" : "";
+        public void SetProperty(string name, string value, string? priority = null) => throw new NotSupportedException();
+        public string RemoveProperty(string name) => throw new NotSupportedException();
+        public void SetPropertyPriority(string name, string priority) => throw new NotSupportedException();
+        public void SetDefaultProperty(string name, string value) => throw new NotSupportedException();
+        public void Update(string value) => throw new NotSupportedException();
+        public void ToCss(TextWriter writer, IStyleFormatter formatter) => source.ToCss(writer, formatter);
+        public IEnumerator<ICssProperty> GetEnumerator() => ((IEnumerable<ICssProperty>) properties).GetEnumerator();
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
     }
 
     /// <summary>The device and cycle-free variables AngleSharp's own value computation resolves against.</summary>

@@ -68,7 +68,8 @@ internal sealed class PageLayout
     internal FlatBox? ClientBoxOf(IElement element)
     {
         var sizes = MeasureSizes();
-        var height = _runtime.Document?.DocumentElement is { } root ? sizes.Measure(root).Height : 0;
+        var height = _runtime.Document?.DocumentElement is { } root
+            ? sizes.HeightUpTo(root, _scrollY + _runtime.Viewport.Height) : 0;
         _scrollY = Math.Min(_scrollY, Math.Max(0, height - _runtime.Viewport.Height));
         if (!sizes.HasBox(element))
         {

@@ -13,6 +13,33 @@ namespace Jint.Tests.Browser.Layout;
 
 public sealed class CascadeTraversalTests
 {
+    [TestCase("block")]
+    [TestCase("flex")]
+    public async Task BoundedHeightPreservesExactMeasurements(string display)
+    {
+        using var context = BrowsingContext.New(Configuration.Default.WithCss());
+        using var document = await context.OpenAsync(response => response.Content(
+            $"<main style='display:{display};flex-direction:row-reverse'>"
+            + "<div><button>one</button><button>two</button></div><div hidden>hidden</div>"
+            + "<div><div><button>three</button></div></div></main>"));
+        var visibility = new ElementVisibility(useComputedStyle: true);
+        var root = document.DocumentElement!;
+        var full = FlatLayout.Of(document, visibility, 1280, 32, 0);
+        var expected = full.DocumentBoxOf(root)!.Value.Height;
+        foreach (var bound in new[] { 1d, 16, 33, expected - 1, expected, expected + 16 })
+        {
+            var sizes = new FlatLayout.SizeQuery(document, visibility, 1280, visibility.CreateTraversal(document));
+            sizes.HeightUpTo(root, bound).Should().Be(Math.Min(expected, Math.Ceiling(bound / 16) * 16));
+            foreach (var element in document.All)
+            {
+                if (full.DocumentBoxOf(element) is { } box)
+                {
+                    sizes.Place(element).Should().Be(box);
+                }
+            }
+        }
+    }
+
     [Test]
     public async Task TheAdminFormMatchesSelectorsOnlyOnceForEachElement()
     {

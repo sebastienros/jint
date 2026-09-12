@@ -44,8 +44,10 @@ use the same boxes. Documents without these rows keep the existing ordinal hit-t
 
 **One rectangle uses the same placement as a complete layout.** `SizeQuery.Place` computes ancestor
 positions and preceding sibling extents on demand; a complete layout asks it for every rendered element.
-`PageLayout.ClientBoxOf` measures the document height for the same scroll clamp, then requests only the
-chosen rectangle. It does not position unrelated descendants or retain results after the query.
+`PageLayout.ClientBoxOf` counts enough rows to establish the same scroll clamp, stopping once the
+current viewport bottom is covered. Partial counts never enter the exact-size cache. Placement measures
+ancestor heights only when flex alignment needs them, then requests the chosen rectangle. It does not
+position unrelated descendants or retain results after the query.
 
 **It is recomputed per query and never cached across queries.** A cache needs an invalidation signal, and the only one
 available is an AngleSharp `MutationObserver` over the whole document — which would make every DOM mutation on

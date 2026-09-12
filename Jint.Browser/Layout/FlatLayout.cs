@@ -318,7 +318,7 @@ internal sealed class FlatLayout
             {
                 if (ReferenceEquals(element, document?.DocumentElement))
                 {
-                    _positions.Add(element, Measure(element));
+                    _positions.Add(element, FlatBox.Empty);
                     break;
                 }
 
@@ -337,7 +337,7 @@ internal sealed class FlatLayout
                 var horizontal = FlexRow.IsHorizontal(parent, cascade);
                 var reverse = horizontal && FlexRow.IsReversed(parent, cascade);
                 var (next, offset) = _childrenPlaced.TryGetValue(parent, out var placed)
-                    ? placed : (0, horizontal ? (reverse ? parentBox.Width : 0) : RowHeight);
+                    ? placed : (0, horizontal ? (reverse ? WidthOf(parent) : 0) : RowHeight);
                 var children = parent.Children;
                 for (; next < children.Length; next++)
                 {
@@ -347,30 +347,31 @@ internal sealed class FlatLayout
                         continue;
                     }
 
-                    var size = Measure(child);
+                    if (!horizontal && ReferenceEquals(child, element))
+                    {
+                        // Its height affects the next sibling, not its own vertical origin. Leave
+                        // this index pending so a later sibling query measures it when needed.
+                        _positions[child] = new FlatBox(parentBox.X, parentBox.Y + offset, 0, 0);
+                        break;
+                    }
+
+                    var width = horizontal ? WidthOf(child) : 0;
                     if (horizontal && reverse)
                     {
-                        offset -= size.Width;
+                        offset -= width;
                     }
 
                     var cross = 0d;
-                    if (horizontal)
+                    if (horizontal && FlexRow.Alignment(child, parent, cascade) is "center" or "flex-end" or "end")
                     {
-                        var space = parentBox.Height - RowHeight - size.Height;
-                        cross = FlexRow.Alignment(child, parent, cascade) switch
-                        {
-                            "center" => space / 2,
-                            "flex-end" or "end" => space,
-                            _ => 0,
-                        };
+                        var space = HeightOf(parent) - RowHeight - HeightOf(child);
+                        cross = FlexRow.Alignment(child, parent, cascade) == "center" ? space / 2 : space;
                     }
 
-                    _positions.Add(child, size with
-                    {
-                        X = parentBox.X + (horizontal ? offset : 0),
-                        Y = parentBox.Y + (horizontal ? RowHeight + cross : offset)
-                    });
-                    offset += horizontal ? (reverse ? 0 : size.Width) : size.Height;
+                    _positions[child] = new FlatBox(
+                        parentBox.X + (horizontal ? offset : 0),
+                        parentBox.Y + (horizontal ? RowHeight + cross : offset), 0, 0);
+                    offset += horizontal ? (reverse ? 0 : width) : HeightOf(child);
                     if (ReferenceEquals(child, element))
                     {
                         next++;
@@ -381,7 +382,9 @@ internal sealed class FlatLayout
                 _childrenPlaced[parent] = (next, offset);
             }
 
-            return _positions[target];
+            var position = _positions[target];
+            var measured = Measure(target);
+            return measured with { X = position.X, Y = position.Y };
         }
 
         internal FlatBox Measure(IElement target)
@@ -492,6 +495,57 @@ internal sealed class FlatLayout
             }
 
             return _heights[target];
+        }
+
+        // A scroll clamp only needs proof that the document reaches the viewport's bottom.
+        // Stop at that bound; partial counts must never enter the exact-size cache.
+        internal double HeightUpTo(IElement target, double limit)
+        {
+            var required = (int) Math.Min(int.MaxValue, Math.Ceiling(limit / RowHeight));
+            var pending = new Stack<(IElement Element, int Next, int Rows, int Limit, bool Horizontal)>();
+            var element = target;
+            var bound = required;
+            var result = 0;
+            while (true)
+            {
+                if (_rows.TryGetValue(element, out var known))
+                {
+                    result = Math.Min(known, bound);
+                }
+                else if (!HasBox(element))
+                {
+                    result = 0;
+                }
+                else
+                {
+                    pending.Push((element, 0, 1, bound, FlexRow.IsHorizontal(element, cascade)));
+                }
+
+                while (pending.TryPop(out var frame))
+                {
+                    var rows = frame.Next == 0 ? frame.Rows
+                        : frame.Horizontal ? Math.Max(frame.Rows, result + 1) : frame.Rows + result;
+                    if (rows >= frame.Limit || frame.Next == frame.Element.Children.Length)
+                    {
+                        result = Math.Min(rows, frame.Limit);
+                        if (rows < frame.Limit)
+                        {
+                            _rows.TryAdd(frame.Element, rows);
+                        }
+                        continue;
+                    }
+
+                    element = frame.Element.Children[frame.Next];
+                    bound = frame.Horizontal ? frame.Limit - 1 : frame.Limit - rows;
+                    pending.Push((frame.Element, frame.Next + 1, rows, frame.Limit, frame.Horizontal));
+                    break;
+                }
+
+                if (pending.Count == 0)
+                {
+                    return result * RowHeight;
+                }
+            }
         }
 
         private int CountRows(IElement target)
