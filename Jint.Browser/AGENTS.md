@@ -14,27 +14,32 @@
 > Jint should add value to AngleSharp without competing too much.
 
 That is the project founder's guidance for the whole headless-browser campaign, and it decides arguments here
-rather than merely decorating them. **AngleSharp is the parser, the DOM and the CSSOM; nothing in this package
-re-implements any of them.** What Jint owns is the binding layer — a projection built on the engine's own
-shape and layout machinery instead of a reflection trampoline — and the output is deliberately shaped so that
+rather than merely decorating them. **AngleSharp supplies the parser, DOM storage and CSSOM. Jint owns
+the browser semantics its embedding requires, including standards-defined behavior AngleSharp does not
+implement.** The binding layer projects onto the engine's own shape and layout machinery instead of using
+a reflection trampoline, and the output is deliberately shaped so that
 [AngleSharp.Js](https://github.com/AngleSharp/AngleSharp.Js) could adopt it without adopting anything else
-here. Three consequences bind every change:
+here. These rules bind every change:
 
-- **Every AngleSharp behaviour that disagrees with the DOM standard is reported upstream and recorded below,
-  never worked around silently.** A workaround in the binding hides a defect from the project that can fix it,
-  and makes the next reader believe the standard says what AngleSharp does. The one thing a wrapper may do is
-  implement Web IDL semantics AngleSharp's CLR surface does not represent — `DOMStringMap`'s property-name
-  conversion and named setter/deleter are the worked example, and the divergence register says so. **Two
-  standard-defined *algorithms* this package owns outright**, each because AngleSharp exposes no seam for it
-  and closed the fix unmerged, and neither a licence to re-implement anything AngleSharp already answers:
-  DOM's class-name collection, whose comparison is ASCII case-insensitive while the root's node document is
-  in quirks mode ([AngleSharp#1321](https://github.com/AngleSharp/AngleSharp/pull/1321), so
-  [#3899](https://github.com/sebastienros/jint/issues/3899) moved it to
-  `DomHostHooks.GetElementsByClassName`); and HTML's form owner, where a connected listed element's `form`
-  attribute outranks every ancestor form
-  ([AngleSharp#1325](https://github.com/AngleSharp/AngleSharp/pull/1325), so
-  [#3939](https://github.com/sebastienros/jint/issues/3939) moved it to `Dom/HtmlFormOwner`, which every lane
-  that asks who owns a control now reads). Both are sanctioned exceptions, recorded in the register.
+- **Record each divergence and implement the required browser behavior in Jint.** The maintainer's
+  direction is that AngleSharp's decision to treat behavior as intentional or outside its scope must not
+  leave a Jint conformance issue waiting indefinitely for an upstream fix. A local implementation is
+  authorized; upstream acceptance, a new upstream report and a dependency release are not prerequisites.
+  This applies to the remaining selector, namespace/name-creation, secondary-document-write and
+  directionality issues as well as the algorithms already owned here.
+- **Compose with AngleSharp's existing tree and services.** Prefer a supported factory, hook, adapter or
+  shared algorithm over a second parser or DOM store. That preference does not prohibit implementing a
+  missing algorithm: class-name collections, form ownership and TreeWalker already do so. Keep one answer
+  across binding calls, selectors, forms, events and automation, preserving node/wrapper identity,
+  mutation behavior, per-page state and execution limits. If the public API cannot express the fix, record
+  the exact inaccessible operation and investigate a local integration design; do not label the issue
+  blocked solely because it was previously assigned to AngleSharp. Private reflection is not a supported
+  extension point.
+- **A local correction needs a specification citation, regression coverage and a divergence entry.**
+  Remove or narrow only the exclusions its tests prove stale, then refresh the required census. Keep
+  historical upstream links as context; do not present an upstream scope decision as a promise of a fix.
+  Reuse a later upstream implementation when it satisfies the same tests. Do not file or reopen upstream
+  issues without an explicit request.
 - **No document or README sentence positions this as a rival DOM stack.** It is "AngleSharp + Jint".
 - **A seam that proves useful is offered, not hoarded.** The tree-aware event dispatcher the engine grew for
   this package (`Jint/WebApi/Events/EventDispatch.cs`) knows nothing about a node; it asks the target. The

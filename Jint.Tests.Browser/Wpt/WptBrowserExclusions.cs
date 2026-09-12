@@ -1168,19 +1168,12 @@ internal static class WptBrowserExclusions
     // ---------------------------------------------------------------- a tag query's namespace and local-name identity
     private static readonly WptExclusion[] _aTagQuerySNamespaceAndLocalNameIdentity =
     [
-        // https://github.com/sebastienros/jint/issues/3949 - every row here is one element whose namespace or
-        // local name AngleSharp has already normalized by the time the query runs: createElementNS(HTML, "ABC")
-        // exposes a lower-case localName, and a null-namespace <body> becomes an XHTML one when it is appended
-        // to an HTML document. The query itself is DOM's (DomHostHooks.GetElementsByTagName/NS); repairing the
-        // result here would need a second metadata layer that could not tell deliberate lower case from lost
-        // upper case.
-        new("dom/nodes/Document-getElementsByTagName.html", "HTML*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-getElementsByTagNameNS.html", "*namespace", WptDivergence.NeedsTriage),
+        // https://github.com/sebastienros/jint/issues/3949 - AngleSharp 1.8.1 preserves HTML local-name
+        // case. The remaining three assertions concern a null-namespace <body> becoming an XHTML one
+        // when appended to an HTML document; a query cannot recover the lost namespace.
+        new("dom/nodes/Document-getElementsByTagNameNS.html", "Empty string namespace", WptDivergence.NeedsTriage),
         new("dom/nodes/Element-getElementsByTagName-change-document-HTMLNess.html", "*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Element-getElementsByTagName.html", "HTML*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Element-getElementsByTagNameNS.html", "*namespace", WptDivergence.NeedsTriage),
-        new("dom/nodes/case.html", "createElementNS http://www.w3.org/1999*ABC", WptDivergence.NeedsTriage),
-        new("dom/nodes/case.html", "createElementNS http://www.w3.org/1999*Abc", WptDivergence.NeedsTriage),
+        new("dom/nodes/Element-getElementsByTagNameNS.html", "Empty string namespace", WptDivergence.NeedsTriage),
     ];
 
     // ---------------------------------------------------------------- DOM's validate-and-extract, and the XML name productions
@@ -1358,19 +1351,12 @@ internal static class WptBrowserExclusions
         // for, and the cascade reports only what a sheet declared. Nothing about `<applet>` - the same read
         // of any element answers the same way, and Jint.Browser/AGENTS.md argues which ten.
         new("html/dom/historical.html", "*styled", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElementNS.html", "Upper-case HTML*", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElementNS.html", "createElementNS test in HTML*:o\",null", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElementNS.html", "createElementNS test in HTML*̀\",null", WptDivergence.NeedsTriage),
         // The members #3768 added, and what the corpus says about them once they are reachable. Each is
         // AngleSharp's: a parser-inserted namespaced attribute records no prefix, and IChildNode.Replace
         // converts its arguments before it checks whether the child has a parent at all.
         new("dom/nodes/Attr-prefix.html", "Attr.prefix present (SVG)", WptDivergence.NeedsTriage),
-        // The one metadata row of createDocument that is not about a refused name. Its namespace is the
-        // XHTML one, so DOM gives the document the content type application/xhtml+xml and createElement
-        // puts the element in the HTML namespace while keeping its case (steps 2 and 4) -- and
-        // AngleSharp's HTML element factory ASCII-lowercases whatever local name it is handed, so
-        // createElement("DIV").localName is "div". The same defect case.html names for createElementNS.
-        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: metadata for \"http://www.w3.org/1999/xhtml\",\"\",null", WptDivergence.NeedsTriage),
         // AngleSharp's: an Attr write does not carry its new value to the attribute observer, and a parser-
         // inserted namespaced attribute records no prefix.
         new("dom/nodes/Attr-prefix.html", "Attr.prefix present (SVG)", WptDivergence.NeedsTriage),

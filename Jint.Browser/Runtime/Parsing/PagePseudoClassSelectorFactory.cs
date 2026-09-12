@@ -450,9 +450,9 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
     /// <summary>
     /// HTML §4.16.3: <c>:focus</c> matches the element which <b>has the focus</b>, and Selectors §9.5 makes
     /// <c>:focus-within</c> that element together with every element containing it. AngleSharp answers both
-    /// from <c>IElement.IsFocused</c>, a flag nothing in this package sets — its own
-    /// <c>IHtmlElement.DoFocus()</c> assigns neither that flag nor <c>IDocument.ActiveElement</c>, which is
-    /// why <see cref="FocusController"/> is the page's focus model — so before this every element answered
+    /// from <c>IElement.IsFocused</c>, a flag nothing in this package sets. AngleSharp 1.8.1 adds
+    /// form-control focus transitions on its own event bus; <see cref="FocusController"/> remains the
+    /// page's focus model and dispatches the events script can hear. Before this override every element answered
     /// <see langword="false"/> to both while <c>document.activeElement</c> named the focused one.
     /// </summary>
     /// <remarks>
@@ -630,16 +630,8 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
 
         public bool Match(IElement element, IElement? scope)
         {
-            if (element is IHtmlAnchorElement or IHtmlAreaElement)
-            {
-                return !visited && element.HasAttribute("href");
-            }
-
-            if (element is IHtmlElement)
-            {
-                return false;
-            }
-
+            // AngleSharp 1.8.1 owns the HTML partition, including empty and no-namespace href.
+            // SVG still needs the ancestor rule that its native selector does not implement.
             if (IsSvgAnchor(element))
             {
                 return !visited && HasSvgLinkAttribute(element) && !HasHyperlinkAncestor(element);
@@ -666,7 +658,7 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
             {
                 if (ancestor is IHtmlAnchorElement or IHtmlAreaElement)
                 {
-                    if (ancestor.HasAttribute("href"))
+                    if (ancestor.IsLink())
                     {
                         return true;
                     }

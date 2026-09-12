@@ -32,9 +32,12 @@ project founder's guidance for this campaign is the principle every decision bel
 
 > Jint should add value to AngleSharp without competing too much.
 
-So: AngleSharp is the parser, the DOM and the CSSOM; nothing here re-implements any of them. What Jint owns is
-what nobody else has — a binding layer built on Jint's own shape and layout machinery instead of a reflection
-trampoline, a page runtime that wires Jint's timers, fetch, storage and workers into a `Window` under Jint's
+AngleSharp supplies parsing, DOM storage and the CSSOM. Jint owns the browser semantics its embedding
+requires, including behavior AngleSharp intentionally leaves outside its scope. Local standards-defined
+algorithms are allowed and must compose with the existing tree, preserve identity and mutation behavior,
+and carry regression tests and a recorded divergence. Upstream acceptance or a future package release is
+not a prerequisite for fixing a Jint issue. The implementation includes a binding layer built on Jint's own
+shape and layout machinery instead of a reflection trampoline, a page runtime that wires Jint's timers, fetch, storage and workers into a `Window` under Jint's
 execution constraints, and the automation protocol. The generated bindings and the tree-aware event dispatcher
 are intended for adoption by AngleSharp.Js; the [X6 review drafts](../integration/upstream-adoption.md)
 record the current extraction blockers and delivery status; every AngleSharp
