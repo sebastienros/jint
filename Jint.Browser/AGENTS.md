@@ -34,7 +34,9 @@ here. Three consequences bind every change:
   attribute outranks every ancestor form
   ([AngleSharp#1325](https://github.com/AngleSharp/AngleSharp/pull/1325), so
   [#3939](https://github.com/sebastienros/jint/issues/3939) moved it to `Dom/HtmlFormOwner`, which every lane
-  that asks who owns a control now reads). Both are sanctioned exceptions, recorded in the register.
+  that asks who owns a control now reads). AngleSharp 1.8.1 subsequently fixed explicit ownership for
+  `HtmlFormControlElement`, but the shared resolver still covers other associated elements, borrowed owners
+  and control enumeration. Both are sanctioned exceptions, recorded in the register.
 - **No document or README sentence positions this as a rival DOM stack.** It is "AngleSharp + Jint".
 - **A seam that proves useful is offered, not hoarded.** The tree-aware event dispatcher the engine grew for
   this package (`Jint/WebApi/Events/EventDispatch.cs`) knows nothing about a node; it asks the target. The

@@ -282,19 +282,8 @@ internal class DomHostHooks
         var localName = DomConvert.RequiredText(arguments, 1, member);
         IEnumerable<IElement> Current()
         {
-            // AngleSharp preserves information unavailable through IElement for exact names it created in
-            // the HTML namespace. Re-running that query keeps its answer live. Other namespaces use the
-            // case-sensitive traversal below, which also owns the wildcard and null-namespace cases.
-            if (string.Equals(namespaceUri, NamespaceNames.HtmlUri, StringComparison.Ordinal) && localName != "*")
-            {
-                return root switch
-                {
-                    IDocument document => document.GetElementsByTagName(namespaceUri, localName),
-                    IElement element => element.GetElementsByTagNameNS(namespaceUri, localName),
-                    _ => [],
-                };
-            }
-
+            // AngleSharp 1.8.1 preserves HTML local-name case, so the same DOM comparison now
+            // works in every namespace. Its native HTML namespace query still folds case.
             return root.Descendants<IElement>().Where(element =>
                 (namespaceUri == "*" || string.Equals(NullIfEmpty(element.NamespaceUri), namespaceUri, StringComparison.Ordinal))
                 && (localName == "*" || string.Equals(element.LocalName, localName, StringComparison.Ordinal)));
