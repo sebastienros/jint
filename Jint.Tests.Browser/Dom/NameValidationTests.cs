@@ -110,6 +110,7 @@ public sealed class NameValidationTests
     [TestCase("document.createElement('')", "InvalidCharacterError")]
     [TestCase("document.createAttribute('f=oo')", "InvalidCharacterError")]
     [TestCase("document.createAttribute('b:')", null)]
+    [TestCase("document.createAttribute('1foo')", null)]
     [TestCase("document.getElementById('a').setAttribute('b:', 'v')", null)]
     [TestCase("document.getElementById('a').setAttribute('b=', 'v')", "InvalidCharacterError")]
     [TestCase("document.getElementById('a').setAttribute('b c', 'v')", "InvalidCharacterError")]
@@ -148,7 +149,6 @@ public sealed class NameValidationTests
     /// </remarks>
     [TestCase("document.createElement('f<oo')", TestName = "createElement with a code point XML forbids")]
     [TestCase("document.createElement('f}oo')", TestName = "createElement with a brace")]
-    [TestCase("document.createAttribute('1foo')", TestName = "createAttribute with a leading digit")]
     [TestCase("document.createElementNS(null, 'f}oo')", TestName = "createElementNS with a brace")]
     [TestCase("document.createElementNS(null, '\\uFFFFfoo')", TestName = "createElementNS with a non-character")]
     [TestCase("document.createElementNS('http://example.com/', '0:a')", TestName = "createElementNS with a digit prefix")]

@@ -25,7 +25,7 @@ public sealed class DomExceptionTests
     /// it has to arrive as.
     /// </summary>
     [TestCase("document.createElement('1bad')", "InvalidCharacterError", 5, TestName = "createElement with an invalid name is an InvalidCharacterError")]
-    [TestCase("document.createAttribute('1bad')", "InvalidCharacterError", 5, TestName = "createAttribute with an invalid name is an InvalidCharacterError")]
+    [TestCase("document.createAttribute('bad name')", "InvalidCharacterError", 5, TestName = "createAttribute with an invalid name is an InvalidCharacterError")]
     [TestCase("document.getElementById('a').setAttribute('=bad', 'v')", "InvalidCharacterError", 5, TestName = "setAttribute with an invalid name is an InvalidCharacterError")]
     [TestCase("var d = document.getElementById('a'); d.appendChild(d)", "HierarchyRequestError", 3, TestName = "appendChild of an ancestor is a HierarchyRequestError")]
     [TestCase("document.getElementById('a').appendChild(document.body)", "HierarchyRequestError", 3, TestName = "appendChild of the body is a HierarchyRequestError")]
