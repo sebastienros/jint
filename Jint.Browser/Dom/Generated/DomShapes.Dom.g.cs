@@ -1243,7 +1243,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.querySelector", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.querySelector");
-                    return self.Realm.WrapNodeValue(self.Target.QuerySelector(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.querySelector")));
+                    return self.Realm.Hooks.QuerySelector(self.Realm, self.Target, args);
                 }),
                 length: 1)
             .Method("querySelectorAll",
@@ -1412,7 +1412,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("DocumentFragment.querySelector", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocumentFragment>(thisObj, "DocumentFragment.querySelector");
-                    return self.Realm.WrapNodeValue(self.Target.QuerySelector(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "DocumentFragment.querySelector")));
+                    return self.Realm.Hooks.QuerySelector(self.Realm, self.Target, args);
                 }),
                 length: 1)
             .Method("querySelectorAll",
@@ -1600,7 +1600,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.closest", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.closest");
-                    return self.Realm.WrapNodeValue(self.Target.Closest(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Element.closest")));
+                    return self.Realm.Hooks.Closest(self.Realm, self.Target, args);
                 }),
                 length: 1)
             .Accessor("firstElementChild",
@@ -1770,7 +1770,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.matches", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.matches");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Matches(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Element.matches")));
+                    return self.Realm.Hooks.Matches(self.Realm, self.Target, args);
                 }),
                 length: 1)
             .Accessor("namespaceURI",
@@ -1819,7 +1819,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.querySelector", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.querySelector");
-                    return self.Realm.WrapNodeValue(self.Target.QuerySelector(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Element.querySelector")));
+                    return self.Realm.Hooks.QuerySelector(self.Realm, self.Target, args);
                 }),
                 length: 1)
             .Method("querySelectorAll",
@@ -1985,7 +1985,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.webkitMatchesSelector", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.webkitMatchesSelector");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Matches(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Element.webkitMatchesSelector")));
+                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Matches(global::Jint.Browser.Dom.DomSelectorText.Required(args, "Element.webkitMatchesSelector")));
                 }),
                 length: 1);
 

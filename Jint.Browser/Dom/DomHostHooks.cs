@@ -315,7 +315,7 @@ internal class DomHostHooks
     /// scope-match a selectors string".
     /// </summary>
     /// <remarks>
-    /// AngleSharp's answer is already a snapshot, so this hook corrects no behaviour. What it does is put the
+    /// AngleSharp's answer is already a snapshot. Besides validating DOM's selector-list entry, this puts the
     /// standard's word "static" where the binding can act on it: the result is projected through
     /// <c>DomRealm.WrapStaticNodeList</c>, whose <see cref="Collections.DomStaticNodeList"/> makes staticness
     /// a property of the type rather than a guess about an <c>INodeList</c> — which is what lets that
@@ -324,9 +324,18 @@ internal class DomHostHooks
     /// </remarks>
     internal virtual JsValue QuerySelectorAll(DomRealm realm, INode root, JsValue[] arguments)
     {
-        var selectors = DomConvert.RequiredText(arguments, 0, Member(root, "querySelectorAll"));
+        var selectors = DomSelectorText.Required(arguments, Member(root, "querySelectorAll"));
         return realm.WrapStaticNodeList(((IParentNode) root).QuerySelectorAll(selectors));
     }
+
+    internal virtual JsValue QuerySelector(DomRealm realm, INode root, JsValue[] arguments)
+        => realm.WrapNodeValue(((IParentNode) root).QuerySelector(DomSelectorText.Required(arguments, Member(root, "querySelector"))));
+
+    internal virtual JsValue Matches(DomRealm realm, IElement element, JsValue[] arguments)
+        => DomConvert.Bool(element.Matches(DomSelectorText.Required(arguments, "Element.matches")));
+
+    internal virtual JsValue Closest(DomRealm realm, IElement element, JsValue[] arguments)
+        => realm.WrapNodeValue(element.Closest(DomSelectorText.Required(arguments, "Element.closest")));
 
     private static string Member(INode root, string operation)
         => root switch

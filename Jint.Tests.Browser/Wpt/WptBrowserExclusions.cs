@@ -1307,17 +1307,14 @@ internal static class WptBrowserExclusions
         // the same selector and outcome. The runner holds every pattern against passing and failing rows.
         new("dom/nodes/Element-matches.html", "*Undeclared namespace: ns|div*", WptDivergence.NeedsTriage),
         new("dom/nodes/Element-matches.html", "*Undeclared namespace: :not(ns|div)*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Element-matches.html", "*Relative selector: >\\*", WptDivergence.NeedsTriage),
         new("dom/nodes/Element-matches.html", "*Attribute value selector, matching align attribute with value, unclosed bracket*", WptDivergence.NeedsTriage),
 
         new("dom/nodes/Element-webkitMatchesSelector.html", "*Undeclared namespace: ns|div*", WptDivergence.NeedsTriage),
         new("dom/nodes/Element-webkitMatchesSelector.html", "*Undeclared namespace: :not(ns|div)*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Element-webkitMatchesSelector.html", "*Relative selector: >\\*", WptDivergence.NeedsTriage),
         new("dom/nodes/Element-webkitMatchesSelector.html", "*Attribute value selector, matching align attribute with value, unclosed bracket*", WptDivergence.NeedsTriage),
 
         new("dom/nodes/ParentNode-querySelector-All.html", "*Undeclared namespace: ns|div*", WptDivergence.NeedsTriage),
         new("dom/nodes/ParentNode-querySelector-All.html", "*Undeclared namespace: :not(ns|div)*", WptDivergence.NeedsTriage),
-        new("dom/nodes/ParentNode-querySelector-All.html", "*Relative selector: >\\*", WptDivergence.NeedsTriage),
         new("dom/nodes/ParentNode-querySelector-All.html", "*Attribute value selector, matching align attribute with value, unclosed bracket*", WptDivergence.NeedsTriage),
         new("dom/nodes/ParentNode-querySelector-All.html", "*Namespace selector, matching div elements in no namespace only*", WptDivergence.NeedsTriage),
         new("dom/nodes/ParentNode-querySelector-All.html", "*Namespace selector, matching any elements in no namespace only*", WptDivergence.NeedsTriage),
