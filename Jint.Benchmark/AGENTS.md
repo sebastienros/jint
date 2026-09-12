@@ -80,7 +80,11 @@ Validated with an A/A run (the same worktree as both sides, six rounds), which c
 | `NullCheckBenchmark.LooseEqualNull` | −0.49% | [−2.37, +0.59] |
 | `NullCheckBenchmark.LooseNotEqualNull` | −0.23% | [−1.03, +0.71] |
 
-So six rounds resolves roughly a 1–2.5% effect on these rows; add rounds rather than reading the median on its own when the interval is too wide to decide. **This is also why the old flat "1% blocks" rule cannot work as stated** — on many rows 1% is below what the measurement can resolve, so it manufactures re-runs rather than catching regressions.
+So six rounds resolves roughly a 1–2.5% effect on these rows; add rounds rather than reading the median on its own when the interval is too wide to decide.
+
+> **Three rounds is not enough to believe a small result, and it will not tell you so.** The percentile bootstrap over three paired observations is barely more than their range, and it reports a 95% CI like any other. Measured on one pull request ([#4048](https://github.com/sebastienros/jint/pull/4048)) in a single afternoon, a 3-round run produced a CI **excluding zero with full sign agreement** on three separate rows that the change could not affect — `OwnPropertyRead` +2.78% [+0.84, +3.60] 3/3 (it reads `this.value` from its own shape slot and never reaches the diff), `Dromaeo.StringBase64[False,False]` +11.07% [+3.75, +12.06] 3/3, and `SunSpider.math-partial-sums` +2.63% [+1.66, +3.60] 3/3. At six rounds all three read no change, and `math-partial-sums` turned out to be **faster**.
+>
+> So: **three rounds to confirm an effect that is already large, six or more before believing a small one** — and especially before believing a *regression*, where a false positive sends a reviewer hunting through a diff that cannot contain it. Across a 50-row wide gate at three rounds, some spurious exclusions of zero are close to certain, so read such a table in two stages: treat a row as a candidate only when it agrees in sign across every round **and** exceeds this machine's ±3–5% same-binary spread, then re-measure just those rows at six rounds before acting. Fix that bar before you look at the table. **This is also why the old flat "1% blocks" rule cannot work as stated** — on many rows 1% is below what the measurement can resolve, so it manufactures re-runs rather than catching regressions.
 
 ### Adding a new benchmark
 
