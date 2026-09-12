@@ -1108,14 +1108,54 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
                 return false;
             }
 
-            var indicated = Find(document, fragment);
-            if (indicated is null)
+            var decoded = PercentEncoding.DecodeToString(fragment);
+
+            // https://html.spec.whatwg.org/multipage/browsing-the-web.html#the-indicated-part-of-the-document
+            // only ever answers an element whose ID is the fragment (raw or percent-decoded) or an <a> whose
+            // name attribute is one of the two -- and :target matches at most one element, so every other
+            // candidate can be rejected with an O(1) test on its own attributes and no document access at
+            // all. Resolving "the indicated part" first and then comparing, as this selector used to, ran
+            // DOM's getElementById -- and, on a miss, HTML's legacy named-anchor scan of the whole document
+            // -- once per candidate element; inverting the test turns that into zero or one resolution per
+            // query instead of one per element.
+            if (!CouldBeIndicated(element, fragment, decoded))
             {
-                var decoded = PercentEncoding.DecodeToString(fragment);
-                indicated = string.Equals(decoded, fragment, StringComparison.Ordinal) ? null : Find(document, decoded);
+                return false;
+            }
+
+            var indicated = Find(document, fragment);
+            if (indicated is null && !string.Equals(decoded, fragment, StringComparison.Ordinal))
+            {
+                indicated = Find(document, decoded);
             }
 
             return ReferenceEquals(element, indicated);
+        }
+
+        /// <summary>
+        /// A necessary condition for <paramref name="element"/> to be HTML's indicated element:
+        /// <see cref="Find"/> below never answers an element other than one whose own ID is
+        /// <paramref name="fragment"/> or <paramref name="decoded"/>, or an <c>a</c> element whose
+        /// <c>name</c> attribute is. Whether it actually is the indicated one -- the first such element in
+        /// tree order, and only when nothing matched by ID first -- is for <see cref="Find"/> to confirm.
+        /// </summary>
+        private static bool CouldBeIndicated(IElement element, string fragment, string decoded)
+        {
+            var id = element.Id;
+            if (id is { Length: > 0 }
+                && (string.Equals(id, fragment, StringComparison.Ordinal) || string.Equals(id, decoded, StringComparison.Ordinal)))
+            {
+                return true;
+            }
+
+            if (!string.Equals(element.LocalName, "a", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            var name = element.GetAttribute("name");
+            return name is { Length: > 0 }
+                && (string.Equals(name, fragment, StringComparison.Ordinal) || string.Equals(name, decoded, StringComparison.Ordinal));
         }
 
         /// <summary>HTML's first potential indicated element in document tree order.</summary>

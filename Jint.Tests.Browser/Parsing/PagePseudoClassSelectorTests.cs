@@ -1284,6 +1284,34 @@ public sealed class PagePseudoClassSelectorTests
     }
 
     /// <summary>
+    /// https://html.spec.whatwg.org/multipage/browsing-the-web.html#the-indicated-part-of-the-document:
+    /// the id lookup is tried before the legacy named-anchor lookup, and the raw fragment before its
+    /// percent-decoded form; a fragment naming neither matches no element at all. This is what
+    /// <c>PagePseudoClassSelectorFactory.TargetSelector</c>'s O(1) pre-check
+    /// (<c>CouldBeIndicated</c>) has to answer correctly for before the document is ever resolved.
+    /// </summary>
+    [TestCase("missing", "")]
+    [TestCase("byId", "byId")]
+    [TestCase("byName", "anchor")]
+    [TestCase("%62yDecoded", "byDecoded")]
+    public async Task TargetMatchesTheIndicatedElementInHtmlsOrderOrNothing(string fragment, string expectedId)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <!doctype html><html><body>
+              <div id="byId"></div>
+              <a id="anchor" name="byName"></a>
+              <div id="byDecoded"></div>
+            </body></html>
+            """, $"https://example.test/#{fragment}");
+
+        (await page.EvaluateAsync<string>(
+            "Array.from(document.querySelectorAll(':target'), e => e.id).join(',')"))
+            .Should().Be(expectedId);
+    }
+
+    /// <summary>
     /// HTML §4.16.3: <c>:required</c> is an <c>input</c> which is required and a <c>select</c> or
     /// <c>textarea</c> carrying the attribute, and <c>:optional</c> is an <c>input</c> the attribute
     /// <i>applies</i> to which is not required and the other two without it — so §4.10.5.3.4's fifteen type
