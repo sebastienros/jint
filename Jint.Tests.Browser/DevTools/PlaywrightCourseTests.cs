@@ -126,6 +126,9 @@ public partial class PlaywrightCourseTests
             server => FixtureRoutes.Scalar(server),
             new BrowserOptions { MaxTaskDuration = TimeSpan.FromSeconds(30) });
         var page = await lane.Context.NewPageAsync();
+        // A click spans several CDP commands and page turns. This bounds a stalled client action;
+        // the engine still has 30 seconds per task, and every page error is asserted below.
+        var clickOptions = new LocatorClickOptions { Timeout = (float) TestBudgets.WedgeCeiling.TotalMilliseconds };
         var errors = new ConcurrentQueue<string>();
         var events = new ConcurrentQueue<string>();
         page.PageError += (_, error) => errors.Enqueue("page: " + error);
@@ -148,11 +151,11 @@ public partial class PlaywrightCourseTests
             var navigation = page.GetByRole(AriaRole.Navigation, new() { Name = "Sidebar for OpenApi V1", Exact = true });
             var operation = navigation.GetByRole(AriaRole.Button, new() { Name = "Open Group GetEndpoint", Exact = true });
             await operation.WaitForAsync();
-            await operation.ClickAsync();
-            await navigation.GetByRole(AriaRole.Button, new() { Name = "/api/content/{contentItemId} HTTP Method: GET", Exact = true }).ClickAsync();
+            await operation.ClickAsync(clickOptions);
+            await navigation.GetByRole(AriaRole.Button, new() { Name = "/api/content/{contentItemId} HTTP Method: GET", Exact = true }).ClickAsync(clickOptions);
             await page.WaitForFunctionAsync("() => document.body.textContent.includes('/api/content/{contentItemId}')");
             await page.Locator("section[id='v1/tag/getendpoint/GET/api/content/{contentItemId}']")
-                .GetByRole(AriaRole.Button, new() { Name = "Test Request" }).ClickAsync();
+                .GetByRole(AriaRole.Button, new() { Name = "Test Request" }).ClickAsync(clickOptions);
             var client = page.GetByRole(AriaRole.Dialog, new() { Name = "API Client", Exact = true });
             await client.WaitForAsync();
             var send = client.Locator("button").Filter(new() { HasText = "Send get request to " });
@@ -184,14 +187,21 @@ public partial class PlaywrightCourseTests
                 {
                     TestContext.Out.WriteLine("Navigation snapshot: " + exception.Message);
                 }
-                TestContext.Out.WriteLine(await page.EvaluateAsync<string>(
-                    """
-                    () => JSON.stringify({
-                      url: location.href, readyState: document.readyState,
-                      controls: Array.from(document.querySelectorAll('[role=navigation] button, [role=dialog]'))
-                        .slice(0, 30).map(e => [e.tagName, e.getAttribute('aria-label'), e.getAttribute('aria-expanded'), e.textContent.slice(0, 200)])
-                    })
-                    """));
+                try
+                {
+                    TestContext.Out.WriteLine(await page.EvaluateAsync<string>(
+                        """
+                        () => JSON.stringify({
+                          url: location.href, readyState: document.readyState,
+                          controls: Array.from(document.querySelectorAll('[role=navigation] button, [role=dialog]'))
+                            .slice(0, 30).map(e => [e.tagName, e.getAttribute('aria-label'), e.getAttribute('aria-expanded'), e.textContent.slice(0, 200)])
+                        })
+                        """));
+                }
+                catch (Exception exception) when (exception is PlaywrightException or TimeoutException)
+                {
+                    TestContext.Out.WriteLine("DOM snapshot: " + exception.Message);
+                }
             }
             TestContext.Out.WriteLine(string.Join(Environment.NewLine, events));
             TestContext.Out.WriteLine(string.Join(Environment.NewLine, errors));

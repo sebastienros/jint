@@ -127,10 +127,27 @@ internal static class CssCascade
                 return element.ComputeCurrentStyle();
             }
             var device = element.Owner.Context.GetService<IRenderDevice>() ?? new DefaultRenderDevice();
-            var styles = new ScopedStyles(window.GetStyleCollection(device), StyleScope.All, includeVariables: true);
-            // The native computed-style algorithm walks these ancestors itself. Give it the union of
-            // their candidates so its inheritance and value computation remain unchanged.
-            return styles.ForAncestors(element).ComputeDeclarations(element);
+            var rules = window.GetStyleCollection(device).ToArray();
+            var classes = new HashSet<string>(StringComparer.Ordinal);
+            for (var current = element; current is not null; current = current.ParentElement)
+            {
+                foreach (var name in current.ClassList)
+                {
+                    classes.Add(name);
+                }
+            }
+            var candidates = new List<(int Order, ICssStyleRule Rule)>();
+            var visitor = new RequiredClass();
+            VisitRules(rules, rule =>
+            {
+                if (visitor.Of(rule.Selector) is not { } name || classes.Contains(name))
+                {
+                    candidates.Add((candidates.Count, new ScopedRule(rule, null)));
+                }
+            });
+            // A single computed-style query needs only the ancestor candidate union, not a complete
+            // index for every class in the sheet. Native inheritance and computation remain unchanged.
+            return new Candidates(device, candidates).ComputeDeclarations(element);
         }
 
         internal static Traversal? For(IDocument? document, StyleScope scope = StyleScope.All)
@@ -317,18 +334,21 @@ internal static class CssCascade
             {
                 Device = styles.Device;
                 var rules = new List<ICssStyleRule>();
-                foreach (var source in styles)
+                var visitor = new RequiredClass();
+                Func<string, bool> includes = name => Includes(scope, name)
+                    || includeVariables && name.StartsWith("--", StringComparison.Ordinal);
+                VisitRules(styles, source =>
                 {
-                    Flatten(new ScopedRule(source, scope == StyleScope.All ? null : name => Includes(scope, name)
-                        || includeVariables && name.StartsWith("--", StringComparison.Ordinal)), rules);
-                }
-                _rules = rules.ToArray();
-                for (var index = 0; index < _rules.Length; index++)
-                {
-                    var rule = _rules[index];
-                    var visitor = new RequiredClass();
-                    rule.Selector?.Accept(visitor);
-                    if (visitor.Name is not { } name)
+                    // Most sheet rules have no declarations this query consumes. Do not allocate
+                    // declaration arrays or wrappers for them before finding that out.
+                    if (!HasIncludedProperty(source.Style, includes))
+                    {
+                        return;
+                    }
+                    var rule = new ScopedRule(source, includes);
+                    var index = rules.Count;
+                    rules.Add(rule);
+                    if (visitor.Of(rule.Selector) is not { } name)
                     {
                         _unkeyed.Add((index, rule));
                     }
@@ -340,7 +360,20 @@ internal static class CssCascade
                         }
                         bucket.Add((index, rule));
                     }
+                });
+                _rules = rules.ToArray();
+            }
+
+            private static bool HasIncludedProperty(ICssStyleDeclaration style, Func<string, bool> includes)
+            {
+                for (var index = 0; index < style.Length; index++)
+                {
+                    if (includes(style[index]))
+                    {
+                        return true;
+                    }
                 }
+                return false;
             }
 
             // Index only a class required on the subject. The native matcher still decides every
@@ -359,40 +392,33 @@ internal static class CssCascade
                 return new Candidates(Device, candidates);
             }
 
-            internal Candidates ForAncestors(IElement element)
-            {
-                var candidates = new List<(int Order, ICssStyleRule Rule)>(_unkeyed);
-                var seen = new HashSet<string>(StringComparer.Ordinal);
-                for (var current = element; current is not null; current = current.ParentElement)
-                {
-                    foreach (var name in current.ClassList)
-                    {
-                        if (seen.Add(name) && _classes.TryGetValue(name, out var bucket))
-                        {
-                            candidates.AddRange(bucket);
-                        }
-                    }
-                }
-                candidates.Sort(static (left, right) => left.Order.CompareTo(right.Order));
-                return new Candidates(Device, candidates);
-            }
-
-            private static void Flatten(ScopedRule rule, List<ICssStyleRule> rules)
-            {
-                if (rule.Style.Length != 0)
-                {
-                    rules.Add(rule);
-                }
-                foreach (var child in rule.Rules.OfType<ScopedRule>())
-                {
-                    Flatten(child, rules);
-                }
-                rule.Rules = ScopedRuleList.Empty;
-            }
-
             public IRenderDevice Device { get; }
             public IEnumerator<ICssStyleRule> GetEnumerator() => ((IEnumerable<ICssStyleRule>) _rules).GetEnumerator();
             System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+        }
+
+        private static void VisitRules(IEnumerable<ICssStyleRule> rules, Action<ICssStyleRule> visit)
+        {
+            foreach (var rule in rules)
+            {
+                VisitRule(rule, visit);
+            }
+        }
+
+        private static void VisitRule(ICssStyleRule rule, Action<ICssStyleRule> visit)
+        {
+            if (rule.Style.Length != 0)
+            {
+                visit(rule);
+            }
+            var children = rule.Rules;
+            for (var index = 0; index < children.Length; index++)
+            {
+                if (children[index] is ICssStyleRule style)
+                {
+                    VisitRule(style, visit);
+                }
+            }
         }
 
         private sealed class Candidates(IRenderDevice device, List<(int Order, ICssStyleRule Rule)> rules) : IStyleCollection
@@ -404,7 +430,13 @@ internal static class CssCascade
 
         private sealed class RequiredClass : ISelectorVisitor
         {
-            internal string? Name { get; private set; }
+            private string? Name { get; set; }
+            internal string? Of(ISelector? selector)
+            {
+                Name = null;
+                selector?.Accept(this);
+                return Name;
+            }
             public void Class(string name) => Name ??= name;
             public void Many(IEnumerable<ISelector> selectors)
             {
@@ -437,10 +469,7 @@ internal static class CssCascade
             : new ScopedDeclaration(source.Style, source.Style.Where(property => includes(property.Name)).ToArray());
         public string SelectorText { get => source.SelectorText; set => throw new NotSupportedException(); }
         public ISelector Selector => source.Selector;
-        public ICssRuleList Rules { get; internal set; } = source.Rules.Length == 0 ? ScopedRuleList.Empty
-            : new ScopedRuleList(source.Rules.OfType<ICssStyleRule>()
-            .Select(rule => new ScopedRule(rule, includes))
-            .Where(rule => rule.Style.Length != 0 || rule.Rules.Length != 0).ToArray());
+        public ICssRuleList Rules => ScopedRuleList.Empty;
         public CssRuleType Type => source.Type;
         public string CssText { get => source.CssText; set => throw new NotSupportedException(); }
         public ICssRule Parent => source.Parent;

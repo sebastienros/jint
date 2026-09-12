@@ -150,7 +150,10 @@ The browser test project runs its target frameworks sequentially by default: NUn
 isolates tests within one process, while the SDK otherwise starts both framework hosts together. Both
 complete suites still run with their original deadlines, in local runs and every CI leg.
 
-Both drivers retain Orchard's original 30-second task budget. Playwright uses the centrally pinned 1.62.0
+Both drivers retain Orchard's original 30-second task budget, and Playwright's render waits remain
+30 seconds. Its clicks use `TestBudgets.WedgeCeiling`: one client action spans several protocol commands
+and page turns, so its end-to-end hang bound is separate from the engine budget this regression asserts.
+Wrong geometry, missing UI, failed requests and page-budget errors still fail the test. Playwright uses the centrally pinned 1.62.0
 package and `ConnectOverCDPAsync`. The separate NetworkIdle bookkeeping defect was reduced in
 [#3883](https://github.com/sebastienros/jint/issues/3883) to an upstream Playwright issue,
 [microsoft/playwright#42598](https://github.com/microsoft/playwright/issues/42598). These cases assert
