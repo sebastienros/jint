@@ -7,10 +7,16 @@ using Jint.Runtime;
 namespace Jint.Tests.Runtime;
 
 /// <summary>
-/// Guards the prototype-method inline cache in <c>JintMemberExpression</c> (resolves <c>obj.method</c>
-/// when <c>method</c> lives on the receiver's direct prototype). The cache bypasses the receiver's
+/// Guards the prototype-member inline cache in <c>JintMemberExpression</c> (resolves <c>obj.member</c>
+/// when <c>member</c> lives anywhere on the receiver's prototype chain). The cache bypasses the receiver's
 /// <c>[[Get]]</c> on a hit, so it must stay consistent with ordinary lookup across the mutations that
 /// invalidate it.
+/// <para>
+/// An entry that spans more than one link carries a second obligation the direct-prototype form never had:
+/// it must keep proving that <b>no object between the receiver and the holder</b> has gained an own property
+/// of that name, and that the chain still runs through exactly the objects it was recorded against. The
+/// deep-chain tests at the end of this file are that obligation, mutation by mutation.
+/// </para>
 /// </summary>
 public class PrototypeMethodCacheTests
 {
@@ -79,15 +85,16 @@ public class PrototypeMethodCacheTests
         // subclass from going exotic underneath the guarantees the base class makes for it — for
         // ArrayLikeObject, the lanes that resolve an indexed read without calling Get at all; for
         // NamedPropertyObject, the coherence matrix it derives and seals. The constructor therefore declares
-        // PropertyAccessSemantics.Ordinary, which is what CanCacheAgainstVersions keys the receiver-side
+        // PropertyAccessSemantics.Ordinary, which is what CanCacheAgainstReceiverVersion keys the receiver-side
         // exemption on: ReadFromNonPlainReceiver is the only lane that reaches the cache with such a receiver,
         // and it re-establishes the own miss — here through the class's TryGetOwnPropertyValue, which consults
         // the live host state — before every consult. So a member appearing behind the engine's back cannot be
         // shadowed by a stale entry, even though the host's own-property set lives outside the engine and moves
         // no version.
         //
-        // Receiver only. On the *holder* side VersionWitnessesOwnProperty refuses both, and must keep refusing
-        // them: the BuiltinShapeMode carve-out there is sound precisely because such an object keeps its whole
+        // Receiver only. On the *holder* side — and, since an entry may span several links, on every
+        // INTERMEDIATE link too — VersionWitnessesOwnProperty refuses both, and must keep refusing them: the
+        // BuiltinShapeMode carve-out there is sound precisely because such an object keeps its whole
         // own-property set in engine storage and versions it, which is the one thing a live host projection
         // does not do. Neither class can enter that mode (InitializeBuiltinShape is private protected), so the
         // refusal stands by construction — pinned in ArrayLikeObjectLaneTests.
@@ -478,5 +485,285 @@ public class PrototypeMethodCacheTests
             out.join(',');
             """;
         new Engine().Evaluate(script).AsString().Should().Be("1,2,3,4");
+    }
+    // ---------------------------------------------------------------------------------------------------
+    // Chains deeper than the direct prototype. An entry may now span intermediate links, and each of them is
+    // a fact the entry has to keep proving: that the link is still the object that occupied its position, and
+    // that it still has no own property of this name. Everything below mutates exactly one of those.
+    // ---------------------------------------------------------------------------------------------------
+
+    [Test]
+    public void ResolvesAMemberDeclaredSeveralLinksUpRepeatedly()
+    {
+        const string script = """
+            class Base { get tag() { return 'base'; } run() { return 'ran'; } }
+            class Middle extends Base { }
+            class Derived extends Middle { }
+            class Leaf extends Derived { }
+            var leaf = new Leaf(), out = [];
+            for (var i = 0; i < 50; i++) { out.push(leaf.tag + ':' + leaf.run()); }
+            out[0] + '|' + out[49] + '|' + out.length;
+            """;
+        new Engine().Evaluate(script).AsString().Should().Be("base:ran|base:ran|50");
+    }
+
+    /// <summary>
+    /// The new obligation, stated at its sharpest: the name appears on a link <em>between</em> the receiver
+    /// and the holder. Neither the receiver's version nor the holder's moves, so an entry that recorded only
+    /// those two would go on serving the root's member after the middle level started declaring its own.
+    /// </summary>
+    [TestCase(1, "Middle")]
+    [TestCase(2, "Derived")]
+    [TestCase(3, "Leaf")]
+    public void AnIntermediateLinkThatGainsTheNameAfterCachingShadowsTheDeepHolder(int level, string shadowedBy)
+    {
+        var script = $$"""
+            class Base { }
+            class Middle extends Base { }
+            class Derived extends Middle { }
+            class Leaf extends Derived { }
+            Base.prototype.tag = 'base';
+            var levels = [null, Middle.prototype, Derived.prototype, Leaf.prototype];
+            var leaf = new Leaf(), out = [];
+            for (var i = 0; i < 5; i++) {
+                if (i === 2) { levels[{{level}}].tag = '{{shadowedBy}}'; }
+                out.push(leaf.tag);
+            }
+            out.join(',');
+            """;
+        new Engine().Evaluate(script).AsString().Should().Be($"base,base,{shadowedBy},{shadowedBy},{shadowedBy}");
+    }
+
+    /// <summary>
+    /// The same fact on the way out: a name that shadowed from an intermediate link and is then deleted must
+    /// stop shadowing. The entry recorded while the shadow stood is for the intermediate as holder, so this
+    /// exercises the opposite transition from
+    /// <see cref="AnIntermediateLinkThatGainsTheNameAfterCachingShadowsTheDeepHolder"/>.
+    /// </summary>
+    [Test]
+    public void ANameDeletedFromAnIntermediateLinkAfterCachingUncoversTheDeepHolder()
+    {
+        const string script = """
+            class Base { }
+            class Middle extends Base { }
+            class Derived extends Middle { }
+            Base.prototype.tag = 'base';
+            Derived.prototype.tag = 'middle';
+            var d = new Derived(), out = [];
+            for (var i = 0; i < 5; i++) {
+                if (i === 2) { delete Derived.prototype.tag; }
+                out.push(d.tag);
+            }
+            out.join(',');
+            """;
+        new Engine().Evaluate(script).AsString().Should().Be("middle,middle,base,base,base");
+    }
+
+    /// <summary>
+    /// <c>[[SetPrototypeOf]]</c> on a link in the middle. Nothing about the receiver, the holder or any
+    /// version moves — only the link between them stops pointing where it pointed.
+    /// </summary>
+    [Test]
+    public void AnIntermediateLinkReassignedAfterCachingIsHonoured()
+    {
+        const string script = """
+            var rootA = { tag: 'A' };
+            var rootB = { tag: 'B' };
+            var middle = Object.create(rootA);
+            var o = Object.create(middle), out = [];
+            for (var i = 0; i < 5; i++) {
+                if (i === 2) { Object.setPrototypeOf(middle, rootB); }
+                out.push(o.tag);
+            }
+            out.join(',');
+            """;
+        new Engine().Evaluate(script).AsString().Should().Be("A,A,B,B,B");
+    }
+
+    /// <summary>
+    /// A brand-new object spliced in between the receiver and the chain it was cached against. The recorded
+    /// links are all still there, still unversioned and still linked to one another — the chain simply no
+    /// longer starts where it started.
+    /// </summary>
+    [Test]
+    public void ALinkInsertedInFrontOfACachedChainIsHonoured()
+    {
+        const string script = """
+            var root = { tag: 'root' };
+            var middle = Object.create(root);
+            var o = Object.create(middle), out = [];
+            for (var i = 0; i < 5; i++) {
+                if (i === 2) { Object.setPrototypeOf(o, Object.create(middle, { tag: { value: 'spliced' } })); }
+                out.push(o.tag);
+            }
+            out.join(',');
+            """;
+        new Engine().Evaluate(script).AsString().Should().Be("root,root,spliced,spliced,spliced");
+    }
+
+    /// <summary>The holder's own half of the contract, at a distance: redefined, then removed.</summary>
+    [Test]
+    public void ADeepHolderMemberRedefinedOrDeletedAfterCachingIsReResolved()
+    {
+        const string script = """
+            var root = { tag: 'v1' };
+            var o = Object.create(Object.create(Object.create(root))), out = [];
+            for (var i = 0; i < 6; i++) {
+                if (i === 2) { root.tag = 'v2'; }
+                if (i === 4) { delete root.tag; }
+                out.push(o.tag === undefined ? 'gone' : o.tag);
+            }
+            out.join(',');
+            """;
+        new Engine().Evaluate(script).AsString().Should().Be("v1,v1,v2,v2,gone,gone");
+    }
+
+    /// <summary>
+    /// A getter three links up receives the <em>receiver</em> as <c>this</c>, never the holder — and a second
+    /// receiver read through the same warmed site gets its own answer rather than the first one's. The site is
+    /// pinned on receiver identity, so this is what stops an entry leaking one object's state to another.
+    /// </summary>
+    [Test]
+    public void ADeepGetterIsInvokedWithTheReceiverAndNotWithTheHolder()
+    {
+        const string script = """
+            class Base { get who() { return this.tag; } }
+            class Middle extends Base { }
+            class Leaf extends Middle { constructor(tag) { super(); this.tag = tag; } }
+            var a = new Leaf('a'), b = new Leaf('b'), out = [];
+            for (var i = 0; i < 4; i++) { out.push(a.who); out.push(b.who); }
+            out.join(',');
+            """;
+        new Engine().Evaluate(script).AsString().Should().Be("a,b,a,b,a,b,a,b");
+    }
+
+    /// <summary>
+    /// An exotic link resolves the rest of the read itself. A <c>Proxy</c> makes that observable: its
+    /// <c>get</c> trap is user code with a side effect, and it must run once per read for as long as the read
+    /// passes through it.
+    /// </summary>
+    [Test]
+    public void AProxyInTheMiddleOfTheChainRunsItsTrapOnEveryRead()
+    {
+        const string script = """
+            var calls = 0;
+            var proxied = new Proxy({}, { get: function (t, k, r) { return k === 'tag' ? 'trap' + (++calls) : t[k]; } });
+            var middle = Object.create(proxied);
+            var o = Object.create(middle), out = [];
+            for (var i = 0; i < 4; i++) { out.push(o.tag); }
+            out.join(',') + '|' + calls;
+            """;
+        new Engine().Evaluate(script).AsString().Should().Be("trap1,trap2,trap3,trap4|4");
+    }
+
+    /// <summary>
+    /// The array exclusion, applied to an intermediate link. An array's elements are not in the property bag
+    /// its <c>_propertiesVersion</c> describes, so no entry may be recorded that would have to prove an
+    /// index-like name is <em>absent</em> from one.
+    /// <para>
+    /// The index is a string literal on purpose: <c>o['0']</c> is a string-keyed member read and takes this
+    /// lane, where <c>o[0]</c> takes the dense-element lanes — the same distinction
+    /// <see cref="ANumericIndexReadIsUnaffectedBecauseItTakesTheDenseLane"/> pins for a receiver.
+    /// </para>
+    /// </summary>
+    [Test]
+    public void AnArrayElementAppearingOnAnIntermediateLinkShadowsTheDeepHolder()
+    {
+        const string script = """
+            var root = { '0': 'root' };
+            var middle = [];
+            Object.setPrototypeOf(middle, root);
+            var o = Object.create(middle), out = [];
+            for (var i = 0; i < 5; i++) {
+                if (i === 2) { middle[0] = 'element'; }
+                out.push(o['0']);
+            }
+            out.join(',');
+            """;
+        new Engine().Evaluate(script).AsString().Should().Be("root,root,element,element,element");
+    }
+
+    /// <summary>
+    /// Past the depth an entry may record, the read still resolves — the walk simply hands the rest of the
+    /// chain back to the ordinary path — and it stays correct across a mutation of the holder, which is what
+    /// proves nothing was quietly cached on the way there.
+    /// </summary>
+    [Test]
+    public void AChainDeeperThanTheCacheBoundStillResolvesAndStaysCorrect()
+    {
+        const string script = """
+            var root = { tag: 'v1' };
+            var o = root;
+            for (var d = 0; d < 14; d++) { o = Object.create(o); }
+            var out = [];
+            for (var i = 0; i < 5; i++) {
+                if (i === 2) { root.tag = 'v2'; }
+                out.push(o.tag);
+            }
+            out.join(',');
+            """;
+        new Engine().Evaluate(script).AsString().Should().Be("v1,v1,v2,v2,v2");
+    }
+
+    /// <summary>
+    /// A name absent from the whole chain answers <c>undefined</c> every time, and starts resolving the
+    /// moment something on the chain declares it. The read is served by the same walk that looks for an
+    /// entry, so this is the path where an absent name must not be mistaken for a cacheable outcome.
+    /// </summary>
+    [Test]
+    public void ANameAbsentFromAWholeChainAnswersUndefinedUntilTheChainDeclaresIt()
+    {
+        const string script = """
+            class Base { }
+            class Middle extends Base { }
+            class Leaf extends Middle { }
+            var leaf = new Leaf(), out = [];
+            for (var i = 0; i < 6; i++) {
+                if (i === 2) { Base.prototype.tag = 'base'; }
+                if (i === 4) { Middle.prototype.tag = 'middle'; }
+                out.push(leaf.tag === undefined ? 'absent' : leaf.tag);
+            }
+            out.join(',');
+            """;
+        new Engine().Evaluate(script).AsString().Should().Be("absent,absent,base,base,middle,middle");
+    }
+
+    /// <summary>
+    /// A prototype-less chain: the walk ends on a null <c>[[Prototype]]</c> rather than on
+    /// <c>Object.prototype</c>, which is the one place the walk answers <c>undefined</c> from its own
+    /// knowledge instead of from a probe.
+    /// </summary>
+    [Test]
+    public void AChainEndingInANullPrototypeResolvesBothItsHitsAndItsMisses()
+    {
+        const string script = """
+            var root = Object.create(null);
+            root.tag = 'root';
+            var o = Object.create(Object.create(root)), out = [];
+            for (var i = 0; i < 4; i++) { out.push(o.tag + ':' + (o.missing === undefined ? 'absent' : '?')); }
+            out[0] + '|' + out[3];
+            """;
+        new Engine().Evaluate(script).AsString().Should().Be("root:absent|root:absent");
+    }
+
+    /// <summary>
+    /// A method call resolves its callee through a different entry point on the same node than a read does,
+    /// and the two share the cache fields — so the deep form has to be exercised through both.
+    /// </summary>
+    [Test]
+    public void ADeepMethodCallIsReResolvedWhenAnIntermediateLinkShadowsIt()
+    {
+        const string script = """
+            class Base { run() { return 'base'; } }
+            class Middle extends Base { }
+            class Leaf extends Middle { }
+            var leaf = new Leaf(), out = [];
+            for (var i = 0; i < 5; i++) {
+                if (i === 2) { Middle.prototype.run = function () { return 'middle'; }; }
+                out.push(leaf.run());
+            }
+            out.join(',');
+            """;
+        new Engine().Evaluate(script).AsString().Should().Be("base,base,middle,middle,middle");
     }
 }

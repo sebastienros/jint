@@ -46,8 +46,9 @@ internal enum InternalTypes
     // integer-index access, IteratorResult). Set explicitly by those built-ins, and otherwise derived for
     // a host subclass that overrides Get — conservatively, since the engine cannot tell whether such an
     // override actually deviates; a subclass that knows it does not declares OrdinaryGet through
-    // ObjectInstance.SetPropertyAccessSemantics. The prototype-method inline cache skips such receivers
-    // and prototypes so it never bypasses their custom property resolution.
+    // ObjectInstance.SetPropertyAccessSemantics. The prototype-member inline cache skips such a receiver
+    // outright, and hands the rest of a prototype walk to the first LINK carrying this flag, so it never
+    // bypasses their custom property resolution.
     ExoticGet = 262144,
     // a built-in whose string-keyed own properties live in a shared BuiltinShape + a per-realm descriptor
     // array reached via IBuiltinShaped, not _properties. Set when the shape is installed, cleared on deopt

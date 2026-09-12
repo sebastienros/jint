@@ -68,12 +68,24 @@ function Show-PlanSettings([string] $guid) {
 # --- restore after an interrupted run -----------------------------------------------------------
 
 if ($Restore) {
-    $stray = Get-Process -Name 'Jint.Benchmark' -ErrorAction SilentlyContinue
-    if ($stray) {
+    # Only this working tree's own processes. A benchmark host is started from its worktree, so its
+    # image path says which tree it belongs to - and on a machine where several worktrees are worked
+    # on at once, an image-wide sweep kills a colleague's measurement, which they see as a load flake
+    # rather than as a kill. A stray from another tree is reported, never touched.
+    $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path.TrimEnd('\') + '\'
+    $all = @(Get-Process -Name 'Jint.Benchmark' -ErrorAction SilentlyContinue)
+    $mine = @($all | Where-Object { $_.Path -and $_.Path.StartsWith($root, [StringComparison]::OrdinalIgnoreCase) })
+    $theirs = @($all | Where-Object { $_.Id -notin $mine.Id })
+
+    if ($mine.Count -gt 0) {
         # Kill first: a live host process re-applies its own plan and would undo the restore below.
-        $stray | Stop-Process -Force
+        $mine | Stop-Process -Force
         Start-Sleep -Milliseconds 500
-        "Killed $($stray.Count) orphaned benchmark process(es)."
+        "Killed $($mine.Count) orphaned benchmark process(es) from $root."
+    }
+
+    foreach ($other in $theirs) {
+        Write-Warning "Left a Jint.Benchmark process from another working tree alone (pid $($other.Id), $($other.Path)). Stop it from that tree if it is stuck."
     }
 
     powercfg /setactive $HighPerformance

@@ -2607,9 +2607,16 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     /// <summary>
     /// Whether <paramref name="o"/>'s <see cref="_propertiesVersion"/> moves when a property named
     /// <paramref name="property"/> joins or leaves its own-property set — the guard every version-validated
-    /// inline cache in the engine is built on (the member lane's prototype-method cache, and
+    /// inline cache in the engine is built on (the member lane's prototype-member cache, and
     /// <see cref="ArrayLikeObject"/>'s inherited-<c>length</c> lane). Two storage kinds it refuses are
     /// exactly the two whose own properties are not all engine storage.
+    /// <para>
+    /// The member lane asks it of the holder of the member it cached <em>and</em> of every prototype between
+    /// the receiver and that holder, because an entry spanning a chain has to keep proving that no
+    /// intermediate link has started declaring the name. The question is the same one either way — does a
+    /// name joining or leaving this object's own set move its counter — which is why one predicate serves
+    /// both and a new link kind needs no second rule.
+    /// </para>
     /// <para>
     /// The <see cref="InternalTypes.OrdinaryGet"/> refusal is about <em>where an object's own properties
     /// live</em>, not about how it reads them. The flag is derived from the .NET type — a subclass reaching
