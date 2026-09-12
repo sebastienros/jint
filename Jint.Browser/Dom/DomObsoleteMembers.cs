@@ -30,12 +30,12 @@ internal static class DomObsoleteMembers
     /// rooted at the document whose filter matches nothing, which is to say permanently empty.
     /// </summary>
     /// <remarks>
-    /// It is a <see cref="DomLiveHtmlCollection"/> over an empty sequence rather than a snapshot type, so the
-    /// ordinary <c>HTMLCollection</c> wrapper — its indexed access, its named access, its <c>length</c> — is
-    /// the one every other collection uses, and <c>document.applets</c> is a real <c>HTMLCollection</c>
-    /// instead of an object that merely looks like one.
+    /// It is a <see cref="DomLiveHtmlCollection"/> with the filter that matches nothing rather than a
+    /// snapshot type, so the ordinary <c>HTMLCollection</c> wrapper — its indexed access, its named access,
+    /// its <c>length</c> — is the one every other collection uses, and <c>document.applets</c> is a real
+    /// <c>HTMLCollection</c> instead of an object that merely looks like one.
     /// </remarks>
     internal static JsValue Applets(DomRealm realm, IDocument document)
         => realm.WrapCollection<IElement>(
-            _applets.GetValue(document, static _ => new DomLiveHtmlCollection(static () => [])));
+            _applets.GetValue(document, static key => new DomLiveHtmlCollection(key, DomElementFilter.None)));
 }

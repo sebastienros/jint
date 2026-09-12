@@ -50,6 +50,19 @@ internal abstract class DomCollectionAccessor
     internal virtual IReadOnlyList<string> SupportedNames(object target) => [];
 
     /// <summary>
+    /// Whether <paramref name="name"/> is one of the supported property names, without materializing them.
+    /// </summary>
+    /// <remarks>
+    /// It is the membership half of <see cref="SupportedNames"/> and answers exactly what a linear scan of
+    /// that list would, which is what WebIDL's
+    /// <a href="https://webidl.spec.whatwg.org/#dfn-named-property-visibility">named property visibility</a>
+    /// check asks. It exists because that check is on the <b>read</b> path — <c>el.attributes.foo</c> asks it
+    /// before the named getter runs — where building a list of every name in order to look at one of them is
+    /// a list allocation and a walk of the whole collection for a question about a single member.
+    /// </remarks>
+    internal virtual bool HasSupportedName(object target, string name) => false;
+
+    /// <summary>
     /// Whether the supported property names enumerate. WebIDL's
     /// <a href="https://webidl.spec.whatwg.org/#LegacyUnenumerableNamedProperties">[LegacyUnenumerableNamedProperties]</a>
     /// answers <see langword="false"/>, and every named getter in the generated surface but

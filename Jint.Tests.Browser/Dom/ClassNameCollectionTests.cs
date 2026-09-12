@@ -108,6 +108,39 @@ public sealed class ClassNameCollectionTests
         fixture.Number("items.length").Should().Be(1);
     }
 
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#concept-getelementsbyclassname matches "descendant elements that have
+    /// all their classes in classes", and an element's
+    /// <a href="https://dom.spec.whatwg.org/#concept-class">classes</a> are the token set of
+    /// <c>classList</c>, whose associated attribute DOM §7.1 reads by <b>getting an attribute value given
+    /// null namespace and the local name <c>class</c></b>. That is not
+    /// <a href="https://dom.spec.whatwg.org/#dom-element-getattribute"><c>getAttribute("class")</c></a>,
+    /// which matches a <i>qualified</i> name — so an attribute placed in a namespace under the qualified
+    /// name <c>class</c> is reachable through <c>getAttribute</c> and is still not the class content
+    /// attribute, exactly as <c>className</c> and <c>classList</c> already say it is not.
+    /// </summary>
+    [Test]
+    public void NamespacedAttributeSpelledClassIsNotOneOfTheElementsClasses()
+    {
+        using var fixture = DomTestFixture.Create(
+            "<!doctype html><body><span id='namespaced'></span><span id='own'></span></body>");
+        fixture.Execute("""
+            document.getElementById('namespaced').setAttributeNS('http://example.test/ns', 'class', 'match');
+            document.getElementById('own').setAttribute('class', 'match');
+            """);
+
+        // It is an attribute, and the qualified-name lookup finds it.
+        fixture.Text("document.getElementById('namespaced').getAttribute('class')").Should().Be("match");
+
+        // It is not the class content attribute, which is what every other reader of the element's classes
+        // already agrees about.
+        fixture.Text("document.getElementById('namespaced').className").Should().BeEmpty();
+        fixture.Number("document.getElementById('namespaced').classList.length").Should().Be(0);
+
+        // ... so the collection has to agree with them rather than with getAttribute.
+        fixture.Text("[...document.getElementsByClassName('match')].map(x => x.id).join(',')").Should().Be("own");
+    }
+
     /// <summary>An XML document is never in quirks mode, so its comparison is exact from both roots.</summary>
     [Test]
     public void XmlDocumentRemainsCaseSensitive()
