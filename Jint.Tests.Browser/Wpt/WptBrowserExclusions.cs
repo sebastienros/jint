@@ -1380,19 +1380,8 @@ internal static class WptBrowserExclusions
         new("dom/nodes/Element-removeAttribute.html", "*", WptDivergence.NeedsTriage),
         new("dom/nodes/Element-setAttribute.html", "*namespace", WptDivergence.NeedsTriage),
 
-        // Element-name identity: an element created with createElementNS keeps the case it was given, and
-        // an attribute keeps its prefix through a clone. AngleSharp's element factory ASCII-lowercases the
-        // local name it is handed whatever the namespace, so createElementNS(SVG, "SVG") is <svg>, and both
-        // tagName and nodeName answer about the same wrong name.
-        new("dom/nodes/Element-tagName.html", "tagName should not*.", WptDivergence.NeedsTriage),
+        // An SVG attribute must keep its prefix through a clone.
         new("dom/nodes/Node-cloneNode-svg.html", "cloned <use>'*", WptDivergence.NeedsTriage),
-        // AngleSharp's node equality begins by comparing the two nodes' base URLs, which DOM's
-        // https://dom.spec.whatwg.org/#concept-node-equals does not mention: two structurally identical
-        // documents built different ways are unequal as soon as the page has a real URL for one of them to
-        // have inherited. Its sibling row, "another empty XML document", passes because both sides are
-        // about:blank.
-        new("dom/nodes/Node-nodeName.html", "*tagName.", WptDivergence.NeedsTriage),
-        new("dom/nodes/Node-nodeName.html", "*tagName.", WptDivergence.NeedsTriage),
 
         // Four element interfaces the pinned assemblies declare no [DomName] for, so nothing could be
         // generated: <dir>, <dl>, <font> and <frame> are all plain IHtmlElement to AngleSharp, and each row
