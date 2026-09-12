@@ -1,5 +1,8 @@
 namespace Jint.Tests.Browser.Fixtures;
 
+// The real application must finish each task within its unchanged 30-second budget. Run it in NUnit's
+// isolated shift, like the client workflows, so unrelated fixtures do not spend that budget for it.
+[NonParallelizable]
 public class SwaggerFixtureTests
 {
     [Test]
