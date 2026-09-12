@@ -13,6 +13,42 @@ namespace Jint.Tests.Browser.Layout;
 
 public sealed class CascadeTraversalTests
 {
+    [TestCase(":unsupported-jint-pseudo")]
+    [TestCase(".a")]
+    [TestCase(".a.b")]
+    [TestCase(".ancestor .a")]
+    [TestCase(".a > .b")]
+    [TestCase(".a + .b")]
+    [TestCase(".a ~ .b")]
+    [TestCase(":not(.a)")]
+    [TestCase(":is(.a,.b)")]
+    [TestCase(".a, .b")]
+    [TestCase("[data-x].a")]
+    [TestCase(@".\31 23")]
+    [TestCase(".a:hover")]
+    [TestCase(".a:nth-child(2)")]
+    public async Task ClassCandidatesPreserveNativeSelectorMatching(string selector)
+    {
+        using var context = BrowsingContext.New(Configuration.Default.WithCss());
+        using var document = await context.OpenAsync(response => response.Content(
+            $"<style>{selector} {{ display:none }} .b {{ display:flex }} {selector} {{ visibility:hidden }}</style>"
+            + "<main class='ancestor'><div class='a' data-x><span class='b'></span></div>"
+            + "<div class='a b'></div><div class='123'></div><div class='b'></div></main>"));
+        var styles = document.DefaultView!.GetStyleCollection(new DefaultRenderDevice());
+        var complete = new CssCascade.Traversal(styles);
+        var scoped = new CssCascade.Traversal(styles, CssCascade.StyleScope.Visibility);
+        foreach (var element in document.All)
+        {
+            var expected = complete.Of(element)!;
+            var actual = scoped.Of(element)!;
+            actual.GetPropertyValue("display").Should().Be(expected.GetPropertyValue("display"));
+            actual.GetPropertyValue("visibility").Should().Be(expected.GetPropertyValue("visibility"));
+            var native = element.ComputeCurrentStyle();
+            CssCascade.Of(element, resolveInheritance: false)!.Select(property => (property.Name, property.Value))
+                .Should().Equal(native.Select(property => (property.Name, property.Value)));
+        }
+    }
+
     [Test]
     public async Task ScopedCascadeKeepsNestedRulesUnderEmptyParents()
     {

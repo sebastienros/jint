@@ -175,8 +175,15 @@ public partial class PlaywrightCourseTests
         {
             if (!completed)
             {
-                TestContext.Out.WriteLine(await page.GetByRole(AriaRole.Navigation,
-                    new() { Name = "Sidebar for OpenApi V1", Exact = true }).AriaSnapshotAsync());
+                try
+                {
+                    TestContext.Out.WriteLine(await page.GetByRole(AriaRole.Navigation,
+                        new() { Name = "Sidebar for OpenApi V1", Exact = true }).AriaSnapshotAsync(new() { Timeout = 1000 }));
+                }
+                catch (Exception exception) when (exception is PlaywrightException or TimeoutException)
+                {
+                    TestContext.Out.WriteLine("Navigation snapshot: " + exception.Message);
+                }
                 TestContext.Out.WriteLine(await page.EvaluateAsync<string>(
                     """
                     () => JSON.stringify({

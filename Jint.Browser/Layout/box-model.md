@@ -42,6 +42,12 @@ layout remain unmodeled. A row shares vertical space instead of stacking full-wi
 button no longer owns its parent's centre. DOM rectangles, hit testing, offsets and resize measurements
 use the same boxes. Documents without these rows keep the existing ordinal hit-test path.
 
+The cascade indexes required subject classes through AngleSharp's selector visitor for this query only.
+Selectors without a required class stay candidates for every element; the native matcher decides the
+result and specificity, with original rule order retained. Nested rules participate in the same index.
+The full computed-style path supplies the union of the element and ancestor candidates to AngleSharp
+so its native inheritance and value computation still produce the complete declaration.
+
 **One rectangle uses the same placement as a complete layout.** `SizeQuery.Place` computes ancestor
 positions and preceding sibling extents on demand; a complete layout asks it for every rendered element.
 `PageLayout.ClientBoxOf` counts enough rows to establish the same scroll clamp, stopping once the
