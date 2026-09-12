@@ -135,6 +135,20 @@ Use it for manual checks before a direct `array[i]` / `span[i]` where the index 
 - **Property keys** — `KnownKeys` holds pre-computed common property names.
 - **Spec references** — Code cites the section it implements, in a `<summary>` or a comment, and the URL says which document is authoritative: `https://tc39.es/ecma262/#sec-...` for merged language features, `https://tc39.es/ecma402/#sec-...` for i18n, and `https://tc39.es/proposal-<name>/#sec-...` for a feature that is still a proposal. Maintain them when editing, and re-point a proposal's citations when it merges into ECMA-262 — the anchors get renamed on the way in (`sec-iteratorprototype.take` became `sec-iterator.prototype.take`). The web APIs under `Jint/WebApi/` are owned by WHATWG living standards instead, and [`Jint/WebApi/AGENTS.md`](../Jint/WebApi/AGENTS.md#citing-the-living-standard) says which document owns what. Every anchor cited here is registered in `Jint.Tests/SpecAnchors.txt`; a citation it does not hold fails `SpecCitationTests`, and `JINT_SPEC_ANCHORS=update` re-verifies the register against the living documents.
 
+### Performance checklist
+
+Performance is a first-class concern; every change must consider its impact. The repository-root
+[`AGENTS.md`](../AGENTS.md#performance-is-critical-and-the-conventions-live-beside-the-engine) states that
+much and points here for the checklist:
+
+- Use `[MethodImpl(MethodImplOptions.AggressiveInlining)]` on hot paths.
+- Prefer `readonly struct` and `readonly record struct` with primary constructors for small data types.
+- Use `Span<T>`, `ReadOnlySpan<T>` and stack allocation wherever possible.
+- Leverage the pools in `Jint.Pooling` instead of allocating fresh instances.
+- Mark types `sealed` whenever possible — it enables devirtualization and inlining.
+- Prefer `internal` visibility — it avoids virtual dispatch and enables inlining.
+- Cache `Prepared<Script>` / `Prepared<Module>` when executing the same source repeatedly, and prefer strict mode, which executes faster.
+
 ### Data structures
 
 Prefer a **`readonly record struct` over a tuple** for returning multiple values — named properties beat `Item1`/`Item2` at the call site. Mark it `[StructLayout(LayoutKind.Auto)]` and pass it into methods with `in`. Use a class or plain struct instead once the type carries behavior, validation, or many fields.

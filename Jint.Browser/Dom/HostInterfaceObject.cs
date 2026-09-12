@@ -91,4 +91,31 @@ internal sealed class HostInterfaceObject : Constructor
     }
 
     public override string ToString() => "function " + _name + "() { [native code] }";
+
+    /// <summary>
+    /// Instantiates <paramref name="shape"/> as an interface prototype object in <paramref name="engine"/>,
+    /// builds its interface object and fills the prototype's <c>constructor</c> slot.
+    /// </summary>
+    /// <remarks>
+    /// The three steps are one call because they are mutually referential — the interface object needs the
+    /// prototype, and the prototype's <c>constructor</c> needs the interface object — and because the last of
+    /// them is the sanctioned in-place slot replacement a shaped object survives: the name is declared by the
+    /// shape, so the prototype stays in shared-layout mode.
+    /// </remarks>
+    internal static ObjectInstance Instantiate(
+        Engine engine,
+        JsObjectShape shape,
+        string name,
+        int length,
+        Func<JsValue[], ObjectInstance>? construct,
+        out HostInterfaceObject interfaceObject)
+    {
+        var realm = engine._mainRealm;
+        var prototype = shape.Instantiate(engine, realm.Intrinsics.Object.PrototypeObject);
+        interfaceObject = new HostInterfaceObject(engine, realm, name, prototype, length, construct);
+        prototype.DefineOwnPropertyUnchecked(
+            "constructor",
+            new PropertyDescriptor(interfaceObject, PropertyFlag.NonEnumerable));
+        return prototype;
+    }
 }

@@ -1,5 +1,7 @@
 using System.Globalization;
 using AngleSharp.Dom;
+using AngleSharp.Html.Dom;
+using Jint.Browser.Dom.Files;
 using Jint.Browser.Events;
 using Jint.Browser.Layout;
 using Jint.Browser.Runtime;
@@ -304,6 +306,64 @@ internal sealed partial class DomDomain : DOMDomainBase, IDetachableDomain, ITar
     {
         var node = RequireNodeId(parameters.NodeId);
         node.NodeValue = parameters.Value;
+        return new ValueTask<EmptyResult>(EmptyResult.Instance);
+    }
+
+    /// <summary>
+    /// https://chromedevtools.github.io/devtools-protocol/tot/DOM/#method-setFileInputFiles — the command
+    /// behind Playwright's <c>setInputFiles</c> and Puppeteer's <c>uploadFile</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The paths are the browser machine's, and the bytes are read here.</b> There is no renderer
+    /// process to hand a file handle to, so a selected file is a <c>File</c> over memory the page's engine
+    /// owns — which is also why a path naming nothing is refused rather than accepted and discovered when
+    /// the page reads it. Chrome has no wording for that failure because Chrome never opens the file at
+    /// this point; the message names the path, which is the only thing a client can act on.
+    /// </para>
+    /// <para>
+    /// <b>The read runs on the page loop, before anything is changed.</b> Every command here does, and this
+    /// one is bounded by the page's own turn budget like any other; reading first is what makes a failed
+    /// read leave the previous selection standing.
+    /// </para>
+    /// <para>
+    /// <b>Nothing filters the paths.</b> A client that reaches this server can already run script in the
+    /// page, so a path is no more privilege than it already had — but the endpoint is unauthenticated,
+    /// which is what the package documentation says to bind to loopback about.
+    /// </para>
+    /// </remarks>
+    protected override ValueTask<EmptyResult> SetFileInputFilesAsync(SetFileInputFilesRequest parameters, CommandContext context)
+    {
+        var node = Resolve(parameters.NodeId, parameters.BackendNodeId, parameters.ObjectId);
+
+        // Chrome's own wording, which is what tells a client it addressed the wrong node rather than sent
+        // the wrong command: third_party/blink/renderer/core/inspector/inspector_dom_agent.cc.
+        if (node is not IHtmlInputElement input || !FileSelection.IsFileInput(input))
+        {
+            return Throw.ServerError<ValueTask<EmptyResult>>("Node is not a file input element");
+        }
+
+        var runtime = Runtime(node);
+
+        // Trimmed before the read rather than after it, so a file this input could never hold is not opened
+        // at all; FileSelection.Update applies the same rule for every other caller.
+        var paths = FileSelection.Allowed(input, parameters.Files);
+        var files = new List<SelectedFile>(paths.Count);
+
+        foreach (var path in paths)
+        {
+            try
+            {
+                files.Add(FileSelection.Read(path));
+            }
+            catch (Exception failure)
+                when (failure is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+            {
+                return Throw.ServerError<ValueTask<EmptyResult>>("Cannot read file " + path, failure.Message);
+            }
+        }
+
+        FileSelection.Update(runtime, input, files);
         return new ValueTask<EmptyResult>(EmptyResult.Instance);
     }
 

@@ -171,6 +171,23 @@ internal sealed class Emitter
 
         builder.Append("internal static partial class DomInterfaces\n{\n");
 
+        // https://webidl.spec.whatwg.org/#Unscopable - the @@unscopables object is built per engine, but the
+        // names it is built from are the interface's and therefore process-shared: one array for the life of
+        // the process rather than one per engine, which is why they are fields rather than a collection
+        // expression inside the factory.
+        foreach (var model in _model.Interfaces.Where(i => i.Group == group && i.Unscopables.Count > 0))
+        {
+            builder.Append("    /// <summary>The <c>[Unscopable]</c> members of <c>").Append(model.DomName).Append("</c>.</summary>\n")
+                .Append("    private static readonly string[] ").Append(UnscopablesField(model)).Append(" =\n    [\n");
+
+            foreach (var member in model.Unscopables)
+            {
+                builder.Append("        ").Append(CSharpNames.Literal(member)).Append(",\n");
+            }
+
+            builder.Append("    ];\n\n");
+        }
+
         var first = true;
         foreach (var model in _model.Interfaces.Where(i => i.Group == group && i.ManualShape is null))
         {
@@ -204,6 +221,20 @@ internal sealed class Emitter
             // { writable: true, enumerable: false, configurable: true }, and per-realm because the interface
             // object it names belongs to one engine.
             builder.Append("            .PerRealmSlot(\"constructor\", enumerable: false)\n");
+
+            if (model.Unscopables.Count > 0)
+            {
+                // https://webidl.spec.whatwg.org/#es-unscopables - { writable: false, enumerable: false,
+                // configurable: true }, and the value is an object with a null [[Prototype]] carrying one
+                // `true` per name. It is per realm because it is an object, and it is mutable because a page
+                // is allowed to add its own names to it - which is what
+                // html/webappapis/scripting/events/compile-event-handler-symbol-unscopables.html does.
+                builder.Append("            .PerRealmSlot(\n")
+                    .Append("                global::Jint.Native.Symbol.GlobalSymbolRegistry.Unscopables,\n")
+                    .Append("                static self => global::Jint.Browser.Dom.DomUnscopables.Create(self, ")
+                    .Append(UnscopablesField(model)).Append("),\n")
+                    .Append("                writable: false)\n");
+            }
 
             if (DeclaresIndexedProperties(model))
             {
@@ -282,6 +313,9 @@ internal sealed class Emitter
     /// and a page's only vocabulary for a refusal is <c>e.name</c>. <c>Jint.Browser/Dom/DomFailures</c> is the
     /// whole of the conversion; here there is deliberately no <c>catch</c> to get out of step with it.
     /// </summary>
+    /// <summary>The field holding one interface's <c>[Unscopable]</c> member names.</summary>
+    private static string UnscopablesField(InterfaceModel model) => "_unscopables" + model.FieldName;
+
     private static void AppendGuardedBody(StringBuilder builder, string label, string body)
     {
         builder.Append("                global::Jint.Browser.Dom.DomFailures.Guard(")

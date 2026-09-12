@@ -44,7 +44,7 @@ namespace Jint.Browser.Runtime;
 /// would have taken to promise otherwise.
 /// </para>
 /// </remarks>
-internal sealed class PageNetworkRecorder : FetchObserver
+internal sealed class PageNetworkRecorder : FetchObserver, IFetchResponseBodyBudget
 {
     /// <summary>The most bytes of a request body copied for a client to read back.</summary>
     /// <remarks>
@@ -69,6 +69,7 @@ internal sealed class PageNetworkRecorder : FetchObserver
 
     private long _syntheticId;
     private long _capturedBytes;
+    private long _reservedBytes;
     private volatile IPageNetworkListener? _listener;
     private volatile bool _captureBodies;
 
@@ -339,10 +340,12 @@ internal sealed class PageNetworkRecorder : FetchObserver
     /// request-stage one does — which is why the command that releases it is named in
     /// <c>PageTarget.RunsOffThread</c> beside the three that release a request.
     /// </remarks>
-    public override async ValueTask<FetchResponseInterception?> OnResponseAsync(
-        ObservedFetchResponse response,
+    public override async ValueTask<FetchResponseInterception?> OnInterceptedResponseAsync(
+        FetchResponseInterceptionContext context,
         CancellationToken cancellationToken)
     {
+        var response = context.Response;
+
         if (response.IsRedirect || _listener is not { } listener)
         {
             return null;
@@ -366,10 +369,14 @@ internal sealed class PageNetworkRecorder : FetchObserver
             return null;
         }
 
+        // The read is offered, never made: the capability exists for as long as the listener is deciding, and
+        // costs nothing at all until something calls it.
+        var reader = new PageResponseBodyReader(context, this);
+
         PageNetworkResponseDecision decision;
         try
         {
-            decision = await listener.ResponseWillBeDeliveredAsync(hop, described, cancellationToken).ConfigureAwait(false);
+            decision = await listener.ResponseWillBeDeliveredAsync(hop, described, reader, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -942,9 +949,82 @@ internal sealed class PageNetworkRecorder : FetchObserver
             Forget(_captureOrder.Dequeue());
         }
 
-        while (_capturedBytes > _maxCaptureBytes && _captureOrder.Count > 0)
+        while (_capturedBytes + _reservedBytes > _maxCaptureBytes && _captureOrder.Count > 0)
         {
             Forget(_captureOrder.Dequeue());
+        }
+    }
+
+    /// <summary>
+    /// Reserves <paramref name="bytes"/> of the page's one allowance for something that is not a capture —
+    /// a paused response's body, or the encoded reply carrying it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>One ledger, two kinds of holder.</b> A reservation and a captured body spend the same
+    /// <c>BrowserOptions.MaxCapturedResponseBytes</c>, so a client reading a paused body is competing with
+    /// the bodies the <c>Network</c> domain kept — which is the only honest arrangement: two allowances
+    /// would each be a bound and neither would bound the page.
+    /// </para>
+    /// <para>
+    /// <b>A reservation evicts and is never evicted.</b> Completed captures are dropped oldest-first to
+    /// admit one, exactly as a chunk does; a reservation itself is pinned, because the bytes behind it are
+    /// owed to a response that has not been delivered yet. And it never waits for a sibling to let go: a
+    /// sibling may itself be paused, so waiting is a deadlock rather than a delay.
+    /// </para>
+    /// </remarks>
+    public bool TryReserve(int bytes, out IDisposable? lease)
+    {
+        lease = null;
+
+        if (bytes < 0)
+        {
+            return false;
+        }
+
+        if (bytes == 0)
+        {
+            return true;
+        }
+
+        lock (_gate)
+        {
+            while (bytes > _maxCaptureBytes - _capturedBytes - _reservedBytes && _captureOrder.Count > 0)
+            {
+                Forget(_captureOrder.Dequeue());
+            }
+
+            if (bytes > _maxCaptureBytes - _capturedBytes - _reservedBytes)
+            {
+                return false;
+            }
+
+            _reservedBytes += bytes;
+        }
+
+        lease = new Reservation(this, bytes);
+        return true;
+    }
+
+    private void Release(int bytes)
+    {
+        lock (_gate)
+        {
+            _reservedBytes -= bytes;
+        }
+    }
+
+    /// <summary>What gives one reservation back, exactly once.</summary>
+    private sealed class Reservation(PageNetworkRecorder recorder, int bytes) : IDisposable
+    {
+        private int _released;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _released, 1) == 0)
+            {
+                recorder.Release(bytes);
+            }
         }
     }
 
@@ -994,9 +1074,17 @@ internal sealed class PageNetworkRecorder : FetchObserver
             return;
         }
 
-        while (chunk.Length > _maxCaptureBytes - _capturedBytes && _captureOrder.Count > 0)
+        while (chunk.Length > _maxCaptureBytes - _capturedBytes - _reservedBytes && _captureOrder.Count > 0)
         {
             Forget(_captureOrder.Dequeue());
+        }
+
+        // A reservation is pinned, so the eviction above cannot always make room: a capture that no longer
+        // fits beside what a paused response is holding is dropped rather than allowed to overrun the page.
+        if (chunk.Length > _maxCaptureBytes - _capturedBytes - _reservedBytes)
+        {
+            DropCapture(entry);
+            return;
         }
 
         // The oldest capture can be this very request. Future chunks must not start it again.

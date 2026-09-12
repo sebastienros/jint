@@ -78,7 +78,7 @@ belongs to the engine and realm that created it.
 - Profiling, statement coverage, debugging, and Chrome DevTools Protocol
   integration
 - Opt-in Web APIs and Node-compatible modules
-- A headless browser, Playwright adapter, command-line tool, and MCP server
+- A headless browser, command-line tool, and MCP server
 
 Browser and Node APIs are not installed by default. Hosts explicitly grant the
 capabilities each script needs.
@@ -102,7 +102,6 @@ only when the application needs an optional debugging or browser surface.
 | --- | --- |
 | [`Jint.DevTools`](https://www.nuget.org/packages/Jint.DevTools) | Chrome DevTools Protocol server for debugging and profiling an engine |
 | [`Jint.Browser`](https://www.nuget.org/packages/Jint.Browser) | Headless HTML, DOM, navigation, networking, storage, and content extraction |
-| [`Jint.Browser.Playwright`](https://www.nuget.org/packages/Jint.Browser.Playwright) | Direct Playwright-compatible adapter without the bundled Node driver |
 | [`Jint.Browser.Tool`](https://www.nuget.org/packages/Jint.Browser.Tool) | `jint-browser` command-line tool |
 | [`Jint.Browser.Mcp`](https://www.nuget.org/packages/Jint.Browser.Mcp) | Model Context Protocol server for browser automation |
 

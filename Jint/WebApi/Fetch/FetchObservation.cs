@@ -75,8 +75,13 @@ internal sealed class FetchObservation
     /// Asks the observer what to do with the response that ends the chain. Like <see cref="RequestAsync"/>
     /// and unlike every notification here, a throw is <b>not</b> swallowed.
     /// </summary>
-    internal async Task<FetchResponseInterception?> ResponseAsync(ObservedFetchResponse response, CancellationToken cancellationToken)
-        => await _observer.OnResponseAsync(response, cancellationToken).ConfigureAwait(false);
+    /// <remarks>
+    /// The ask goes to <c>OnInterceptedResponseAsync</c>, whose default forwards to <c>OnResponseAsync</c>:
+    /// the context is what carries the body read, and an observer that never reads is unaffected by its
+    /// existing.
+    /// </remarks>
+    internal async Task<FetchResponseInterception?> ResponseAsync(FetchResponseInterceptionContext context, CancellationToken cancellationToken)
+        => await _observer.OnInterceptedResponseAsync(context, cancellationToken).ConfigureAwait(false);
 
     /// <summary>
     /// Asks the observer how to answer an authentication challenge. Like <see cref="RequestAsync"/> and

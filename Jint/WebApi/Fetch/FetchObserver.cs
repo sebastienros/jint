@@ -626,6 +626,38 @@ public abstract class FetchObserver
         => new((FetchResponseInterception?) null);
 
     /// <summary>
+    /// Called instead of <see cref="OnResponseAsync"/>, with the one capability that needs the socket: the
+    /// response's body can be read here and nowhere else.
+    /// </summary>
+    /// <param name="context">The response, and the bounded body read.</param>
+    /// <param name="cancellationToken">Cancelled when the fetch is aborted or times out.</param>
+    /// <returns>What to do with the response, or <see langword="null"/> to leave it alone.</returns>
+    /// <remarks>
+    /// <para>
+    /// <b>The default forwards to <see cref="OnResponseAsync"/></b>, so an observer that overrides only that
+    /// one behaves exactly as it did: this is the same ask, reached through a richer argument. Override one
+    /// or the other, not both — an override here replaces the forward, and with it the other override.
+    /// </para>
+    /// <para>
+    /// <b>Reading is opt-in and costs nothing until it is asked for.</b> A response nobody reads is still
+    /// streamed to whoever asked for the resource, byte for byte; a response that is read is streamed from
+    /// the bytes this took plus the ones still coming. Either way the caller receives every original byte
+    /// exactly once, whether the read succeeded or the budget refused it.
+    /// </para>
+    /// <para>
+    /// Like <see cref="OnResponseAsync"/>, a throw here fails the fetch: this is a call that was asked to
+    /// decide. <paramref name="context"/> is sealed as soon as this returns.
+    /// </para>
+    /// </remarks>
+    public virtual ValueTask<FetchResponseInterception?> OnInterceptedResponseAsync(
+        FetchResponseInterceptionContext context,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        return OnResponseAsync(context.Response, cancellationToken);
+    }
+
+    /// <summary>
     /// Called when a server answers a hop with <c>401</c> and an authentication challenge; answer
     /// <see langword="null"/> to leave the challenge alone and let the <c>401</c> be delivered.
     /// </summary>

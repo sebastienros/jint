@@ -40,6 +40,10 @@ public sealed class HostInterfaceDisciplineTests
         "XPathExpression",
         "XPathResult",
         "PerformanceNavigation",
+        "Touch",
+        "TouchList",
+        "DeviceMotionEventAcceleration",
+        "DeviceMotionEventRotationRate",
     ];
 
     /// <summary>The constants each of these interfaces declares, by the names WebIDL gives them.</summary>
@@ -97,6 +101,15 @@ public sealed class HostInterfaceDisciplineTests
                 {
                     var descriptor = prototype.GetOwnProperty(key);
                     var member = name + ".prototype[" + key + "]";
+
+                    // https://webidl.spec.whatwg.org/#js-iterable — an interface that supports indexed
+                    // properties carries @@iterator, and it is a data property:
+                    // { writable: true, enumerable: false, configurable: true }.
+                    if (ReferenceEquals(key, GlobalSymbolRegistry.Iterator))
+                    {
+                        Check(found, member, descriptor.Writable, descriptor.Enumerable, descriptor.Configurable, true, false, true);
+                        continue;
+                    }
 
                     // Symbol.toStringTag: { writable: false, enumerable: false, configurable: true }.
                     if (key.IsSymbol())

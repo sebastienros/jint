@@ -555,6 +555,16 @@ public abstract partial class JsValue : IEquatable<JsValue>
             return true;
         }
 
+        // Annex B.3.6.2: an object with the [[IsHTMLDDA]] internal slot is loosely equal to null and to
+        // undefined. Only the object side reaches this body — JsNull and JsUndefined override and carry the
+        // mirror halves, and the interpreter fuses the literal forms — so the test sits here rather than on
+        // ObjectInstance, where it would have been a public `protected override` for one internal slot.
+        if ((_type & InternalTypes.IsHTMLDDA) != InternalTypes.Empty
+            && (value._type & (InternalTypes.Null | InternalTypes.Undefined)) != InternalTypes.Empty)
+        {
+            return true;
+        }
+
         // TODO move to type specific IsLooselyEqual
 
         var x = this;

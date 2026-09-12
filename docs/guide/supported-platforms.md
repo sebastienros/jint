@@ -16,7 +16,7 @@ Some APIs are available only on modern targets. The opt-in web API surface is co
 
 ## Optional packages
 
-`Jint.DevTools`, `Jint.Browser`, `Jint.Browser.Playwright`, and `Jint.Browser.Mcp` target
+`Jint.DevTools`, `Jint.Browser`, and `Jint.Browser.Mcp` target
 .NET 8 and .NET 10.
 
 `Jint.Browser.Tool` is distributed as a native executable for Linux (glibc), macOS and Windows, on x64

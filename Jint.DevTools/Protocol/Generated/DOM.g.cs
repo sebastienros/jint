@@ -4,7 +4,7 @@
 //
 //     source:   tools/devtools-protocol/browser_protocol.json
 //     protocol: version 1.3, ChromeDevTools/devtools-protocol@ea39a11d80de9a08ce2af03f52125ed2e462cf84 (devtools-protocol@0.0.1687809)
-//     manifest: tools/devtools-protocol/manifest.json, DOM entries, sha256:c126f42f390d
+//     manifest: tools/devtools-protocol/manifest.json, DOM entries, sha256:a146c1dc0d57
 //
 // Do not edit. Regenerate instead, and read the diff: it is the upstream change stated in the
 // vocabulary this repository compiles. tools/devtools-protocol/README.md has the command, and
@@ -2210,6 +2210,12 @@ namespace Jint.DevTools.Domains
                 case "setAttributesAsText":
                 {
                     var result = await SetAttributesAsTextAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.DOMSetAttributesAsTextRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                case "setFileInputFiles":
+                {
+                    var result = await SetFileInputFilesAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.DOMSetFileInputFilesRequest), context).ConfigureAwait(false);
                     return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
                 }
 

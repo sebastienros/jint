@@ -1,6 +1,6 @@
 # Agent Instructions for Jint
 
-Jint is a JavaScript interpreter for .NET. It parses JavaScript using the Acornima library (AST), then interprets it directly — no bytecode generation or DLR usage.
+Jint is a JavaScript interpreter for .NET. It parses JavaScript using the Acornima library (AST), then interprets it directly — no bytecode generation or DLR usage. The pipeline is `Acornima parser → AST → interpreter → runtime → interop`, each AST node wrapped once in a `Jint*` interpreter class that `Engine` walks; the three stages, those wrapper classes and what they return — `Completion` for a statement, `JsValue` or `Reference` for an expression — are in [`Jint/Runtime/Interpreter/AGENTS.md`](Jint/Runtime/Interpreter/AGENTS.md#the-execution-pipeline).
 
 This is the canonical instruction file for every agent working on this repository; `CLAUDE.md` imports it. Target and compare work against the **`main`** branch, which is also the PR target.
 
@@ -14,7 +14,7 @@ whatever that edit turns out to be. Everything else lives in an `AGENTS.md` besi
 | --- | --- | --- |
 | change a signature or observable behaviour under `Jint/`, or anything outliving one evaluation — `Prepared<T>`, `Options`, a snapshot, the event loop, an `*Async` entry | [`Jint/AGENTS.md`](Jint/AGENTS.md) | The key runtime types, the namespace map, the engine-source conventions (type co-location, the unsigned-cast bounds check, the code patterns, visibility), and where the frozen-contract table lives. Cost: a silent breaking change for embedders, or one engine's state leaking into another through a shared `Prepared<Script>`. |
 | implement or change an ECMAScript built-in, intrinsic, coercion rule or new syntax | [`Jint/Native/AGENTS.md`](Jint/Native/AGENTS.md) | Which spec document is authoritative, and that test262 beats prose. Cost: implementing a dated snapshot or a compatibility table instead of the living spec — or un-gating a web API that must stay opt-in. |
-| touch `ObjectInstance`, a property descriptor, a property-access lane, or anything a host subclasses | [`Jint/Native/Object/AGENTS.md`](Jint/Native/Object/AGENTS.md), and [`Jint/Runtime/Descriptors/AGENTS.md`](Jint/Runtime/Descriptors/AGENTS.md) for the descriptor itself | The subclassing cliff, `PropertyAccessSemantics`, host-contract verification, `ArrayLikeObject`, who may reach a new fast lane. Cost: sorting every embedder into a slow path they cannot see or escape. |
+| touch `ObjectInstance`, a property descriptor, a property-access lane, or anything a host subclasses | [`Jint/Native/Object/AGENTS.md`](Jint/Native/Object/AGENTS.md), and [`Jint/Runtime/Descriptors/AGENTS.md`](Jint/Runtime/Descriptors/AGENTS.md) for the descriptor itself | The subclassing cliff, `PropertyAccessSemantics`, host-contract verification, `ArrayLikeObject` and the host-object shapes one pointer on, who may reach a new fast lane. Cost: sorting every embedder into a slow path they cannot see or escape. |
 | touch CLR interop — wrappers, converters, reference resolvers, dictionary-backed reads, a host `ProxyHandler`, a CLR exception crossing into script, `[JsAccessible]`, a trimming or AOT annotation | [`Jint/Runtime/Interop/AGENTS.md`](Jint/Runtime/Interop/AGENTS.md), plus [`Jint.AotExample/AGENTS.md`](Jint.AotExample/AGENTS.md) for the native leg | Which host registrations silently disable a compiled lane engine-wide, the immutable-crossing promise, why a generated accessor is a compile-time copy of the run-time compiled one, and which generic instantiations degrade rather than throw. Cost: an engine-wide deoptimisation nobody can see, stale reads, or an `IsAotCompatible` claim nothing runs. |
 | change either Roslyn source generator, or an attribute one of them reads | [`Jint.SourceGenerators/AGENTS.md`](Jint.SourceGenerators/AGENTS.md) | Why there are two analyzer assemblies and only one may ever be packed, the consumer-facing Roslyn pin a bump breaks silently, the value-equality the incremental model rests on, and why accepting a snapshot is the only review the emitted C# gets. Cost: a package whose first build error is in code the consumer never wrote. |
 | add or change a statement/expression handler, a fast path in one, coverage, or anything published onto the AST or a `Prepared<T>` | [`Jint/Runtime/Interpreter/AGENTS.md`](Jint/Runtime/Interpreter/AGENTS.md) | Engine-affine vs shareable state and the AST `UserData` invariant, why coverage counters cannot live on a handler node, and what a warmed call site retains. Cost: a fast path that silently stops being counted, or an engine pinning a host object for its lifetime. |
@@ -38,7 +38,6 @@ whatever that edit turns out to be. Everything else lives in an `AGENTS.md` besi
 | touch the accessibility tree or the text/markdown extractors under `Jint.Browser/Accessibility/` or `Extraction/` | [`Jint.Browser/Accessibility/AGENTS.md`](Jint.Browser/Accessibility/AGENTS.md) | html-aam roles and names without layout, what `hidden` means, what a snapshot promises. Cost: a role computed from a box that does not exist. |
 | touch a page — its loop, a navigation, a form, history, storage, a worker, a budget, a box | [`Jint.Browser/Runtime/AGENTS.md`](Jint.Browser/Runtime/AGENTS.md) | The one thread that owns a page's engine and its DOM, why a navigation is a fetch off the loop and a new engine on it, what a turn is, the flat box model. Cost: a second thread in the DOM. |
 | touch the parser driver — how a document, script, module or style sheet loads — or a child frame's window | [`Jint.Browser/Runtime/Parsing/AGENTS.md`](Jint.Browser/Runtime/Parsing/AGENTS.md) | The baton between the parser thread and the loop, who runs what, the frame model, and the scheduling divergences. Cost: two holders of one DOM. |
-| touch the direct Playwright adapter — an interface member, an option, its dependency shape | [`Jint.Browser.Playwright/AGENTS.md`](Jint.Browser.Playwright/AGENTS.md) | Why the compiler never reports an unimplemented interface member, the shape an unsupported call has to fail with, and the reference setting that keeps Playwright's bundled Node driver out of a consumer's application. Cost: a silent no-op an automation script reads as a real answer. |
 | touch the `jint-browser` command line, or its tests | [`Jint.Browser.Tool/AGENTS.md`](Jint.Browser.Tool/AGENTS.md) | Why it may never take an `InternalsVisibleTo` grant, the seams that pressure promoted, the exit-code contract, how a tool package is packed. Cost: a seam reached around instead of published. |
 | touch the Model Context Protocol server — a tool, its description, a result | [`Jint.Browser.Mcp/AGENTS.md`](Jint.Browser.Mcp/AGENTS.md) | Why a description is the product, why every tool answers rather than throws, and why stdio is the only transport. Cost: a failure an agent is told nothing about. |
 | write, run, or quote a benchmark number | [`Jint.Benchmark/AGENTS.md`](Jint.Benchmark/AGENTS.md) | The measurement environment and its three modes, the paired comparison, one engine per row. Cost: a `--job short` number in a PR, or a row that depends on its siblings. |
@@ -66,39 +65,14 @@ dotnet test -c Release Jint.Tests.Test262/Jint.Tests.Test262.csproj
 
 Always build and test in **Release** — it is the faster feedback loop and the configuration performance claims are about. Never pass `--no-build`; always work against freshly compiled code. `TreatWarningsAsErrors` is on, so every warning must be fixed. Packages are managed centrally through `Directory.Packages.props`.
 
-Setting `JINT_HOST_CONTRACT_VERIFICATION=1` runs `Jint.Tests` and `Jint.Tests.PublicInterface` with the host-contract verifiers on in Release, which is the configuration an embedder is told to use; see [Host-contract verification](Jint/Native/Object/AGENTS.md#host-contract-verification). It is a separate leg, not the default.
-
-### Quick manual testing with Jint.Repl
-
-```bash
-# -f <path> executes a file, -t <secs> sets a timeout, stdin works too
-dotnet run --project Jint.Repl -c Release -- -f script.js -t 10
-echo "Math.sqrt(16)" | dotnet run --project Jint.Repl -c Release -- -t 10
-```
-
-**Always pass `-t`** so a runaway script cannot hang the session. Anything worth keeping is a test in `Jint.Tests`.
-
-## Architecture
-
-```
-Acornima Parser (external) → AST → Interpreter → Runtime → Interop
-```
-
-### Execution pipeline
-
-1. **Parsing** — Acornima parses JavaScript source into an AST (`Acornima.Ast` nodes).
-2. **Jint wrapping** — AST nodes are wrapped in `Jint*` interpreter classes: `JintExpression` subclasses in `Runtime/Interpreter/Expressions/` (`JintCallExpression`, `JintBinaryExpression`, …) and `JintStatement` subclasses in `Runtime/Interpreter/Statements/` (`JintIfStatement`, `JintForStatement`, …).
-3. **Execution** — `Engine` drives execution. Statements return `Completion` (a value plus a completion type: Normal/Break/Continue/Return/Throw); expressions return `JsValue` or `Reference`.
-
-### Test projects
-
-- **`Jint.Tests`** — Main unit tests (NUnit, AwesomeAssertions), with `Wpt/` the web-platform-tests area. Use a 30-second timeout when invoking the runner.
-- **`Jint.Tests.Test262`** — Official TC39 conformance suite (NUnit); `Test262Harness.settings.json` holds its exclusions and which of test262's `test/` sub-directories are generated at all, and [`Jint.Tests.Test262/AGENTS.md`](Jint.Tests.Test262/AGENTS.md) says where the suite's own sources are and how to reproduce a failure. **Never "fix" these tests.** No runner timeout needed; the engine defaults to 30 seconds.
-- **`Jint.Tests.CommonScripts`** — Real-world scripts (crypto, 3D rendering, …) run as correctness and performance validation (NUnit).
-- **`Jint.Tests.PublicInterface`** — API contract tests (NUnit). See the integration-surface section below.
-- **`Jint.Tests.DevTools`** — In-process protocol tests for `Jint.DevTools`, and the generated-protocol currency check (NUnit).
-- **`Jint.Tests.SourceGenerators`** — Tests for the source generators.
-- **`Jint.Tests.Browser`** — The browser package and everything built on it, plus the browser lane of the web-platform-tests (NUnit).
+A separate leg runs `Jint.Tests` and `Jint.Tests.PublicInterface` with the host-contract verifiers on
+(`JINT_HOST_CONTRACT_VERIFICATION=1`), the configuration an embedder is told to use. For a quick manual run
+before a test exists there is `Jint.Repl`, and **always pass `-t`** so a runaway script cannot hang the
+session; anything worth keeping becomes a test — in one of seven projects, and the one a change needs is
+often not the one it edits: a conformance failure is never "fixed" in `Jint.Tests.Test262`, and a test only
+proves a third party can reach an API in `Jint.Tests.PublicInterface`. What each project holds, the runner
+timeout each needs, why that verification leg is not the default and the `Jint.Repl` invocations are all in
+[`Jint.Tests/AGENTS.md`](Jint.Tests/AGENTS.md#the-seven-test-projects-and-which-one-a-test-belongs-in).
 
 ## Third-party integration surface
 
@@ -110,7 +84,7 @@ Its rules are split across the files in the index above, and every one of them i
 
 Each of these cost a real integrator or a real bug.
 
-- **Constraints bound one entry into the engine, never a host-driven sequence of them.** Every public entry that runs script — `Execute`, `Evaluate`, `Invoke`, `Engine.Call`, the `JsValue.Call` extension helpers — funnels through `Engine.ExecuteWithConstraints` (`Jint/Engine.cs`), which calls `ResetConstraints()` before the callback and again in its `finally` for any entry that is not nested (nesting is `_hostEntryDepth > 0 || _executionContexts.Count > 1`). So `foreach (var row in rows) predicate.Call(row);` — the single most common embedding shape — hands every element a fresh statement budget, a fresh allocation budget and, worst, a **freshly armed timeout deadline**. Measured: `LimitStatements(100)` does not stop 1000 host `Call`s, `LimitExecutionTime(200ms)` does not fire across 3 s of continuous host-driven execution, and `LimitMemory` never sees more than one call's allocations — while the identical work inside one `Execute` throws in every case. The reset itself is not the mistake: per-run reset is exactly what `Constraint.Reset`'s doc promises and what makes a reused engine usable, and the nested case is handled deliberately (a host callback re-entering the engine from inside a running script does *not* re-arm, or `while (true) hostCallback()` would run forever). What no embedder expects is that a single function call is a **run**. `Engine.Constraints.Check()` from the host loop does not close the gap — `TimeConstraint` re-arms its deadline on the way *out* of every run, so a host-side check measures the time since the last call returned. All of it is pinned from the embedder's side in `Jint.Tests.PublicInterface/HostCallLoopConstraintTests.cs` and `HostMemoryLimitTests.cs`; those tests assert the behaviour as it is, so changing it is a deliberate act that updates them. **What an embedder must do instead — the host-side bound, the in-script loop, and the two in-box constraints that survive the per-entry reset — is [`Jint/Constraints/AGENTS.md`](Jint/Constraints/AGENTS.md#bounding-a-host-driven-sequence), which is also the file to read before changing any of it.**
+- **Constraints bound one entry into the engine, never a host-driven sequence of them.** Every public entry that runs script — `Execute`, `Evaluate`, `Invoke`, `Engine.Call`, the `JsValue.Call` extension helpers — funnels through `Engine.ExecuteWithConstraints` (`Jint/Engine.cs`), which calls `ResetConstraints()` before the callback and again in its `finally` for any entry that is not nested. So `foreach (var row in rows) predicate.Call(row);` — the single most common embedding shape — hands every element a fresh statement budget, a fresh allocation budget and, worst, a **freshly armed timeout deadline**. Measured: `LimitStatements(100)` does not stop 1000 host `Call`s, `LimitExecutionTime(200ms)` does not fire across 3 s of continuous host-driven execution, and `LimitMemory` never sees more than one call's allocations — while the identical work inside one `Execute` throws in every case. What no embedder expects is that a single function call is a **run**. `Engine.Constraints.Check()` from the host loop does not close the gap either. **What an embedder must do instead — the host-side bound, the in-script loop, and the two in-box constraints that survive the per-entry reset — is [`Jint/Constraints/AGENTS.md`](Jint/Constraints/AGENTS.md#bounding-a-host-driven-sequence), which is also the file to read before changing any of it.**
 - **`DefineOwnPropertyUnchecked` / `DefineOwnDataPropertyUnchecked` always create an *own* property.** They shadow anything of that name on the prototype chain, invoke no inherited setter, and run no `[[DefineOwnProperty]]` validation (so they can never raise `TypeError`) — and storing a raw descriptor under a string key deoptimizes an ordinary hidden-shape receiver, forfeiting its shape inline cache. When to reach for them, and the three cases a shared built-in shape can keep, are in [`Jint/Native/Object/AGENTS.md`](Jint/Native/Object/AGENTS.md#the-unchecked-defines-when-to-reach-for-them).
 - **The enumeration hook is `GetOwnPropertyKeys`, and it is the only one.** `GetOwnProperties` was a second `virtual` whose name read like the hook, and a real integrator overrode only that and shipped an object whose keys were invisible to every script-visible enumeration; since [#3461](https://github.com/sebastienros/jint/pull/3461) it is derived from `GetOwnPropertyKeys` + `GetOwnProperty` and non-virtual, so a host declares its keys once. Which consumers read it, and what a host overrides instead, are in [`Jint/Native/Object/AGENTS.md`](Jint/Native/Object/AGENTS.md#the-enumeration-hook-what-a-host-overrides-instead).
 - **Sharing a `JsValue` across engines is unsupported**, and nothing validates or guards it. An `ObjectInstance` holds a hard reference to its creating engine and realm. Where that *is* written down, and what a fix owes, are in [`Jint/AGENTS.md`](Jint/AGENTS.md#gotchas).
@@ -121,24 +95,15 @@ The rest are in the files indexed above. **Do not add a new gotcha here.** Add i
 
 Global usings for Acornima and `Acornima.Ast` are defined in `Directory.Build.props`. Nullable reference types are enabled across the codebase, unsafe code is allowed for performance-critical paths, and the latest analyzers run with `EnforceCodeStyleInBuild`.
 
-### Performance is critical
+### Performance is critical, and the conventions live beside the engine
 
-Performance is a first-class concern; every change must consider its impact.
-
-- Use `[MethodImpl(MethodImplOptions.AggressiveInlining)]` on hot paths.
-- Prefer `readonly struct` and `readonly record struct` with primary constructors for small data types.
-- Use `Span<T>`, `ReadOnlySpan<T>` and stack allocation wherever possible.
-- Leverage the pools in `Jint.Pooling` instead of allocating fresh instances.
-- Mark types `sealed` whenever possible — it enables devirtualization and inlining.
-- Prefer `internal` visibility — it avoids virtual dispatch and enables inlining.
-- Cache `Prepared<Script>` / `Prepared<Module>` when executing the same source repeatedly, and prefer strict mode, which executes faster.
-
-### Engine-source conventions have moved beside the engine
-
-The code patterns (lazy initialization, the `Throw.*` helpers, XML docs, type flags, spec references), the
-data-structure rule and the internal-first visibility ladder are in
-[`Jint/AGENTS.md`](Jint/AGENTS.md#code-patterns). Two of them bind before that file is open: cite the spec
-section a change implements, and default every new member to the narrowest visibility that compiles.
+Performance is a first-class concern; every change must consider its impact. The checklist that answers it
+— inlining on hot paths, `readonly struct`, `Span<T>` and stack allocation, the `Jint.Pooling` pools,
+`sealed`, `internal`, caching `Prepared<Script>` — sits with the rest of the code patterns (lazy
+initialization, the `Throw.*` helpers, XML docs, type flags, spec references), the data-structure rule and
+the internal-first visibility ladder in [`Jint/AGENTS.md`](Jint/AGENTS.md#code-patterns). Two of those bind
+before that file is open: cite the spec section a change implements, and default every new member to the
+narrowest visibility that compiles.
 
 ## The size budget, and which agents load what
 
@@ -152,13 +117,12 @@ actionable once that file is open, so it belongs there with a pointer back. That
 gotcha above was split, and it is the first thing to try before anything is shortened or the caps are
 touched — raising a cap makes Codex's truncation worse, not better.
 
-Only five of those ecosystems reach a co-located file on their own — four descend into a nested `AGENTS.md`,
-and Claude Code follows the one-line `CLAUDE.md` beside it. The rest reach them because the index names
-them — which is why the index has a trigger column rather than being a list of links, and why anything an
-agent must obey *before* it knows which area it is in has to stay in this file.
+Most agent ecosystems never reach a co-located file on their own and arrive only because the index names it
+(which of them descend is the last column of that page's table) — which is why the index has a trigger column
+rather than being a list of links, and why anything an agent must obey *before* it knows which area it is in
+has to stay in this file.
 
 **`Jint.Tests/AgentInstructionFileTests.cs` is what makes those two numbers fail rather than merely be
-stated**, since the truncation is silent and nobody was measuring by hand. It counts CRLF line endings — the
-largest a checkout can be — reports *every* file's headroom when one crosses, because that is the moment you
-need to know where there is room, and holds the routing map together: index, `.claude/rules`, links and
-anchors.
+stated**, since the truncation is silent and nobody was measuring by hand. What it counts, what else it
+holds together and what its failure hands you are in
+[`docs/agent-instruction-files.md`](docs/agent-instruction-files.md#what-makes-the-budget-fail-rather-than-merely-be-stated).

@@ -10,7 +10,7 @@
     "samples:sync": "node scripts/sync-snippets.mjs",
     "samples:check": "node scripts/sync-snippets.mjs --check",
     "check-links": "node scripts/check-links.mjs .vitepress/dist",
-    "lint": "markdownlint-cli2 \"**/*.md\" \"../README.md\" \"../Jint.DevTools/README.md\" \"../Jint.Browser/README.md\" \"../Jint.Browser.Playwright/README.md\" \"../Jint.Browser.Tool/README.md\" \"../Jint.Browser.Mcp/README.md\"",
+    "lint": "markdownlint-cli2 \"**/*.md\" \"../README.md\" \"../Jint.DevTools/README.md\" \"../Jint.Browser/README.md\" \"../Jint.Browser.Tool/README.md\" \"../Jint.Browser.Mcp/README.md\"",
     "lint:fix": "npm run lint -- --fix"
   },
   "devDependencies": {

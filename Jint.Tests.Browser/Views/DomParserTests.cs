@@ -171,4 +171,29 @@ public sealed class DomParserTests
             "(() => { try { DOMParser.prototype.parseFromString.call({}, '<p/>', 'text/html'); return 'no throw' } catch (e) { return e.constructor.name } })()"))
             .Should().Be("TypeError");
     }
+
+    [Test]
+    public async Task AParsedDocumentCarriesTheContentTypeItWasParsedAs()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+
+        // Both halves of parseFromString end "set document's content type to type", so the four XML types
+        // are four content types and not the one text/xml AngleSharp's XML parser gives every document it
+        // builds. And a document DOMParser produced is not showing anywhere, so its location is null.
+        await page.SetContentAsync(
+            """
+            <script>
+              const parser = new DOMParser();
+              const types = ['text/html', 'text/xml', 'application/xml', 'application/xhtml+xml', 'image/svg+xml'];
+              window.log = types.map(type => parser.parseFromString('<root></root>', type).contentType).join('|')
+                + '/' + String(parser.parseFromString('<root></root>', 'application/xml').location)
+                + '/' + parser.parseFromString('<root></root>', 'application/xml').characterSet;
+            </script>
+            """);
+
+        (await page.EvaluateAsync<string>("window.log"))
+            .Should().Be("text/html|text/xml|application/xml|application/xhtml+xml|image/svg+xml/null/UTF-8");
+        page.Errors.Should().BeEmpty();
+    }
 }

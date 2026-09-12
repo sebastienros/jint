@@ -106,7 +106,8 @@ foreach ($group in $encodings) {
     }
 
     [void] $entries.Add([pscustomobject] @{
-        Name      = $lowerName
+        Name      = $name
+        LowerName = $lowerName
         Kind      = $kind
         Labels    = @($encoding.labels)
         IndexName = $indexName
@@ -215,7 +216,7 @@ foreach ($entry in $entries) {
   }
 
   $index = if ($entry.IndexName) { Get-Identifier $entry.IndexName } else { 'None' }
-  [void] $sb.AppendLine("                entry = new EncodingEntry(`"$($entry.Name)`", EncodingKind.$($entry.Kind), SingleByteIndex.$index);")
+  [void] $sb.AppendLine("                entry = new EncodingEntry(`"$($entry.Name)`", `"$($entry.LowerName)`", EncodingKind.$($entry.Kind), SingleByteIndex.$index);")
   [void] $sb.AppendLine('                return true;')
 }
 

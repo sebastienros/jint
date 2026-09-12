@@ -12,12 +12,14 @@ namespace Jint.Browser.CustomElements;
 /// <remarks>
 /// <para>
 /// <b>The queue is HTML's and the drain points are this package's approximation of <c>[CEReactions]</c>.</b>
-/// HTML processes the element queue when the outermost <c>[CEReactions]</c> operation returns to script;
-/// nothing here can see a generated member return, so the queue is drained at the moment a reaction
-/// <i>arrives</i> instead — which, for everything a script does, is inside the DOM call that caused it and
-/// therefore before that call returns. What is deliberately not drained there is a reaction that arrived on
-/// the parser thread or while the queue was already draining; those wait for the enclosing drain or for the
-/// checkpoint. <c>Jint.Browser/AGENTS.md</c> states the approximation and what it costs.
+/// HTML pushes an element queue for every <c>[CEReactions]</c> operation and processes it when that
+/// operation returns to script; nothing here can see a generated member return, so the queue is drained at
+/// the moment a reaction <i>arrives</i> instead — which, for everything a script does, is inside the DOM
+/// call that caused it and therefore before that call returns. Each drain takes the queue the arrivals
+/// landed on and leaves a fresh one, so an arrival <i>during</i> a callback is its own queue and runs before
+/// that callback returns, which is what the stack buys. What is deliberately not drained on arrival is a
+/// reaction that arrived on the parser thread, which waits for the checkpoint.
+/// <c>Jint.Browser/AGENTS.md</c> states the approximation and what it costs.
 /// </para>
 /// <para>
 /// The two-level shape — an element queue of elements, each with its own reaction queue — is the
@@ -28,9 +30,8 @@ namespace Jint.Browser.CustomElements;
 /// </remarks>
 internal sealed partial class CustomElementRegistry
 {
-    private readonly List<IElement> _elementQueue = [];
+    private List<IElement> _elementQueue = [];
     private readonly Action _checkpoint;
-    private bool _draining;
     private bool _scheduled;
 
     /// <summary>The record <paramref name="element"/> already has, or <see langword="null"/>.</summary>
@@ -45,6 +46,12 @@ internal sealed partial class CustomElementRegistry
     /// https://html.spec.whatwg.org/multipage/custom-elements.html#concept-try-upgrade — look up a definition
     /// for <paramref name="element"/> and, if there is one, enqueue an upgrade reaction.
     /// </summary>
+    /// <remarks>
+    /// The lookup is given the element's <b>node document</b>, which is the standard's own argument, and it
+    /// is what the one gate on a document with no browsing context is asked about: an element a parsed
+    /// document holds, or one a member just made in a <c>createHTMLDocument</c>, finds no definition however
+    /// many the page has defined. See <see cref="Lookup"/>.
+    /// </remarks>
     internal void TryUpgrade(IElement element)
     {
         if (_byName.Count == 0 || StateOf(element) != CustomElementState.Undefined)
@@ -52,7 +59,7 @@ internal sealed partial class CustomElementRegistry
             return;
         }
 
-        if (Lookup(element.NamespaceUri, element.LocalName, IsValueOf(element)) is { } definition)
+        if (Lookup(element.Owner, element.NamespaceUri, element.LocalName, IsValueOf(element)) is { } definition)
         {
             EnqueueUpgrade(element, definition);
         }
@@ -114,7 +121,15 @@ internal sealed partial class CustomElementRegistry
     /// https://html.spec.whatwg.org/multipage/custom-elements.html#enqueue-a-custom-element-callback-reaction,
     /// which is a no-op unless the element is custom and the definition has the callback.
     /// </summary>
-    private void EnqueueCallback(IElement element, CustomElementRecord record, CustomElementReactionKind kind, string? name = null, string? oldValue = null, string? newValue = null)
+    private void EnqueueCallback(
+        IElement element,
+        CustomElementRecord record,
+        CustomElementReactionKind kind,
+        string? name = null,
+        string? oldValue = null,
+        string? newValue = null,
+        IDocument? oldDocument = null,
+        IDocument? newDocument = null)
     {
         if (record.State != CustomElementState.Custom || record.Definition is not { } definition)
         {
@@ -139,7 +154,7 @@ internal sealed partial class CustomElementRegistry
             return;
         }
 
-        Enqueue(element, record, new CustomElementReaction(kind, definition, name, oldValue, newValue));
+        Enqueue(element, record, new CustomElementReaction(kind, definition, name, oldValue, newValue, oldDocument, newDocument));
     }
 
     /// <summary>
@@ -147,11 +162,27 @@ internal sealed partial class CustomElementRegistry
     /// whole element queue.
     /// </summary>
     /// <remarks>
-    /// A reaction that arrives from another thread — the parser's — or while this is already running is left
-    /// on the queue; the enclosing drain picks it up, and if there is none, the checkpoint job does. The
-    /// queue itself needs no lock for that: the parser baton parks one holder while the other works, so the
-    /// parser thread and the loop are never both inside this class, which is the same property
-    /// <c>Observers/MutationObserverLane</c> rests on.
+    /// <para>
+    /// <b>Each drain takes the queue the arrivals landed on and leaves a fresh one behind</b>, which is this
+    /// package's reading of HTML's custom element reactions <i>stack</i>: every <c>[CEReactions]</c>
+    /// operation pushes an element queue and invokes it when that operation returns, so a reaction caused
+    /// from inside a callback belongs to a queue of its own and runs <i>before</i> that callback returns.
+    /// Draining one flat queue instead made a nested reaction wait for the enclosing one, and
+    /// <c>reaction-timing.html</c> is three tests about exactly that difference: a callback that writes an
+    /// attribute on a second element sees that element's callback run inside its own, not after it.
+    /// </para>
+    /// <para>
+    /// An element already on a queue is not added to another — <see cref="CustomElementRecord.Queued"/> is
+    /// what says so — so a reaction that arrives for it while it waits joins its own reaction queue and runs
+    /// when the queue holding it reaches it. That is also what makes a reaction added for the element
+    /// <i>being invoked</i> run before the next element's, which is the specification's own note.
+    /// </para>
+    /// <para>
+    /// A reaction that arrives from another thread — the parser's — is still left on the queue for the
+    /// checkpoint job, because nothing may run script there. The queue itself needs no lock for that: the
+    /// parser baton parks one holder while the other works, so the parser thread and the loop are never both
+    /// inside this class, which is the same property <c>Observers/MutationObserverLane</c> rests on.
+    /// </para>
     /// </remarks>
     internal void Drain()
     {
@@ -160,39 +191,32 @@ internal sealed partial class CustomElementRegistry
             return;
         }
 
-        if (_draining || Environment.CurrentManagedThreadId != _runtime.LoopThreadId)
+        if (Environment.CurrentManagedThreadId != _runtime.LoopThreadId)
         {
             Schedule();
             return;
         }
 
-        _draining = true;
+        var queue = _elementQueue;
+        _elementQueue = [];
 
-        try
+        for (var i = 0; i < queue.Count; i++)
         {
-            while (_elementQueue.Count > 0)
+            var element = queue[i];
+
+            if (!_records.TryGetValue(element, out var record))
             {
-                var element = _elementQueue[0];
-                _elementQueue.RemoveAt(0);
-
-                if (!_records.TryGetValue(element, out var record))
-                {
-                    continue;
-                }
-
-                // Queued stays set for the whole of this element's own queue, so a reaction the callbacks add
-                // for the same element joins the loop below rather than putting it on the queue a second time.
-                while (record.Reactions.Count > 0)
-                {
-                    Invoke(element, record.Reactions.Dequeue());
-                }
-
-                record.Queued = false;
+                continue;
             }
-        }
-        finally
-        {
-            _draining = false;
+
+            // Queued stays set for the whole of this element's own queue, so a reaction the callbacks add
+            // for the same element joins the loop below rather than putting it on a queue a second time.
+            while (record.Reactions.Count > 0)
+            {
+                Invoke(element, record.Reactions.Dequeue());
+            }
+
+            record.Queued = false;
         }
     }
 
@@ -236,16 +260,7 @@ internal sealed partial class CustomElementRegistry
         }
 
         var wrapper = _runtime.Dom.WrapNode(element);
-
-        JsValue[] arguments = reaction.Kind == CustomElementReactionKind.AttributeChanged
-            ?
-            [
-                JsString.Create(reaction.Name!),
-                reaction.OldValue is null ? JsValue.Null : JsString.Create(reaction.OldValue),
-                reaction.NewValue is null ? JsValue.Null : JsString.Create(reaction.NewValue),
-                JsValue.Null,
-            ]
-            : [];
+        var arguments = ArgumentsFor(reaction);
 
         try
         {
@@ -255,6 +270,43 @@ internal sealed partial class CustomElementRegistry
         {
             Report(exception, reaction.Definition.Name);
         }
+    }
+
+    /// <summary>
+    /// The arguments HTML gives each callback: none for <c>connectedCallback</c> and
+    /// <c>disconnectedCallback</c>, the four of
+    /// <a href="https://html.spec.whatwg.org/multipage/custom-elements.html#concept-element-attributes-change-ext">an
+    /// attribute change</a>, and — the arm that had none until now —
+    /// <a href="https://dom.spec.whatwg.org/#concept-node-adopt">adopt</a>'s
+    /// <c>« oldDocument, newDocument »</c>.
+    /// </summary>
+    /// <remarks>
+    /// The two documents are wrapped here rather than when the reaction was enqueued, because a wrapper is
+    /// an object in the engine's realm and the enqueue may have happened on the parser's thread.
+    /// </remarks>
+    private JsValue[] ArgumentsFor(in CustomElementReaction reaction)
+    {
+        if (reaction.Kind == CustomElementReactionKind.AttributeChanged)
+        {
+            return
+            [
+                JsString.Create(reaction.Name!),
+                reaction.OldValue is null ? JsValue.Null : JsString.Create(reaction.OldValue),
+                reaction.NewValue is null ? JsValue.Null : JsString.Create(reaction.NewValue),
+                JsValue.Null,
+            ];
+        }
+
+        if (reaction.Kind == CustomElementReactionKind.Adopted)
+        {
+            return
+            [
+                _runtime.Dom.WrapNodeValue(reaction.OldDocument),
+                _runtime.Dom.WrapNodeValue(reaction.NewDocument),
+            ];
+        }
+
+        return [];
     }
 
     /// <summary>

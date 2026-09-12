@@ -16,11 +16,21 @@ namespace Jint.Browser.Events;
 /// design doc §5, "one bus, Jint's".
 /// </para>
 /// <para>
-/// <b>Deliberately absent: <c>DragEvent</c>.</b> Drag and drop dispatch and its event-specific state remain
-/// a v1 non-goal (design doc §2), even though the transferable data store is available for file inputs.
-/// <c>ClipboardEvent</c> is absent because there is no clipboard model. The legacy <c>initUIEvent</c>, <c>initMouseEvent</c>
-/// and <c>initKeyboardEvent</c> initializers are absent too: they are the pre-constructor way of building an
-/// event through <c>document.createEvent</c>, which this package does not implement at all.
+/// <b>An interface here is one a page can construct and dispatch; whether the runtime ever fires one is a
+/// separate question and often "no".</b> <c>DragEvent</c>, <c>StorageEvent</c> and the two device events are
+/// in that position: there is no drag, no second document sharing a storage area and no sensor, so nothing
+/// here fires them — and every one of them is still built in full, because constructing one from its
+/// dictionary and dispatching it is what a page does and what <c>document.createEvent</c>'s alias table
+/// requires an interface to exist for. Where a member's value would come from state this browser does not
+/// have, the standard's construction-from-dictionary semantics are what is implemented and each class says
+/// so. <c>TouchEvent</c> was the fifth of them and no longer is: <c>Input.dispatchTouchEvent</c> fires one
+/// (<c>Events/InputDispatcher.Touch</c>), so its three lists are computed from a real gesture as well as
+/// taken from a dictionary.
+/// </para>
+/// <para>
+/// <b>Deliberately absent: <c>ClipboardEvent</c></b>, because there is no clipboard model at all — not even
+/// the read side a <c>ClipboardEventInit</c>'s <c>clipboardData</c> would have to answer from — which is also
+/// why <c>document.createEvent('clipboardevent')</c> is not in DOM's alias table and needs nothing here.
 /// </para>
 /// </remarks>
 internal static class BrowserEventInterfaces
@@ -313,6 +323,108 @@ internal static class BrowserEventInterfaces
             EventInit(realm, args, "BeforeUnloadEvent"),
             realm.TimeStamp));
 
+    /// <summary>https://html.spec.whatwg.org/multipage/dnd.html#the-dragevent-interface.</summary>
+    internal static readonly BrowserEventDefinition DragEvent = Define(
+        "DragEvent",
+        MouseEvent,
+        BuildDragEvent,
+        static (realm, args) =>
+        {
+            var init = EventInitReader.Dictionary(args);
+            var (view, detail, which) = EventInitReader.UiInit(realm.Engine, init);
+            return new JsDragEvent(
+                realm.Engine,
+                Type(realm, args, "DragEvent"),
+                EventInit(realm, args, "DragEvent"),
+                realm.TimeStamp,
+                view,
+                detail,
+                which,
+                EventInitReader.MouseInit(realm.Engine, init),
+                DragDataTransfer(realm, init));
+        });
+
+    /// <summary>https://html.spec.whatwg.org/multipage/webstorage.html#the-storageevent-interface.</summary>
+    internal static readonly BrowserEventDefinition StorageEvent = Define(
+        "StorageEvent",
+        parent: null,
+        BuildStorageEvent,
+        static (realm, args) =>
+        {
+            var init = EventInitReader.Dictionary(args);
+            return new JsStorageEvent(
+                realm.Engine,
+                Type(realm, args, "StorageEvent"),
+                EventInit(realm, args, "StorageEvent"),
+                realm.TimeStamp,
+                EventInitReader.NullableText(init, Names.Key),
+                EventInitReader.NullableText(init, Names.OldValue),
+                EventInitReader.NullableText(init, Names.NewValue),
+                EventInitReader.Text(init, Names.Url),
+                StorageArea(realm, EventInitReader.Any(init, Names.StorageArea, JsValue.Null), "construct"));
+        });
+
+    /// <summary>https://w3c.github.io/touch-events/#touchevent-interface.</summary>
+    internal static readonly BrowserEventDefinition TouchEvent = Define(
+        "TouchEvent",
+        UIEvent,
+        BuildTouchEvent,
+        static (realm, args) =>
+        {
+            var init = EventInitReader.Dictionary(args);
+            var (view, detail, which) = EventInitReader.UiInit(realm.Engine, init);
+            return new JsTouchEvent(
+                realm.Engine,
+                Type(realm, args, "TouchEvent"),
+                EventInit(realm, args, "TouchEvent"),
+                realm.TimeStamp,
+                view,
+                detail,
+                which,
+                EventInitReader.TouchSequence(realm, init, Names.Touches),
+                EventInitReader.TouchSequence(realm, init, Names.TargetTouches),
+                EventInitReader.TouchSequence(realm, init, Names.ChangedTouches),
+                EventInitReader.Modifiers(init));
+        });
+
+    /// <summary>https://w3c.github.io/deviceorientation/#devicemotionevent.</summary>
+    internal static readonly BrowserEventDefinition DeviceMotionEvent = Define(
+        "DeviceMotionEvent",
+        parent: null,
+        BuildDeviceMotionEvent,
+        static (realm, args) =>
+        {
+            var init = EventInitReader.Dictionary(args);
+            return new JsDeviceMotionEvent(
+                realm.Engine,
+                Type(realm, args, "DeviceMotionEvent"),
+                EventInit(realm, args, "DeviceMotionEvent"),
+                realm.TimeStamp,
+                EventInitReader.Acceleration(realm, init, Names.Acceleration),
+                EventInitReader.Acceleration(realm, init, Names.AccelerationIncludingGravity),
+                EventInitReader.RotationRate(realm, init, Names.RotationRate),
+                EventInitReader.Number(init, Names.Interval));
+        });
+
+    /// <summary>https://w3c.github.io/deviceorientation/#deviceorientationevent.</summary>
+    internal static readonly BrowserEventDefinition DeviceOrientationEvent = Define(
+        "DeviceOrientationEvent",
+        parent: null,
+        BuildDeviceOrientationEvent,
+        static (realm, args) =>
+        {
+            var init = EventInitReader.Dictionary(args);
+            return new JsDeviceOrientationEvent(
+                realm.Engine,
+                Type(realm, args, "DeviceOrientationEvent"),
+                EventInit(realm, args, "DeviceOrientationEvent"),
+                realm.TimeStamp,
+                EventInitReader.NullableNumber(init, Names.Alpha),
+                EventInitReader.NullableNumber(init, Names.Beta),
+                EventInitReader.NullableNumber(init, Names.Gamma),
+                EventInitReader.Bool(init, Names.Absolute));
+        });
+
     /// <summary>Every interface, parents before children so a prototype chain can be built by walking up.</summary>
     internal static readonly BrowserEventDefinition[] All =
     [
@@ -320,16 +432,21 @@ internal static class BrowserEventInterfaces
         MouseEvent,
         PointerEvent,
         WheelEvent,
+        DragEvent,
         KeyboardEvent,
         InputEvent,
         CompositionEvent,
         FocusEvent,
+        TouchEvent,
         SubmitEvent,
         FormDataEvent,
         HashChangeEvent,
         PopStateEvent,
         PageTransitionEvent,
         BeforeUnloadEvent,
+        StorageEvent,
+        DeviceMotionEvent,
+        DeviceOrientationEvent,
     ];
 
     /// <summary>
@@ -633,6 +750,122 @@ internal static class BrowserEventInterfaces
             })
         .Build();
 
+    private static JsObjectShape BuildDragEvent() => Base("DragEvent")
+        .Accessor("dataTransfer", static (t, _) => Brand<JsDragEvent>(t, "DragEvent.dataTransfer").DataTransfer)
+        .Build();
+
+    /// <remarks>
+    /// <c>initStorageEvent</c>'s <c>length</c> is one, because HTML makes every argument after <c>type</c>
+    /// optional and https://webidl.spec.whatwg.org/#dfn-create-operation-function counts the required ones.
+    /// </remarks>
+    private static JsObjectShape BuildStorageEvent() => Base("StorageEvent")
+        .Accessor("key", static (t, _) => Nullable(Brand<JsStorageEvent>(t, "StorageEvent.key").Key))
+        .Accessor("oldValue", static (t, _) => Nullable(Brand<JsStorageEvent>(t, "StorageEvent.oldValue").OldValue))
+        .Accessor("newValue", static (t, _) => Nullable(Brand<JsStorageEvent>(t, "StorageEvent.newValue").NewValue))
+        .Accessor("url", static (t, _) => JsString.Create(Brand<JsStorageEvent>(t, "StorageEvent.url").Url))
+        .Accessor("storageArea", static (t, _) => Brand<JsStorageEvent>(t, "StorageEvent.storageArea").StorageArea)
+        .Method("initStorageEvent", static (t, args) =>
+        {
+            var ev = Brand<JsStorageEvent>(t, "StorageEvent.initStorageEvent");
+            if (Initializing(ev, args, "StorageEvent.initStorageEvent", out var type, out var bubbles, out var cancelable))
+            {
+                ev.Initialize(
+                    type,
+                    bubbles,
+                    cancelable,
+                    LegacyNullableText(args, 3),
+                    LegacyNullableText(args, 4),
+                    LegacyNullableText(args, 5),
+                    args.Length > 6 && !args[6].IsUndefined() ? TypeConverter.ToString(args[6]) : "",
+                    StorageArea(BrowserEventRealm.Of(ev.Engine), args.At(7), "execute"));
+            }
+
+            return JsValue.Undefined;
+        }, length: 1)
+        .Build();
+
+    private static JsObjectShape BuildTouchEvent() => Base("TouchEvent")
+        .Accessor("touches", static (t, _) => Brand<JsTouchEvent>(t, "TouchEvent.touches").Touches)
+        .Accessor("targetTouches", static (t, _) => Brand<JsTouchEvent>(t, "TouchEvent.targetTouches").TargetTouches)
+        .Accessor("changedTouches", static (t, _) => Brand<JsTouchEvent>(t, "TouchEvent.changedTouches").ChangedTouches)
+        .Accessor("ctrlKey", static (t, _) => TouchModifier(t, "TouchEvent.ctrlKey", EventModifiers.Control))
+        .Accessor("shiftKey", static (t, _) => TouchModifier(t, "TouchEvent.shiftKey", EventModifiers.Shift))
+        .Accessor("altKey", static (t, _) => TouchModifier(t, "TouchEvent.altKey", EventModifiers.Alt))
+        .Accessor("metaKey", static (t, _) => TouchModifier(t, "TouchEvent.metaKey", EventModifiers.Meta))
+        .Build();
+
+    private static JsObjectShape BuildDeviceMotionEvent() => Base("DeviceMotionEvent")
+        .Accessor("acceleration", static (t, _) => Brand<JsDeviceMotionEvent>(t, "DeviceMotionEvent.acceleration").Acceleration)
+        .Accessor("accelerationIncludingGravity", static (t, _) => Brand<JsDeviceMotionEvent>(t, "DeviceMotionEvent.accelerationIncludingGravity").AccelerationIncludingGravity)
+        .Accessor("rotationRate", static (t, _) => Brand<JsDeviceMotionEvent>(t, "DeviceMotionEvent.rotationRate").RotationRate)
+        .Accessor("interval", static (t, _) => JsNumber.Create(Brand<JsDeviceMotionEvent>(t, "DeviceMotionEvent.interval").Interval))
+        .Build();
+
+    private static JsObjectShape BuildDeviceOrientationEvent() => Base("DeviceOrientationEvent")
+        .Accessor("alpha", static (t, _) => OptionalNumber(Brand<JsDeviceOrientationEvent>(t, "DeviceOrientationEvent.alpha").Alpha))
+        .Accessor("beta", static (t, _) => OptionalNumber(Brand<JsDeviceOrientationEvent>(t, "DeviceOrientationEvent.beta").Beta))
+        .Accessor("gamma", static (t, _) => OptionalNumber(Brand<JsDeviceOrientationEvent>(t, "DeviceOrientationEvent.gamma").Gamma))
+        .Accessor("absolute", static (t, _) => JsBoolean.Create(Brand<JsDeviceOrientationEvent>(t, "DeviceOrientationEvent.absolute").Absolute))
+        .Build();
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/dnd.html#dictdef-drageventinit — <c>DataTransfer? = null</c>, so
+    /// an interface-typed member: anything that is not a <c>DataTransfer</c> and not null is a
+    /// <c>TypeError</c> rather than a value quietly kept, exactly as <c>view</c> is for a <c>UIEvent</c>.
+    /// </summary>
+    private static JsValue DragDataTransfer(BrowserEventRealm realm, ObjectInstance? init)
+    {
+        var value = EventInitReader.Any(init, Names.DataTransfer, JsValue.Null);
+
+        if (value.IsNull() || value.IsUndefined())
+        {
+            return JsValue.Null;
+        }
+
+        if (value is not Dom.Files.JsDataTransfer)
+        {
+            Throw.TypeError(realm.PrincipalRealm, "Failed to construct 'DragEvent': member dataTransfer is not of type 'DataTransfer'.");
+        }
+
+        return value;
+    }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/webstorage.html#dictdef-storageeventinit — <c>Storage?</c>, and
+    /// the one <c>Storage</c> a page can name is <c>localStorage</c> or <c>sessionStorage</c>, so the check is
+    /// against the engine's own interface.
+    /// </summary>
+    private static JsValue StorageArea(BrowserEventRealm realm, JsValue value, string verb)
+    {
+        if (value.IsNull() || value.IsUndefined())
+        {
+            return JsValue.Null;
+        }
+
+        if (value is not Jint.WebApi.Storage.JsStorage)
+        {
+            Throw.TypeError(
+                realm.PrincipalRealm,
+                "Failed to " + verb + " 'StorageEvent': member storageArea is not of type 'Storage'.");
+        }
+
+        return value;
+    }
+
+    /// <summary>A <c>DOMString?</c> argument of a legacy initializer: <c>null</c> and <c>undefined</c> are null.</summary>
+    private static string? LegacyNullableText(JsValue[] args, int index)
+    {
+        var value = args.At(index);
+        return value.IsUndefined() || value.IsNull() ? null : TypeConverter.ToString(value);
+    }
+
+    private static JsValue Nullable(string? value) => value is null ? JsValue.Null : JsString.Create(value);
+
+    private static JsValue OptionalNumber(double? value) => value is null ? JsValue.Null : JsNumber.Create(value.Value);
+
+    private static JsBoolean TouchModifier(JsValue thisObject, string member, EventModifiers flag)
+        => JsBoolean.Create((Brand<JsTouchEvent>(thisObject, member).Modifiers & flag) != EventModifiers.None);
+
     /// <summary>
     /// The members <c>MouseEvent</c> declares, added to a builder rather than returned as a shape, because
     /// they are the same members whichever of the three mouse interfaces is being built — WebIDL has them once
@@ -684,7 +917,7 @@ internal static class BrowserEventInterfaces
     /// A receiver that is not an instance of the interface raises a <c>TypeError</c>, and the message is the
     /// one a browser gives.
     /// </summary>
-    private static T Brand<T>(JsValue thisObject, string member) where T : class
+    internal static T Brand<T>(JsValue thisObject, string member) where T : class
     {
         if (thisObject is T typed)
         {
@@ -800,6 +1033,22 @@ internal static class BrowserEventInterfaces
         internal static readonly JsString State = new("state");
         internal static readonly JsString HasUaVisualTransition = new("hasUAVisualTransition");
         internal static readonly JsString Persisted = new("persisted");
+        internal static readonly JsString DataTransfer = new("dataTransfer");
+        internal static readonly JsString OldValue = new("oldValue");
+        internal static readonly JsString NewValue = new("newValue");
+        internal static readonly JsString Url = new("url");
+        internal static readonly JsString StorageArea = new("storageArea");
+        internal static readonly JsString Touches = new("touches");
+        internal static readonly JsString TargetTouches = new("targetTouches");
+        internal static readonly JsString ChangedTouches = new("changedTouches");
+        internal static readonly JsString Acceleration = new("acceleration");
+        internal static readonly JsString AccelerationIncludingGravity = new("accelerationIncludingGravity");
+        internal static readonly JsString RotationRate = new("rotationRate");
+        internal static readonly JsString Interval = new("interval");
+        internal static readonly JsString Alpha = new("alpha");
+        internal static readonly JsString Beta = new("beta");
+        internal static readonly JsString Gamma = new("gamma");
+        internal static readonly JsString Absolute = new("absolute");
     }
 
 }

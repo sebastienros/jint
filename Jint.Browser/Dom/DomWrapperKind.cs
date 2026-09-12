@@ -44,4 +44,13 @@ internal enum DomWrapperKind
     /// accessor scheme: <c>Collections.DomHtmlCollectionObject&lt;T&gt;</c>.
     /// </summary>
     HtmlCollection,
+
+    /// <summary>
+    /// <c>document.all</c>: <c>Collections.DomHtmlAllCollectionObject</c>. It is a kind of its own rather than
+    /// a refinement of <see cref="HtmlCollection"/> because HTML gives <c>HTMLAllCollection</c> a named lookup
+    /// answering an element <em>or</em> a collection, an <c>item</c> taking a name or an index, a legacy caller
+    /// and Annex B's <c>[[IsHTMLDDA]]</c> slot; <c>overrides.json</c>'s manual entry is what selects it, since
+    /// AngleSharp's metadata says only that the interface is an <c>IHtmlCollection&lt;IElement&gt;</c>.
+    /// </summary>
+    HtmlAllCollection,
 }

@@ -38,6 +38,7 @@ second bus:
 | focus moves | `blur`, `focusout`, `focus`, `focusin`, and `change` for a control the user edited | `Events/FocusController` |
 | a key edits a text control | `keydown`, `keypress`, `beforeinput` (cancelable), `input`, `keyup` | `Events/InputDispatcher`, `Events/TextEditing`, `Events/ContentEditing` ([below](#the-keyboard-and-the-editor-under-it)) |
 | the selection moves | `selectionchange`, queued and coalesced | `Events/SelectionChange`, from `Events/TextEditing` for a text control and from `Dom/Views/JsSelection` for the document |
+| a client drives a touch | `touchstart`, `touchmove`, `touchend`, `touchcancel`, and the four compatibility mouse events a tap leaves | `Events/InputDispatcher.Touch` ([below](#touch-a-gesture-outlives-the-command)) |
 
 Every listener on that table returns to a microtask checkpoint, because the point that fires it is a turn of the loop rather than a script — see [`Jint/WebApi/AGENTS.md`](../../Jint/WebApi/AGENTS.md#web-apis). `AnimationFrameLane` owes the same cleanup by hand, since one frame is one job over many callbacks.
 
@@ -74,6 +75,24 @@ something the attribute already says. The one case that needs more is `<body onl
 it to the **window** and `load` never touches the body: `EventHandlerContentAttributes.InstallBodyHandlers`
 builds that wrapper once when the parse ends.
 
+**An interface a page can construct is not the same thing as an event the runtime fires, and the second is
+not a reason to skip the first.** `BrowserEventInterfaces` builds `DragEvent`, `StorageEvent` and the two
+device events, and the table above raises none of them: there is no drag, no second document sharing a
+storage area and no sensor. What a page does with them is construct one from its
+dictionary and dispatch it itself, which is what every synthetic-drag library, every storage-sync shim and
+`document.createEvent`'s alias table need — so where a member's value would come from state this browser has
+none of, the standard's construction-from-dictionary semantics are implemented in full and the class says
+which state is missing. Two of them own more than an `Event`: `DragEvent` carries the real `DataTransfer`
+`Dom/Files/` already builds, and `TouchEvent` — which *is* fired, by the row the table gained — carries
+`Touch` and `TouchList`, which are
+`Events/TouchInterfaces` rather than AngleSharp's — nothing in the pinned assemblies implements
+`ITouchPoint` or `ITouchList`, so both are `excludedInterfaces` rows and
+[`../Dom/divergences.md`](../Dom/divergences.md) records it. **Detection stays a client's decision**: the four
+`ontouch*` handler attributes are exposed only under touch emulation
+([`../Runtime/AGENTS.md`](../Runtime/AGENTS.md)), which is why the corpus's `TouchEvent` rows are declined on
+a page nobody configured and why neither building the interface nor dispatching one changed what a page
+detects.
+
 **`isTrusted` is the line between a script and a client.** `element.click()` is untrusted — HTML's `click()`
 says to fire the synthetic pointer event "with the not trusted flag set", and the activation behaviour still
 runs, because trust decides what a page can *tell apart*, not whether the default action happens. Everything
@@ -90,13 +109,59 @@ distinguishes it from `form.requestSubmit()` and from a submit button. Constrain
 readonly control and a control inside a disabled fieldset — without it every `<button type=button>` in the
 form would be examined.
 
-**An image input is a fallback submit button here, not an available displayed image.** HTML allows explicit
-coordinate selection only when `src` identifies an available image the user agent displays. This browser
-does not fetch/render images, so pointer and synthetic activation retain the initial (0, 0); a flat hit-test
-box must not manufacture a selected image coordinate. `Runtime/FormSubmitter` still appends x then y, with a
-name prefix only when nonempty. Its inventory is submittable controls, not `form.elements`, which excludes
-image inputs: AngleSharp's tree traversal and form-owner properties supply tree order and external
-association. Nonzero image coordinates require a real image availability/presentation model first.
+**Which controls the two halves are about is one question with one answer, and it is not `form.elements`.**
+`Dom/HtmlFormOwner` is HTML's *reset the form owner* — a connected listed element's `form` attribute outranks
+every ancestor form — and `HtmlFormOwner.ControlsOf(form)` is the inventory the entry list, the static
+validity check, the default button, implicit submission and a radio button group all walk. Reading a control's
+`Form` off AngleSharp instead inverts that priority ([#3939](https://github.com/sebastienros/jint/issues/3939)),
+and reading `form.elements` takes AngleSharp's ownership rule *and* drops every image button, so a form would
+validate one set of controls and submit another. `form.elements` itself is AngleSharp's collection and stays
+wrong; [`../Dom/divergences.md`](../Dom/divergences.md) records both halves.
+
+**An image input selects a coordinate only out of an image it really has, and the position is measured
+before any listener runs.** HTML gives an image button a *selected coordinate* and lets it be a real position
+only when `src` identifies an available image the user agent displays *and* a pointing device activated it;
+everything else is the fallback submit button's (0, 0) — no `src`, a fetch that failed, bytes in no container
+`Media/ImageHeader` reads, `element.click()`, a dispatched `MouseEvent`, `requestSubmit`, a keyboard. Those
+are three conditions and `ActivationBehaviors.RunInput`'s image arm asks all three: `Media/PageImages` says
+*completely available*, the click says `isTrusted`, and `BrowserEventRealm.PendingImagePoint` says the
+pointer was measured inside **this** button. **That measurement is taken from the release's own hit test
+before any listener fires**, because the activation behaviour that reads it runs after `pointerup`, `mouseup`
+and `click` and any of the three may move, adopt or detach the input first; measuring is not selecting, so a
+canceled click promotes nothing and leaves the coordinate the last activation selected. **A tap takes it
+too**, from the same hit test its compatibility mouse events are dispatched at: "activated using a pointing
+device" is the condition, and a finger is one, so `InputDispatcher.DispatchMouse`'s release arm and
+`InputDispatcher.Touch`'s compatibility sequence both park a point and both clear it in a `finally` — a
+coordinate a tap could not select while a click at the same point could would be one input model disagreeing
+with the other. The result lives on the *element* — a weak table on `BrowserEventRealm`, beside the
+mouse press target — rather than on the event, because `new FormData(form, submitter)` reads it arbitrarily
+long afterwards. `Runtime/FormSubmitter` appends x then y, with a name prefix only when nonempty. Its
+inventory is submittable controls, not `form.elements`, which excludes image inputs: AngleSharp's tree
+traversal and form-owner properties supply tree order and external association. **The position is in the flat
+box model's geometry** and so can exceed the image's own `naturalWidth`; [`../Dom/divergences.md`](../Dom/divergences.md)
+records why clamping it to the image would be a second geometry disagreeing with the one every box, hit test
+and `offsetX` already answers from.
+
+### Touch: a gesture outlives the command
+
+`Input.dispatchTouchEvent` is `Events/InputDispatcher.Touch`, and three of its rules decide the rest.
+
+**`touches` and `targetTouches` are about the surface, not the event**, so the contacts a gesture holds live
+on `BrowserEventRealm.Touches` and outlive the command that pressed them — per engine, like the mouse's press
+target, so a navigation mid-gesture leaves the next document with nothing down. A contact's `target` is fixed
+when it goes down (Touch Events §"the touch point"), which is why a finger dragged off its button still ends
+on the button while the *mouse* events a tap leaves go where the finger really came off.
+
+**A tap is a click, made of the same parts.** §8's compatibility events — `mousemove`, `mousedown`, `mouseup`,
+`click` — are dispatched through the helpers `DispatchMouse` uses, at the released point, so one activation
+behaviour runs rather than two nearly identical ones — including the image button's selected coordinate,
+which is measured from the released point's hit test the way the mouse's is (above). They are owed only by a *single-finger* gesture nothing
+cancelled: a second contact, a cancelled `touchstart` or first `touchmove`, or a `touchcancel` withdraws them.
+**No pointer event is fired for a touch** — `pointerType: "touch"` with a `pointerId` per contact and its own
+boundary events is a second pointer model over the same contacts, and this package has one.
+
+**Emulation is not consulted.** A client that sends a touch is asking for one; what
+`Emulation.setTouchEmulationEnabled` decides is whether the page can *detect* that it might get one.
 
 ### The keyboard, and the editor under it
 

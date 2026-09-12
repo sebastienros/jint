@@ -155,3 +155,128 @@ internal sealed class JsBeforeUnloadEvent : JsEvent
     /// </summary>
     internal bool WantsPrompt => CanceledFlag || ReturnValue.Length != 0;
 }
+
+/// <summary>
+/// A <c>DragEvent</c> instance.
+/// <para>
+/// https://html.spec.whatwg.org/multipage/dnd.html#the-dragevent-interface
+/// </para>
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>The interface is constructible and nothing dispatches one.</b> HTML's drag-and-drop processing model
+/// needs a pointer that can be held down across a document, and this browser has none — <c>Events/AGENTS.md</c>
+/// names every algorithm point that fires an event, and no drag is among them. What a page can do is what the
+/// corpus tests: construct one from its dictionary and dispatch it itself, which is exactly how every drag-and-drop
+/// test suite and every library's own synthetic drag works.
+/// </para>
+/// <para>
+/// <b><c>dataTransfer</c> is a real <c>DataTransfer</c>, not a stand-in.</b> The drag data store is already
+/// here for file inputs (<c>Dom/Files/</c>), so <c>DragEventInit</c>'s <c>DataTransfer?</c> member is
+/// brand-checked against that interface and kept: a page that builds one, fills it with
+/// <c>setData</c>/<c>items.add</c> and dispatches a <c>drop</c> reads back what it put in.
+/// </para>
+/// </remarks>
+internal sealed class JsDragEvent : JsMouseEvent
+{
+    internal JsDragEvent(
+        Engine engine,
+        JsString type,
+        EventInit init,
+        double timeStamp,
+        JsValue view,
+        double detail,
+        double? which,
+        in MouseEventState state,
+        JsValue dataTransfer)
+        : base(engine, type, init, timeStamp, view, detail, which, state)
+    {
+        DataTransfer = dataTransfer;
+    }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/dnd.html#dom-dragevent-datatransfer — the drag data store the
+    /// dictionary supplied, or <see cref="JsValue.Null"/>, which is what a browser answers for a
+    /// <c>DragEvent</c> nobody gave one to.
+    /// </summary>
+    internal JsValue DataTransfer { get; }
+}
+
+/// <summary>
+/// A <c>StorageEvent</c> instance.
+/// <para>
+/// https://html.spec.whatwg.org/multipage/webstorage.html#the-storageevent-interface
+/// </para>
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Every member is mutable, because <c>initStorageEvent</c> is still in the standard.</b> Web Storage is
+/// one of the few specifications that kept its legacy initializer, so the eight members it writes are settable
+/// for the length of that call and the dispatch-flag short-circuit every other legacy initializer here obeys
+/// applies to it too.
+/// </para>
+/// <para>
+/// <b>Nothing fires one.</b> HTML's <i>send a storage notification</i> broadcasts to the other documents of the
+/// same storage area, and a page here is the only document of its own context — <c>Runtime/PageStorage</c>
+/// says where a partition comes from. So the interface exists for the page that constructs and dispatches one,
+/// which is what the corpus tests and what a storage-synchronisation shim does.
+/// </para>
+/// </remarks>
+internal sealed class JsStorageEvent : JsEvent
+{
+    internal JsStorageEvent(
+        Engine engine,
+        JsString type,
+        EventInit init,
+        double timeStamp,
+        string? key,
+        string? oldValue,
+        string? newValue,
+        string url,
+        JsValue storageArea)
+        : base(engine, type, init, timeStamp)
+    {
+        Key = key;
+        OldValue = oldValue;
+        NewValue = newValue;
+        Url = url;
+        StorageArea = storageArea;
+    }
+
+    /// <summary>https://html.spec.whatwg.org/multipage/webstorage.html#dom-storageevent-key — <c>DOMString?</c>.</summary>
+    internal string? Key { get; private set; }
+
+    /// <summary>https://html.spec.whatwg.org/multipage/webstorage.html#dom-storageevent-oldvalue.</summary>
+    internal string? OldValue { get; private set; }
+
+    /// <summary>https://html.spec.whatwg.org/multipage/webstorage.html#dom-storageevent-newvalue.</summary>
+    internal string? NewValue { get; private set; }
+
+    /// <summary>https://html.spec.whatwg.org/multipage/webstorage.html#dom-storageevent-url — a <c>USVString</c>.</summary>
+    internal string Url { get; private set; }
+
+    /// <summary>https://html.spec.whatwg.org/multipage/webstorage.html#dom-storageevent-storagearea.</summary>
+    internal JsValue StorageArea { get; private set; }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/webstorage.html#dom-storageevent-initstorageevent — <i>initialize
+    /// an event</i>, then this interface's own five members.
+    /// </summary>
+    internal void Initialize(
+        JsString type,
+        bool bubbles,
+        bool cancelable,
+        string? key,
+        string? oldValue,
+        string? newValue,
+        string url,
+        JsValue storageArea)
+    {
+        InitializeEvent(type, bubbles, cancelable);
+        Key = key;
+        OldValue = oldValue;
+        NewValue = newValue;
+        Url = url;
+        StorageArea = storageArea;
+    }
+}

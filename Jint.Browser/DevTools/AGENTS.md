@@ -55,7 +55,17 @@ target/runtime split and the manifest are there and none of it is repeated here.
   one character at a time. `Input` is `dispatchMouseEvent`, `dispatchKeyEvent`, `insertText` and an
   `imeSetComposition` that is accepted and changes nothing; touch, drag and the synthesized gestures are
   honestly `-32601`, and the public `Page.ClickAsync`/`TypeAsync`/`PressAsync` reach the same dispatcher
-  rather than a second one. The keyboard's own rules are
+  rather than a second one. **`DOM.setFileInputFiles` is the file chooser there is none of**: clicking an
+  `<input type=file>` only records that a page asked for a picker, so this command, `Page.SetInputFilesAsync`
+  and the Playwright adapter all run one algorithm, `Dom/Files/FileSelection`. It reads the host paths on the
+  loop before it changes anything — a `File` here is memory the engine owns, not a handle, so a failed read
+  leaves the previous selection standing and is `-32000` naming the path rather than an empty selection. The keyboard's own rules are
+  one character at a time. `Input` is `dispatchMouseEvent`, `dispatchKeyEvent`, `dispatchTouchEvent`,
+  `insertText` and an `imeSetComposition` that is accepted and changes nothing; drag and the synthesized
+  gestures are honestly `-32601`, and the public `Page.ClickAsync`/`TypeAsync`/`PressAsync`/`TapAsync` reach
+  the same dispatcher rather than a second one. A touch is delivered whether or not
+  `Emulation.setTouchEmulationEnabled` was sent — that command decides what a page *detects* — and the
+  gesture's own rules are [`../Events/AGENTS.md`](../Events/AGENTS.md#touch-a-gesture-outlives-the-command). The keyboard's own rules are
   [above](../Events/AGENTS.md#the-keyboard-and-the-editor-under-it).
 - **A named isolated world is made again over every document.** Chrome does that, and Puppeteer and
   Playwright each create one utility world when they attach and then use it for the life of the page — so a
@@ -103,10 +113,23 @@ target/runtime split and the manifest are there and none of it is repeated here.
   pattern asking for `requestStage: "Response"` pauses with the response's status and headers, and
   `continueResponse`, `fulfillRequest` and `failRequest` answer one — a default pattern still pauses the
   request stage only, that being the protocol's own default, and pausing both would double every pause a
-  recorded client expects. **`IO`, `Fetch.getResponseBody` and `takeResponseBodyAsStream` are still absent,
-  for a different reason than they used to be**: the pause has the response's *headers* while its body is
-  still on the socket, so there are no bytes to hand a client without buffering them first, which is a
-  budget decision rather than a hook. Still absent with a reason: `eventSourceMessageReceived` (a stream is
+  recorded client expects. **`Fetch.getResponseBody` is here**, over the engine's
+  `FetchResponseInterceptionContext`: it is the only thing that ever buffers a paused body, so a pattern that
+  pauses responses copies nothing until a client asks, and what it reads is **replayed ahead of the unread
+  remainder** — the page receives every original byte exactly once whether the read succeeded, was refused or
+  never happened. Both the bytes and the base64 reply are charged to the page's one reservation ledger
+  (`PageNetworkRecorder.TryReserve`, bounded by `BrowserOptions.MaxCapturedResponseBytes` and shared with the
+  `Network` captures, which it evicts and is never evicted by), and the reply's lease is held until the
+  transport has actually written it — `IDevToolsConnection.SendTrackedAsync` reached through
+  `CommandContext.HoldUntilReplyWritten`, which is what stops repeated commands queueing unboundedly many
+  encoded copies behind a slow socket. A body the ledger refuses is `-32000` and **not** a resolved pause. **A
+  read and a terminal decision are serialised per pause**: a `continueResponse`/`fulfillRequest`/`failRequest`
+  arriving mid-read is refused with an explicit invalid-state error, while detach, disable and the fetch's own
+  cancellation always end the pause and are merely deferred for as long as the read lasts — swapping the
+  response's content out from under a read in flight is the one thing the replay cannot survive.
+  **`IO` and `takeResponseBodyAsStream` stay absent**: a stream handle is a second lifetime to bound for a
+  shape no recorded client sends, and that domain's mainstream producers are `Page.printToPDF` and `Tracing`,
+  neither of which exists here. Still absent with a reason: `eventSourceMessageReceived` (a stream is
   observed as bytes rather than as the events they decode into, so its requests are in the log as
   `ResourceType: EventSource` and its messages are nowhere), and the three `webSocketFrame*` events (the
   engine's socket observer is told about the two handshakes and the close, and a frame never reaches it).
@@ -125,10 +148,40 @@ target/runtime split and the manifest are there and none of it is repeated here.
   domain's `backendNodeId` on every node — which is what makes a node a client found by role one it can then
   measure and click. It is computed per request and never maintained, which is why `loadComplete` and
   `nodesUpdated` are not emitted: an event stream would promise that the answer is being watched.
-- **`Security`, `Overlay` and `CSS` answer what a front end sends while attaching and nothing more.** `CSS`
-  has the two reads AngleSharp.Css can stand behind and every editing command is `-32601`; `Overlay` would
-  draw on a surface that does not exist; `Security` has no certificate decision to report, the transport
-  being the host's own `HttpClient`.
+- **`Security` and `Overlay` answer what a front end sends while attaching and nothing more.** `Overlay`
+  would draw on a surface that does not exist; `Security` has no certificate decision to report, the
+  transport being the host's own `HttpClient`.
+- **`CSS` is two reads and a coverage run, and every editing command is still `-32601`.**
+  `getComputedStyleForNode` and `getInlineStylesForNode` are what AngleSharp.Css can stand behind;
+  `startRuleUsageTracking`, `takeCoverageDelta` and `stopRuleUsageTracking` — with `styleSheetAdded` and
+  `getStyleSheetText`, which are the rest of what a coverage client sends — are
+  `page.coverage.startCSSCoverage()`. Four things about them are decisions:
+  - **A rule is used when it matched an element in a cascade computation.** `Dom/Views/CssRuleUsage` is the
+    seam and `Dom/Views/CssCascade` is where it sits, so every `getComputedStyle`, every box the flat model
+    measures and this domain's own computed style feed it. It is armed only while a window is open — a
+    process-wide array, a volatile read and a length test — so a page nobody is tracking pays what a page
+    with no `Network` client pays. **The matching is done again rather than read off the cascade**: nothing
+    in AngleSharp.Css reports which rules produced a computed declaration, which is the upstream finding
+    behind this whole shape. The window matches only the rules it has not already recorded, over
+    `IWindow.GetStyleCollection`'s own flattened, condition-filtered list — so a rule inside an `@media` or
+    `@supports` that holds counts on its own, one inside a group that does not is never a candidate, and a
+    rule that matched once is not recorded twice.
+  - **Starting a window walks the document once, and so does a commit.** Blink's `startRuleUsageTracking`
+    marks every element for style recalculation and runs it before returning; nothing renders here, so a
+    document nobody queries would otherwise yield an empty report. That sweep is selector matching and no
+    value computation.
+  - **The offsets index the text this domain hands out and no other string.** AngleSharp keeps a sheet's
+    authored text (`IStyleSheet.Source`) but no source position on any rule, so a range into the authored
+    bytes cannot be computed at all. `CssStyleSheetText` serializes the sheet and measures that same
+    serialization, which is what `getStyleSheetText` answers with — one rule per line, two spaces of
+    nesting, an LF line break everywhere — so two platforms report the same offsets, and a client
+    slicing the text it was given gets the rule it was told about.
+  - **Sheets are reconciled when a client asks, not watched.** AngleSharp raises no notification when a
+    sheet joins or leaves a document, so `CssStyleSheetTracker` mints identifiers — a document's, shared by
+    every attachment, exactly as `DomNodeTracker` mints a `nodeId` — and `styleSheetAdded` is emitted at
+    `enable`, at each commit, and before any command that hands out an offset. `styleSheetChanged` and
+    `styleSheetRemoved` are absent for the same reason, and their absence is what a client cannot notice:
+    it can cache a text that a page has since edited.
 
 `Jint.Tests.Browser/DevTools/` holds two handshake replays — every *method* four recorded clients sent, and
 every parameter **shape** they sent it with, the second built out of each call's own `paramsKeys` and typed
@@ -183,7 +236,12 @@ a second truth about the same request.
   debt `FetchObservation.FinalResponse` names, and the body half of it.
 - **The capture is bounded and off by default.** `BrowserOptions.MaxCapturedResponseBytes` bounds the total
   a page holds, the oldest capture is dropped to stay under it, and the copying is armed only while a client
-  has the `Network` domain enabled.
+  has the `Network` domain enabled. **That figure is one ledger with two kinds of holder**: a captured body
+  and a `Fetch.getResponseBody` reservation spend it together, because two allowances would each be a bound
+  and neither would bound the page. A chunk charges before it is copied and evicts the oldest capture to make
+  room; a reservation does the same and is itself **pinned**, since the bytes behind it are owed to a
+  response nobody has received yet — so a capture that no longer fits beside one is dropped rather than
+  allowed to overrun. Neither ever waits for a sibling to let go: a sibling may itself be paused.
 
 **The URL is the runtime's.** `PageRuntime.DocumentUrl` is what `location`, `document.URL` and relative
 resolution read, and `pushState` and a fragment navigation move it without reloading. Writing AngleSharp's

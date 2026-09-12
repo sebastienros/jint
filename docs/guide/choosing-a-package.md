@@ -8,7 +8,6 @@ automation, command-line, or agent surface.
 | --- | --- |
 | [`Jint.DevTools`](../packages/jint-devtools/) | Chrome DevTools Protocol for an engine hosted by your application |
 | [`Jint.Browser`](../packages/jint-browser/) | HTML, DOM, navigation, extraction, or browser-style automation without rendering |
-| [`Jint.Browser.Playwright`](../packages/jint-browser-playwright/) | Public Playwright interfaces backed directly by `Jint.Browser` |
 | [`Jint.Browser.Tool`](../packages/jint-browser-tool/) | A command-line browser, CDP endpoint, or ready-made MCP process |
 | [`Jint.Browser.Mcp`](../packages/jint-browser-mcp/) | Browser tools embedded in your own Model Context Protocol server |
 

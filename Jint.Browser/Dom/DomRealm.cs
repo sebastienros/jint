@@ -45,6 +45,7 @@ internal sealed class DomRealm
 
     private readonly ObjectInstance?[] _prototypes;
     private readonly DomInterfaceObject?[] _interfaceObjects;
+    private readonly ObjectInstance?[] _pristineLengthGetters;
     private readonly ConditionalWeakTable<object, ObjectInstance> _wrappers = new();
     private readonly ConditionalWeakTable<IElement, AriaElementReflection.Cache> _ariaCaches = new();
     private int _nodes;
@@ -58,6 +59,7 @@ internal sealed class DomRealm
         var interfaceCount = DomInterfaces.All.Length + DomManualInterfaces.All.Length;
         _prototypes = new ObjectInstance?[interfaceCount];
         _interfaceObjects = new DomInterfaceObject?[interfaceCount];
+        _pristineLengthGetters = new ObjectInstance?[interfaceCount];
     }
 
     /// <summary>The engine every object in this realm belongs to.</summary>
@@ -184,8 +186,46 @@ internal sealed class DomRealm
             "constructor",
             new PropertyDescriptor(interfaceObject, PropertyFlag.NonEnumerable));
 
+        CaptureLengthAccessor(definition, prototype);
+
         return prototype;
     }
+
+    /// <summary>
+    /// Records the <c>length</c> getter a collection interface's prototype was created with, which is what
+    /// <see cref="DomCollectionBase.PristineLengthGetter"/> answers and the engine's length lane compares
+    /// against.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// It has to be taken <b>here</b>, while the prototype is exactly what the shape declared. Reading it
+    /// later would capture whatever a page had already put there, and the lane would then treat a tampered
+    /// accessor as the pristine one. Materializing the accessor pair costs one <c>ClrFunction</c> per
+    /// collection prototype per engine and does not move <c>_propertiesVersion</c>, which is what the lane's
+    /// guard is measured against.
+    /// </para>
+    /// <para>
+    /// Only the two collection wrapper kinds are asked, because only those are <c>ArrayLikeObject</c>s. A
+    /// node that merely carries an indexed getter — <c>form</c>, <c>select</c> — is a
+    /// <c>DomIndexedNodeObject</c> and reads its <c>length</c> the ordinary way.
+    /// </para>
+    /// </remarks>
+    private void CaptureLengthAccessor(DomInterfaceDefinition definition, ObjectInstance prototype)
+    {
+        if (definition.WrapperKind is not (DomWrapperKind.Collection or DomWrapperKind.HtmlCollection))
+        {
+            return;
+        }
+
+        _pristineLengthGetters[definition.Index] = prototype.GetOwnProperty("length").Get as ObjectInstance;
+    }
+
+    /// <summary>
+    /// The <c>length</c> getter <paramref name="definition"/>'s prototype was created with in this engine, or
+    /// <see langword="null"/> when the interface declares none.
+    /// </summary>
+    internal ObjectInstance? PristineLengthGetterOf(DomInterfaceDefinition definition)
+        => _pristineLengthGetters[definition.Index];
 
     /// <summary>
     /// The interface prototype when it has already been created, without making a page that never reached
@@ -282,6 +322,15 @@ internal sealed class DomRealm
         }
 
         var definition = DomTypeMap.For(collection.GetType());
+
+        // document.all is the one collection whose own interface decides the wrapper: HTML gives it a named
+        // lookup, an item(), a legacy caller and an internal slot no HTMLCollection has, and it arrives here
+        // because the generated Document.all getter's declared return type is IHtmlCollection<IElement>.
+        if (definition?.WrapperKind == DomWrapperKind.HtmlAllCollection && collection is IHtmlAllCollection all)
+        {
+            return Cache(collection, new DomHtmlAllCollectionObject(this, definition, all));
+        }
+
         if (definition?.WrapperKind != DomWrapperKind.HtmlCollection)
         {
             // AngleSharp's QueryCollection also implements INodeList. The member's IDL return type,
@@ -290,6 +339,34 @@ internal sealed class DomRealm
         }
 
         return Cache(collection, new DomHtmlCollectionObject<T>(this, definition, collection));
+    }
+
+    /// <summary>
+    /// Projects the <b>static</b> <c>NodeList</c> a selector match produced, as
+    /// <a href="https://dom.spec.whatwg.org/#dom-parentnode-queryselectorall">DOM §4.2.6</a> defines it:
+    /// "the static result of running scope-match a selectors string".
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The snapshot is the binding's own (<see cref="DomStaticNodeList"/>) rather than AngleSharp's, because
+    /// nothing about an <see cref="INodeList"/> says whether it is live and the wrapper keeps one element
+    /// wrapper per index. It is cached like every other wrapper, so <c>Hooks.WrapperCreated</c> fires once
+    /// for it; the snapshot is new on every call, which keeps
+    /// <c>el.querySelectorAll('x') !== el.querySelectorAll('x')</c> — DOM's answer, and the one the binding
+    /// already gave.
+    /// </para>
+    /// <para>
+    /// The wrapper is the ordinary <see cref="DomCollectionObject"/> every other <c>NodeList</c> gets, and
+    /// deliberately so: the memo is a branch inside that one class rather than a second
+    /// <c>ArrayLikeObject</c> beside it, so the live <c>NodeList</c>s and this one go on sharing the class
+    /// the interpreter's array-like read lane devirtualizes. <see cref="DomCollectionObject"/> records why
+    /// that is a contract rather than a preference.
+    /// </para>
+    /// </remarks>
+    internal JsValue WrapStaticNodeList(IHtmlCollection<IElement> matches)
+    {
+        var snapshot = new DomStaticNodeList(matches);
+        return Cache(snapshot, new DomCollectionObject(this, DomInterfaces.NodeList, snapshot, DomAccessorNodeList.Instance));
     }
 
     /// <summary>Projects the live <c>NodeList</c> of labels associated with a labelable element.</summary>
@@ -316,6 +393,13 @@ internal sealed class DomRealm
         if (definition.WrapperKind is DomWrapperKind.Node or DomWrapperKind.IndexedNode)
         {
             return NewNode(definition, (INode) value);
+        }
+
+        if (definition.WrapperKind == DomWrapperKind.HtmlAllCollection)
+        {
+            return value is IHtmlAllCollection all
+                ? new DomHtmlAllCollectionObject(this, definition, all)
+                : Unsupported(value, "is projected as HTMLAllCollection but is not an IHtmlAllCollection");
         }
 
         if (definition.WrapperKind == DomWrapperKind.HtmlCollection)

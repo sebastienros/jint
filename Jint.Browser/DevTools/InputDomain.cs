@@ -10,14 +10,22 @@ using Jint.WebApi.Events;
 namespace Jint.Browser.DevTools;
 
 /// <summary>
-/// The <c>Input</c> domain: a mouse and a keyboard.
+/// The <c>Input</c> domain: a mouse, a keyboard and a touch surface.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Four commands, and the rest are honestly absent.</b> The touch and drag commands and the synthesized
-/// gestures all answer <c>-32601</c>, so a client feature-detecting any of them is told the truth rather than
-/// being given a silent success. Touch needs a second pointer model this browser has no digitizer for, and a
-/// drag needs a data transfer that never leaves the page.
+/// <b>Five commands, and the rest are honestly absent.</b> The drag commands and the synthesized gestures
+/// answer <c>-32601</c>, so a client feature-detecting either is told the truth rather than being given a
+/// silent success: a drag needs a data transfer that never leaves the page, and a synthesized scroll or pinch
+/// is a gesture recognizer over a rendering there is none of.
+/// </para>
+/// <para>
+/// <b>A touch event is a hit test per contact and then a gesture.</b> The contacts a client sends are
+/// hit-tested against the same flat box model a mouse event is, and what a page then reads —
+/// <c>touches</c>, <c>targetTouches</c>, <c>changedTouches</c>, and the compatibility mouse events a
+/// single-finger tap leaves behind — is <c>InputDispatcher.DispatchTouch</c>'s, where Touch Events Level 2's
+/// rules for each are written down. Whether the page <i>detects</i> a touch device at all is a different
+/// question and a different command: <c>Emulation.setTouchEmulationEnabled</c>.
 /// </para>
 /// <para>
 /// <b>A key event is a focus lookup and then a sequence.</b> The target is whatever the page has focused —
@@ -78,6 +86,45 @@ internal sealed class InputDomain : InputDomainBase
                 Modifiers(parameters.Modifiers ?? 0),
                 parameters.DeltaX ?? 0,
                 parameters.DeltaY ?? 0));
+        }
+
+        return CompleteAsync(pending);
+    }
+
+    /// <summary>
+    /// https://chromedevtools.github.io/devtools-protocol/tot/Input/#method-dispatchTouchEvent.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The protocol's own two rules about the list are enforced rather than assumed</b>: a
+    /// <c>touchStart</c> or <c>touchMove</c> with no contacts, and a <c>touchEnd</c> or <c>touchCancel</c>
+    /// with any, are <c>-32602</c>. Both are what the parameter's description says, and a client that breaks
+    /// either is describing a gesture that cannot happen — a start with nothing touching, or an end that
+    /// still has fingers down — which is worth a refusal a client can read rather than a silent
+    /// reinterpretation.
+    /// </para>
+    /// <para>
+    /// <c>tangentialPressure</c>, <c>tiltX</c>, <c>tiltY</c>, <c>twist</c> and <c>timestamp</c> are accepted
+    /// and not reported: Touch Events publishes no member for the first four — they are a stylus's, and its
+    /// interface is <c>PointerEvent</c> — and a timestamp is the page's own clock rather than the client's,
+    /// which is what a page comparing two events' <c>timeStamp</c> needs. The protocol's defaults for
+    /// <c>radiusX</c>, <c>radiusY</c>, <c>rotationAngle</c> and <c>force</c> are applied here, so an omitted
+    /// one reaches the page as the value Chrome would have sent rather than as zero.
+    /// </para>
+    /// <para>
+    /// An omitted <c>id</c> is the contact's position in the list, which keeps a multi-touch gesture from a
+    /// client that sends none from arriving as several contacts sharing one identifier.
+    /// </para>
+    /// </remarks>
+    protected override ValueTask<EmptyResult> DispatchTouchEventAsync(DispatchTouchEventRequest parameters, CommandContext context)
+    {
+        var kind = TouchKind(parameters.Type);
+        var points = TouchPoints(kind, parameters.TouchPoints);
+        var pending = _target.PendingNavigationCount;
+
+        if (PageRuntime.Find(_target.Runtime.Engine) is { } runtime)
+        {
+            InputDispatcher.DispatchTouch(runtime, new TouchInput(kind, points, Modifiers(parameters.Modifiers ?? 0)));
         }
 
         return CompleteAsync(pending);
@@ -164,6 +211,60 @@ internal sealed class InputDomain : InputDomainBase
         DispatchKeyEventRequestTypeValues.Char => KeyInputKind.Char,
         _ => Throw.InvalidParams<KeyInputKind>("Unknown key event type: " + type),
     };
+
+    /// <summary>Which of the four touch events the client asked for, refusing a fifth it made up.</summary>
+    private static TouchInputKind TouchKind(string type) => type switch
+    {
+        DispatchTouchEventRequestTypeValues.TouchStart => TouchInputKind.Start,
+        DispatchTouchEventRequestTypeValues.TouchMove => TouchInputKind.Move,
+        DispatchTouchEventRequestTypeValues.TouchEnd => TouchInputKind.End,
+        DispatchTouchEventRequestTypeValues.TouchCancel => TouchInputKind.Cancel,
+        _ => Throw.InvalidParams<TouchInputKind>("Unknown touch event type: " + type),
+    };
+
+    /// <summary>
+    /// https://chromedevtools.github.io/devtools-protocol/tot/Input/#type-TouchPoint — the contacts, with the
+    /// protocol's documented defaults and its two rules about how many there may be.
+    /// </summary>
+    private static TouchPointInput[] TouchPoints(TouchInputKind kind, TouchPoint[]? sent)
+    {
+        // `required` says the member has to be present, not that its value cannot be null, so a client that
+        // writes `"touchPoints": null` reaches here with nothing rather than with an empty list.
+        var points = sent ?? [];
+        var ending = kind is TouchInputKind.End or TouchInputKind.Cancel;
+
+        if (ending && points.Length > 0)
+        {
+            Throw.InvalidParams("Touch end and cancel must not have any touch points");
+        }
+
+        if (!ending && points.Length == 0)
+        {
+            Throw.InvalidParams("Touch start and move must have at least one touch point");
+        }
+
+        if (points.Length == 0)
+        {
+            return [];
+        }
+
+        var contacts = new TouchPointInput[points.Length];
+
+        for (var i = 0; i < points.Length; i++)
+        {
+            var point = points[i];
+            contacts[i] = new TouchPointInput(
+                point.Id ?? i,
+                point.X,
+                point.Y,
+                point.RadiusX ?? 1,
+                point.RadiusY ?? 1,
+                point.RotationAngle ?? 0,
+                point.Force ?? 1);
+        }
+
+        return contacts;
+    }
 
     /// <summary>Which of the four events the client asked for, refusing a fifth it made up.</summary>
     private static MouseInputKind Kind(string type) => type switch

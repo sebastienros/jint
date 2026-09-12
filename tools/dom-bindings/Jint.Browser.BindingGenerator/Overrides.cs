@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace Jint.Browser.BindingGenerator;
@@ -32,8 +32,18 @@ internal sealed class Overrides
     [JsonPropertyName("reflected")]
     public List<ReflectedEntry> Reflected { get; init; } = [];
 
+    [JsonPropertyName("unscopables")]
+    public List<UnscopableEntry> Unscopables { get; init; } = [];
+
     [JsonPropertyName("nullableStrings")]
     public List<NullableStringEntry> NullableStrings { get; init; } = [];
+
+    /// <summary>
+    /// The IDL attributes whose setter carries <c>[LegacyNullToEmptyString]</c>, or whose own steps say the
+    /// same thing in prose (DOM §4.4's <c>nodeValue</c>): JavaScript <c>null</c> is the empty string.
+    /// </summary>
+    [JsonPropertyName("nullToEmptyStrings")]
+    public List<NullableStringEntry> NullToEmptyStrings { get; init; } = [];
 
     [JsonPropertyName("nullableParameters")]
     public List<NullableParameterEntry> NullableParameters { get; init; } = [];
@@ -60,6 +70,11 @@ internal sealed class Overrides
         public string Reason { get; init; } = "";
     }
 
+    /// <summary>
+    /// An interface the binding writes by hand: always its shape, and optionally the two other things the CLR
+    /// hierarchy answers wrongly for it - which wrapper class its instances get, and what its prototype
+    /// inherits.
+    /// </summary>
     internal sealed class ManualEntry
     {
         [JsonPropertyName("interface")]
@@ -68,6 +83,23 @@ internal sealed class Overrides
         /// <summary>The hand-written method group that builds the shape.</summary>
         [JsonPropertyName("shape")]
         public string Shape { get; init; } = "";
+
+        /// <summary>
+        /// The <c>DomWrapperKind</c> this interface's instances get, overriding the one derived from its CLR
+        /// metadata. Absent means the derivation stands.
+        /// </summary>
+        [JsonPropertyName("wrapper")]
+        public string? Wrapper { get; init; }
+
+        /// <summary>
+        /// The DOM name of the interface this one inherits, overriding what the CLR interface hierarchy
+        /// implies; the <b>empty string</b> means the prototype chain roots at <c>Object.prototype</c>. Absent
+        /// means the derivation stands. It exists because AngleSharp models a standalone WebIDL interface as a
+        /// refinement of another one - <c>IHtmlAllCollection : IHtmlCollection&lt;IElement&gt;</c>, where
+        /// HTML's <c>HTMLAllCollection</c> inherits nothing.
+        /// </summary>
+        [JsonPropertyName("inherits")]
+        public string? Inherits { get; init; }
 
         [JsonPropertyName("reason")]
         public string Reason { get; init; } = "";
@@ -260,13 +292,36 @@ internal sealed class Overrides
         [JsonPropertyName("nullable")]
         public bool Nullable { get; init; }
 
-        /// <summary>Whether an absent or empty URL attribute answers the owning document's URL.</summary>
-        [JsonPropertyName("defaultToDocumentUrl")]
-        public bool DefaultToDocumentUrl { get; init; }
+        /// <summary>
+        /// WebIDL's <c>[LegacyNullToEmptyString]</c> on a <c>DOMString</c>: the null value converts to the
+        /// empty string rather than to <c>"null"</c>. It says nothing about <c>undefined</c>.
+        /// </summary>
+        [JsonPropertyName("legacyNullToEmptyString")]
+        public bool LegacyNullToEmptyString { get; init; }
 
-        /// <summary>Whether reflection supplies only the setter while the projected getter remains.</summary>
+        /// <summary>
+        /// HTML §4.10.18.6's exception on a URL attribute: a missing or empty content attribute answers the
+        /// element's node document's URL. Only <c>form.action</c> and <c>formAction</c> have it.
+        /// </summary>
+        [JsonPropertyName("documentUrlWhenEmpty")]
+        public bool DocumentUrlWhenEmpty { get; init; }
+
+        /// <summary>
+        /// Whether the row replaces only the <b>setter</b> and leaves the projected getter in place, which
+        /// is the shape of an IDL attribute HTML defines as reflecting "on setting" while its getter
+        /// computes something reflection cannot express — and where the pinned assemblies already compute
+        /// it correctly, so a full replacement would be a regression rather than a fix.
+        /// </summary>
         [JsonPropertyName("setterOnly")]
         public bool SetterOnly { get; init; }
+
+        /// <summary>
+        /// Which element the content attribute lives on, when it is not the one the IDL attribute was read
+        /// from: <c>documentElement</c> or <c>body</c>. HTML has six such members and all six are on
+        /// <c>Document</c>.
+        /// </summary>
+        [JsonPropertyName("target")]
+        public string? Target { get; init; }
 
         /// <summary>A numeric attribute's default value, when it is not the type's own.</summary>
         [JsonPropertyName("default")]
@@ -279,6 +334,38 @@ internal sealed class Overrides
         /// <summary>A clamped attribute's upper bound.</summary>
         [JsonPropertyName("max")]
         public long? Max { get; init; }
+
+        [JsonPropertyName("reason")]
+        public string Reason { get; init; } = "";
+    }
+
+    /// <summary>
+    /// The <c>[Unscopable]</c> members of one interface - https://webidl.spec.whatwg.org/#Unscopable.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Nothing in AngleSharp's metadata says which members are unscopable, and nothing could: it is a Web IDL
+    /// extended attribute about how a member behaves inside a <c>with</c> statement, not a fact about the CLR
+    /// property behind it. So it is a table, and it is the <b>standard's</b> half of one rather than
+    /// AngleSharp's - DOM §4.2.8 and §4.2.9 mark every member of the <c>ChildNode</c> and <c>ParentNode</c>
+    /// mixins, which is what puts seven names on <c>Element</c> and four or three on each of the other four
+    /// interfaces that include one.
+    /// </para>
+    /// <para>
+    /// Every name has to be a member the interface really declares, which the generator checks after the
+    /// members are built: an entry naming one it does not is a diagnostic, because Web IDL builds the
+    /// <c>@@unscopables</c> object from the interface's own members and a name that is not one would make the
+    /// object claim something the prototype does not have.
+    /// </para>
+    /// </remarks>
+    internal sealed class UnscopableEntry
+    {
+        [JsonPropertyName("interface")]
+        public string Interface { get; init; } = "";
+
+        /// <summary>The IDL names, which become the keys of the <c>@@unscopables</c> object.</summary>
+        [JsonPropertyName("members")]
+        public List<string> Members { get; init; } = [];
 
         [JsonPropertyName("reason")]
         public string Reason { get; init; } = "";

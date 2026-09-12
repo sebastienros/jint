@@ -5,6 +5,13 @@ dotnet tool restore
 dotnet test262 generate
 ```
 
+The test run downloads the archive for the generated suite's exact `SuiteGitSha` into a unique
+staging directory, verifies the pinned corpus content digest, and atomically publishes it to the
+cache. Transient acquisition failures are retried up to three times. Set `JINT_TEST262_CACHE` to
+choose the directory that holds `test262-<sha>.zip`. Set `JINT_TEST262_OFFLINE=1` to require that
+exact cached archive and disable network acquisition; a missing, partial, corrupt, or mismatched
+archive fails the run rather than falling back to another corpus.
+
 ## Reusable provider examples
 
 `NodaTimeZoneProvider.cs` and `IcuCldrProvider.cs` in this directory are not just test

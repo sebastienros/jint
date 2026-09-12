@@ -180,21 +180,14 @@ internal static class FormSubmitter
         try
         {
             // HTML's entry-list inventory is submittable controls, not form.elements: the latter excludes
-            // image inputs. AngleSharp supplies both tree order and each control's form owner, including
-            // controls outside the form and controls in detached trees.
-            foreach (var node in form.GetRoot().GetDescendants())
+            // image inputs and decides ownership by AngleSharp's rule rather than the standard's. The walk is
+            // over the form's whole tree in tree order, so a control outside the form that the `form`
+            // attribute associated with it contributes, and one inside it that points elsewhere does not.
+            foreach (var element in HtmlFormOwner.ControlsOf(form))
             {
-                var owner = node switch
+                if (element is IHtmlElement html)
                 {
-                    IHtmlInputElement input => input.Form,
-                    IHtmlButtonElement button => button.Form,
-                    IHtmlSelectElement select => select.Form,
-                    IHtmlTextAreaElement textArea => textArea.Form,
-                    _ => null,
-                };
-                if (ReferenceEquals(owner, form))
-                {
-                    Append(runtime, entries, (IHtmlElement) node, submitter);
+                    Append(runtime, entries, html, submitter);
                 }
             }
 
@@ -266,11 +259,14 @@ internal static class FormSubmitter
                     if (ReferenceEquals(element, submitter))
                     {
                         var prefix = string.IsNullOrEmpty(name) ? "" : name + ".";
-                        // HTML permits selecting a position only from an available image the UA displays.
-                        // This browser does not fetch/render images, so even a pointer click activates the
-                        // fallback submit button and retains the initial (0, 0). A flat box is not an image.
-                        entries.Add(new FormDataEntry(prefix + "x", JsString.Create("0")));
-                        entries.Add(new FormDataEntry(prefix + "y", JsString.Create("0")));
+
+                        // The coordinate is the input activation behaviour's — Events/ActivationBehaviors
+                        // selects it, out of a pointer inside an available image or out of nothing at all —
+                        // and it is kept per element because a FormData built long after that click, or a
+                        // requestSubmit that never was a click, reads it right here.
+                        var (x, y) = Events.BrowserEventRealm.Of(runtime.Engine).SelectedImageCoordinate(input);
+                        entries.Add(new FormDataEntry(prefix + "x", JsString.Create(x.ToString(System.Globalization.CultureInfo.InvariantCulture))));
+                        entries.Add(new FormDataEntry(prefix + "y", JsString.Create(y.ToString(System.Globalization.CultureInfo.InvariantCulture))));
                     }
 
                     return;

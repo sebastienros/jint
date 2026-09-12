@@ -94,49 +94,6 @@ public sealed class DomReflectionTests
     }
 
     [Test]
-    public async Task AFormActionUrlDefaultsToTheOwningDocumentUrl()
-    {
-        await using var browser = new global::Jint.Browser.Browser();
-        var page = await browser.NewPageAsync();
-        await page.SetContentAsync(
-            "<base href='https://base.example/other/'><input id='control'>",
-            "https://document.example/root/page.html#fragment");
-
-        (await page.EvaluateAsync<string>("control.formAction"))
-            .Should().Be("https://document.example/root/page.html#fragment");
-        await page.EvaluateAsync("control.setAttribute('formaction', '')");
-        (await page.EvaluateAsync<string>("control.formAction"))
-            .Should().Be("https://document.example/root/page.html#fragment");
-
-        await page.EvaluateAsync("control.setAttribute('formaction', 'submit')");
-        (await page.EvaluateAsync<string>("control.formAction"))
-            .Should().Be("https://base.example/other/submit");
-
-        await page.EvaluateAsync(
-            """
-            globalThis.other = document.implementation.createHTMLDocument('other');
-            other.head.innerHTML = "<base href='https://other-base.example/'>";
-            other.body.innerHTML = "<input id='otherControl'>";
-            globalThis.otherControl = other.getElementById('otherControl');
-            """);
-        (await page.EvaluateAsync<bool>("otherControl.formAction === other.URL")).Should().BeTrue();
-        await page.EvaluateAsync("document.adoptNode(otherControl)");
-        (await page.EvaluateAsync<bool>("otherControl.formAction === document.URL")).Should().BeTrue();
-    }
-
-    [Test]
-    public void AFormMethodRecognizesDialogCaseInsensitively()
-    {
-        using var fixture = DomTestFixture.Create("<input id='i'>");
-
-        fixture.Evaluate("document.querySelector('#i').formMethod = 'dialog'");
-        fixture.Text("document.querySelector('#i').formMethod").Should().Be("dialog");
-        fixture.Evaluate("document.querySelector('#i').formMethod = 'DiAlOg'");
-        fixture.Text("document.querySelector('#i').getAttribute('formmethod')").Should().Be("DiAlOg");
-        fixture.Text("document.querySelector('#i').formMethod").Should().Be("dialog");
-    }
-
-    [Test]
     public async Task AUrlAttributeUsesTheCurrentDocumentBaseAfterBaseRemoval()
     {
         await using var browser = new global::Jint.Browser.Browser();
@@ -159,6 +116,79 @@ public sealed class DomReflectionTests
         (await page.EvaluateAsync<string>("otherLink.href")).Should().Be("https://other.example/root/");
         await page.EvaluateAsync("secondary.getElementById('otherBase').remove()");
         (await page.EvaluateAsync<string>("otherLink.href")).Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// HTML §4.10.18.6's exception to URL reflection — a missing or empty <c>action</c> answers the element's
+    /// node document's URL — is the document's <b>current</b> URL, which for a document with a browsing
+    /// context is the one <c>pushState</c> moved and not the address AngleSharp was parsed at.
+    /// </summary>
+    /// <remarks>
+    /// The two are the same value until a same-document navigation separates them: <c>pushState</c> moves
+    /// <c>PageRuntime.DocumentUrl</c> without touching AngleSharp's document at all, deliberately, because
+    /// writing its location would raise <c>Location.Changed</c> and reopen the browsing context. So a form
+    /// posting to itself — the whole reason the rule exists — read the address the page was first loaded at.
+    /// It is the document's URL and not its base URL, which is why the <c>&lt;base href&gt;</c> here moves
+    /// neither answer, and it is the <em>owning</em> document's, which is what a secondary document with no
+    /// runtime of its own tests.
+    /// </remarks>
+    [Test]
+    public async Task AFormActionUrlDefaultsToTheOwningDocumentUrl()
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(
+            "<base href='https://base.example/other/'>"
+            + "<form id='f' action=''><input id='i' formaction=''><button id='b'></button></form>",
+            "https://document.example/root/page.html#fragment");
+
+        const string members = "[f.action, i.formAction, b.formAction].join('|')";
+        const string page1 = "https://document.example/root/page.html#fragment";
+
+        // An empty attribute, on all three members with the rule.
+        (await page.EvaluateAsync<string>(members)).Should().Be(string.Join('|', page1, page1, page1));
+
+        // And an absent one, which is the other half of "missing or its value is the empty string".
+        await page.EvaluateAsync("f.removeAttribute('action'); i.removeAttribute('formaction')");
+        (await page.EvaluateAsync<string>(members)).Should().Be(string.Join('|', page1, page1, page1));
+
+        // A same-document navigation moves the document's URL, so all three follow it.
+        await page.EvaluateAsync("history.pushState({}, '', '/pushed?q=1')");
+        const string page2 = "https://document.example/pushed?q=1";
+        (await page.EvaluateAsync<string>(members)).Should().Be(string.Join('|', page2, page2, page2));
+
+        // A non-empty value is ordinary URL reflection again, so the <base href> applies to it and not to
+        // the default above.
+        await page.EvaluateAsync("i.setAttribute('formaction', 'submit')");
+        (await page.EvaluateAsync<string>("i.formAction")).Should().Be("https://base.example/other/submit");
+
+        // A document with no page runtime answers its own URL, and adoption moves the answer with the node.
+        await page.EvaluateAsync(
+            """
+            globalThis.other = document.implementation.createHTMLDocument('other');
+            other.body.innerHTML = "<input id='otherControl' formaction=''>";
+            globalThis.otherControl = other.getElementById('otherControl');
+            """);
+        (await page.EvaluateAsync<bool>("otherControl.formAction === other.URL")).Should().BeTrue();
+        (await page.EvaluateAsync<bool>("otherControl.formAction === document.URL")).Should().BeFalse();
+
+        await page.EvaluateAsync("document.adoptNode(otherControl)");
+        (await page.EvaluateAsync<string>("otherControl.formAction")).Should().Be(page2);
+    }
+
+    /// <summary>https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#dom-fs-formmethod</summary>
+    [TestCase("input")]
+    [TestCase("button")]
+    public void AFormMethodRecognizesDialogCaseInsensitively(string tag)
+    {
+        using var fixture = DomTestFixture.Create($"<{tag} id='control'>");
+        fixture.Execute("var control = document.getElementById('control')");
+        fixture.Text("control.formMethod").Should().BeEmpty();
+        fixture.Execute("control.formMethod = 'DiAlOg'");
+        fixture.Text("control.getAttribute('formmethod')").Should().Be("DiAlOg");
+        fixture.Text("control.formMethod").Should().Be("dialog");
+        fixture.Execute("control.formMethod = 'invalid'");
+        fixture.Text("control.formMethod").Should().Be("get");
     }
 
     [Test]
@@ -387,12 +417,57 @@ public sealed class DomReflectionTests
             """).Should().Be("TypeError: Failed to execute 'HTMLElement.dir': Illegal invocation");
     }
 
+    /// <summary>
+    /// A <c>setterOnly</c> row supplies the write half and leaves the projected read alone, which is what
+    /// <c>&lt;meter&gt;</c>'s six members need: their setters are HTML §2.6.1 reflection and their getters
+    /// are HTML §4.10.14's own algorithm.
+    /// </summary>
+    /// <remarks>
+    /// "The best representation of the number as a floating-point number" is ECMAScript's Number-to-String,
+    /// which AngleSharp's <c>Double.ToString(NumberFormatInfo.InvariantInfo)</c> disagrees with on the sign
+    /// of negative zero and on the case of an exponent.
+    /// </remarks>
+    [TestCase("-0", "0")]
+    [TestCase("1e-10", "1e-10")]
+    [TestCase("1e+25", "1e+25")]
+    [TestCase("0.1 + 0.2", "0.30000000000000004")]
+    public void ASetterOnlyReflectedMemberWritesHtmlsNumber(string assigned, string written)
+    {
+        using var fixture = DomTestFixture.Create("<meter id='m'></meter>");
+
+        foreach (var member in new[] { "value", "min", "max", "low", "high", "optimum" })
+        {
+            fixture.Evaluate($"document.querySelector('#m').{member} = {assigned}");
+            fixture.Text($"document.querySelector('#m').getAttribute('{member}')").Should().Be(written);
+        }
+    }
+
+    /// <summary>
+    /// The other half of the same row: the getter is still the projection's, so <c>&lt;meter&gt;</c> keeps
+    /// the defaults and the clamping HTML §4.10.14 gives it and no reflection algorithm can express — an
+    /// absent <c>max</c> is 1 rather than the <c>double</c> type's 0, and the actual value is the content
+    /// attribute constrained to the range.
+    /// </summary>
+    [Test]
+    public void ASetterOnlyReflectedMemberKeepsItsProjectedGetter()
+    {
+        using var fixture = DomTestFixture.Create("<meter id='m'></meter>");
+
+        fixture.Number("document.querySelector('#m').max").Should().Be(1);
+        fixture.Number("document.querySelector('#m').optimum").Should().Be(0.5);
+
+        fixture.Evaluate("document.querySelector('#m').setAttribute('max', '10')");
+        fixture.Evaluate("document.querySelector('#m').setAttribute('value', '50')");
+        fixture.Number("document.querySelector('#m').value").Should().Be(10);
+    }
+
     // ---------------------------------------------------------------------------------------------------
-    // The numeric half of HTML §2.6.1 plus the nullable string. Some now have generated members while others
-    // belong to #3770's remaining documents: `colSpan` and `span` are clamped unsigned longs, `maxLength` is
-    // a limited long, `select.size` a limited unsigned long, `progress.value` a double and textarea dimensions
-    // limited unsigned longs with fallback. Direct tests keep each shared algorithm explicit even before all
-    // of those element families are vendored.
+    // The types no `reflected` row wires up yet. They are the numeric half of HTML §2.6.1 plus the nullable
+    // string, and every one of them is #3770's remaining documents: `colSpan` and `span` are clamped unsigned
+    // longs, `maxLength` is a limited long, `select.size` a limited unsigned long, `progress.value` a double
+    // and `input.size` a limited unsigned long with fallback. Testing the algorithm here is what stops this
+    // change shipping machinery nothing runs, and it is the only way to state a type's rule before there is
+    // an element carrying an attribute of that type.
     // ---------------------------------------------------------------------------------------------------
 
     /// <summary>A <c>DOMString?</c>: absent is <c>null</c>, and setting <c>null</c> removes.</summary>
@@ -494,9 +569,16 @@ public sealed class DomReflectionTests
     }
 
     /// <summary>
-    /// HTML's reflected integer range ends at <c>2147483647</c>; WebIDL still converts larger values to
-    /// an unsigned long, but the content attribute receives the reflection type's default.
+    /// HTML's reflected integer range ends at 2147483647, and every unsigned setter writes its type's
+    /// <em>default</em> rather than the number it was handed when the number is above it.
     /// </summary>
+    /// <remarks>
+    /// The rule has to be applied by the setter because WebIDL's <c>unsigned long</c> conversion is modulo
+    /// 2<sup>32</sup> and not a clamp: <c>el.width = 4294967295</c> arrives as 4294967295, so nothing before
+    /// this point has refused it. The parsing half is <see cref="AnUnsignedLongDefaultsToZero"/>; this is
+    /// the writing half, and the three kinds reach it by two different routes — the limited one through the
+    /// <c>IndexSizeError</c> floor check, the other two directly.
+    /// </remarks>
     [Test]
     public void AnUnsignedSetterWritesItsDefaultAboveTheReflectedRange()
     {
@@ -507,14 +589,14 @@ public sealed class DomReflectionTests
                  {
                      (ReflectedKind.UnsignedLong, 0d, "0"),
                      (ReflectedKind.LimitedUnsignedLong, 20d, "20"),
-                     (ReflectedKind.ClampedUnsignedLong, 1d, "1")
+                     (ReflectedKind.ClampedUnsignedLong, 1d, "1"),
                  })
         {
             using var element = Element();
             var reflected = ReflectedAttribute.Numeric("X.y", "y", kind, fallback, min: 1, max: 1000);
             reflected.Set(realm, element.Value, [JsNumber.Create(2147483648d)]);
 
-            element.Value.GetAttribute("y").Should().Be(expected);
+            element.Value.GetAttribute("y").Should().Be(expected, kind.ToString());
         }
     }
 

@@ -39,11 +39,19 @@ Everything downstream of that follows:
   command on the thread that read it instead, and **the bar for naming a method is that it provably touches
   no engine state, no `JsValue` and no AngleSharp node** — a method that reads any of the three above, an
   `Engine` or a DOM node may never be named, because nothing here would catch it. What it buys is a command
-  answerable while the loop is not: today the three `Fetch` commands that release a paused request
+  answerable while the loop is not: today the `Fetch` commands that release a paused request, and
+  `Fetch.getResponseBody`, which reads the very socket the loop is blocked on
   ([`Jint.Browser/DevTools/AGENTS.md`](../Jint.Browser/DevTools/AGENTS.md)), since the pause holds a
-  transport thread and the loop may be blocked on the very fetch it is about.
+  transport thread and the loop may be blocked on the fetch it is about.
 - **Nothing a command returns may outlive the command.** A `CommandContext` is valid for the command that
-  received it, and must not be captured.
+  received it, and must not be captured. **The one thing that may outlive it is memory the reply itself
+  occupies**, and it has a door of its own: `CommandContext.HoldUntilReplyWritten(lease)` registers something
+  the session disposes once the reply has actually left the process rather than once the dispatch returned.
+  That is what `IDevToolsConnection.SendTrackedAsync` exists for — `SendAsync` completes at the channel
+  enqueue, which says nothing about how long a large encoded payload keeps occupying memory, so a command
+  that reserved for its own reply had no moment at which to release. It completes either way, written or
+  failed: what a caller waits for is "this message is no longer mine". Only a command that registered a lease
+  takes that path; everything else keeps the queue-and-return send it always had.
 - **Serialization happens on the engine thread too**, because that is where the `JsValue` is. That is why
   `ProtocolEvent` carries `ParametersJson` rather than an object: serializing later would mean reflecting
   over a type the session does not know.

@@ -5,10 +5,11 @@
 - No pixels, screenshots, PDF output, browser window, canvas rendering, WebGL, or media playback.
 - No visual layout. Synthetic boxes are deterministic tree rows; text does not wrap and elements are never truly side by side.
 - Geometry, hit testing, scrolling, intersection, and resize observations use that synthetic model.
-- Images are not downloaded for display; their references are recorded in the request log.
+- Images are fetched and their container headers read, never their pixels. `complete`, `currentSrc`, `naturalWidth`/`naturalHeight`, `width`/`height` and the `load`/`error` events answer per HTML §4.8.4; PNG, JPEG, GIF, WebP, BMP, ICO and SVG state a size, and any other container is the *broken* state with an `error` event. `srcset`, `sizes` and a `<picture>`'s `<source media>`/`type` select a candidate per HTML §4.8.4.3.6, against the configured viewport and device scale factor, and `img.decode()` resolves once the current request is completely available and rejects with an `EncodingError` when it is broken. There is no bitmap, no colour, no EXIF orientation and no animation, so an animated GIF is its logical screen and has no frames. `loading="lazy"` loads eagerly: whether an image intersects the viewport is a question about a layout this package does not have. Set `BrowserOptions.MaxImageRequests` to `0` to fetch none, which records every reference in the request log as before.
 - Child-frame documents can be fetched and parsed, but do not have a script realm. `contentWindow` is `null`.
 - No IndexedDB, Cache Storage integration for page origins, WebAssembly, CSP enforcement, SharedWorker, or ServiceWorker.
 - No drag and drop, clipboard API, touch event dispatch, or native input.
+- No file picker: clicking an `<input type=file>` records that a page asked for one. `Page.SetInputFilesAsync` and `DOM.setFileInputFiles` make the selection instead.
 - Hover dispatches movement but not mouse boundary events such as `mouseenter`.
 - `contenteditable` support is intentionally limited; structural editing such as Enter-created blocks is absent.
 - Isolated CDP worlds are aliases, not isolated realms.

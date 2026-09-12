@@ -28,7 +28,9 @@ namespace Jint.Browser.Dom;
 /// <c>innerHTML</c> needs nothing here: AngleSharp's fragment parser marks it "already started", so adopting
 /// it into the tree never runs it, which is HTML's own rule. And <c>document.write</c> <i>during</i> a parse
 /// is AngleSharp's own call and is correct — its writable text source inserts at the parser's index while the
-/// baton has the parser parked. Only the after-the-parse half needed a decision, and it is below.
+/// baton has the parser parked. Every write that is <i>not</i> into a document a parser is reading needed a
+/// decision, and which decision depends on the document it targets rather than on the engine it was made
+/// from; <see cref="RefusedWrite"/> below is that decision.
 /// </para>
 /// </remarks>
 internal class DomHostHooks
@@ -127,6 +129,35 @@ internal class DomHostHooks
     internal virtual JsValue Labels(DomRealm realm, IHtmlElement element)
         => HtmlLabelAssociation.IsLabelable(element) ? realm.WrapLabels(element) : JsValue.Null;
 
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#dom-fae-form — the
+    /// <c>form</c> IDL attribute of every element that has one, from HTML's own ownership rule.
+    /// </summary>
+    /// <remarks>
+    /// One hook for eleven interfaces, because the member's value is one algorithm and the eleven differ only
+    /// in which of its branches they take (<see cref="HtmlFormOwner.FormIdlOf"/>). AngleSharp declares
+    /// <c>Form</c> separately on each and answers all of them from an ancestor-first walk that inverts the
+    /// standard's priority.
+    /// </remarks>
+    internal virtual JsValue FormOwner(DomRealm realm, IHtmlElement element)
+        => realm.WrapNodeValue(HtmlFormOwner.FormIdlOf(element));
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/form-elements.html#dom-option-selected — the setter's three
+    /// steps: set the selectedness, set the dirtiness, and then cause the element to ask for a reset.
+    /// </summary>
+    /// <remarks>
+    /// AngleSharp's <c>IsSelected</c> setter is the first two — it does record the dirtiness, so adding or
+    /// removing the <c>selected</c> content attribute afterwards is already inert — and stops there. The
+    /// third step is the one that keeps a one-choice <c>select</c> to one choice; without it every option of
+    /// one could be selected at once and <c>selectedIndex</c> stayed where it was.
+    /// </remarks>
+    internal virtual void SetOptionSelected(DomRealm realm, IHtmlOptionElement option, bool selected)
+    {
+        option.IsSelected = selected;
+        HtmlSelectState.AskForAReset(option);
+    }
+
     /// <summary>https://dom.spec.whatwg.org/#dom-range-comparepoint</summary>
     internal virtual JsValue ComparePoint(DomRealm realm, IRange range, JsValue[] arguments)
         => DomRangeMembers.ComparePoint(realm, range, arguments);
@@ -135,15 +166,84 @@ internal class DomHostHooks
     internal virtual JsValue IsPointInRange(DomRealm realm, IRange range, JsValue[] arguments)
         => DomRangeMembers.IsPointInRange(realm, range, arguments);
 
+    /// <summary>https://dom.spec.whatwg.org/#dom-range-clonecontents</summary>
+    internal virtual JsValue CloneContents(DomRealm realm, IRange range, JsValue[] arguments)
+        => DomRangeMembers.CloneContents(realm, range);
+
+    /// <summary>https://dom.spec.whatwg.org/#dom-range-extractcontents</summary>
+    internal virtual JsValue ExtractContents(DomRealm realm, IRange range, JsValue[] arguments)
+        => DomRangeMembers.ExtractContents(realm, range);
+
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#dom-nonelementparentnode-getelementbyid - and DOM §4.9's definition of an
+    /// element's ID, which is what makes the empty string answer null.
+    /// </summary>
+    /// <remarks>
+    /// An element's ID is <i>unset</i> while its <c>id</c> content attribute is absent or the empty string, so
+    /// no element in any tree has the empty string as its ID and the lookup can never match. AngleSharp
+    /// compares the attribute's value instead, and answers the first element it walks for
+    /// <c>getElementById("")</c> - the document element of an ordinary page. See Dom/divergences.md.
+    /// </remarks>
+    internal virtual JsValue GetElementById(DomRealm realm, INode root, JsValue[] arguments)
+    {
+        var elementId = DomConvert.RequiredText(arguments, 0, Member(root, "getElementById"));
+
+        if (elementId.Length == 0)
+        {
+            return JsValue.Null;
+        }
+
+        return realm.WrapNodeValue(root is INonElementParentNode parent ? parent.GetElementById(elementId) : null);
+    }
+
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#dom-childnode-before, whose viable-sibling step runs before the argument
+    /// conversion that can move the receiver out of its own parent. See <see cref="DomChildNodeMembers"/>.
+    /// </summary>
+    internal virtual void Before(DomRealm realm, INode node, JsValue[] arguments)
+        => DomChildNodeMembers.Before(realm, node, arguments);
+
+    /// <summary>https://dom.spec.whatwg.org/#dom-childnode-after</summary>
+    internal virtual void After(DomRealm realm, INode node, JsValue[] arguments)
+        => DomChildNodeMembers.After(realm, node, arguments);
+
+    /// <summary>https://dom.spec.whatwg.org/#dom-childnode-replacewith</summary>
+    internal virtual void ReplaceWith(DomRealm realm, INode node, JsValue[] arguments)
+        => DomChildNodeMembers.ReplaceWith(realm, node, arguments);
+
     /// <summary>https://dom.spec.whatwg.org/#concept-getelementsbyclassname</summary>
+    /// <remarks>
+    /// <para>
+    /// The whole algorithm is here rather than only its liveness, because its comparison is
+    /// <b>ASCII case-insensitive when the root's node document is in quirks mode</b> and AngleSharp offers no
+    /// seam for that: <c>ITokenList.Contains</c> is the case-sensitive token store, and the class selector the
+    /// query engine uses calls the same operation. Jint owns this behaviour by the decision recorded on
+    /// <a href="https://github.com/sebastienros/jint/issues/3899">#3899</a>, after the upstream change was
+    /// declined as out of scope; the divergence register keeps the reproduction.
+    /// </para>
+    /// <para>
+    /// The mode is read <i>inside</i> the filter, with everything else the filter reads, because the
+    /// collection is live and a root adopted into another document takes that document's mode with it.
+    /// "ASCII case-insensitive" is spelled out rather than taken from <c>OrdinalIgnoreCase</c>, which folds
+    /// the whole of Unicode's simple case mapping and would make <c>class="ı"</c> match <c>"I"</c>.
+    /// </para>
+    /// </remarks>
     internal virtual JsValue GetElementsByClassName(DomRealm realm, INode root, JsValue[] arguments)
     {
-        var classNames = DomConvert.RequiredText(arguments, 0, Member(root, "getElementsByClassName"));
-        return realm.WrapCollection<IElement>(new DomLiveHtmlCollection(() => root switch
+        var classes = AsciiWhitespaceSplit(DomConvert.RequiredText(arguments, 0, Member(root, "getElementsByClassName")));
+
+        if (classes.Length == 0)
         {
-            IDocument document => document.GetElementsByClassName(classNames),
-            IElement element => element.GetElementsByClassName(classNames),
-            _ => [],
+            // "If classes is the empty set, return an empty HTMLCollection" - and an empty one that is still
+            // a collection, because a page holds it and reads its length.
+            return realm.WrapCollection<IElement>(new DomLiveHtmlCollection(static () => []));
+        }
+
+        return realm.WrapCollection<IElement>(new DomLiveHtmlCollection(() =>
+        {
+            // DOM §4.5: compatMode is "BackCompat" exactly while the node document's mode is "quirks".
+            var quirks = string.Equals((root as IDocument ?? root.Owner)?.CompatMode, "BackCompat", StringComparison.Ordinal);
+            return root.Descendants<IElement>().Where(element => HasEveryClass(element, classes, quirks));
         }));
     }
 
@@ -203,11 +303,183 @@ internal class DomHostHooks
         return realm.WrapCollection<IElement>(new DomLiveHtmlCollection(Current));
     }
 
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#dom-parentnode-queryselectorall — "the <b>static</b> result of running
+    /// scope-match a selectors string".
+    /// </summary>
+    /// <remarks>
+    /// AngleSharp's answer is already a snapshot, so this hook corrects no behaviour. What it does is put the
+    /// standard's word "static" where the binding can act on it: the result is projected through
+    /// <c>DomRealm.WrapStaticNodeList</c>, whose <see cref="Collections.DomStaticNodeList"/> makes staticness
+    /// a property of the type rather than a guess about an <c>INodeList</c> — which is what lets that
+    /// wrapper keep one element wrapper per index. Every other <c>NodeList</c> in the surface
+    /// (<c>childNodes</c>, <c>labels</c>) is live and keeps the ordinary accessor-driven wrapper.
+    /// </remarks>
+    internal virtual JsValue QuerySelectorAll(DomRealm realm, INode root, JsValue[] arguments)
+    {
+        var selectors = DomConvert.RequiredText(arguments, 0, Member(root, "querySelectorAll"));
+        return realm.WrapStaticNodeList(((IParentNode) root).QuerySelectorAll(selectors));
+    }
+
     private static string Member(INode root, string operation)
-        => (root is IDocument ? "Document." : "Element.") + operation;
+        => root switch
+        {
+            IDocument => "Document.",
+            IDocumentFragment => "DocumentFragment.",
+            _ => "Element.",
+        } + operation;
+
+    /// <summary>https://infra.spec.whatwg.org/#ascii-whitespace: TAB, LF, FF, CR and SPACE, and nothing else.</summary>
+    private static readonly char[] AsciiWhitespace = ['\t', '\n', '\f', '\r', ' '];
+
+    /// <summary>https://infra.spec.whatwg.org/#split-on-ascii-whitespace, which is how a class list is parsed.</summary>
+    private static string[] AsciiWhitespaceSplit(string value)
+        => value.Split(AsciiWhitespace, StringSplitOptions.RemoveEmptyEntries);
+
+    /// <summary>Whether <paramref name="element"/>'s classes contain every one of <paramref name="classes"/>.</summary>
+    /// <remarks>
+    /// The element's own token set is scanned in place rather than split: this runs once per descendant per
+    /// read of a live collection, and a page that keeps one and reads its <c>length</c> in a loop would
+    /// otherwise allocate an array per element per read.
+    /// </remarks>
+    private static bool HasEveryClass(IElement element, string[] classes, bool quirks)
+    {
+        var declared = element.GetAttribute("class");
+
+        if (string.IsNullOrEmpty(declared))
+        {
+            return false;
+        }
+
+        foreach (var candidate in classes)
+        {
+            if (!HasClass(declared.AsSpan(), candidate, quirks))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Whether the ASCII-whitespace-separated <paramref name="declared"/> set holds one token.</summary>
+    private static bool HasClass(ReadOnlySpan<char> declared, string candidate, bool quirks)
+    {
+        var index = 0;
+
+        while (index < declared.Length)
+        {
+            while (index < declared.Length && IsAsciiWhitespace(declared[index]))
+            {
+                index++;
+            }
+
+            var start = index;
+
+            while (index < declared.Length && !IsAsciiWhitespace(declared[index]))
+            {
+                index++;
+            }
+
+            if (index > start && TokenEquals(declared.Slice(start, index - start), candidate, quirks))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// https://infra.spec.whatwg.org/#ascii-case-insensitive - the ASCII range alone when the document is in
+    /// quirks mode, so the Kelvin sign and the dotless i keep their own identity where
+    /// <c>OrdinalIgnoreCase</c> would not, and an exact comparison otherwise.
+    /// </summary>
+    private static bool TokenEquals(ReadOnlySpan<char> token, string candidate, bool quirks)
+    {
+        if (token.Length != candidate.Length)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < token.Length; i++)
+        {
+            if (token[i] == candidate[i])
+            {
+                continue;
+            }
+
+            if (!quirks || AsciiLowercase(token[i]) != AsciiLowercase(candidate[i]))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool IsAsciiWhitespace(char character)
+        => character is '\t' or '\n' or '\f' or '\r' or ' ';
+
+    private static char AsciiLowercase(char character)
+        => character is >= 'A' and <= 'Z' ? (char) (character | 0x20) : character;
 
     private static string QualifiedName(IElement element)
         => string.IsNullOrEmpty(element.Prefix) ? element.LocalName : element.Prefix + ":" + element.LocalName;
+
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#dom-element-tagname — the element's
+    /// <a href="https://dom.spec.whatwg.org/#element-html-uppercased-qualified-name">HTML-uppercased
+    /// qualified name</a>, which is ASCII-uppercased only when the element is in the HTML namespace
+    /// <b>and</b> its node document is an HTML document.
+    /// </summary>
+    /// <remarks>
+    /// AngleSharp decides on the namespace alone, so an element created in the page and then adopted into
+    /// an XML document went on answering <c>DIV</c> where DOM says <c>div</c>: the name is not a property of
+    /// the element, it is a question about the document the element is in at the moment it is asked. The
+    /// divergence table records it.
+    /// </remarks>
+    internal virtual JsValue TagName(DomRealm realm, IElement element)
+    {
+        var qualified = QualifiedName(element);
+        return JsString.Create(
+            string.Equals(element.NamespaceUri, NamespaceNames.HtmlUri, StringComparison.Ordinal)
+            && element.Owner is IHtmlDocument
+                ? AsciiUppercase(qualified)
+                : qualified);
+    }
+
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#dom-node-nodename — for an element, the same
+    /// <a href="https://dom.spec.whatwg.org/#element-html-uppercased-qualified-name">HTML-uppercased
+    /// qualified name</a> <see cref="TagName"/> answers, and AngleSharp's own answer for everything else.
+    /// </summary>
+    /// <remarks>
+    /// DOM defines the two in terms of one name, so they cannot disagree; AngleSharp decides both on the
+    /// namespace alone, so hooking only <c>tagName</c> would have left an element in an XML document
+    /// answering <c>div</c> from one member and <c>DIV</c> from the other. It delegates rather than repeats,
+    /// which is what keeps a host that overrides <see cref="TagName"/> answering one name from both.
+    /// </remarks>
+    internal virtual JsValue NodeName(DomRealm realm, INode node)
+        => node is IElement element ? TagName(realm, element) : JsString.Create(node.NodeName);
+
+    private static string AsciiUppercase(string value)
+    {
+        char[]? copy = null;
+        for (var i = 0; i < value.Length; i++)
+        {
+            var character = value[i];
+            if (character is < 'a' or > 'z')
+            {
+                continue;
+            }
+
+            copy ??= value.ToCharArray();
+            copy[i] = (char) (character & ~0x20);
+        }
+
+        return copy is null ? value : new string(copy);
+    }
 
     private static string? NullIfEmpty(string? value) => string.IsNullOrEmpty(value) ? null : value;
 
@@ -266,10 +538,29 @@ internal class DomHostHooks
         CustomElements.CustomElementRegistry.SubtreeCreated(realm, element.Parent ?? element);
     }
 
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#dom-document-adoptnode — the same AngleSharp call, bracketed so that
+    /// <a href="https://dom.spec.whatwg.org/#concept-node-adopt">adopt</a>'s step 3.2 happens: "for each
+    /// inclusiveDescendant ... that is custom, enqueue a custom element callback reaction with callback name
+    /// <c>adoptedCallback</c> and « oldDocument, document »".
+    /// </summary>
+    /// <remarks>
+    /// It is the member's own door because a mutation record cannot be one: the removal a connected node's
+    /// adoption performs is delivered <i>before</i> the node's owner changes, so the old document has to be
+    /// read before the call. What that leaves — the adoption DOM's pre-insert performs on the way into a
+    /// parent in another document — is argued in <c>CustomElements/CustomElementRegistry.Tree.cs</c>.
+    /// </remarks>
+    internal virtual JsValue AdoptNode(DomRealm realm, IDocument document, JsValue[] arguments)
+        => realm.WrapNodeValue(
+            CustomElements.CustomElementRegistry.Adopt(
+                realm,
+                document,
+                DomBindings.Argument<INode>(arguments, 0, "Document.adoptNode")));
+
     /// <summary>https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-document-write</summary>
     internal virtual void Write(DomRealm realm, IDocument document, JsValue[] arguments)
     {
-        if (RefusedAfterTheParse(realm, document, "write"))
+        if (RefusedWrite(realm, document, "write"))
         {
             return;
         }
@@ -280,7 +571,7 @@ internal class DomHostHooks
     /// <summary>https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-document-writeln</summary>
     internal virtual void WriteLine(DomRealm realm, IDocument document, JsValue[] arguments)
     {
-        if (RefusedAfterTheParse(realm, document, "writeln"))
+        if (RefusedWrite(realm, document, "writeln"))
         {
             return;
         }
@@ -315,13 +606,57 @@ internal class DomHostHooks
     internal virtual JsValue CloneNode(DomRealm realm, INode node, JsValue[] arguments)
         => CustomElements.CustomElementCreation.CloneNode(realm, node, arguments);
 
-    /// <summary>DOM's import steps do not copy a file input's selected files.</summary>
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#dom-node-isequalnode — DOM §4.4's node equality, which
+    /// <see cref="DomNodeEquality"/> states over the same tree because AngleSharp's <c>Node.Equals</c>
+    /// compares a base URL the standard never mentions and leaves out data the standard requires.
+    /// </summary>
+    internal virtual JsValue IsEqualNode(DomRealm realm, INode node, JsValue[] arguments)
+        => DomConvert.Bool(
+            DomNodeEquality.AreEqual(node, DomBindings.NullableArgument<INode>(arguments, 0, "Node.isEqualNode")));
+
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#dom-document-importnode — "return the result of cloning a node given
+    /// node with <b>document set to this</b>". Four things AngleSharp's <c>Import</c> leaves out: DOM's
+    /// import steps do not copy a file input's selected files, the clone's node document is the
+    /// <i>source</i> document rather than this one, the IDL default for <c>deep</c> is
+    /// <see langword="false"/> where <c>Import</c>'s own is <see langword="true"/>, and a copy is never
+    /// upgraded.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The second one is why the clone is adopted afterwards, which is the step DOM folds into "cloning a
+    /// node given a document": an imported element went on belonging to the document it came from, so
+    /// <c>importNode(x).ownerDocument === document</c> was false and every member that asks its node
+    /// document a question — <c>tagName</c> among them — answered about the wrong document. AngleSharp
+    /// refuses to adopt an <c>IAttr</c> where DOM adopts any node, so an imported attribute is the one node
+    /// this cannot correct; the divergence table records both halves.
+    /// </para>
+    /// <para>
+    /// <b>The fourth is <see cref="CloneNode"/>'s defect on this member.</b> "Cloning a node" creates each
+    /// copy through DOM's create-an-element given <b>node's is value</b> with the synchronous custom
+    /// elements flag unset, which enqueues an upgrade reaction — so an imported autonomous element was never
+    /// constructed, and an imported customized built-in, whose is value is a slot and not the <c>is</c>
+    /// content attribute AngleSharp copies, came back a plain built-in.
+    /// <see cref="CustomElements.CustomElementRegistry.Cloned"/> is what carries the slot and upgrades, and
+    /// it runs <i>after</i> the adopt because DOM creates the copy in <b>this</b> document: the constructor
+    /// has to see <c>ownerDocument</c> already answering this one. That order is also what keeps the adopt
+    /// silent — the copy is not custom yet, so it enqueues no <c>adoptedCallback</c>, which is the answer
+    /// DOM gives for a member that clones rather than moves.
+    /// </para>
+    /// </remarks>
     internal virtual JsValue ImportNode(DomRealm realm, IDocument document, JsValue[] arguments)
     {
-        var imported = document.Import(
-            DomBindings.Argument<INode>(arguments, 0, "Document.importNode"),
-            DomConvert.OptionalBool(arguments, 1, true));
+        var source = DomBindings.Argument<INode>(arguments, 0, "Document.importNode");
+        var imported = document.Import(source, DomConvert.OptionalBool(arguments, 1, false));
+
+        if (imported is not IAttr && !ReferenceEquals(imported.Owner, document))
+        {
+            document.Adopt(imported);
+        }
+
         Files.FileTransferRealm.ResetCopiedInputs(imported);
+        CustomElements.CustomElementRegistry.Cloned(realm, source, imported);
         return realm.WrapNodeValue(imported);
     }
 
@@ -353,6 +688,24 @@ internal class DomHostHooks
             ? realm.Engine._mainRealm.GlobalObject
             : JsValue.Null;
     }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/dom.html#the-body-element — the first <c>body</c> or
+    /// <c>frameset</c> child of the document's <i>html element</i>, and <see langword="null"/> when there is
+    /// no html element.
+    /// </summary>
+    /// <remarks>
+    /// The gate is the whole of this hook, and it is <see cref="DomDocumentElements"/>' because the five
+    /// obsolete colour members of <c>Document</c> reflect onto the same element and need the same answer.
+    /// "The html element of a document is its document element, if it is an <c>html</c> element, and null
+    /// otherwise", and an <c>html</c> element is one in the HTML namespace with that local name — so a
+    /// document whose root is an XHTML <c>div</c>, or an <c>html</c> from some other namespace, has no body
+    /// element however many <c>body</c> children that root has. AngleSharp's getter walks
+    /// <c>DocumentElement.ChildNodes</c> without asking what the document element is, which is the standard's
+    /// own counter-example (a body inserted beneath an SVG document element) answered wrongly.
+    /// </remarks>
+    internal virtual JsValue Body(DomRealm realm, IDocument document)
+        => realm.WrapNodeValue(DomDocumentElements.Body(document));
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/dom.html#dom-document-currentscript — the script whose text is
@@ -402,6 +755,211 @@ internal class DomHostHooks
         return JsString.Create(runtime.BaseUri);
     }
 
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/nav-history-apis.html#dom-document-location — "return this's
+    /// relevant global object's <c>Location</c> object, if this is fully active, and null otherwise". A
+    /// document made by <c>createDocument</c>, <c>createHTMLDocument</c>, <c>new Document()</c> or
+    /// <c>DOMParser</c> has no browsing context at all, so it is never fully active and its
+    /// <c>location</c> is <see langword="null"/>.
+    /// </summary>
+    /// <remarks>
+    /// AngleSharp gives every document it builds a <c>Location</c> over <c>about:blank</c>, including the
+    /// ones nothing is displaying, so the question this answers is AngleSharp's own: a document is the
+    /// active document of a browsing context, or it is not one at all. That is the same distinction
+    /// <c>PageRuntime.FindBrowsingContext</c> makes for the page's own tree, asked in a way that does not
+    /// need a page runtime — a binding installed on its own still tells a parsed document from a
+    /// manufactured one.
+    /// </remarks>
+    internal virtual JsValue Location(DomRealm realm, IDocument document)
+        => HasBrowsingContext(document) ? realm.Wrap(document.Location) : JsValue.Null;
+
+    /// <summary>
+    /// The <c>[PutForwards=href]</c> half of the same attribute. WebIDL's setter steps read the attribute
+    /// and then set <c>href</c> on what came back, so a document with no browsing context — whose value is
+    /// <see langword="null"/> — is a <c>TypeError</c> and never a silent navigation of a document nobody
+    /// can see. https://webidl.spec.whatwg.org/#PutForwards
+    /// </summary>
+    internal virtual void SetLocation(DomRealm realm, IDocument document, string href)
+    {
+        if (!HasBrowsingContext(document) || document.Location is not { } location)
+        {
+            Throw.TypeError(realm.PrincipalRealm, "Cannot set property 'href' of null");
+            return;
+        }
+
+        location.Href = href;
+    }
+
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#dom-document-characterset, and the <c>charset</c> and
+    /// <c>inputEncoding</c> aliases DOM keeps beside it: the document's encoding's <b>name</b>, as
+    /// https://encoding.spec.whatwg.org/#names-and-labels spells it — <c>UTF-8</c>, not the ASCII-lowercased
+    /// label AngleSharp hands back from .NET's <c>Encoding.WebName</c>. The two spellings are one table's two
+    /// columns; <c>TextDecoder.encoding</c> reports the other one because its own definition says so.
+    /// </summary>
+    /// <remarks>
+    /// A label the Encoding Standard does not know is answered as AngleSharp gave it, rather than as UTF-8:
+    /// there is no name for it, and inventing one would hide the encoding a document really carries.
+    /// </remarks>
+    internal virtual JsValue CharacterSet(DomRealm realm, IDocument document)
+    {
+        var label = document.CharacterSet;
+
+        if (string.IsNullOrEmpty(label))
+        {
+            return JsString.Create(Jint.WebApi.Encoding.EncodingLabels.Utf8Name);
+        }
+
+        return JsString.Create(
+            Jint.WebApi.Encoding.EncodingLabels.TryLookup(label, out var encoding) ? encoding.Name : label);
+    }
+
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#dom-document-contenttype — the content type the algorithm that created
+    /// the document gave it. <see cref="DomContentType"/> says why it cannot be set on the document itself.
+    /// </summary>
+    internal virtual JsValue ContentType(DomRealm realm, IDocument document)
+        => JsString.Create(DomContentType.Of(document) ?? document.ContentType ?? "");
+
+    /// <summary>
+    /// Whether <paramref name="document"/> is the active document of a browsing context, which is what HTML
+    /// asks before answering with a <c>Location</c>, a <c>defaultView</c> or anything else a document only
+    /// has while something is showing it.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="DomBrowsingContext"/> is the one definition of it, because HTML §4.13.4's
+    /// look-up-a-custom-element-definition asks the same question of the same documents.
+    /// </remarks>
+    private static bool HasBrowsingContext(IDocument document) => DomBrowsingContext.Of(document) is not null;
+
+    // ---------------------------------------------------------------------------------------------------
+    // HTML §4.8.4's image members. Every one of them answers from the page's own image lane rather than
+    // from AngleSharp, whose IsCompleted/OriginalWidth/ActualSource all read an IImageInfo produced by an
+    // IResourceService<IImageInfo> this browser deliberately does not register — registering one would
+    // mean decoding pixels for two numbers a container header already states. See Media/PageImages.
+    // A binding with no page runtime behind it keeps AngleSharp's answers, which are the ones it had before
+    // there was a lane at all.
+    // ---------------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/embedded-content.html#dom-img-complete — true when there is
+    /// nothing to wait for: no source at all, or a current request that has finished either way.
+    /// </summary>
+    /// <remarks>
+    /// <b>The first two conditions are why this cannot be AngleSharp's <c>IsCompleted</c>.</b> An
+    /// <c>&lt;img&gt;</c> with no <c>src</c> and no <c>srcset</c> is complete, and so is a broken one; both
+    /// answered <see langword="false"/> before, and both are what a lazy-loading library tests to decide
+    /// whether to wait for a <c>load</c> event that is never coming.
+    /// </remarks>
+    internal virtual JsValue ImageComplete(DomRealm realm, IHtmlImageElement image)
+    {
+        var source = image.GetAttribute(null, "src");
+
+        if (!image.HasAttribute("srcset") && string.IsNullOrEmpty(source))
+        {
+            return JsBoolean.True;
+        }
+
+        if (PageRuntime.Find(realm.Engine, image.Owner) is not { } runtime)
+        {
+            return DomConvert.Bool(image.IsCompleted);
+        }
+
+        // There is no pending request here (Media/PageImages says why), so "and its pending request is
+        // null" is satisfied by every state this reaches.
+        return DomConvert.Bool(runtime.ImagesIfLoaded?.Find(image)
+            is { State: Media.ImageAvailability.CompletelyAvailable or Media.ImageAvailability.Broken });
+    }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/embedded-content.html#dom-img-currentsrc — the current
+    /// request's current URL: the selected source, resolved, and not where a redirect the fetch followed
+    /// ended up. It answers for a broken request too, which is what makes it usable for saying <i>which</i>
+    /// candidate of a source set a page settled on.
+    /// </summary>
+    internal virtual JsValue ImageCurrentSrc(DomRealm realm, IHtmlImageElement image)
+        => JsString.Create(PageRuntime.Find(realm.Engine, image.Owner) is { } runtime
+            ? runtime.ImagesIfLoaded?.Find(image)?.CurrentSrc ?? ""
+            : image.ActualSource ?? "");
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/embedded-content.html#dom-img-naturalwidth — the intrinsic
+    /// width of an available image, and 0 for one that is not available or states no size.
+    /// </summary>
+    internal virtual JsValue ImageNaturalWidth(DomRealm realm, IHtmlImageElement image)
+        => JsNumber.Create(PageRuntime.Find(realm.Engine, image.Owner) is { } runtime
+            ? Available(runtime, image)?.NaturalWidth ?? 0
+            : image.OriginalWidth);
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/embedded-content.html#dom-img-naturalheight — the intrinsic
+    /// height, on the same terms.
+    /// </summary>
+    internal virtual JsValue ImageNaturalHeight(DomRealm realm, IHtmlImageElement image)
+        => JsNumber.Create(PageRuntime.Find(realm.Engine, image.Owner) is { } runtime
+            ? Available(runtime, image)?.NaturalHeight ?? 0
+            : image.OriginalHeight);
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/embedded-content.html#dom-dim-width — the <c>width</c>
+    /// content attribute when it has one, and otherwise the intrinsic width of an available image.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>This member is not reflection, and the <c>reflected</c> entry beside it is only its setter.</b>
+    /// HTML makes the getter answer the element's box when it is being rendered, the density-corrected
+    /// intrinsic width when it is available and not rendered, and 0 otherwise — never the content
+    /// attribute. The flat box model gives every rendered element the viewport's width
+    /// (<c>Runtime/AGENTS.md</c>), which would make every image 1280 wide and is worse than no answer, so
+    /// the attribute stands in for the box it maps to and the intrinsic size answers when there is none.
+    /// That is AngleSharp's own <c>DisplayWidth</c> rule, over an intrinsic size AngleSharp cannot produce.
+    /// </para>
+    /// <para>
+    /// It is what an image submit button's coordinates depend on
+    /// (<a href="https://github.com/sebastienros/jint/issues/3933">#3933</a>): HTML selects a coordinate only
+    /// within an available image the user agent displays, and until there was a size there was nothing to
+    /// select within.
+    /// </para>
+    /// </remarks>
+    internal virtual JsValue ImageWidth(DomRealm realm, IHtmlImageElement image)
+        => Dimension(realm, image, "width", DomReflected.HTMLImageElementWidth, intrinsicWidth: true);
+
+    /// <inheritdoc cref="ImageWidth" />
+    internal virtual JsValue ImageHeight(DomRealm realm, IHtmlImageElement image)
+        => Dimension(realm, image, "height", DomReflected.HTMLImageElementHeight, intrinsicWidth: false);
+
+    private static JsValue Dimension(
+        DomRealm realm,
+        IHtmlImageElement image,
+        string attribute,
+        ReflectedAttribute reflected,
+        bool intrinsicWidth)
+    {
+        // The content attribute is what the presentational hint maps to, so where it is present it is the
+        // box, and HTML's own parsing rules for it are the reflected entry's.
+        if (image.HasAttribute(attribute))
+        {
+            return reflected.Get(image);
+        }
+
+        if (PageRuntime.Find(realm.Engine, image.Owner) is not { } runtime)
+        {
+            return JsNumber.Create(intrinsicWidth ? image.OriginalWidth : image.OriginalHeight);
+        }
+
+        var request = Available(runtime, image);
+        return JsNumber.Create(request is null ? 0 : intrinsicWidth ? request.NaturalWidth : request.NaturalHeight);
+    }
+
+    /// <summary>
+    /// <paramref name="image"/>'s current request when it is completely available, and <see langword="null"/>
+    /// otherwise — which is the one condition every dimension member above is guarded by.
+    /// </summary>
+    private static Media.ImageRequest? Available(PageRuntime runtime, IElement image)
+        => runtime.ImagesIfLoaded?.Find(image) is { State: Media.ImageAvailability.CompletelyAvailable } request
+            ? request
+            : null;
+
     /// <summary>https://html.spec.whatwg.org/multipage/dom.html#dom-document-referrer</summary>
     internal virtual JsValue Referrer(DomRealm realm, IDocument document)
         => JsString.Create(PageRuntime.Find(realm.Engine, document)?.Referrer ?? document.Referrer ?? "");
@@ -449,40 +1007,80 @@ internal class DomHostHooks
     }
 
     /// <summary>
-    /// Whether a write to a document that has finished parsing is refused, and the page told why.
+    /// Whether a write is refused, and how — which is a question about <em>which</em> document it targets
+    /// and not only about when that document stopped parsing.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// HTML says such a write implies <c>document.open()</c>, which replaces the document. AngleSharp's
-    /// <c>Document.Open</c> implements that by unloading through its own browsing context — blocking on
-    /// <c>PromptToUnloadAsync().Result</c> and <c>Unload(recycle: true).Wait()</c>, on whatever thread the
-    /// script ran on — and rebuilding the document behind the page's back, leaving the page's wrapper table,
-    /// its frame tree and its runtime pointing at a document that no longer exists. Until the page owns that
-    /// algorithm the honest answer is a page error naming it rather than a corrupted page.
+    /// The one write that can be delegated is one into a document a parser is still reading, because that is
+    /// the only case where HTML's insertion point is defined — AngleSharp's writable text source inserts at
+    /// the parser's index while the baton has the parser parked, which is the standard's own step. Every
+    /// other write implies <c>document.open()</c>, and <c>Document.Open</c> cannot serve one:
     /// </para>
+    /// <list type="bullet">
+    /// <item>it reads <c>_context?.Parent!.Active</c>, so any context <c>BrowsingContext.New</c> built —
+    /// the page's own included — raises <see cref="NullReferenceException"/> out of a member a script
+    /// called;</item>
+    /// <item>past that it blocks on <c>PromptToUnloadAsync().Result</c> and <c>Unload(recycle: true).Wait()</c>
+    /// on whatever thread the script ran on, and rebuilds the document behind the page's back — leaving the
+    /// page's wrapper table, its frame tree and its runtime pointing at a document that no longer exists;</item>
+    /// <item>and even where it completes it empties the document (<c>ReplaceAll(null)</c>), puts the ready
+    /// state back to <c>loading</c> and creates <b>no parser</b>, so the re-entrant <c>Write</c> it makes
+    /// inserts into a text source nothing will ever read. The markup is silently lost.</item>
+    /// </list>
     /// <para>
-    /// With no page runtime there is nothing to corrupt and nothing to report to, so a binding-only engine
-    /// keeps AngleSharp's behaviour — which is what it had before there was a driver at all.
+    /// So a refusal is owed in every remaining case, and which refusal depends on the target. An XML
+    /// document is HTML's own first step and an <c>InvalidStateError</c>. The <b>displayed</b> document —
+    /// the page's, or a frame's, which is why the browsing-context tree and not the one document decides —
+    /// keeps the page error it has always recorded and the call does nothing, because that is a page a host
+    /// is watching and a throw would break scripts that write into a document they think is still parsing.
+    /// Anything else is a <b>secondary</b> document: <c>DOMParser</c>'s, <c>new Document()</c>'s,
+    /// <c>createHTMLDocument</c>'s. The page was not involved, so no page error is recorded and nothing is
+    /// swallowed either — the script asked for a capability that is missing and is told so.
     /// </para>
     /// </remarks>
-    private static bool RefusedAfterTheParse(DomRealm realm, IDocument document, string member)
+    private static bool RefusedWrite(DomRealm realm, IDocument document, string member)
     {
-        if (document.ReadyState == DocumentReadyState.Loading)
+        var qualified = "Document." + member;
+
+        // https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#document-write-steps step 1,
+        // before anything else and whatever the document's readiness. AngleSharp raises the same error from
+        // inside Document.Open, which is reached only once the document is ready — so every XML document
+        // still parsing wrote into a text source nothing reads and the call answered success.
+        if (document is not IHtmlDocument)
         {
-            return false;
+            DomFailures.Refuse(
+                realm.Engine,
+                qualified,
+                DomExceptionNames.InvalidState,
+                "the document is an XML document, which has no dynamic markup insertion.");
         }
 
-        if (Runtime.PageRuntime.Find(realm.Engine) is not { } runtime)
+        if (Runtime.PageRuntime.FindBrowsingContext(realm.Engine, document) is { } runtime)
         {
-            return false;
+            // Still parsing: the insertion point is defined and AngleSharp's own write is the standard's.
+            if (document.ReadyState == DocumentReadyState.Loading)
+            {
+                return false;
+            }
+
+            runtime.Recorder.Add(
+                PageErrorKind.ReportedError,
+                "document." + member + "() after the document finished parsing implies document.open(), which "
+                + "would replace the document; Jint.Browser does not implement it, so the call did nothing. "
+                + "Build the markup with the DOM, or set the page's content again.",
+                document.Url);
+
+            return true;
         }
 
-        runtime.Recorder.Add(
-            PageErrorKind.ReportedError,
-            "document." + member + "() after the document finished parsing implies document.open(), which "
-            + "would replace the document; Jint.Browser does not implement it, so the call did nothing. "
-            + "Build the markup with the DOM, or set the page's content again.",
-            document.Url);
+        DomFailures.Refuse(
+            realm.Engine,
+            qualified,
+            DomExceptionNames.NotSupported,
+            "no parser is reading this document, so the write implies document.open(), and AngleSharp's "
+            + "Document.Open cannot reopen a document that has been parsed. Build the markup with the DOM, "
+            + "or parse a new document.");
 
         return true;
     }
