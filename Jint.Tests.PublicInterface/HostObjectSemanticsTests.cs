@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -45,7 +45,7 @@ public class HostObjectSemanticsTests
     private static readonly int HookMemberReadHookCalls = Verifying ? 2 : 1;
     private static readonly int HookComputedReadProbes = Verifying ? 1 : 0;
     private static readonly int HookPrototypeReadProbes = Verifying ? 3 : 0;
-    private static readonly int HookAbsentReadProbes = Verifying ? 4 : 0;
+    private static readonly int HookAbsentReadProbes = Verifying ? 3 : 0;
 
     // Deferring to the base implementation is the descriptor lane again, plus the verifier that asks
     // GetOwnProperty a second time on each of the two hook consults a verifying read makes.

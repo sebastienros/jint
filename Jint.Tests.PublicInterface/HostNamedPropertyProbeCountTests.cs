@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using Jint.Native.Object;
 
@@ -19,13 +19,13 @@ namespace Jint.Tests.PublicInterface;
 /// </para>
 ///
 /// <para>
-/// The value-hook column is not uniformly one, and the row that is not is worth reading twice. A name absent
-/// <em>everywhere</em> costs <b>two</b> <c>TryGetNamedValue</c> calls: the first establishes the own miss, the
-/// interpreter then finds nothing on the direct prototype either and falls back to the full
-/// <c>ObjectInstance.Get</c>, which re-establishes the same miss on the way to the prototype walk. It is the
-/// hook-call twin of the "a name absent everywhere costs 2" row the descriptor column has always had, it
-/// predates this class and is not specific to it, and removing it means changing the interpreter's shared
-/// own-miss fallback rather than anything here.
+/// The value-hook column is uniformly <b>one</b>, and the row that used to break that pattern is worth reading
+/// twice. A name absent <em>everywhere</em> used to cost <b>two</b> <c>TryGetNamedValue</c> calls: the first
+/// established the own miss, the interpreter then found nothing on the direct prototype either and fell back
+/// to the full <c>ObjectInstance.Get</c>, which re-established the same miss on the way to the prototype walk.
+/// This class said of that row that removing it meant changing the interpreter's shared own-miss fallback
+/// rather than anything here, and that is what happened: the member lane walks the prototype chain itself now,
+/// so a miss it has already established is not established again.
 /// </para>
 ///
 /// <para>
@@ -89,17 +89,17 @@ public class HostNamedPropertyProbeCountTests
     }
 
     [Test]
-    public void ANameAbsentEverywhereCostsTwoProjections()
+    public void ANameAbsentEverywhereCostsOneProjection()
     {
         var calls = Measure("host.missing;", out var engine);
 
         engine.Evaluate("host.missing").Should().BeUndefined();
 
-        // See the type's remarks: the second call is the interpreter's shared own-miss fallback re-entering
-        // ObjectInstance.Get, not anything this class does. Still no descriptor and no probe.
+        // One projection establishes the own miss and the walk continues from there, so an absent name now
+        // costs exactly what a present one does. Still no descriptor and no probe.
         calls.Should().Be(Expected(
-            unverified: new HookCalls(Values: 2, Existence: 0, Flags: 0),
-            verified: new HookCalls(Values: 7, Existence: 0, Flags: 0)));
+            unverified: new HookCalls(Values: 1, Existence: 0, Flags: 0),
+            verified: new HookCalls(Values: 5, Existence: 0, Flags: 0)));
     }
 
     [Test]
