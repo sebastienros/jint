@@ -49,18 +49,18 @@ internal static class LayoutMembers
     /// </remarks>
     internal static JsValue ClientRects(DomRealm realm, IElement element)
     {
-        return Layout(realm, element)?.ClientBoxOf(element) is { } box
+        return PageOf(realm, element)?.Layout.ClientBoxOf(element) is { } box
             ? DomRects.List(realm, DomRects.Of(realm.Engine, box))
             : DomRects.List(realm);
     }
 
     /// <summary>https://drafts.csswg.org/cssom-view/#dom-element-clientwidth.</summary>
     internal static JsValue ClientWidth(DomRealm realm, IElement element)
-        => JsNumber.Create(IsScrollingElement(element) ? Viewport(realm, element).Width : Round(ClientBox(realm, element).Width));
+        => JsNumber.Create(IsScrollingElement(element) ? Viewport(realm, element).Width : Round(Extent(realm, element, horizontal: true)));
 
     /// <summary>https://drafts.csswg.org/cssom-view/#dom-element-clientheight.</summary>
     internal static JsValue ClientHeight(DomRealm realm, IElement element)
-        => JsNumber.Create(IsScrollingElement(element) ? Viewport(realm, element).Height : Round(ClientBox(realm, element).Height));
+        => JsNumber.Create(IsScrollingElement(element) ? Viewport(realm, element).Height : Round(Extent(realm, element, horizontal: false)));
 
     /// <summary>https://drafts.csswg.org/cssom-view/#dom-element-scrollwidth.</summary>
     /// <remarks>Horizontal overflow is not measured by the synthetic model.</remarks>
@@ -72,7 +72,7 @@ internal static class LayoutMembers
     {
         if (!IsScrollingElement(element))
         {
-            return JsNumber.Create(Round(ClientBox(realm, element).Height));
+            return JsNumber.Create(Round(Extent(realm, element, horizontal: false)));
         }
 
         var layout = Layout(realm, element);
@@ -122,11 +122,11 @@ internal static class LayoutMembers
 
     /// <summary>https://drafts.csswg.org/cssom-view/#dom-htmlelement-offsetwidth.</summary>
     internal static JsValue OffsetWidth(DomRealm realm, IElement element)
-        => JsNumber.Create(Round(ClientBox(realm, element).Width));
+        => JsNumber.Create(Round(Extent(realm, element, horizontal: true)));
 
     /// <summary>https://drafts.csswg.org/cssom-view/#dom-htmlelement-offsetheight.</summary>
     internal static JsValue OffsetHeight(DomRealm realm, IElement element)
-        => JsNumber.Create(Round(ClientBox(realm, element).Height));
+        => JsNumber.Create(Round(Extent(realm, element, horizontal: false)));
 
     /// <summary>https://drafts.csswg.org/cssom-view/#dom-htmlelement-offsetleft.</summary>
     internal static JsValue OffsetLeft(DomRealm realm, IElement element)
@@ -167,7 +167,7 @@ internal static class LayoutMembers
     /// </remarks>
     internal static JsValue OffsetParent(DomRealm realm, IElement element)
     {
-        if (Layout(realm, element)?.DocumentBoxOf(element) is null)
+        if (PageOf(realm, element)?.Layout.MeasureSizes().HasBox(element) != true)
         {
             return JsValue.Null;
         }
@@ -231,7 +231,13 @@ internal static class LayoutMembers
 
     /// <summary>The element's viewport-relative box, or the empty one when it has none.</summary>
     private static FlatBox ClientBox(DomRealm realm, IElement element)
-        => Layout(realm, element)?.ClientBoxOf(element) ?? FlatBox.Empty;
+        => PageOf(realm, element)?.Layout.ClientBoxOf(element) ?? FlatBox.Empty;
+
+    private static double Extent(DomRealm realm, IElement element, bool horizontal)
+    {
+        var sizes = PageOf(realm, element)?.Layout.MeasureSizes();
+        return sizes is null ? 0 : horizontal ? sizes.Width(element) : sizes.Measure(element).Height;
+    }
 
     /// <summary>The layout of the page <paramref name="node"/> belongs to, or <see langword="null"/>.</summary>
     private static FlatLayout? Layout(DomRealm realm, INode node) => PageOf(realm, node)?.Layout.Current();

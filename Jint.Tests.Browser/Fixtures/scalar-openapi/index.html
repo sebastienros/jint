@@ -1,0 +1,21 @@
+<!doctype html>
+<html>
+<head>
+    <title>OrchardCore OpenAPI Documentation</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+</head>
+<body>
+    <div id="app"></div>
+    <script src="/vendor/scalar-2.12.9/scalar.js"></script>
+    <script type="module" src="/vendor/scalar-2.12.9/scalar.aspnetcore.js"></script>
+    <script type="module">
+        import { initialize } from '/vendor/scalar-2.12.9/scalar.aspnetcore.js'
+        initialize(
+            '%2Fscalar%2Fv1',
+            false,
+            { proxyUrl: '', favicon: 'favicon.svg', integration: 'dotnet', sources: [{ title: 'v1', url: 'swagger/v1/swagger.json', default: false }] },
+            '')
+    </script>
+</body>
+</html>

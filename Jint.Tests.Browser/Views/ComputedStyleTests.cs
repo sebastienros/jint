@@ -347,8 +347,40 @@ public sealed class ComputedStyleTests
             """))
             .Should().Be("visible", "a cascade AngleSharp cannot compute takes its own visibility: hidden with it");
 
-        (await Read(page, "width")).Should().Be("1280px", "the flat box model answers where the cascade could not");
+        (await Read(page, "width")).Should().Be("auto", "the box query still honors visibility despite the unrelated unsupported width");
+        (await page.EvaluateAsync<int>("document.getElementById('t').getClientRects().length")).Should().Be(0);
 
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task UnresolvedInheritanceDoesNotReplaceNativeReadsAndStillResolvesOnDemand()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <style>
+              :root { --extent: 10px; text-decoration: underline solid red }
+              .outer { width: var(--extent) }
+              .inner { --extent: 20px }
+              #t { width: inherit; text-decoration: inherit; visibility: visible; color: blue }
+            </style>
+            <div class="outer"><div class="inner"><span id="t">target</span></div></div>
+            """);
+
+        (await page.EvaluateAsync<string>(
+            """
+            (() => {
+              const style = getComputedStyle(document.getElementById('t'));
+              const color = style.color;
+              return [
+                style.visibility, style.width, style.textDecorationLine,
+                style.getPropertyValue('text-decoration').includes('underline'),
+                Array.from(style).includes('width'), style.cssText.includes('20px'),
+                style.color === color
+              ].join('|');
+            })()
+            """)).Should().Be("visible|20px|underline|true|true|true|true");
         page.Errors.Should().BeEmpty();
     }
 

@@ -53,16 +53,16 @@ internal static class CssCascade
     /// The computed cascade for <paramref name="element"/>, or <see langword="null"/> when AngleSharp.Css
     /// cannot compute one.
     /// </summary>
-    internal static ICssStyleDeclaration? Of(IElement element)
+    internal static ICssStyleDeclaration? Of(IElement element, bool resolveInheritance = true)
     {
         CssRuleUsage.Observe(element);
 
         try
         {
-            var computed = element.ComputeCurrentStyle();
+            var computed = Traversal.ComputeNative(element);
             // The native computed-parent path can leave an explicit inherit unresolved when the
             // parent declares no value. Retain the existing ancestor-walk compatibility path.
-            if (computed.Any(static property => property.IsInherited && !property.CanBeInherited)
+            if (resolveInheritance && computed.Any(static property => property.IsInherited && !property.CanBeInherited)
                 && Traversal.For(element.Owner) is { } traversal)
             {
                 return traversal.Of(element);
@@ -103,12 +103,54 @@ internal static class CssCascade
     /// uses directly. Its parent-computed overload is internal, so a traversal still needs this path to
     /// avoid rematching every ancestor for every element.
     /// </remarks>
-    internal sealed class Traversal(IStyleCollection styles)
+    internal enum StyleScope
     {
+        All,
+        Visibility,
+        Layout
+    }
+
+    internal sealed class Traversal(IStyleCollection styles, StyleScope scope = StyleScope.All, bool includeVariables = false)
+    {
+        private readonly IStyleCollection _styles = scope != StyleScope.All
+            ? new ScopedStyles(styles, scope, includeVariables)
+            : styles;
         private readonly Dictionary<IElement, Cascade> _cascaded = new();
         private readonly Stack<IElement> _pending = new();
+        private Traversal? _variableTraversal;
+        private Traversal? _layoutTraversal;
 
-        internal static Traversal? For(IDocument? document)
+        internal static ICssStyleDeclaration ComputeNative(IElement element)
+        {
+            if (element.Owner?.DefaultView is not { } window)
+            {
+                return element.ComputeCurrentStyle();
+            }
+            var device = element.Owner.Context.GetService<IRenderDevice>() ?? new DefaultRenderDevice();
+            var rules = window.GetStyleCollection(device).ToArray();
+            var classes = new HashSet<string>(StringComparer.Ordinal);
+            for (var current = element; current is not null; current = current.ParentElement)
+            {
+                foreach (var name in current.ClassList)
+                {
+                    classes.Add(name);
+                }
+            }
+            var candidates = new List<(int Order, ICssStyleRule Rule)>();
+            var visitor = new RequiredClass();
+            VisitRules(rules, rule =>
+            {
+                if (visitor.Of(rule.Selector) is not { } name || classes.Contains(name))
+                {
+                    candidates.Add((candidates.Count, new ScopedRule(rule, null)));
+                }
+            });
+            // A single computed-style query needs only the ancestor candidate union, not a complete
+            // index for every class in the sheet. Native inheritance and computation remain unchanged.
+            return new Candidates(device, candidates).ComputeDeclarations(element);
+        }
+
+        internal static Traversal? For(IDocument? document, StyleScope scope = StyleScope.All)
         {
             if (document?.DefaultView is not { } window)
             {
@@ -116,8 +158,12 @@ internal static class CssCascade
             }
 
             var device = document.Context.GetService<IRenderDevice>() ?? new DefaultRenderDevice();
-            return new Traversal(window.GetStyleCollection(device));
+            var styles = window.GetStyleCollection(device);
+            return new Traversal(styles, scope);
         }
+
+        internal ICssStyleDeclaration? LayoutOf(IElement element)
+            => scope == StyleScope.Visibility ? (_layoutTraversal ??= new Traversal(styles, StyleScope.Layout)).Of(element) : Of(element);
 
         internal ICssStyleDeclaration? Of(IElement element)
         {
@@ -139,8 +185,21 @@ internal static class CssCascade
 
                     // Capture local variables before inheritance. A rule matching both parent and
                     // child shares property objects, so reference identity cannot identify inheritance.
-                    var cascade = styles.ComputeExplicitStyle(current);
-                    var variables = new CustomProperties(cascade, parent?.Variables);
+                    var candidates = _styles is ScopedStyles scoped ? scoped.For(current) : _styles;
+                    var cascade = candidates.ComputeExplicitStyle(current);
+                    if (scope != StyleScope.All && !includeVariables)
+                    {
+                        RetainScope(cascade, scope);
+                    }
+
+                    var variables = parent is not null && !cascade.Any(static property => property.Name.StartsWith("--", StringComparison.Ordinal))
+                        ? parent.Variables
+                        : new CustomProperties(cascade, parent?.Variables);
+                    if (scope != StyleScope.All)
+                    {
+                        RetainScope(cascade, scope);
+                    }
+
                     if (parent is not null)
                     {
                         Inherit(cascade, parent.Raw);
@@ -151,10 +210,21 @@ internal static class CssCascade
                     if (current.ParentElement is not null
                         && cascade.Any(static property => property.IsInherited && !property.CanBeInherited))
                     {
-                        cascade = styles.GetDeclarations(current);
+                        cascade = _styles.GetDeclarations(current);
+                        if (scope != StyleScope.All)
+                        {
+                            RetainScope(cascade, scope);
+                        }
                     }
 
-                    parent = new Cascade(cascade, variables, Compute(current, cascade, variables, parent?.Computed));
+                    // Literal values need no custom-property graph. A pending shorthand longhand
+                    // exposes an empty value through the public API; its internal child value may
+                    // reference variables too, so resolve that case with the complete environment.
+                    var computed = scope != StyleScope.All && !includeVariables && cascade.Any(static property => property.RawValue is CssReferenceValue
+                        || property.RawValue is not null && property.Value.Length == 0)
+                        ? (_variableTraversal ??= new Traversal(styles, scope, includeVariables: true)).Of(current)
+                        : Compute(current, cascade, variables, parent?.Computed);
+                    parent = new Cascade(cascade, variables, computed);
                     _cascaded.Add(current, parent);
                 }
 
@@ -198,9 +268,13 @@ internal static class CssCascade
         {
             try
             {
-                var context = new ComputeContext(styles.Device, element.Owner?.Context, properties);
+                var context = new ComputeContext(_styles.Device, element.Owner?.Context, properties);
                 var computed = declarations.Compute(context);
-                properties.ApplyTo(computed);
+                if (scope == StyleScope.All)
+                {
+                    properties.ApplyTo(computed);
+                }
+
                 foreach (var property in declarations)
                 {
                     if (!property.Name.StartsWith("--", StringComparison.Ordinal)
@@ -229,6 +303,216 @@ internal static class CssCascade
         }
 
         private sealed record Cascade(ICssStyleDeclaration Raw, CustomProperties Variables, ICssStyleDeclaration? Computed);
+
+        private static void RetainScope(ICssStyleDeclaration declarations, StyleScope scope)
+        {
+            for (var index = declarations.Length - 1; index >= 0; index--)
+            {
+                var name = declarations[index];
+                if (!Includes(scope, name))
+                {
+                    declarations.RemoveProperty(name);
+                }
+            }
+        }
+
+        // CSS Flexbox layout consumes these declarations only. Preserve native matching and variable
+        // resolution, without computing paint values for every child whose synthetic box is requested.
+        private static bool Includes(StyleScope scope, string name)
+            => name is "display" or "visibility" or "all"
+                || scope == StyleScope.Layout && name is "flex-direction" or "flex-wrap" or "direction"
+                    or "align-self" or "align-items" or "flex-basis" or "width" or "flex-grow" or "flex-shrink"
+                    or "flex" or "flex-flow" or "place-items" or "place-self";
+
+        private sealed class ScopedStyles : IStyleCollection
+        {
+            private readonly ICssStyleRule[] _rules;
+            private readonly List<(int Order, ICssStyleRule Rule)> _unkeyed = new();
+            private readonly Dictionary<string, List<(int Order, ICssStyleRule Rule)>> _classes = new(StringComparer.Ordinal);
+
+            internal ScopedStyles(IStyleCollection styles, StyleScope scope, bool includeVariables)
+            {
+                Device = styles.Device;
+                var rules = new List<ICssStyleRule>();
+                var visitor = new RequiredClass();
+                Func<string, bool> includes = name => Includes(scope, name)
+                    || includeVariables && name.StartsWith("--", StringComparison.Ordinal);
+                VisitRules(styles, source =>
+                {
+                    // Most sheet rules have no declarations this query consumes. Do not allocate
+                    // declaration arrays or wrappers for them before finding that out.
+                    if (!HasIncludedProperty(source.Style, includes))
+                    {
+                        return;
+                    }
+                    var rule = new ScopedRule(source, includes);
+                    var index = rules.Count;
+                    rules.Add(rule);
+                    if (visitor.Of(rule.Selector) is not { } name)
+                    {
+                        _unkeyed.Add((index, rule));
+                    }
+                    else
+                    {
+                        if (!_classes.TryGetValue(name, out var bucket))
+                        {
+                            _classes.Add(name, bucket = new());
+                        }
+                        bucket.Add((index, rule));
+                    }
+                });
+                _rules = rules.ToArray();
+            }
+
+            private static bool HasIncludedProperty(ICssStyleDeclaration style, Func<string, bool> includes)
+            {
+                for (var index = 0; index < style.Length; index++)
+                {
+                    if (includes(style[index]))
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            // Index only a class required on the subject. The native matcher still decides every
+            // candidate, including specificity, combinators, pseudo-classes and nested selectors.
+            internal Candidates For(IElement element)
+            {
+                var candidates = new List<(int Order, ICssStyleRule Rule)>(_unkeyed);
+                foreach (var name in element.ClassList)
+                {
+                    if (_classes.TryGetValue(name, out var bucket))
+                    {
+                        candidates.AddRange(bucket);
+                    }
+                }
+                candidates.Sort(static (left, right) => left.Order.CompareTo(right.Order));
+                return new Candidates(Device, candidates);
+            }
+
+            public IRenderDevice Device { get; }
+            public IEnumerator<ICssStyleRule> GetEnumerator() => ((IEnumerable<ICssStyleRule>) _rules).GetEnumerator();
+            System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+        }
+
+        private static void VisitRules(IEnumerable<ICssStyleRule> rules, Action<ICssStyleRule> visit)
+        {
+            foreach (var rule in rules)
+            {
+                VisitRule(rule, visit);
+            }
+        }
+
+        private static void VisitRule(ICssStyleRule rule, Action<ICssStyleRule> visit)
+        {
+            if (rule.Style.Length != 0)
+            {
+                visit(rule);
+            }
+            var children = rule.Rules;
+            for (var index = 0; index < children.Length; index++)
+            {
+                if (children[index] is ICssStyleRule style)
+                {
+                    VisitRule(style, visit);
+                }
+            }
+        }
+
+        private sealed class Candidates(IRenderDevice device, List<(int Order, ICssStyleRule Rule)> rules) : IStyleCollection
+        {
+            public IRenderDevice Device => device;
+            public IEnumerator<ICssStyleRule> GetEnumerator() => rules.Select(static item => item.Rule).GetEnumerator();
+            System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+        }
+
+        private sealed class RequiredClass : ISelectorVisitor
+        {
+            private string? Name { get; set; }
+            internal string? Of(ISelector? selector)
+            {
+                Name = null;
+                selector?.Accept(this);
+                return Name;
+            }
+            public void Class(string name) => Name ??= name;
+            public void Many(IEnumerable<ISelector> selectors)
+            {
+                foreach (var selector in selectors)
+                {
+                    if (Name is not null)
+                    {
+                        break;
+                    }
+                    selector.Accept(this);
+                }
+            }
+            public void Combinator(IEnumerable<ISelector> selectors, IEnumerable<string> symbols) => selectors.Last().Accept(this);
+            public void Attribute(string name, string op, string? value) { }
+            public void Type(string name) { }
+            public void Id(string value) { }
+            public void Child(string name, int step, int offset, ISelector selector) { }
+            public void PseudoClass(string name) { }
+            public void PseudoElement(string name) { }
+            public void List(IEnumerable<ISelector> selectors) { }
+        }
+    }
+
+    // The native merge enumerates Rule.Style. Filtering only the rule list still makes it copy every
+    // paint declaration in a mixed rule for every element, then remove those declarations afterwards.
+    // Keep the original property objects: serializing/reparsing would lose pending shorthand values.
+    private sealed class ScopedRule(ICssStyleRule source, Func<string, bool>? includes) : ICssStyleRule
+    {
+        public ICssStyleDeclaration Style { get; } = includes is null ? source.Style
+            : new ScopedDeclaration(source.Style, source.Style.Where(property => includes(property.Name)).ToArray());
+        public string SelectorText { get => source.SelectorText; set => throw new NotSupportedException(); }
+        public ISelector Selector => source.Selector;
+        public ICssRuleList Rules => ScopedRuleList.Empty;
+        public CssRuleType Type => source.Type;
+        public string CssText { get => source.CssText; set => throw new NotSupportedException(); }
+        public ICssRule Parent => source.Parent;
+        public ICssStyleSheet Owner => source.Owner;
+        public bool TryMatch(IElement element, IElement? scope, out Priority specificity)
+            => source.TryMatch(element, scope, out specificity);
+        public void SetParent(ICssRule rule) => throw new NotSupportedException();
+        public void SetOwner(ICssStyleSheet sheet) => throw new NotSupportedException();
+        public void ToCss(TextWriter writer, IStyleFormatter formatter) => source.ToCss(writer, formatter);
+    }
+
+    private sealed class ScopedRuleList(ICssRule[] rules) : ICssRuleList
+    {
+        internal static readonly ScopedRuleList Empty = new([]);
+        public ICssRule this[int index] => (uint) index < (uint) rules.Length ? rules[index] : null!;
+        public int Length => rules.Length;
+        public IEnumerator<ICssRule> GetEnumerator() => ((IEnumerable<ICssRule>) rules).GetEnumerator();
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+    }
+
+    /// <summary>Read-only merge input over the original native properties, never exposed to script.</summary>
+    private sealed class ScopedDeclaration(ICssStyleDeclaration source, ICssProperty[] properties) : ICssStyleDeclaration
+    {
+        public string this[int index] => (uint) index < (uint) properties.Length ? properties[index].Name : "";
+        public string this[string name] => GetPropertyValue(name);
+        public int Length => properties.Length;
+        public ICssRule? Parent => source.Parent;
+        public event Action<string>? Changed { add { } remove { } }
+        public void SetParent(ICssRule? rule) => throw new NotSupportedException();
+        public string CssText { get => source.CssText; set => throw new NotSupportedException(); }
+        public ICssProperty GetProperty(string name)
+            => properties.FirstOrDefault(property => string.Equals(property.Name, name,
+                name.StartsWith("--", StringComparison.Ordinal) ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase))!;
+        public string GetPropertyValue(string name) => GetProperty(name)?.Value ?? "";
+        public string GetPropertyPriority(string name) => GetProperty(name)?.IsImportant == true ? "important" : "";
+        public void SetProperty(string name, string value, string? priority = null) => throw new NotSupportedException();
+        public string RemoveProperty(string name) => throw new NotSupportedException();
+        public void SetPropertyPriority(string name, string priority) => throw new NotSupportedException();
+        public void SetDefaultProperty(string name, string value) => throw new NotSupportedException();
+        public void Update(string value) => throw new NotSupportedException();
+        public void ToCss(TextWriter writer, IStyleFormatter formatter) => source.ToCss(writer, formatter);
+        public IEnumerator<ICssProperty> GetEnumerator() => ((IEnumerable<ICssProperty>) properties).GetEnumerator();
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
     }
 
     /// <summary>The device and cycle-free variables AngleSharp's own value computation resolves against.</summary>

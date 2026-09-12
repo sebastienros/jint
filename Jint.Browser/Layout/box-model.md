@@ -42,12 +42,26 @@ layout remain unmodeled. A row shares vertical space instead of stacking full-wi
 button no longer owns its parent's centre. DOM rectangles, hit testing, offsets and resize measurements
 use the same boxes. Documents without these rows keep the existing ordinal hit-test path.
 
+The cascade indexes required subject classes through AngleSharp's selector visitor for this query only.
+Selectors without a required class stay candidates for every element; the native matcher decides the
+result and specificity, with original rule order retained. Nested rules participate in the same index.
+The full computed-style path supplies the union of the element and ancestor candidates to AngleSharp
+so its native inheritance and value computation still produce the complete declaration.
+
+**One rectangle uses the same placement as a complete layout.** `SizeQuery.Place` computes ancestor
+positions and preceding sibling extents on demand; a complete layout asks it for every rendered element.
+`PageLayout.ClientBoxOf` counts enough rows to establish the same scroll clamp, stopping once the
+current viewport bottom is covered. Partial counts never enter the exact-size cache. Placement measures
+ancestor heights only when flex alignment needs them, then requests the chosen rectangle. It does not
+position unrelated descendants or retain results after the query.
+
 **It is recomputed per query and never cached across queries.** A cache needs an invalidation signal, and the only one
 available is an AngleSharp `MutationObserver` over the whole document — which would make every DOM mutation on
 every page pay for mutation records whether or not anything ever asks for a box. Within that synchronous
 walk, `CssCascade.Traversal` shares the style collection and raw parent cascades: calling
 `ComputeCurrentStyle` separately for every element rematches every ancestor, which made a nested admin form
-expensive at every step of Playwright's actionability checks. AngleSharp still owns matching, specificity,
+expensive at every step of Playwright's actionability checks. Visibility and flex measurements filter the active rule collection to the properties they consume,
+including shorthand values and their custom-property dependencies. AngleSharp still owns matching, specificity,
 inheritance and value computation. Individual style queries use Css 1.1.0's native computed-style API,
 including its cycle-safe custom-property resolution. **The traversal still needs `Dom/Views/CustomProperties`
 (#3851)**: the native computed-parent overload is internal, and calling the public entry per element would

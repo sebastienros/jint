@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+    <title>OrchardCore OpenAPI Documentation</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+</head>
+<body>
+    <script id="api-reference"></script>
+    <script src="/vendor/scalar-2.0.0/scalar.aspnetcore.js"></script>
+    <script>
+        const basePath = getBasePath('/scalar-openapi/scalar-2.0.0.html');
+        const openApiUrl = `${window.location.origin}${basePath}/swagger/v1/swagger.json`;
+        const reference = document.getElementById('api-reference');
+        reference.dataset.url = openApiUrl;
+        reference.dataset.configuration = JSON.stringify({ proxyUrl: '' });
+    </script>
+    <script src="/vendor/scalar-2.0.0/scalar.js"></script>
+</body>
+</html>

@@ -22,7 +22,7 @@ internal sealed class ElementVisibility
     internal ElementVisibility(bool useComputedStyle) => _useComputedStyle = useComputedStyle;
 
     internal CssCascade.Traversal? CreateTraversal(IDocument? document)
-        => _useComputedStyle && _cascadeAvailable ? CssCascade.Traversal.For(document) : null;
+        => _useComputedStyle && _cascadeAvailable ? CssCascade.Traversal.For(document, scope: CssCascade.StyleScope.Visibility) : null;
 
     /// <summary>
     /// Whether the CSS cascade answered at least once, so a caller can say which source a verdict came from.
@@ -36,7 +36,8 @@ internal sealed class ElementVisibility
     /// Ancestors are not consulted: the tree walk carries an inherited verdict down, which is both cheaper
     /// than walking up per node and the only way <c>hiddenRoot</c> can name the ancestor that did it.
     /// </remarks>
-    internal AxIgnoredReason ReasonFor(IElement element) => ReasonFor(element, ariaHiddenCounts: true, traversal: null);
+    internal AxIgnoredReason ReasonFor(IElement element, CssCascade.Traversal? traversal = null)
+        => ReasonFor(element, ariaHiddenCounts: true, traversal);
 
     /// <summary>
     /// Returns the reason <paramref name="element"/> is not rendered, or <see cref="AxIgnoredReason.None"/>.

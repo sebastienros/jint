@@ -49,6 +49,7 @@ React does not) would otherwise read a draft it had already cleared.
 | `vue-folder-tree` | A Vue tree mounted while hidden, revealed after fetch, with child rendering gated by `ResizeObserver` height; async folder insertion and shallow root replacement | passes |
 | `monaco-amd` | Orchard's tenant-relative Monaco AMD configuration, the editor bundle's CSS plugin dependency, and creation of an editor model | passes |
 | `swagger-ui` | Orchard's Swagger UI bundle over CDP: schema loading, expanding operations, try-out controls and executing a request | passes |
+| `scalar-openapi` | Scalar.AspNetCore 2.12.9 with the full OrchardCore Blog OpenAPI schema; Vue/Floating UI geometry and visible GetEndpoint sidebar rendering over real Playwright CDP | passes |
 | `todomvc-preact` | Preact hooks writing to the DOM directly, with no scheduler between them | passes |
 | `todomvc-svelte` | Svelte 5 compiled ahead of time: no framework runtime is loaded, only the component's own output | passes |
 | `ssr-hydration` | React `hydrateRoot` over server-rendered markup — the nodes are adopted, not replaced, and `onRecoverableError` stays empty | passes |
@@ -101,6 +102,8 @@ Each directory under `vendor/` holds the library's published bundle and its own 
 | Bootstrap-select (CrestApps) | 1.2.4 | `github.com/CrestApps/bootstrap-select/blob/cba208e213b6e61464a07901a9b5438cd7193ce5/docs/dist/js/bootstrap-select.min.js` | MIT | `jquery-unsafe-url` |
 | Monaco / Orchard configuration | 0.52.2 | `OrchardCMS/OrchardCore@ff256e15b720c7c705a4f79743b64f5bb76d22bf`, `src/OrchardCore.Modules/OrchardCore.Resources/wwwroot/Scripts/monaco/` (loader, ocmonaco, editor JS and CSS) | MIT / BSD-3-Clause; bundled third-party notices alongside | `monaco-amd` |
 | Swagger UI | 5.32.7 | Embedded bundle, standalone preset and CSS from `Swashbuckle.AspNetCore.SwaggerUI` NuGet 10.2.3, as used by OrchardCore | Apache-2.0; bundled NOTICE alongside | `swagger-ui` |
+| Scalar | 2.12.9 | `Scalar.AspNetCore` NuGet package, `net8.0/Scalar.AspNetCore.dll` embedded resources `ScalarStaticAssets.scalar.js` and `ScalarStaticAssets.scalar.aspnetcore.js`, decompressed; upstream `scalar/scalar@9a5ff75b15881857715bb5f95b9fd3c671843a6a` | MIT | `scalar-openapi` |
+| Scalar | 2.0.0 | `Scalar.AspNetCore` NuGet package, `net8.0/Scalar.AspNetCore.dll` embedded resources `ScalarStaticAssets.scalar.js` and `ScalarStaticAssets.scalar.aspnetcore.js`; upstream `scalar/scalar@ba9413ab6d7671ca11cfc93cd81c7dc341965a07` | MIT | `scalar-openapi/scalar-2.0.0.html` (non-gating upstream diagnostic) |
 | htmx | 2.0.10 | `unpkg.com/htmx.org@2.0.10/dist/htmx.min.js` | 0BSD | `htmx` |
 | Alpine.js | 3.17.1 | `unpkg.com/alpinejs@3.17.1/dist/cdn.min.js` | MIT | `alpine` |
 
@@ -132,6 +135,45 @@ The fixture also exposed the independent macOS net8 page-thread stack defect tra
 the same React commit traversal exhausts the default stack in the published, unmodified browser package.
 The production page-thread fix landed separately in #3886. Neither the summary selector nor the error
 assertions are bypassed to accommodate that defect.
+### The Scalar reproduction
+
+`scalar-openapi/schema.json` is the complete 50,869-byte schema captured from OrchardCore's Blog recipe
+for [#3882](https://github.com/sebastienros/jint/issues/3882), SHA-256
+`e3396cef8f4d49580d4b63464c7d7dfc209a01b8f69bd506fc7e6c0d4e691be3`.
+The entry document preserves Scalar's generated bootstrap and empty proxy setting; the vendored assets are
+unmodified. `FixtureRoutes.Scalar` serves both root and tenant-prefixed endpoints, without OrchardCore or
+external services. The fixture covers operation rendering and opening the API Client without authenticated API calls.
+Visibility and flex queries share only the CSS properties they need, and target rectangles use the same
+placement algorithm as full hit-test layouts without positioning unrelated descendants. Accessibility
+snapshots share their visibility cascade through name computation. No result survives a query.
+The browser test project runs its target frameworks sequentially by default: NUnit's nonparallel fixture scheduling only
+isolates tests within one process, while the SDK otherwise starts both framework hosts together. Both
+complete suites still run with their original deadlines, in local runs and every CI leg.
+
+Both drivers retain Orchard's original 30-second task budget, and Playwright's render waits remain
+30 seconds. Its clicks use `TestBudgets.WedgeCeiling`: one client action spans several protocol commands
+and page turns, so its end-to-end hang bound is separate from the engine budget this regression asserts.
+Wrong geometry, missing UI, failed requests and page-budget errors still fail the test. Playwright uses the centrally pinned 1.62.0
+package and `ConnectOverCDPAsync`. The separate NetworkIdle bookkeeping defect was reduced in
+[#3883](https://github.com/sebastienros/jint/issues/3883) to an upstream Playwright issue,
+[microsoft/playwright#42598](https://github.com/microsoft/playwright/issues/42598). These cases assert
+DOMContentLoaded/load and completed requests, not NetworkIdle; no Jint lifecycle workaround is included.
+
+The gating entry document uses Scalar.AspNetCore 2.12.9, the first package whose embedded Vue meets
+the 3.5.22 threshold: 2.12.8 embeds Vue 3.5.21; 2.12.9 embeds 3.5.26
+([scalar/scalar#7757](https://github.com/scalar/scalar/pull/7757)). The main bundle's SHA-256 is
+`d0f6144e3a1c83889e4a193fa2a85373382d64485f5c24e6119cbff127bbcebc`; the helper's is
+`33728da79ad3d2f92dd75d85e0cfc45c364bf412ad8b62a9737088b159492427`.
+The module bootstrap follows that package's generated document, with only the asset locations changed to
+the vendored paths. It does not expand tags or disable observers, Teleport, or error handling.
+
+`scalar-openapi/scalar-2.0.0.html` preserves Orchard's original package and bootstrap as a non-gating
+diagnostic, using the same routes and schema. Its Vue 3.5.12 can update a deferred Teleport before its
+children mount, then read `null.style`. Scalar's error boundary consequently removes the reference sidebar.
+A Scalar-free update-before-mount reduction reproduces the same error in Chromium and Jint with Vue
+3.5.12, and succeeds in both with 3.5.22. This is not a Jint DOM workaround: Orchard's current Scalar
+2.0.0 still needs a separate package update after the geometry fix. The original main bundle's SHA-256 is
+`801bf2252a6e6c00ecce05a3002d91938c2c951b7e37a7d2f514000d298880f7`.
 
 ### The two files that were produced rather than downloaded
 

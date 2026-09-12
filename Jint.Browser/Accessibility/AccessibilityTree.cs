@@ -4,6 +4,8 @@ using System.Text.Json;
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
 
+using Jint.Browser.Dom.Views;
+
 namespace Jint.Browser.Accessibility;
 
 /// <summary>
@@ -202,7 +204,7 @@ internal static class AccessibilityTree
     {
         for (var ancestor = element.ParentElement; ancestor is not null; ancestor = ancestor.ParentElement)
         {
-            var reason = builder.Visibility.ReasonFor(ancestor);
+            var reason = builder.ReasonFor(ancestor);
             if (reason != AxIgnoredReason.None)
             {
                 return Inherit(reason);
@@ -240,16 +242,20 @@ internal static class AccessibilityTree
         private readonly IDocument _document;
         private readonly AccessibilityOptions _options;
         private readonly AccessibleName _names;
+        private readonly CssCascade.Traversal? _cascade;
 
         internal Builder(IDocument document, AccessibilityOptions options)
         {
             _document = document;
             _options = options;
             Visibility = new ElementVisibility(options.UseComputedStyle);
-            _names = new AccessibleName(Visibility);
+            _cascade = Visibility.CreateTraversal(document);
+            _names = new AccessibleName(Visibility, _cascade);
         }
 
         internal ElementVisibility Visibility { get; }
+
+        internal AxIgnoredReason ReasonFor(IElement element) => Visibility.ReasonFor(element, _cascade);
 
         internal void Visit(INode node, AxIgnoredReason inherited, List<AxNode> output, bool suppressText)
         {
@@ -301,7 +307,7 @@ internal static class AccessibilityTree
                 return;
             }
 
-            var reason = Reason(Visibility.ReasonFor(element), inherited);
+            var reason = Reason(ReasonFor(element), inherited);
 
             // Four of the reasons take the subtree with them: nothing inside a `display: none`, a `hidden`
             // attribute or an `aria-hidden` can come back. `visibility` is the one that can, because CSS
