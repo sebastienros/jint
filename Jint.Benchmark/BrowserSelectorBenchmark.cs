@@ -32,6 +32,24 @@ namespace Jint.Benchmark;
 /// not move.
 /// </para>
 /// <para>
+/// <b>Every row loops its query rather than running it once, and the loop count is chosen per row —
+/// see <c>Jint.Benchmark/AGENTS.md</c>'s "A row through <c>Page.EvaluateAsync</c> must amortise the mailbox
+/// round trip" for why this is load-bearing rather than decorative.</b> A first cut of this class
+/// ran each query exactly once per <c>[Benchmark]</c> invocation, the way a page script normally would, and a
+/// paired run against it could not tell a real regression from noise: <c>Control</c>, <c>DefaultButton</c>
+/// and <c>Valid</c> — three rows this change cannot touch at all — swung +4.7%, +19.5% and +18.6% between
+/// two builds with identical code for all three, because each invocation is dominated by the one
+/// <c>Page.EvaluateAsync</c> mailbox round trip rather than by the query itself. <see cref="TargetMissing"/>
+/// and <see cref="Indeterminate"/> did not have this problem — one pass already costs on the order of a
+/// millisecond or more, so the round trip is a rounding error against it — and stay at
+/// <see cref="DominantWorkPasses"/> pass. The other four are cheap enough per pass (tens of microseconds
+/// against the profile's document) that the round trip would otherwise be most of what is measured, so they
+/// loop <see cref="RoundTripAmortizingPasses"/> times and sum every pass's result so none of it is optimised
+/// away. <b>Do not collapse these two constants into one</b>: the rows they cover differ in per-pass cost by
+/// roughly three orders of magnitude, and one shared pass count would either make the cheap rows still
+/// round-trip-dominated or make the expensive ones absurdly slow.
+/// </para>
+/// <para>
 /// <b>Engine isolation.</b> One <see cref="Page"/> — and therefore one engine and one document — per row,
 /// built in <c>[GlobalSetup]</c> and warmed with only that row's own query, so no row's number depends on
 /// which sibling ran first. Page construction and the HTML parse stay outside the measurement.
@@ -50,6 +68,25 @@ public class BrowserSelectorBenchmark
     /// </summary>
     private const int RadioCount = 100;
 
+    /// <summary>
+    /// The pass count for a row whose single pass is already well above a mailbox round trip on its own —
+    /// <see cref="TargetMissing"/> (roughly 880 µs after the fix in this file's own change, and far more
+    /// before it) and <see cref="Indeterminate"/> (roughly 100 ms, since it scans the whole document for
+    /// every one of a hundred unchecked radios). Looping either further would only make the class slower to
+    /// run for no gain in signal.
+    /// </summary>
+    private const int DominantWorkPasses = 1;
+
+    /// <summary>
+    /// The pass count for a row whose single pass costs on the order of tens of microseconds — cheaper than
+    /// the <c>Page.EvaluateAsync</c> mailbox round trip itself, which is exactly what let
+    /// <see cref="Control"/>, <see cref="DefaultButton"/> and <see cref="Valid"/> swing up to +19.5% in a
+    /// paired run against code that could not have changed their cost at all (see the class remarks). Five
+    /// hundred passes puts each of these comfortably into the low tens of milliseconds, the same way
+    /// <c>BrowserNodeListBenchmark.Passes</c> amortises its own per-invocation round trip.
+    /// </summary>
+    private const int RoundTripAmortizingPasses = 500;
+
     private Browser.Browser _browser = null!;
     private Page _targetMissing = null!;
     private Page _targetPresent = null!;
@@ -65,19 +102,36 @@ public class BrowserSelectorBenchmark
 
         var document = BuildDocument();
 
-        _targetMissing = await CreatePageAsync(document, "https://example.test/#missing", TargetScript);
-        _targetPresent = await CreatePageAsync(document, "https://example.test/#present", TargetScript);
+        _targetMissing = await CreatePageAsync(document, "https://example.test/#missing", TargetMissingScript);
+        _targetPresent = await CreatePageAsync(document, "https://example.test/#present", TargetPresentScript);
         _defaultButton = await CreatePageAsync(document, "https://example.test/", DefaultScript);
         _indeterminate = await CreatePageAsync(document, "https://example.test/", IndeterminateScript);
         _valid = await CreatePageAsync(document, "https://example.test/", ValidScript);
         _control = await CreatePageAsync(document, "https://example.test/", ControlScript);
     }
 
-    private const string TargetScript = "document.querySelectorAll(':target').length";
-    private const string DefaultScript = "document.querySelectorAll(':default').length";
-    private const string IndeterminateScript = "document.querySelectorAll(':indeterminate').length";
-    private const string ValidScript = "document.querySelectorAll(':valid').length";
-    private const string ControlScript = "document.querySelectorAll('.item').length";
+    private static readonly string TargetMissingScript = Query(":target", DominantWorkPasses);
+    private static readonly string TargetPresentScript = Query(":target", RoundTripAmortizingPasses);
+    private static readonly string DefaultScript = Query(":default", RoundTripAmortizingPasses);
+    private static readonly string IndeterminateScript = Query(":indeterminate", DominantWorkPasses);
+    private static readonly string ValidScript = Query(":valid", RoundTripAmortizingPasses);
+    private static readonly string ControlScript = Query(".item", RoundTripAmortizingPasses);
+
+    /// <summary>
+    /// <paramref name="selector"/>'s <c>querySelectorAll(…).length</c>, run <paramref name="passes"/> times
+    /// and summed, so that (a) the one <c>Page.EvaluateAsync</c> mailbox round trip this whole script pays is
+    /// amortised over every pass rather than measured once per query, and (b) the total depends on every
+    /// pass's result, so nothing in the loop can be optimised away.
+    /// </summary>
+    private static string Query(string selector, int passes) => $$"""
+        (function () {
+            var total = 0;
+            for (var i = 0; i < {{passes}}; i++) {
+                total += document.querySelectorAll('{{selector}}').length;
+            }
+            return total;
+        })()
+        """;
 
     /// <summary>One page holding the shared document, warmed with this row's own query and nothing else.</summary>
     private async Task<Page> CreatePageAsync(string html, string baseUrl, string script)
@@ -123,10 +177,10 @@ public class BrowserSelectorBenchmark
     }
 
     [Benchmark]
-    public Task<double> TargetMissing() => _targetMissing.EvaluateAsync<double>(TargetScript);
+    public Task<double> TargetMissing() => _targetMissing.EvaluateAsync<double>(TargetMissingScript);
 
     [Benchmark]
-    public Task<double> TargetPresent() => _targetPresent.EvaluateAsync<double>(TargetScript);
+    public Task<double> TargetPresent() => _targetPresent.EvaluateAsync<double>(TargetPresentScript);
 
     [Benchmark]
     public Task<double> DefaultButton() => _defaultButton.EvaluateAsync<double>(DefaultScript);
