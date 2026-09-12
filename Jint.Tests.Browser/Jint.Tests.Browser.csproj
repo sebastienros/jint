@@ -4,6 +4,9 @@
     <!-- The package's own two target frameworks. There is no net472 leg because there is no net472 asset:
          Jint.Browser is net8.0+, like Jint/WebApi/ and Jint.DevTools. -->
     <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <!-- NonParallelizable isolates application fixtures within a testhost, not between frameworks.
+         Keep their wall-clock page/client budgets independent of the other framework's workload. -->
+    <TestTfmsInParallel>false</TestTfmsInParallel>
 
     <!-- Signed with the repository key, because Jint.Browser is signed and names this assembly as a friend.
          Everything the binding has is internal, so without the grant there is nothing here to test. -->
