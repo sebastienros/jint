@@ -292,6 +292,7 @@ public sealed class ClassNameCollectionTests
         fixture.Number("document.getElementsByClassName('   ').length").Should().Be(0);
         fixture.Number("document.getElementsByClassName('a\\t\\n\\f\\r b').length").Should().Be(1);
     }
+
     /// <summary>
     /// https://dom.spec.whatwg.org/#concept-getelementsbyclassname matches an element whose
     /// <a href="https://dom.spec.whatwg.org/#concept-class">classes</a> — the <b>tokens</b> of its class
