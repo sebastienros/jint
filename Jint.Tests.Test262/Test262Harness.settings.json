@@ -142,6 +142,13 @@
 
     // === STALE TEST ===
 
+    // tzdb 2026d restores CST6CDT, EST5EDT, MST7MDT and PST8PDT as separate Zones with
+    // POSIX-compatible histories, but this file still asserts they are Links to US cities.
+    // https://data.iana.org/time-zones/tzdb-2026d/NEWS
+    // Remove when the pinned upstream test supports tzdb 2026d. NodaTimeZoneProviderTests
+    // covers the distinct identifiers, historical offsets and genuine aliases in the meantime.
+    "intl402/Temporal/ZonedDateTime/links.js",
+
     // Written in 2017 against an edition of FunctionDeclarationInstantiation this test quotes in its
     // own info block - "22.f. Append \"arguments\" to parameterNames" - and superseded by the
     // normative change that split paramBindings out of paramNames. Today the Annex B condition reads
