@@ -511,11 +511,12 @@ internal class DomHostHooks
     internal virtual JsValue TagName(DomRealm realm, IElement element)
     {
         var qualified = QualifiedName(element);
-        return JsString.Create(
-            string.Equals(element.NamespaceUri, NamespaceNames.HtmlUri, StringComparison.Ordinal)
+        return string.Equals(element.NamespaceUri, NamespaceNames.HtmlUri, StringComparison.Ordinal)
             && element.Owner is IHtmlDocument
-                ? AsciiUppercase(qualified)
-                : qualified);
+                // Memoized per realm: the transform is a pure function of the qualified name, and this is
+                // the branch every repeated read of an HTML element's tagName/nodeName takes.
+                ? realm.HtmlUppercasedTagName(qualified)
+                : JsString.Create(qualified);
     }
 
     /// <summary>
@@ -532,7 +533,14 @@ internal class DomHostHooks
     internal virtual JsValue NodeName(DomRealm realm, INode node)
         => node is IElement element ? TagName(realm, element) : JsString.Create(node.NodeName);
 
-    private static string AsciiUppercase(string value)
+    /// <summary>
+    /// ASCII-uppercases <paramref name="value"/>: only the bytes <c>a</c>-<c>z</c> move, deliberately not
+    /// <see cref="string.ToUpperInvariant"/>'s culture-aware casing, because
+    /// <a href="https://infra.spec.whatwg.org/#ascii-uppercase">HTML's ASCII-uppercase</a> is what
+    /// <see cref="TagName"/> and <see cref="DomRealm.HtmlUppercasedTagName"/> need. Internal rather than
+    /// private so the per-realm memo can call it on a cache miss without duplicating it.
+    /// </summary>
+    internal static string AsciiUppercase(string value)
     {
         char[]? copy = null;
         for (var i = 0; i < value.Length; i++)

@@ -48,6 +48,7 @@ internal sealed class DomRealm
     private readonly ObjectInstance?[] _pristineLengthGetters;
     private readonly ConditionalWeakTable<object, ObjectInstance> _wrappers = new();
     private readonly ConditionalWeakTable<IElement, AriaElementReflection.Cache> _ariaCaches = new();
+    private Dictionary<string, JsString>? _htmlUppercasedTagNames;
     private int _nodes;
 
     private DomRealm(Engine engine)
@@ -139,6 +140,56 @@ internal sealed class DomRealm
     /// whichever wrapper happened to reach it first.
     /// </remarks>
     internal AriaElementReflection.Cache AriaCacheFor(IElement element) => _ariaCaches.GetOrCreateValue(element);
+
+    /// <summary>
+    /// The maximum number of distinct <a
+    /// href="https://dom.spec.whatwg.org/#concept-element-qualified-name">qualified names</a> this engine
+    /// will memoize an <see cref="HtmlUppercasedTagName"/> answer for.
+    /// </summary>
+    /// <remarks>
+    /// A real document's distinct tag-name set is nowhere near this: HTML, SVG and MathML together define a
+    /// few hundred element names, and even a component-heavy page's custom elements number in the tens to
+    /// low hundreds. The cap exists for the page that is not a real document — a script that manufactures a
+    /// fresh <c>document.createElement('x-' + i)</c> name on every iteration purely to read
+    /// <c>tagName</c> — which would otherwise grow this table by one entry per call for the life of the
+    /// engine. Past the cap the answer is still correct, computed the way it always was; it is only the memo
+    /// that stops growing.
+    /// </remarks>
+    private const int MaxCachedUppercasedTagNames = 1024;
+
+    /// <summary>
+    /// The finished <see cref="JsString"/> for <c>tagName</c>/<c>nodeName</c>'s
+    /// <a href="https://dom.spec.whatwg.org/#element-html-uppercased-qualified-name">HTML-uppercased
+    /// qualified name</a>, memoized by the element's (not-yet-uppercased) qualified name so a repeated read
+    /// of the same element interface allocates nothing after the first.
+    /// </summary>
+    /// <remarks>
+    /// Sound because the uppercasing is a pure function of the qualified name alone: <see cref="DomHostHooks.TagName"/>
+    /// only ever calls this once it has already decided the element is in the HTML namespace and its owner is
+    /// an <see cref="IHtmlDocument"/>, so every qualified name reaching this cache needs the same answer
+    /// regardless of which element asked — an SVG element sharing a local name with an HTML one never reaches
+    /// here at all, because that decision is made by the caller before the qualified name is looked up.
+    /// </remarks>
+    internal JsString HtmlUppercasedTagName(string qualifiedName)
+    {
+        var cache = _htmlUppercasedTagNames ??= new Dictionary<string, JsString>(StringComparer.Ordinal);
+        if (cache.TryGetValue(qualifiedName, out var cached))
+        {
+            return cached;
+        }
+
+        // JsString.CachedCreate is a process-wide cache keyed by value, not per-realm state — sound here
+        // because a JsString carries no engine affinity — so it also reuses the wrapper object itself across
+        // engines for the common (<= 10 character) tag names, on top of this memo's saving of the uppercase
+        // computation.
+        var uppercased = JsString.CachedCreate(DomHostHooks.AsciiUppercase(qualifiedName));
+        if (cache.Count < MaxCachedUppercasedTagNames)
+        {
+            cache[qualifiedName] = uppercased;
+        }
+
+        return uppercased;
+    }
 
     /// <summary>The binding state of <paramref name="engine"/>, created on first use.</summary>
     internal static DomRealm Of(Engine engine) => _realms.GetValue(engine, static e => new DomRealm(e));
