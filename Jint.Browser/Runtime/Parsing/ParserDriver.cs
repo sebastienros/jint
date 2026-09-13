@@ -103,7 +103,7 @@ internal sealed class ParserDriver : IDisposable
         // attached or not, where a mutation record needs the element to be under the observed document
         // and `el.setAttribute` before insertion is the commonest thing a component does. `.With` adds a
         // service rather than replacing one, so AngleSharp's own observer keeps working.
-        var configuration = Configuration.Default
+        var configuration = Dom.CaseSensitiveSvgFactory.Configure(Configuration.Default)
             .WithCss()
             // Selectors §8.2 matches :target only for the document's target element. AngleSharp compares
             // each candidate's ID with its owner document's fragment, so duplicate IDs, shadow descendants
