@@ -1,4 +1,5 @@
 using Jint.Browser;
+using Jint.Browser.Dom.Views;
 using Jint.Browser.Runtime;
 
 namespace Jint.Tests.Browser.Layout;
@@ -22,6 +23,38 @@ namespace Jint.Tests.Browser.Layout;
 public class FlatLayoutTests
 {
     private const int Row = 16;
+
+    [Test]
+    public async Task AnUnscrolledRectangleDoesNotMatchUnrelatedDocumentBranches()
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<style>#unrelated { display: block }</style><button id='target'>Save</button>"
+            + "<main id='unrelated'>" + string.Concat(Enumerable.Repeat("<div>row</div>", 100)) + "</main>");
+
+        var result = await page.RunOnLoopAsync(engine =>
+        {
+            var runtime = PageRuntime.Find(engine)!;
+            var document = runtime.Document!;
+            var tracker = new CssRuleUsageTracker();
+            tracker.Rebind(document);
+            CssRuleUsage.Arm(tracker);
+            try
+            {
+                var box = runtime.Layout.ClientBoxOf(document.GetElementById("target")!)!.Value;
+                return (box.Height, runtime.Layout.ScrollY, Used: tracker.TakeDelta().Select(rule => rule.SelectorText).ToArray());
+            }
+            finally
+            {
+                CssRuleUsage.Disarm(tracker);
+            }
+        });
+
+        result.Height.Should().Be(Row);
+        result.ScrollY.Should().Be(0);
+        result.Used.Should().NotContain("#unrelated", "an unscrolled leaf's rectangle needs no document-height clamp");
+        page.Errors.Should().BeEmpty();
+    }
 
     [Test]
     public async Task AHiddenRectangleStillClampsScrollAfterTheDocumentShrinks()

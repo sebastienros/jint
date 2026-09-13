@@ -68,9 +68,14 @@ internal sealed class PageLayout
     internal FlatBox? ClientBoxOf(IElement element)
     {
         var sizes = MeasureSizes();
-        var height = _runtime.Document?.DocumentElement is { } root
-            ? sizes.HeightUpTo(root, _scrollY + _runtime.Viewport.Height) : 0;
-        _scrollY = Math.Min(_scrollY, Math.Max(0, height - _runtime.Viewport.Height));
+        // Zero is already inside every scroll range. Only a positive offset can need clamping
+        // after a document shrinks; measuring unrelated branches cannot change a zero offset.
+        if (_scrollY > 0)
+        {
+            var height = _runtime.Document?.DocumentElement is { } root
+                ? sizes.HeightUpTo(root, _scrollY + _runtime.Viewport.Height) : 0;
+            _scrollY = Math.Min(_scrollY, Math.Max(0, height - _runtime.Viewport.Height));
+        }
         if (!sizes.HasBox(element))
         {
             return null;
