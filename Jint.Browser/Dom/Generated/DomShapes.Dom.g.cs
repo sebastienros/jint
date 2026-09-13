@@ -819,14 +819,14 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.createAttribute", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.createAttribute");
-                    return self.Realm.WrapNodeValue(self.Target.CreateAttribute(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.createAttribute")));
+                    return self.Realm.Hooks.CreateAttribute(self.Realm, self.Target, args);
                 }),
                 length: 1)
             .Method("createAttributeNS",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.createAttributeNS", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.createAttributeNS");
-                    return self.Realm.WrapNodeValue(self.Target.CreateAttribute(global::Jint.Browser.Dom.DomConvert.NullableText(args, 0), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Document.createAttributeNS")));
+                    return self.Realm.Hooks.CreateAttributeNS(self.Realm, self.Target, args);
                 }),
                 length: 2)
             .Method("createCDATASection",
@@ -1923,7 +1923,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.setAttributeNS", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.setAttributeNS");
-                    self.Target.SetAttribute(global::Jint.Browser.Dom.DomConvert.NullableText(args, 0), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Element.setAttributeNS"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 2, "Element.setAttributeNS")); return global::Jint.Native.JsValue.Undefined;
+                    self.Realm.Hooks.SetAttributeNS(self.Realm, self.Target, args); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 3)
             .Method("setAttributeNode",

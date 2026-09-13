@@ -1200,7 +1200,9 @@ internal static class WptBrowserExclusions
         new("dom/nodes/DOMImplementation-createDocumentType.html", "createDocumentType(\"{*", WptDivergence.NeedsTriage),
         new("dom/nodes/DOMImplementation-createDocumentType.html", "createDocumentType(\"}*", WptDivergence.NeedsTriage),
         new("dom/nodes/DOMImplementation-createDocumentType.html", "createDocumentType(\"~*", WptDivergence.NeedsTriage),
-        new("dom/nodes/name-validation.html", "*", WptDivergence.NeedsTriage),
+        new("dom/nodes/name-validation.html", "Valid and invalid characters in createElement.", WptDivergence.NeedsTriage),
+        new("dom/nodes/name-validation.html", "Valid and invalid characters in createElementNS and createDocument.", WptDivergence.NeedsTriage),
+        new("dom/nodes/name-validation.html", "Valid and invalid characters in createDocumentType.", WptDivergence.NeedsTriage),
     ];
 
     // ---------------------------------------------------------------- a name AngleSharp refuses that the standard allows
@@ -1229,7 +1231,6 @@ internal static class WptBrowserExclusions
         new("dom/nodes/Node-insertBefore.html", "*, must throw TypeError.", WptDivergence.NeedsTriage),
         new("dom/nodes/Node-replaceChild.html", "*a doctype should throw a HierarchyRequestError.", WptDivergence.NeedsTriage),
         new("dom/nodes/Node-replaceChild.html", "*node should throw a HierarchyRequestError.", WptDivergence.NeedsTriage),
-        new("dom/nodes/attributes.html", "Basic*.", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElementNS.html", "* XML document: \"http://example.com/\",\"0:a\",null", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElementNS.html", "* XML document: \"http://example.com/\",\"a:̀\",null", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-createElementNS.html", "* XML document: \"http://example.com/\",\"a:;\",null", WptDivergence.NeedsTriage),
@@ -1358,11 +1359,9 @@ internal static class WptBrowserExclusions
         // inserted namespaced attribute records no prefix.
         new("dom/nodes/Attr-prefix.html", "Attr.prefix present (SVG)", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "*itself", WptDivergence.NeedsTriage),
-        new("dom/nodes/attributes.html", "*tests", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "Basic functionality of getAttributeNode/getAttributeNodeNS", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "Basic functionality of setAttributeNode", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "setAttributeNode doesn't have case-insensitivity even with an HTMLElement 2", WptDivergence.NeedsTriage),
-        new("dom/nodes/attributes.html", "toggleAttribute should set the first attribute with the given name", WptDivergence.NeedsTriage),
         // createDocument's own share of the refusal defects the table already names: DOM's
         // validate-and-extract makes an empty prefix or an empty local part an InvalidCharacterError, and
         // AngleSharp answers a NamespaceError or nothing at all.
@@ -1374,22 +1373,9 @@ internal static class WptBrowserExclusions
         // selects for setAttribute/removeAttribute/getAttribute on the *qualified* name, so an element can
         // hold two attributes spelling the same qualified name in different namespaces and the first one
         // wins. AngleSharp collapses them, which is one defect showing up as a dozen assertions.
-        new("dom/nodes/Element-removeAttribute.html", "*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Element-setAttribute.html", "*namespace", WptDivergence.NeedsTriage),
 
-        // Element-name identity: an element created with createElementNS keeps the case it was given, and
-        // an attribute keeps its prefix through a clone. AngleSharp's element factory ASCII-lowercases the
-        // local name it is handed whatever the namespace, so createElementNS(SVG, "SVG") is <svg>, and both
-        // tagName and nodeName answer about the same wrong name.
-        new("dom/nodes/Element-tagName.html", "tagName should not*.", WptDivergence.NeedsTriage),
+        // An SVG attribute must keep its prefix through a clone.
         new("dom/nodes/Node-cloneNode-svg.html", "cloned <use>'*", WptDivergence.NeedsTriage),
-        // AngleSharp's node equality begins by comparing the two nodes' base URLs, which DOM's
-        // https://dom.spec.whatwg.org/#concept-node-equals does not mention: two structurally identical
-        // documents built different ways are unequal as soon as the page has a real URL for one of them to
-        // have inherited. Its sibling row, "another empty XML document", passes because both sides are
-        // about:blank.
-        new("dom/nodes/Node-nodeName.html", "*tagName.", WptDivergence.NeedsTriage),
-        new("dom/nodes/Node-nodeName.html", "*tagName.", WptDivergence.NeedsTriage),
 
         // Four element interfaces the pinned assemblies declare no [DomName] for, so nothing could be
         // generated: <dir>, <dl>, <font> and <frame> are all plain IHtmlElement to AngleSharp, and each row
@@ -1403,12 +1389,6 @@ internal static class WptBrowserExclusions
 
         // The rest of the attribute-list defect above: an element cannot hold two attributes whose qualified
         // names are equal, so the first-set-wins reads and the own-property lists are short by one.
-        new("dom/nodes/attributes.html", "First*", WptDivergence.NeedsTriage),
-        new("dom/nodes/attributes.html", "Own property correctness with non-namespaced attribute before same-name namespaced one", WptDivergence.NeedsTriage),
-        new("dom/nodes/attributes.html", "Own property correctness with namespaced attribute before same-name non-namespaced one", WptDivergence.NeedsTriage),
-        new("dom/nodes/attributes.html", "Own property correctness with two namespaced attributes with the same name-with-prefix", WptDivergence.NeedsTriage),
-        new("dom/nodes/attributes.html", "Setting*", WptDivergence.NeedsTriage),
-        new("dom/nodes/attributes.html", "setAttribute*name", WptDivergence.NeedsTriage),
 
         // accessKeyLabel: AngleSharp answers the raw accesskey content attribute, where HTML's is a label
         // for the element's *assigned* access key -- a key combination this browser has no keyboard to
