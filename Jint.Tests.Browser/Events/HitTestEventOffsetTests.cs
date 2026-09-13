@@ -10,6 +10,37 @@ using Browser = global::Jint.Browser.Browser;
 /// <summary>CSSOM View's event position uses the box hit before the first listener runs.</summary>
 public sealed class HitTestEventOffsetTests
 {
+    [Test]
+    public async Task LaterMouseEventMeasuresAfterPointerCallbackAndBeforeItsOwnCallback()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<div id=before></div><div id=target></div>");
+        await page.EvaluateAsync("""
+            globalThis.seen = [];
+            const target = document.getElementById('target');
+            target.addEventListener('pointermove', e => {
+              document.getElementById('before').remove();
+              seen.push(e.offsetY);
+            });
+            target.addEventListener('mousemove', e => {
+              target.remove();
+              seen.push(e.offsetY);
+            });
+            """);
+        await page.RunOnLoopAsync(engine =>
+        {
+            var runtime = PageRuntime.Find(engine)!;
+            var target = runtime.Document!.GetElementById("target")!;
+            var box = runtime.Layout.Current().ClientBoxOf(target)!.Value;
+            InputDispatcher.DispatchMouse(runtime, new MouseInput(
+                MouseInputKind.Moved, box.X + 7, box.Y + 3, 0, 0, 1, EventModifiers.None, 0, 0));
+            return true;
+        });
+        (await page.EvaluateAsync<string>("seen.join('|')")).Should().Be("3|19");
+        page.Errors.Should().BeEmpty();
+    }
+
     [TestCase("pointermove")]
     [TestCase("pointerdown")]
     [TestCase("pointerup")]

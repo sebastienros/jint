@@ -110,19 +110,15 @@ internal class JsUiEvent : JsEvent
 /// (<see href="https://github.com/sebastienros/jint/issues/3698">#3698</see> item 4).
 /// </para>
 /// <para>
-/// <b>The two pairs are captured at different moments, and the reason is cost.</b> The page pair needs only
-/// the scroll offset, so it is taken in <see cref="OnDispatchBegun"/> — one field read per dispatch. The
-/// offset pair needs the target's box, and the flat layout is recomputed per query by design, so taking it
-/// eagerly would walk the whole document on every mouse dispatch whether or not anything read it. It is
-/// taken on the first read of the dispatch instead and held for the rest, which is strictly cheaper than
-/// before (one walk per dispatch rather than one per read) and leaves one residue: a listener that moves the
-/// target <i>and</i> is the first to read <c>offsetX</c>/<c>offsetY</c> sees the box it made. Closing that
-/// needs the cheap layout-invalidation signal the same issue records as its first half.
+/// The page pair is taken in <see cref="OnDispatchBegun"/>. The offset pair is taken before the first
+/// listener, when the target is known and before any callback can move it. A single-element placement
+/// query supplies the box; no complete layout is built and only two numbers survive the callback.
+/// A dispatch without listeners measures nothing.
 /// </para>
 /// <para>
 /// The first trusted pointer event and a wheel event can use the input dispatcher's existing hit-test
 /// box instead. Only the numeric offsets survive into that dispatch; no layout survives a listener, and
-/// a later script redispatch goes back to lazy capture.
+/// a later script redispatch measures its new target before its first listener.
 /// </para>
 /// <para>
 /// Outside a dispatch all four follow their step 2, which <i>is</i> live: <c>pageY</c> is <c>clientY</c> plus
@@ -215,6 +211,9 @@ internal class JsMouseEvent : JsUiEvent
         _offsetsPrepared = false;
     }
 
+    /// <inheritdoc />
+    internal override void BeforeListeners() => CaptureOffsets();
+
     /// <summary>
     /// CSSOM View's offset position, captured from a hit test immediately before the first dispatch.
     /// Consumed once so redispatching the event cannot reuse its original target's box.
@@ -233,8 +232,7 @@ internal class JsMouseEvent : JsUiEvent
     private static double ScrollX => 0;
 
     /// <summary>
-    /// The offset pair, taken once per dispatch on the first read. See the class remarks for why it is not
-    /// taken with the page pair.
+    /// The offset pair, taken once before the first listener can mutate the target.
     /// </summary>
     private void CaptureOffsets()
     {
@@ -251,13 +249,15 @@ internal class JsMouseEvent : JsUiEvent
         _offsetY = ClientY;
 
         if (Target is Dom.DomNodeObject { Node: AngleSharp.Dom.IElement element } wrapper &&
-            Runtime.PageRuntime.Find(wrapper.DomRealm.Engine) is { } runtime &&
-            runtime.Layout.Current().DocumentBoxOf(element) is { } box)
+            Runtime.PageRuntime.Find(wrapper.DomRealm.Engine) is { } runtime)
         {
-            // The event occurred at the captured document position. A listener may have scrolled
-            // before this first read, so the current viewport-relative box would move the answer.
-            _offsetX = _pageX - box.X;
-            _offsetY = _pageY - box.Y;
+            var sizes = runtime.Layout.MeasureSizes();
+            if (sizes.HasBox(element))
+            {
+                var box = sizes.Place(element);
+                _offsetX = _pageX - box.X;
+                _offsetY = _pageY - box.Y;
+            }
         }
     }
 

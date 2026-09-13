@@ -534,6 +534,8 @@ internal class JsEventTarget : ObjectInstance
             return;
         }
 
+        ev.BeforeListeners();
+
         // Inner invoke steps 2.6 to 2.8 and 2.12: while a listener runs, a `Window` global's `event` is the
         // event being dispatched, and afterwards it is whatever it was — a throw included. Null for every
         // engine whose global object is not a `Window`, which is every engine that installs no document, so
