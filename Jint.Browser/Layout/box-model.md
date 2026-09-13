@@ -67,7 +67,11 @@ walk, `CssCascade.Traversal` shares the style collection and raw parent cascades
 `ComputeCurrentStyle` separately for every element rematches every ancestor, which made a nested admin form
 expensive at every step of Playwright's actionability checks. Visibility and flex measurements filter the active rule collection to the properties they consume,
 including shorthand values and their custom-property dependencies. AngleSharp still owns matching, specificity,
-inheritance and value computation. Individual style queries use Css 1.1.0's native computed-style API,
+inheritance and value computation. Within the walk, equivalent literal cascades can share a result only
+after matching each element: the matched rules and their specificity, inherited parent cascade, document
+and inline style must all agree. This bounded memo never shares variable-dependent or explicit-inherit
+ancestor-walk fallback results, because those can read ancestor values the scoped cascade omitted.
+Individual style queries use Css 1.1.0's native computed-style API,
 including its cycle-safe custom-property resolution. **The traversal still needs `Dom/Views/CustomProperties`
 (#3851)**: the native computed-parent overload is internal, and calling the public entry per element would
 rematch every ancestor. The public bulk renderer instead eagerly recurses through the whole document and
