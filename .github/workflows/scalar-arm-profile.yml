@@ -1,0 +1,48 @@
+name: Scalar ARM profile
+
+on:
+  push:
+    branches: [codex/scalar-arm-profile]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  profile:
+    name: Scalar profile - ARM ${{ matrix.worker }}
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 170
+    strategy:
+      fail-fast: false
+      matrix:
+        worker: [1, 2]
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: 1
+      VSTEST_CONNECTION_TIMEOUT: 300
+    steps:
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: |
+            8.0
+            10.0
+      - uses: actions/checkout@v7
+      - uses: actions/cache@v6
+        with:
+          path: Jint.Tests.Test262/Generated
+          key: test262-generated-${{ hashFiles('Jint.Tests.Test262/Test262Harness.settings.json') }}
+          enableCrossOsArchive: true
+      - name: Install trace reader
+        run: dotnet tool install dotnet-trace --tool-path "$RUNNER_TEMP/trace-tools" --version 9.0.652701
+      - name: Repeat the full suite until Scalar fails with readable samples
+        env:
+          TRACE_TOOL: ${{ runner.temp }}/trace-tools/dotnet-trace
+        run: python3 tools/scalar-arm-profile/run.py --attempts 6 --output "$RUNNER_TEMP/scalar-profile"
+      - name: Upload diagnostic evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: scalar-arm-profile-${{ matrix.worker }}
+          path: ${{ runner.temp }}/scalar-profile
+          retention-days: 14
