@@ -571,11 +571,9 @@ internal static class EventHandlerContentAttributes
         /// enabled for the node's document.
         /// </summary>
         /// <remarks>
-        /// The page's own document is the only one with a browsing context that scripts; every other document
-        /// an engine here can reach was parsed by <c>DOMParser</c>, built by <c>createHTMLDocument</c> or
-        /// constructed outright, and each of those gets a context with no scripting service on purpose. A
-        /// binding installed with no page runtime behind it has no such distinction to make — the host handed
-        /// the binding its document — so it answers true.
+        /// The page and its supported child contexts script. Documents parsed by <c>DOMParser</c>, built by
+        /// <c>createHTMLDocument</c> or constructed outright have no scripting browsing context. A binding
+        /// installed without a page runtime uses the document supplied by its host.
         /// </remarks>
         private bool IsScriptingEnabled()
         {
@@ -585,7 +583,11 @@ internal static class EventHandlerContentAttributes
             }
 
             var document = _wrapper.Node as IDocument ?? _wrapper.Node.Owner;
-            return ReferenceEquals(document, runtime.Document);
+            return ReferenceEquals(document, runtime.Document)
+                || document is not null
+                && runtime.Dom.TryGetDocumentRealm(document, out var owner)
+                && ReferenceEquals(owner!.Document, document)
+                && Runtime.FrameWindows.CanRunScripts(runtime, document);
         }
 
         /// <summary>

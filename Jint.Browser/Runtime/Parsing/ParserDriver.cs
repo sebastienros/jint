@@ -324,13 +324,12 @@ internal sealed class ParserDriver : IDisposable
 
         return Serve(() =>
         {
+            _runtime.Document ??= _context?.Active ?? script.Owner;
             if (script.Owner is { } owner && IsFrameDocument(owner) && !CanRunFrame(owner))
             {
                 RefuseFrameScript(url);
                 return null;
             }
-
-            _runtime.Document ??= _context?.Active ?? script.Owner;
 
             // https://html.spec.whatwg.org/multipage/scripting.html#prepare-the-script-element step 12: a
             // classic script carrying `nomodule` is not run — and not fetched — by anything that supports
@@ -719,33 +718,7 @@ internal sealed class ParserDriver : IDisposable
         => _context is not null && !ReferenceEquals(document.Context, _context);
 
     private bool CanRunFrame(IDocument document)
-    {
-        // Cross-origin WindowProxy access control and sandboxed globals are separate capabilities.
-        // Do not expose the parent's raw global through a child which cannot normally reach it.
-        var origin = PageUrl.OriginOf(_url);
-        if (origin == PageUrl.OpaqueOrigin)
-        {
-            return false;
-        }
-        for (var current = document; IsFrameDocument(current);)
-        {
-            if (!string.Equals(current.Url, "about:blank", StringComparison.OrdinalIgnoreCase)
-                && !string.Equals(PageUrl.OriginOf(current.Url), origin, StringComparison.Ordinal))
-            {
-                return false;
-            }
-            if (FrameWindows.ElementOf(current) is { } frame && frame.HasAttribute("sandbox"))
-            {
-                return false;
-            }
-            if (current.Context.Parent?.Active is not { } parent)
-            {
-                return false;
-            }
-            current = parent;
-        }
-        return true;
-    }
+        => FrameWindows.CanRunScripts(_runtime, document);
 
     /// <summary>
     /// Whether a call arriving now would cross from the parser thread to the loop — as opposed to already

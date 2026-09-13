@@ -30,13 +30,31 @@ public class FrameScriptTests
     [TestCase(true)]
     public async Task SandboxedFrameScriptsStayDisabled(bool srcdoc)
     {
+        const string child = "<!doctype html><script>parent.leaked = true;</script><button onclick='parent.leaked = true'>test</button>";
         await using var loopback = await LoopbackPage.CreateAsync(server => server
-            .MapHtml("/child", "<!doctype html><script>parent.leaked = true;</script>")
+            .MapHtml("/child", child)
             .MapHtml("/", srcdoc
-                ? "<!doctype html><iframe sandbox srcdoc=\"<script>parent.leaked = true;</script>\"></iframe>"
+                ? "<!doctype html><iframe sandbox srcdoc=\"" + child + "\"></iframe>"
                 : "<!doctype html><iframe sandbox src=/child></iframe>"));
         await loopback.Page.NavigateAsync(loopback.Url("/"));
+        await loopback.Page.EvaluateAsync("document.querySelector('iframe').contentDocument.querySelector('button').dispatchEvent(new Event('click'))");
         (await loopback.Page.EvaluateAsync<bool>("typeof leaked === 'undefined'")).Should().BeTrue();
+        loopback.Page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task ChildMarkupHandlersUseTheirOwnGlobal()
+    {
+        await using var loopback = await LoopbackPage.CreateAsync(server => server
+            .MapHtml("/child", """
+                <!doctype html><title>child</title><body onload="window.loaded = document.title">
+                <button onclick="window.clicked = document.title">test</button>
+                """)
+            .MapHtml("/", "<!doctype html><iframe src=/child></iframe>"));
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+        await loopback.Page.EvaluateAsync("frames[0].document.querySelector('button').dispatchEvent(new Event('click'))");
+        (await loopback.Page.EvaluateAsync<bool>("frames[0].loaded === 'child' && frames[0].clicked === 'child' && typeof loaded === 'undefined' && typeof clicked === 'undefined'"))
+            .Should().BeTrue();
         loopback.Page.Errors.Should().BeEmpty();
     }
 

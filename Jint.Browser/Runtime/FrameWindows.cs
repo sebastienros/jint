@@ -170,6 +170,35 @@ internal static class FrameWindows
         return null;
     }
 
+    internal static bool CanRunScripts(PageRuntime runtime, IDocument document)
+    {
+        // Cross-origin WindowProxy access control and sandboxed globals are separate capabilities.
+        // Do not expose the parent's raw global through a child which cannot normally reach it.
+        var origin = PageUrl.OriginOf(runtime.DocumentUrl);
+        if (origin == PageUrl.OpaqueOrigin || runtime.Document is not { } principal)
+        {
+            return false;
+        }
+        for (var current = document; !ReferenceEquals(current.Context, principal.Context);)
+        {
+            if (!string.Equals(current.Url, "about:blank", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(PageUrl.OriginOf(current.Url), origin, StringComparison.Ordinal))
+            {
+                return false;
+            }
+            if (ElementOf(current) is { } frame && frame.HasAttribute("sandbox"))
+            {
+                return false;
+            }
+            if (current.Context.Parent?.Active is not { } parent)
+            {
+                return false;
+            }
+            current = parent;
+        }
+        return true;
+    }
+
     private static void Own(ObjectInstance window, string name, JsValue value)
         => window.DefineOwnPropertyUnchecked(name, new PropertyDescriptor(value, PropertyFlag.OnlyEnumerable));
 
