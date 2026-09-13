@@ -5,14 +5,16 @@ Temporary investigation workflow for issue #3882, based on `main` at
 on two independent `ubuntu-24.04-arm` workers. Each worker repeats the ordinary
 full Release solution test command up to six times, stopping when the Scalar
 error-sink assertion reports the known page-task budget error and a readable
-browser trace has been captured. No test source, fixture asset, or budget changes.
+browser trace has been captured. No existing test source, fixture asset, or budget changes.
 
 The script temporarily supplies browser-only runsettings using a generated
 `Jint.Tests.Browser/Directory.Build.targets`, which it refuses to overwrite and
 removes afterward. An external EventPipe collector connects as each browser testhost starts;
 other suites retain their normal scheduling and are not profiled. Traces contain
 managed stack samples, GC events, and runtime method information. Using an external
-writer avoids truncated traces when vstest terminates its testhost. Diagnostic ports
+writer and a generated NUnit assembly teardown finalize the trace before vstest
+terminates its testhost. The teardown runs after all tests and waits at most 60 seconds
+for the collector; this diagnostic wait is outside every page-task budget. Diagnostic ports
 use `nosuspend`, so inherited settings cannot suspend a child process. Profiling adds overhead, so a profiled
 failure is diagnostic evidence, not a measurement of unprofiled failure frequency.
 

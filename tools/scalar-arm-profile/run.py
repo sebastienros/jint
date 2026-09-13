@@ -8,6 +8,7 @@ import signal
 import shutil
 import subprocess
 import sys
+import threading
 import xml.etree.ElementTree as ET
 
 
@@ -25,6 +26,8 @@ def settings(directory, framework, port):
         # The external writer finalizes the trace even when vstest terminates its testhost.
         # nosuspend also prevents child processes from waiting for another collector.
         "DOTNET_DiagnosticPorts": f"{port},connect,nosuspend",
+        "JINT_SCALAR_PROFILE_DIRECTORY": str(directory),
+        "JINT_SCALAR_PROFILE_FRAMEWORK": framework,
     }.items():
         ET.SubElement(env, key).text = value
     loggers = ET.SubElement(ET.SubElement(root, "LoggerRunSettings"), "Loggers")
@@ -61,6 +64,43 @@ def validate_trace(trace, tool):
     return valid and report_code == 0
 
 
+def finish_capture(collector, directory, framework, stop):
+    """Finalize while the testhost is alive, then release its diagnostic teardown."""
+    while not stop.wait(0.1):
+        if (directory / f"{framework}.complete").exists():
+            if collector.poll() is None:
+                collector.send_signal(signal.SIGINT)
+            try:
+                code = collector.wait(timeout=45)
+            except subprocess.TimeoutExpired:
+                return
+            if code == 0:
+                (directory / f"{framework}.stopped").touch()
+            return
+
+
+TEARDOWN = """
+[NUnit.Framework.SetUpFixture]
+public sealed class ScalarTraceFinalization
+{
+    [NUnit.Framework.OneTimeTearDown]
+    public static async System.Threading.Tasks.Task FinalizeTrace()
+    {
+        var directory = System.Environment.GetEnvironmentVariable("JINT_SCALAR_PROFILE_DIRECTORY")!;
+        var framework = System.Environment.GetEnvironmentVariable("JINT_SCALAR_PROFILE_FRAMEWORK")!;
+        System.IO.File.WriteAllText(System.IO.Path.Combine(directory, framework + ".complete"), "");
+        var deadline = System.Diagnostics.Stopwatch.StartNew();
+        while (!System.IO.File.Exists(System.IO.Path.Combine(directory, framework + ".stopped")))
+        {
+            if (deadline.Elapsed > System.TimeSpan.FromSeconds(60))
+                throw new System.TimeoutException("Diagnostic trace finalization did not complete.");
+            await System.Threading.Tasks.Task.Delay(100);
+        }
+    }
+}
+"""
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--attempts", type=int, default=6)
@@ -72,11 +112,13 @@ def main():
     tool = os.environ.get("TRACE_TOOL", "dotnet-trace")
     run(["dotnet", "--info"], output / "dotnet-info.txt")
     run(["git", "rev-parse", "HEAD"], output / "commit.txt")
+    (output / "runner.json").write_text(json.dumps({key: os.environ.get(key) for key in
+        ("RUNNER_NAME", "RUNNER_ARCH", "RUNNER_OS", "ImageOS", "ImageVersion", "GITHUB_RUN_ID")}, indent=2))
     if sys.platform == "linux":
         shutil.copyfile("/proc/cpuinfo", output / "cpuinfo.txt")
         shutil.copyfile("/proc/meminfo", output / "meminfo.txt")
     # Scope profiling to browser testhosts while leaving the full solution's normal scheduling intact.
-    # This generated MSBuild hook is removed afterward; no engine or test source is changed.
+    # This hook is removed afterward; existing engine/test sources are unchanged.
     hook = Path("Jint.Tests.Browser/Directory.Build.targets")
     if hook.exists():
         raise RuntimeError(f"Refusing to overwrite {hook}")
@@ -87,6 +129,8 @@ def main():
             directory.mkdir()
             frameworks = ["net8.0"] if args.smoke else ["net8.0", "net10.0"]
             collectors = []
+            stop = threading.Event()
+            watchers = []
             for framework in frameworks:
                 port = f"/tmp/scalar-{os.getpid()}-{attempt}-{framework}.sock"
                 settings(directory, framework, port)
@@ -97,9 +141,15 @@ def main():
                     "--buffersize", "64", "--output", str(directory / f"{framework}-browser.nettrace")],
                     stdout=stream, stderr=subprocess.STDOUT)
                 collectors.append((collector, stream))
+                watcher = threading.Thread(target=finish_capture, args=(collector, directory, framework, stop))
+                watcher.start()
+                watchers.append(watcher)
             project = ET.Element("Project")
             group = ET.SubElement(project, "PropertyGroup")
             ET.SubElement(group, "RunSettingsFilePath").text = str(directory / "$(TargetFramework).runsettings")
+            source = directory / "ScalarTraceFinalization.cs"
+            source.write_text(TEARDOWN)
+            ET.SubElement(ET.SubElement(project, "ItemGroup"), "Compile", Include=str(source))
             ET.ElementTree(project).write(hook, encoding="unicode")
             command = ["dotnet", "test", "--configuration", "Release", "--logger", "console;verbosity=quiet"]
             if args.smoke:
@@ -115,6 +165,9 @@ def main():
                     except subprocess.TimeoutExpired:
                         code = 124
                 finally:
+                    stop.set()
+                    for watcher in watchers:
+                        watcher.join()
                     if monitor:
                         monitor.terminate()
                         monitor.wait()
