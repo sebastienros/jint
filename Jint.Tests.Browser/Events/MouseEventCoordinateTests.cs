@@ -1,3 +1,6 @@
+using Jint.Browser.Dom.Views;
+using Jint.Browser.Runtime;
+
 namespace Jint.Tests.Browser.Events;
 
 using Browser = global::Jint.Browser.Browser;
@@ -26,6 +29,104 @@ using Browser = global::Jint.Browser.Browser;
 /// </remarks>
 public sealed class MouseEventCoordinateTests
 {
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task OffsetPreparationOnlyMeasuresTheListenedToTarget(bool listen)
+    {
+        await using var browser = new Browser();
+        var page = await PageAsync(browser,
+            "<style>#target { display: block } #unrelated { display: block }</style><button id=target>Save</button>"
+            + "<main id=unrelated>" + string.Concat(Enumerable.Repeat("<div>row</div>", 100)) + "</main>");
+        await page.EvaluateAsync($$"""
+            const target = document.getElementById('target');
+            if ({{(listen ? "true" : "false")}}) target.addEventListener('click', () => {});
+            """);
+        var used = await page.RunOnLoopAsync(engine =>
+        {
+            var tracker = new CssRuleUsageTracker();
+            tracker.Rebind(PageRuntime.Find(engine)!.Document!);
+            CssRuleUsage.Arm(tracker);
+            try
+            {
+                engine.Evaluate("target.dispatchEvent(new MouseEvent('click'))");
+                return tracker.TakeDelta().Select(rule => rule.SelectorText).ToArray();
+            }
+            finally
+            {
+                CssRuleUsage.Disarm(tracker);
+            }
+        });
+        used.Length.Should().Be(listen ? 1 : 0);
+        used.Should().NotContain("#unrelated");
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task CallbackObjectGetterCannotMoveTheFirstOffset()
+    {
+        await using var browser = new Browser();
+        var page = await PageAsync(browser, "<div id=before></div><div id=target></div>");
+        (await page.EvaluateAsync<double>("""
+            (() => {
+              const target = document.getElementById('target');
+              const y = target.getBoundingClientRect().y + 3;
+              let seen;
+              target.addEventListener('click', {get handleEvent() {
+                target.remove();
+                return e => { seen = e.offsetY; };
+              }});
+              target.dispatchEvent(new MouseEvent('click', {clientY: y}));
+              return seen;
+            })()
+            """)).Should().Be(3);
+    }
+
+    [TestCase("target.remove()")]
+    [TestCase("document.getElementById('before').remove()")]
+    [TestCase("target.style.display = 'none'")]
+    public async Task MutationBeforeTheFirstReadKeepsSyntheticOffsets(string mutation)
+    {
+        await using var browser = new Browser();
+        var page = await PageAsync(browser, "<div id=before></div><div id=target></div>");
+
+        (await page.EvaluateAsync<string>($$"""
+            (() => {
+              const target = document.getElementById('target');
+              const box = target.getBoundingClientRect();
+              let seen;
+              document.addEventListener('click', e => { {{mutation}}; }, true);
+              target.addEventListener('click', e => { seen = e.offsetX + '|' + e.offsetY; });
+              target.dispatchEvent(new MouseEvent('click', {
+                clientX: box.x + 7, clientY: box.y + 3, bubbles: true
+              }));
+              return seen;
+            })()
+            """)).Should().Be("7|3");
+    }
+
+    [Test]
+    public async Task RedispatchMeasuresTheNewTargetBeforeItsListener()
+    {
+        await using var browser = new Browser();
+        var page = await PageAsync(browser, "<div id=first></div><div id=second></div>");
+
+        (await page.EvaluateAsync<bool>("""
+            (() => {
+              const first = document.getElementById('first');
+              const second = document.getElementById('second');
+              const e = new MouseEvent('click', {clientX: 7, clientY: 100});
+              let a, b;
+              const expectedA = 100 - first.getBoundingClientRect().y;
+              first.addEventListener('click', e => { first.remove(); a = e.offsetY; });
+              first.dispatchEvent(e);
+              const expectedB = 100 - second.getBoundingClientRect().y;
+              second.addEventListener('click', e => { second.remove(); b = e.offsetY; });
+              second.dispatchEvent(e);
+              return a === expectedA && b === expectedB && e.offsetY === e.pageY;
+            })()
+            """)).Should().BeTrue();
+    }
+
     /// <summary>
     /// A document tall enough to scroll, with a target well down it.
     /// </summary>

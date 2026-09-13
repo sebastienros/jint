@@ -56,6 +56,11 @@ needs no document-height walk. Partial counts never enter the exact-size cache. 
 ancestor heights only when flex alignment needs them, then requests the chosen rectangle. It does not
 position unrelated descendants or retain results after the query.
 
+Mouse offsets use that same single-element placement before the first listener can run, after dispatch
+has assigned the target. Only the numeric offsets survive the listener. A dispatch without listeners
+does no placement, and the first hit-tested input event uses its already measured offsets. Each later
+event or script redispatch takes a new measurement because an earlier callback may have changed the DOM.
+
 **It is recomputed per query and never cached across queries.** A cache needs an invalidation signal, and the only one
 available is an AngleSharp `MutationObserver` over the whole document — which would make every DOM mutation on
 every page pay for mutation records whether or not anything ever asks for a box. Within that synchronous

@@ -173,6 +173,12 @@ internal class JsEvent : ObjectInstance
     {
     }
 
+    /// <summary>Prepares target-dependent event state before a listener can run script.</summary>
+    /// <remarks>The target has been assigned. Passes without listeners do not call this hook.</remarks>
+    internal virtual void BeforeListeners()
+    {
+    }
+
     /// <summary>
     /// https://dom.spec.whatwg.org/#event-relatedtarget — the event's related target, which
     /// https://dom.spec.whatwg.org/#concept-event-dispatch retargets against every invocation target on the
