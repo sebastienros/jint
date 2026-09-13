@@ -162,6 +162,7 @@ internal sealed class ParserDriver : IDisposable
 
         var context = BrowsingContext.New(configuration);
         _context = context;
+        _runtime.Dom.AssociateContext(context);
         IDocument document;
 
         try
@@ -177,6 +178,8 @@ internal sealed class ParserDriver : IDisposable
         }
 
         _runtime.Document ??= document;
+        _runtime.Dom.AssociateDocument(document, associatedGlobal: true);
+        _runtime.Dom.RecordSubtree(document);
 
         if (_runtime.Options.MaxDomNodes is var maxNodes and > 0 && Exceeds(document, maxNodes))
         {
@@ -745,6 +748,7 @@ internal sealed class ParserDriver : IDisposable
             // The document exists from the first token, but this is the earliest AngleSharp hands it over,
             // and a script running during the parse needs `document` to answer before the parse has finished.
             _runtime.Document ??= options.Document;
+            _runtime.Dom.AssociateDocument(options.Document, associatedGlobal: true);
 
             // AngleSharp advances its own readiness before it runs the deferred queue, which is the one
             // moment this driver cannot observe from outside the parse — so it is read here, on the way in.

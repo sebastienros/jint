@@ -40,7 +40,7 @@ internal sealed class DomStringMapAdapter : IStringMap
             if (ContainsDashLowercase(name))
             {
                 DomFailures.Refuse(
-                    _realm.Engine,
+                    _realm,
                     Member,
                     Jint.WebApi.DomException.DomExceptionNames.Syntax,
                     "the property name '" + name + "' contains a hyphen followed by a lowercase ASCII letter.");
@@ -50,7 +50,7 @@ internal sealed class DomStringMapAdapter : IStringMap
             if (!DomNames.IsValidAttributeLocalName(attributeName))
             {
                 DomFailures.Refuse(
-                    _realm.Engine,
+                    _realm,
                     Member,
                     Jint.WebApi.DomException.DomExceptionNames.InvalidCharacter,
                     "the property name '" + name + "' does not produce a valid attribute name.");

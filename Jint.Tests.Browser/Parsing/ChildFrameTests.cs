@@ -271,10 +271,9 @@ public class ChildFrameTests
             .Should().BeTrue();
 
         // What a large part of the DOM corpus reaches `defaultView` for: a constructor to compare a refusal
-        // against. It is the page's, because there is one realm — Runtime/FrameWindows argues it and
-        // Dom/divergences.md records it.
+        // against. Its constructor now belongs to the child document's realm.
         (await loopback.Page.EvaluateAsync<bool>(
-            "document.getElementById('f').contentDocument.defaultView.DOMException === DOMException"))
+            "document.getElementById('f').contentDocument.defaultView.DOMException !== DOMException"))
             .Should().BeTrue();
     }
 
@@ -341,7 +340,7 @@ public class ChildFrameTests
     }
 
     [Test]
-    public async Task TheCustomElementCorpusHelperResolvesWithAWindowWhoseConstructorsAreThePages()
+    public async Task TheCustomElementCorpusHelperResolvesWithDistinctFrameConstructors()
     {
         // `create_window_in_test` out of wpt's own `custom-elements/resources/custom-elements-helpers.js`,
         // in the shape that file uses it: a frame made in script, `srcdoc`, and the window read out of
@@ -369,7 +368,7 @@ public class ChildFrameTests
 
         await loopback.Page.NavigateAsync(loopback.Url("/"));
 
-        (await loopback.Page.EvaluateAsync<string>("window.result")).Should().Be("same constructor");
+        (await loopback.Page.EvaluateAsync<string>("window.result")).Should().Be("own constructor");
     }
 
     [Test]

@@ -65,5 +65,5 @@ internal static class DomRects
     /// <c>Range.getClientRects</c> already made. Pages read <c>rects[0]</c> and <c>rects.length</c>.
     /// </remarks>
     internal static JsValue List(DomRealm realm, params JsValue[] rects)
-        => realm.PrincipalRealm.Intrinsics.Array.ConstructFast(rects);
+        => realm.OwningRealm.Intrinsics.Array.ConstructFast(rects);
 }

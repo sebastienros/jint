@@ -15,11 +15,11 @@ internal sealed class DomLegacyFactoryFunction : Constructor
     private readonly DomLegacyFactoryDefinition _definition;
 
     internal DomLegacyFactoryFunction(DomRealm realm, DomLegacyFactoryDefinition definition)
-        : base(realm.Engine, realm.PrincipalRealm, new JsString(definition.Name))
+        : base(realm.Engine, realm.OwningRealm, new JsString(definition.Name))
     {
         _domRealm = realm;
         _definition = definition;
-        _prototype = realm.PrincipalRealm.Intrinsics.Function.PrototypeObject;
+        _prototype = realm.OwningRealm.Intrinsics.Function.PrototypeObject;
         _length = new PropertyDescriptor(JsNumber.Create(definition.Length), PropertyFlag.Configurable);
 
         // https://webidl.spec.whatwg.org/#legacy-factory-functions — the legacy factory's prototype is the

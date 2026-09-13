@@ -155,7 +155,7 @@ internal static class AriaElementReflection
                 values[i] = self.Realm.WrapNode(computed[i]);
             }
 
-            var array = self.Realm.PrincipalRealm.Intrinsics.Array.Construct(values);
+            var array = self.Realm.OwningRealm.Intrinsics.Array.Construct(values);
             array.SetIntegrityLevel(ObjectInstance.IntegrityLevel.Frozen);
 
             entry.Array = array;
@@ -244,7 +244,7 @@ internal static class AriaElementReflection
         private WeakReference<IElement>[] Sequence(DomRealm realm, JsValue value)
         {
             var references = new List<WeakReference<IElement>>();
-            var iterator = value.GetIterator(realm.PrincipalRealm);
+            var iterator = value.GetIterator(realm.OwningRealm);
 
             try
             {
@@ -253,7 +253,7 @@ internal static class AriaElementReflection
                     if (item is not IDomWrapper { DomTarget: IElement element })
                     {
                         Throw.TypeError(
-                            realm.PrincipalRealm,
+                            realm.OwningRealm,
                             "Failed to set the '" + Member + "' property: the provided value is not of type 'Element'.");
                         return [];
                     }

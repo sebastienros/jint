@@ -130,7 +130,7 @@ internal static class DomConstructors
 
     /// <summary>The current global object's associated <c>Document</c>, or an empty one when there is none.</summary>
     private static IDocument NodeDocument(DomRealm realm)
-        => Runtime.PageRuntime.Find(realm.Engine)?.Document ?? NewXmlDocument();
+        => realm.Document ?? Runtime.PageRuntime.Find(realm.Engine)?.Document ?? NewXmlDocument();
 
     private static string Data(JsValue[] arguments)
         => DomConvert.OptionalText(arguments, 0, string.Empty)!;

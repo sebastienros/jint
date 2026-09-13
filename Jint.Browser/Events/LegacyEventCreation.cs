@@ -88,7 +88,7 @@ internal static class LegacyEventCreation
     /// </summary>
     internal static JsValue CreateEvent(DomRealm dom, JsValue[] arguments)
     {
-        var realm = dom.PrincipalRealm;
+        var realm = dom.OwningRealm;
         var alias = DomConvert.RequiredText(arguments, 0, "Document.createEvent").ToLowerInvariant();
 
         if (!_aliases.TryGetValue(alias, out var definition))
@@ -101,7 +101,7 @@ internal static class LegacyEventCreation
             Throw.JavaScriptException(dom.Engine, notSupported, in location);
         }
 
-        var events = BrowserEventRealm.Of(dom.Engine);
+        var events = BrowserEventRealm.Of(dom.Engine, realm);
 
         // Step 2's "create an event": the interface's own constructor with no dictionary, which gives the
         // empty type and every member its default. The prototype is the caller's to assign, exactly as the

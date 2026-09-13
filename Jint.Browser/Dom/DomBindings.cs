@@ -39,18 +39,24 @@ internal static class DomBindings
     /// </remarks>
     internal static void Install(Engine engine)
     {
+        ArgumentNullException.ThrowIfNull(engine);
+        Install(engine, engine._mainRealm);
+    }
+
+    internal static void Install(Engine engine, Realm owningRealm)
+    {
+        DomRealm.Validate(engine, owningRealm);
+        InstallOn(engine, owningRealm, owningRealm.GlobalObject);
+    }
+
+    internal static void InstallOn(Engine engine, Realm owningRealm, ObjectInstance global)
+    {
         if (engine is null)
         {
             Throw.ArgumentNullException(nameof(engine));
         }
 
-        var realm = DomRealm.Of(engine);
-
-        // The PRINCIPAL realm, deliberately, and not Engine.Realm — the call WebApiRegistration.InstallGlobals
-        // makes and for its reason: during construction the two are the same, but this is a public-shaped door
-        // callable from anywhere, including a host callback running inside a ShadowRealm, and these globals
-        // belong to the engine's own realm and to no other.
-        var global = engine._mainRealm.GlobalObject;
+        var realm = DomRealm.Of(engine, owningRealm);
 
         foreach (var definition in Interfaces())
         {

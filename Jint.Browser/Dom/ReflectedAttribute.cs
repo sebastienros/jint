@@ -705,7 +705,7 @@ internal sealed class ReflectedAttribute
     {
         if (value < floor)
         {
-            DomFailures.Refuse(realm.Engine, Member, DomExceptionNames.IndexSize, detail);
+            DomFailures.Refuse(realm, Member, DomExceptionNames.IndexSize, detail);
         }
 
         return SetInteger(element, InRange(value));

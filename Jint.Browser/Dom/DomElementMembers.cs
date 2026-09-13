@@ -50,7 +50,7 @@ internal static class DomElementMembers
             names.Add(JsString.Create(attribute.Name));
         }
 
-        return realm.PrincipalRealm.Intrinsics.Array.Construct([.. names]);
+        return realm.OwningRealm.Intrinsics.Array.Construct([.. names]);
     }
 
     /// <summary>https://dom.spec.whatwg.org/#dom-element-toggleattribute.</summary>
@@ -133,7 +133,7 @@ internal static class DomElementMembers
         if (!ReferenceEquals(held, attribute))
         {
             return DomFailures.Refuse(
-                realm.Engine,
+                realm,
                 Member,
                 DomExceptionNames.NotFound,
                 "The node provided is not an attribute of this element.");
@@ -201,7 +201,7 @@ internal static class DomElementMembers
         }
 
         DomFailures.Refuse(
-            realm.Engine,
+            realm,
             member,
             DomExceptionNames.Syntax,
             "The value provided ('" + where + "') is not one of 'beforeBegin', 'afterBegin', 'beforeEnd', or 'afterEnd'.");

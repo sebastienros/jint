@@ -129,7 +129,7 @@ internal static class DomViewMembers
     /// covers no boxes.
     /// </summary>
     internal static JsValue RangeRects(DomRealm realm)
-        => realm.PrincipalRealm.Intrinsics.Array.ConstructFast(System.Array.Empty<JsValue>());
+        => realm.OwningRealm.Intrinsics.Array.ConstructFast(System.Array.Empty<JsValue>());
 
     /// <summary>
     /// https://dom.spec.whatwg.org/#dom-slot-assignednodes.
@@ -187,7 +187,7 @@ internal static class DomViewMembers
         if (document is IHtmlDocument)
         {
             return DomFailures.Refuse(
-                realm.Engine,
+                realm,
                 Member.CreateCDataSection,
                 DomExceptionNames.NotSupported,
                 "This node is an HTML document, and an HTML document has no CDATA sections.");
@@ -198,7 +198,7 @@ internal static class DomViewMembers
             // AngleSharp's own Data setter raises this too, but only after the node exists; refusing here is
             // what makes the order the standard's.
             return DomFailures.Refuse(
-                realm.Engine,
+                realm,
                 Member.CreateCDataSection,
                 DomExceptionNames.InvalidCharacter,
                 "The data provided ('" + data + "') contains ']]>'.");
@@ -210,7 +210,7 @@ internal static class DomViewMembers
         }
 
         return DomFailures.Refuse(
-            realm.Engine,
+            realm,
             Member.CreateCDataSection,
             DomExceptionNames.NotSupported,
             "This document is neither an HTML document nor an XML one, so it can hold no CDATA section.");
@@ -272,7 +272,7 @@ internal static class DomViewMembers
         if (arguments.Length < 2)
         {
             Throw.TypeError(
-                realm.PrincipalRealm,
+                realm.OwningRealm,
                 "Failed to execute '" + Member.CreateDocument + "': 2 arguments required, but only "
                 + arguments.Length + " present.");
         }

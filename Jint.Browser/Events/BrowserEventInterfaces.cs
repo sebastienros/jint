@@ -250,7 +250,7 @@ internal static class BrowserEventInterfaces
             // here whose second constructor argument cannot be omitted.
             if (formData is null || formData.IsUndefined())
             {
-                Throw.TypeError(realm.PrincipalRealm, "Failed to construct 'FormDataEvent': required member formData is undefined.");
+                Throw.TypeError(realm.OwningRealm, "Failed to construct 'FormDataEvent': required member formData is undefined.");
             }
 
             return new JsFormDataEvent(
@@ -472,10 +472,10 @@ internal static class BrowserEventInterfaces
         => new(name, parent, constructorLength, shape, construct, constants ?? []);
 
     private static JsString Type(BrowserEventRealm realm, JsValue[] args, string interfaceName)
-        => EventConstructor.RequireType(realm.PrincipalRealm, args, interfaceName);
+        => EventConstructor.RequireType(realm.OwningRealm, args, interfaceName);
 
     private static Jint.WebApi.Events.EventInit EventInit(BrowserEventRealm realm, JsValue[] args, string interfaceName)
-        => EventConstructor.ReadEventInit(realm.PrincipalRealm, args.Length > 1 ? args[1] : JsValue.Undefined, interfaceName);
+        => EventConstructor.ReadEventInit(realm.OwningRealm, args.Length > 1 ? args[1] : JsValue.Undefined, interfaceName);
 
     // -----------------------------------------------------------------------------------------------------
     // The shapes. Every attribute is an Accessor and every operation a Method, which is WebIDL's
@@ -824,7 +824,7 @@ internal static class BrowserEventInterfaces
 
         if (value is not Dom.Files.JsDataTransfer)
         {
-            Throw.TypeError(realm.PrincipalRealm, "Failed to construct 'DragEvent': member dataTransfer is not of type 'DataTransfer'.");
+            Throw.TypeError(realm.OwningRealm, "Failed to construct 'DragEvent': member dataTransfer is not of type 'DataTransfer'.");
         }
 
         return value;
@@ -845,7 +845,7 @@ internal static class BrowserEventInterfaces
         if (value is not Jint.WebApi.Storage.JsStorage)
         {
             Throw.TypeError(
-                realm.PrincipalRealm,
+                realm.OwningRealm,
                 "Failed to " + verb + " 'StorageEvent': member storageArea is not of type 'Storage'.");
         }
 

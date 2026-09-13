@@ -148,7 +148,7 @@ internal static class DomNames
     /// sees: <c>createElementNS(null, 'a:0')</c> is an <c>InvalidCharacterError</c> about the local name
     /// rather than a <c>NamespaceError</c> about the prefix, because the local-name test comes first.
     /// </remarks>
-    private static void ValidateAndExtract(Engine engine, string member, string? namespaceUri, string qualifiedName, NameContext context)
+    private static void ValidateAndExtract(DomRealm realm, string member, string? namespaceUri, string qualifiedName, NameContext context)
     {
         // Step 1. The empty string is not a namespace; it is the absence of one, which is what makes
         // createElementNS('', 'f:oo') a NamespaceError rather than an element with an undeclared prefix.
@@ -169,7 +169,7 @@ internal static class DomNames
 
             if (!IsValidNamespacePrefix(prefix))
             {
-                Refuse(engine, member, DomExceptionNames.InvalidCharacter, "the qualified name '" + qualifiedName + "' has no prefix before its colon.");
+                Refuse(realm, member, DomExceptionNames.InvalidCharacter, "the qualified name '" + qualifiedName + "' has no prefix before its colon.");
             }
         }
 
@@ -180,19 +180,19 @@ internal static class DomNames
 
         if (!valid)
         {
-            Refuse(engine, member, DomExceptionNames.InvalidCharacter, "the name '" + qualifiedName + "' is not a valid " + (context == NameContext.Attribute ? "attribute" : "element") + " name.");
+            Refuse(realm, member, DomExceptionNames.InvalidCharacter, "the name '" + qualifiedName + "' is not a valid " + (context == NameContext.Attribute ? "attribute" : "element") + " name.");
         }
 
         // Step 8: a prefix names a namespace, so there has to be one to name.
         if (prefix is not null && namespaceUri is null)
         {
-            Refuse(engine, member, DomExceptionNames.Namespace, "the qualified name '" + qualifiedName + "' has a prefix and no namespace.");
+            Refuse(realm, member, DomExceptionNames.Namespace, "the qualified name '" + qualifiedName + "' has a prefix and no namespace.");
         }
 
         // Step 9.
         if (string.Equals(prefix, "xml", StringComparison.Ordinal) && !string.Equals(namespaceUri, XmlNamespace, StringComparison.Ordinal))
         {
-            Refuse(engine, member, DomExceptionNames.Namespace, "the 'xml' prefix is only allowed in the XML namespace.");
+            Refuse(realm, member, DomExceptionNames.Namespace, "the 'xml' prefix is only allowed in the XML namespace.");
         }
 
         // Steps 10-11: the xmlns name and the XMLNS namespace imply each other, in both directions.
@@ -201,17 +201,17 @@ internal static class DomNames
 
         if (xmlns && !string.Equals(namespaceUri, XmlnsNamespace, StringComparison.Ordinal))
         {
-            Refuse(engine, member, DomExceptionNames.Namespace, "the 'xmlns' name is only allowed in the XMLNS namespace.");
+            Refuse(realm, member, DomExceptionNames.Namespace, "the 'xmlns' name is only allowed in the XMLNS namespace.");
         }
 
         if (string.Equals(namespaceUri, XmlnsNamespace, StringComparison.Ordinal) && !xmlns)
         {
-            Refuse(engine, member, DomExceptionNames.Namespace, "the XMLNS namespace only holds the 'xmlns' name.");
+            Refuse(realm, member, DomExceptionNames.Namespace, "the XMLNS namespace only holds the 'xmlns' name.");
         }
     }
 
-    private static void Refuse(Engine engine, string member, string name, string detail)
-        => DomFailures.Refuse(engine, member, name, detail);
+    private static void Refuse(DomRealm realm, string member, string name, string detail)
+        => DomFailures.Refuse(realm, member, name, detail);
 
     /// <summary>
     /// Whether <paramref name="value"/> holds one of the code points every predicate forbids — ASCII
@@ -318,7 +318,7 @@ internal static class DomNames
 
             if (NamespaceIndex >= 0)
             {
-                ValidateAndExtract(receiver.Engine, member, namespaceUri, qualifiedName, Context);
+                ValidateAndExtract(wrapper.DomRealm, member, namespaceUri, qualifiedName, Context);
                 return;
             }
 
@@ -331,7 +331,7 @@ internal static class DomNames
             if (!valid)
             {
                 Refuse(
-                    receiver.Engine,
+                    wrapper.DomRealm,
                     member,
                     DomExceptionNames.InvalidCharacter,
                     "the name '" + qualifiedName + "' is not a valid " + (Context == NameContext.Attribute ? "attribute" : "element") + " name.");

@@ -26,12 +26,12 @@ namespace Jint.Browser.Events;
 /// <para>
 /// It is created on demand rather than installed, because a generated prototype member — <c>el.onclick</c>,
 /// <c>document.activeElement</c> — has to be able to reach it on an engine that installed the DOM bindings and
-/// nothing else. <see cref="Install"/> adds only the globals.
+/// nothing else. <see cref="Install(Engine)"/> adds only the globals.
 /// </para>
 /// </remarks>
 internal sealed class BrowserEventRealm
 {
-    private static readonly ConditionalWeakTable<Engine, BrowserEventRealm> _realms = new();
+    private static readonly ConditionalWeakTable<Realm, BrowserEventRealm> _realms = new();
 
     private readonly ObjectInstance?[] _prototypes;
     private readonly BrowserEventInterfaceObject?[] _interfaceObjects;
@@ -40,10 +40,10 @@ internal sealed class BrowserEventRealm
     private List<PendingActivation>? _pending;
     private ConditionalWeakTable<IElement, SelectedCoordinate>? _imageCoordinates;
 
-    private BrowserEventRealm(Engine engine)
+    private BrowserEventRealm(Engine engine, Realm realm)
     {
         Engine = engine;
-        PrincipalRealm = engine._mainRealm;
+        OwningRealm = realm;
         _prototypes = new ObjectInstance?[BrowserEventInterfaces.All.Length];
         _interfaceObjects = new BrowserEventInterfaceObject?[BrowserEventInterfaces.All.Length];
         _hostPrototypes = new ObjectInstance?[BrowserHostInterfaces.All.Length];
@@ -54,10 +54,10 @@ internal sealed class BrowserEventRealm
     internal Engine Engine { get; }
 
     /// <summary>
-    /// The engine's principal realm, captured once — never <c>Engine.Realm</c>, which answers the realm
-    /// currently executing. The reason is <see cref="Dom.DomRealm.PrincipalRealm"/>'s.
+    /// The realm owning these event constructors and prototypes. Page interaction state remains on
+    /// <see cref="Of(Engine)"/>, independently of a node's creation realm.
     /// </summary>
-    internal Realm PrincipalRealm { get; }
+    internal Realm OwningRealm { get; }
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/interaction.html#dom-document-activeelement — the focused
@@ -163,7 +163,13 @@ internal sealed class BrowserEventRealm
     internal void Record(PendingActivation activation) => (_pending ??= []).Add(activation);
 
     /// <summary>The events-bridge state of <paramref name="engine"/>, created on first use.</summary>
-    internal static BrowserEventRealm Of(Engine engine) => _realms.GetValue(engine, static e => new BrowserEventRealm(e));
+    internal static BrowserEventRealm Of(Engine engine) => Of(engine, engine._mainRealm);
+
+    internal static BrowserEventRealm Of(Engine engine, Realm realm)
+    {
+        Dom.DomRealm.Validate(engine, realm);
+        return _realms.GetValue(realm, r => new BrowserEventRealm(engine, r));
+    }
 
     /// <summary>
     /// The realm behind a receiver, or <see langword="null"/> when the receiver belongs to no engine. Used by
@@ -177,19 +183,30 @@ internal sealed class BrowserEventRealm
     /// as a lazy, non-clobbering global.
     /// </summary>
     /// <remarks>
-    /// Lazy and non-clobbering for the reasons <see cref="Dom.DomBindings.Install"/> gives: an engine that
+    /// Lazy and non-clobbering for the reasons <see cref="Dom.DomBindings.Install(Engine)"/> gives: an engine that
     /// never mentions <c>WheelEvent</c> must not pay for its prototype, and a name the host's own
     /// configuration already took is the host's.
     /// </remarks>
     internal static void Install(Engine engine)
+    {
+        ArgumentNullException.ThrowIfNull(engine);
+        Install(engine, engine._mainRealm);
+    }
+
+    internal static void Install(Engine engine, Realm owningRealm)
+    {
+        Dom.DomRealm.Validate(engine, owningRealm);
+        InstallOn(engine, owningRealm, owningRealm.GlobalObject);
+    }
+
+    internal static void InstallOn(Engine engine, Realm owningRealm, ObjectInstance global)
     {
         if (engine is null)
         {
             Throw.ArgumentNullException(nameof(engine));
         }
 
-        var realm = Of(engine);
-        var global = engine._mainRealm.GlobalObject;
+        var realm = Of(engine, owningRealm);
 
         foreach (var definition in BrowserEventInterfaces.All)
         {
@@ -233,8 +250,9 @@ internal sealed class BrowserEventRealm
 
         var parent = definition.Parent is { } p
             ? PrototypeOf(p)
-            : PrincipalRealm.Intrinsics.Event.PrototypeObject;
+            : OwningRealm.Intrinsics.Event.PrototypeObject;
 
+        using var scope = new Dom.BrowserRealmScope(Engine, OwningRealm);
         var prototype = definition.Shape.Instantiate(Engine, parent);
 
         // Published before the interface object is built, because that object asks for this prototype: the two
@@ -245,7 +263,7 @@ internal sealed class BrowserEventRealm
         {
             var parentInterface = definition.Parent is { } q
                 ? (JsValue) InterfaceObjectOf(q)
-                : PrincipalRealm.Intrinsics.Event;
+                : OwningRealm.Intrinsics.Event;
 
             _interfaceObjects[definition.Index] = new BrowserEventInterfaceObject(this, definition, prototype, parentInterface);
         }
@@ -286,7 +304,8 @@ internal sealed class BrowserEventRealm
             host.Name,
             host.ConstructorLength,
             construct is null ? null : args => construct(this, args),
-            out var interfaceObject);
+            out var interfaceObject,
+            OwningRealm);
 
         _hostPrototypes[host.Index] = prototype;
         _hostInterfaceObjects[host.Index] = interfaceObject;

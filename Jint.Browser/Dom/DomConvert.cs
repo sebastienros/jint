@@ -112,7 +112,7 @@ internal static class DomConvert
             values.Add(realm.WrapNode(node));
         }
 
-        return realm.PrincipalRealm.Intrinsics.Array.Construct([.. values]);
+        return realm.OwningRealm.Intrinsics.Array.Construct([.. values]);
     }
 
     /// <summary>
@@ -297,6 +297,17 @@ internal static class DomConvert
             }
 
             values[i] = document.CreateTextNode(TypeConverter.ToString(value));
+            realm.CreationRealmOf(values[i]);
+        }
+
+        // A string conversion may run script that changes a node argument's descendants. Record
+        // after every conversion and before the native variadic operation can adopt those nodes.
+        foreach (var node in values)
+        {
+            if (!ReferenceEquals(node.Owner, document))
+            {
+                realm.RecordSubtree(node);
+            }
         }
 
         return values;

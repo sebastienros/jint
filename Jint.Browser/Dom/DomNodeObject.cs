@@ -26,7 +26,7 @@ namespace Jint.Browser.Dom;
 internal class DomNodeObject : JsEventTarget, IDomWrapper
 {
     internal DomNodeObject(DomRealm realm, DomInterfaceDefinition definition, INode node)
-        : base(realm.Engine, realm.PrincipalRealm)
+        : base(realm.Engine, realm.OwningRealm)
     {
         DomRealm = realm;
         Definition = definition;

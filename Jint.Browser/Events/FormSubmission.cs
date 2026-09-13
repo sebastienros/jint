@@ -55,7 +55,7 @@ internal static class FormSubmission
         }
 
         var target = realm.WrapNode(form);
-        var eventRealm = BrowserEventRealm.Of(realm.Engine);
+        var eventRealm = BrowserEventRealm.Of(realm.Engine, target.DomRealm.OwningRealm);
 
         var submitEvent = eventRealm.CreateTrusted(
             BrowserEventInterfaces.SubmitEvent,
@@ -99,7 +99,7 @@ internal static class FormSubmission
 
         if (submitterValue is not DomNodeObject { Node: IHtmlElement candidate } || !IsSubmitButton(candidate))
         {
-            Throw.TypeError(realm.PrincipalRealm, "Failed to execute 'requestSubmit' on 'HTMLFormElement': The specified element is not a submit button.");
+            Throw.TypeError(realm.OwningRealm, "Failed to execute 'requestSubmit' on 'HTMLFormElement': The specified element is not a submit button.");
             return;
         }
 
@@ -107,7 +107,7 @@ internal static class FormSubmission
         {
             // A NotFoundError DOMException, which is what the standard says and what a browser raises; the
             // wrong-kind refusal above is the TypeError, and the two are different on purpose.
-            var exception = realm.PrincipalRealm.Intrinsics.DomException.CreateException(
+            var exception = realm.OwningRealm.Intrinsics.DomException.CreateException(
                 DomExceptionNames.NotFound,
                 "Failed to execute 'requestSubmit' on 'HTMLFormElement': The specified element is not owned by this form element.");
 
@@ -136,7 +136,7 @@ internal static class FormSubmission
         }
 
         var target = realm.WrapNode(form);
-        var events = realm.Engine._mainRealm.Intrinsics.Event;
+        var events = target.DomRealm.OwningRealm.Intrinsics.Event;
 
         var resetEvent = events.CreateTrustedEvent(
             JsString.Create("reset"),

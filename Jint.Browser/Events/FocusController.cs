@@ -150,7 +150,7 @@ internal static class FocusController
 
     private static void Fire(DomRealm dom, DomNodeObject target, string type, bool bubbles, IElement? related)
     {
-        var realm = BrowserEventRealm.Of(dom.Engine);
+        var realm = BrowserEventRealm.Of(dom.Engine, target.DomRealm.OwningRealm);
 
         var ev = realm.CreateTrusted(
             BrowserEventInterfaces.FocusEvent,
