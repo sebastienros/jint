@@ -50,8 +50,9 @@ so its native inheritance and value computation still produce the complete decla
 
 **One rectangle uses the same placement as a complete layout.** `SizeQuery.Place` computes ancestor
 positions and preceding sibling extents on demand; a complete layout asks it for every rendered element.
-`PageLayout.ClientBoxOf` counts enough rows to establish the same scroll clamp, stopping once the
-current viewport bottom is covered. Partial counts never enter the exact-size cache. Placement measures
+`PageLayout.ClientBoxOf` counts enough rows to establish the same scroll clamp when the offset is
+positive, stopping once the current viewport bottom is covered. A zero offset is already clamped and
+needs no document-height walk. Partial counts never enter the exact-size cache. Placement measures
 ancestor heights only when flex alignment needs them, then requests the chosen rectangle. It does not
 position unrelated descendants or retain results after the query.
 
