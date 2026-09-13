@@ -244,6 +244,12 @@ internal sealed class DomRealm
     /// <summary>The document associated with this realm's global, if any.</summary>
     internal IDocument? Document { get; private set; }
 
+    internal IHtmlScriptElement? CurrentScript { get; set; }
+
+    internal string? ReadyState { get; set; }
+
+    internal bool LoadCompleted { get; set; }
+
     internal void AssociateContext(IBrowsingContext context)
     {
         if (_contexts.TryGetValue(context, out var existing) && !ReferenceEquals(existing, this))
@@ -270,6 +276,15 @@ internal sealed class DomRealm
         {
             Document = document;
         }
+    }
+
+    /// <summary>Associates a newly opened window document while retaining old documents' creation brands.</summary>
+    internal void AssociateWindowDocument(IDocument document)
+    {
+        // AngleSharp may open srcdoc again in the same context during element setup. The new global owns
+        // subsequent parser nodes; documents and wrappers from the previous opening retain their realm.
+        _contexts.Remove(document.Context);
+        AssociateDocument(document, associatedGlobal: true);
     }
 
     internal bool TryGetDocumentRealm(IDocument document, out DomRealm? realm)
@@ -353,7 +368,7 @@ internal sealed class DomRealm
                 ? OwningRealm.Intrinsics.EventTarget.PrototypeObject
                 : OwningRealm.Intrinsics.Object.PrototypeObject;
 
-        using var scope = new BrowserRealmScope(Engine, OwningRealm);
+        using var scope = new RealmScope(Engine, OwningRealm);
         var prototype = definition.Shape.Instantiate(Engine, parent);
         JsObjectShape.SetHostState(prototype, this);
 

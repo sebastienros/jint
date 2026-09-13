@@ -150,6 +150,7 @@ public sealed partial class ObjectConstructor : Constructor
 
     public override ObjectInstance Construct(JsCallArguments arguments, JsValue newTarget)
     {
+        using var scope = new RealmScope(_engine, _realm);
         if (!ReferenceEquals(this, newTarget) && !newTarget.IsUndefined())
         {
             return OrdinaryCreateFromConstructor(
@@ -322,6 +323,7 @@ public sealed partial class ObjectConstructor : Constructor
     [JsFunction]
     private ObjectInstance Create(JsValue thisObject, JsValue prototype, JsValue properties)
     {
+        using var scope = new RealmScope(_engine, _realm);
         if (!prototype.IsObject() && !prototype.IsNull())
         {
             Throw.TypeError(_realm, "Object prototype may only be an Object or null: " + prototype);

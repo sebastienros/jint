@@ -210,7 +210,7 @@ internal static class DomFailures
     /// </remarks>
     private static bool Translates(JsValue thisObject, Exception exception)
         => thisObject is ObjectInstance
-           && exception is DomException or ArgumentException or NotSupportedException or NotImplementedException;
+           && exception is DomException or ArgumentException or NotSupportedException or NotImplementedException or TypeErrorException;
 
     /// <summary>
     /// Raises the <c>DOMException</c> a member refuses with, in the message shape every refusal in this
@@ -248,6 +248,11 @@ internal static class DomFailures
     {
         var engine = receiver.Engine;
         var realm = (receiver as IDomWrapper)?.DomRealm ?? DomRealm.Of(engine);
+
+        if (exception is TypeErrorException)
+        {
+            Throw.TypeError(realm.OwningRealm, exception.Message);
+        }
 
         if (exception is ArgumentException)
         {

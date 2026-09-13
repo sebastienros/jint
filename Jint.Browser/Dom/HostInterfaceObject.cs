@@ -112,7 +112,7 @@ internal sealed class HostInterfaceObject : Constructor
         Realm? owningRealm = null)
     {
         var realm = owningRealm ?? engine._mainRealm;
-        using var scope = new BrowserRealmScope(engine, realm);
+        using var scope = new RealmScope(engine, realm);
         var prototype = shape.Instantiate(engine, realm.Intrinsics.Object.PrototypeObject);
         JsObjectShape.SetHostState(prototype, DomRealm.Of(engine, realm));
         interfaceObject = new HostInterfaceObject(engine, realm, name, prototype, length, construct);

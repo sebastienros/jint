@@ -66,13 +66,15 @@ internal static class NodeFilters
 
     private static FilterResult Invoke(DomRealm realm, JsValue filter, INode node)
     {
-        var callable = filter is ICallable ? filter : (filter as ObjectInstance)?.Get("acceptNode");
+        var callbackRealm = (filter as ObjectInstance)?.CreationRealm ?? realm.OwningRealm;
+        using var scope = new RealmScope(realm.Engine, callbackRealm);
+        var callable = filter.HasCall ? filter : (filter as ObjectInstance)?.Get("acceptNode");
 
-        if (callable is not ICallable)
+        if (callable is null || !callable.HasCall)
         {
             // WebIDL: an object with no callable operation is a TypeError at call time, not at conversion
             // time, which is exactly when a page notices it passed the wrong thing.
-            Throw.TypeError(realm.OwningRealm, "Failed to execute 'acceptNode' on 'NodeFilter': the filter is neither a function nor an object with an acceptNode method.");
+            Throw.TypeError(callbackRealm, "Failed to execute 'acceptNode' on 'NodeFilter': the filter is neither a function nor an object with an acceptNode method.");
         }
 
         var answer = realm.Engine.Call(callable!, filter, [realm.WrapNode(node)]);

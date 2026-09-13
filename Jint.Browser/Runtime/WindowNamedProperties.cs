@@ -48,10 +48,12 @@ namespace Jint.Browser.Runtime;
 internal sealed class WindowNamedProperties : NamedPropertyObject
 {
     private readonly PageRuntime _runtime;
+    private readonly IDocument? _document;
 
-    internal WindowNamedProperties(PageRuntime runtime) : base(runtime.Engine)
+    internal WindowNamedProperties(PageRuntime runtime, IDocument? document = null) : base(runtime.Engine)
     {
         _runtime = runtime;
+        _document = document;
     }
 
     /// <inheritdoc />
@@ -73,11 +75,11 @@ internal sealed class WindowNamedProperties : NamedPropertyObject
         // the named ones, so index wins — and this is the only place a miss can be answered from here.
         if (Index(name) is { } index)
         {
-            value = FrameWindows.At(_runtime, index);
+            value = FrameWindows.At(_runtime, index, _document);
             return !value.IsUndefined();
         }
 
-        if (name.Length != 0 && _runtime.Document is { } document)
+        if (name.Length != 0 && (_document ?? _runtime.Document) is { } document)
         {
             if (document.GetElementById(name) is { } byId)
             {
@@ -180,7 +182,7 @@ internal sealed class WindowNamedProperties : NamedPropertyObject
     {
         var names = new List<string>();
 
-        if (_runtime.Document is not { } document)
+        if ((_document ?? _runtime.Document) is not { } document)
         {
             return names;
         }

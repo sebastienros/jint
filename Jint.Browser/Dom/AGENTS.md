@@ -222,7 +222,7 @@ object, and do not mistake a fresh `querySelectorAll` result for a violation: th
 static NodeList each time.
 
 **Constructor and prototype state is per Realm; wrapper identity remains per engine.** Read
-`DomRealm.OwningRealm`, never the realm that happens to be executing. `BrowserRealmScope` binds shaped
+`DomRealm.OwningRealm`, never the realm that happens to be executing. `Jint.Runtime.RealmScope` binds shaped
 prototype construction to that realm too, so lazy methods do not capture a caller's intrinsics.
 `DomRealm` records creation realms for nodes before binding-driven cross-document adoption; parser-created
 frame trees are recorded when associated with the frame realm. Known-node wrapping only checks the shared

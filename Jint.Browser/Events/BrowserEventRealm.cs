@@ -252,7 +252,7 @@ internal sealed class BrowserEventRealm
             ? PrototypeOf(p)
             : OwningRealm.Intrinsics.Event.PrototypeObject;
 
-        using var scope = new Dom.BrowserRealmScope(Engine, OwningRealm);
+        using var scope = new RealmScope(Engine, OwningRealm);
         var prototype = definition.Shape.Instantiate(Engine, parent);
 
         // Published before the interface object is built, because that object asks for this prototype: the two

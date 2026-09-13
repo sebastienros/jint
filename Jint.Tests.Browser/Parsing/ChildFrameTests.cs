@@ -6,8 +6,8 @@ namespace Jint.Tests.Browser.Parsing;
 /// <summary>
 /// What a child frame is once it has a document of its own
 /// (<a href="https://github.com/sebastienros/jint/issues/3771">#3771</a>): the fetch, the
-/// <c>load</c> at the element, what <c>contentDocument</c> answers and to whom — and the realm it still
-/// does not have, which is what keeps its scripts from running in the page's.
+/// <c>load</c> at the element, what <c>contentDocument</c> answers and to whom — and the realm it
+/// owns, which keeps its globals independent from the page's.
 /// </summary>
 public class ChildFrameTests
 {
@@ -91,7 +91,7 @@ public class ChildFrameTests
     }
 
     [Test]
-    public async Task AFrameDocumentRunsNoScriptAndLeavesThePageAlone()
+    public async Task AFrameDocumentRunsScriptsInItsOwnGlobal()
     {
         await using var loopback = await LoopbackPage.CreateAsync(server => server
             .Map("/inframe.js", _ => LoopbackResponse.Script("window.leakedExternal = true;"))
@@ -107,16 +107,13 @@ public class ChildFrameTests
 
         await loopback.Page.NavigateAsync(loopback.Url("/"));
 
-        // A frame has a document and no realm, so neither half of a script in it runs — and neither runs in
-        // the page's realm, which is the only other realm there is.
         (await loopback.Page.EvaluateAsync<bool>("typeof window.leakedInline === 'undefined'")).Should().BeTrue();
         (await loopback.Page.EvaluateAsync<bool>("typeof window.leakedExternal === 'undefined'")).Should().BeTrue();
-
-        // The external one names a reference the page did not follow, so it is in the request log; the
-        // inline one is not a reference and is not.
+        (await loopback.Page.EvaluateAsync<bool>("frames[0].leakedInline && frames[0].leakedExternal")).Should().BeTrue();
         loopback.Page.Requests.Should().ContainSingle(r => r.Url.EndsWith("/inframe.js", StringComparison.Ordinal)
-            && r.NotFetchedReason != null);
-        loopback.Server.Received.Should().NotContain(request => request.Path == "/inframe.js");
+            && r.NotFetchedReason == null);
+        loopback.Server.Received.Should().Contain(request => request.Path == "/inframe.js");
+        loopback.Page.Errors.Should().BeEmpty();
 
         // And the frame's tree is the frame's: it never reached the page's document.
         (await loopback.Page.EvaluateAsync<bool>("document.getElementById('inner') === null")).Should().BeTrue();
@@ -144,8 +141,11 @@ public class ChildFrameTests
         (await loopback.Page.EvaluateAsync<bool>("document.getElementById('inner') === null")).Should().BeTrue();
         (await loopback.Page.EvaluateAsync<bool>("document.getElementById('f') !== null")).Should().BeTrue();
 
+        (await loopback.Page.EvaluateAsync<string>("frames[0].leaked")).Should().Be("yes");
+        (await loopback.Page.EvaluateAsync<string>("frames[0].document.title")).Should().Be("set-by-frame");
+
         // A srcdoc document is the frame's own, and it inherits the page's URL — so it is same origin and
-        // readable, and its own script is not in it.
+        // readable, with its own script running in that document.
         (await loopback.Page.EvaluateAsync<string>(
             "document.getElementById('f').contentDocument.getElementById('inner').textContent"))
             .Should().Be("hi");
@@ -214,7 +214,7 @@ public class ChildFrameTests
     }
 
     [Test]
-    public async Task AFrameHasAWindowOfItsOwnOnThePagesRealm()
+    public async Task AFrameHasAWindowOfItsOwnOnItsOwnRealm()
     {
         await using var loopback = await LoopbackPage.CreateAsync(server => server
             .MapHtml("/child.html", "<!doctype html><html><body><p id=inner>child</p></body></html>")
