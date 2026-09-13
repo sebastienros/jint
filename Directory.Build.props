@@ -20,6 +20,14 @@
     <DebugType>portable</DebugType>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
 
+    <!-- Verify's official binaries permit this non-revenue-generating open-source project's use.
+         Reconfirm eligibility before renewing the fixed expiry; never roll it forward at build time.
+         https://github.com/VerifyTests/Verify/blob/main/docs/maintenance-fee.md -->
+    <Verify_SponsorshipExemption>OpenSource</Verify_SponsorshipExemption>
+    <Verify_SponsorshipExemptionUntil>2027-08</Verify_SponsorshipExemptionUntil>
+    <!-- SC031 reports a valid exemption. Keep it informational; invalid or expired declarations still fail. -->
+    <MSBuildWarningsAsMessages>$(MSBuildWarningsAsMessages);SC031</MSBuildWarningsAsMessages>
+
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <UseArtifactsOutput>true</UseArtifactsOutput>
 
