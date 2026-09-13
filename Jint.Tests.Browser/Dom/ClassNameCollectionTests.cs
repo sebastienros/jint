@@ -292,4 +292,125 @@ public sealed class ClassNameCollectionTests
         fixture.Number("document.getElementsByClassName('   ').length").Should().Be(0);
         fixture.Number("document.getElementsByClassName('a\\t\\n\\f\\r b').length").Should().Be(1);
     }
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#concept-getelementsbyclassname matches an element whose
+    /// <a href="https://dom.spec.whatwg.org/#concept-class">classes</a> — the <b>tokens</b> of its class
+    /// attribute — contain the candidate, never an element whose attribute merely <i>contains</i> the
+    /// candidate's characters. The six shapes below are the ones any search over the whole attribute value
+    /// has to reject: the candidate at the start of a longer token, at its end, inside it, doubled, and
+    /// found once as part of a token before or after it is found as a whole one.
+    /// </summary>
+    [TestCase("")]
+    [TestCase("<!doctype html>")]
+    public void ACandidateFoundOnlyInsideADeclaredTokenIsNotOneOfTheElementsClasses(string doctype)
+    {
+        using var fixture = DomTestFixture.Create(doctype + "<main id='root'></main>");
+        fixture.Execute("""
+            var root = document.getElementById('root');
+            for (const [id, classes] of [
+                ['prefix', 'foobar'], ['suffix', 'xfoo'], ['inside', 'xfooy'], ['doubled', 'foofoo'],
+                ['after', 'xfoo foo'], ['before', 'foo foobar'], ['exact', 'foo']
+            ]) {
+                const child = document.createElement('span');
+                child.id = id;
+                child.setAttribute('class', classes);
+                root.appendChild(child);
+            }
+            function ids(query) { return [...root.getElementsByClassName(query)].map(x => x.id).join(','); }
+            """);
+
+        // A rejected occurrence does not end the search: 'after' holds one inside xfoo and then one of its
+        // own, and 'before' holds its own and then one inside foobar.
+        fixture.Text("""ids('foo')""").Should().Be("after,before,exact");
+        fixture.Text("""ids('foobar')""").Should().Be("prefix,before");
+        fixture.Text("""ids('xfoo')""").Should().Be("suffix,after");
+
+        // Nothing that is only a part of a token is a class, at either end of one or inside it.
+        fixture.Text("""ids('bar') + ids('oo') + ids('ooy')""").Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// The candidate is a class wherever it stands in the attribute — first, in the middle, last, or alone
+    /// between runs of any of https://infra.spec.whatwg.org/#ascii-whitespace's five characters. "Elements
+    /// that have <b>all</b> their classes in classes" is the other half: one missing candidate rejects the
+    /// element however many of the rest it has.
+    /// </summary>
+    [TestCase("")]
+    [TestCase("<!doctype html>")]
+    public void EveryCandidateMustBeAWholeTokenAndAllOfThemMustBePresent(string doctype)
+    {
+        using var fixture = DomTestFixture.Create(doctype + "<main id='root'></main>");
+        fixture.Execute("""
+            var root = document.getElementById('root');
+            for (const [id, classes] of [
+                ['first', 'target alpha beta'], ['middle', 'alpha target beta'], ['last', 'alpha beta target'],
+                ['padded', ' \t\n\f\r target \t\n\f\r '], ['runs', 'alpha   target    beta'],
+                ['others', 'alpha beta'], ['blank', '']
+            ]) {
+                const child = document.createElement('span');
+                child.id = id;
+                child.setAttribute('class', classes);
+                root.appendChild(child);
+            }
+            // The element with no class content attribute at all, which is the case the read short-circuits.
+            root.appendChild(document.createElement('span')).id = 'absent';
+            function ids(query) { return [...root.getElementsByClassName(query)].map(x => x.id).join(','); }
+            """);
+
+        fixture.Text("""ids('target')""").Should().Be("first,middle,last,padded,runs");
+        fixture.Text("""ids('alpha')""").Should().Be("first,middle,last,runs,others");
+        fixture.Text("""ids('beta target alpha')""").Should().Be("first,middle,last,runs");
+
+        // One candidate missing rejects the element, whichever of them it is.
+        fixture.Text("""ids('target missing')""").Should().BeEmpty();
+        fixture.Text("""ids('missing target')""").Should().BeEmpty();
+        fixture.Text("""ids('alpha beta target')""").Should().Be("first,middle,last,runs");
+
+        // The element with an empty class attribute and the one with no class attribute at all are both
+        // walked and neither is ever matched, which is what the exact results above say by omitting them;
+        // the empty set of candidates is the other half of the same case.
+        fixture.Number("root.children.length").Should().Be(8);
+        fixture.Number("root.getElementsByClassName('').length").Should().Be(0);
+    }
+
+    /// <summary>
+    /// The quirks comparison is https://infra.spec.whatwg.org/#ascii-case-insensitive and nothing wider, in
+    /// both directions: U+0131 DOTLESS I and U+212A KELVIN SIGN are what <c>OrdinalIgnoreCase</c> folds onto
+    /// <c>I</c> and <c>k</c>, and neither is a match here whether it is the declared token or the candidate.
+    /// </summary>
+    [Test]
+    public void QuirksFoldStaysInsideAsciiInBothDirectionsAndAcrossAWholeAttribute()
+    {
+        // No doctype, so compatMode is "BackCompat" and the comparison folds ASCII case.
+        using var fixture = DomTestFixture.Create("<main id='root'></main>");
+        fixture.Execute("""
+            var root = document.getElementById('root');
+            for (const [id, classes] of [
+                ['dotless', '\u0131'], ['capital', 'I'], ['ascii', 'k'], ['kelvin', '\u212A'],
+                ['framework', 'BtN bTn-PRIMARY Btn-LG'], ['partial', 'BTN-PRIMARY-LG']
+            ]) {
+                const child = document.createElement('span');
+                child.id = id;
+                child.setAttribute('class', classes);
+                root.appendChild(child);
+            }
+            function ids(query) { return [...root.getElementsByClassName(query)].map(x => x.id).join(','); }
+            """);
+
+        fixture.Text("document.compatMode").Should().Be("BackCompat");
+
+        // ASCII folds, in one token and across several.
+        fixture.Text("""ids('K')""").Should().Be("ascii");
+        fixture.Text("""ids('i')""").Should().Be("capital");
+        fixture.Text("""ids('btn btn-primary btn-lg')""").Should().Be("framework");
+        fixture.Text("""ids('BTN-LG btn')""").Should().Be("framework");
+
+        // Nothing outside it does, in either role.
+        fixture.Text("""ids('\u0131')""").Should().Be("dotless");
+        fixture.Text("""ids('\u212A')""").Should().Be("kelvin");
+
+        // And a folded comparison is still a comparison of whole tokens.
+        fixture.Text("""ids('btn-primary')""").Should().Be("framework");
+        fixture.Text("""ids('primary') + ids('btn-primary-l')""").Should().BeEmpty();
+    }
 }
