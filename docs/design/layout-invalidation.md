@@ -13,8 +13,9 @@ preserve scrolling and first-hit-test event coordinates. None supplies cross-que
 
 Upstream has since merged [AngleSharp #1344](https://github.com/AngleSharp/AngleSharp/pull/1344), at
 `eb3925b9dfc0731cf249e82b13b7bb19a2022db8`. Its upcoming 1.8.2 adds public `Document.MutationVersion`,
-including parser, tree, attribute and character-data writes. NuGet did not yet resolve 1.8.2 during this
-audit. Consume and test that producer once packaged; a duplicate DOM revision implementation is unnecessary.
+including parser, tree, attribute and character-data writes. Stable 1.8.2 did not resolve during this
+audit, but `1.8.2-beta.715` does and its assembly exposes this property. Consume and test that producer;
+a duplicate DOM revision implementation is unnecessary.
 It explicitly excludes extension-owned stylesheet state and is not a complete layout revision.
 
 Jint PR [#4066](https://github.com/sebastienros/jint/pull/4066) handles the remaining mouse-offset cases
