@@ -30,7 +30,8 @@ internal static class PageEvents
 {
     /// <summary>Fires a plain trusted event at <paramref name="target"/> and answers whether it survived.</summary>
     internal static bool Fire(PageRuntime runtime, JsEventTarget target, string type, bool bubbles = false, bool cancelable = false)
-        => Dispatch(runtime, target, Create(runtime, type, bubbles, cancelable));
+        => Dispatch(runtime, target, target._realm.Intrinsics.Event.CreateTrustedEvent(
+            JsString.Create(type), new EventInit(bubbles, cancelable, Composed: false)));
 
     /// <summary>Creates a trusted event of <paramref name="type"/> in the runtime's realm.</summary>
     internal static JsEvent Create(PageRuntime runtime, string type, bool bubbles = false, bool cancelable = false)

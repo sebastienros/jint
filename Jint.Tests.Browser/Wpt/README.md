@@ -148,15 +148,12 @@ implementation of HTML §4.13, and **the shape of what is missing from that corp
 it is written against a second global.** `resources/custom-elements-helpers.js` gives it
 `create_window_in_test`, which loads an iframe and resolves with its window, and `document_types()`, which
 makes every assertion in five documents — this one, a `new Document()`, a `createHTMLDocument()`, an
-iframe's and an XHR-fetched one. A child frame has a document and a window here and **no realm**
-([#3771](https://github.com/sebastienros/jint/issues/3771)), and that changed what is missing rather than
-removing it: `create_window_in_test` resolves with a real window now — `ChildFrameTests` runs the helper's own
-shape and pins it — but the window's constructors are the page's, because the realm is shared. So a file that
-only needs a second *window* could report, and a file that compares an element against the frame's own
-`HTMLElement`, or adopts a node between realms, still cannot. Thirty-seven documents stay in the not-vendored
-table, now for the narrower reason: they are the ones about adoption, cross-realm constructors and the
-reaction queue. Re-vendoring against the window is a change of its own, because it moves the census's
-Documents and Tests columns.
+iframe's and an XHR-fetched one. Same-origin, unsandboxed sourced frames now have independent realms and
+run classic scripts on the page's loop. Their DOM constructors and node creation brands are distinct, and
+their window listeners, timers and microtasks run against the child global. Empty iframes and child-specific
+custom-element registries and reaction delivery remain [#3771](https://github.com/sebastienros/jint/issues/3771).
+Thirty-seven documents stay in the not-vendored table pending those capabilities and re-examination.
+Re-vendoring moves the census's Documents and Tests columns and requires measuring each document.
 
 What the rest found is five causes, and every exclusion in the four new suites is one of them:
 
@@ -373,7 +370,7 @@ table needs to be regenerated.
 
 | Tests | Documents | What it is |
 | ---: | ---: | --- |
-| 299 | 9 | [#3771](https://github.com/sebastienros/jint/issues/3771) **A frame is never given its own realm.** The 195 XHTML and 71 XML `Document-createElement*` rows reach `doc.defaultView.DOMException`; the rest are the `node-realm-*`, `node-creation-realm`, `createEvent` and connectivity cases. `NeedsIframeScripting` names that missing environment. <!-- cause: a frame that runs script --> |
+| 299 | 9 | [#3771](https://github.com/sebastienros/jint/issues/3771) **Remaining frame environments and XML document differences.** Sourced frames have their own realms and run classic scripts. Empty iframes still lack a native document, affecting `node-realm-*`, `node-creation-realm` and connectivity cases; the group also includes XML/XHTML creation differences and the missing `TextEvent` interface. <!-- cause: a frame that runs script --> |
 | 137 | 1 | **Members of DOM interfaces are absent.** The rows cover `ProcessingInstruction` attributes, `ChildNode` unscopables and event aliases that have no constructor. <!-- cause: a member of a DOM interface the bindings do not have --> |
 | 80 | 5 | [#3774](https://github.com/sebastienros/jint/issues/3774) **A name AngleSharp refuses that the standard allows, plus required refusals it does not make.** The rows cover element creation, namespace validation and document insertion. <!-- cause: a name AngleSharp refuses that the standard allows --> |
 | 74 | 3 | **The Selectors-API table and selector-only element states.** The three newly vendored documents cover selector-error contracts, no-namespace selectors and `::slotted`; all 74 rows are `NeedsTriage`. <!-- cause: the Selectors-API table and selector-only element states --> |
@@ -595,7 +592,7 @@ which is what a fixture sitting beside the cases that load it needs — see belo
 | HTML's reflection suite, the two files that are not the suite | 2 | [#3770](https://github.com/sebastienros/jint/issues/3770); all ten `reflection-*.html` documents are cases now, so what is left out is `reflection-original.html`, the same suite in the aggregating spelling, and the attribute table of a `.tentative.` document nothing here runs |
 | a DOM crash test or reftest | 5 | none loads `testharness.js` |
 | a helper document beside its test | 4 | three frames and a fragment; a document under a suite would have to be a case, and the fourth answer is the frame-bodies table below |
-| a DOM frame that runs script | 14 | listed when a frame had neither a document nor a realm; it has a document now ([#3771](https://github.com/sebastienros/jint/issues/3771)) and each row is owed a re-examination against the half that is left. Three have had it: the selector documents are cases |
+| a DOM frame that runs script | 14 | sourced frames now have documents, realms and classic scripts ([#3771](https://github.com/sebastienros/jint/issues/3771)); each row still needs re-examination against empty-frame initialization and remaining child services. Three have had it: the selector documents are cases |
 | a member reached at file scope | 30 | `createCDATASection` (31 documents, 24 of them `dom/ranges/`, through `dom/common.js`), `createDocument` (5) and `setAttributeNode` (1) |
 | one DOM file each | 3 | a `SyntaxError` no `error` event carries to the harness, and two `MutationObserver` documents waiting for a record that never comes |
 | the pseudo-classes suite's four non-cases | 4 | a helper root this corpus does not hold, a `.window.js` glob, and a reftest with its reference |

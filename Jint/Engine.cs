@@ -1597,6 +1597,10 @@ public sealed partial class Engine : IDisposable
     // instances of JS classes that declare #private members ever allocate an entry here.
     internal ConditionalWeakTable<ObjectInstance, Dictionary<PrivateName, PrivateElement>>? _privateElementStore;
 
+    // WebIDL callback interfaces need the object's creation realm, including null-prototype objects and
+    // revoked proxies. Keep secondary-realm records weakly, without another pointer on every JS object.
+    internal ConditionalWeakTable<ObjectInstance, Realm>? _secondaryObjectRealms;
+
     // bounded cache of most recently wrapped CLR objects, see Options.Interop.CacheRecentObjectWrappers
     internal RecentObjectWrapperCache? _recentObjectWrapperCache;
 
@@ -5311,6 +5315,7 @@ public sealed partial class Engine : IDisposable
         // so a disposed-but-still-referenced engine must release them
         _recentObjectWrapperCache?.Clear();
         _recentObjectWrapperCache = null;
+        _secondaryObjectRealms = null;
 
 #if NET8_0_OR_GREATER
         // A host CancellationToken bridged to an AbortSignal holds a registration that reaches this engine, and

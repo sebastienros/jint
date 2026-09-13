@@ -193,33 +193,32 @@ answers it instead — `about:blank` from nothing, everything else over the page
 `MaxSubresourceBytes` and `SubresourceTimeout` — and AngleSharp opens the response, parses it and, for a
 frame's own frames, comes back here. Four things follow and each is load-bearing:
 
-- **The child context copies the page's services**, so the page's `IScriptingService` is what a frame's
-  `<script>` reaches. `ParserDriver.IsFrameDocument` — the document's context is not the page's — is what
-  stops it: an external one is refused at the fetch, with the reference it names in the request log; an
-  inline one is dropped at `RunClassicScript`, there being no reference to record. **A frame's document has a DOM creation realm, but that realm's global is not yet its window**;
-  running child scripts remains a later #3771 slice. Before this it
-  did: an `<iframe srcdoc>` needs no fetch, so nothing gated it, and its `<script>` ran on the page's `Window`
-  while the srcdoc markup replaced the page's own tree, with nothing in `Page.Errors` to say so.
-- **`load` is fired from `FinishLoad`, innermost frame first**, after `DOMContentLoaded` and before
-  `readyState` becomes `complete` — which is where HTML's "spin until nothing delays the load event" puts it,
-  a frame being one of the things that delays it. A frame with no document fires nothing; one whose fetch
-  failed already heard `error`.
-- **`BrowserOptions.MaxFrameDocuments` is counted over the load and not per document**, because a page
-  pointing a frame at itself would otherwise recurse until the parser thread's stack ran out. `srcdoc` is
-  neither counted nor refused: there is no request to answer.
-- **`contentDocument` and `contentWindow` are `Dom/DomFrameMembers`, not the generated bodies**, because
-  HTML answers `null` for a document that is not same origin with the one asking. `contentWindow` answers a
-  window built by `Runtime/FrameWindows` — one object per frame, whose `[[Prototype]]` is the page's global,
-  while lazy own DOM/event constructor properties use the child document's realm. A frame with no
-  document has `contentWindow === null` rather than absent: `'contentWindow' in frame` and
-  `if (frame.contentWindow)` disagree about a member that is missing and one that is null.
+- **The child context copies the page's services.** Classic scripts are fetched under the existing resource
+  limits, then `RunClassicScript` enters the child document's `RealmScope` on the loop. Inline, external,
+  deferred and asynchronous classic scripts use that global. `CanRunFrame` restricts this to documents
+  same-origin with the top page and with no sandbox attribute; cross-origin WindowProxy access and sandbox
+  policies are not implemented. Module scripts and import maps remain principal-document services.
+- **Each document has its own global, DOM brands, current script, readiness and window event target.**
+  `FrameWindows.ForDocument` installs before a script runs, without needing the frame element's
+  `ContentDocument` to have been published. A child global has its own intrinsics, DOM/UI constructors,
+  Web APIs and Window handlers. It never inherits page-defined globals. Parent/top, defaultView, named
+  elements and indexed frames resolve against that document's context and tree.
+- **`FinishFrame` delivers readiness, DOMContentLoaded, nested frame loads, complete, load and pageshow.**
+  Initial frames still finish after the principal DOMContentLoaded and before its load. Source-attribute
+  notifications queue completion for frames created after page load through the same deferred resource
+  event mechanism as images. Nothing touches the engine in the native attribute callback outside the baton.
+  A document completes once; detached frames and frames with no document do not receive load.
+- **`BrowserOptions.MaxFrameDocuments` is counted across requests**, because a page pointing a frame at
+  itself would otherwise recurse until the parser thread's stack ran out. `srcdoc` has no resource request
+  and remains outside that count. Native setup can reopen srcdoc in the same browsing context: each opened
+  document gets a new realm association, while old documents and their nodes retain their creation brands.
 
-**A frame's window remains a facade on the page's realm.** `Runtime/FrameWindows` preserves its object
-identity and prototype, forwarding DOM and event constructors through lazy own properties to the child
-document's realm. Other globals remain inherited from the page. Document and node wrappers keep their
-creation brands across adoption through the shared engine-wide identity cache (`Dom/AGENTS.md`). Child
-global replacement and script execution are the next #3771 slice. Location writes still throw until frame
-navigation exists, so a caller waiting for a navigation fails rather than hanging silently.
+**Remaining frame boundaries are explicit.** An empty iframe still has no native document: AngleSharp
+exposes no nested-context initialization seam on its public iframe interface. Legacy frames, WindowProxy
+navigation, child module loading, and realm-specific browser services (custom-element registries, observers,
+selection, history, and network positioning) remain separate work. A child's Web API installation uses the
+page's network configuration; its browser-specific globals contain only the implemented frame surface.
+Location writes throw.
 
 **`document.write` after the parse is refused.** During one it is AngleSharp's own call and it is right — its
 writable text source inserts at the parser's index and the script processor restores the index afterwards, so

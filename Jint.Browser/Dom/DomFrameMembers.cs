@@ -18,11 +18,10 @@ namespace Jint.Browser.Dom;
 /// window a page gets is the runtime's (<c>Runtime/FrameWindows</c>).
 /// </para>
 /// <para>
-/// <b>A frame has a document and a window here and no realm of its own</b>
+/// <b>A frame has a document and its own global in the page's engine</b>
 /// (<c>docs/design/headless-browser.md</c> §3): the parser driver fetches a frame's <c>src</c> and AngleSharp
 /// opens it into the nested browsing context it already made for the element, so the tree is real and
-/// readable and <c>contentWindow</c> answers an object of the frame's own — while nothing in it runs, and
-/// every constructor that window reaches is the page's, there being one realm.
+/// readable and <c>contentWindow</c> answers an object of the frame's own — with independent constructors and same-origin classic script execution.
 /// </para>
 /// </remarks>
 internal static class DomFrameMembers
@@ -85,7 +84,7 @@ internal static class DomFrameMembers
     /// </summary>
     /// <remarks>
     /// <para>
-    /// It answers a window on the <i>page's</i> realm rather than a realm of its own —
+    /// It answers the child document's realm global —
     /// <c>Runtime/FrameWindows</c> is the whole of what that means and why. Same origin decides whether there
     /// is one to hand back at all, by the same rule <see cref="ContentDocument"/> uses: a window is a door to
     /// a document, so handing one out cross-origin would hand out the document with it.
@@ -100,7 +99,7 @@ internal static class DomFrameMembers
     {
         if (PageRuntime.Find(realm.Engine) is { } runtime)
         {
-            FrameWindows.AttachDefaultView(runtime, frame, document);
+            FrameWindows.AttachDefaultView(runtime, document);
         }
     }
 

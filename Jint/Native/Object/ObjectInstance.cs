@@ -91,9 +91,18 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         _engine = engine;
         _class = objectClass;
         // if engine is ready, we can take default prototype for object
-        _prototype = engine.Realm.Intrinsics?.Object?.PrototypeObject;
+        var realm = engine.Realm;
+        _prototype = realm.Intrinsics?.Object?.PrototypeObject;
+        if (engine._mainRealm is not null && !ReferenceEquals(realm, engine._mainRealm))
+        {
+            (engine._secondaryObjectRealms ??= new()).Add(this, realm);
+        }
         _extensible = true;
     }
+
+    /// <summary>The realm associated with a WebIDL callback object, independent of its mutable prototype.</summary>
+    internal Realm CreationRealm => this is Function.Function function ? function._realm
+        : _engine._secondaryObjectRealms?.TryGetValue(this, out var realm) == true ? realm : _engine._mainRealm;
 
     public Engine Engine
     {

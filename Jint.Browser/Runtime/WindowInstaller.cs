@@ -9,6 +9,7 @@ using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 using Jint.WebApi.Events;
+using Jint.WebApi;
 using Jint.WebApi.StructuredClone;
 
 namespace Jint.Browser.Runtime;
@@ -79,6 +80,7 @@ internal static class WindowInstaller
         "error", "unhandledrejection", "rejectionhandled",
     ];
 
+    private static readonly JsObjectShape _frameWindowShape = BuildFrameWindowShape();
     private static readonly JsObjectShape _windowShape = BuildWindowShape();
     private static readonly JsObjectShape _screenShape = BuildScreenShape();
     private static readonly JsObjectShape _mediaQueryListShape = BuildMediaQueryListShape();
@@ -214,6 +216,36 @@ internal static class WindowInstaller
         BrowserEventRealm.Install(engine);
     }
 
+    /// <summary>Installs the child global's Window brand and its independent event-handler slots.</summary>
+    internal static void InstallFrame(PageRuntime runtime, DomRealm dom, IDocument document)
+    {
+        var engine = runtime.Engine;
+        var realm = dom.OwningRealm;
+        var target = engine._webApi!.GlobalEventTargetFor(realm);
+        dom.WindowTarget = target;
+        target.IsWindow = true;
+        var named = new WindowNamedProperties(runtime, document) { Prototype = realm.Intrinsics.EventTarget.PrototypeObject };
+        var prototype = _frameWindowShape.Instantiate(engine, named);
+        var constructor = new WindowInterfaceObject(engine, realm, prototype);
+        prototype.DefineOwnPropertyUnchecked("constructor", new PropertyDescriptor(constructor, PropertyFlag.NonEnumerable));
+        realm.GlobalObject.Prototype = prototype;
+        realm.GlobalObject.SetProperty("Window", new PropertyDescriptor(constructor, PropertyFlag.NonEnumerable));
+        realm.GlobalObject.SetProperty("event", new GetSetPropertyDescriptor(
+            new ClrFunction(engine, realm, "get event", (_, _) => target.CurrentEvent, 0), null,
+            PropertyFlag.Configurable | PropertyFlag.Enumerable));
+    }
+
+    private static JsObjectShape BuildFrameWindowShape()
+    {
+        var builder = new JsObjectShape.Builder().PerRealmSlot("constructor").ToStringTag("Window");
+        foreach (var type in _eventHandlers)
+        {
+            var handler = new EventHandlerAccessor(type);
+            builder.Accessor("on" + type, handler.Get, handler.Set);
+        }
+        return builder.Build();
+    }
+
     /// <summary>
     /// Adds the members of <c>document</c> that belong to this page rather than to its interface.
     /// </summary>
@@ -259,10 +291,10 @@ internal static class WindowInstaller
     internal static JsEventTarget WindowTargetOf(JsValue thisObject, string member, string verb)
     {
         if (thisObject is ObjectInstance instance
-            && ReferenceEquals(instance, instance.Engine._mainRealm.GlobalObject)
-            && instance.Engine._webApi is { } webApi)
+            && instance.Engine._webApi is { } webApi
+            && WebApiRegistration.TryGetInstalledRealm(instance.Engine, instance, out var realm))
         {
-            return webApi.GlobalEventTarget;
+            return webApi.GlobalEventTargetFor(realm);
         }
 
         if (thisObject is JsEventTarget target)

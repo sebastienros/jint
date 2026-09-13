@@ -4,7 +4,6 @@ using Jint.Browser.Dom;
 using Jint.Browser.Events;
 using Jint.Native.Object;
 using Jint.Native;
-using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 using Jint.Runtime;
@@ -13,14 +12,11 @@ using Jint.WebApi;
 
 namespace Jint.Browser.Runtime;
 
-/// <summary>
-/// A stable facade for each child frame. Its identity and prototype remain on the principal realm;
-/// lazy own constructor properties forward to the associated document's realm.
-/// </summary>
+/// <summary>Installs each child document's global and resolves its parent and indexed frame windows.</summary>
 /// <remarks>
 /// https://html.spec.whatwg.org/multipage/webappapis.html#realms-settings-objects-global-objects —
-/// the child document has its own DOM and event brands. Child global replacement and script execution
-/// remain the next #3771 slice; the facade continues to inherit other page-global properties.
+/// each document has independent intrinsics and global bindings in the page's engine. WindowProxy
+/// navigation and cross-origin access remain unsupported; DomFrameMembers gates exposed windows.
 /// </remarks>
 internal static class FrameWindows
 {
@@ -28,11 +24,6 @@ internal static class FrameWindows
     /// The window of <paramref name="frame"/>, built on first use, or <see langword="null"/> when the frame
     /// has no document to be the window of.
     /// </summary>
-    /// <remarks>
-    /// Cached on the frame element through the binding's own wrapper table, so the same frame answers the
-    /// same object every time — <c>frame.contentWindow === frame.contentWindow</c> is what a page compares,
-    /// and <c>frames[0] === frame.contentWindow</c> is what wpt does.
-    /// </remarks>
     internal static JsValue For(PageRuntime runtime, IHtmlInlineFrameElement frame)
     {
         if (frame.ContentDocument is not { } document)
@@ -40,36 +31,17 @@ internal static class FrameWindows
             return JsValue.Null;
         }
 
-        if (runtime.FrameWindowFor(frame) is { } existing)
-        {
-            return existing;
-        }
-
-        var window = Build(runtime, frame, document);
-        runtime.RememberFrameWindow(frame, window);
-        AttachDefaultView(runtime, frame, document);
+        var window = ForDocument(runtime, document);
+        AttachDefaultView(runtime, document);
         return window;
     }
 
     /// <summary>
     /// Gives a frame's document wrapper the <c>defaultView</c> its window is, once.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// An own accessor on the wrapper, which is where the page's own document gets its <c>defaultView</c>
-    /// too (<c>WindowInstaller.AttachDocumentMembers</c>, and it argues there why it is not on
-    /// <c>Document.prototype</c>). It is an accessor rather than a value so that reading
-    /// <c>contentDocument</c> does not build a window nobody asked for: the frame element is closed over and
-    /// the window is made on the first read of <c>defaultView</c>.
-    /// </para>
-    /// <para>
-    /// It is what <c>doc.defaultView.DOMException</c> reaches, which is how a large part of the DOM corpus
-    /// gets at the constructor to compare a refusal against.
-    /// </para>
-    /// </remarks>
-    internal static void AttachDefaultView(PageRuntime runtime, IHtmlInlineFrameElement frame, IDocument document)
+    internal static void AttachDefaultView(PageRuntime runtime, IDocument document)
     {
-        DocumentRealm(runtime, document);
+        var dom = DocumentRealm(runtime, document);
         if (runtime.Dom.WrapNode(document) is not { } wrapper || wrapper.HasOwnProperty("defaultView"))
         {
             return;
@@ -78,7 +50,7 @@ internal static class FrameWindows
         wrapper.DefineOwnPropertyUnchecked(
             "defaultView",
             new GetSetPropertyDescriptor(
-                new ClrFunction(runtime.Engine, "get defaultView", (_, _) => For(runtime, frame)),
+                new ClrFunction(runtime.Engine, dom.OwningRealm, "get defaultView", (_, _) => ForDocument(runtime, document), 0),
                 set: null,
                 PropertyFlag.Configurable));
     }
@@ -91,9 +63,10 @@ internal static class FrameWindows
     /// reached yet appears the moment it does; installing them would be a snapshot of whichever moment the
     /// installer ran.
     /// </remarks>
-    internal static JsValue At(PageRuntime runtime, int index)
+    internal static JsValue At(PageRuntime runtime, int index, IDocument? document = null)
     {
-        if (index < 0 || runtime.Document is not { } document)
+        document ??= runtime.Document;
+        if (index < 0 || document is null)
         {
             return JsValue.Undefined;
         }
@@ -125,52 +98,76 @@ internal static class FrameWindows
         DomBindings.Install(engine, realm);
         BrowserEventRealm.Install(engine, realm);
         var dom = DomRealm.Of(engine, realm);
-        dom.AssociateDocument(document, associatedGlobal: true);
+        dom.AssociateWindowDocument(document);
         return dom;
     }
 
-    private static JsObject Build(PageRuntime runtime, IHtmlInlineFrameElement frame, IDocument document)
+    // https://html.spec.whatwg.org/multipage/webappapis.html#realms-settings-objects-global-objects
+    // A child script can arrive before its frame's ContentDocument is published. The document's context
+    // already identifies its parent; installation must not depend on an element lookup succeeding yet.
+    internal static ObjectInstance ForDocument(PageRuntime runtime, IDocument document)
     {
-        var dom = DocumentRealm(runtime, document);
-        var engine = runtime.Engine;
-        var page = engine._mainRealm.GlobalObject;
-
-        // Preserve the existing facade prototype; only DOM/event constructors are forwarded below.
-        var window = new JsObject(engine) { Prototype = page };
-
-        DomBindings.InstallOn(engine, dom.OwningRealm, window);
-        BrowserEventRealm.InstallOn(engine, dom.OwningRealm, window);
-        foreach (var name in new[] { "Event", "EventTarget", "CustomEvent", "MessageEvent", "DOMException", "QuotaExceededError" })
+        if (ReferenceEquals(document, runtime.Document))
         {
-            var captured = name;
-            window.DefineOwnPropertyUnchecked(name, new LazyPropertyDescriptor<Realm>(
-                dom.OwningRealm, r => r.GlobalObject.Get(captured), PropertyFlag.NonEnumerable));
+            return runtime.Engine._mainRealm.GlobalObject;
         }
 
-        // Itself, for the three names that mean "this window".
+        var dom = DocumentRealm(runtime, document);
+        var realm = dom.OwningRealm;
+        var window = realm.GlobalObject;
+        if (dom.WindowTarget is not null)
+        {
+            return window;
+        }
+
+        using var scope = new RealmScope(runtime.Engine, realm);
+        dom.ReadyState = "loading";
+        WindowInstaller.InstallFrame(runtime, dom, document);
         Own(window, "window", window);
         Own(window, "self", window);
         Own(window, "frames", window);
-
-        // The page's, for the two that mean "the one above". A frame nested in a frame still answers the
-        // page for both, because a frame's own frames have no window of their own to be a parent: there is
-        // one document per frame here and no browsing-context tree above it.
-        Own(window, "parent", page);
-        Own(window, "top", page);
-
-        Own(window, "frameElement", runtime.Dom.WrapNodeValue(frame));
-        Own(window, "document", runtime.Dom.WrapNodeValue(document));
-        Own(window, "length", JsNumber.Create(Count(document)));
-        Own(window, "name", JsString.Create(frame.Name ?? ""));
+        Own(window, "document", dom.WrapNodeValue(document));
+        Own(window, "top", runtime.Engine._mainRealm.GlobalObject);
+        Own(window, "parent", document.Context.Parent?.Active is { } parent
+            ? ForDocument(runtime, parent) : runtime.Engine._mainRealm.GlobalObject);
+        Accessor("frameElement", () => runtime.Dom.WrapNodeValue(ElementOf(document)));
+        Accessor("length", () => JsNumber.Create(Count(document)));
+        Accessor("name", () => JsString.Create(ElementOf(document)?.Name ?? ""));
         Own(window, "origin", JsString.Create(PageUrl.OriginOf(document.Url)));
+        var location = Location(runtime.Engine, realm, document);
+        window.DefineOwnPropertyUnchecked("location", new GetSetPropertyDescriptor(
+            new ClrFunction(runtime.Engine, realm, "get location", (_, _) => location, 0),
+            new ClrFunction(runtime.Engine, realm, "set location", (_, args) =>
+            {
+                location.Set("href", args.At(0), throwOnError: true);
+                return JsValue.Undefined;
+            }, 1), PropertyFlag.OnlyEnumerable));
 
-        // `location` is shadowed rather than inherited, and that is not the same decision as `DOMException`
-        // above. Inheriting a constructor answers the same object either way; inheriting `location` would
-        // answer the *page's* URL for a frame that is somewhere else, which is wrong information rather than
-        // a shared object.
-        Own(window, "location", Location(engine, document));
-
+        var wrapper = dom.WrapNode(document);
+        wrapper.DefineOwnPropertyUnchecked("defaultView", new GetSetPropertyDescriptor(
+            new ClrFunction(runtime.Engine, realm, "get defaultView", (_, _) => window, 0), null, PropertyFlag.Configurable));
         return window;
+
+        void Accessor(string name, Func<JsValue> read) => window.DefineOwnPropertyUnchecked(name,
+            new GetSetPropertyDescriptor(new ClrFunction(runtime.Engine, realm, "get " + name, (_, _) => read(), 0),
+                null, PropertyFlag.Configurable | PropertyFlag.Enumerable));
+    }
+
+    internal static IHtmlInlineFrameElement? ElementOf(IDocument document)
+    {
+        var parent = document.Context.Parent?.Active ?? document.Context.Creator;
+        if (parent is null)
+        {
+            return null;
+        }
+        foreach (var element in parent.QuerySelectorAll("iframe"))
+        {
+            if (element is IHtmlInlineFrameElement frame && ReferenceEquals(frame.ContentDocument, document))
+            {
+                return frame;
+            }
+        }
+        return null;
     }
 
     private static void Own(ObjectInstance window, string name, JsValue value)
@@ -179,26 +176,8 @@ internal static class FrameWindows
     /// <summary>
     /// A frame's <c>location</c>: the components of its document's URL, and nothing that navigates.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>Readable, and every write is a loud refusal.</b> HTML's <c>Location</c> setters navigate the
-    /// browsing context they belong to, and a frame here has a document rather than a context to navigate.
-    /// Of the three possible answers — move the page (the wrong document entirely), do nothing, or refuse —
-    /// <b>doing nothing is the one that must not be chosen</b>, and this file learned that from a corpus
-    /// document rather than from first principles: <c>event-global-is-still-set-when-coercing-beforeunload-result.html</c>
-    /// assigns <c>iframe.contentWindow.location.href</c> and then waits for the frame's <c>load</c>. Against
-    /// a silent no-op it waits forever and the whole file <b>times out</b>, where before there was a window
-    /// at all it threw at once and reported a failure. A hang is strictly worse than a failure — it is the
-    /// one outcome <c>Jint.Tests.Browser/Wpt/AGENTS.md</c> singles out — so a write throws, the page sees the
-    /// refusal, and a document that navigates a frame fails fast and says why.
-    /// </para>
-    /// <para>
-    /// The page's own <c>location</c> is unaffected and still navigates; <c>Runtime/LocationInstaller</c>
-    /// owns it. <c>assign</c>, <c>replace</c> and <c>reload</c> are simply absent, which is loud in the same
-    /// way: calling one is a <c>TypeError</c> on an undefined member.
-    /// </para>
-    /// </remarks>
-    private static JsObject Location(Engine engine, IDocument document)
+    /// <remarks>Setters refuse until frame navigation and WindowProxy replacement are implemented.</remarks>
+    private static JsObject Location(Engine engine, Realm realm, IDocument document)
     {
         var location = new JsObject(engine);
         var href = document.Url ?? "";
@@ -206,21 +185,21 @@ internal static class FrameWindows
         // `href` is the URL as the document carries it, never re-serialized: a document's URL is what it was
         // opened with, and a round trip through the parser would answer a normalized string for a frame that
         // was never navigated anywhere.
-        Component(engine, location, "href", href, null);
+        Component(engine, realm, location, "href", href, null);
 
-        Component(engine, location, "protocol", href, static url => url.SerializeProtocol());
-        Component(engine, location, "host", href, static url => url.SerializeHostAndPort());
-        Component(engine, location, "hostname", href, static url => url.SerializeHost());
-        Component(engine, location, "port", href, static url => url.SerializePort());
-        Component(engine, location, "pathname", href, static url => url.SerializePath());
-        Component(engine, location, "search", href, static url => url.SerializeSearch());
-        Component(engine, location, "hash", href, static url => url.SerializeHash());
-        Component(engine, location, "origin", href, static url => url.SerializeOrigin());
+        Component(engine, realm, location, "protocol", href, static url => url.SerializeProtocol());
+        Component(engine, realm, location, "host", href, static url => url.SerializeHostAndPort());
+        Component(engine, realm, location, "hostname", href, static url => url.SerializeHost());
+        Component(engine, realm, location, "port", href, static url => url.SerializePort());
+        Component(engine, realm, location, "pathname", href, static url => url.SerializePath());
+        Component(engine, realm, location, "search", href, static url => url.SerializeSearch());
+        Component(engine, realm, location, "hash", href, static url => url.SerializeHash());
+        Component(engine, realm, location, "origin", href, static url => url.SerializeOrigin());
 
         location.DefineOwnPropertyUnchecked(
             "toString",
             new PropertyDescriptor(
-                new ClrFunction(engine, "toString", (_, _) => JsString.Create(href)),
+                new ClrFunction(engine, realm, "toString", (_, _) => JsString.Create(href), 0),
                 PropertyFlag.OnlyEnumerable));
 
         return location;
@@ -230,7 +209,7 @@ internal static class FrameWindows
     /// One component, read once at construction: a frame's document URL cannot move, because nothing here
     /// navigates a frame.
     /// </summary>
-    private static void Component(Engine engine, ObjectInstance location, string name, string href, Func<UrlRecord, string>? read)
+    private static void Component(Engine engine, Realm realm, ObjectInstance location, string name, string href, Func<UrlRecord, string>? read)
     {
         // `href` is the URL as the document carries it, never re-serialized: a document's URL is what it was
         // opened with, and a round trip through the parser would answer a normalized string for a frame that
@@ -244,18 +223,17 @@ internal static class FrameWindows
         location.DefineOwnPropertyUnchecked(
             name,
             new GetSetPropertyDescriptor(
-                new ClrFunction(engine, "get " + name, (_, _) => component),
-                new ClrFunction(engine, "set " + name, (thisObject, _) =>
+                new ClrFunction(engine, realm, "get " + name, (_, _) => component, 0),
+                new ClrFunction(engine, realm, "set " + name, (_, _) =>
                 {
                     // Loud, for the reason the class remarks give: a silent no-op turns a document that
                     // navigates a frame into a document that hangs.
                     Throw.TypeError(
-                        (thisObject as ObjectInstance)?.Engine.Realm ?? engine.Realm,
+                        realm,
                         "Failed to set the '" + name + "' property on 'Location': a child frame's location "
-                        + "cannot be navigated in this version, because a frame has a document here and no "
-                        + "browsing context of its own.");
+                        + "cannot be navigated in this version.");
                     return JsValue.Undefined;
-                }),
+                }, 1),
                 PropertyFlag.Configurable | PropertyFlag.Enumerable));
     }
 }

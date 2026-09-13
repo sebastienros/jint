@@ -12,6 +12,54 @@ namespace Jint.Tests.Runtime.WebApi;
 /// <summary>The explicitly installed Web API surface and global event state of additional realms.</summary>
 public sealed class RealmWebApiInstallationTests
 {
+    [TestCase("new otherGlobal.Object()")]
+    [TestCase("otherGlobal.Object.create(null)")]
+    [TestCase("otherGlobal.eval('({})')")]
+    [TestCase("(() => { const p = otherGlobal.Proxy.revocable({}, {}); p.revoke(); return p.proxy; })()")]
+    [TestCase("(() => { const p = otherGlobal.Proxy.revocable(() => {}, {}); p.revoke(); return p.proxy; })()")]
+    public void CallbackErrorsAreReportedInTheObjectsCreationRealm(string callback)
+    {
+        var sink = new RecordingSink();
+        var (engine, host) = Create(WebApiFeatures.Events | WebApiFeatures.GlobalEvents, sink);
+        using (engine)
+        {
+            var other = host.CreateAdditionalRealm();
+            WebApiRegistration.InstallInRealm(engine, other);
+            engine.SetValue("otherGlobal", other.GlobalObject);
+            In(engine, other, "var errors = []; addEventListener('error', e => errors.push(e.error instanceof TypeError));");
+            engine.Execute("""
+                var errors = [];
+                addEventListener('error', e => errors.push(e));
+                var target = new EventTarget();
+                """ + "target.addEventListener('ping', " + callback + "); target.dispatchEvent(new Event('ping'));");
+            In(engine, other, "errors.join()").AsString().Should().Be("true");
+            engine.Evaluate("errors.length").AsNumber().Should().Be(0);
+            engine.Realm.Should().BeSameAs(engine._mainRealm);
+            sink.Reports.Should().ContainSingle();
+        }
+    }
+
+    [Test]
+    public void CallbackRealmSurvivesPrototypeChangesWithoutTrackingPrincipalObjects()
+    {
+        var (engine, host) = Create(WebApiFeatures.Events | WebApiFeatures.GlobalEvents);
+        using (engine)
+        {
+            engine.Evaluate("({})").AsObject().CreationRealm.Should().BeSameAs(engine._mainRealm);
+            engine._secondaryObjectRealms.Should().BeNull();
+            var other = host.CreateAdditionalRealm();
+            WebApiRegistration.InstallInRealm(engine, other);
+            engine.SetValue("otherGlobal", other.GlobalObject);
+            var value = In(engine, other, "Object.create(null)").AsObject();
+            value.CreationRealm.Should().BeSameAs(other);
+            value.Prototype = engine._mainRealm.Intrinsics.Object.PrototypeObject;
+            value.CreationRealm.Should().BeSameAs(other);
+            engine.Evaluate("Object.create(otherGlobal.Object.prototype)").AsObject().CreationRealm
+                .Should().BeSameAs(engine._mainRealm);
+            engine.Evaluate("new otherGlobal.Object() instanceof otherGlobal.Object").AsBoolean().Should().BeTrue();
+        }
+    }
+
     [Test]
     public void EachInstalledRealmGetsItsOwnLazyInterfacesAndSelf()
     {

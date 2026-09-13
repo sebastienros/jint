@@ -540,7 +540,6 @@ internal class JsEventTarget : ObjectInstance
         // event being dispatched, and afterwards it is whatever it was — a throw included. Null for every
         // engine whose global object is not a `Window`, which is every engine that installs no document, so
         // the slot is not merely unread there but not maintained at all.
-        var window = _engine._webApi?.GlobalEventTargetIfCreatedFor(_realm) is { IsWindow: true } windowScope ? windowScope : null;
 
         // Invoke step 7: "Let listeners be a clone of ... event listener list. This avoids event listeners
         // added after this point from being run." The scan above keeps that clone off the common paths — a
@@ -574,6 +573,12 @@ internal class JsEventTarget : ObjectInstance
                 ev.InPassiveListenerFlag = true;
             }
 
+            // DOM inner invoke uses the callback's associated realm for current event and exception
+            // reporting, even when the EventTarget belongs to another window.
+            var callbackRealm = (listener.Callback as ObjectInstance)?.CreationRealm ?? _realm;
+            var window = _engine._webApi?.GlobalEventTargetIfCreatedFor(callbackRealm) is { IsWindow: true } windowScope
+                ? windowScope : null;
+
             // Steps 2.7 and 2.8: the previous value is kept per invocation rather than per pass, because a
             // listener may dispatch an event of its own and must find its own event again when that returns.
             var previousEvent = window?.CurrentEvent;
@@ -586,6 +591,7 @@ internal class JsEventTarget : ObjectInstance
             {
                 try
                 {
+                    using var scope = new RealmScope(_engine, callbackRealm);
                     InvokeCallback(listener, ev);
                 }
                 finally
@@ -614,7 +620,7 @@ internal class JsEventTarget : ObjectInstance
                 // global scope before step 6's console report. That is a no-op unless the GlobalEvents
                 // feature is on and something is listening, and it declines to recurse when the listener that
                 // just threw was itself running as part of a report.
-                _engine._webApi?.FireGlobalErrorEvent(_realm, exception);
+                _engine._webApi?.FireGlobalErrorEvent(callbackRealm, exception);
                 diagnostics.Report(DiagnosticEvent.ForUncaughtCallbackError(exception, DiagnosticCallbackSource.EventListener));
             }
             finally
@@ -658,7 +664,7 @@ internal class JsEventTarget : ObjectInstance
             return;
         }
 
-        if (callback is ICallable directly)
+        if (callback.HasCall && callback is ICallable directly)
         {
             // Through Engine.Call rather than ICallable.Call, so the listener owns a call-stack frame: a
             // dispatch is where the engine is entered, and a frame nothing pushed is a frame absent from
@@ -673,9 +679,10 @@ internal class JsEventTarget : ObjectInstance
             return;
         }
 
-        if (handler.Get(_handleEvent) is not ICallable operation)
+        var method = handler.Get(_handleEvent);
+        if (!method.HasCall || method is not ICallable operation)
         {
-            Throw.TypeError(_engine.Realm, "Failed to invoke an event listener: its handleEvent property is not a function.");
+            Throw.TypeError(handler.CreationRealm, "Failed to invoke an event listener: its handleEvent property is not a function.");
             return;
         }
 

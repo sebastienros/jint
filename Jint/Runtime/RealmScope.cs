@@ -1,13 +1,11 @@
-using Jint.Runtime;
+namespace Jint.Runtime;
 
-namespace Jint.Browser.Dom;
-
-/// <summary>Scopes construction to its owning realm, including lazy shape functions.</summary>
-internal readonly struct BrowserRealmScope : IDisposable
+/// <summary>Enters a realm for host construction or callback invocation and restores the caller on exit.</summary>
+internal readonly struct RealmScope : IDisposable
 {
     private readonly Engine? _engine;
 
-    internal BrowserRealmScope(Engine engine, Realm realm)
+    internal RealmScope(Engine engine, Realm realm)
     {
         if (!ReferenceEquals(engine.Realm, realm))
         {

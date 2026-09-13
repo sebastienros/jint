@@ -75,6 +75,7 @@ internal sealed partial class ProxyConstructor : Constructor
     /// </summary>
     private JsProxy ProxyCreate(JsValue target, JsValue handler)
     {
+        using var scope = new RealmScope(_engine, _realm);
         if (target is not ObjectInstance targetObject)
         {
             Throw.TypeError(_realm, "Cannot create proxy with a non-object as target");

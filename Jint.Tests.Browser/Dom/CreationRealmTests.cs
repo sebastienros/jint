@@ -42,7 +42,7 @@ public class CreationRealmTests
         var snapshot = engine.Advanced.CaptureGlobalSnapshot();
         var a = DomRealm.Of(engine);
         var b = DomRealm.Of(engine, second);
-        using (new BrowserRealmScope(engine, second))
+        using (new RealmScope(engine, second))
         {
             a.PrototypeOf(DomInterfaces.Node).Get("appendChild").AsObject().Prototype
                 .Should().BeSameAs(engine._mainRealm.Intrinsics.Function.PrototypeObject);

@@ -844,12 +844,13 @@ internal class DomHostHooks
     /// </summary>
     internal virtual JsValue CurrentScript(DomRealm realm, IDocument document)
     {
-        if (PageRuntime.Find(realm.Engine, document) is not { } runtime)
+        if (PageRuntime.FindBrowsingContext(realm.Engine, document) is null)
         {
             return realm.WrapNodeValue(document.CurrentScript);
         }
-
-        return runtime.CurrentScript is { } script ? realm.WrapNode(script) : JsValue.Null;
+        var owner = realm.RealmOfDocument(document);
+        return ReferenceEquals(owner.Document, document) && owner.CurrentScript is { } script
+            ? realm.WrapNode(script) : JsValue.Null;
     }
 
     /// <summary>
@@ -860,7 +861,8 @@ internal class DomHostHooks
     internal virtual JsValue ReadyState(DomRealm realm, IDocument document)
         => JsString.Create(PageRuntime.Find(realm.Engine, document) is { } runtime
             ? runtime.ReadyState
-            : document.ReadyState.ToString().ToLowerInvariant());
+            : realm.TryGetDocumentRealm(document, out var owner) && ReferenceEquals(owner!.Document, document) && owner.ReadyState is { } state
+                ? state : document.ReadyState.ToString().ToLowerInvariant());
 
     /// <summary>
     /// https://dom.spec.whatwg.org/#dom-document-url and its <c>documentURI</c> twin. The page's URL, not

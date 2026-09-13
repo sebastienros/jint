@@ -45,9 +45,6 @@ internal sealed class PageScriptingService : IScriptingService
     /// <inheritdoc />
     public Task EvaluateScriptAsync(IResponse response, ScriptOptions options, CancellationToken cancel)
     {
-        // AngleSharp advances its own readiness before it runs the deferred queue, which is the one moment
-        // this driver cannot observe from outside the parse — so it is read here, on the way in.
-        _driver.ObserveReadiness(options.Document);
         _driver.RunClassicScript(response, options);
         return Task.CompletedTask;
     }

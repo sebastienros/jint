@@ -1,5 +1,6 @@
 using System.Net.Http;
 using Acornima;
+using Jint.Browser.Dom;
 using AngleSharp;
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
@@ -147,6 +148,7 @@ internal sealed class ParserDriver : IDisposable
             .WithOnly<AngleSharp.Css.IStylingService>(new PageStylingService(this))
 
             .With(new PageResourceLoader(this))
+            .With<AngleSharp.Dom.IAttributeObserver>(_ => new FrameAttributeObserver(this))
             .With<AngleSharp.Css.IRenderDevice>(_ => new PageRenderDevice(_runtime))
             .With<AngleSharp.Dom.IAttributeObserver>(_ => new CustomElements.CustomElementAttributeObserver(_runtime))
             .With<AngleSharp.Dom.IAttributeObserver>(_ => new Dom.Files.FileInputAttributeObserver(_runtime));
@@ -322,13 +324,13 @@ internal sealed class ParserDriver : IDisposable
 
         return Serve(() =>
         {
-            if (script.Owner is { } owner && IsFrameDocument(owner))
+            if (script.Owner is { } owner && IsFrameDocument(owner) && !CanRunFrame(owner))
             {
                 RefuseFrameScript(url);
                 return null;
             }
 
-            _runtime.Document ??= script.Owner;
+            _runtime.Document ??= _context?.Active ?? script.Owner;
 
             // https://html.spec.whatwg.org/multipage/scripting.html#prepare-the-script-element step 12: a
             // classic script carrying `nomodule` is not run — and not fetched — by anything that supports
@@ -447,7 +449,14 @@ internal sealed class ParserDriver : IDisposable
         {
             if (!_cancellationToken.IsCancellationRequested)
             {
-                FireAt(element, type);
+                if (type == "load" && element is IHtmlInlineFrameElement frame)
+                {
+                    FinishFrame(frame);
+                }
+                else
+                {
+                    FireAt(element, type);
+                }
             }
         }
         finally
@@ -496,7 +505,7 @@ internal sealed class ParserDriver : IDisposable
             url,
             RequestInitiator.Subresource,
             PageRequestKind.Script,
-            "a script in a child frame's document is not run: a frame has a document here and no realm of its own");
+            "child-frame scripting requires a same-origin, unsandboxed document");
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/iframe-embed-object.html#process-the-iframe-attributes — the
@@ -513,9 +522,8 @@ internal sealed class ParserDriver : IDisposable
     /// what gives a frame a document.
     /// </para>
     /// <para>
-    /// <b>The child document runs no script</b> — see <see cref="IsFrameDocument"/>. The child context
-    /// inherits this page's services, so refusing there rather than here is what keeps a frame's
-    /// <c>&lt;script&gt;</c> out of the page's own realm, which is the one realm there is.
+    /// Child classic scripts are dispatched through the same baton in their document's realm.
+    /// <see cref="CanRunFrame"/> restricts execution to same-origin, unsandboxed contexts.
     /// </para>
     /// <para>
     /// <b>The ceiling is <see cref="BrowserOptions.MaxFrameDocuments"/></b>, counted over the whole load
@@ -710,6 +718,35 @@ internal sealed class ParserDriver : IDisposable
     private bool IsFrameDocument(IDocument document)
         => _context is not null && !ReferenceEquals(document.Context, _context);
 
+    private bool CanRunFrame(IDocument document)
+    {
+        // Cross-origin WindowProxy access control and sandboxed globals are separate capabilities.
+        // Do not expose the parent's raw global through a child which cannot normally reach it.
+        var origin = PageUrl.OriginOf(_url);
+        if (origin == PageUrl.OpaqueOrigin)
+        {
+            return false;
+        }
+        for (var current = document; IsFrameDocument(current);)
+        {
+            if (!string.Equals(current.Url, "about:blank", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(PageUrl.OriginOf(current.Url), origin, StringComparison.Ordinal))
+            {
+                return false;
+            }
+            if (FrameWindows.ElementOf(current) is { } frame && frame.HasAttribute("sandbox"))
+            {
+                return false;
+            }
+            if (current.Context.Parent?.Active is not { } parent)
+            {
+                return false;
+            }
+            current = parent;
+        }
+        return true;
+    }
+
     /// <summary>
     /// Whether a call arriving now would cross from the parser thread to the loop — as opposed to already
     /// being on the loop, which is where a script that inserted a script element is.
@@ -735,20 +772,25 @@ internal sealed class ParserDriver : IDisposable
 
         Serve<object?>(() =>
         {
-            // https://html.spec.whatwg.org/multipage/webappapis.html#concept-environment-noscript — a frame's
-            // document has no realm of its own here, so its scripts do not run at all rather than running in
-            // the page's. Both halves of a script arrive: an external one is refused at the fetch above, so
-            // that the reference it names is in the request log, and an inline one here, because AngleSharp
-            // prepares an inline script with no download and there is no reference to record.
+            _runtime.Document ??= _context?.Active ?? options.Document.Context.Creator ?? options.Document;
+            _runtime.Dom.AssociateDocument(_runtime.Document, associatedGlobal: true);
             if (IsFrameDocument(options.Document))
             {
+                if (!CanRunFrame(options.Document))
+                {
+                    return null;
+                }
+                FrameWindows.ForDocument(_runtime, options.Document);
+                using var frameScope = new RealmScope(_runtime.Engine,
+                    FrameWindows.DocumentRealm(_runtime, options.Document).OwningRealm);
+                var dom = FrameWindows.DocumentRealm(_runtime, options.Document);
+                if (options.Document.ReadyState != DocumentReadyState.Loading)
+                {
+                    SetFrameReadyState(dom, "interactive");
+                }
+                Execute(response, element);
                 return null;
             }
-
-            // The document exists from the first token, but this is the earliest AngleSharp hands it over,
-            // and a script running during the parse needs `document` to answer before the parse has finished.
-            _runtime.Document ??= options.Document;
-            _runtime.Dom.AssociateDocument(options.Document, associatedGlobal: true);
 
             // AngleSharp advances its own readiness before it runs the deferred queue, which is the one
             // moment this driver cannot observe from outside the parse — so it is read here, on the way in.
@@ -1013,9 +1055,9 @@ internal sealed class ParserDriver : IDisposable
             // the line the script starts on is a parsing offset rather than part of the name. The page's own
             // error recorder still gets the `url:line` string it always did, which is the one a host reads.
             text = element.Text ?? "";
-            source = _url;
+            source = element.Owner?.Url ?? _url;
             line = LineOf(element, text);
-            location = _url + ":" + line;
+            location = source + ":" + line;
         }
 
         if (string.IsNullOrWhiteSpace(text))
@@ -1040,6 +1082,9 @@ internal sealed class ParserDriver : IDisposable
         }
 
         var previous = _runtime.CurrentScript;
+        var scriptDom = _runtime.Dom.RealmOfDocument(element.Owner!);
+        var previousInDocument = scriptDom.CurrentScript;
+        scriptDom.CurrentScript = element;
 
         // https://html.spec.whatwg.org/multipage/dom.html#dom-document-currentscript: a classic script only,
         // which is exactly why it is set here and not around a module.
@@ -1086,6 +1131,7 @@ internal sealed class ParserDriver : IDisposable
         finally
         {
             _runtime.CurrentScript = previous;
+            scriptDom.CurrentScript = previousInDocument;
             if (previous is null)
             {
                 FlushDeferredResourceEvents();
@@ -1247,13 +1293,76 @@ internal sealed class ParserDriver : IDisposable
     {
         foreach (var element in document.QuerySelectorAll("iframe, frame"))
         {
-            if (element is not IHtmlInlineFrameElement { ContentDocument: { } nested })
+            if (element is not IHtmlInlineFrameElement { ContentDocument: not null })
             {
                 continue;
             }
 
-            FireFrameLoads(nested);
-            FireAt(element, "load");
+            FinishFrame((IHtmlInlineFrameElement) element);
+        }
+    }
+
+    private void FinishFrame(IHtmlInlineFrameElement frame)
+    {
+        if (!Dom.Views.DomViewMembers.IsConnected(frame).AsBoolean() || frame.ContentDocument is not { } document)
+        {
+            return;
+        }
+        var dom = FrameWindows.DocumentRealm(_runtime, document);
+        if (dom.LoadCompleted)
+        {
+            return;
+        }
+        dom.LoadCompleted = true;
+        if (CanRunFrame(document))
+        {
+            FrameWindows.ForDocument(_runtime, document);
+            using var scope = new RealmScope(_runtime.Engine, dom.OwningRealm);
+            if (_runtime.ScriptingEnabled)
+            {
+                Events.EventHandlerContentAttributes.InstallBodyHandlers(dom, document);
+            }
+            SetFrameReadyState(dom, "interactive");
+            PageEvents.Fire(_runtime, dom.WrapNode(document), "DOMContentLoaded", bubbles: true);
+            FireFrameLoads(document);
+            SetFrameReadyState(dom, "complete");
+            PageEvents.Fire(_runtime, dom.WindowTarget!, "load");
+            var shown = dom.OwningRealm.Intrinsics.Event.CreateTrustedEvent(JsString.Create("pageshow"), default);
+            PageEvents.Member(shown, "persisted", JsBoolean.False);
+            PageEvents.Dispatch(_runtime, dom.WindowTarget!, shown);
+        }
+        else
+        {
+            FireFrameLoads(document);
+        }
+        FireAt(frame, "load");
+    }
+
+    private void SetFrameReadyState(DomRealm dom, string state)
+    {
+        if (dom.ReadyState == state)
+        {
+            return;
+        }
+        dom.ReadyState = state;
+        PageEvents.Fire(_runtime, dom.WrapNode(dom.Document!), "readystatechange");
+    }
+
+    private sealed class FrameAttributeObserver(ParserDriver driver) : IAttributeObserver
+    {
+        // The native attribute step opens the document synchronously. Only queue the Jint lifecycle here:
+        // delivery waits for the enclosing script and parser, just like image completion, and duplicate
+        // setup notifications cannot load the same document twice.
+        public void NotifyChange(IElement host, string name, string? value)
+        {
+            if (host is IHtmlInlineFrameElement && name is "src" or "srcdoc")
+            {
+                driver.Serve<object?>(() =>
+                {
+                    driver.QueueResourceEvent(host, "load", afterParse: true);
+                    return null;
+                });
+            }
         }
     }
 
@@ -1279,7 +1388,7 @@ internal sealed class ParserDriver : IDisposable
     /// </summary>
     internal void ObserveReadiness(IDocument document)
     {
-        if (document.ReadyState != DocumentReadyState.Loading)
+        if (!IsFrameDocument(document) && document.ReadyState != DocumentReadyState.Loading)
         {
             SetReadyState("interactive");
         }
@@ -1571,7 +1680,7 @@ internal sealed class ParserDriver : IDisposable
         {
             using (_runtime.Budget.BeginTurn())
             {
-                _runtime.Engine._webApi?.FireGlobalErrorEvent(exception);
+                _runtime.Engine._webApi?.FireGlobalErrorEvent(_runtime.Engine.Realm, exception);
             }
         }
         catch (Exception nested) when (nested is not OperationCanceledException)
