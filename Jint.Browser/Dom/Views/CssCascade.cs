@@ -330,6 +330,7 @@ internal static class CssCascade
             private readonly List<(int Order, ICssStyleRule Rule)> _unkeyed = new();
             private readonly Dictionary<string, List<(int Order, ICssStyleRule Rule)>> _classes = new(StringComparer.Ordinal);
             private readonly Dictionary<string, Candidates> _candidates = new(StringComparer.Ordinal);
+            private readonly Candidates _unkeyedCandidates;
 
             internal ScopedStyles(IStyleCollection styles, StyleScope scope, bool includeVariables)
             {
@@ -363,6 +364,7 @@ internal static class CssCascade
                     }
                 });
                 _rules = rules.ToArray();
+                _unkeyedCandidates = new Candidates(Device, _unkeyed);
             }
 
             private static bool HasIncludedProperty(ICssStyleDeclaration style, Func<string, bool> includes)
@@ -385,22 +387,36 @@ internal static class CssCascade
                 // candidate list within this traversal, but let native matching inspect each element's
                 // attributes, ancestors and pseudo-class state separately.
                 var classes = element.GetAttribute("class") ?? "";
+                if (classes.Length == 0)
+                {
+                    return _unkeyedCandidates;
+                }
                 if (_candidates.TryGetValue(classes, out var cached))
                 {
                     return cached;
                 }
 
-                var candidates = new List<(int Order, ICssStyleRule Rule)>(_unkeyed);
+                List<(int Order, ICssStyleRule Rule)>? candidates = null;
                 foreach (var name in element.ClassList)
                 {
                     if (_classes.TryGetValue(name, out var bucket))
                     {
+                        candidates ??= new(_unkeyed);
                         candidates.AddRange(bucket);
                     }
                 }
+                if (candidates is null)
+                {
+                    return _unkeyedCandidates;
+                }
                 candidates.Sort(static (left, right) => left.Order.CompareTo(right.Order));
                 var result = new Candidates(Device, candidates);
-                _candidates.Add(classes, result);
+                // A document may give every element a different class string. Bound retained lists
+                // independently of its node count; uncached combinations still use the same matcher.
+                if (_candidates.Count < 128)
+                {
+                    _candidates.Add(classes, result);
+                }
                 return result;
             }
 
