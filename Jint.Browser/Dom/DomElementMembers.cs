@@ -3,6 +3,7 @@ using AngleSharp.Html.Dom;
 using Jint.Native;
 using Jint.Runtime;
 using Jint.WebApi.DomException;
+using Jint.WebApi.Url.Parsing;
 
 namespace Jint.Browser.Dom;
 
@@ -59,14 +60,19 @@ internal static class DomElementMembers
 
         var name = DomConvert.RequiredText(arguments, 0, Member);
 
-        // Step 2: an HTML element in the HTML namespace lower-cases the name, which is the same fold
-        // setAttribute makes and the reason `toggleAttribute("FOO")` and `hasAttribute("foo")` agree.
-        if (target is IHtmlElement && string.Equals(target.NamespaceUri, NamespaceNames.HtmlUri, StringComparison.Ordinal))
+        if (!DomNames.IsValidAttributeLocalName(name))
         {
-            name = name.ToLowerInvariant();
+            throw new DomException(DomError.InvalidCharacter);
         }
 
-        var present = target.HasAttribute(name);
+        // Step 2: an HTML element in the HTML namespace lower-cases the name, which is the same fold
+        // setAttribute makes and the reason `toggleAttribute("FOO")` and `hasAttribute("foo")` agree.
+        if (target.Owner is IHtmlDocument && string.Equals(target.NamespaceUri, NamespaceNames.HtmlUri, StringComparison.Ordinal))
+        {
+            name = UrlCharacters.AsciiLowercase(name);
+        }
+
+        var present = target.Attributes.GetNamedItem(name) is not null;
         var given = arguments.Length > 1 && !arguments[1].IsUndefined();
         var force = given && TypeConverter.ToBoolean(arguments[1]);
 
@@ -78,7 +84,7 @@ internal static class DomElementMembers
             }
 
             // Step 4: the value is the empty string, so a boolean content attribute reads as present.
-            target.SetAttribute(name, "");
+            target.Attributes.SetNamedItem(new Attr(name));
             return JsBoolean.True;
         }
 
@@ -87,7 +93,7 @@ internal static class DomElementMembers
             return JsBoolean.True;
         }
 
-        target.RemoveAttribute(name);
+        target.Attributes.RemoveNamedItem(name);
         return JsBoolean.False;
     }
 

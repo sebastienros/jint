@@ -44,6 +44,7 @@
   <ItemGroup>
     <!-- The package README NuGet shows. -->
     <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Include="../tools/bidi-data/LICENSE.txt" Pack="true" PackagePath="Unicode-LICENSE.txt" />
   </ItemGroup>
 
   <ItemGroup>

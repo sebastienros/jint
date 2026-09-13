@@ -312,6 +312,7 @@ internal static class FormSubmitter
             }
 
             entries.Add(StringEntry(name!, value));
+            AppendDirection(entries, element);
             return;
         }
 
@@ -338,12 +339,24 @@ internal static class FormSubmitter
             // The textarea API value has LF newlines. CRLF normalization belongs to the submission
             // encoding, after formdata listeners have observed and amended this entry list.
             entries.Add(StringEntry(name!, textArea.Value ?? ""));
+            AppendDirection(entries, element);
             return;
         }
 
         if (element is IHtmlButtonElement button)
         {
             entries.Add(StringEntry(name!, button.Value ?? ""));
+        }
+    }
+
+    private static void AppendDirection(List<FormDataEntry> entries, IHtmlElement element)
+    {
+        // https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#constructing-the-entry-list
+        // Step 5.11 runs after the control's value and before the formdata event.
+        if (HtmlDirectionality.IsAutoDirectionalityControl(element)
+            && element.GetAttribute("dirname") is { Length: > 0 } name)
+        {
+            entries.Add(StringEntry(UrlCharacters.ToScalarValueString(name), HtmlDirectionality.Of(element)));
         }
     }
 
