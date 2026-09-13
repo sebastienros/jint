@@ -1,8 +1,8 @@
-name: Scalar ARM profile
+name: Scalar ARM after-fix trace
 
 on:
   push:
-    branches: [codex/scalar-arm-profile]
+    branches: [codex/scalar-afterfix-trace]
   workflow_dispatch:
     inputs:
       profile:
@@ -15,14 +15,14 @@ permissions:
 
 jobs:
   profile:
-    if: github.event_name == 'workflow_dispatch' && inputs.profile
+    if: true
     name: Scalar profile - ARM ${{ matrix.worker }}
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 170
     strategy:
       fail-fast: false
       matrix:
-        worker: [1, 2]
+        worker: [1]
     env:
       DOTNET_NOLOGO: true
       DOTNET_CLI_TELEMETRY_OPTOUT: 1
@@ -44,7 +44,7 @@ jobs:
       - name: Repeat the full suite until Scalar fails with readable samples
         env:
           TRACE_TOOL: ${{ runner.temp }}/trace-tools/dotnet-trace
-        run: python3 tools/scalar-arm-profile/run.py --attempts 6 --output "$RUNNER_TEMP/scalar-profile"
+        run: python3 tools/scalar-arm-profile/run.py --verify --output "$RUNNER_TEMP/scalar-profile"
       - name: Upload diagnostic evidence even on failure
         if: always()
         uses: actions/upload-artifact@v6
@@ -54,14 +54,14 @@ jobs:
           retention-days: 14
 
   verify:
-    if: github.event_name != 'workflow_dispatch' || !inputs.profile
+    if: false
     name: Scalar verification - ARM ${{ matrix.worker }}
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 100
     strategy:
       fail-fast: false
       matrix:
-        worker: [1, 2]
+        worker: [1]
     env:
       DOTNET_NOLOGO: true
       DOTNET_CLI_TELEMETRY_OPTOUT: 1

@@ -117,7 +117,10 @@ def main():
     parser.add_argument("--attempts", type=int, default=6)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--smoke", action="store_true", help="Validate capture locally with one isolated net8 Scalar run.")
+    parser.add_argument("--verify", action="store_true", help="Capture one full-suite run and require passing Scalar results and complete traces.")
     args = parser.parse_args()
+    if args.verify:
+        args.attempts = 1
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     tool = os.environ.get("TRACE_TOOL", "dotnet-trace")
@@ -220,6 +223,10 @@ def main():
             history.append(record)
             (output / "summary.json").write_text(json.dumps(history, indent=2))
             print(json.dumps(record), flush=True)
+            if args.verify:
+                if not all(r["readable"] for r in record["frameworks"].values()):
+                    raise RuntimeError("Post-fix trace is incomplete.")
+                return int(code != 0 or any(r["outcome"] != "Passed" for r in record["frameworks"].values()))
             if captured:
                 print("Captured the Scalar budget failure with readable browser samples.", flush=True)
                 return 0
