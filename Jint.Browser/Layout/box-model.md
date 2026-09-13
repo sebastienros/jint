@@ -45,8 +45,9 @@ use the same boxes. Documents without these rows keep the existing ordinal hit-t
 The cascade indexes required subject classes through AngleSharp's selector visitor for this query only.
 Selectors without a required class stay candidates for every element; the native matcher decides the
 result and specificity, with original rule order retained. Nested rules participate in the same index.
-Elements with identical class attributes share candidate lists within that query; attributes, ancestors
-and pseudo-class state are still matched separately for every element.
+A bounded cache shares candidate lists for repeated class attributes within that query. Elements with no
+indexed class use the common unkeyed list directly. Attributes, ancestors and pseudo-class state are still
+matched separately for every element.
 The full computed-style path supplies the union of the element and ancestor candidates to AngleSharp
 so its native inheritance and value computation still produce the complete declaration.
 
