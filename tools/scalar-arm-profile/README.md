@@ -22,7 +22,9 @@ Artifacts include the source SHA, runtime and worker information, full test logs
 TRX results (with Scalar start/end timestamps), `vmstat`, raw `.nettrace` files,
 Speedscope conversions, and inclusive stack reports. Raw traces retain GC and
 timing information that the Speedscope view does not expose. The first iteration
-must produce readable samples; missing tests or unusable capture stop the batch.
+must produce readable samples with zero dropped events; missing tests or unusable
+capture stop the batch. A separate TraceEvent reader records the session timestamps
+and event-loss count. The 256 MB capture buffer accommodates runtime event bursts.
 Subsequent passing traces are discarded except for the final iteration. Failures
 and the first baseline are retained. Exhausting a batch exits with code 2 and
 explicitly does not declare the issue fixed.

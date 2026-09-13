@@ -1,6 +1,7 @@
 """Diagnostic-only full-suite repetitions for #3882; never relax or retry inside a test."""
 
 import argparse
+from datetime import datetime
 import json
 import os
 from pathlib import Path
@@ -8,6 +9,7 @@ import signal
 import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import xml.etree.ElementTree as ET
 
@@ -46,7 +48,16 @@ def scalar_result(path):
     return {"outcome": "Missing"}
 
 
-def validate_trace(trace, tool):
+def validate_trace(trace, tool, reader, result):
+    metadata = trace.with_suffix(".metadata.json")
+    if run(["dotnet", str(reader), str(trace)], metadata) != 0:
+        return False
+    timing = json.loads(metadata.read_text())
+    if timing["EventsLost"] != 0 or "startTime" not in result:
+        return False
+    if (datetime.fromisoformat(timing["StartUtc"]) > datetime.fromisoformat(result["startTime"])
+            or datetime.fromisoformat(timing["EndUtc"]) < datetime.fromisoformat(result["endTime"])):
+        return False
     log = trace.with_suffix(".conversion.log")
     if run([tool, "convert", str(trace), "--format", "Speedscope"], log) != 0:
         return False
@@ -110,6 +121,17 @@ def main():
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     tool = os.environ.get("TRACE_TOOL", "dotnet-trace")
+    # Build outside the repository so the reader has independent package settings.
+    reader_dir = Path(tempfile.mkdtemp(prefix="scalar-trace-reader-"))
+    shutil.copyfile(Path(__file__).with_name("TraceMetadata.cs"), reader_dir / "Program.cs")
+    (reader_dir / "reader.csproj").write_text('''<Project Sdk="Microsoft.NET.Sdk">
+      <PropertyGroup><TargetFramework>net8.0</TargetFramework><OutputType>Exe</OutputType>
+      <RestoreSources>https://api.nuget.org/v3/index.json</RestoreSources></PropertyGroup>
+      <ItemGroup><PackageReference Include="Microsoft.Diagnostics.Tracing.TraceEvent" Version="3.1.23" /></ItemGroup>
+    </Project>''')
+    if run(["dotnet", "build", str(reader_dir / "reader.csproj"), "-c", "Release"], output / "reader-build.log") != 0:
+        raise RuntimeError("Unable to build the trace integrity reader.")
+    reader = reader_dir / "bin/Release/net8.0/reader.dll"
     run(["dotnet", "--info"], output / "dotnet-info.txt")
     run(["git", "rev-parse", "HEAD"], output / "commit.txt")
     (output / "runner.json").write_text(json.dumps({key: os.environ.get(key) for key in
@@ -138,7 +160,7 @@ def main():
                 collector = subprocess.Popen([tool, "collect", "--diagnostic-port", port,
                     # GC + loader + JIT + IL/native maps. Avoid high-volume exception/type events.
                     "--profile", "cpu-sampling", "--providers", "Microsoft-Windows-DotNETRuntime:0x20019:4",
-                    "--buffersize", "64", "--output", str(directory / f"{framework}-browser.nettrace")],
+                    "--buffersize", "256", "--output", str(directory / f"{framework}-browser.nettrace")],
                     stdout=stream, stderr=subprocess.STDOUT)
                 collectors.append((collector, stream))
                 watcher = threading.Thread(target=finish_capture, args=(collector, directory, framework, stop))
@@ -191,7 +213,7 @@ def main():
                 # Read every trace in the first pass to prove capture works, then on failures/last pass.
                 readable = []
                 if attempt == 1 or target_failure or attempt == args.attempts:
-                    readable = [str(trace.name) for trace in traces if validate_trace(trace, tool)]
+                    readable = [str(trace.name) for trace in traces if validate_trace(trace, tool, reader, result)]
                 result.update(target_failure=target_failure, traces=[t.name for t in traces], readable=readable)
                 record["frameworks"][framework] = result
                 captured |= target_failure and bool(readable)
@@ -215,6 +237,7 @@ def main():
         return 2
     finally:
         hook.unlink(missing_ok=True)
+        shutil.rmtree(reader_dir)
 
 
 if __name__ == "__main__":
