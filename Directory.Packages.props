@@ -37,7 +37,7 @@
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" PrivateAssets="all" />
     <PackageVersion Include="Verify.DiffPlex" Version="3.3.1" />
     <PackageVersion Include="Verify.SourceGenerators" Version="2.5.0" />
-    <PackageVersion Include="Verify.NUnit" Version="32.0.0" />
+    <PackageVersion Include="Verify.NUnit" Version="33.0.0" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
     <!-- The generic host the jint-browser `mcp` command builds its server on: the Model Context Protocol
          SDK's own documented hosting path, and the one whose stdout purity it guarantees. Only the tool
