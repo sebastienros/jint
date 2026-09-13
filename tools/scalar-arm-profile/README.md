@@ -2,10 +2,15 @@
 
 Temporary investigation workflow for issue #3882, based on `main` at
 `0b0d64d87b1c334ab7149f26c03db7d2a7b3df1a`. The `Scalar ARM profile` workflow runs
-on two independent `ubuntu-24.04-arm` workers. Each worker repeats the ordinary
+on two independent `ubuntu-24.04-arm` workers. Pushes now validate the fixes with
+three full Release solution runs per worker, without profiling. `verify.py` retains
+every attempt's log and browser TRX, and fails for any suite failure or missing/non-passing
+Scalar result on either framework. It changes only the browser TRX destination.
+
+Manual dispatch with `profile=true` selects diagnostic capture instead. Each worker repeats the ordinary
 full Release solution test command up to six times, stopping when the Scalar
 error-sink assertion reports the known page-task budget error and a readable
-browser trace has been captured. No existing test source, fixture asset, or budget changes.
+browser trace has been captured. Capture changes no existing test source, fixture asset, or budget.
 
 The script temporarily supplies browser-only runsettings using a generated
 `Jint.Tests.Browser/Directory.Build.targets`, which it refuses to overwrite and

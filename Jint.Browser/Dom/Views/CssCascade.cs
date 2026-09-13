@@ -329,6 +329,7 @@ internal static class CssCascade
             private readonly ICssStyleRule[] _rules;
             private readonly List<(int Order, ICssStyleRule Rule)> _unkeyed = new();
             private readonly Dictionary<string, List<(int Order, ICssStyleRule Rule)>> _classes = new(StringComparer.Ordinal);
+            private readonly Dictionary<string, Candidates> _candidates = new(StringComparer.Ordinal);
 
             internal ScopedStyles(IStyleCollection styles, StyleScope scope, bool includeVariables)
             {
@@ -380,6 +381,15 @@ internal static class CssCascade
             // candidate, including specificity, combinators, pseudo-classes and nested selectors.
             internal Candidates For(IElement element)
             {
+                // The required-class index depends only on the class attribute. Reuse its ordered
+                // candidate list within this traversal, but let native matching inspect each element's
+                // attributes, ancestors and pseudo-class state separately.
+                var classes = element.GetAttribute("class") ?? "";
+                if (_candidates.TryGetValue(classes, out var cached))
+                {
+                    return cached;
+                }
+
                 var candidates = new List<(int Order, ICssStyleRule Rule)>(_unkeyed);
                 foreach (var name in element.ClassList)
                 {
@@ -389,7 +399,9 @@ internal static class CssCascade
                     }
                 }
                 candidates.Sort(static (left, right) => left.Order.CompareTo(right.Order));
-                return new Candidates(Device, candidates);
+                var result = new Candidates(Device, candidates);
+                _candidates.Add(classes, result);
+                return result;
             }
 
             public IRenderDevice Device { get; }

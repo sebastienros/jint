@@ -45,14 +45,17 @@ use the same boxes. Documents without these rows keep the existing ordinal hit-t
 The cascade indexes required subject classes through AngleSharp's selector visitor for this query only.
 Selectors without a required class stay candidates for every element; the native matcher decides the
 result and specificity, with original rule order retained. Nested rules participate in the same index.
+Elements with identical class attributes share candidate lists within that query; attributes, ancestors
+and pseudo-class state are still matched separately for every element.
 The full computed-style path supplies the union of the element and ancestor candidates to AngleSharp
 so its native inheritance and value computation still produce the complete declaration.
 
 **One rectangle uses the same placement as a complete layout.** `SizeQuery.Place` computes ancestor
 positions and preceding sibling extents on demand; a complete layout asks it for every rendered element.
-`PageLayout.ClientBoxOf` counts enough rows to establish the same scroll clamp when the offset is
-positive, stopping once the current viewport bottom is covered. A zero offset is already clamped and
-needs no document-height walk. Partial counts never enter the exact-size cache. Placement measures
+`PageLayout.ClientBoxOf` places the requested box first. Its bottom is a lower bound on document height,
+so a box covering the current viewport bottom proves the scroll offset remains valid. Otherwise it
+counts enough rows to establish the same scroll clamp, reusing rows measured for placement. A zero
+offset is already clamped and needs no document-height walk. Partial counts never enter the exact-size cache. Placement measures
 ancestor heights only when flex alignment needs them, then requests the chosen rectangle. It does not
 position unrelated descendants or retain results after the query.
 

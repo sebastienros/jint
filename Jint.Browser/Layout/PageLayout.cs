@@ -68,21 +68,18 @@ internal sealed class PageLayout
     internal FlatBox? ClientBoxOf(IElement element)
     {
         var sizes = MeasureSizes();
+        FlatBox? box = sizes.HasBox(element) ? sizes.Place(element) : null;
         // Zero is already inside every scroll range. Only a positive offset can need clamping
-        // after a document shrinks; measuring unrelated branches cannot change a zero offset.
-        if (_scrollY > 0)
+        // after a document shrinks. A placed box also proves that the document reaches its bottom:
+        // the flat model nests every box inside the root, including horizontally arranged children.
+        // Otherwise reuse the rows measured for placement while establishing the remaining extent.
+        if (_scrollY > 0 && (box is null || box.Value.Bottom < _scrollY + _runtime.Viewport.Height))
         {
             var height = _runtime.Document?.DocumentElement is { } root
                 ? sizes.HeightUpTo(root, _scrollY + _runtime.Viewport.Height) : 0;
             _scrollY = Math.Min(_scrollY, Math.Max(0, height - _runtime.Viewport.Height));
         }
-        if (!sizes.HasBox(element))
-        {
-            return null;
-        }
-
-        var box = sizes.Place(element);
-        return box with { Y = box.Y - _scrollY };
+        return box is { } placed ? placed with { Y = placed.Y - _scrollY } : null;
     }
 
     /// <summary>The layout of the document as it stands, with the current viewport and scroll offset.</summary>

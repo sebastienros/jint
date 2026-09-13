@@ -57,6 +57,42 @@ public class FlatLayoutTests
     }
 
     [Test]
+    public async Task ARectangleCoveringTheViewportDoesNotMeasureAnUnrelatedFlexSubtreeToClampScroll()
+    {
+        await using var browser = new global::Jint.Browser.Browser(
+            new BrowserOptions { Viewport = new Viewport(800, 64) });
+        var page = await browser.NewPageAsync();
+        var rows = string.Concat(Enumerable.Repeat("<div>row</div>", 100));
+        await page.SetContentAsync("<style>#unrelated-child { display:block }</style>"
+            + "<main style='display:flex;align-items:flex-start'><aside><div id='unrelated-child'>" + rows
+            + "</div></aside><section id='target'>" + rows + "</section></main>");
+        await page.EvaluateAsync("scrollTo(0, 500)");
+
+        var result = await page.RunOnLoopAsync(engine =>
+        {
+            var runtime = PageRuntime.Find(engine)!;
+            var document = runtime.Document!;
+            var tracker = new CssRuleUsageTracker();
+            tracker.Rebind(document);
+            CssRuleUsage.Arm(tracker);
+            try
+            {
+                var box = runtime.Layout.ClientBoxOf(document.GetElementById("target")!)!.Value;
+                return (box.Bottom, runtime.Layout.ScrollY, Used: tracker.TakeDelta().Select(rule => rule.SelectorText).ToArray());
+            }
+            finally
+            {
+                CssRuleUsage.Disarm(tracker);
+            }
+        });
+
+        result.Bottom.Should().BeGreaterThan(64);
+        result.ScrollY.Should().Be(500);
+        result.Used.Should().NotContain("#unrelated-child", "the requested box already proves the scroll offset remains valid");
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
     public async Task AHiddenRectangleStillClampsScrollAfterTheDocumentShrinks()
     {
         await using var browser = new global::Jint.Browser.Browser();
@@ -67,6 +103,36 @@ public class FlatLayoutTests
         (await page.EvaluateAsync<double>("scrollY")).Should().Be(500);
         await page.EvaluateAsync("document.getElementById('content').hidden = true; document.getElementById('content').getBoundingClientRect()");
         (await page.EvaluateAsync<double>("scrollY")).Should().Be(0);
+    }
+
+    [TestCase("block")]
+    [TestCase("flex")]
+    public async Task PlacingBeforeClampingAgreesWithTheFullLayoutAfterMutations(string display)
+    {
+        await using var browser = new global::Jint.Browser.Browser(
+            new BrowserOptions { Viewport = new Viewport(800, 64) });
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync($"<main style='display:{display};align-items:center'>"
+            + "<section id='content'>" + string.Concat(Enumerable.Repeat("<div>row</div>", 100))
+            + "</section><button id='target'>Save</button></main>");
+
+        foreach (var mutation in new[] { "", "document.getElementById('content').innerHTML = '<span>short</span>'",
+                     "document.getElementById('target').hidden = true" })
+        {
+            await page.EvaluateAsync("scrollTo(0, 500);" + mutation);
+            await page.RunOnLoopAsync(engine =>
+            {
+                var runtime = PageRuntime.Find(engine)!;
+                var target = runtime.Document!.GetElementById("target")!;
+                var box = runtime.Layout.ClientBoxOf(target);
+                var scroll = runtime.Layout.ScrollY;
+                var full = runtime.Layout.Current();
+                box.Should().Be(full.ClientBoxOf(target));
+                runtime.Layout.ScrollY.Should().Be(scroll);
+                return true;
+            });
+        }
+        page.Errors.Should().BeEmpty();
     }
 
     [Test]

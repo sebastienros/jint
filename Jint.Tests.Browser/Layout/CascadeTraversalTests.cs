@@ -13,6 +13,21 @@ namespace Jint.Tests.Browser.Layout;
 
 public sealed class CascadeTraversalTests
 {
+    [Test]
+    public async Task SharedClassCandidatesStillMatchEachElementsAttributesAndAncestors()
+    {
+        using var context = BrowsingContext.New(Configuration.Default.WithCss());
+        using var document = await context.OpenAsync(response => response.Content(
+            "<style>.item { display:block } .item[data-hide], .hidden > .item { display:none }</style>"
+            + "<main><div class='item'></div><div class='item' data-hide></div></main>"
+            + "<main class='hidden'><div class='item'></div></main>"));
+        var styles = document.DefaultView!.GetStyleCollection(new DefaultRenderDevice());
+        var traversal = new CssCascade.Traversal(styles, CssCascade.StyleScope.Visibility);
+
+        document.QuerySelectorAll(".item").Select(element => traversal.Of(element)!.GetPropertyValue("display"))
+            .Should().Equal("block", "none", "none");
+    }
+
     [TestCase(":unsupported-jint-pseudo")]
     [TestCase(".a")]
     [TestCase(".a.b")]
