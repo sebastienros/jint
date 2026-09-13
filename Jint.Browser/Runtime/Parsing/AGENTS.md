@@ -196,8 +196,8 @@ frame's own frames, comes back here. Four things follow and each is load-bearing
 - **The child context copies the page's services**, so the page's `IScriptingService` is what a frame's
   `<script>` reaches. `ParserDriver.IsFrameDocument` — the document's context is not the page's — is what
   stops it: an external one is refused at the fetch, with the reference it names in the request log; an
-  inline one is dropped at `RunClassicScript`, there being no reference to record. **A frame has a document
-  and no realm**, and running its script in the page's would be running it in the wrong one. Before this it
+  inline one is dropped at `RunClassicScript`, there being no reference to record. **A frame's document has a DOM creation realm, but that realm's global is not yet its window**;
+  running child scripts remains a later #3771 slice. Before this it
   did: an `<iframe srcdoc>` needs no fetch, so nothing gated it, and its `<script>` ran on the page's `Window`
   while the srcdoc markup replaced the page's own tree, with nothing in `Page.Errors` to say so.
 - **`load` is fired from `FinishLoad`, innermost frame first**, after `DOMContentLoaded` and before
@@ -210,18 +210,16 @@ frame's own frames, comes back here. Four things follow and each is load-bearing
 - **`contentDocument` and `contentWindow` are `Dom/DomFrameMembers`, not the generated bodies**, because
   HTML answers `null` for a document that is not same origin with the one asking. `contentWindow` answers a
   window built by `Runtime/FrameWindows` — one object per frame, whose `[[Prototype]]` is the page's global,
-  so the realm is shared and only what a frame answers differently is an own property. A frame with no
+  while lazy own DOM/event constructor properties use the child document's realm. A frame with no
   document has `contentWindow === null` rather than absent: `'contentWindow' in frame` and
   `if (frame.contentWindow)` disagree about a member that is missing and one that is null.
 
-**A frame's window is an object on the page's realm, not a realm of its own.** `Runtime/FrameWindows` builds
-one object per frame whose `[[Prototype]]` is the page's global, so every interface object and intrinsic is
-inherited and only what a frame answers differently is an own property — itself for `window`/`self`/`frames`,
-the page for `parent`/`top`, its own `document`, `frameElement`, `length`, `name`, `origin` and `location`.
-`contentWindow !== window` and `frames[0] === contentWindow` hold; `contentWindow.DOMException ===
-DOMException` also holds, which is the divergence one realm buys and `Dom/divergences.md` records. A write to
-a frame's `location` throws rather than doing nothing, and the class says which corpus document taught it
-that a silent no-op is a hang.
+**A frame's window remains a facade on the page's realm.** `Runtime/FrameWindows` preserves its object
+identity and prototype, forwarding DOM and event constructors through lazy own properties to the child
+document's realm. Other globals remain inherited from the page. Document and node wrappers keep their
+creation brands across adoption through the shared engine-wide identity cache (`Dom/AGENTS.md`). Child
+global replacement and script execution are the next #3771 slice. Location writes still throw until frame
+navigation exists, so a caller waiting for a navigation fails rather than hanging silently.
 
 **`document.write` after the parse is refused.** During one it is AngleSharp's own call and it is right — its
 writable text source inserts at the parser's index and the script processor restores the index afterwards, so

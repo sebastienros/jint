@@ -30,11 +30,11 @@ internal sealed class DomInterfaceObject : Constructor
     private readonly DomInterfaceDefinition _definition;
 
     internal DomInterfaceObject(DomRealm realm, DomInterfaceDefinition definition)
-        : base(realm.Engine, realm.PrincipalRealm, new JsString(definition.Name))
+        : base(realm.Engine, realm.OwningRealm, new JsString(definition.Name))
     {
         _domRealm = realm;
         _definition = definition;
-        _prototype = realm.PrincipalRealm.Intrinsics.Function.PrototypeObject;
+        _prototype = realm.OwningRealm.Intrinsics.Function.PrototypeObject;
         _length = new PropertyDescriptor(JsNumber.Create(definition.ConstructorLength), PropertyFlag.Configurable);
 
         // https://webidl.spec.whatwg.org/#interface-object — { writable: false, enumerable: false,

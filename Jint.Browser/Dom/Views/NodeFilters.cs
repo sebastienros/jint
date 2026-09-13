@@ -59,7 +59,7 @@ internal static class NodeFilters
         }
 
         Throw.TypeError(
-            realm.PrincipalRealm,
+            realm.OwningRealm,
             "Failed to execute '" + member + "' on 'Document': parameter 3 is not of type 'NodeFilter'.");
         return null;
     }
@@ -72,7 +72,7 @@ internal static class NodeFilters
         {
             // WebIDL: an object with no callable operation is a TypeError at call time, not at conversion
             // time, which is exactly when a page notices it passed the wrong thing.
-            Throw.TypeError(realm.PrincipalRealm, "Failed to execute 'acceptNode' on 'NodeFilter': the filter is neither a function nor an object with an acceptNode method.");
+            Throw.TypeError(realm.OwningRealm, "Failed to execute 'acceptNode' on 'NodeFilter': the filter is neither a function nor an object with an acceptNode method.");
         }
 
         var answer = realm.Engine.Call(callable!, filter, [realm.WrapNode(node)]);

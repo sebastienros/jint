@@ -94,7 +94,10 @@ internal class DomHostHooks
     internal virtual void SetOuterHtml(DomRealm realm, IElement element, string markup)
     {
         var parent = element.Parent;
+        var previous = element.PreviousSibling;
+        var next = element.NextSibling;
         element.OuterHtml = markup;
+        RecordInsertedNodes(realm, parent, previous, next);
         CustomElements.CustomElementRegistry.SubtreeCreated(realm, parent ?? element);
     }
 
@@ -605,14 +608,41 @@ internal class DomHostHooks
         if (position is AdjacentPosition.BeforeBegin or AdjacentPosition.AfterEnd && element.Parent is not IElement)
         {
             DomFailures.Refuse(
-                realm.Engine,
+                realm,
                 "Element.insertAdjacentHTML",
                 DomExceptionNames.NoModificationAllowed,
                 "the element has no parent element to insert " + (position == AdjacentPosition.BeforeBegin ? "before" : "after") + ".");
         }
 
-        element.Insert(position, DomConvert.RequiredText(arguments, 1, "Element.insertAdjacentHTML"));
+        var markup = DomConvert.RequiredText(arguments, 1, "Element.insertAdjacentHTML");
+        var parent = position is AdjacentPosition.BeforeBegin or AdjacentPosition.AfterEnd ? element.Parent : element;
+        var previous = position switch
+        {
+            AdjacentPosition.BeforeBegin => element.PreviousSibling,
+            AdjacentPosition.AfterEnd => element,
+            AdjacentPosition.BeforeEnd => element.LastChild,
+            _ => null,
+        };
+        var next = position switch
+        {
+            AdjacentPosition.BeforeBegin => element,
+            AdjacentPosition.AfterEnd => element.NextSibling,
+            AdjacentPosition.AfterBegin => element.FirstChild,
+            _ => null,
+        };
+        element.Insert(position, markup);
+        RecordInsertedNodes(realm, parent, previous, next);
         CustomElements.CustomElementRegistry.SubtreeCreated(realm, element.Parent ?? element);
+    }
+
+    private static void RecordInsertedNodes(DomRealm realm, INode? parent, INode? previous, INode? next)
+    {
+        for (var node = previous is null ? parent?.FirstChild : previous.NextSibling;
+             node is not null && !ReferenceEquals(node, next);
+             node = node.NextSibling)
+        {
+            realm.RecordSubtree(node);
+        }
     }
 
     /// <summary>
@@ -883,7 +913,7 @@ internal class DomHostHooks
     {
         if (!HasBrowsingContext(document) || document.Location is not { } location)
         {
-            Throw.TypeError(realm.PrincipalRealm, "Cannot set property 'href' of null");
+            Throw.TypeError(realm.OwningRealm, "Cannot set property 'href' of null");
             return;
         }
 
@@ -1150,7 +1180,7 @@ internal class DomHostHooks
         if (document is not IHtmlDocument)
         {
             DomFailures.Refuse(
-                realm.Engine,
+                realm,
                 qualified,
                 DomExceptionNames.InvalidState,
                 "the document is an XML document, which has no dynamic markup insertion.");
@@ -1175,7 +1205,7 @@ internal class DomHostHooks
         }
 
         DomFailures.Refuse(
-            realm.Engine,
+            realm,
             qualified,
             DomExceptionNames.NotSupported,
             "no parser is reading this document, so the write implies document.open(), and AngleSharp's "

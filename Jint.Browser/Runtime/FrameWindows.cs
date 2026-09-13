@@ -1,41 +1,26 @@
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
-using Jint.Native;
+using Jint.Browser.Dom;
+using Jint.Browser.Events;
 using Jint.Native.Object;
-using Jint.Runtime;
+using Jint.Native;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
+using Jint.Runtime;
 using Jint.WebApi.Url.Parsing;
+using Jint.WebApi;
 
 namespace Jint.Browser.Runtime;
 
 /// <summary>
-/// The window object a child frame gets: one object per frame, on the page's own realm.
+/// A stable facade for each child frame. Its identity and prototype remain on the principal realm;
+/// lazy own constructor properties forward to the associated document's realm.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>A frame has a document and no realm</b> (<c>docs/design/headless-browser.md</c> §3), and until this
-/// existed it had no window either — <c>contentWindow</c> was <see langword="null"/> and a frame document's
-/// <c>defaultView</c> was undefined, which is what
-/// <a href="https://github.com/sebastienros/jint/issues/3771">#3771</a>'s remaining rows reach for. One realm
-/// does not mean one window: HTML gives every nested browsing context a <c>WindowProxy</c> of its own, and
-/// what makes that expensive is the *realm*, not the object.
-/// </para>
-/// <para>
-/// <b>So the object is real and the realm is shared, and the shape of that is one line:</b> a frame's window
-/// is an ordinary object whose <c>[[Prototype]]</c> is the page's own global object. Everything a global
-/// carries — every interface object, every constructor, <c>Math</c>, <c>DOMException</c> — is inherited, and
-/// <c>frameWindow instanceof Window</c> still holds because the page's global has <c>Window.prototype</c> in
-/// its chain. What is <i>different</i> about a frame is shadowed by an own property, and the list below is
-/// exactly that: everything an inherited answer would get wrong.
-/// </para>
-/// <para>
-/// <b>The divergence this buys, stated here because it is the one a reader will meet:</b>
-/// <c>frame.contentWindow.DOMException === DOMException</c> is <see langword="true"/>, where a browser gives
-/// a frame its own constructors. That is not a lie in a browser with one realm — the exception a call on the
-/// frame's document really throws <i>is</i> the page's, because the page's realm is what built it — but it is
-/// a difference, and <c>Dom/divergences.md</c> records it beside the rest.
-/// </para>
+/// https://html.spec.whatwg.org/multipage/webappapis.html#realms-settings-objects-global-objects —
+/// the child document has its own DOM and event brands. Child global replacement and script execution
+/// remain the next #3771 slice; the facade continues to inherit other page-global properties.
 /// </remarks>
 internal static class FrameWindows
 {
@@ -84,6 +69,7 @@ internal static class FrameWindows
     /// </remarks>
     internal static void AttachDefaultView(PageRuntime runtime, IHtmlInlineFrameElement frame, IDocument document)
     {
+        DocumentRealm(runtime, document);
         if (runtime.Dom.WrapNode(document) is not { } wrapper || wrapper.HasOwnProperty("defaultView"))
         {
             return;
@@ -127,14 +113,39 @@ internal static class FrameWindows
     internal static int Count(IDocument? document)
         => document is null ? 0 : document.QuerySelectorAll("iframe, frame").Length;
 
+    internal static DomRealm DocumentRealm(PageRuntime runtime, IDocument document)
+    {
+        if (runtime.Dom.TryGetDocumentRealm(document, out var existing))
+        {
+            return existing!;
+        }
+        var engine = runtime.Engine;
+        var realm = engine._host.CreateRealm();
+        WebApiRegistration.InstallInRealm(engine, realm);
+        DomBindings.Install(engine, realm);
+        BrowserEventRealm.Install(engine, realm);
+        var dom = DomRealm.Of(engine, realm);
+        dom.AssociateDocument(document, associatedGlobal: true);
+        return dom;
+    }
+
     private static JsObject Build(PageRuntime runtime, IHtmlInlineFrameElement frame, IDocument document)
     {
+        var dom = DocumentRealm(runtime, document);
         var engine = runtime.Engine;
         var page = engine._mainRealm.GlobalObject;
 
-        // The page's global object as the prototype is the whole design: one realm, and every global name a
-        // frame does not answer for itself is the page's — see the class remarks.
+        // Preserve the existing facade prototype; only DOM/event constructors are forwarded below.
         var window = new JsObject(engine) { Prototype = page };
+
+        DomBindings.InstallOn(engine, dom.OwningRealm, window);
+        BrowserEventRealm.InstallOn(engine, dom.OwningRealm, window);
+        foreach (var name in new[] { "Event", "EventTarget", "CustomEvent", "MessageEvent", "DOMException", "QuotaExceededError" })
+        {
+            var captured = name;
+            window.DefineOwnPropertyUnchecked(name, new LazyPropertyDescriptor<Realm>(
+                dom.OwningRealm, r => r.GlobalObject.Get(captured), PropertyFlag.NonEnumerable));
+        }
 
         // Itself, for the three names that mean "this window".
         Own(window, "window", window);

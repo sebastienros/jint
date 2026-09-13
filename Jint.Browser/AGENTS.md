@@ -55,7 +55,7 @@ a swap to a source generator later is mechanical.
 | Generated | Hand-written |
 | --- | --- |
 | One `JsObjectShape` per interface — operations, attributes, constants, the `constructor` slot, `@@toStringTag` | The wrapper classes (`DomObject`, `DomNodeObject`, `Collections/`) |
-| The registry (`DomInterfaces`): every interface, its parent, whether it roots at `EventTarget`, its wrapper kind | `DomRealm` (per-engine prototypes, interface objects, the wrapper cache) |
+| The registry (`DomInterfaces`): every interface, its parent, whether it roots at `EventTarget`, its wrapper kind | `DomRealm` (per-realm prototypes and interface objects, one engine-wide wrapper cache) |
 | A `DomCollectionAccessor` per collection interface, from `[DomAccessor]` | `DomInterfaceObject`, `DomBindings`, `DomConvert`, `DomHostHooks`, `DomFailures` — the invoker every generated body is wrapped in, so an AngleSharp refusal is a `DOMException` and no `catch` is ever generated |
 | `DomTypeMap`'s candidate list, most derived first | `DomManualShapes` — the shapes the generator cannot express |
 | `DomEnums`, both directions, for the WebIDL string enumerations | `DomTypeMap.For` and its per-`Type` cache |

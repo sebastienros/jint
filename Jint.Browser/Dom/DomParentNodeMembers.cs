@@ -14,7 +14,7 @@ internal static class DomParentNodeMembers
     /// </summary>
     internal static JsValue ReplaceChildren(DomRealm realm, INode parent, JsValue[] arguments)
     {
-        var replacement = ConvertNodes(parent, arguments);
+        var replacement = ConvertNodes(realm, parent, arguments);
         Validate(parent, replacement);
 
         var removed = parent.ChildNodes.ToArray();
@@ -52,7 +52,7 @@ internal static class DomParentNodeMembers
     }
 
     /// <summary>DOM's "convert nodes into a node" algorithm.</summary>
-    private static INode? ConvertNodes(INode parent, JsValue[] arguments)
+    private static INode? ConvertNodes(DomRealm realm, INode parent, JsValue[] arguments)
     {
         if (arguments.Length == 0)
         {
@@ -60,14 +60,7 @@ internal static class DomParentNodeMembers
         }
 
         var document = parent as IDocument ?? parent.Owner!;
-        var nodes = new INode[arguments.Length];
-
-        for (var i = 0; i < arguments.Length; i++)
-        {
-            nodes[i] = arguments[i] is IDomWrapper { DomTarget: INode node }
-                ? node
-                : document.CreateTextNode(TypeConverter.ToString(arguments[i]));
-        }
+        var nodes = DomConvert.NodeOrTextRest(realm, parent, arguments, 0, "ParentNode.replaceChildren");
 
         if (nodes.Length == 1)
         {

@@ -450,9 +450,9 @@ internal static class EventHandlerContentAttributes
         private bool _failed;
 
         internal UncompiledHandler(DomNodeObject wrapper, JsEventTarget target, string type, string body)
-            : base(wrapper.Engine, wrapper.DomRealm.PrincipalRealm, new JsString("on" + type))
+            : base(wrapper.Engine, wrapper.DomRealm.OwningRealm, new JsString("on" + type))
         {
-            _prototype = wrapper.DomRealm.PrincipalRealm.Intrinsics.Function.PrototypeObject;
+            _prototype = wrapper.DomRealm.OwningRealm.Intrinsics.Function.PrototypeObject;
             _wrapper = wrapper;
             _target = target;
             _handlerType = type;
@@ -514,7 +514,7 @@ internal static class EventHandlerContentAttributes
             }
 
             var engine = _wrapper.Engine;
-            var realm = _wrapper.DomRealm.PrincipalRealm;
+            var realm = _wrapper.DomRealm.OwningRealm;
 
             // "If scripting is disabled for eventTarget, then return null." A document this package did not
             // load — a `DOMParser` result, `createHTMLDocument`, `new Document()` — has a browsing context

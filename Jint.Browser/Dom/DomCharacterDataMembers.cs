@@ -98,7 +98,7 @@ internal static class DomCharacterDataMembers
         if (offset > (uint) node.Length)
         {
             DomFailures.Refuse(
-                realm.Engine,
+                realm,
                 member,
                 DomExceptionNames.IndexSize,
                 "the offset " + offset.ToString(System.Globalization.CultureInfo.InvariantCulture) + " is past the end of the data.");

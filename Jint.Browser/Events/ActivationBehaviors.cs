@@ -566,7 +566,7 @@ internal static class ActivationBehaviors
     /// <summary>https://dom.spec.whatwg.org/#concept-event-fire for an event the engine created.</summary>
     internal static void Fire(JsEventTarget target, string type, bool bubbles, bool composed)
     {
-        var events = target.Engine._mainRealm.Intrinsics.Event;
+        var events = target._realm.Intrinsics.Event;
         target.DispatchEvent(events.CreateTrustedEvent(
             JsString.Create(type),
             new EventInit(bubbles, Cancelable: false, composed)));

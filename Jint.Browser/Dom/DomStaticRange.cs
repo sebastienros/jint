@@ -142,7 +142,7 @@ internal static class DomStaticRange
         }
 
         Jint.Runtime.Throw.TypeError(
-            realm.PrincipalRealm,
+            realm.OwningRealm,
             "Failed to construct 'StaticRange': member " + member + " is not of type Node.");
 
         return null!;
@@ -160,7 +160,7 @@ internal static class DomStaticRange
         if (value.IsUndefined())
         {
             Jint.Runtime.Throw.TypeError(
-                realm.PrincipalRealm,
+                realm.OwningRealm,
                 "Failed to construct 'StaticRange': member " + member + " is required.");
         }
 
@@ -176,7 +176,7 @@ internal static class DomStaticRange
         }
 
         DomFailures.Refuse(
-            realm.Engine,
+            realm,
             "StaticRange",
             DomExceptionNames.InvalidNodeType,
             "member " + member + " is " + (node is IAttr ? "an Attr" : "a DocumentType") + ", which cannot be a boundary point.");

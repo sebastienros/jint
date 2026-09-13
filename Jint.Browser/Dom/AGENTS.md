@@ -148,7 +148,7 @@ Divergences from a browser that are **ours** and deliberate:
   slot naming `%Array.prototype.values%` itself, per
   [WebIDL](https://webidl.spec.whatwg.org/#js-iterable), so `NodeList.prototype[Symbol.iterator] ===
   Array.prototype[Symbol.iterator]`. `DomIterator.ArrayValues` is the factory the emitter names, and it reads
-  `DomRealm.PrincipalRealm` for the reason everything else here does.
+  `DomRealm.OwningRealm` for the reason everything else here does.
 - **A content attribute set to the empty string by hand keeps an ARIA element relationship** where a browser
   drops it. The mixin's two halves are `AriaReflection` and `AriaElementReflection`, both declared onto the one
   `Element` shape through the `additions` extend form. The string half is a view of its content attribute and
@@ -221,11 +221,14 @@ wrapper. It is on the engine through a `ConditionalWeakTable<Engine, DomRealm>` 
 object, and do not mistake a fresh `querySelectorAll` result for a violation: that operation returns a new
 static NodeList each time.
 
-**Everything that creates an object reads `DomRealm.PrincipalRealm`, never `Engine.Realm`.** The latter
-answers the realm currently *executing*, so a wrapper first reached from inside a `ShadowRealm` callback would
-take its prototype root, its interface object and its `Symbol.iterator` from intrinsics its own object does not
-belong to — and every wrapper built afterwards would disagree with it about what `Object.prototype` is. It is
-the same call `WebApiRegistration.InstallGlobals` makes, for the same reason.
+**Constructor and prototype state is per Realm; wrapper identity remains per engine.** Read
+`DomRealm.OwningRealm`, never the realm that happens to be executing. `BrowserRealmScope` binds shaped
+prototype construction to that realm too, so lazy methods do not capture a caller's intrinsics.
+`DomRealm` records creation realms for nodes before binding-driven cross-document adoption; parser-created
+frame trees are recorded when associated with the frame realm. Known-node wrapping only checks the shared
+weak table. Never replace that lookup with a subtree scan. Native host creation followed by native adoption
+before any binding observation still needs an integration seam; `divergences.md` records the exact gap.
+Page focus and activation ownership remain engine-wide and receiver-gated, separate from creation brands.
 
 The wrappers deliberately do **not** share a base class, and `IDomWrapper` is what they share instead:
 

@@ -195,7 +195,7 @@ internal static class DomTokenListMembers
         DomConvert.RequiredText(arguments, 0, Member.Supports);
 
         Throw.TypeError(
-            realm.PrincipalRealm,
+            realm.OwningRealm,
             "Failed to execute '" + Member.Supports + "': the attribute this token list reflects defines no supported tokens.");
         return JsValue.Undefined;
     }
@@ -277,7 +277,7 @@ internal static class DomTokenListMembers
     {
         if (token.Length == 0)
         {
-            DomFailures.Refuse(realm.Engine, member, DomExceptionNames.Syntax, "The token provided must not be empty.");
+            DomFailures.Refuse(realm, member, DomExceptionNames.Syntax, "The token provided must not be empty.");
         }
     }
 
@@ -290,7 +290,7 @@ internal static class DomTokenListMembers
             if (character is '\t' or '\n' or '\f' or '\r' or ' ')
             {
                 DomFailures.Refuse(
-                    realm.Engine,
+                    realm,
                     member,
                     DomExceptionNames.InvalidCharacter,
                     "The token provided ('" + token + "') contains HTML space characters, which are not valid in tokens.");

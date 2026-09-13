@@ -20,7 +20,7 @@ namespace Jint.Browser.Dom.Collections;
 /// <para>
 /// It is declared on the shape as a per-realm slot rather than written onto each wrapper, so it is one
 /// unmaterialized descriptor on the prototype instead of an own property on every collection a page ever
-/// touches — and the value is read from <see cref="DomRealm.PrincipalRealm"/> rather than from the running
+/// touches — and the value is read from <see cref="DomRealm.OwningRealm"/> rather than from the running
 /// realm, so a collection first reached inside a <c>ShadowRealm</c> callback still iterates with the array
 /// iterator its own object belongs to.
 /// </para>
@@ -32,5 +32,5 @@ internal static class DomIterator
     /// <c>JsObjectShape</c> per-realm slot factory, which is how the generated shapes name it.
     /// </summary>
     internal static JsValue ArrayValues(ObjectInstance prototype)
-        => DomRealm.Of(prototype.Engine).PrincipalRealm.Intrinsics.Array.PrototypeObject.Get(GlobalSymbolRegistry.Iterator);
+        => ((JsObjectShape.GetHostState(prototype) as DomRealm) ?? DomRealm.Of(prototype.Engine)).OwningRealm.Intrinsics.Array.PrototypeObject.Get(GlobalSymbolRegistry.Iterator);
 }

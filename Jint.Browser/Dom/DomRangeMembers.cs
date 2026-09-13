@@ -57,18 +57,18 @@ internal static class DomRangeMembers
                 return 1;
             }
 
-            DomFailures.Refuse(realm.Engine, member, DomExceptionNames.WrongDocument, "the point and range have different roots.");
+            DomFailures.Refuse(realm, member, DomExceptionNames.WrongDocument, "the point and range have different roots.");
         }
 
         if (node is IDocumentType)
         {
-            DomFailures.Refuse(realm.Engine, member, DomExceptionNames.InvalidNodeType, "a doctype cannot contain a boundary point.");
+            DomFailures.Refuse(realm, member, DomExceptionNames.InvalidNodeType, "a doctype cannot contain a boundary point.");
         }
 
         var length = node is IAttr ? 0 : node is ICharacterData data ? data.Length : node.ChildNodes.Length;
         if (offset > (uint) length)
         {
-            DomFailures.Refuse(realm.Engine, member, DomExceptionNames.IndexSize, "the offset is past the end of the node.");
+            DomFailures.Refuse(realm, member, DomExceptionNames.IndexSize, "the offset is past the end of the node.");
         }
 
         // Most queries name the range's container (including a collapsed Attr). They need no temporary

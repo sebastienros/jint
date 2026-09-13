@@ -58,6 +58,53 @@ internal static class DomFailures
         string member,
         Func<JsValue, JsValue[], JsValue> implementation)
     {
+        // DOM pre-insert/adopt can move descendants before they have wrappers. Select this
+        // boundary once while building the shape; ordinary reads pay no traversal or name test.
+        var operation = member[(member.LastIndexOf('.') + 1)..];
+        if (operation is "appendChild" or "insertBefore" or "replaceChild"
+            or "adoptNode" or "insertAdjacentElement" or "insertNode" or "surroundContents")
+        {
+            var body = implementation;
+            implementation = (receiver, args) =>
+            {
+                if (receiver is IDomWrapper wrapper && wrapper.DomTarget is INode or IRange)
+                {
+                    if (operation == "insertAdjacentElement" && args.Length > 0 && args[0].IsObject())
+                    {
+                        var converted = new JsValue[args.Length];
+                        Array.Copy(args, converted, args.Length);
+                        converted[0] = JsString.Create(TypeConverter.ToString(args[0]));
+                        args = converted;
+                    }
+                    var targetDocument = wrapper.DomTarget is AngleSharp.Dom.INode target
+                        ? target as AngleSharp.Dom.IDocument ?? target.Owner
+                        : null;
+                    foreach (var argument in args)
+                    {
+                        if (argument is DomNodeObject node && !ReferenceEquals(node.Node.Owner, targetDocument))
+                        {
+                            wrapper.DomRealm.RecordSubtree(node.Node);
+                        }
+                    }
+                }
+                return body(receiver, args);
+            };
+        }
+
+        if (operation is "innerHTML" or "textContent")
+        {
+            var body = implementation;
+            implementation = (receiver, args) =>
+            {
+                var result = body(receiver, args);
+                if (args.Length > 0 && receiver is DomNodeObject node)
+                {
+                    node.DomRealm.RecordSubtree(node.Node);
+                }
+                return result;
+            };
+        }
+
         // Six members validate a name before they do anything, and the two DOMExceptions DOM's
         // validate-and-extract chooses between are not interchangeable — see DomNames. The choice of wrapper
         // is made here, once, when the shape is built, so that the two thousand members that validate no
@@ -176,11 +223,14 @@ internal static class DomFailures
     /// <param name="detail">What went wrong, as one sentence.</param>
     [DoesNotReturn]
     internal static JsValue Refuse(Engine engine, string member, string name, string detail)
+        => Refuse(DomRealm.Of(engine), member, name, detail);
+
+    [DoesNotReturn]
+    internal static JsValue Refuse(DomRealm realm, string member, string name, string detail)
     {
-        // The PRINCIPAL realm, deliberately, for the reason DomRealm gives: a wrapper's prototypes come from
-        // the engine's own realm whatever realm happens to be executing, so the DOMException a DOM member
-        // raises has to come from there too or `e instanceof DOMException` in the page would answer false.
-        var intrinsics = engine._mainRealm.Intrinsics;
+        var engine = realm.Engine;
+        // Refusals follow the receiver's binding realm, independently of the running realm.
+        var intrinsics = realm.OwningRealm.Intrinsics;
         var message = "Failed to execute '" + member + "': " + detail;
 
         // https://webidl.spec.whatwg.org/#quotaexceedederror is an interface of its own rather than a name a
@@ -197,6 +247,7 @@ internal static class DomFailures
     private static JsValue Translate(ObjectInstance receiver, string member, Exception exception)
     {
         var engine = receiver.Engine;
+        var realm = (receiver as IDomWrapper)?.DomRealm ?? DomRealm.Of(engine);
 
         if (exception is ArgumentException)
         {
@@ -204,13 +255,13 @@ internal static class DomFailures
             // https://webidl.spec.whatwg.org/#es-type-mapping. A CLR signature that refused its argument is
             // that and nothing more specific; where the standard names a DOMException instead, the member is
             // written by hand and says so.
-            Throw.TypeError(engine._mainRealm, "Failed to execute '" + member + "': " + exception.Message);
+            Throw.TypeError(realm.OwningRealm, "Failed to execute '" + member + "': " + exception.Message);
         }
 
         // A DomException built from a string carries no message of its own — Exception.Message is then the
         // CLR's "Exception of type … was thrown." — and the string it was given is in Name instead.
         return exception is DomException dom
-            ? Refuse(engine, member, NameOf(dom), dom.Code == 0 ? dom.Name : dom.Message)
-            : Refuse(engine, member, DomExceptionNames.NotSupported, exception.Message);
+            ? Refuse(realm, member, NameOf(dom), dom.Code == 0 ? dom.Name : dom.Message)
+            : Refuse(realm, member, DomExceptionNames.NotSupported, exception.Message);
     }
 }

@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using AngleSharp;
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
 using Jint.Browser.Dom.Collections;
@@ -11,8 +12,7 @@ using Jint.WebApi.Events;
 namespace Jint.Browser.Dom;
 
 /// <summary>
-/// Everything the DOM binding keeps per engine: the prototype and interface object of each interface, and the
-/// wrapper cache that gives a DOM object one identity in script.
+/// Realm-bound DOM constructors and prototypes, backed by the engine's single native-object wrapper cache.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -46,15 +46,30 @@ internal sealed class DomRealm
     private readonly ObjectInstance?[] _prototypes;
     private readonly DomInterfaceObject?[] _interfaceObjects;
     private readonly ObjectInstance?[] _pristineLengthGetters;
-    private readonly ConditionalWeakTable<object, ObjectInstance> _wrappers = new();
+    private readonly ConditionalWeakTable<object, ObjectInstance> _wrappers;
+    private readonly DomRealm _principal;
+    private readonly ConditionalWeakTable<Realm, DomRealm> _secondaryRealms = new();
+    private readonly ConditionalWeakTable<INode, DomRealm> _creationRealms;
+    private readonly ConditionalWeakTable<IBrowsingContext, DomRealm> _contexts;
     private readonly ConditionalWeakTable<IElement, AriaElementReflection.Cache> _ariaCaches = new();
     private Dictionary<string, JsString>? _htmlUppercasedTagNames;
     private int _nodes;
+    private DomHostHooks _hooks = DomHostHooks.Default;
+    private int _maxNodes;
+    private bool _scriptingEnabled = true;
 
-    private DomRealm(Engine engine)
+    private DomRealm(Engine engine, Realm? realm = null, DomRealm? principal = null)
     {
         Engine = engine;
-        PrincipalRealm = engine._mainRealm;
+        OwningRealm = realm ?? engine._mainRealm;
+        _principal = principal ?? this;
+        _wrappers = principal?._wrappers ?? new();
+        _creationRealms = principal?._creationRealms ?? new();
+        _contexts = principal?._contexts ?? new();
+        if (principal is null)
+        {
+            engine.Disposed += (_, _) => Release();
+        }
         // The manual interfaces continue the generated ones' indices, so the two together stay one dense
         // array; DomManualInterfaces says why there are any.
         var interfaceCount = DomInterfaces.All.Length + DomManualInterfaces.All.Length;
@@ -63,22 +78,30 @@ internal sealed class DomRealm
         _pristineLengthGetters = new ObjectInstance?[interfaceCount];
     }
 
+    private void Release()
+    {
+        _wrappers.Clear();
+        _creationRealms.Clear();
+        _contexts.Clear();
+        _secondaryRealms.Clear();
+        Document = null;
+        _realms.Remove(Engine);
+    }
+
     /// <summary>The engine every object in this realm belongs to.</summary>
     internal Engine Engine { get; }
 
     /// <summary>
-    /// The engine's principal realm, captured once. Deliberately not <c>Engine.Realm</c>, which answers the
-    /// <em>running</em> realm: a wrapper first reached from inside a <c>ShadowRealm</c> callback would
-    /// otherwise be built against intrinsics its object does not belong to, and every wrapper after it would
-    /// disagree with it about what <c>Object.prototype</c> is.
+    /// The realm owning these constructors and prototypes, captured independently of the currently
+    /// running realm. Node identity and creation associations are shared across the engine.
     /// </summary>
-    internal Realm PrincipalRealm { get; }
+    internal Realm OwningRealm { get; }
 
     /// <summary>
     /// Where the members that parse markup into the tree go. The default calls AngleSharp directly, which is
     /// what a binding with no runtime behind it can do; the parser driver replaces it.
     /// </summary>
-    internal DomHostHooks Hooks { get; set; } = DomHostHooks.Default;
+    internal DomHostHooks Hooks { get => _principal._hooks; set => _principal._hooks = value; }
 
     /// <summary>
     /// How many nodes this engine may project into script, or zero for no limit
@@ -97,7 +120,7 @@ internal sealed class DomRealm
     /// nothing, which is what a host embedding the projection on its own asked for.
     /// </para>
     /// </remarks>
-    internal int MaxNodes { get; set; }
+    internal int MaxNodes { get => _principal._maxNodes; set => _principal._maxNodes = value; }
 
     /// <summary>
     /// Whether the document's own markup may run script, which is what HTML calls <i>scripting enabled</i>.
@@ -109,10 +132,10 @@ internal sealed class DomRealm
     /// <c>WrapperCreated</c> asks it once per wrapper. A host embedding the projection on its own gets the
     /// default, which is that markup handlers work.
     /// </remarks>
-    internal bool ScriptingEnabled { get; set; } = true;
+    internal bool ScriptingEnabled { get => _principal._scriptingEnabled; set => _principal._scriptingEnabled = value; }
 
     /// <summary>How many node wrappers this engine has made, for a diagnostic and for the tests.</summary>
-    internal int NodeCount => _nodes;
+    internal int NodeCount => _principal._nodes;
 
     /// <summary>
     /// The window an event path continues into above the document, or <see langword="null"/> when the engine
@@ -194,6 +217,123 @@ internal sealed class DomRealm
     /// <summary>The binding state of <paramref name="engine"/>, created on first use.</summary>
     internal static DomRealm Of(Engine engine) => _realms.GetValue(engine, static e => new DomRealm(e));
 
+    /// <summary>Constructor/prototype state in a fully initialized same-engine realm.</summary>
+    internal static DomRealm Of(Engine engine, Realm realm)
+    {
+        Validate(engine, realm);
+        var principal = Of(engine);
+        return ReferenceEquals(realm, engine._mainRealm)
+            ? principal
+            : principal._secondaryRealms.GetValue(realm, r => new DomRealm(engine, r, principal));
+    }
+
+    internal static void Validate(Engine engine, Realm realm)
+    {
+        ArgumentNullException.ThrowIfNull(engine);
+        ArgumentNullException.ThrowIfNull(realm);
+        if (realm.Intrinsics is null || realm.GlobalObject is null || realm.GlobalEnv is null)
+        {
+            throw new ArgumentException("The realm is not fully initialized.", nameof(realm));
+        }
+        if (!ReferenceEquals(realm.GlobalObject.Engine, engine))
+        {
+            throw new ArgumentException("The realm belongs to a different engine.", nameof(realm));
+        }
+    }
+
+    /// <summary>The document associated with this realm's global, if any.</summary>
+    internal IDocument? Document { get; private set; }
+
+    internal void AssociateContext(IBrowsingContext context)
+    {
+        if (_contexts.TryGetValue(context, out var existing) && !ReferenceEquals(existing, this))
+        {
+            throw new ArgumentException("The browsing context already belongs to another realm.", nameof(context));
+        }
+        _contexts.GetValue(context, _ => this);
+    }
+
+    internal void AssociateDocument(IDocument document, bool associatedGlobal = false)
+    {
+        var associated = _creationRealms.TryGetValue(document, out var existing);
+        if (associated && !ReferenceEquals(existing, this))
+        {
+            throw new ArgumentException("The document already belongs to another realm.", nameof(document));
+        }
+        AssociateContext(document.Context);
+        _creationRealms.GetValue(document, _ => this);
+        if (!associated)
+        {
+            RecordSubtree(document);
+        }
+        if (associatedGlobal)
+        {
+            Document = document;
+        }
+    }
+
+    internal bool TryGetDocumentRealm(IDocument document, out DomRealm? realm)
+        => _creationRealms.TryGetValue(document, out realm);
+
+    internal DomRealm RealmOfDocument(IDocument document)
+    {
+        if (_creationRealms.TryGetValue(document, out var realm))
+        {
+            return realm;
+        }
+        realm = _contexts.TryGetValue(document.Context, out var contextRealm) ? contextRealm : this;
+        realm.AssociateDocument(document);
+        return realm;
+    }
+
+    // https://dom.spec.whatwg.org/#concept-create-node: a node retains its creation realm through
+    // adoption. The owner is consulted only at the creation/adoption boundary, never for a known node.
+    internal DomRealm CreationRealmOf(INode node)
+    {
+        if (_creationRealms.TryGetValue(node, out var known))
+        {
+            return known;
+        }
+        if (node is IDocument document)
+        {
+            var documentRealm = _contexts.TryGetValue(document.Context, out var contextRealm) ? contextRealm : this;
+            documentRealm.AssociateDocument(document);
+            return documentRealm;
+        }
+        var realm = node.Owner is { } owner ? RealmOfDocument(owner) : this;
+        return _creationRealms.GetValue(node, _ => realm);
+    }
+
+    /// <summary>Records a new or about-to-be-adopted subtree, including non-light-tree descendants.</summary>
+    internal void RecordSubtree(INode root)
+    {
+        var pending = new Stack<INode>();
+        pending.Push(root);
+        while (pending.TryPop(out var node))
+        {
+            CreationRealmOf(node);
+            foreach (var child in node.ChildNodes)
+            {
+                pending.Push(child);
+            }
+            if (node is IElement element)
+            {
+                foreach (var attribute in element.Attributes)
+                {
+                    _creationRealms.GetValue(attribute, _ => node.Owner is { } owner ? RealmOfDocument(owner) : this);
+                }
+                if (element.ShadowRoot is { } shadow)
+                {
+                    pending.Push(shadow);
+                }
+            }
+            if (node is IHtmlTemplateElement template)
+            {
+                pending.Push(template.Content);
+            }
+        }
+    }
+
     /// <summary>
     /// The interface's prototype object in this engine, created on first use along with every prototype above
     /// it — which is what makes <c>Object.getPrototypeOf(HTMLDivElement.prototype) === HTMLElement.prototype</c>
@@ -210,10 +350,12 @@ internal sealed class DomRealm
         var parent = definition.Parent is { } p
             ? PrototypeOf(p)
             : definition.RootsAtEventTarget
-                ? PrincipalRealm.Intrinsics.EventTarget.PrototypeObject
-                : PrincipalRealm.Intrinsics.Object.PrototypeObject;
+                ? OwningRealm.Intrinsics.EventTarget.PrototypeObject
+                : OwningRealm.Intrinsics.Object.PrototypeObject;
 
+        using var scope = new BrowserRealmScope(Engine, OwningRealm);
         var prototype = definition.Shape.Instantiate(Engine, parent);
+        JsObjectShape.SetHostState(prototype, this);
 
         // Published before the interface object is built, because that object's own constructor asks for this
         // prototype: the two are mutually referential — `C.prototype.constructor === C` — and one of the two
@@ -325,11 +467,16 @@ internal sealed class DomRealm
         if (definition is null)
         {
             Throw.TypeError(
-                PrincipalRealm,
+                OwningRealm,
                 "'" + value.GetType().FullName + "' implements no interface the DOM bindings were generated from.");
         }
 
-        return Cache(value, Create(definition!, value));
+        if (value is INode newNode && !_creationRealms.TryGetValue(newNode, out _))
+        {
+            RecordSubtree(newNode);
+        }
+        var realm = value is INode createdNode ? CreationRealmOf(createdNode) : this;
+        return Cache(value, realm.Create(definition!, value));
     }
 
     /// <summary>Projects a node, which is what most generated members return.</summary>
@@ -343,8 +490,12 @@ internal sealed class DomRealm
             return (DomNodeObject) cached;
         }
 
+        if (!_creationRealms.TryGetValue(node, out _))
+        {
+            RecordSubtree(node);
+        }
         var definition = DomManualInterfaces.For(node) ?? DomTypeMap.For(node.GetType()) ?? DomInterfaces.Node;
-        return (DomNodeObject) Cache(node, NewNode(definition, node));
+        return (DomNodeObject) Cache(node, CreationRealmOf(node).NewNode(definition, node));
     }
 
     /// <summary>
@@ -472,7 +623,7 @@ internal sealed class DomRealm
 
     private ObjectInstance Unsupported(object value, string what)
     {
-        Throw.TypeError(PrincipalRealm, "'" + value.GetType().FullName + "' " + what + ".");
+        Throw.TypeError(OwningRealm, "'" + value.GetType().FullName + "' " + what + ".");
         return null!;
     }
 
@@ -489,19 +640,19 @@ internal sealed class DomRealm
             return cached;
         }
 
-        Hooks.WrapperCreated(this, key, wrapper);
+        Hooks.WrapperCreated((wrapper as IDomWrapper)?.DomRealm ?? this, key, wrapper);
 
         if (wrapper is DomNodeObject)
         {
             // Counted after the table took it, and the throw is after the count, so a script catching the
             // RangeError and asking again is refused again rather than charged again — and the node it asked
             // for keeps the one wrapper it now has.
-            _nodes++;
+            _principal._nodes++;
 
-            if (MaxNodes > 0 && _nodes > MaxNodes)
+            if (MaxNodes > 0 && NodeCount > MaxNodes)
             {
                 Throw.RangeError(
-                    PrincipalRealm,
+                    OwningRealm,
                     "The document has reached the " + MaxNodes.ToString(System.Globalization.CultureInfo.InvariantCulture)
                     + "-node limit this browser was configured with.");
             }

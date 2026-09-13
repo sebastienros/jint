@@ -299,7 +299,7 @@ internal static class EventInitReader
     /// </summary>
     internal static TouchState TouchInit(BrowserEventRealm realm, JsValue[] arguments)
     {
-        var principal = realm.PrincipalRealm;
+        var principal = realm.OwningRealm;
 
         if (arguments.Length < 1)
         {
@@ -349,7 +349,7 @@ internal static class EventInitReader
             return realm.NewTouchList([]);
         }
 
-        var principal = realm.PrincipalRealm;
+        var principal = realm.OwningRealm;
         var iterator = value.GetIterator(principal);
         var touches = new List<JsTouch>();
 

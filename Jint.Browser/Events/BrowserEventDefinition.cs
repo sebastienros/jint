@@ -97,7 +97,7 @@ internal sealed class BrowserEventInterfaceObject : Constructor
         BrowserEventDefinition definition,
         ObjectInstance prototype,
         JsValue parentInterface)
-        : base(eventRealm.Engine, eventRealm.PrincipalRealm, new JsString(definition.Name))
+        : base(eventRealm.Engine, eventRealm.OwningRealm, new JsString(definition.Name))
     {
         _eventRealm = eventRealm;
         _definition = definition;
