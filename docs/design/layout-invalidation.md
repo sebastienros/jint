@@ -13,10 +13,21 @@ preserve scrolling and first-hit-test event coordinates. None supplies cross-que
 
 Upstream has since merged [AngleSharp #1344](https://github.com/AngleSharp/AngleSharp/pull/1344), at
 `eb3925b9dfc0731cf249e82b13b7bb19a2022db8`. Its upcoming 1.8.2 adds public `Document.MutationVersion`,
-including parser, tree, attribute and character-data writes. Stable 1.8.2 did not resolve during this
-audit, but `1.8.2-beta.715` does and its assembly exposes this property. Consume and test that producer;
+covering tree, attribute and character-data writes. Stable 1.8.2 did not resolve during this audit,
+but `1.8.2-beta.715` does and its assembly exposes this property. Consume and test that producer;
 a duplicate DOM revision implementation is unnecessary.
-It explicitly excludes extension-owned stylesheet state and is not a complete layout revision.
+
+The review of #1344 requires construction to leave the version unchanged. Follow-up
+[AngleSharp #1347](https://github.com/AngleSharp/AngleSharp/pull/1347) moves mutation bookkeeping out of
+the parser's raw tree operations. A completed parse leaves the version at zero because construction
+never increments it, not because it is reset afterward. User updates, including updates made from
+parser callbacks, still advance the version. Jint must own parser and resource-loading invalidation;
+the dependency counter alone does not cover those boundaries or extension-owned stylesheet state.
+
+The native selector-state and CSSOM producer gaps are tracked in draft
+[AngleSharp #1349](https://github.com/AngleSharp/AngleSharp/pull/1349) and
+[AngleSharp.Css #248](https://github.com/AngleSharp/AngleSharp.Css/pull/248). These require owner review
+before maintainer review. Their versions are signals for user mutations, not for parser construction.
 
 A Release probe with `1.8.2-beta.715` and Css `1.1.2`, using a document with a stylesheet and checkbox,
 confirmed that `ClassList.Add`, inline `GetStyle().SetProperty` and tree removal advance the counter.
@@ -55,7 +66,8 @@ The complete identity has independent inputs:
 
 | Input | Changes that must be observed | Test obligation |
 | --- | --- | --- |
-| Document/tree generation | Insert, remove, replace, move, adopt, parser construction, shadow/slot changes where the model consumes them | Read, mutate through each supported API, read again in the same turn; old and new documents both stop reusing affected state after adoption |
+| Document/tree generation | Insert, remove, replace, move, adopt, shadow/slot changes where the model consumes them | Read, mutate through each supported API, read again in the same turn; old and new documents both stop reusing affected state after adoption |
+| Parser/resource lifecycle | HTML construction and resumption, `document.open` / `document.write`, CSS parsing, imported-sheet load completion | A script can read geometry, yield to construction, and read a different tree with the same dependency version; prevent reuse across that boundary |
 | Attribute/text generation | Qualified and namespaced attributes, attribute nodes/maps, token-list writes, character data, text replacement | Include `classList`, `setAttributeNS`, `Attr.value`, `textContent` and direct dependency operations |
 | Stylesheet generation | Sheet attachment/removal, load completion, nested rule insertion/removal, selector changes, declaration/CSS text changes, media lists, disabled sheets | Warm geometry, change CSSOM without changing DOM, immediately read fresh geometry |
 | Environment generation | Viewport, media type/preferences, render-device inputs, document URL where matching depends on it | Same-turn resize/media changes and fragment navigation invalidate matching |
@@ -73,12 +85,21 @@ call, and must define its behavior at rollover rather than treating the counter 
 
 ## Integration design
 
-Prefer dependency-owned revisions at the mutation primitives rather than a second DOM store. Consume
-the incoming DOM generation after verifying native tree/attribute/text writes, including parser and
-token-list fast paths. CSSOM invalidation belongs at the stylesheet/rule/declaration/media setters and
-must propagate from nested objects to their owning sheet. Revisions should require no mutation record,
-callback allocation or engine reference. A plain document without a layout consumer should pay at most
-the documented revision bookkeeping cost.
+Prefer dependency-owned revisions at the algorithms that decide a user mutation occurred. Raw parser
+construction must bypass mutation bookkeeping. Consume the incoming DOM generation after verifying
+native tree/attribute/text writes, including token-list writes and aggregate updates such as `innerHTML`.
+CSSOM invalidation belongs at user-facing stylesheet/rule/declaration/media setters and must propagate
+from nested objects to their owning sheet. Parsing a detached rule against an existing sheet must not
+invalidate that sheet; inserting the parsed rule must. Revisions should require no mutation record,
+callback allocation or engine reference. Report parser time and allocation overhead separately from
+user-update overhead, with before, after and percentage deltas for each.
+
+Initially keep geometry query-local while HTML parsing can resume, including script callbacks during
+parsing. Drop retained work on parser entry and completion, `document.open` / `document.write`, stylesheet
+attachment and resource/import completion. Persistent reuse may resume only when construction is
+finished and the complete identity is known. A future optimization may replace this conservative rule
+with explicit parser-boundary epochs, but it must first prove that every resume and callback boundary
+is covered. Do not add per-node revision increments to make a consumer cache work during construction.
 
 Jint supplies the environment and browser state revisions on its page loop. A page-local cache may then
 retain the native cascade traversal and geometry for a complete identity, clearing them together when
@@ -93,7 +114,8 @@ the implementation PR before introducing reuse.
 ## Validation and completion
 
 1. Add dependency tests for each revision producer, including no-op and failed writes, direct CLR
-   operations, re-entrant callbacks and cross-document moves.
+   operations, re-entrant callbacks and cross-document moves. Require unchanged versions during normal
+   construction and preserve user changes made from parser callbacks without resetting their versions.
 2. Add consumer tests comparing warmed reads with fresh-query geometry for every row above, on net8.0
    and net10.0 in fresh Release builds. Include independent pages and document replacement.
 3. Demonstrate reuse for unchanged reads with operation counts; demonstrate that mutation-only pages
