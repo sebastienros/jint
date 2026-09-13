@@ -3,6 +3,7 @@ using AngleSharp;
 using AngleSharp.Css;
 using AngleSharp.Css.Dom;
 using AngleSharp.Css.RenderTree;
+using AngleSharp.Css.Values;
 using AngleSharp.Dom;
 using Jint.Browser.Accessibility;
 using Jint.Browser.Dom.Views;
@@ -13,6 +14,91 @@ namespace Jint.Tests.Browser.Layout;
 
 public sealed class CascadeTraversalTests
 {
+    [TestCase(false, 0)]
+    [TestCase(true, 0)]
+    [TestCase(false, 192)]
+    [TestCase(true, 192)]
+    public async Task EquivalentSiblingsComputeTheirLiteralDeclarationsOncePerQuery(bool layout, int precedingStyles)
+    {
+        using var context = BrowsingContext.New(Configuration.Default.WithCss());
+        using var document = await context.OpenAsync(response => response.Content(
+            "<style>.item { display:block }</style><main>"
+            + string.Concat(Enumerable.Range(1, precedingStyles)
+                .Select(width => $"<i style='display:block;width:{width}px' data-width='{width}'></i>"))
+            + string.Concat(Enumerable.Repeat("<div class='item'></div>", 64)) + "</main>"));
+        var sheet = (ICssStyleSheet) document.StyleSheets.Single();
+        var rule = new CountingRule((ICssStyleRule) sheet.Rules[0]);
+        var styles = new RuleStyles(new DefaultRenderDevice(), rule);
+        var scope = layout ? CssCascade.StyleScope.Layout : CssCascade.StyleScope.Visibility;
+
+        for (var query = 1; query <= 2; query++)
+        {
+            var traversal = new CssCascade.Traversal(styles, scope);
+            foreach (var element in document.QuerySelectorAll("main > *"))
+            {
+                var computed = traversal.Of(element)!;
+                computed.GetPropertyValue("display").Should().Be("block");
+                if (layout && element.GetAttribute("data-width") is { } width)
+                {
+                    computed.GetPropertyValue("width").Should().Be(width + "px");
+                }
+            }
+            rule.Computations.Should().Be(query,
+                "equivalent siblings must not repeat native declaration computation, but a new query must recompute");
+            rule.Matches.Should().Be(query * 64, "each element must still run the native selector matcher");
+        }
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task SharedDeclarationsPreserveSpecificityInlineStylesAndInheritance(bool layout)
+    {
+        using var context = BrowsingContext.New(Configuration.Default.WithCss());
+        using var document = await context.OpenAsync(response => response.Content(
+            """
+            <style>
+              #strong, .item { display:none }
+              .item[data-x] { display:block }
+              .important { display:flex !important }
+              .hidden { visibility:hidden }
+              .shown { visibility:visible }
+              .variable { display:var(--shown) }
+              .inherited { display:inherit }
+            </style>
+            <main>
+              <div id="strong" class="item" data-x></div><div class="item" data-x></div>
+              <div class="item" data-x style="display:inline"></div>
+              <div class="item important" data-x style="display:inline"></div>
+              <section class="hidden"><span></span><span></span></section>
+              <section class="shown"><span></span><span></span></section>
+              <section style="--shown:block"><span class="variable"></span><span class="variable"></span></section>
+              <section style="--shown:none"><span class="variable"></span><span class="variable"></span></section>
+              <section style="display:flex"><article><span class="inherited"></span></article></section>
+              <section style="display:none"><article><span class="inherited"></span></article></section>
+            </main>
+            """));
+        var styles = document.DefaultView!.GetStyleCollection(new DefaultRenderDevice());
+        var scope = layout ? CssCascade.StyleScope.Layout : CssCascade.StyleScope.Visibility;
+        var traversal = new CssCascade.Traversal(styles, scope);
+        var complete = new CssCascade.Traversal(styles);
+        foreach (var element in document.All)
+        {
+            var actual = traversal.Of(element)!;
+            var expected = complete.Of(element)!;
+            foreach (var property in new[] { "display", "visibility" })
+            {
+                actual.GetPropertyValue(property).Should().Be(expected.GetPropertyValue(property), element.OuterHtml);
+                actual.GetPropertyPriority(property).Should().Be(expected.GetPropertyPriority(property));
+            }
+        }
+        document.QuerySelectorAll(".item").Select(element => traversal.Of(element)!.GetPropertyValue("display"))
+            .Should().Equal("none", "block", "inline", "flex");
+        document.QuerySelectorAll(".variable").Select(element => traversal.Of(element)!.GetPropertyValue("display"))
+            .Should().Equal("block", "block", "none", "none");
+        document.QuerySelectorAll(".inherited").Select(element => traversal.Of(element)!.GetPropertyValue("display"))
+            .Should().Equal("flex", "none");
+    }
+
     [Test]
     public async Task SharedClassCandidatesStillMatchEachElementsAttributesAndAncestors()
     {
@@ -376,6 +462,89 @@ public sealed class CascadeTraversalTests
                     "{0} on {1} must retain the complete cascade's answer", name, element.LocalName);
             }
         }
+    }
+
+    private sealed class RuleStyles(IRenderDevice device, params ICssStyleRule[] rules) : IStyleCollection
+    {
+        public IRenderDevice Device => device;
+        public IEnumerator<ICssStyleRule> GetEnumerator() => ((IEnumerable<ICssStyleRule>) rules).GetEnumerator();
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+    }
+
+    private sealed class CountingRule : ICssStyleRule
+    {
+        private readonly ICssStyleRule _source;
+        internal int Matches { get; private set; }
+        internal int Computations { get; private set; }
+
+        internal CountingRule(ICssStyleRule source)
+        {
+            _source = source;
+            Style = new CountingDeclaration(source.Style,
+                source.Style.Select(property => new CountingProperty(property, () => Computations++)).ToArray());
+        }
+
+        public ICssStyleDeclaration Style { get; }
+        public bool TryMatch(IElement element, IElement? scope, out Priority specificity)
+        {
+            var matched = _source.TryMatch(element, scope, out specificity);
+            if (matched)
+            {
+                Matches++;
+            }
+            return matched;
+        }
+        public string SelectorText { get => _source.SelectorText; set => throw new NotSupportedException(); }
+        public ISelector Selector => _source.Selector;
+        public ICssRuleList Rules => _source.Rules;
+        public CssRuleType Type => _source.Type;
+        public string CssText { get => _source.CssText; set => throw new NotSupportedException(); }
+        public ICssRule Parent => _source.Parent;
+        public ICssStyleSheet Owner => _source.Owner;
+        public void SetParent(ICssRule rule) => throw new NotSupportedException();
+        public void SetOwner(ICssStyleSheet sheet) => throw new NotSupportedException();
+        public void ToCss(TextWriter writer, IStyleFormatter formatter) => _source.ToCss(writer, formatter);
+    }
+
+    private sealed class CountingProperty(ICssProperty source, Action compute) : ICssProperty
+    {
+        public bool CanBeInherited => source.CanBeInherited;
+        public bool IsAnimatable => source.IsAnimatable;
+        public bool IsImportant { get => source.IsImportant; set => source.IsImportant = value; }
+        public bool IsInherited => source.IsInherited;
+        public bool IsInitial => source.IsInitial;
+        public bool IsShorthand => source.IsShorthand;
+        public string Name => source.Name;
+        public ICssValue? RawValue => source.RawValue;
+        public string Value { get => source.Value; set => source.Value = value; }
+        public ICssProperty Compute(ICssComputeContext context)
+        {
+            compute();
+            return source.Compute(context);
+        }
+        public void ToCss(TextWriter writer, IStyleFormatter formatter) => source.ToCss(writer, formatter);
+    }
+
+    private sealed class CountingDeclaration(ICssStyleDeclaration source, ICssProperty[] properties) : ICssStyleDeclaration
+    {
+        public string this[int index] => source[index];
+        public string this[string name] => source[name];
+        public int Length => source.Length;
+        public ICssRule? Parent => source.Parent;
+        public event Action<string>? Changed { add { } remove { } }
+        public string CssText { get => source.CssText; set => throw new NotSupportedException(); }
+        public ICssProperty GetProperty(string name) => properties.FirstOrDefault(property => property.Name == name)!;
+        public string GetPropertyValue(string name) => source.GetPropertyValue(name);
+        public string GetPropertyPriority(string name) => source.GetPropertyPriority(name);
+        public void SetParent(ICssRule? rule) => throw new NotSupportedException();
+        public void SetProperty(string name, string value, string? priority = null) => throw new NotSupportedException();
+        public string RemoveProperty(string name) => throw new NotSupportedException();
+        public void SetPropertyPriority(string name, string priority) => throw new NotSupportedException();
+        public void SetDefaultProperty(string name, string value) => throw new NotSupportedException();
+        public void Update(string value) => throw new NotSupportedException();
+        public void ToCss(TextWriter writer, IStyleFormatter formatter) => source.ToCss(writer, formatter);
+        public IEnumerator<ICssProperty> GetEnumerator() => ((IEnumerable<ICssProperty>) properties).GetEnumerator();
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     }
 
     private sealed class CountingStyles(IStyleCollection inner) : IStyleCollection
