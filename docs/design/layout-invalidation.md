@@ -18,6 +18,11 @@ audit, but `1.8.2-beta.715` does and its assembly exposes this property. Consume
 a duplicate DOM revision implementation is unnecessary.
 It explicitly excludes extension-owned stylesheet state and is not a complete layout revision.
 
+A Release probe with `1.8.2-beta.715` and Css `1.1.2`, using a document with a stylesheet and checkbox,
+confirmed that `ClassList.Add`, inline `GetStyle().SetProperty` and tree removal advance the counter.
+`IHtmlInputElement.IsChecked = true`, `ICssStyleRule.Style.SetProperty` and `ICssStyleSheet.Insert` leave
+it unchanged. These are observable rendering inputs, so the incoming counter alone cannot license reuse.
+
 Jint PR [#4066](https://github.com/sebastienros/jint/pull/4066) handles the remaining mouse-offset cases
 independently: single-element placement before the first listener avoids a complete layout, and no
 listener means no measurement. A cache is no longer a prerequisite for that correction.
