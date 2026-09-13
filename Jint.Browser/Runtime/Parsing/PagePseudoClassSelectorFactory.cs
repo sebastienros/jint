@@ -3,6 +3,7 @@ using AngleSharp.Css.Dom;
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
 using Jint.Browser.Dom;
+using Jint.Browser.Dom.Collections;
 using Jint.Browser.Events;
 using Jint.WebApi.Url.Parsing;
 
@@ -844,13 +845,18 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
         /// Every descendant element, so a control inside a nested <c>fieldset</c> or a <c>legend</c> counts
         /// for the outer one too. A nested fieldset is skipped as a candidate rather than as a subtree,
         /// because it is barred from constraint validation and its own descendants are already on this walk.
+        /// The walk is <see cref="DomElementWalker"/>: it never yields <paramref name="fieldset"/> itself,
+        /// which is exactly right here since the walk starts at the fieldset and only its descendants are
+        /// candidates. This used to be built on AngleSharp's <c>NextElementSibling</c>, which rescans its
+        /// parent's whole child list from index 0 to find itself before answering the next sibling, making
+        /// the whole subtree scan O(descendants²).
         /// </summary>
         private static bool AFailingCandidateIsADescendantOf(IElement fieldset)
         {
-            for (var candidate = NextInSubtree(fieldset, fieldset);
-                candidate is not null;
-                candidate = NextInSubtree(candidate, fieldset))
+            var walker = new DomElementWalker(fieldset);
+            while (walker.MoveNext())
             {
+                var candidate = walker.Current;
                 if (candidate is IValidation validation && IsACandidate(validation) && !validation.Validity.IsValid)
                 {
                     return true;
@@ -869,27 +875,6 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
     /// and "does not satisfy its constraints" become the same <c>false</c>.
     /// </summary>
     private static bool IsACandidate(IValidation validation) => validation.WillValidate;
-
-    /// <summary>The next element of <paramref name="root"/>'s subtree in tree order, or none.</summary>
-    private static IElement? NextInSubtree(IElement element, IElement root)
-    {
-        if (element.FirstElementChild is { } child)
-        {
-            return child;
-        }
-
-        for (IElement? current = element;
-            current is not null && !ReferenceEquals(current, root);
-            current = current.ParentElement)
-        {
-            if (current.NextElementSibling is { } sibling)
-            {
-                return sibling;
-            }
-        }
-
-        return null;
-    }
 
     private static bool IsOneOf(string value, string first, string second)
         => string.Equals(value, first, StringComparison.OrdinalIgnoreCase)
@@ -1073,13 +1058,19 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
             var owner = HtmlFormOwner.Of(radio);
             var root = RootElementOf(radio);
 
-            for (var candidate = root; candidate is not null; candidate = NextInSubtree(candidate, root))
+            // DomElementWalker never yields the node it is rooted at, unlike the old NextInSubtree-based
+            // walk which started by testing root itself -- so root is tested here first, and the walker
+            // then covers only its descendants. Without this, a tree whose own root element is a matching
+            // checked radio button (root *is* an IHtmlInputElement) would silently stop being found.
+            if (IsACheckedMemberOfTheGroup(root, owner, name))
             {
-                if (candidate is IHtmlInputElement other
-                    && other.IsChecked
-                    && IsARadioButton(other)
-                    && ReferenceEquals(HtmlFormOwner.Of(other), owner)
-                    && string.Equals(other.Name, name, StringComparison.OrdinalIgnoreCase))
+                return true;
+            }
+
+            var walker = new DomElementWalker(root);
+            while (walker.MoveNext())
+            {
+                if (IsACheckedMemberOfTheGroup(walker.Current, owner, name))
                 {
                     return true;
                 }
@@ -1087,6 +1078,17 @@ internal sealed class PagePseudoClassSelectorFactory : IPseudoClassSelectorFacto
 
             return false;
         }
+
+        /// <summary>
+        /// Whether <paramref name="candidate"/> is a checked radio button sharing <paramref name="owner"/>
+        /// as its form owner and <paramref name="name"/> as its <c>name</c>, ASCII case-insensitively.
+        /// </summary>
+        private static bool IsACheckedMemberOfTheGroup(IElement candidate, IHtmlFormElement? owner, string name)
+            => candidate is IHtmlInputElement other
+                && other.IsChecked
+                && IsARadioButton(other)
+                && ReferenceEquals(HtmlFormOwner.Of(other), owner)
+                && string.Equals(other.Name, name, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>Selectors §8.2: the target element of a document.</summary>

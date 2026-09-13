@@ -71,9 +71,12 @@ public class BrowserSelectorBenchmark
     /// <summary>
     /// The pass count for a row whose single pass is already well above a mailbox round trip on its own —
     /// <see cref="TargetMissing"/> (roughly 880 µs after the fix in this file's own change, and far more
-    /// before it) and <see cref="Indeterminate"/> (roughly 100 ms, since it scans the whole document for
-    /// every one of a hundred unchecked radios). Looping either further would only make the class slower to
-    /// run for no gain in signal.
+    /// before it) and <see cref="Indeterminate"/> (roughly 1.6 ms after sebastienros/jint#4013's subtree-walk
+    /// fix replaced <c>TheRadioButtonGroupOfHasACheckedMember</c>'s O(descendants²) scan with
+    /// <c>DomElementWalker</c>, and roughly 100 ms before it — the O(n²) cost of scanning the whole document
+    /// for every one of a hundred unchecked radios). Both stay comfortably above the round trip even after
+    /// the fix, so one pass is still enough to measure either. Looping either further would only make the
+    /// class slower to run for no gain in signal.
     /// </summary>
     private const int DominantWorkPasses = 1;
 

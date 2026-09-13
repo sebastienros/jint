@@ -1076,6 +1076,43 @@ public sealed class PagePseudoClassSelectorTests
     }
 
     /// <summary>
+    /// The radio-button group scan walks the whole tree the radio button belongs to, which for a detached
+    /// subtree is rooted at the topmost ancestor <c>RootElementOf</c> finds by climbing <c>parentElement</c>
+    /// links -- and that root is itself a candidate, not only its descendants. A void element accepting a
+    /// child through the DOM API rather than through parsing (the void content model is a parser rule, not a
+    /// node-hierarchy one, so <c>appendChild</c> onto an <c>input</c> is unremarkable to the DOM itself) is
+    /// what puts a checked radio button in that position here: the tree's own root is the checked member,
+    /// with the button under test its only descendant, so the group scan finds no checked member at all
+    /// unless the root is tested along with everything under it.
+    /// </summary>
+    [Test]
+    public async Task IndeterminateFindsAGroupsCheckedMemberWhenItIsTheTreesOwnRoot()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<!doctype html><html><body></body></html>");
+
+        (await page.EvaluateAsync<bool>("""
+            (() => {
+              const checkedRoot = document.createElement('input');
+              checkedRoot.type = 'radio';
+              checkedRoot.name = 'group';
+              checkedRoot.checked = true;
+
+              const other = document.createElement('input');
+              other.type = 'radio';
+              other.name = 'group';
+
+              // `other`'s only ancestor is `checkedRoot`, which is never attached to the document -- so
+              // `checkedRoot` is the topmost element of `other`'s own tree, not merely a sibling of it.
+              checkedRoot.appendChild(other);
+
+              return other.matches(':indeterminate');
+            })()
+            """)).Should().BeFalse();
+    }
+
+    /// <summary>
     /// HTML §4.16.3: <c>:focus</c> matches the element which has the focus, which for this package is the one
     /// <c>Events/FocusController</c> holds — the same element <c>document.activeElement</c> names and every
     /// focus event is dispatched at. AngleSharp answers from <c>IElement.IsFocused</c>, which nothing assigns,
