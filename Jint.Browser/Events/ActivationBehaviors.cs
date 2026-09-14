@@ -66,6 +66,7 @@ internal static class ActivationBehaviors
     /// </summary>
     internal static void LegacyPreActivationBehavior(DomNodeObject wrapper)
     {
+        using var mutation = wrapper.DomRealm.MutateLayout();
         // A disabled control's activation behaviour does nothing, so its pre-activation behaviour must do
         // nothing either — otherwise the toggle would happen with no activation behaviour left to roll it
         // back. HTML reaches the same place by never letting a click at a disabled control be dispatched at
@@ -99,6 +100,7 @@ internal static class ActivationBehaviors
     /// </summary>
     internal static void LegacyCanceledActivationBehavior(DomNodeObject wrapper)
     {
+        using var mutation = wrapper.DomRealm.MutateLayout();
         if (wrapper.Node is not IHtmlInputElement input || !_snapshots.TryGetValue(wrapper, out var snapshot))
         {
             return;
@@ -129,6 +131,7 @@ internal static class ActivationBehaviors
     /// </summary>
     internal static void Run(DomNodeObject wrapper, JsEvent ev)
     {
+        using var mutation = wrapper.DomRealm.MutateLayout();
         var realm = BrowserEventRealm.Of(wrapper.DomRealm.Engine);
 
         switch (wrapper.Node)

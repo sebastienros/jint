@@ -4,39 +4,30 @@ Tracking: [#3698](https://github.com/sebastienros/jint/issues/3698).
 
 ## Status
 
-The shipped geometry remains query-local. This document specifies the integration needed before a
-layout or cascade may survive a query. It does not claim that a cache or a mutation generation exists.
+`PageLayout` implements Browser-owned invalidation with the existing AngleSharp 1.8.1 and
+AngleSharp.Css 1.1.2 packages. It may retain its lazy size query, cascade and complete layout across
+unchanged reads when Jint controls the writers. It does not install a layout `MutationObserver`.
+Upstream package updates are not required for this implementation.
 
-The audit on 2026-09-13 used the pinned AngleSharp 1.8.1 and AngleSharp.Css 1.1.2 assemblies. PRs #3888,
-#3908 and #3927 are merged. The former shares placement and cascade work within a query; the latter two
-preserve scrolling and first-hit-test event coordinates. None supplies cross-query invalidation.
+The public `Page` API normally keeps native DOM/CSSOM objects internal. Generated mutators and the
+manual Browser algorithms are therefore usable interception points. The native-write reproducers from
+the earlier audit establish a limitation of a general external observer, not an impossibility of
+instrumenting the Browser's own calls. Arbitrary host/native integrations retain query-local behavior.
 
-Upstream has since merged [AngleSharp #1344](https://github.com/AngleSharp/AngleSharp/pull/1344), at
-`eb3925b9dfc0731cf249e82b13b7bb19a2022db8`. Its upcoming 1.8.2 adds public `Document.MutationVersion`,
-covering tree, attribute and character-data writes. Stable 1.8.2 did not resolve during this audit,
-but `1.8.2-beta.715` does and its assembly exposes this property. Consume and test that producer;
-a duplicate DOM revision implementation is unnecessary.
-
-The review of #1344 requires construction to leave the version unchanged. Follow-up
-[AngleSharp #1347](https://github.com/AngleSharp/AngleSharp/pull/1347) moves mutation bookkeeping out of
-the parser's raw tree operations. A completed parse leaves the version at zero because construction
-never increments it, not because it is reset afterward. User updates, including updates made from
-parser callbacks, still advance the version. Jint must own parser and resource-loading invalidation;
-the dependency counter alone does not cover those boundaries or extension-owned stylesheet state.
-
-The native selector-state and CSSOM producer gaps are tracked in draft
+The upstream proposals remain useful for broader native-write coverage:
 [AngleSharp #1349](https://github.com/AngleSharp/AngleSharp/pull/1349) and
-[AngleSharp.Css #248](https://github.com/AngleSharp/AngleSharp.Css/pull/248). These require owner review
-before maintainer review. Their versions are signals for user mutations, not for parser construction.
+[AngleSharp.Css #248](https://github.com/AngleSharp/AngleSharp.Css/pull/248) are ready for review with owner
+approval. [AngleSharp #1344](https://github.com/AngleSharp/AngleSharp/pull/1344) introduced the Core token;
+[#1347](https://github.com/AngleSharp/AngleSharp/pull/1347) separates construction from mutations.
+These are optional future producers. Jint still owns parser/resource lifecycle and environment inputs.
 
-A Release probe with `1.8.2-beta.715` and Css `1.1.2`, using a document with a stylesheet and checkbox,
-confirmed that `ClassList.Add`, inline `GetStyle().SetProperty` and tree removal advance the counter.
-`IHtmlInputElement.IsChecked = true`, `ICssStyleRule.Style.SetProperty` and `ICssStyleSheet.Insert` leave
-it unchanged. These are observable rendering inputs, so the incoming counter alone cannot license reuse.
+The 2026-09-13 dependency audit used the pinned assemblies and a Core `1.8.2-beta.715` probe. In that
+probe `ClassList.Add`, inline `GetStyle().SetProperty` and tree removal advanced the incoming DOM counter;
+native checkedness, stylesheet declaration writes and rule insertion did not. The counter alone could
+not authorize reuse. No package pin changes accompany the Browser-owned implementation.
 
-Jint PR [#4066](https://github.com/sebastienros/jint/pull/4066) handles the remaining mouse-offset cases
-independently: single-element placement before the first listener avoids a complete layout, and no
-listener means no measurement. A cache is no longer a prerequisite for that correction.
+PRs #3888, #3908, #3927 and #4066 are merged. Query-local geometry and captured mouse offsets remain the
+fallback and the event contract. A mouse event retains captured numbers, not a live cache entry.
 
 ## What the pinned dependencies expose
 
@@ -50,10 +41,10 @@ listener means no measurement. A cache is no longer a prerequisite for that corr
 | `IAttributeObserver.NotifyChange` | Configurable attribute observation | Does not cover tree/character changes or all independent rendering state |
 | `ICssStyleSheet` | Rules, insertion/removal and ownership | No general revision covering nested rules, declaration setters, media and disabled state |
 
-`Document.Changed` is the DOM `change` event, not a notification for arbitrary edits. A wrapper-only
-counter misses direct dependency writes, parser insertions and operations on dependency-owned token
-lists or attribute maps. A whole-document `MutationObserver` allocates records and delivers them later;
-even flushing records before a read would not cover CSSOM or selector state.
+`Document.Changed` is the DOM `change` event, not a notification for arbitrary edits. A whole-document
+observer allocates records and cannot report all CSSOM or selector-state changes even with synchronous
+draining. A complete local integration must also cover nested wrappers (token lists, attributes,
+declarations and rule lists), manual native algorithms, parser boundaries and host customization.
 
 ## Required contract
 
@@ -83,39 +74,58 @@ The incoming DOM counter is a signed 64-bit increment, not a saturating revision
 extra increments and gives step size no meaning. The integration must not assume one increment per API
 call, and must define its behavior at rollover rather than treating the counter as an ordered timestamp.
 
-## Integration design
+## Browser-owned integration
 
-Prefer dependency-owned revisions at the algorithms that decide a user mutation occurred. Raw parser
-construction must bypass mutation bookkeeping. Consume the incoming DOM generation after verifying
-native tree/attribute/text writes, including token-list writes and aggregate updates such as `innerHTML`.
-CSSOM invalidation belongs at user-facing stylesheet/rule/declaration/media setters and must propagate
-from nested objects to their owning sheet. Parsing a detached rule against an existing sheet must not
-invalidate that sheet; inserting the parsed rule must. Revisions should require no mutation record,
-callback allocation or engine reference. Report parser time and allocation overhead separately from
-user-update overhead, with before, after and percentage deltas for each.
+`PageLayout.BeginMutation()` returns an allocation-free scope. The outermost scope invalidates on entry
+and exit, including exceptional exits. Geometry queried while a scope is open is always fresh and is not
+retained. This covers argument conversions, custom-element reactions, event callbacks and operations
+that change some state before throwing. Extra invalidation for no-ops is allowed. `Version` is an opaque,
+saturating page-local revision; reaching its limit disables reuse instead of wrapping.
 
-Initially keep geometry query-local while HTML parsing can resume, including script callbacks during
-parsing. Drop retained work on parser entry and completion, `document.open` / `document.write`, stylesheet
-attachment and resource/import completion. Persistent reuse may resume only when construction is
-finished and the complete identity is known. A future optimization may replace this conservative rule
-with explicit parser-boundary epochs, but it must first prove that every resume and callback boundary
-is covered. Do not add per-node revision increments to make a consumer cache work during construction.
+The binding generator emits `DomFailures.GuardMutation` for every setter and for operations outside an
+explicit list of reads. Unknown/new operations default to invalidation. Both guard variants share the
+existing exception translation and preserve shaped prototypes. Hand-written reflected/ARIA setters,
+named-property writes/deletes, file-input synchronization, selection deletion, input editing, activation
+and its rollback, form reset and protocol DOM edits enter the same scope. A new native write must do so
+as well. Nested wrappers are covered by their own mutating members; DOM expandos are ordinary JS state.
 
-Jint supplies the environment and browser state revisions on its page loop. A page-local cache may then
-retain the native cascade traversal and geometry for a complete identity, clearing them together when
-any component changes. Do not retain one traversal across an unclassified host callback. The consumer
-must use the same placement algorithm for rectangles, hit tests, offsets and resize measurements.
+The page checks document identity, media environment, native document URL, focus and pointer-press
+state before reusing anything. Replacing the document releases retained work immediately. Sizes and
+placement stay in document coordinates; scroll projection and content-shrink clamping remain current.
+A complete layout can share the retained size query and cascade, but never causes a single-rectangle
+request to eagerly lay out unrelated descendants.
 
-If supported hooks cannot express the producers, the choices are a dependency change consumed through
-a package update or a maintained local dependency integration. Private reflection and a partial wrapper
-counter do not establish this contract. Record the chosen ownership and package/build consequences in
-the implementation PR before introducing reuse.
+The following paths deliberately keep the existing fresh-query behavior:
+
+- HTML construction, including parser callbacks and resumptions. The whole initial load is suspended;
+  generated markup setters and document rewrites enter mutation scopes too. There are no per-node parser
+  revision updates, and no revision is reset after construction.
+- Any `BrowserOptions.ConfigureEngine` registration. It can install native writers, converters or services
+  that bypass Browser bindings. Even a customization that happens to be read-only takes this conservative
+  fallback; no public host contract is restricted or replaced by an implicit invalidation obligation.
+- `Page.RunOnLoopAsync` callbacks. This internal escape hatch can run arbitrary native writes, so its whole
+  callback is suspended. Public `Page.EvaluateAsync` goes through the tracked script bindings instead.
+- A document for which the driver starts loading an external stylesheet or frame. Native asynchronous
+  attachment is not fully intercepted, so reuse stays disabled for that document, including after load.
+- Stylesheets containing `@import`. Imports are detected once per invalidated revision by walking rule
+  lists; unchanged cacheable reads do not rescan rules or serialize the DOM. Adding an import invalidates
+  the previous eligibility decision. Completion of an imported sheet cannot make the fallback stale.
+- Active CSS rule-usage coverage for this document. Recomputing preserves coverage observations, including
+  when tracking starts after geometry has already been warmed. Other documents' trackers do not disable it.
+
+These are performance fallbacks, not refusals of functionality. They can be narrowed when an explicit
+boundary and regression test prove the relevant native writes are observable. Private reflection, a
+second DOM store and local forks of AngleSharp are unnecessary.
+
+The original native-call audit remains relevant to a host that wants unrestricted native writes plus
+persistent caching. Such a host needs native dependency versions or a cooperative mutation boundary;
+that stronger contract is not silently assumed for the default Browser API.
 
 ## Validation and completion
 
-1. Add dependency tests for each revision producer, including no-op and failed writes, direct CLR
-   operations, re-entrant callbacks and cross-document moves. Require unchanged versions during normal
-   construction and preserve user changes made from parser callbacks without resetting their versions.
+1. Exercise every Browser-owned producer, including no-op and failed writes, native algorithms,
+   reentrant callbacks, nested CSSOM and cross-document moves. Verify parsing and unknown native writers
+   keep fresh-query behavior. Optional upstream producers need their own dependency tests.
 2. Add consumer tests comparing warmed reads with fresh-query geometry for every row above, on net8.0
    and net10.0 in fresh Release builds. Include independent pages and document replacement.
 3. Demonstrate reuse for unchanged reads with operation counts; demonstrate that mutation-only pages

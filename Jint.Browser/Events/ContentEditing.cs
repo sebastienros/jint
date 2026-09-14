@@ -99,6 +99,7 @@ internal static class ContentEditing
     /// <returns><see langword="true"/> when the key was consumed by the editor.</returns>
     internal static bool HandleKeyDown(DomRealm dom, IElement host, in KeyOptions options, bool allowInsertion)
     {
+        using var mutation = dom.MutateLayout();
         var extend = (options.Modifiers & EventModifiers.Shift) != EventModifiers.None;
         var shortcut = (options.Modifiers & (EventModifiers.Control | EventModifiers.Meta)) != EventModifiers.None;
 
@@ -175,6 +176,7 @@ internal static class ContentEditing
     /// </summary>
     internal static bool Insert(DomRealm dom, IElement host, string text, string inputType)
     {
+        using var mutation = dom.MutateLayout();
         if (Caret(dom, host) is not { } caret)
         {
             return false;
@@ -195,6 +197,7 @@ internal static class ContentEditing
 
     private static bool Delete(DomRealm dom, IElement host, in EditingCaret caret, bool forward)
     {
+        using var mutation = dom.MutateLayout();
         var data = caret.Text.Data ?? "";
         var start = caret.Start;
         var end = caret.End;

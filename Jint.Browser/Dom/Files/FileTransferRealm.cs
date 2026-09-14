@@ -158,6 +158,7 @@ internal sealed class FileTransferRealm
 
     internal void SetInputFiles(IHtmlInputElement input, JsFileList files)
     {
+        using var mutation = DomRealm.Of(_engine).MutateLayout();
         if (!IsFileInput(input))
         {
             return;
@@ -180,6 +181,7 @@ internal sealed class FileTransferRealm
 
     internal JsValue SetInputValue(IHtmlInputElement input, string value)
     {
+        using var mutation = DomRealm.Of(_engine).MutateLayout();
         if (!IsFileInput(input))
         {
             input.Value = value;
@@ -202,6 +204,7 @@ internal sealed class FileTransferRealm
 
     internal JsValue SetInputType(IHtmlInputElement input, string type)
     {
+        using var mutation = DomRealm.Of(_engine).MutateLayout();
         var wasFile = IsFileInput(input);
         input.Type = type;
         if (wasFile != IsFileInput(input))
@@ -289,6 +292,7 @@ internal sealed class FileTransferRealm
 
     private void ClearInput(IHtmlInputElement input, bool preserveList)
     {
+        using var mutation = DomRealm.Of(_engine).MutateLayout();
         if (_inputFiles.TryGetValue(input, out var state))
         {
             if (state.External)
@@ -316,8 +320,9 @@ internal sealed class FileTransferRealm
         }
     }
 
-    private static void MirrorToAngleSharp(IHtmlInputElement input, JsFileList files)
+    private void MirrorToAngleSharp(IHtmlInputElement input, JsFileList files)
     {
+        using var mutation = DomRealm.Of(_engine).MutateLayout();
         var target = input.Files;
         if (target is null)
         {

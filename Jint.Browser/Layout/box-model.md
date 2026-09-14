@@ -1,4 +1,4 @@
-# The flat box model: one geometry, recomputed per query
+# The flat box model: one geometry with Browser-owned invalidation
 
 > **Read this when:** You are touching `Jint.Browser/Layout/` — the row rule, the hit test, the flex rows,
 > the cascade traversal, the virtual scroll, or the DOM members that expose any of them.
@@ -42,7 +42,7 @@ layout remain unmodeled. A row shares vertical space instead of stacking full-wi
 button no longer owns its parent's centre. DOM rectangles, hit testing, offsets and resize measurements
 use the same boxes. Documents without these rows keep the existing ordinal hit-test path.
 
-The cascade indexes required subject classes through AngleSharp's selector visitor for this query only.
+The cascade indexes required subject classes through AngleSharp's selector visitor for the current layout revision.
 Selectors without a required class stay candidates for every element; the native matcher decides the
 result and specificity, with original rule order retained. Nested rules participate in the same index.
 The full computed-style path supplies the union of the element and ancestor candidates to AngleSharp
@@ -54,17 +54,20 @@ positions and preceding sibling extents on demand; a complete layout asks it for
 positive, stopping once the current viewport bottom is covered. A zero offset is already clamped and
 needs no document-height walk. Partial counts never enter the exact-size cache. Placement measures
 ancestor heights only when flex alignment needs them, then requests the chosen rectangle. It does not
-position unrelated descendants or retain results after the query.
+position unrelated descendants. A page with fully tracked writers can retain these results until invalidation.
 
 Mouse offsets use that same single-element placement before the first listener can run, after dispatch
 has assigned the target. Only the numeric offsets survive the listener. A dispatch without listeners
 does no placement, and the first hit-tested input event uses its already measured offsets. Each later
 event or script redispatch takes a new measurement because an earlier callback may have changed the DOM.
 
-**It is recomputed per query and never cached across queries.** A cache needs an invalidation signal, and the only one
-available is an AngleSharp `MutationObserver` over the whole document — which would make every DOM mutation on
-every page pay for mutation records whether or not anything ever asks for a box. Within that synchronous
-walk, `CssCascade.Traversal` shares the style collection and raw parent cascades: calling
+**`PageLayout` retains measurements under its own mutation revision.** Generated mutators and manual/native
+writes suspend reuse on entry and clear it again on exit, so callbacks and failed mutations cannot expose
+stale boxes. Media, URL, focus and pointer-press state are independent inputs; scrolling projects current
+document-space measurements without rebuilding their cascade. Parsing, native resource attachment, imports,
+host customization and unclassified internal callbacks retain query-local behavior. No layout mutation
+observer is installed. See [the invalidation contract](../../docs/design/layout-invalidation.md) for the
+coverage and fallbacks. `CssCascade.Traversal` shares the style collection and raw parent cascades: calling
 `ComputeCurrentStyle` separately for every element rematches every ancestor, which made a nested admin form
 expensive at every step of Playwright's actionability checks. Visibility and flex measurements filter the active rule collection to the properties they consume,
 including shorthand values and their custom-property dependencies. AngleSharp still owns matching, specificity,
@@ -75,8 +78,8 @@ rematch every ancestor. The public bulk renderer instead eagerly recurses throug
 cannot accept this traversal's style collection or isolate per-element failures. Raw ordinary declarations
 preserve the existing child-relative lengths; custom properties inherit resolved values. Invalid inherited
 consumers use the parent's computed value rather than the native initial fallback. Unresolved explicit
-`inherit` retains the ancestor-walk compatibility path. Nothing survives the query, so same-turn CSSOM
-writes, `classList`, control state and media changes need no invalidation.
+`inherit` retains the ancestor-walk compatibility path. Same-turn CSSOM writes, `classList`, control state
+and media changes invalidate retained layout work before the next read.
 
 **The scroll is virtual, and it is the only state.** `Layout/PageLayout` holds a `scrollY` clamped to the
 document, and every viewport-relative answer subtracts it; `scrollX` stays zero because horizontal overflow

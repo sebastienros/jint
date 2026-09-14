@@ -209,6 +209,7 @@ internal sealed class JsSelection : ObjectInstance
     /// <summary>https://w3c.github.io/selection-api/#dom-selection-deletefromdocument.</summary>
     internal JsValue DeleteFromDocument()
     {
+        using var mutation = _runtime.Layout.BeginMutation();
         if (_range is null)
         {
             return JsValue.Undefined;

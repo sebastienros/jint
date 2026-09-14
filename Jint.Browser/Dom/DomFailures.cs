@@ -40,6 +40,19 @@ namespace Jint.Browser.Dom;
 /// </remarks>
 internal static class DomFailures
 {
+    /// <summary>Translates failures and brackets a generated mutator's complete native call.</summary>
+    internal static Func<JsValue, JsValue[], JsValue> GuardMutation(
+        string member,
+        Func<JsValue, JsValue[], JsValue> implementation)
+    {
+        var guarded = Guard(member, implementation);
+        return (receiver, arguments) =>
+        {
+            using var mutation = (receiver as IDomWrapper)?.DomRealm.MutateLayout() ?? default;
+            return guarded(receiver, arguments);
+        };
+    }
+
     /// <summary>
     /// Wraps a generated member body so that the four CLR exceptions above cross into script as the throw
     /// the standard prescribes. The wrapping happens once per member, when the interface's shape is built.

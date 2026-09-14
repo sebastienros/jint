@@ -166,6 +166,7 @@ internal static class AriaElementReflection
         internal JsValue Set(JsValue thisObject, JsValue[] arguments)
         {
             var self = DomBindings.Bind<IElement>(thisObject, Member);
+            using var mutation = self.Realm.MutateLayout();
             var entry = self.Realm.AriaCacheFor(self.Target).At(_index);
             var value = arguments.Length > 0 ? arguments[0] : JsValue.Undefined;
 

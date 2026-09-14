@@ -35,11 +35,10 @@ namespace Jint.Browser.Layout;
 /// no text measurement, wrapping, gaps, margins, min/max sizing, main-axis justification, ordering or positioned layout.
 /// </para>
 /// <para>
-/// <b>It is recomputed per query and never cached.</b> A cache would need an invalidation signal, and the
-/// only one available is an AngleSharp <c>MutationObserver</c> over the whole document — which would make
-/// every DOM mutation on every page pay for mutation records whether or not anything ever asks for a box.
-/// One walk shares a cascade so each element's selectors are matched once, not again for every descendant.
-/// The scope ends with the query, so mutations, focus and media changes need no invalidation machinery.
+/// <b>PageLayout owns reuse and invalidation.</b> This factory still builds a fresh layout. The page may
+/// share its size query and cascade until a Browser-owned mutation, environment change or lifecycle boundary.
+/// Unclassified native writers and construction keep query-local measurements. No layout mutation observer
+/// is installed, so pages which never read geometry allocate no layout observer records.
 /// </para>
 /// </remarks>
 internal sealed class FlatLayout
@@ -90,21 +89,23 @@ internal sealed class FlatLayout
     /// <param name="viewportWidth">The viewport width, partitioned between children of flex rows.</param>
     /// <param name="viewportHeight">The viewport height, which bounds a hit test.</param>
     /// <param name="scrollY">How far the page is scrolled.</param>
+    /// <param name="sizes">Optional measurements from the page's current layout revision.</param>
     internal static FlatLayout Of(
         IDocument? document,
         ElementVisibility visibility,
         double viewportWidth,
         double viewportHeight,
-        double scrollY)
+        double scrollY,
+        SizeQuery? sizes = null)
     {
         var layout = new FlatLayout(viewportWidth, viewportHeight, scrollY);
-        var cascade = visibility.CreateTraversal(document);
+        var cascade = sizes is null ? visibility.CreateTraversal(document) : sizes.Cascade;
 
         if (document?.DocumentElement is { } root && IsRendered(root, visibility, cascade))
         {
             if (layout.Walk(root, visibility, cascade))
             {
-                layout.Arrange(new SizeQuery(document, visibility, viewportWidth, cascade));
+                layout.Arrange(sizes ?? new SizeQuery(document, visibility, viewportWidth, cascade));
             }
         }
 
@@ -287,7 +288,8 @@ internal sealed class FlatLayout
     /// <summary>
     /// A synchronous size-only query: ancestors decide visibility and width; flex siblings also determine
     /// distributed widths and stretched heights. Unrelated document branches need no rows.
-    /// Measurements and the cascade are shared within the query, never across mutations or callbacks.
+    /// PageLayout may retain measurements and the cascade while its complete invalidation identity is valid.
+    /// Native mutation scopes, parsing and unclassified callbacks always get independent queries.
     /// </summary>
     internal sealed class SizeQuery(
         IDocument? document,
@@ -295,6 +297,8 @@ internal sealed class FlatLayout
         double viewportWidth,
         CssCascade.Traversal? cascade)
     {
+        internal CssCascade.Traversal? Cascade => cascade;
+
         private readonly Dictionary<IElement, bool> _rendered = new(ReferenceEqualityComparer.Instance);
         private readonly Dictionary<IElement, int> _rows = new(ReferenceEqualityComparer.Instance);
         private readonly Dictionary<IElement, double> _widths = new(ReferenceEqualityComparer.Instance);

@@ -91,6 +91,10 @@ internal sealed class DomRealm
     /// <summary>The engine every object in this realm belongs to.</summary>
     internal Engine Engine { get; }
 
+    /// <summary>Brackets a Browser-owned native mutation, including reentrant script and failures.</summary>
+    internal Layout.PageLayout.MutationScope MutateLayout()
+        => Runtime.PageRuntime.Find(Engine)?.Layout.BeginMutation() ?? default;
+
     /// <summary>
     /// The realm owning these constructors and prototypes, captured independently of the currently
     /// running realm. Node identity and creation associations are shared across the engine.

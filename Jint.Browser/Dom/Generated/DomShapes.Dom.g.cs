@@ -84,7 +84,7 @@ internal static partial class DomInterfaces
             .Constant("PROCESSING_INSTRUCTION_NODE", global::Jint.Native.JsNumber.Create(7))
             .Constant("TEXT_NODE", global::Jint.Native.JsNumber.Create(3))
             .Method("appendChild",
-                global::Jint.Browser.Dom.DomFailures.Guard("Node.appendChild", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Node.appendChild", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INode>(thisObj, "Node.appendChild");
                     return self.Realm.WrapNodeValue(self.Target.AppendChild(global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Dom.INode>(args, 0, "Node.appendChild")));
@@ -103,7 +103,7 @@ internal static partial class DomInterfaces
                     return self.Realm.Wrap(self.Target.ChildNodes);
                 }))
             .Method("cloneNode",
-                global::Jint.Browser.Dom.DomFailures.Guard("Node.cloneNode", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Node.cloneNode", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INode>(thisObj, "Node.cloneNode");
                     return self.Realm.Hooks.CloneNode(self.Realm, self.Target, args);
@@ -144,7 +144,7 @@ internal static partial class DomInterfaces
                 }),
                 length: 0)
             .Method("insertBefore",
-                global::Jint.Browser.Dom.DomFailures.Guard("Node.insertBefore", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Node.insertBefore", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INode>(thisObj, "Node.insertBefore");
                     return self.Realm.WrapNodeValue(self.Target.InsertBefore(global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Dom.INode>(args, 0, "Node.insertBefore"), global::Jint.Browser.Dom.DomBindings.NullableArgument<global::AngleSharp.Dom.INode>(args, 1, "Node.insertBefore")));
@@ -221,13 +221,13 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INode>(thisObj, "Node.nodeValue");
                     return global::Jint.Browser.Dom.DomConvert.NullableText(self.Target.NodeValue);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("Node.nodeValue", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Node.nodeValue", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INode>(thisObj, "Node.nodeValue");
                     self.Target.NodeValue = global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "Node.nodeValue"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Method("normalize",
-                global::Jint.Browser.Dom.DomFailures.Guard("Node.normalize", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Node.normalize", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INode>(thisObj, "Node.normalize");
                     self.Target.Normalize(); return global::Jint.Native.JsValue.Undefined;
@@ -258,14 +258,14 @@ internal static partial class DomInterfaces
                     return self.Realm.WrapNodeValue(self.Target.PreviousSibling);
                 }))
             .Method("removeChild",
-                global::Jint.Browser.Dom.DomFailures.Guard("Node.removeChild", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Node.removeChild", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INode>(thisObj, "Node.removeChild");
                     return self.Realm.WrapNodeValue(self.Target.RemoveChild(global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Dom.INode>(args, 0, "Node.removeChild")));
                 }),
                 length: 1)
             .Method("replaceChild",
-                global::Jint.Browser.Dom.DomFailures.Guard("Node.replaceChild", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Node.replaceChild", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INode>(thisObj, "Node.replaceChild");
                     return self.Realm.WrapNodeValue(self.Target.ReplaceChild(global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Dom.INode>(args, 0, "Node.replaceChild"), global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Dom.INode>(args, 1, "Node.replaceChild")));
@@ -277,7 +277,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INode>(thisObj, "Node.textContent");
                     return global::Jint.Browser.Dom.DomConvert.NullableText(self.Target.TextContent);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("Node.textContent", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Node.textContent", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INode>(thisObj, "Node.textContent");
                     self.Target.TextContent = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Node.textContent"); return global::Jint.Native.JsValue.Undefined;
@@ -331,7 +331,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IAttr>(thisObj, "Attr.value");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Value);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("Attr.value", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Attr.value", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IAttr>(thisObj, "Attr.value");
                     self.Target.Value = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Attr.value"); return global::Jint.Native.JsValue.Undefined;
@@ -349,7 +349,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IStyleSheet>(thisObj, "StyleSheet.disabled");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsDisabled);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("StyleSheet.disabled", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("StyleSheet.disabled", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IStyleSheet>(thisObj, "StyleSheet.disabled");
                     self.Target.IsDisabled = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
@@ -366,7 +366,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IStyleSheet>(thisObj, "StyleSheet.media");
                     return self.Realm.Wrap(self.Target.Media);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("StyleSheet.media", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("StyleSheet.media", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IStyleSheet>(thisObj, "StyleSheet.media");
                     var forwardTarget = self.Target.Media; if (forwardTarget is not null) { forwardTarget.MediaText = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "StyleSheet.media"); } return global::Jint.Native.JsValue.Undefined;
@@ -401,21 +401,21 @@ internal static partial class DomInterfaces
                 static self => global::Jint.Browser.Dom.DomUnscopables.Create(self, _unscopablesCharacterData),
                 writable: false)
             .Method("after",
-                global::Jint.Browser.Dom.DomFailures.Guard("CharacterData.after", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CharacterData.after", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ICharacterData>(thisObj, "CharacterData.after");
                     self.Realm.Hooks.After(self.Realm, self.Target, args); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Method("appendData",
-                global::Jint.Browser.Dom.DomFailures.Guard("CharacterData.appendData", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CharacterData.appendData", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ICharacterData>(thisObj, "CharacterData.appendData");
                     self.Target.Append(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CharacterData.appendData")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 1)
             .Method("before",
-                global::Jint.Browser.Dom.DomFailures.Guard("CharacterData.before", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CharacterData.before", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ICharacterData>(thisObj, "CharacterData.before");
                     self.Realm.Hooks.Before(self.Realm, self.Target, args); return global::Jint.Native.JsValue.Undefined;
@@ -427,20 +427,20 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ICharacterData>(thisObj, "CharacterData.data");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Data);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CharacterData.data", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CharacterData.data", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ICharacterData>(thisObj, "CharacterData.data");
                     self.Target.Data = global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CharacterData.data"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Method("deleteData",
-                global::Jint.Browser.Dom.DomFailures.Guard("CharacterData.deleteData", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CharacterData.deleteData", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ICharacterData>(thisObj, "CharacterData.deleteData");
                     return global::Jint.Browser.Dom.DomCharacterDataMembers.DeleteData(self.Realm, self.Target, args);
                 }),
                 length: 2)
             .Method("insertData",
-                global::Jint.Browser.Dom.DomFailures.Guard("CharacterData.insertData", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CharacterData.insertData", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ICharacterData>(thisObj, "CharacterData.insertData");
                     return global::Jint.Browser.Dom.DomCharacterDataMembers.InsertData(self.Realm, self.Target, args);
@@ -465,21 +465,21 @@ internal static partial class DomInterfaces
                     return self.Realm.WrapNodeValue(self.Target.PreviousElementSibling);
                 }))
             .Method("remove",
-                global::Jint.Browser.Dom.DomFailures.Guard("CharacterData.remove", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CharacterData.remove", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ICharacterData>(thisObj, "CharacterData.remove");
                     self.Target.Remove(); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Method("replaceData",
-                global::Jint.Browser.Dom.DomFailures.Guard("CharacterData.replaceData", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CharacterData.replaceData", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ICharacterData>(thisObj, "CharacterData.replaceData");
                     return global::Jint.Browser.Dom.DomCharacterDataMembers.ReplaceData(self.Realm, self.Target, args);
                 }),
                 length: 3)
             .Method("replaceWith",
-                global::Jint.Browser.Dom.DomFailures.Guard("CharacterData.replaceWith", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CharacterData.replaceWith", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ICharacterData>(thisObj, "CharacterData.replaceWith");
                     self.Realm.Hooks.ReplaceWith(self.Realm, self.Target, args); return global::Jint.Native.JsValue.Undefined;
@@ -520,28 +520,28 @@ internal static partial class DomInterfaces
             .ToStringTag("DOMImplementation")
             .PerRealmSlot("constructor", enumerable: false)
             .Method("createDocument",
-                global::Jint.Browser.Dom.DomFailures.Guard("DOMImplementation.createDocument", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("DOMImplementation.createDocument", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IImplementation>(thisObj, "DOMImplementation.createDocument");
                     return global::Jint.Browser.Dom.Views.DomViewMembers.CreateDocument(self.Realm, args);
                 }),
                 length: 2)
             .Method("createDocumentType",
-                global::Jint.Browser.Dom.DomFailures.Guard("DOMImplementation.createDocumentType", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("DOMImplementation.createDocumentType", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IImplementation>(thisObj, "DOMImplementation.createDocumentType");
                     return self.Realm.WrapNodeValue(self.Target.CreateDocumentType(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "DOMImplementation.createDocumentType"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "DOMImplementation.createDocumentType"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 2, "DOMImplementation.createDocumentType")));
                 }),
                 length: 3)
             .Method("createHTMLDocument",
-                global::Jint.Browser.Dom.DomFailures.Guard("DOMImplementation.createHTMLDocument", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("DOMImplementation.createHTMLDocument", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IImplementation>(thisObj, "DOMImplementation.createHTMLDocument");
                     return global::Jint.Browser.Dom.Views.DomViewMembers.CreateHtmlDocument(self.Realm, self.Target, args);
                 }),
                 length: 0)
             .Method("hasFeature",
-                global::Jint.Browser.Dom.DomFailures.Guard("DOMImplementation.hasFeature", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("DOMImplementation.hasFeature", static (thisObj, args) =>
                 {
                     global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IImplementation>(thisObj, "DOMImplementation.hasFeature");
                     // https://dom.spec.whatwg.org/#dom-domimplementation-hasfeature is one step: "return true".
@@ -597,7 +597,7 @@ internal static partial class DomInterfaces
                 global::Jint.Native.Symbol.GlobalSymbolRegistry.Iterator,
                 global::Jint.Browser.Dom.Collections.DomIterator.ArrayValues)
             .Method("add",
-                global::Jint.Browser.Dom.DomFailures.Guard("DOMTokenList.add", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("DOMTokenList.add", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITokenList>(thisObj, "DOMTokenList.add");
                     return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Add(self.Realm, self.Target, args);
@@ -624,14 +624,14 @@ internal static partial class DomInterfaces
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);
                 }))
             .Method("remove",
-                global::Jint.Browser.Dom.DomFailures.Guard("DOMTokenList.remove", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("DOMTokenList.remove", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITokenList>(thisObj, "DOMTokenList.remove");
                     return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Remove(self.Realm, self.Target, args);
                 }),
                 length: 0)
             .Method("replace",
-                global::Jint.Browser.Dom.DomFailures.Guard("DOMTokenList.replace", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("DOMTokenList.replace", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITokenList>(thisObj, "DOMTokenList.replace");
                     return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Replace(self.Realm, self.Target, args);
@@ -652,7 +652,7 @@ internal static partial class DomInterfaces
                 }),
                 length: 0)
             .Method("toggle",
-                global::Jint.Browser.Dom.DomFailures.Guard("DOMTokenList.toggle", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("DOMTokenList.toggle", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITokenList>(thisObj, "DOMTokenList.toggle");
                     return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Toggle(self.Realm, self.Target, args);
@@ -664,7 +664,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITokenList>(thisObj, "DOMTokenList.value");
                     return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Value(self.Target);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("DOMTokenList.value", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("DOMTokenList.value", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITokenList>(thisObj, "DOMTokenList.value");
                     return global::Jint.Browser.Dom.Collections.DomTokenListMembers.SetValue(self.Realm, self.Target, args);
@@ -698,7 +698,7 @@ internal static partial class DomInterfaces
                     return element is null ? global::Jint.Native.JsValue.Null : self.Realm.WrapNode(element);
                 }))
             .Method("adoptNode",
-                global::Jint.Browser.Dom.DomFailures.Guard("Document.adoptNode", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.adoptNode", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.adoptNode");
                     return self.Realm.Hooks.AdoptNode(self.Realm, self.Target, args);
@@ -710,7 +710,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.alinkColor");
                     return global::Jint.Browser.Dom.DomReflected.DocumentAlinkColor.Get(self.Target);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("Document.alinkColor", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.alinkColor", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.alinkColor");
                     return global::Jint.Browser.Dom.DomReflected.DocumentAlinkColor.Set(self.Realm, self.Target, args);
@@ -728,7 +728,7 @@ internal static partial class DomInterfaces
                     return self.Realm.WrapCollection<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(self.Target.Anchors);
                 }))
             .Method("append",
-                global::Jint.Browser.Dom.DomFailures.Guard("Document.append", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.append", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.append");
                     self.Target.Append(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, "Document.append")); return global::Jint.Native.JsValue.Undefined;
@@ -746,7 +746,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.bgColor");
                     return global::Jint.Browser.Dom.DomReflected.DocumentBgColor.Get(self.Target);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("Document.bgColor", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.bgColor", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.bgColor");
                     return global::Jint.Browser.Dom.DomReflected.DocumentBgColor.Set(self.Realm, self.Target, args);
@@ -757,7 +757,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.body");
                     return self.Realm.Hooks.Body(self.Realm, self.Target);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("Document.body", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.body", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.body");
                     self.Target.Body = global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Html.Dom.IHtmlElement>(args, 0, "Document.body"); return global::Jint.Native.JsValue.Undefined;
@@ -810,111 +810,111 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.cookie");
                     return self.Realm.Hooks.Cookie(self.Realm, self.Target);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("Document.cookie", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.cookie", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.cookie");
                     self.Realm.Hooks.SetCookie(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.cookie")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Method("createAttribute",
-                global::Jint.Browser.Dom.DomFailures.Guard("Document.createAttribute", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.createAttribute", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.createAttribute");
                     return self.Realm.Hooks.CreateAttribute(self.Realm, self.Target, args);
                 }),
                 length: 1)
             .Method("createAttributeNS",
-                global::Jint.Browser.Dom.DomFailures.Guard("Document.createAttributeNS", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.createAttributeNS", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.createAttributeNS");
                     return self.Realm.Hooks.CreateAttributeNS(self.Realm, self.Target, args);
                 }),
                 length: 2)
             .Method("createCDATASection",
-                global::Jint.Browser.Dom.DomFailures.Guard("Document.createCDATASection", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.createCDATASection", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.createCDATASection");
                     return global::Jint.Browser.Dom.Views.DomViewMembers.CreateCDataSection(self.Realm, self.Target, args);
                 }),
                 length: 1)
             .Method("createComment",
-                global::Jint.Browser.Dom.DomFailures.Guard("Document.createComment", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.createComment", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.createComment");
                     return self.Realm.WrapNodeValue(self.Target.CreateComment(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.createComment")));
                 }),
                 length: 1)
             .Method("createDocumentFragment",
-                global::Jint.Browser.Dom.DomFailures.Guard("Document.createDocumentFragment", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.createDocumentFragment", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.createDocumentFragment");
                     return self.Realm.WrapNodeValue(self.Target.CreateDocumentFragment());
                 }),
                 length: 0)
             .Method("createElement",
-                global::Jint.Browser.Dom.DomFailures.Guard("Document.createElement", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.createElement", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.createElement");
                     return self.Realm.Hooks.CreateElement(self.Realm, self.Target, args);
                 }),
                 length: 1)
             .Method("createElementNS",
-                global::Jint.Browser.Dom.DomFailures.Guard("Document.createElementNS", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.createElementNS", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.createElementNS");
                     return self.Realm.Hooks.CreateElementNS(self.Realm, self.Target, args);
                 }),
                 length: 2)
             .Method("createEvent",
-                global::Jint.Browser.Dom.DomFailures.Guard("Document.createEvent", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.createEvent", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.createEvent");
                     return global::Jint.Browser.Events.LegacyEventCreation.CreateEvent(self.Realm, args);
                 }),
                 length: 1)
             .Method("createExpression",
-                global::Jint.Browser.Dom.DomFailures.Guard("Document.createExpression", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.createExpression", static (thisObj, args) =>
                 {
                     _ = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.createExpression");
                     return global::Jint.Browser.Dom.Views.XPathEvaluation.CreateExpression(global::Jint.Browser.Runtime.PageRuntime.Of(thisObj, "Document.createExpression"), args, "Document.createExpression");
                 }),
                 length: 1)
             .Method("createNSResolver",
-                global::Jint.Browser.Dom.DomFailures.Guard("Document.createNSResolver", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.createNSResolver", static (thisObj, args) =>
                 {
                     _ = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.createNSResolver");
                     return global::Jint.Browser.Dom.Views.XPathEvaluation.CreateNSResolver(args, "Document.createNSResolver");
                 }),
                 length: 1)
             .Method("createNodeIterator",
-                global::Jint.Browser.Dom.DomFailures.Guard("Document.createNodeIterator", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.createNodeIterator", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.createNodeIterator");
                     return global::Jint.Browser.Dom.Views.DomViewMembers.CreateNodeIterator(self.Realm, self.Target, args);
                 }),
                 length: 1)
             .Method("createProcessingInstruction",
-                global::Jint.Browser.Dom.DomFailures.Guard("Document.createProcessingInstruction", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.createProcessingInstruction", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.createProcessingInstruction");
                     return self.Realm.WrapNodeValue(self.Target.CreateProcessingInstruction(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.createProcessingInstruction"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Document.createProcessingInstruction")));
                 }),
                 length: 2)
             .Method("createRange",
-                global::Jint.Browser.Dom.DomFailures.Guard("Document.createRange", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.createRange", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.createRange");
                     return self.Realm.Wrap(self.Target.CreateRange());
                 }),
                 length: 0)
             .Method("createTextNode",
-                global::Jint.Browser.Dom.DomFailures.Guard("Document.createTextNode", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.createTextNode", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.createTextNode");
                     return self.Realm.WrapNodeValue(self.Target.CreateTextNode(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.createTextNode")));
                 }),
                 length: 1)
             .Method("createTreeWalker",
-                global::Jint.Browser.Dom.DomFailures.Guard("Document.createTreeWalker", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.createTreeWalker", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.createTreeWalker");
                     return global::Jint.Browser.Dom.Views.DomViewMembers.CreateTreeWalker(self.Realm, self.Target, args);
@@ -938,7 +938,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.designMode");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.DesignMode);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("Document.designMode", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.designMode", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.designMode");
                     self.Target.DesignMode = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.designMode"); return global::Jint.Native.JsValue.Undefined;
@@ -949,7 +949,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.dir");
                     return global::Jint.Browser.Dom.DomReflected.DocumentDir.Get(self.Target);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("Document.dir", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.dir", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.dir");
                     return global::Jint.Browser.Dom.DomReflected.DocumentDir.Set(self.Realm, self.Target, args);
@@ -978,7 +978,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.domain");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Domain);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("Document.domain", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.domain", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.domain");
                     self.Target.Domain = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.domain"); return global::Jint.Native.JsValue.Undefined;
@@ -1004,21 +1004,21 @@ internal static partial class DomInterfaces
                     return self.Realm.WrapCollection<global::AngleSharp.Html.Dom.IHtmlEmbedElement>(self.Target.Plugins);
                 }))
             .Method("enableStyleSheetsForSet",
-                global::Jint.Browser.Dom.DomFailures.Guard("Document.enableStyleSheetsForSet", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.enableStyleSheetsForSet", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.enableStyleSheetsForSet");
                     self.Target.EnableStyleSheetsForSet(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.enableStyleSheetsForSet")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 1)
             .Method("evaluate",
-                global::Jint.Browser.Dom.DomFailures.Guard("Document.evaluate", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.evaluate", static (thisObj, args) =>
                 {
                     _ = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.evaluate");
                     return global::Jint.Browser.Dom.Views.XPathEvaluation.Evaluate(global::Jint.Browser.Runtime.PageRuntime.Of(thisObj, "Document.evaluate"), args, "Document.evaluate");
                 }),
                 length: 2)
             .Method("execCommand",
-                global::Jint.Browser.Dom.DomFailures.Guard("Document.execCommand", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.execCommand", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.execCommand");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.ExecuteCommand(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.execCommand"), global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 1, false), global::Jint.Browser.Dom.DomConvert.OptionalText(args, 2, "")!));
@@ -1030,7 +1030,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.fgColor");
                     return global::Jint.Browser.Dom.DomReflected.DocumentFgColor.Get(self.Target);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("Document.fgColor", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.fgColor", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.fgColor");
                     return global::Jint.Browser.Dom.DomReflected.DocumentFgColor.Set(self.Realm, self.Target, args);
@@ -1121,7 +1121,7 @@ internal static partial class DomInterfaces
                     return self.Realm.Wrap(self.Target.Implementation);
                 }))
             .Method("importNode",
-                global::Jint.Browser.Dom.DomFailures.Guard("Document.importNode", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.importNode", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.importNode");
                     return self.Realm.Hooks.ImportNode(self.Realm, self.Target, args);
@@ -1157,7 +1157,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.linkColor");
                     return global::Jint.Browser.Dom.DomReflected.DocumentLinkColor.Get(self.Target);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("Document.linkColor", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.linkColor", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.linkColor");
                     return global::Jint.Browser.Dom.DomReflected.DocumentLinkColor.Set(self.Realm, self.Target, args);
@@ -1174,7 +1174,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.location");
                     return self.Realm.Hooks.Location(self.Realm, self.Target);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("Document.location", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.location", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.location");
                     self.Realm.Hooks.SetLocation(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.location")); return global::Jint.Native.JsValue.Undefined;
@@ -1198,42 +1198,42 @@ internal static partial class DomInterfaces
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.PreferredStyleSheetSet);
                 }))
             .Method("prepend",
-                global::Jint.Browser.Dom.DomFailures.Guard("Document.prepend", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.prepend", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.prepend");
                     self.Target.Prepend(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, "Document.prepend")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Method("queryCommandEnabled",
-                global::Jint.Browser.Dom.DomFailures.Guard("Document.queryCommandEnabled", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.queryCommandEnabled", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.queryCommandEnabled");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsCommandEnabled(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.queryCommandEnabled")));
                 }),
                 length: 1)
             .Method("queryCommandIndeterm",
-                global::Jint.Browser.Dom.DomFailures.Guard("Document.queryCommandIndeterm", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.queryCommandIndeterm", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.queryCommandIndeterm");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsCommandIndeterminate(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.queryCommandIndeterm")));
                 }),
                 length: 1)
             .Method("queryCommandState",
-                global::Jint.Browser.Dom.DomFailures.Guard("Document.queryCommandState", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.queryCommandState", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.queryCommandState");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsCommandExecuted(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.queryCommandState")));
                 }),
                 length: 1)
             .Method("queryCommandSupported",
-                global::Jint.Browser.Dom.DomFailures.Guard("Document.queryCommandSupported", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.queryCommandSupported", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.queryCommandSupported");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsCommandSupported(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.queryCommandSupported")));
                 }),
                 length: 1)
             .Method("queryCommandValue",
-                global::Jint.Browser.Dom.DomFailures.Guard("Document.queryCommandValue", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.queryCommandValue", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.queryCommandValue");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetCommandValue(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.queryCommandValue")));
@@ -1266,7 +1266,7 @@ internal static partial class DomInterfaces
                     return self.Realm.Hooks.Referrer(self.Realm, self.Target);
                 }))
             .Method("replaceChildren",
-                global::Jint.Browser.Dom.DomFailures.Guard("Document.replaceChildren", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.replaceChildren", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.replaceChildren");
                     return global::Jint.Browser.Dom.DomParentNodeMembers.ReplaceChildren(self.Realm, self.Target, args);
@@ -1290,7 +1290,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.selectedStyleSheetSet");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.SelectedStyleSheetSet);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("Document.selectedStyleSheetSet", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.selectedStyleSheetSet", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.selectedStyleSheetSet");
                     self.Target.SelectedStyleSheetSet = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.selectedStyleSheetSet"); return global::Jint.Native.JsValue.Undefined;
@@ -1313,7 +1313,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.title");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Title);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("Document.title", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.title", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.title");
                     self.Target.Title = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.title"); return global::Jint.Native.JsValue.Undefined;
@@ -1330,20 +1330,20 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.vlinkColor");
                     return global::Jint.Browser.Dom.DomReflected.DocumentVlinkColor.Get(self.Target);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("Document.vlinkColor", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.vlinkColor", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.vlinkColor");
                     return global::Jint.Browser.Dom.DomReflected.DocumentVlinkColor.Set(self.Realm, self.Target, args);
                 }))
             .Method("write",
-                global::Jint.Browser.Dom.DomFailures.Guard("Document.write", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.write", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.write");
                     self.Realm.Hooks.Write(self.Realm, self.Target, args); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 1)
             .Method("writeln",
-                global::Jint.Browser.Dom.DomFailures.Guard("Document.writeln", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.writeln", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.writeln");
                     self.Realm.Hooks.WriteLine(self.Realm, self.Target, args); return global::Jint.Native.JsValue.Undefined;
@@ -1364,7 +1364,7 @@ internal static partial class DomInterfaces
                 static self => global::Jint.Browser.Dom.DomUnscopables.Create(self, _unscopablesDocumentFragment),
                 writable: false)
             .Method("append",
-                global::Jint.Browser.Dom.DomFailures.Guard("DocumentFragment.append", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("DocumentFragment.append", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocumentFragment>(thisObj, "DocumentFragment.append");
                     self.Target.Append(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, "DocumentFragment.append")); return global::Jint.Native.JsValue.Undefined;
@@ -1402,7 +1402,7 @@ internal static partial class DomInterfaces
                     return self.Realm.WrapNodeValue(self.Target.LastElementChild);
                 }))
             .Method("prepend",
-                global::Jint.Browser.Dom.DomFailures.Guard("DocumentFragment.prepend", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("DocumentFragment.prepend", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocumentFragment>(thisObj, "DocumentFragment.prepend");
                     self.Target.Prepend(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, "DocumentFragment.prepend")); return global::Jint.Native.JsValue.Undefined;
@@ -1423,7 +1423,7 @@ internal static partial class DomInterfaces
                 }),
                 length: 1)
             .Method("replaceChildren",
-                global::Jint.Browser.Dom.DomFailures.Guard("DocumentFragment.replaceChildren", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("DocumentFragment.replaceChildren", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocumentFragment>(thisObj, "DocumentFragment.replaceChildren");
                     return global::Jint.Browser.Dom.DomParentNodeMembers.ReplaceChildren(self.Realm, self.Target, args);
@@ -1441,14 +1441,14 @@ internal static partial class DomInterfaces
                 static self => global::Jint.Browser.Dom.DomUnscopables.Create(self, _unscopablesDocumentType),
                 writable: false)
             .Method("after",
-                global::Jint.Browser.Dom.DomFailures.Guard("DocumentType.after", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("DocumentType.after", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocumentType>(thisObj, "DocumentType.after");
                     self.Realm.Hooks.After(self.Realm, self.Target, args); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Method("before",
-                global::Jint.Browser.Dom.DomFailures.Guard("DocumentType.before", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("DocumentType.before", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocumentType>(thisObj, "DocumentType.before");
                     self.Realm.Hooks.Before(self.Realm, self.Target, args); return global::Jint.Native.JsValue.Undefined;
@@ -1467,14 +1467,14 @@ internal static partial class DomInterfaces
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.PublicIdentifier);
                 }))
             .Method("remove",
-                global::Jint.Browser.Dom.DomFailures.Guard("DocumentType.remove", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("DocumentType.remove", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocumentType>(thisObj, "DocumentType.remove");
                     self.Target.Remove(); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Method("replaceWith",
-                global::Jint.Browser.Dom.DomFailures.Guard("DocumentType.replaceWith", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("DocumentType.replaceWith", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocumentType>(thisObj, "DocumentType.replaceWith");
                     self.Realm.Hooks.ReplaceWith(self.Realm, self.Target, args); return global::Jint.Native.JsValue.Undefined;
@@ -1499,14 +1499,14 @@ internal static partial class DomInterfaces
                 static self => global::Jint.Browser.Dom.DomUnscopables.Create(self, _unscopablesElement),
                 writable: false)
             .Method("after",
-                global::Jint.Browser.Dom.DomFailures.Guard("Element.after", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.after", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.after");
                     self.Realm.Hooks.After(self.Realm, self.Target, args); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Method("append",
-                global::Jint.Browser.Dom.DomFailures.Guard("Element.append", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.append", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.append");
                     self.Target.Append(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, "Element.append")); return global::Jint.Native.JsValue.Undefined;
@@ -1519,7 +1519,7 @@ internal static partial class DomInterfaces
                     return self.Realm.WrapNodeValue(self.Target.AssignedSlot);
                 }))
             .Method("attachShadow",
-                global::Jint.Browser.Dom.DomFailures.Guard("Element.attachShadow", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.attachShadow", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.attachShadow");
                     return self.Realm.WrapNodeValue(self.Target.AttachShadow(global::Jint.Browser.Dom.DomEnums.ToShadowRootMode(global::Jint.Browser.Dom.DomConvert.DictionaryMember(args, 0, "mode"), "Element.attachShadow")));
@@ -1532,7 +1532,7 @@ internal static partial class DomInterfaces
                     return self.Realm.Wrap(self.Target.Attributes);
                 }))
             .Method("before",
-                global::Jint.Browser.Dom.DomFailures.Guard("Element.before", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.before", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.before");
                     self.Realm.Hooks.Before(self.Realm, self.Target, args); return global::Jint.Native.JsValue.Undefined;
@@ -1556,7 +1556,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.classList");
                     return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, "class", self.Target.ClassList);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("Element.classList", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.classList", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.classList");
                     return global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, "class", args);
@@ -1567,7 +1567,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.className");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.ClassName);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("Element.className", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.className", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.className");
                     self.Target.ClassName = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Element.className"); return global::Jint.Native.JsValue.Undefined;
@@ -1706,7 +1706,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.id");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Id);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("Element.id", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.id", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.id");
                     self.Target.Id = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Element.id"); return global::Jint.Native.JsValue.Undefined;
@@ -1717,7 +1717,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.innerHTML");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.InnerHtml);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("Element.innerHTML", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.innerHTML", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.innerHTML");
                     self.Realm.Hooks.SetInnerHtml(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Element.innerHTML")); return global::Jint.Native.JsValue.Undefined;
@@ -1728,27 +1728,27 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.innerText");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetInnerText());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("Element.innerText", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.innerText", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.innerText");
                     self.Target.SetInnerText(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Element.innerText")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Method("insertAdjacentElement",
-                global::Jint.Browser.Dom.DomFailures.Guard("Element.insertAdjacentElement", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.insertAdjacentElement", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.insertAdjacentElement");
                     return global::Jint.Browser.Dom.DomElementMembers.InsertAdjacentElement(self.Realm, self.Target, args);
                 }),
                 length: 2)
             .Method("insertAdjacentHTML",
-                global::Jint.Browser.Dom.DomFailures.Guard("Element.insertAdjacentHTML", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.insertAdjacentHTML", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.insertAdjacentHTML");
                     self.Realm.Hooks.InsertAdjacentHtml(self.Realm, self.Target, args); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 2)
             .Method("insertAdjacentText",
-                global::Jint.Browser.Dom.DomFailures.Guard("Element.insertAdjacentText", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.insertAdjacentText", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.insertAdjacentText");
                     return global::Jint.Browser.Dom.DomElementMembers.InsertAdjacentText(self.Realm, self.Target, args);
@@ -1791,7 +1791,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.outerHTML");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.OuterHtml);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("Element.outerHTML", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.outerHTML", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.outerHTML");
                     self.Realm.Hooks.SetOuterHtml(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Element.outerHTML")); return global::Jint.Native.JsValue.Undefined;
@@ -1803,7 +1803,7 @@ internal static partial class DomInterfaces
                     return global::Jint.Browser.Dom.DomConvert.NullableText(self.Target.Prefix);
                 }))
             .Method("prepend",
-                global::Jint.Browser.Dom.DomFailures.Guard("Element.prepend", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.prepend", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.prepend");
                     self.Target.Prepend(global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, 0, "Element.prepend")); return global::Jint.Native.JsValue.Undefined;
@@ -1830,42 +1830,42 @@ internal static partial class DomInterfaces
                 }),
                 length: 1)
             .Method("remove",
-                global::Jint.Browser.Dom.DomFailures.Guard("Element.remove", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.remove", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.remove");
                     self.Target.Remove(); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Method("removeAttribute",
-                global::Jint.Browser.Dom.DomFailures.Guard("Element.removeAttribute", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.removeAttribute", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.removeAttribute");
                     self.Realm.Hooks.RemoveAttribute(self.Realm, self.Target, args); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 1)
             .Method("removeAttributeNS",
-                global::Jint.Browser.Dom.DomFailures.Guard("Element.removeAttributeNS", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.removeAttributeNS", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.removeAttributeNS");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.RemoveAttribute(global::Jint.Browser.Dom.DomConvert.NullableText(args, 0), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Element.removeAttributeNS")));
                 }),
                 length: 2)
             .Method("removeAttributeNode",
-                global::Jint.Browser.Dom.DomFailures.Guard("Element.removeAttributeNode", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.removeAttributeNode", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.removeAttributeNode");
                     return global::Jint.Browser.Dom.DomElementMembers.RemoveAttributeNode(self.Realm, self.Target, args);
                 }),
                 length: 1)
             .Method("replaceChildren",
-                global::Jint.Browser.Dom.DomFailures.Guard("Element.replaceChildren", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.replaceChildren", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.replaceChildren");
                     return global::Jint.Browser.Dom.DomParentNodeMembers.ReplaceChildren(self.Realm, self.Target, args);
                 }),
                 length: 0)
             .Method("replaceWith",
-                global::Jint.Browser.Dom.DomFailures.Guard("Element.replaceWith", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.replaceWith", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.replaceWith");
                     self.Realm.Hooks.ReplaceWith(self.Realm, self.Target, args); return global::Jint.Native.JsValue.Undefined;
@@ -1878,7 +1878,7 @@ internal static partial class DomInterfaces
                     return global::Jint.Browser.Layout.LayoutMembers.ScrollHeight(self.Realm, self.Target);
                 }))
             .Method("scrollIntoView",
-                global::Jint.Browser.Dom.DomFailures.Guard("Element.scrollIntoView", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.scrollIntoView", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.scrollIntoView");
                     return global::Jint.Browser.Layout.LayoutMembers.ScrollIntoView(self.Realm, self.Target, args);
@@ -1890,7 +1890,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.scrollLeft");
                     return global::Jint.Browser.Layout.LayoutMembers.ScrollLeft(self.Realm, self.Target);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("Element.scrollLeft", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.scrollLeft", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.scrollLeft");
                     return global::Jint.Browser.Layout.LayoutMembers.SetScrollLeft(self.Realm, self.Target, args);
@@ -1901,7 +1901,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.scrollTop");
                     return global::Jint.Browser.Layout.LayoutMembers.ScrollTop(self.Realm, self.Target);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("Element.scrollTop", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.scrollTop", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.scrollTop");
                     return global::Jint.Browser.Layout.LayoutMembers.SetScrollTop(self.Realm, self.Target, args);
@@ -1913,28 +1913,28 @@ internal static partial class DomInterfaces
                     return global::Jint.Browser.Layout.LayoutMembers.ScrollWidth(self.Realm, self.Target);
                 }))
             .Method("setAttribute",
-                global::Jint.Browser.Dom.DomFailures.Guard("Element.setAttribute", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.setAttribute", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.setAttribute");
                     self.Realm.Hooks.SetAttribute(self.Realm, self.Target, args); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 2)
             .Method("setAttributeNS",
-                global::Jint.Browser.Dom.DomFailures.Guard("Element.setAttributeNS", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.setAttributeNS", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.setAttributeNS");
                     self.Realm.Hooks.SetAttributeNS(self.Realm, self.Target, args); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 3)
             .Method("setAttributeNode",
-                global::Jint.Browser.Dom.DomFailures.Guard("Element.setAttributeNode", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.setAttributeNode", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.setAttributeNode");
                     return global::Jint.Browser.Dom.DomElementMembers.SetAttributeNode(self.Realm, self.Target, args);
                 }),
                 length: 1)
             .Method("setAttributeNodeNS",
-                global::Jint.Browser.Dom.DomFailures.Guard("Element.setAttributeNodeNS", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.setAttributeNodeNS", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.setAttributeNodeNS");
                     return global::Jint.Browser.Dom.DomElementMembers.SetAttributeNodeNS(self.Realm, self.Target, args);
@@ -1952,7 +1952,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.slot");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Slot);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("Element.slot", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.slot", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.slot");
                     self.Target.Slot = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Element.slot"); return global::Jint.Native.JsValue.Undefined;
@@ -1963,7 +1963,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.style");
                     return self.Realm.Wrap(self.Target.GetStyle());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("Element.style", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.style", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.style");
                     self.Target.SetStyle(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Element.style")); return global::Jint.Native.JsValue.Undefined;
@@ -1975,7 +1975,7 @@ internal static partial class DomInterfaces
                     return self.Realm.Hooks.TagName(self.Realm, self.Target);
                 }))
             .Method("toggleAttribute",
-                global::Jint.Browser.Dom.DomFailures.Guard("Element.toggleAttribute", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.toggleAttribute", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.toggleAttribute");
                     return global::Jint.Browser.Dom.DomElementMembers.ToggleAttribute(self.Target, args);
@@ -2004,7 +2004,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, "Location.hash");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Hash);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("Location.hash", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Location.hash", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, "Location.hash");
                     self.Target.Hash = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Location.hash"); return global::Jint.Native.JsValue.Undefined;
@@ -2015,7 +2015,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, "Location.host");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Host);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("Location.host", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Location.host", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, "Location.host");
                     self.Target.Host = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Location.host"); return global::Jint.Native.JsValue.Undefined;
@@ -2026,7 +2026,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, "Location.hostname");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.HostName);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("Location.hostname", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Location.hostname", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, "Location.hostname");
                     self.Target.HostName = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Location.hostname"); return global::Jint.Native.JsValue.Undefined;
@@ -2049,7 +2049,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, "Location.password");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Password);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("Location.password", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Location.password", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, "Location.password");
                     self.Target.Password = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Location.password"); return global::Jint.Native.JsValue.Undefined;
@@ -2060,7 +2060,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, "Location.pathname");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.PathName);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("Location.pathname", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Location.pathname", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, "Location.pathname");
                     self.Target.PathName = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Location.pathname"); return global::Jint.Native.JsValue.Undefined;
@@ -2071,7 +2071,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, "Location.port");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Port);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("Location.port", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Location.port", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, "Location.port");
                     self.Target.Port = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Location.port"); return global::Jint.Native.JsValue.Undefined;
@@ -2082,7 +2082,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, "Location.protocol");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Protocol);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("Location.protocol", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Location.protocol", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, "Location.protocol");
                     self.Target.Protocol = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Location.protocol"); return global::Jint.Native.JsValue.Undefined;
@@ -2093,7 +2093,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, "Location.search");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Search);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("Location.search", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Location.search", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, "Location.search");
                     self.Target.Search = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Location.search"); return global::Jint.Native.JsValue.Undefined;
@@ -2104,7 +2104,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, "Location.username");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.UserName);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("Location.username", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Location.username", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ILocation>(thisObj, "Location.username");
                     self.Target.UserName = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Location.username"); return global::Jint.Native.JsValue.Undefined;
@@ -2117,21 +2117,21 @@ internal static partial class DomInterfaces
             .ToStringTag("MessagePort")
             .PerRealmSlot("constructor", enumerable: false)
             .Method("close",
-                global::Jint.Browser.Dom.DomFailures.Guard("MessagePort.close", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("MessagePort.close", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.Events.IMessagePort>(thisObj, "MessagePort.close");
                     self.Target.Close(); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Method("postMessage",
-                global::Jint.Browser.Dom.DomFailures.Guard("MessagePort.postMessage", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("MessagePort.postMessage", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.Events.IMessagePort>(thisObj, "MessagePort.postMessage");
                     self.Target.Send(global::Jint.Browser.Dom.DomConvert.At(args, 0)); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 1)
             .Method("start",
-                global::Jint.Browser.Dom.DomFailures.Guard("MessagePort.start", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("MessagePort.start", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.Events.IMessagePort>(thisObj, "MessagePort.start");
                     self.Target.Open(); return global::Jint.Native.JsValue.Undefined;
@@ -2236,28 +2236,28 @@ internal static partial class DomInterfaces
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);
                 }))
             .Method("removeNamedItem",
-                global::Jint.Browser.Dom.DomFailures.Guard("NamedNodeMap.removeNamedItem", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("NamedNodeMap.removeNamedItem", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INamedNodeMap>(thisObj, "NamedNodeMap.removeNamedItem");
                     return self.Realm.WrapNodeValue(self.Target.RemoveNamedItem(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "NamedNodeMap.removeNamedItem")));
                 }),
                 length: 1)
             .Method("removeNamedItemNS",
-                global::Jint.Browser.Dom.DomFailures.Guard("NamedNodeMap.removeNamedItemNS", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("NamedNodeMap.removeNamedItemNS", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INamedNodeMap>(thisObj, "NamedNodeMap.removeNamedItemNS");
                     return self.Realm.WrapNodeValue(self.Target.RemoveNamedItem(global::Jint.Browser.Dom.DomConvert.NullableText(args, 0), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "NamedNodeMap.removeNamedItemNS")));
                 }),
                 length: 2)
             .Method("setNamedItem",
-                global::Jint.Browser.Dom.DomFailures.Guard("NamedNodeMap.setNamedItem", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("NamedNodeMap.setNamedItem", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INamedNodeMap>(thisObj, "NamedNodeMap.setNamedItem");
                     return self.Realm.WrapNodeValue(self.Target.SetNamedItem(global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Dom.IAttr>(args, 0, "NamedNodeMap.setNamedItem")));
                 }),
                 length: 1)
             .Method("setNamedItemNS",
-                global::Jint.Browser.Dom.DomFailures.Guard("NamedNodeMap.setNamedItemNS", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("NamedNodeMap.setNamedItemNS", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INamedNodeMap>(thisObj, "NamedNodeMap.setNamedItemNS");
                     return self.Realm.WrapNodeValue(self.Target.SetNamedItemWithNamespaceUri(global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Dom.IAttr>(args, 0, "NamedNodeMap.setNamedItemNS")));
@@ -2290,7 +2290,7 @@ internal static partial class DomInterfaces
                     return global::Jint.Browser.Dom.Views.DomViewMembers.Filter(self.Target);
                 }))
             .Method("nextNode",
-                global::Jint.Browser.Dom.DomFailures.Guard("NodeIterator.nextNode", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("NodeIterator.nextNode", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INodeIterator>(thisObj, "NodeIterator.nextNode");
                     return self.Realm.WrapNodeValue(self.Target.Next());
@@ -2303,7 +2303,7 @@ internal static partial class DomInterfaces
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsBeforeReference);
                 }))
             .Method("previousNode",
-                global::Jint.Browser.Dom.DomFailures.Guard("NodeIterator.previousNode", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("NodeIterator.previousNode", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INodeIterator>(thisObj, "NodeIterator.previousNode");
                     return self.Realm.WrapNodeValue(self.Target.Previous());
@@ -2404,21 +2404,21 @@ internal static partial class DomInterfaces
             .Constant("START_TO_END", global::Jint.Native.JsNumber.Create(1))
             .Constant("START_TO_START", global::Jint.Native.JsNumber.Create(0))
             .Method("cloneContents",
-                global::Jint.Browser.Dom.DomFailures.Guard("Range.cloneContents", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Range.cloneContents", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, "Range.cloneContents");
                     return self.Realm.Hooks.CloneContents(self.Realm, self.Target, args);
                 }),
                 length: 0)
             .Method("cloneRange",
-                global::Jint.Browser.Dom.DomFailures.Guard("Range.cloneRange", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Range.cloneRange", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, "Range.cloneRange");
                     return self.Realm.Wrap(self.Target.Clone());
                 }),
                 length: 0)
             .Method("collapse",
-                global::Jint.Browser.Dom.DomFailures.Guard("Range.collapse", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Range.collapse", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, "Range.collapse");
                     self.Target.Collapse(global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false)); return global::Jint.Native.JsValue.Undefined;
@@ -2451,14 +2451,14 @@ internal static partial class DomInterfaces
                 }),
                 length: 2)
             .Method("deleteContents",
-                global::Jint.Browser.Dom.DomFailures.Guard("Range.deleteContents", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Range.deleteContents", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, "Range.deleteContents");
                     self.Target.ClearContent(); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 0)
             .Method("detach",
-                global::Jint.Browser.Dom.DomFailures.Guard("Range.detach", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Range.detach", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, "Range.detach");
                     self.Target.Detach(); return global::Jint.Native.JsValue.Undefined;
@@ -2477,7 +2477,7 @@ internal static partial class DomInterfaces
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.End);
                 }))
             .Method("extractContents",
-                global::Jint.Browser.Dom.DomFailures.Guard("Range.extractContents", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Range.extractContents", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, "Range.extractContents");
                     return self.Realm.Hooks.ExtractContents(self.Realm, self.Target, args);
@@ -2498,7 +2498,7 @@ internal static partial class DomInterfaces
                 }),
                 length: 0)
             .Method("insertNode",
-                global::Jint.Browser.Dom.DomFailures.Guard("Range.insertNode", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Range.insertNode", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, "Range.insertNode");
                     self.Target.Insert(global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Dom.INode>(args, 0, "Range.insertNode")); return global::Jint.Native.JsValue.Undefined;
@@ -2519,56 +2519,56 @@ internal static partial class DomInterfaces
                 }),
                 length: 2)
             .Method("selectNode",
-                global::Jint.Browser.Dom.DomFailures.Guard("Range.selectNode", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Range.selectNode", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, "Range.selectNode");
                     self.Target.Select(global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Dom.INode>(args, 0, "Range.selectNode")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 1)
             .Method("selectNodeContents",
-                global::Jint.Browser.Dom.DomFailures.Guard("Range.selectNodeContents", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Range.selectNodeContents", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, "Range.selectNodeContents");
                     self.Target.SelectContent(global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Dom.INode>(args, 0, "Range.selectNodeContents")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 1)
             .Method("setEnd",
-                global::Jint.Browser.Dom.DomFailures.Guard("Range.setEnd", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Range.setEnd", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, "Range.setEnd");
                     self.Target.EndWith(global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Dom.INode>(args, 0, "Range.setEnd"), global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 1, "Range.setEnd")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 2)
             .Method("setEndAfter",
-                global::Jint.Browser.Dom.DomFailures.Guard("Range.setEndAfter", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Range.setEndAfter", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, "Range.setEndAfter");
                     self.Target.EndAfter(global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Dom.INode>(args, 0, "Range.setEndAfter")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 1)
             .Method("setEndBefore",
-                global::Jint.Browser.Dom.DomFailures.Guard("Range.setEndBefore", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Range.setEndBefore", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, "Range.setEndBefore");
                     self.Target.EndBefore(global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Dom.INode>(args, 0, "Range.setEndBefore")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 1)
             .Method("setStart",
-                global::Jint.Browser.Dom.DomFailures.Guard("Range.setStart", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Range.setStart", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, "Range.setStart");
                     self.Target.StartWith(global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Dom.INode>(args, 0, "Range.setStart"), global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 1, "Range.setStart")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 2)
             .Method("setStartAfter",
-                global::Jint.Browser.Dom.DomFailures.Guard("Range.setStartAfter", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Range.setStartAfter", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, "Range.setStartAfter");
                     self.Target.StartAfter(global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Dom.INode>(args, 0, "Range.setStartAfter")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 1)
             .Method("setStartBefore",
-                global::Jint.Browser.Dom.DomFailures.Guard("Range.setStartBefore", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Range.setStartBefore", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, "Range.setStartBefore");
                     self.Target.StartBefore(global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Dom.INode>(args, 0, "Range.setStartBefore")); return global::Jint.Native.JsValue.Undefined;
@@ -2587,7 +2587,7 @@ internal static partial class DomInterfaces
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Start);
                 }))
             .Method("surroundContents",
-                global::Jint.Browser.Dom.DomFailures.Guard("Range.surroundContents", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Range.surroundContents", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, "Range.surroundContents");
                     self.Target.Surround(global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Dom.INode>(args, 0, "Range.surroundContents")); return global::Jint.Native.JsValue.Undefined;
@@ -2625,7 +2625,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IShadowRoot>(thisObj, "ShadowRoot.innerHTML");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.InnerHtml);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("ShadowRoot.innerHTML", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("ShadowRoot.innerHTML", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IShadowRoot>(thisObj, "ShadowRoot.innerHTML");
                     self.Target.InnerHtml = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "ShadowRoot.innerHTML"); return global::Jint.Native.JsValue.Undefined;
@@ -2679,7 +2679,7 @@ internal static partial class DomInterfaces
                     return self.Realm.WrapNodeValue(self.Target.AssignedSlot);
                 }))
             .Method("splitText",
-                global::Jint.Browser.Dom.DomFailures.Guard("Text.splitText", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Text.splitText", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IText>(thisObj, "Text.splitText");
                     return self.Realm.WrapNodeValue(self.Target.Split(global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "Text.splitText")));
@@ -2717,7 +2717,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITreeWalker>(thisObj, "TreeWalker.currentNode");
                     return self.Realm.WrapNodeValue(self.Target.Current);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("TreeWalker.currentNode", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("TreeWalker.currentNode", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITreeWalker>(thisObj, "TreeWalker.currentNode");
                     self.Target.Current = global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Dom.INode>(args, 0, "TreeWalker.currentNode"); return global::Jint.Native.JsValue.Undefined;
@@ -2729,49 +2729,49 @@ internal static partial class DomInterfaces
                     return global::Jint.Browser.Dom.Views.DomViewMembers.Filter(self.Target);
                 }))
             .Method("firstChild",
-                global::Jint.Browser.Dom.DomFailures.Guard("TreeWalker.firstChild", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("TreeWalker.firstChild", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITreeWalker>(thisObj, "TreeWalker.firstChild");
                     return self.Realm.WrapNodeValue(self.Target.ToFirst());
                 }),
                 length: 0)
             .Method("lastChild",
-                global::Jint.Browser.Dom.DomFailures.Guard("TreeWalker.lastChild", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("TreeWalker.lastChild", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITreeWalker>(thisObj, "TreeWalker.lastChild");
                     return self.Realm.WrapNodeValue(self.Target.ToLast());
                 }),
                 length: 0)
             .Method("nextNode",
-                global::Jint.Browser.Dom.DomFailures.Guard("TreeWalker.nextNode", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("TreeWalker.nextNode", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITreeWalker>(thisObj, "TreeWalker.nextNode");
                     return self.Realm.WrapNodeValue(self.Target.ToNext());
                 }),
                 length: 0)
             .Method("nextSibling",
-                global::Jint.Browser.Dom.DomFailures.Guard("TreeWalker.nextSibling", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("TreeWalker.nextSibling", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITreeWalker>(thisObj, "TreeWalker.nextSibling");
                     return self.Realm.WrapNodeValue(self.Target.ToNextSibling());
                 }),
                 length: 0)
             .Method("parentNode",
-                global::Jint.Browser.Dom.DomFailures.Guard("TreeWalker.parentNode", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("TreeWalker.parentNode", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITreeWalker>(thisObj, "TreeWalker.parentNode");
                     return self.Realm.WrapNodeValue(self.Target.ToParent());
                 }),
                 length: 0)
             .Method("previousNode",
-                global::Jint.Browser.Dom.DomFailures.Guard("TreeWalker.previousNode", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("TreeWalker.previousNode", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITreeWalker>(thisObj, "TreeWalker.previousNode");
                     return self.Realm.WrapNodeValue(self.Target.ToPrevious());
                 }),
                 length: 0)
             .Method("previousSibling",
-                global::Jint.Browser.Dom.DomFailures.Guard("TreeWalker.previousSibling", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("TreeWalker.previousSibling", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITreeWalker>(thisObj, "TreeWalker.previousSibling");
                     return self.Realm.WrapNodeValue(self.Target.ToPreviousSibling());

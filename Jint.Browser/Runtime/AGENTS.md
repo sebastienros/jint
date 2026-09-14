@@ -224,9 +224,15 @@ tree order and owns one row of the page — so a client that reads a box, clicks
 told one consistent story rather than three approximations that disagree, and a second geometry beside it
 is how that story breaks. Three things bite before that file is open. **An element with no box answers
 zeros, no client rectangles, and `-32000` rather than a box of zeros over the protocol**, because a client
-reads zeros as a real box at the origin. **The layout is recomputed per query and never cached across
-queries**, since the only invalidation signal available is a document-wide `MutationObserver`, which would
-make every DOM mutation on every page pay for mutation records whether or not anything ever asks for a box.
+reads zeros as a real box at the origin. **`PageLayout` owns Browser-local invalidation and may reuse measurements across unchanged reads.**
+Generated setters and operations other than classified reads enter a mutation scope; manual/native writes
+must enter the same scope through `DomRealm.MutateLayout()` or `PageLayout.BeginMutation()`. A scope clears
+retained work on entry and exit and disables reuse inside callbacks, including exceptional exits. Never
+add a native write without this bracket. Document replacement clears the cache; media, URL, focus and
+pointer-press state are also checked before reuse. Construction, unclassified `RunOnLoopAsync` callbacks,
+any `ConfigureEngine` customization, external stylesheet/frame loading, CSS imports and active CSS coverage
+keep query-local behavior. No document-wide layout mutation observer is installed. The complete contract
+and fallback rationale are in [`docs/design/layout-invalidation.md`](../../docs/design/layout-invalidation.md).
 And the DOM-side members are `overrides.json` `additions` entries with their bodies in `Layout/LayoutMembers`,
 so **never hand-edit a `.g.cs`**; regenerate with `JINT_DOM_BINDINGS=update`. **The row rule and the number
 it is built from, what counts as rendered, the single-line flex rows, the cascade traversal and what it still

@@ -193,6 +193,7 @@ internal static class TextEditing
     /// </remarks>
     internal static bool Insert(DomRealm dom, in TextControl control, string text, string inputType)
     {
+        using var mutation = dom.MutateLayout();
         var value = control.Value;
         var start = control.Start;
         var end = control.End;
@@ -226,6 +227,7 @@ internal static class TextEditing
 
     private static bool DeleteAround(DomRealm dom, in TextControl control, bool forward)
     {
+        using var mutation = dom.MutateLayout();
         var value = control.Value;
         var start = control.Start;
         var end = control.End;

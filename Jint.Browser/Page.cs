@@ -572,9 +572,14 @@ public sealed partial class Page : IAsyncDisposable
     /// responsibility rather than the type's: a <c>JsValue</c> answered from here would be a value belonging
     /// to a thread the caller is not on. The protocol layer will hold it; today it is what lets the tests
     /// assert engine-level facts — that the global object still has its shared shape — without publishing a
-    /// way for an embedder to reach around the page.
+    /// way for an embedder to reach around the page. The callback may write native objects, so geometry
+    /// remains query-local throughout it; public script evaluation uses the instrumented bindings instead.
     /// </remarks>
-    internal Task<T> RunOnLoopAsync<T>(Func<Engine, T> work) => _loop.PostAsync(work);
+    internal Task<T> RunOnLoopAsync<T>(Func<Engine, T> work) => _loop.PostAsync(engine =>
+    {
+        using var mutation = PageRuntime.Find(engine)?.Layout.BeginMutation() ?? default;
+        return work(engine);
+    });
 
     /// <summary>
     /// Registers the one thing that hears what the page does, which is what a protocol target is.

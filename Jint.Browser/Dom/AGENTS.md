@@ -177,7 +177,11 @@ Divergences from a browser that are **ours** and deliberate:
 
 ### Every member body goes through one invoker, and that is where a refusal is converted
 
-`DomFailures.Guard` wraps every emitted body — an operation, both halves of an attribute — and the emitter
+`DomFailures.Guard` wraps reads; `GuardMutation` wraps every setter and each operation except the generator's
+explicit read list. New operations default to a mutation scope. This is Browser-owned layout invalidation:
+no mutation records, and no retention while conversions or native callbacks can reenter script. Manual
+writes, including named-property hooks, must enter `DomRealm.MutateLayout()` too. Both wrappers use the
+same exception translation. The emitter
 wraps it in exactly one place (`Emitter.AppendGuardedBody`); `Views/ViewInstaller`'s `Selection` shape is the
 one hand-written shape that takes it too, because its members reach AngleSharp's range algorithms.
 **Nothing generated carries a `catch`**, because

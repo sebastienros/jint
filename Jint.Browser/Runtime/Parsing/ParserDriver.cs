@@ -83,6 +83,7 @@ internal sealed class ParserDriver : IDisposable
     /// <remarks>Called on the page loop, and returns to it with the whole load finished.</remarks>
     internal static PageLoad Load(PageRuntime runtime, string html, string url, Action<NavigationPhase>? onPhase)
     {
+        using var construction = runtime.Layout.BeginMutation();
         using var driver = new ParserDriver(runtime, url, runtime.Cancellation?.Token ?? CancellationToken.None);
         return driver.Run(html, onPhase);
     }
@@ -359,6 +360,7 @@ internal sealed class ParserDriver : IDisposable
                 _runtime.Document ??= owner;
             }
 
+            _runtime.Layout.DisableReuse();
             return Fetch(url, link, "stylesheet", PageRequestKind.Stylesheet, handedOver);
         });
     }
@@ -543,6 +545,7 @@ internal sealed class ParserDriver : IDisposable
 
         return Serve(() =>
         {
+            _runtime.Layout.DisableReuse();
             var ceiling = _runtime.Options.MaxFrameDocuments;
 
             if (ceiling <= 0 || _frameDocuments >= ceiling)

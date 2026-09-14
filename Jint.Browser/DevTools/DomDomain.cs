@@ -238,6 +238,7 @@ internal sealed partial class DomDomain : DOMDomainBase, IDetachableDomain, ITar
     /// <inheritdoc/>
     protected override ValueTask<EmptyResult> SetAttributeValueAsync(SetAttributeValueRequest parameters, CommandContext context)
     {
+        using var mutation = Runtime()?.Layout.BeginMutation() ?? default;
         RequireElement(parameters.NodeId).SetAttribute(parameters.Name, parameters.Value);
         return new ValueTask<EmptyResult>(EmptyResult.Instance);
     }
@@ -254,6 +255,7 @@ internal sealed partial class DomDomain : DOMDomainBase, IDetachableDomain, ITar
     /// </remarks>
     protected override ValueTask<EmptyResult> SetAttributesAsTextAsync(SetAttributesAsTextRequest parameters, CommandContext context)
     {
+        using var mutation = Runtime()?.Layout.BeginMutation() ?? default;
         var element = RequireElement(parameters.NodeId);
 
         if (parameters.Name is { Length: > 0 } replaced)
@@ -283,6 +285,7 @@ internal sealed partial class DomDomain : DOMDomainBase, IDetachableDomain, ITar
     /// <inheritdoc/>
     protected override ValueTask<EmptyResult> RemoveAttributeAsync(RemoveAttributeRequest parameters, CommandContext context)
     {
+        using var mutation = Runtime()?.Layout.BeginMutation() ?? default;
         RequireElement(parameters.NodeId).RemoveAttribute(parameters.Name);
         return new ValueTask<EmptyResult>(EmptyResult.Instance);
     }
@@ -290,6 +293,7 @@ internal sealed partial class DomDomain : DOMDomainBase, IDetachableDomain, ITar
     /// <inheritdoc/>
     protected override ValueTask<EmptyResult> RemoveNodeAsync(RemoveNodeRequest parameters, CommandContext context)
     {
+        using var mutation = Runtime()?.Layout.BeginMutation() ?? default;
         var node = RequireNodeId(parameters.NodeId);
 
         if (node.Parent is not { } parent)
@@ -304,6 +308,7 @@ internal sealed partial class DomDomain : DOMDomainBase, IDetachableDomain, ITar
     /// <inheritdoc/>
     protected override ValueTask<EmptyResult> SetNodeValueAsync(SetNodeValueRequest parameters, CommandContext context)
     {
+        using var mutation = Runtime()?.Layout.BeginMutation() ?? default;
         var node = RequireNodeId(parameters.NodeId);
         node.NodeValue = parameters.Value;
         return new ValueTask<EmptyResult>(EmptyResult.Instance);
