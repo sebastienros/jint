@@ -1,3 +1,4 @@
+using System.Buffers;
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
 using Jint.Browser.Dom.Collections;
@@ -390,6 +391,14 @@ internal class DomHostHooks
     /// <summary>https://infra.spec.whatwg.org/#ascii-whitespace: TAB, LF, FF, CR and SPACE, and nothing else.</summary>
     private static readonly char[] AsciiWhitespace = ['\t', '\n', '\f', '\r', ' '];
 
+    /// <summary>
+    /// The same five characters as a set a search can be vectorised over, for the two scans of
+    /// <see cref="HasClassFolded"/>. <see cref="SearchValues{T}"/> chooses the strategy once, when it is
+    /// built, and both <c>IndexOfAny</c> and <c>IndexOfAnyExcept</c> over it then read a vector of
+    /// characters per step where the scan they replaced read one.
+    /// </summary>
+    private static readonly SearchValues<char> AsciiWhitespaceValues = SearchValues.Create(AsciiWhitespace);
+
     /// <summary>https://infra.spec.whatwg.org/#split-on-ascii-whitespace, which is how a class list is parsed.</summary>
     private static string[] AsciiWhitespaceSplit(string value)
         => value.Split(AsciiWhitespace, StringSplitOptions.RemoveEmptyEntries);
@@ -435,39 +444,103 @@ internal class DomHostHooks
     }
 
     /// <summary>Whether the ASCII-whitespace-separated <paramref name="declared"/> set holds one token.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Outside quirks mode the comparison is exact, so the boundaries are the whole question and the
+    /// tokens themselves never have to be produced.</b> An ordinal substring search over the attribute value
+    /// finds every place the candidate's characters occur — a vector of characters per step rather than one —
+    /// and such a hit is a class exactly when ASCII whitespace or an end of the value stands on both sides of
+    /// it. That replaces a scan that read the value one character at a time to cut it into tokens and then
+    /// compared each token one character at a time: a profile of a <c>getElementsByClassName</c> loop over a
+    /// 5,000-element document put that scan at ~27% of the page-loop thread, against ~2% for the attribute
+    /// read it stands on.
+    /// </para>
+    /// <para>
+    /// <b>Two properties of a candidate are what make the search equivalent to the scan, and both come from
+    /// <see cref="AsciiWhitespaceSplit"/>:</b> it is never empty — <c>RemoveEmptyEntries</c> drops the empty
+    /// string, and an empty set of classes never reaches a filter at all — and it contains no ASCII
+    /// whitespace. The second is what makes "this hit is bounded by whitespace" the same statement as "some
+    /// whole token equals the candidate", and it is also what lets a rejected hit be skipped <i>past</i>
+    /// rather than re-entered at its second character: a hit beginning inside an earlier one would need a
+    /// whitespace character somewhere inside the candidate to be bounded on its left.
+    /// </para>
+    /// </remarks>
     private static bool HasClass(ReadOnlySpan<char> declared, string candidate, bool quirks)
     {
+        if (quirks)
+        {
+            return HasClassFolded(declared, candidate);
+        }
+
         var index = 0;
 
         while (index < declared.Length)
         {
-            while (index < declared.Length && IsAsciiWhitespace(declared[index]))
+            var hit = declared[index..].IndexOf(candidate.AsSpan());
+
+            if (hit < 0)
             {
-                index++;
+                return false;
             }
 
-            var start = index;
+            hit += index;
+            var end = hit + candidate.Length;
 
-            while (index < declared.Length && !IsAsciiWhitespace(declared[index]))
-            {
-                index++;
-            }
-
-            if (index > start && TokenEquals(declared.Slice(start, index - start), candidate, quirks))
+            if ((hit == 0 || IsAsciiWhitespace(declared[hit - 1]))
+                && (end == declared.Length || IsAsciiWhitespace(declared[end])))
             {
                 return true;
             }
+
+            index = end;
         }
 
         return false;
     }
 
     /// <summary>
-    /// https://infra.spec.whatwg.org/#ascii-case-insensitive - the ASCII range alone when the document is in
-    /// quirks mode, so the Kelvin sign and the dotless i keep their own identity where
-    /// <c>OrdinalIgnoreCase</c> would not, and an exact comparison otherwise.
+    /// The quirks half of <see cref="HasClass"/>, where the tokens do have to be produced: the comparison is
+    /// https://infra.spec.whatwg.org/#ascii-case-insensitive and no substring search can be. An ordinal one
+    /// would miss <c>BTN</c> for <c>btn</c>, and an <c>OrdinalIgnoreCase</c> one folds the whole of Unicode's
+    /// simple case mapping — the fold this algorithm must not have, for the reason
+    /// <see cref="GetElementsByClassName"/> gives. So the scan stays and what is vectorised is the two
+    /// searches it is made of: one for the end of a token, one for the start of the next.
     /// </summary>
-    private static bool TokenEquals(ReadOnlySpan<char> token, string candidate, bool quirks)
+    private static bool HasClassFolded(ReadOnlySpan<char> declared, string candidate)
+    {
+        while (true)
+        {
+            var start = declared.IndexOfAnyExcept(AsciiWhitespaceValues);
+
+            if (start < 0)
+            {
+                return false;
+            }
+
+            declared = declared[start..];
+            var end = declared.IndexOfAny(AsciiWhitespaceValues);
+
+            if (TokenEqualsFolded(end < 0 ? declared : declared[..end], candidate))
+            {
+                return true;
+            }
+
+            if (end < 0)
+            {
+                return false;
+            }
+
+            declared = declared[(end + 1)..];
+        }
+    }
+
+    /// <summary>
+    /// https://infra.spec.whatwg.org/#ascii-case-insensitive - the ASCII range alone, so the Kelvin sign and
+    /// the dotless i keep their own identity where <c>OrdinalIgnoreCase</c> would not. Only quirks mode
+    /// compares this way; the exact comparison is the substring search in <see cref="HasClass"/> and never
+    /// reaches here.
+    /// </summary>
+    private static bool TokenEqualsFolded(ReadOnlySpan<char> token, string candidate)
     {
         if (token.Length != candidate.Length)
         {
@@ -476,12 +549,7 @@ internal class DomHostHooks
 
         for (var i = 0; i < token.Length; i++)
         {
-            if (token[i] == candidate[i])
-            {
-                continue;
-            }
-
-            if (!quirks || AsciiLowercase(token[i]) != AsciiLowercase(candidate[i]))
+            if (token[i] != candidate[i] && AsciiLowercase(token[i]) != AsciiLowercase(candidate[i]))
             {
                 return false;
             }
@@ -490,6 +558,15 @@ internal class DomHostHooks
         return true;
     }
 
+    /// <summary>The token-boundary predicate of <see cref="HasClass"/>.</summary>
+    /// <remarks>
+    /// It deliberately carries no <c>[MethodImpl(AggressiveInlining)]</c>, and the profile above is not an
+    /// argument for one: what put this method in that profile as a frame of its own — 4.6% of the page-loop
+    /// thread, so genuinely called rather than inlined — was being called once per character of every class
+    /// attribute in the document. Above it is now called at most twice per hit, so inlining it could move at
+    /// most a fraction of a per cent of what is left, and the attribute would be an unmeasured claim about a
+    /// call shape that no longer exists. If it ever matters again it will show up the way it did this time.
+    /// </remarks>
     private static bool IsAsciiWhitespace(char character)
         => character is '\t' or '\n' or '\f' or '\r' or ' ';
 

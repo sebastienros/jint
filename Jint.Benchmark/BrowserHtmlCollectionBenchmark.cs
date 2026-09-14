@@ -28,7 +28,17 @@ namespace Jint.Benchmark;
 /// <list type="bullet">
 /// <item><description>
 /// <see cref="ClassName"/> — <c>getElementsByClassName</c>, whose filter the binding owns because DOM makes
-/// its comparison ASCII case-insensitive in quirks mode and AngleSharp offers no seam for that.
+/// its comparison ASCII case-insensitive in quirks mode and AngleSharp offers no seam for that. Its
+/// document gives every element one three-character class, which is the <i>shortest</i> attribute the
+/// filter can be handed.
+/// </description></item>
+/// <item><description>
+/// <see cref="ClassNameMultiToken"/> — the same member over the class attribute a framework actually emits
+/// (<c>class="btn btn-primary btn-lg active focus-visible"</c>, queried for its <b>last</b> token) and over
+/// a document whose non-matching half carries a long attribute of its own, so the rejections cost what a
+/// real page's do rather than being answered by an absent attribute. It is a second row rather than a
+/// change to <see cref="ClassName"/> because that row has history: a per-character cost is invisible at
+/// three characters, and a per-character <i>saving</i> would be too.
 /// </description></item>
 /// <item><description>
 /// <see cref="TagName"/> — <c>getElementsByTagName</c>, the same live shape with a cheaper per-element test.
@@ -95,11 +105,20 @@ public class BrowserHtmlCollectionBenchmark
     public int Count { get; set; }
 
     /// <summary>
-    /// The four rows that walk the document. One pass is already milliseconds — the read is quadratic in the
-    /// collection's length by construction, because these collections are live and nothing may memoize — so
-    /// ten passes puts the row well clear of the round trip without making it absurd.
+    /// The four rows that walk <see cref="Document"/>. One pass is already milliseconds — the read is
+    /// quadratic in the collection's length by construction, because these collections are live and nothing
+    /// may memoize — so ten passes puts the row well clear of the round trip without making it absurd.
     /// </summary>
     private const int WalkPasses = 10;
+
+    /// <summary>
+    /// <see cref="ClassNameMultiToken"/> walks a document of the same size, and a pass is mostly the walk
+    /// rather than the attribute read at the end of it, so ten passes puts this row in the same band as the
+    /// four above it. It is a constant of its own all the same: the counts in this class state what each row
+    /// was sized for, and folding this one into <see cref="WalkPasses"/> would assert that its document costs
+    /// what <see cref="ClassName"/>'s does — the one thing the pair of rows exists to find out.
+    /// </summary>
+    private const int MultiTokenPasses = 10;
 
     /// <summary>
     /// <see cref="Children"/> is the shallow one — element children of a single node rather than a walk of
@@ -146,6 +165,7 @@ public class BrowserHtmlCollectionBenchmark
 
     private Browser.Browser _browser = null!;
     private CollectionRow _className = null!;
+    private CollectionRow _classNameMultiToken = null!;
     private CollectionRow _tagName = null!;
     private CollectionRow _formElements = null!;
     private CollectionRow _children = null!;
@@ -158,6 +178,8 @@ public class BrowserHtmlCollectionBenchmark
         _browser = new Browser.Browser();
 
         _className = await CreateRowAsync("var c = document.getElementsByClassName('foo');", WalkPasses);
+        _classNameMultiToken = await CreateRowAsync(
+            "var c = document.getElementsByClassName('focus-visible');", MultiTokenPasses, MultiTokenDocument(Count));
         _tagName = await CreateRowAsync("var c = document.getElementsByTagName('span');", WalkPasses);
         _formElements = await CreateRowAsync("var c = document.getElementById('form').elements;", WalkPasses);
         _children = await CreateRowAsync("var c = document.getElementById('root').children;", ChildrenPasses);
@@ -174,13 +196,15 @@ public class BrowserHtmlCollectionBenchmark
 
     /// <summary>
     /// One page holding <paramref name="bind"/>'s <c>c</c> and the element the loop looks for, warmed with
-    /// this row's own loop — at this row's own pass count — and nothing else.
+    /// this row's own loop — at this row's own pass count — and nothing else. <paramref name="html"/> is the
+    /// row's own fixture where it needs one; every row that does not name one shares <see cref="Document"/>'s
+    /// shape, and none of them shares a page.
     /// </summary>
-    private async Task<CollectionRow> CreateRowAsync(string bind, int passes)
+    private async Task<CollectionRow> CreateRowAsync(string bind, int passes, string? html = null)
     {
         var page = await _browser.NewPageAsync();
         var script = Loop(passes);
-        await page.SetContentAsync(Document(Count));
+        await page.SetContentAsync(html ?? Document(Count));
         await page.EvaluateAsync<double>(bind + " var el = c[50]; 0;");
         await page.EvaluateAsync<double>(script);
         return new CollectionRow(page, script);
@@ -210,8 +234,41 @@ public class BrowserHtmlCollectionBenchmark
         return html.Append("</form></body></html>").ToString();
     }
 
+    /// <summary>
+    /// The same <paramref name="count"/> matching elements and as many non-matching ones as
+    /// <see cref="Document"/> has, with the class attributes of a page built out of a component library:
+    /// five tokens, and the queried one last, so the filter answers only after reading the whole value.
+    /// </summary>
+    /// <remarks>
+    /// The non-matching half carries a long attribute too, and one holding no occurrence of the queried
+    /// class at all. In <see cref="Document"/> the non-matching elements are form controls with no class
+    /// attribute, so they are rejected before the comparison starts; here a rejection costs a read of the
+    /// whole value, which is what rejecting an element of a real page costs.
+    /// </remarks>
+    private static string MultiTokenDocument(int count)
+    {
+        var html = new StringBuilder("<!doctype html><html><body><div id=\"root\">");
+
+        for (var i = 0; i < count; i++)
+        {
+            html.Append("<span class=\"btn btn-primary btn-lg active focus-visible\"></span>");
+        }
+
+        html.Append("</div><div id=\"other\">");
+
+        for (var i = 0; i < count; i++)
+        {
+            html.Append("<span class=\"card card-body shadow-sm rounded border\"></span>");
+        }
+
+        return html.Append("</div></body></html>").ToString();
+    }
+
     [Benchmark]
     public Task<double> ClassName() => _className.Run();
+
+    [Benchmark]
+    public Task<double> ClassNameMultiToken() => _classNameMultiToken.Run();
 
     [Benchmark]
     public Task<double> TagName() => _tagName.Run();
