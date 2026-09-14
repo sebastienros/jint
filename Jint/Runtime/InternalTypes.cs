@@ -55,19 +55,24 @@ internal enum InternalTypes
     // to dictionary mode. Mutually exclusive with ShapeMode; lets ObjectInstance's property virtuals
     // discriminate built-in-shape vs dictionary storage with a single flag test on the already-loaded _type.
     BuiltinShapeMode = 524288,
-    // the value implements ICallable. Set by every ICallable root (Function, BindFunction,
-    // IsHTMLDDA, JsProxy, NamespaceReference) so a call site can decide callability with a flag test on the
+    // the value implements ICallable. Set by every ICallable root (Function, IsHTMLDDA, JsProxy,
+    // NamespaceReference) so a call site can decide callability with a flag test on the
     // already-loaded _type plus an Unsafe.As, instead of an `is ICallable` interface-map scan —
     // measured at 1.2% of dromaeo-object-string-modern, all of it from JintCallExpression, which
     // tests it twice per call. Note this is strictly "implements ICallable", NOT "is callable":
     // a JsProxy over a non-callable target carries the flag and reports HasCall == false,
     // matching what `is ICallable` answers today.
     Callable = 1048576,
-    // the value is a Function. Implies Callable, and narrows it: the other ICallable roots
-    // (BindFunction, IsHTMLDDA, JsProxy, NamespaceReference) do not carry it. Function is an
-    // abstract class with many subclasses, so `is Function` costs a CastHelpers.IsInstanceOfClass
-    // hierarchy walk — the last such walk left on the call-dispatch path, where it decides whether
-    // the callee gets a call-stack frame.
+    // the value is a Function. Implies Callable, and narrows it: the other ICallable roots (IsHTMLDDA,
+    // JsProxy, NamespaceReference) do not carry it, while BindFunction does — it derives from Function
+    // rather than implementing ICallable itself, and so gets a frame like any other function. Function is
+    // an abstract class with many subclasses, so `is Function` costs a CastHelpers.IsInstanceOfClass
+    // hierarchy walk; the flag replaces it on the call-dispatch path, where it decides whether the callee
+    // gets a call-stack frame, and in ObjectInstance.UnwrapFromGetter, where it decides whether an
+    // accessor's getter can be Unsafe.As'd to Function and called through Engine.Call's Function overload.
+    // Because that second use reinterprets memory rather than picking a branch, the equivalence with
+    // `is Function` is not merely an optimisation detail: CallableFlagTests pins it, in Release, for every
+    // shape that can hold the flag — a Debug.Assert would not, since CI never builds Debug.
     Function = 2097152,
     // the object promises ORDINARY [[Get]] semantics even though it is not a PlainObject: Get(p, receiver)
     // returns exactly UnwrapJsValue(GetOwnProperty(p), receiver) for an existing own property and otherwise

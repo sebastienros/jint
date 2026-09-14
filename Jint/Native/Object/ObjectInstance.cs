@@ -1154,17 +1154,53 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     }
 
     /// <summary>
-    /// A rarer case.
+    /// A rarer case — but the whole cost of a read whose property is an accessor, which for a host that
+    /// projects its state through Web IDL attributes (every DOM property) is every read it serves.
     /// </summary>
+    /// <remarks>
+    /// Kept <see cref="MethodImplOptions.NoInlining"/> so <see cref="UnwrapJsValue(PropertyDescriptor, JsValue)"/>
+    /// — which every property read goes through, accessor or not — stays small enough to inline into its
+    /// own callers.
+    /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static JsValue UnwrapFromGetter(PropertyDescriptor desc, JsValue thisObject)
     {
-        var getter = desc.Get ?? Undefined;
-        if (getter.IsUndefined())
+        // GetSetPropertyDescriptor is sealed and holds the getter in a field, so pattern-matching it lets
+        // the JIT resolve Get exactly (no virtual dispatch, and the field read inlines). It is the form an
+        // accessor declared through JsObjectShape.Builder.Accessor materializes into, so it is what every
+        // generated Web IDL attribute is read through; any other descriptor keeps the virtual call.
+        var getter = desc is GetSetPropertyDescriptor accessor ? accessor.Get : desc.Get;
+        if (getter is null)
         {
             return Undefined;
         }
 
+        // InternalTypes.Function is set by Function's constructor chain and by nothing else, and Function's
+        // two constructors are internal, so the flag is exactly `getter is Function` — pinned by
+        // Jint.Tests.Runtime.CallableFlagTests. Taking it as a flag test skips the CastHelpers hierarchy
+        // walk an `is Function` costs on an abstract class with dozens of subclasses, and reaching
+        // Engine.Call's Function overload directly skips the same walk a second time inside it.
+        if ((getter._type & InternalTypes.Function) != InternalTypes.Empty)
+        {
+            Debug.Assert(getter is Function.Function, $"InternalTypes.Function disagrees with `is Function` for {getter.GetType()}");
+            var function = Unsafe.As<Function.Function>(getter);
+            // Function.HasCall is a sealed `=> true`, so the callability test the rare path still makes is
+            // already decided here.
+            return function._engine.Call(function, thisObject, Arguments.Empty, expression: null);
+        }
+
+        return UnwrapFromRareGetter(getter, thisObject);
+    }
+
+    /// <summary>
+    /// The getter halves that are not a <see cref="Function.Function"/>: an accessor with no getter (the
+    /// <c>undefined</c> literal rather than a null field), a non-callable value a host put in the slot, and
+    /// the <c>ICallable</c>s that are not functions — a callable <c>Proxy</c> (revoked or not), an object
+    /// with Annex B's <c>[[IsHTMLDDA]]</c> slot, and interop's namespace reference.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static JsValue UnwrapFromRareGetter(JsValue getter, JsValue thisObject)
+    {
         if (!getter.HasCall)
         {
             return Undefined;

@@ -136,17 +136,46 @@ internal sealed class JintCallStack
         return item;
     }
 
-    public bool TryPop([NotNullWhen(true)] out CallStackElement item)
+    /// <summary>
+    /// Pops the top frame without producing it, and does nothing when the stack is empty — which is the
+    /// tolerance every <c>finally</c> block balancing a <c>Push</c> needs, because a host callback
+    /// can reset the stack out from under a running call. It replaced the <c>TryPop(out _)</c> those
+    /// blocks all used to spell, which discarded both the flag and the frame.
+    /// </summary>
+    /// <remarks>
+    /// The only reason <see cref="Pop"/> copies the frame out of the array is that the recursion-depth
+    /// statistics are keyed on it, and those are tracked only when <c>Options.Constraints.MaxRecursionDepth</c>
+    /// is set — so by default a 32-byte <see cref="CallStackElement"/> was copied on every call the engine
+    /// makes for a value nobody reads. With statistics on, this is <see cref="Pop"/> unchanged. Both arms
+    /// zero the vacated slot and record the profiler's exit in the same place, so the array retains nothing
+    /// and a profile's enter/exit stream stays balanced by construction.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void TryPopAndDiscard()
     {
         if (_stack._size == 0)
         {
-            item = default;
-            return false;
+            return;
         }
 
-        item = Pop();
-        return true;
+        if (_statistics is not null)
+        {
+            PopTracked();
+            return;
+        }
+
+        _stack.PopAndDiscard();
+        _profiler?.RecordExit();
     }
+
+    /// <summary>
+    /// The statistics-tracking arm of <see cref="TryPopAndDiscard"/>, kept out of line so that the
+    /// <see cref="CallStackElement"/> <see cref="Pop"/> returns never becomes a local of the hot method —
+    /// a 32-byte GC-tracked return buffer there costs a prologue that zeroes it on the arm that does not
+    /// use it, and keeps the method too large to inline into its <c>finally</c> blocks.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void PopTracked() => Pop();
 
     /// <summary>
     /// Replaces the top frame with a proper tail call's target, and returns the target's new recursion

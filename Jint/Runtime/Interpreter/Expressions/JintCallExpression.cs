@@ -390,7 +390,7 @@ internal sealed class JintCallExpression : JintExpression
             finally
             {
                 // if call stack was reset due to recursive call to engine or similar, we might not have it anymore
-                callStack.TryPop(out _);
+                callStack.TryPopAndDiscard();
             }
 
             // Populate the fast-call cache after a successful dispatch, so the *next* evaluation of
@@ -557,7 +557,7 @@ internal sealed class JintCallExpression : JintExpression
         finally
         {
             // if call stack was reset due to recursive call to engine or similar, we might not have it anymore
-            callStack.TryPop(out _);
+            callStack.TryPopAndDiscard();
         }
     }
 
@@ -650,7 +650,7 @@ internal sealed class JintCallExpression : JintExpression
         }
         finally
         {
-            callStack.TryPop(out _);
+            callStack.TryPopAndDiscard();
         }
     }
 
@@ -756,7 +756,7 @@ internal sealed class JintCallExpression : JintExpression
         }
         finally
         {
-            callStack.TryPop(out _);
+            callStack.TryPopAndDiscard();
         }
     }
 

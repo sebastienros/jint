@@ -3943,7 +3943,7 @@ public sealed partial class Engine : IDisposable
                 finally
                 {
                     // if call stack was reset due to recursive call to engine or similar, we might not have it anymore
-                    callStack.TryPop(out _);
+                    callStack.TryPopAndDiscard();
                 }
             }
             else
@@ -5183,7 +5183,7 @@ public sealed partial class Engine : IDisposable
         finally
         {
             // if call stack was reset due to recursive call to engine or similar, we might not have it anymore
-            CallStack.TryPop(out _);
+            CallStack.TryPopAndDiscard();
         }
 
         return result;
@@ -5229,7 +5229,7 @@ public sealed partial class Engine : IDisposable
         finally
         {
             // if call stack was reset due to recursive call to engine or similar, we might not have it anymore
-            CallStack.TryPop(out _);
+            CallStack.TryPopAndDiscard();
         }
 
         return result;
