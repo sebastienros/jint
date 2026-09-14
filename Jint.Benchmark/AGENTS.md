@@ -86,6 +86,23 @@ So six rounds resolves roughly a 1–2.5% effect on these rows; add rounds rathe
 >
 > So: **three rounds to confirm an effect that is already large, six or more before believing a small one** — and especially before believing a *regression*, where a false positive sends a reviewer hunting through a diff that cannot contain it. Across a 50-row wide gate at three rounds, some spurious exclusions of zero are close to certain, so read such a table in two stages: treat a row as a candidate only when it agrees in sign across every round **and** exceeds this machine's ±3–5% same-binary spread, then re-measure just those rows at six rounds before acting. Fix that bar before you look at the table. **This is also why the old flat "1% blocks" rule cannot work as stated** — on many rows 1% is below what the measurement can resolve, so it manufactures re-runs rather than catching regressions.
 
+### A measured NO-GO: the double native-stack probe
+
+Kept because it is what the two rules above look like when they decide a real change, and because the next person to read a profile will find the same redundancy. A host accessor read — every DOM property read — probes the native stack twice, once in `Engine.CallNativeFunction` and once at the top of `ClrFunction.Call`; an Ultra capture on [#4013](https://github.com/sebastienros/jint/issues/4013) put `ObjectInstance.UnwrapFromGetter`'s subtree at 29.1% of the page-loop thread and `StackGuard.ProbeStackHeadroom` at 17.0% of that subtree. A flag on `Function` let the dispatcher skip its probe for a callee that probes for itself, preserving the guard on every route. Six rounds, paired, alternating order, verified idle, `DefaultJob`:
+
+| row | median Δ | 95% CI | sign agreement | |
+| --- | ---: | --- | ---: | --- |
+| `HostAccessorReadBenchmark.AccessorRead` | −1.35% | [−3.65, +2.07] | 1/6 | subject |
+| `HostAccessorReadBenchmark.MethodCall` | −1.27% | [−4.13, +12.92] | 2/6 | control |
+| `HostAccessorReadBenchmark.DataPropertyRead` | **+1.19%** | **[+0.65, +3.48]** | **6/6** | floor — cannot execute the change |
+| `BrowserPropertyReadBenchmark.NodeName` | −2.55% | [−4.65, +6.09] | 2/6 | |
+| `BrowserPropertyReadBenchmark.TagName` | −1.72% | [−5.52, +0.93] | 2/6 | |
+| `BrowserPropertyReadBenchmark.NodeType` | −3.72% | [−15.43, +2.64] | 2/6 | |
+| `BrowserPropertyReadBenchmark.ParentNode` | −0.61% | [−5.37, +2.33] | 3/6 | |
+| `BrowserPropertyReadBenchmark.PlainProperty` | −0.72% | [−1.65, +2.35] | 1/6 | control |
+
+**Removing one of the two probes is below what a six-round paired benchmark on this hardware can resolve**, so the change did not ship; what the probes are and why neither is deletable is in [`Jint/Constraints/AGENTS.md`](../Jint/Constraints/AGENTS.md#gotchas). Two things to take from the table beyond that verdict. `DataPropertyRead` is a plain data-property read that never reaches the changed method, and it read **slower, 6/6, with an interval excluding zero** — the second such artefact this campaign caught on a row that provably cannot execute the change, so a full-sign-agreement exclusion of zero at six rounds is still not proof on its own. And it was only visible *because* the class carried a floor row that cannot execute the change: without it the same offset would have been read off the subject row as a result. **Put a control row in every class you add**, sized like the others, and pick it so that the change under test cannot reach it.
+
 ### Adding a new benchmark
 
 1. Create a class in `Jint.Benchmark/` with `[MemoryDiagnoser]`.
