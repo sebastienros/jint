@@ -42,6 +42,19 @@ internal static class CssRuleUsage
     /// <summary>Whether any client is recording rule usage anywhere in this process.</summary>
     internal static bool IsTracking => Volatile.Read(ref _tracking).Length != 0;
 
+    /// <summary>Whether retained geometry would hide rule usage from this document's tracker.</summary>
+    internal static bool IsTrackingDocument(IDocument? document)
+    {
+        foreach (var tracker in Volatile.Read(ref _tracking))
+        {
+            if (ReferenceEquals(tracker.Document, document))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /// <summary>Records the rules that match <paramref name="element"/>, for whoever is tracking.</summary>
     /// <param name="element">The element a cascade is being computed for.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

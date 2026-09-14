@@ -237,6 +237,7 @@ internal sealed class PageRuntime
         get => _document;
         set
         {
+            Layout.Invalidate();
             _document = value;
 
             if (value is null)

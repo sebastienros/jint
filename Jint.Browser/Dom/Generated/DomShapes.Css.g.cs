@@ -50,7 +50,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssRule>(thisObj, "CSSRule.cssText");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.CssText);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSRule.cssText", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSRule.cssText", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssRule>(thisObj, "CSSRule.cssText");
                     self.Target.CssText = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSRule.cssText"); return global::Jint.Native.JsValue.Undefined;
@@ -86,7 +86,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssCharsetRule>(thisObj, "CSSCharsetRule.encoding");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.CharacterSet);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSCharsetRule.encoding", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSCharsetRule.encoding", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssCharsetRule>(thisObj, "CSSCharsetRule.encoding");
                     self.Target.CharacterSet = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSCharsetRule.encoding"); return global::Jint.Native.JsValue.Undefined;
@@ -125,14 +125,14 @@ internal static partial class DomInterfaces
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Name);
                 }))
             .Method("removeProperty",
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSColorProfileRule.removeProperty", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSColorProfileRule.removeProperty", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssColorProfileRule>(thisObj, "CSSColorProfileRule.removeProperty");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.RemoveProperty(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSColorProfileRule.removeProperty")));
                 }),
                 length: 1)
             .Method("setProperty",
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSColorProfileRule.setProperty", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSColorProfileRule.setProperty", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssColorProfileRule>(thisObj, "CSSColorProfileRule.setProperty");
                     self.Target.SetProperty(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSColorProfileRule.setProperty"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "CSSColorProfileRule.setProperty"), global::Jint.Browser.Dom.DomConvert.NullableText(args, 2)); return global::Jint.Native.JsValue.Undefined;
@@ -152,14 +152,14 @@ internal static partial class DomInterfaces
                     return self.Realm.Wrap(self.Target.Rules);
                 }))
             .Method("deleteRule",
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSGroupingRule.deleteRule", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSGroupingRule.deleteRule", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssGroupingRule>(thisObj, "CSSGroupingRule.deleteRule");
                     self.Target.RemoveAt(global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "CSSGroupingRule.deleteRule")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 1)
             .Method("insertRule",
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSGroupingRule.insertRule", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSGroupingRule.insertRule", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssGroupingRule>(thisObj, "CSSGroupingRule.insertRule");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Insert(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSGroupingRule.insertRule"), global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 1, "CSSGroupingRule.insertRule")));
@@ -184,7 +184,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssConditionRule>(thisObj, "CSSConditionRule.conditionText");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.ConditionText);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSConditionRule.conditionText", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSConditionRule.conditionText", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssConditionRule>(thisObj, "CSSConditionRule.conditionText");
                     self.Target.ConditionText = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSConditionRule.conditionText"); return global::Jint.Native.JsValue.Undefined;
@@ -221,7 +221,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssCounterStyleRule>(thisObj, "CSSCounterStyleRule.additiveSymbols");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.AdditiveSymbols);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSCounterStyleRule.additiveSymbols", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSCounterStyleRule.additiveSymbols", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssCounterStyleRule>(thisObj, "CSSCounterStyleRule.additiveSymbols");
                     self.Target.AdditiveSymbols = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSCounterStyleRule.additiveSymbols"); return global::Jint.Native.JsValue.Undefined;
@@ -232,7 +232,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssCounterStyleRule>(thisObj, "CSSCounterStyleRule.fallback");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Fallback);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSCounterStyleRule.fallback", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSCounterStyleRule.fallback", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssCounterStyleRule>(thisObj, "CSSCounterStyleRule.fallback");
                     self.Target.Fallback = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSCounterStyleRule.fallback"); return global::Jint.Native.JsValue.Undefined;
@@ -243,7 +243,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssCounterStyleRule>(thisObj, "CSSCounterStyleRule.name");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Name);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSCounterStyleRule.name", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSCounterStyleRule.name", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssCounterStyleRule>(thisObj, "CSSCounterStyleRule.name");
                     self.Target.Name = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSCounterStyleRule.name"); return global::Jint.Native.JsValue.Undefined;
@@ -254,7 +254,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssCounterStyleRule>(thisObj, "CSSCounterStyleRule.negative");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Negative);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSCounterStyleRule.negative", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSCounterStyleRule.negative", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssCounterStyleRule>(thisObj, "CSSCounterStyleRule.negative");
                     self.Target.Negative = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSCounterStyleRule.negative"); return global::Jint.Native.JsValue.Undefined;
@@ -265,7 +265,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssCounterStyleRule>(thisObj, "CSSCounterStyleRule.pad");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Pad);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSCounterStyleRule.pad", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSCounterStyleRule.pad", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssCounterStyleRule>(thisObj, "CSSCounterStyleRule.pad");
                     self.Target.Pad = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSCounterStyleRule.pad"); return global::Jint.Native.JsValue.Undefined;
@@ -276,7 +276,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssCounterStyleRule>(thisObj, "CSSCounterStyleRule.prefix");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Prefix);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSCounterStyleRule.prefix", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSCounterStyleRule.prefix", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssCounterStyleRule>(thisObj, "CSSCounterStyleRule.prefix");
                     self.Target.Prefix = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSCounterStyleRule.prefix"); return global::Jint.Native.JsValue.Undefined;
@@ -287,7 +287,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssCounterStyleRule>(thisObj, "CSSCounterStyleRule.range");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Range);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSCounterStyleRule.range", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSCounterStyleRule.range", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssCounterStyleRule>(thisObj, "CSSCounterStyleRule.range");
                     self.Target.Range = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSCounterStyleRule.range"); return global::Jint.Native.JsValue.Undefined;
@@ -298,7 +298,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssCounterStyleRule>(thisObj, "CSSCounterStyleRule.speakAs");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.SpeakAs);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSCounterStyleRule.speakAs", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSCounterStyleRule.speakAs", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssCounterStyleRule>(thisObj, "CSSCounterStyleRule.speakAs");
                     self.Target.SpeakAs = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSCounterStyleRule.speakAs"); return global::Jint.Native.JsValue.Undefined;
@@ -309,7 +309,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssCounterStyleRule>(thisObj, "CSSCounterStyleRule.suffix");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Suffix);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSCounterStyleRule.suffix", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSCounterStyleRule.suffix", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssCounterStyleRule>(thisObj, "CSSCounterStyleRule.suffix");
                     self.Target.Suffix = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSCounterStyleRule.suffix"); return global::Jint.Native.JsValue.Undefined;
@@ -320,7 +320,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssCounterStyleRule>(thisObj, "CSSCounterStyleRule.symbols");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Symbols);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSCounterStyleRule.symbols", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSCounterStyleRule.symbols", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssCounterStyleRule>(thisObj, "CSSCounterStyleRule.symbols");
                     self.Target.Symbols = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSCounterStyleRule.symbols"); return global::Jint.Native.JsValue.Undefined;
@@ -331,7 +331,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssCounterStyleRule>(thisObj, "CSSCounterStyleRule.system");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.System);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSCounterStyleRule.system", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSCounterStyleRule.system", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssCounterStyleRule>(thisObj, "CSSCounterStyleRule.system");
                     self.Target.System = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSCounterStyleRule.system"); return global::Jint.Native.JsValue.Undefined;
@@ -356,7 +356,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssFontFaceRule>(thisObj, "CSSFontFaceRule.family");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Family);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSFontFaceRule.family", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSFontFaceRule.family", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssFontFaceRule>(thisObj, "CSSFontFaceRule.family");
                     self.Target.Family = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSFontFaceRule.family"); return global::Jint.Native.JsValue.Undefined;
@@ -367,7 +367,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssFontFaceRule>(thisObj, "CSSFontFaceRule.featureSettings");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Features);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSFontFaceRule.featureSettings", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSFontFaceRule.featureSettings", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssFontFaceRule>(thisObj, "CSSFontFaceRule.featureSettings");
                     self.Target.Features = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSFontFaceRule.featureSettings"); return global::Jint.Native.JsValue.Undefined;
@@ -393,14 +393,14 @@ internal static partial class DomInterfaces
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);
                 }))
             .Method("removeProperty",
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSFontFaceRule.removeProperty", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSFontFaceRule.removeProperty", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssFontFaceRule>(thisObj, "CSSFontFaceRule.removeProperty");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.RemoveProperty(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSFontFaceRule.removeProperty")));
                 }),
                 length: 1)
             .Method("setProperty",
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSFontFaceRule.setProperty", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSFontFaceRule.setProperty", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssFontFaceRule>(thisObj, "CSSFontFaceRule.setProperty");
                     self.Target.SetProperty(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSFontFaceRule.setProperty"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "CSSFontFaceRule.setProperty"), global::Jint.Browser.Dom.DomConvert.NullableText(args, 2)); return global::Jint.Native.JsValue.Undefined;
@@ -412,7 +412,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssFontFaceRule>(thisObj, "CSSFontFaceRule.src");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Source);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSFontFaceRule.src", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSFontFaceRule.src", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssFontFaceRule>(thisObj, "CSSFontFaceRule.src");
                     self.Target.Source = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSFontFaceRule.src"); return global::Jint.Native.JsValue.Undefined;
@@ -423,7 +423,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssFontFaceRule>(thisObj, "CSSFontFaceRule.stretch");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Stretch);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSFontFaceRule.stretch", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSFontFaceRule.stretch", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssFontFaceRule>(thisObj, "CSSFontFaceRule.stretch");
                     self.Target.Stretch = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSFontFaceRule.stretch"); return global::Jint.Native.JsValue.Undefined;
@@ -434,7 +434,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssFontFaceRule>(thisObj, "CSSFontFaceRule.style");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Style);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSFontFaceRule.style", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSFontFaceRule.style", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssFontFaceRule>(thisObj, "CSSFontFaceRule.style");
                     self.Target.Style = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSFontFaceRule.style"); return global::Jint.Native.JsValue.Undefined;
@@ -445,7 +445,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssFontFaceRule>(thisObj, "CSSFontFaceRule.unicodeRange");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Range);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSFontFaceRule.unicodeRange", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSFontFaceRule.unicodeRange", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssFontFaceRule>(thisObj, "CSSFontFaceRule.unicodeRange");
                     self.Target.Range = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSFontFaceRule.unicodeRange"); return global::Jint.Native.JsValue.Undefined;
@@ -456,7 +456,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssFontFaceRule>(thisObj, "CSSFontFaceRule.variant");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Variant);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSFontFaceRule.variant", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSFontFaceRule.variant", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssFontFaceRule>(thisObj, "CSSFontFaceRule.variant");
                     self.Target.Variant = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSFontFaceRule.variant"); return global::Jint.Native.JsValue.Undefined;
@@ -467,7 +467,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssFontFaceRule>(thisObj, "CSSFontFaceRule.weight");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Weight);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSFontFaceRule.weight", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSFontFaceRule.weight", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssFontFaceRule>(thisObj, "CSSFontFaceRule.weight");
                     self.Target.Weight = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSFontFaceRule.weight"); return global::Jint.Native.JsValue.Undefined;
@@ -485,7 +485,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssFontFeatureValuesRule>(thisObj, "CSSFontFeatureValuesRule.fontFamily");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Family);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSFontFeatureValuesRule.fontFamily", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSFontFeatureValuesRule.fontFamily", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssFontFeatureValuesRule>(thisObj, "CSSFontFeatureValuesRule.fontFamily");
                     self.Target.Family = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSFontFeatureValuesRule.fontFamily"); return global::Jint.Native.JsValue.Undefined;
@@ -524,14 +524,14 @@ internal static partial class DomInterfaces
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Name);
                 }))
             .Method("removeProperty",
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSFontPaletteValuesRule.removeProperty", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSFontPaletteValuesRule.removeProperty", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssFontPaletteValuesRule>(thisObj, "CSSFontPaletteValuesRule.removeProperty");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.RemoveProperty(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSFontPaletteValuesRule.removeProperty")));
                 }),
                 length: 1)
             .Method("setProperty",
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSFontPaletteValuesRule.setProperty", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSFontPaletteValuesRule.setProperty", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssFontPaletteValuesRule>(thisObj, "CSSFontPaletteValuesRule.setProperty");
                     self.Target.SetProperty(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSFontPaletteValuesRule.setProperty"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "CSSFontPaletteValuesRule.setProperty"), global::Jint.Browser.Dom.DomConvert.NullableText(args, 2)); return global::Jint.Native.JsValue.Undefined;
@@ -556,7 +556,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssImportRule>(thisObj, "CSSImportRule.media");
                     return self.Realm.Wrap(self.Target.Media);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSImportRule.media", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSImportRule.media", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssImportRule>(thisObj, "CSSImportRule.media");
                     var forwardTarget = self.Target.Media; if (forwardTarget is not null) { forwardTarget.MediaText = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSImportRule.media"); } return global::Jint.Native.JsValue.Undefined;
@@ -580,7 +580,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssKeyframeRule>(thisObj, "CSSKeyframeRule.keyText");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.KeyText);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSKeyframeRule.keyText", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSKeyframeRule.keyText", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssKeyframeRule>(thisObj, "CSSKeyframeRule.keyText");
                     self.Target.KeyText = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSKeyframeRule.keyText"); return global::Jint.Native.JsValue.Undefined;
@@ -599,7 +599,7 @@ internal static partial class DomInterfaces
             .ToStringTag("CSSKeyframesRule")
             .PerRealmSlot("constructor", enumerable: false)
             .Method("appendRule",
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSKeyframesRule.appendRule", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSKeyframesRule.appendRule", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssKeyframesRule>(thisObj, "CSSKeyframesRule.appendRule");
                     self.Target.Add(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSKeyframesRule.appendRule")); return global::Jint.Native.JsValue.Undefined;
@@ -612,7 +612,7 @@ internal static partial class DomInterfaces
                     return self.Realm.Wrap(self.Target.Rules);
                 }))
             .Method("deleteRule",
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSKeyframesRule.deleteRule", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSKeyframesRule.deleteRule", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssKeyframesRule>(thisObj, "CSSKeyframesRule.deleteRule");
                     self.Target.Remove(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSKeyframesRule.deleteRule")); return global::Jint.Native.JsValue.Undefined;
@@ -631,7 +631,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssKeyframesRule>(thisObj, "CSSKeyframesRule.name");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Name);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSKeyframesRule.name", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSKeyframesRule.name", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssKeyframesRule>(thisObj, "CSSKeyframesRule.name");
                     self.Target.Name = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSKeyframesRule.name"); return global::Jint.Native.JsValue.Undefined;
@@ -680,7 +680,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssMarginRule>(thisObj, "CSSMarginRule.style");
                     return self.Realm.Wrap(self.Target.Style);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSMarginRule.style", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSMarginRule.style", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssMarginRule>(thisObj, "CSSMarginRule.style");
                     var forwardTarget = self.Target.Style; if (forwardTarget is not null) { forwardTarget.CssText = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSMarginRule.style"); } return global::Jint.Native.JsValue.Undefined;
@@ -698,7 +698,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssMediaRule>(thisObj, "CSSMediaRule.media");
                     return self.Realm.Wrap(self.Target.Media);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSMediaRule.media", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSMediaRule.media", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssMediaRule>(thisObj, "CSSMediaRule.media");
                     var forwardTarget = self.Target.Media; if (forwardTarget is not null) { forwardTarget.MediaText = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSMediaRule.media"); } return global::Jint.Native.JsValue.Undefined;
@@ -716,7 +716,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssNamespaceRule>(thisObj, "CSSNamespaceRule.namespaceURI");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.NamespaceUri);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSNamespaceRule.namespaceURI", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSNamespaceRule.namespaceURI", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssNamespaceRule>(thisObj, "CSSNamespaceRule.namespaceURI");
                     self.Target.NamespaceUri = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSNamespaceRule.namespaceURI"); return global::Jint.Native.JsValue.Undefined;
@@ -727,7 +727,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssNamespaceRule>(thisObj, "CSSNamespaceRule.prefix");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Prefix);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSNamespaceRule.prefix", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSNamespaceRule.prefix", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssNamespaceRule>(thisObj, "CSSNamespaceRule.prefix");
                     self.Target.Prefix = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSNamespaceRule.prefix"); return global::Jint.Native.JsValue.Undefined;
@@ -745,7 +745,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssPageRule>(thisObj, "CSSPageRule.selectorText");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.SelectorText);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSPageRule.selectorText", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSPageRule.selectorText", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssPageRule>(thisObj, "CSSPageRule.selectorText");
                     self.Target.SelectorText = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSPageRule.selectorText"); return global::Jint.Native.JsValue.Undefined;
@@ -756,7 +756,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssPageRule>(thisObj, "CSSPageRule.style");
                     return self.Realm.Wrap(self.Target.Style);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSPageRule.style", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSPageRule.style", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssPageRule>(thisObj, "CSSPageRule.style");
                     var forwardTarget = self.Target.Style; if (forwardTarget is not null) { forwardTarget.CssText = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSPageRule.style"); } return global::Jint.Native.JsValue.Undefined;
@@ -793,7 +793,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssProperty>(thisObj, "CSSProperty.important");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsImportant);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSProperty.important", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSProperty.important", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssProperty>(thisObj, "CSSProperty.important");
                     self.Target.IsImportant = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
@@ -810,7 +810,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssProperty>(thisObj, "CSSProperty.value");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Value);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSProperty.value", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSProperty.value", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssProperty>(thisObj, "CSSProperty.value");
                     self.Target.Value = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSProperty.value"); return global::Jint.Native.JsValue.Undefined;
@@ -849,14 +849,14 @@ internal static partial class DomInterfaces
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Name);
                 }))
             .Method("removeProperty",
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSPropertyRule.removeProperty", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSPropertyRule.removeProperty", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssPropertyRule>(thisObj, "CSSPropertyRule.removeProperty");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.RemoveProperty(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSPropertyRule.removeProperty")));
                 }),
                 length: 1)
             .Method("setProperty",
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSPropertyRule.setProperty", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSPropertyRule.setProperty", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssPropertyRule>(thisObj, "CSSPropertyRule.setProperty");
                     self.Target.SetProperty(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSPropertyRule.setProperty"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "CSSPropertyRule.setProperty"), global::Jint.Browser.Dom.DomConvert.NullableText(args, 2)); return global::Jint.Native.JsValue.Undefined;
@@ -947,7 +947,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssScopeRule>(thisObj, "CSSScopeRule.scopeText");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.ScopeText);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSScopeRule.scopeText", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSScopeRule.scopeText", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssScopeRule>(thisObj, "CSSScopeRule.scopeText");
                     self.Target.ScopeText = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSScopeRule.scopeText"); return global::Jint.Native.JsValue.Undefined;
@@ -975,7 +975,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.accelerator");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetAccelerator());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.accelerator", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.accelerator", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.accelerator");
                     self.Target.SetAccelerator(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.accelerator")); return global::Jint.Native.JsValue.Undefined;
@@ -986,7 +986,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.alignContent");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetAlignContent());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.alignContent", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.alignContent", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.alignContent");
                     self.Target.SetAlignContent(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.alignContent")); return global::Jint.Native.JsValue.Undefined;
@@ -997,7 +997,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.alignItems");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetAlignItems());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.alignItems", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.alignItems", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.alignItems");
                     self.Target.SetAlignItems(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.alignItems")); return global::Jint.Native.JsValue.Undefined;
@@ -1008,7 +1008,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.alignSelf");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetAlignSelf());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.alignSelf", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.alignSelf", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.alignSelf");
                     self.Target.SetAlignSelf(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.alignSelf")); return global::Jint.Native.JsValue.Undefined;
@@ -1019,7 +1019,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.alignmentBaseline");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetAlignmentBaseline());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.alignmentBaseline", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.alignmentBaseline", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.alignmentBaseline");
                     self.Target.SetAlignmentBaseline(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.alignmentBaseline")); return global::Jint.Native.JsValue.Undefined;
@@ -1030,7 +1030,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.animation");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetAnimation());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.animation", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.animation", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.animation");
                     self.Target.SetAnimation(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.animation")); return global::Jint.Native.JsValue.Undefined;
@@ -1041,7 +1041,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.animationDelay");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetAnimationDelay());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.animationDelay", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.animationDelay", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.animationDelay");
                     self.Target.SetAnimationDelay(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.animationDelay")); return global::Jint.Native.JsValue.Undefined;
@@ -1052,7 +1052,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.animationDirection");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetAnimationDirection());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.animationDirection", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.animationDirection", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.animationDirection");
                     self.Target.SetAnimationDirection(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.animationDirection")); return global::Jint.Native.JsValue.Undefined;
@@ -1063,7 +1063,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.animationDuration");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetAnimationDuration());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.animationDuration", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.animationDuration", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.animationDuration");
                     self.Target.SetAnimationDuration(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.animationDuration")); return global::Jint.Native.JsValue.Undefined;
@@ -1074,7 +1074,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.animationFillMode");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetAnimationFillMode());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.animationFillMode", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.animationFillMode", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.animationFillMode");
                     self.Target.SetAnimationFillMode(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.animationFillMode")); return global::Jint.Native.JsValue.Undefined;
@@ -1085,7 +1085,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.animationIterationCount");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetAnimationIterationCount());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.animationIterationCount", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.animationIterationCount", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.animationIterationCount");
                     self.Target.SetAnimationIterationCount(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.animationIterationCount")); return global::Jint.Native.JsValue.Undefined;
@@ -1096,7 +1096,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.animationName");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetAnimationName());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.animationName", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.animationName", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.animationName");
                     self.Target.SetAnimationName(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.animationName")); return global::Jint.Native.JsValue.Undefined;
@@ -1107,7 +1107,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.animationPlayState");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetAnimationPlayState());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.animationPlayState", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.animationPlayState", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.animationPlayState");
                     self.Target.SetAnimationPlayState(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.animationPlayState")); return global::Jint.Native.JsValue.Undefined;
@@ -1118,7 +1118,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.animationTimingFunction");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetAnimationTimingFunction());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.animationTimingFunction", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.animationTimingFunction", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.animationTimingFunction");
                     self.Target.SetAnimationTimingFunction(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.animationTimingFunction")); return global::Jint.Native.JsValue.Undefined;
@@ -1129,7 +1129,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.backfaceVisibility");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBackfaceVisibility());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.backfaceVisibility", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.backfaceVisibility", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.backfaceVisibility");
                     self.Target.SetBackfaceVisibility(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.backfaceVisibility")); return global::Jint.Native.JsValue.Undefined;
@@ -1140,7 +1140,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.background");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBackground());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.background", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.background", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.background");
                     self.Target.SetBackground(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.background")); return global::Jint.Native.JsValue.Undefined;
@@ -1151,7 +1151,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.backgroundAttachment");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBackgroundAttachment());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.backgroundAttachment", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.backgroundAttachment", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.backgroundAttachment");
                     self.Target.SetBackgroundAttachment(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.backgroundAttachment")); return global::Jint.Native.JsValue.Undefined;
@@ -1162,7 +1162,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.backgroundClip");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBackgroundClip());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.backgroundClip", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.backgroundClip", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.backgroundClip");
                     self.Target.SetBackgroundClip(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.backgroundClip")); return global::Jint.Native.JsValue.Undefined;
@@ -1173,7 +1173,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.backgroundColor");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBackgroundColor());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.backgroundColor", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.backgroundColor", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.backgroundColor");
                     self.Target.SetBackgroundColor(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.backgroundColor")); return global::Jint.Native.JsValue.Undefined;
@@ -1184,7 +1184,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.backgroundImage");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBackgroundImage());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.backgroundImage", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.backgroundImage", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.backgroundImage");
                     self.Target.SetBackgroundImage(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.backgroundImage")); return global::Jint.Native.JsValue.Undefined;
@@ -1195,7 +1195,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.backgroundOrigin");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBackgroundOrigin());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.backgroundOrigin", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.backgroundOrigin", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.backgroundOrigin");
                     self.Target.SetBackgroundOrigin(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.backgroundOrigin")); return global::Jint.Native.JsValue.Undefined;
@@ -1206,7 +1206,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.backgroundPosition");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBackgroundPosition());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.backgroundPosition", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.backgroundPosition", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.backgroundPosition");
                     self.Target.SetBackgroundPosition(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.backgroundPosition")); return global::Jint.Native.JsValue.Undefined;
@@ -1217,7 +1217,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.backgroundPositionX");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBackgroundPositionX());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.backgroundPositionX", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.backgroundPositionX", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.backgroundPositionX");
                     self.Target.SetBackgroundPositionX(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.backgroundPositionX")); return global::Jint.Native.JsValue.Undefined;
@@ -1228,7 +1228,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.backgroundPositionY");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBackgroundPositionY());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.backgroundPositionY", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.backgroundPositionY", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.backgroundPositionY");
                     self.Target.SetBackgroundPositionY(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.backgroundPositionY")); return global::Jint.Native.JsValue.Undefined;
@@ -1239,7 +1239,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.backgroundRepeat");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBackgroundRepeat());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.backgroundRepeat", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.backgroundRepeat", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.backgroundRepeat");
                     self.Target.SetBackgroundRepeat(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.backgroundRepeat")); return global::Jint.Native.JsValue.Undefined;
@@ -1250,7 +1250,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.backgroundSize");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBackgroundSize());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.backgroundSize", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.backgroundSize", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.backgroundSize");
                     self.Target.SetBackgroundSize(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.backgroundSize")); return global::Jint.Native.JsValue.Undefined;
@@ -1261,7 +1261,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.baselineShift");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBaselineShift());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.baselineShift", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.baselineShift", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.baselineShift");
                     self.Target.SetBaselineShift(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.baselineShift")); return global::Jint.Native.JsValue.Undefined;
@@ -1272,7 +1272,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.behavior");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBehavior());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.behavior", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.behavior", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.behavior");
                     self.Target.SetBehavior(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.behavior")); return global::Jint.Native.JsValue.Undefined;
@@ -1283,7 +1283,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.border");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBorder());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.border", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.border", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.border");
                     self.Target.SetBorder(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.border")); return global::Jint.Native.JsValue.Undefined;
@@ -1294,7 +1294,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderBottom");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBorderBottom());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderBottom", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderBottom", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderBottom");
                     self.Target.SetBorderBottom(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderBottom")); return global::Jint.Native.JsValue.Undefined;
@@ -1305,7 +1305,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderBottomColor");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBorderBottomColor());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderBottomColor", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderBottomColor", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderBottomColor");
                     self.Target.SetBorderBottomColor(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderBottomColor")); return global::Jint.Native.JsValue.Undefined;
@@ -1316,7 +1316,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderBottomLeftRadius");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBorderBottomLeftRadius());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderBottomLeftRadius", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderBottomLeftRadius", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderBottomLeftRadius");
                     self.Target.SetBorderBottomLeftRadius(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderBottomLeftRadius")); return global::Jint.Native.JsValue.Undefined;
@@ -1327,7 +1327,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderBottomRightRadius");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBorderBottomRightRadius());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderBottomRightRadius", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderBottomRightRadius", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderBottomRightRadius");
                     self.Target.SetBorderBottomRightRadius(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderBottomRightRadius")); return global::Jint.Native.JsValue.Undefined;
@@ -1338,7 +1338,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderBottomStyle");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBorderBottomStyle());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderBottomStyle", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderBottomStyle", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderBottomStyle");
                     self.Target.SetBorderBottomStyle(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderBottomStyle")); return global::Jint.Native.JsValue.Undefined;
@@ -1349,7 +1349,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderBottomWidth");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBorderBottomWidth());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderBottomWidth", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderBottomWidth", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderBottomWidth");
                     self.Target.SetBorderBottomWidth(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderBottomWidth")); return global::Jint.Native.JsValue.Undefined;
@@ -1360,7 +1360,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderCollapse");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBorderCollapse());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderCollapse", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderCollapse", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderCollapse");
                     self.Target.SetBorderCollapse(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderCollapse")); return global::Jint.Native.JsValue.Undefined;
@@ -1371,7 +1371,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderColor");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBorderColor());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderColor", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderColor", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderColor");
                     self.Target.SetBorderColor(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderColor")); return global::Jint.Native.JsValue.Undefined;
@@ -1382,7 +1382,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderImage");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBorderImage());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderImage", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderImage", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderImage");
                     self.Target.SetBorderImage(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderImage")); return global::Jint.Native.JsValue.Undefined;
@@ -1393,7 +1393,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderImageOutset");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBorderImageOutset());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderImageOutset", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderImageOutset", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderImageOutset");
                     self.Target.SetBorderImageOutset(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderImageOutset")); return global::Jint.Native.JsValue.Undefined;
@@ -1404,7 +1404,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderImageRepeat");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBorderImageRepeat());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderImageRepeat", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderImageRepeat", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderImageRepeat");
                     self.Target.SetBorderImageRepeat(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderImageRepeat")); return global::Jint.Native.JsValue.Undefined;
@@ -1415,7 +1415,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderImageSlice");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBorderImageSlice());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderImageSlice", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderImageSlice", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderImageSlice");
                     self.Target.SetBorderImageSlice(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderImageSlice")); return global::Jint.Native.JsValue.Undefined;
@@ -1426,7 +1426,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderImageSource");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBorderImageSource());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderImageSource", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderImageSource", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderImageSource");
                     self.Target.SetBorderImageSource(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderImageSource")); return global::Jint.Native.JsValue.Undefined;
@@ -1437,7 +1437,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderImageWidth");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBorderImageWidth());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderImageWidth", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderImageWidth", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderImageWidth");
                     self.Target.SetBorderImageWidth(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderImageWidth")); return global::Jint.Native.JsValue.Undefined;
@@ -1448,7 +1448,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderLeft");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBorderLeft());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderLeft", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderLeft", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderLeft");
                     self.Target.SetBorderLeft(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderLeft")); return global::Jint.Native.JsValue.Undefined;
@@ -1459,7 +1459,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderLeftColor");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBorderLeftColor());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderLeftColor", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderLeftColor", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderLeftColor");
                     self.Target.SetBorderLeftColor(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderLeftColor")); return global::Jint.Native.JsValue.Undefined;
@@ -1470,7 +1470,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderLeftStyle");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBorderLeftStyle());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderLeftStyle", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderLeftStyle", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderLeftStyle");
                     self.Target.SetBorderLeftStyle(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderLeftStyle")); return global::Jint.Native.JsValue.Undefined;
@@ -1481,7 +1481,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderLeftWidth");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBorderLeftWidth());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderLeftWidth", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderLeftWidth", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderLeftWidth");
                     self.Target.SetBorderLeftWidth(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderLeftWidth")); return global::Jint.Native.JsValue.Undefined;
@@ -1492,7 +1492,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderRadius");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBorderRadius());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderRadius", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderRadius", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderRadius");
                     self.Target.SetBorderRadius(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderRadius")); return global::Jint.Native.JsValue.Undefined;
@@ -1503,7 +1503,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderRight");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBorderRight());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderRight", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderRight", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderRight");
                     self.Target.SetBorderRight(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderRight")); return global::Jint.Native.JsValue.Undefined;
@@ -1514,7 +1514,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderRightColor");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBorderRightColor());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderRightColor", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderRightColor", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderRightColor");
                     self.Target.SetBorderRightColor(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderRightColor")); return global::Jint.Native.JsValue.Undefined;
@@ -1525,7 +1525,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderRightStyle");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBorderRightStyle());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderRightStyle", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderRightStyle", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderRightStyle");
                     self.Target.SetBorderRightStyle(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderRightStyle")); return global::Jint.Native.JsValue.Undefined;
@@ -1536,7 +1536,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderRightWidth");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBorderRightWidth());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderRightWidth", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderRightWidth", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderRightWidth");
                     self.Target.SetBorderRightWidth(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderRightWidth")); return global::Jint.Native.JsValue.Undefined;
@@ -1547,7 +1547,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderSpacing");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBorderSpacing());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderSpacing", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderSpacing", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderSpacing");
                     self.Target.SetBorderSpacing(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderSpacing")); return global::Jint.Native.JsValue.Undefined;
@@ -1558,7 +1558,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderStyle");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBorderStyle());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderStyle", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderStyle", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderStyle");
                     self.Target.SetBorderStyle(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderStyle")); return global::Jint.Native.JsValue.Undefined;
@@ -1569,7 +1569,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderTop");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBorderTop());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderTop", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderTop", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderTop");
                     self.Target.SetBorderTop(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderTop")); return global::Jint.Native.JsValue.Undefined;
@@ -1580,7 +1580,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderTopColor");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBorderTopColor());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderTopColor", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderTopColor", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderTopColor");
                     self.Target.SetBorderTopColor(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderTopColor")); return global::Jint.Native.JsValue.Undefined;
@@ -1591,7 +1591,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderTopLeftRadius");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBorderTopLeftRadius());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderTopLeftRadius", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderTopLeftRadius", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderTopLeftRadius");
                     self.Target.SetBorderTopLeftRadius(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderTopLeftRadius")); return global::Jint.Native.JsValue.Undefined;
@@ -1602,7 +1602,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderTopRightRadius");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBorderTopRightRadius());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderTopRightRadius", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderTopRightRadius", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderTopRightRadius");
                     self.Target.SetBorderTopRightRadius(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderTopRightRadius")); return global::Jint.Native.JsValue.Undefined;
@@ -1613,7 +1613,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderTopStyle");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBorderTopStyle());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderTopStyle", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderTopStyle", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderTopStyle");
                     self.Target.SetBorderTopStyle(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderTopStyle")); return global::Jint.Native.JsValue.Undefined;
@@ -1624,7 +1624,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderTopWidth");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBorderTopWidth());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderTopWidth", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderTopWidth", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderTopWidth");
                     self.Target.SetBorderTopWidth(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderTopWidth")); return global::Jint.Native.JsValue.Undefined;
@@ -1635,7 +1635,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderWidth");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBorderWidth());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.borderWidth", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.borderWidth", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.borderWidth");
                     self.Target.SetBorderWidth(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.borderWidth")); return global::Jint.Native.JsValue.Undefined;
@@ -1646,7 +1646,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.bottom");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBottom());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.bottom", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.bottom", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.bottom");
                     self.Target.SetBottom(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.bottom")); return global::Jint.Native.JsValue.Undefined;
@@ -1657,7 +1657,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.boxShadow");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBoxShadow());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.boxShadow", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.boxShadow", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.boxShadow");
                     self.Target.SetBoxShadow(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.boxShadow")); return global::Jint.Native.JsValue.Undefined;
@@ -1668,7 +1668,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.boxSizing");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBoxSizing());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.boxSizing", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.boxSizing", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.boxSizing");
                     self.Target.SetBoxSizing(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.boxSizing")); return global::Jint.Native.JsValue.Undefined;
@@ -1679,7 +1679,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.breakAfter");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBreakAfter());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.breakAfter", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.breakAfter", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.breakAfter");
                     self.Target.SetBreakAfter(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.breakAfter")); return global::Jint.Native.JsValue.Undefined;
@@ -1690,7 +1690,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.breakBefore");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBreakBefore());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.breakBefore", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.breakBefore", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.breakBefore");
                     self.Target.SetBreakBefore(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.breakBefore")); return global::Jint.Native.JsValue.Undefined;
@@ -1701,7 +1701,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.breakInside");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetBreakInside());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.breakInside", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.breakInside", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.breakInside");
                     self.Target.SetBreakInside(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.breakInside")); return global::Jint.Native.JsValue.Undefined;
@@ -1712,7 +1712,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.captionSide");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetCaptionSide());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.captionSide", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.captionSide", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.captionSide");
                     self.Target.SetCaptionSide(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.captionSide")); return global::Jint.Native.JsValue.Undefined;
@@ -1723,7 +1723,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.clear");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetClear());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.clear", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.clear", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.clear");
                     self.Target.SetClear(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.clear")); return global::Jint.Native.JsValue.Undefined;
@@ -1734,7 +1734,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.clip");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetClip());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.clip", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.clip", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.clip");
                     self.Target.SetClip(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.clip")); return global::Jint.Native.JsValue.Undefined;
@@ -1745,7 +1745,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.clipBottom");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetClipBottom());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.clipBottom", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.clipBottom", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.clipBottom");
                     self.Target.SetClipBottom(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.clipBottom")); return global::Jint.Native.JsValue.Undefined;
@@ -1756,7 +1756,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.clipLeft");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetClipLeft());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.clipLeft", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.clipLeft", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.clipLeft");
                     self.Target.SetClipLeft(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.clipLeft")); return global::Jint.Native.JsValue.Undefined;
@@ -1767,7 +1767,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.clipPath");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetClipPath());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.clipPath", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.clipPath", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.clipPath");
                     self.Target.SetClipPath(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.clipPath")); return global::Jint.Native.JsValue.Undefined;
@@ -1778,7 +1778,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.clipRight");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetClipRight());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.clipRight", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.clipRight", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.clipRight");
                     self.Target.SetClipRight(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.clipRight")); return global::Jint.Native.JsValue.Undefined;
@@ -1789,7 +1789,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.clipRule");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetClipRule());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.clipRule", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.clipRule", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.clipRule");
                     self.Target.SetClipRule(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.clipRule")); return global::Jint.Native.JsValue.Undefined;
@@ -1800,7 +1800,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.clipTop");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetClipTop());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.clipTop", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.clipTop", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.clipTop");
                     self.Target.SetClipTop(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.clipTop")); return global::Jint.Native.JsValue.Undefined;
@@ -1811,7 +1811,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.color");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetColor());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.color", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.color", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.color");
                     self.Target.SetColor(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.color")); return global::Jint.Native.JsValue.Undefined;
@@ -1822,7 +1822,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.colorInterpolationFilters");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetColorInterpolationFilters());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.colorInterpolationFilters", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.colorInterpolationFilters", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.colorInterpolationFilters");
                     self.Target.SetColorInterpolationFilters(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.colorInterpolationFilters")); return global::Jint.Native.JsValue.Undefined;
@@ -1833,7 +1833,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.columnCount");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetColumnCount());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.columnCount", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.columnCount", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.columnCount");
                     self.Target.SetColumnCount(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.columnCount")); return global::Jint.Native.JsValue.Undefined;
@@ -1844,7 +1844,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.columnFill");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetColumnFill());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.columnFill", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.columnFill", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.columnFill");
                     self.Target.SetColumnFill(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.columnFill")); return global::Jint.Native.JsValue.Undefined;
@@ -1855,7 +1855,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.columnGap");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetColumnGap());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.columnGap", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.columnGap", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.columnGap");
                     self.Target.SetColumnGap(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.columnGap")); return global::Jint.Native.JsValue.Undefined;
@@ -1866,7 +1866,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.columnRule");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetColumnRule());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.columnRule", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.columnRule", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.columnRule");
                     self.Target.SetColumnRule(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.columnRule")); return global::Jint.Native.JsValue.Undefined;
@@ -1877,7 +1877,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.columnRuleColor");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetColumnRuleColor());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.columnRuleColor", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.columnRuleColor", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.columnRuleColor");
                     self.Target.SetColumnRuleColor(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.columnRuleColor")); return global::Jint.Native.JsValue.Undefined;
@@ -1888,7 +1888,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.columnRuleStyle");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetColumnRuleStyle());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.columnRuleStyle", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.columnRuleStyle", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.columnRuleStyle");
                     self.Target.SetColumnRuleStyle(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.columnRuleStyle")); return global::Jint.Native.JsValue.Undefined;
@@ -1899,7 +1899,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.columnRuleWidth");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetColumnRuleWidth());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.columnRuleWidth", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.columnRuleWidth", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.columnRuleWidth");
                     self.Target.SetColumnRuleWidth(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.columnRuleWidth")); return global::Jint.Native.JsValue.Undefined;
@@ -1910,7 +1910,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.columnSpan");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetColumnSpan());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.columnSpan", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.columnSpan", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.columnSpan");
                     self.Target.SetColumnSpan(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.columnSpan")); return global::Jint.Native.JsValue.Undefined;
@@ -1921,7 +1921,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.columnWidth");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetColumnWidth());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.columnWidth", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.columnWidth", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.columnWidth");
                     self.Target.SetColumnWidth(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.columnWidth")); return global::Jint.Native.JsValue.Undefined;
@@ -1932,7 +1932,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.columns");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetColumns());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.columns", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.columns", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.columns");
                     self.Target.SetColumns(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.columns")); return global::Jint.Native.JsValue.Undefined;
@@ -1943,7 +1943,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.content");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetContent());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.content", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.content", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.content");
                     self.Target.SetContent(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.content")); return global::Jint.Native.JsValue.Undefined;
@@ -1954,7 +1954,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.counterIncrement");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetCounterIncrement());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.counterIncrement", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.counterIncrement", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.counterIncrement");
                     self.Target.SetCounterIncrement(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.counterIncrement")); return global::Jint.Native.JsValue.Undefined;
@@ -1965,7 +1965,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.counterReset");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetCounterReset());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.counterReset", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.counterReset", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.counterReset");
                     self.Target.SetCounterReset(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.counterReset")); return global::Jint.Native.JsValue.Undefined;
@@ -1976,7 +1976,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.cssFloat");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetFloat());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.cssFloat", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.cssFloat", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.cssFloat");
                     self.Target.SetFloat(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.cssFloat")); return global::Jint.Native.JsValue.Undefined;
@@ -1987,7 +1987,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.cssText");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.CssText);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.cssText", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.cssText", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.cssText");
                     self.Target.CssText = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.cssText"); return global::Jint.Native.JsValue.Undefined;
@@ -1998,7 +1998,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.cursor");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetCursor());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.cursor", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.cursor", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.cursor");
                     self.Target.SetCursor(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.cursor")); return global::Jint.Native.JsValue.Undefined;
@@ -2009,7 +2009,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.direction");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetDirection());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.direction", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.direction", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.direction");
                     self.Target.SetDirection(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.direction")); return global::Jint.Native.JsValue.Undefined;
@@ -2020,7 +2020,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.display");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetDisplay());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.display", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.display", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.display");
                     self.Target.SetDisplay(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.display")); return global::Jint.Native.JsValue.Undefined;
@@ -2031,7 +2031,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.dominantBaseline");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetDominantBaseline());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.dominantBaseline", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.dominantBaseline", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.dominantBaseline");
                     self.Target.SetDominantBaseline(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.dominantBaseline")); return global::Jint.Native.JsValue.Undefined;
@@ -2042,7 +2042,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.emptyCells");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetEmptyCells());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.emptyCells", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.emptyCells", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.emptyCells");
                     self.Target.SetEmptyCells(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.emptyCells")); return global::Jint.Native.JsValue.Undefined;
@@ -2053,7 +2053,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.enableBackground");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetEnableBackground());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.enableBackground", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.enableBackground", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.enableBackground");
                     self.Target.SetEnableBackground(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.enableBackground")); return global::Jint.Native.JsValue.Undefined;
@@ -2064,7 +2064,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.fill");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetFill());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.fill", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.fill", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.fill");
                     self.Target.SetFill(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.fill")); return global::Jint.Native.JsValue.Undefined;
@@ -2075,7 +2075,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.fillOpacity");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetFillOpacity());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.fillOpacity", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.fillOpacity", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.fillOpacity");
                     self.Target.SetFillOpacity(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.fillOpacity")); return global::Jint.Native.JsValue.Undefined;
@@ -2086,7 +2086,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.fillRule");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetFillRule());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.fillRule", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.fillRule", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.fillRule");
                     self.Target.SetFillRule(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.fillRule")); return global::Jint.Native.JsValue.Undefined;
@@ -2097,7 +2097,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.filter");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetFilter());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.filter", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.filter", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.filter");
                     self.Target.SetFilter(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.filter")); return global::Jint.Native.JsValue.Undefined;
@@ -2108,7 +2108,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.flex");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetFlex());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.flex", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.flex", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.flex");
                     self.Target.SetFlex(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.flex")); return global::Jint.Native.JsValue.Undefined;
@@ -2119,7 +2119,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.flexBasis");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetFlexBasis());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.flexBasis", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.flexBasis", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.flexBasis");
                     self.Target.SetFlexBasis(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.flexBasis")); return global::Jint.Native.JsValue.Undefined;
@@ -2130,7 +2130,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.flexDirection");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetFlexDirection());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.flexDirection", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.flexDirection", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.flexDirection");
                     self.Target.SetFlexDirection(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.flexDirection")); return global::Jint.Native.JsValue.Undefined;
@@ -2141,7 +2141,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.flexFlow");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetFlexFlow());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.flexFlow", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.flexFlow", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.flexFlow");
                     self.Target.SetFlexFlow(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.flexFlow")); return global::Jint.Native.JsValue.Undefined;
@@ -2152,7 +2152,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.flexGrow");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetFlexGrow());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.flexGrow", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.flexGrow", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.flexGrow");
                     self.Target.SetFlexGrow(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.flexGrow")); return global::Jint.Native.JsValue.Undefined;
@@ -2163,7 +2163,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.flexShrink");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetFlexShrink());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.flexShrink", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.flexShrink", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.flexShrink");
                     self.Target.SetFlexShrink(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.flexShrink")); return global::Jint.Native.JsValue.Undefined;
@@ -2174,7 +2174,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.flexWrap");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetFlexWrap());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.flexWrap", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.flexWrap", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.flexWrap");
                     self.Target.SetFlexWrap(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.flexWrap")); return global::Jint.Native.JsValue.Undefined;
@@ -2185,7 +2185,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.font");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetFont());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.font", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.font", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.font");
                     self.Target.SetFont(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.font")); return global::Jint.Native.JsValue.Undefined;
@@ -2196,7 +2196,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.fontFamily");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetFontFamily());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.fontFamily", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.fontFamily", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.fontFamily");
                     self.Target.SetFontFamily(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.fontFamily")); return global::Jint.Native.JsValue.Undefined;
@@ -2207,7 +2207,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.fontFeatureSettings");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetFontFeatureSettings());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.fontFeatureSettings", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.fontFeatureSettings", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.fontFeatureSettings");
                     self.Target.SetFontFeatureSettings(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.fontFeatureSettings")); return global::Jint.Native.JsValue.Undefined;
@@ -2218,7 +2218,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.fontSize");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetFontSize());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.fontSize", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.fontSize", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.fontSize");
                     self.Target.SetFontSize(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.fontSize")); return global::Jint.Native.JsValue.Undefined;
@@ -2229,7 +2229,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.fontSizeAdjust");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetFontSizeAdjust());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.fontSizeAdjust", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.fontSizeAdjust", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.fontSizeAdjust");
                     self.Target.SetFontSizeAdjust(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.fontSizeAdjust")); return global::Jint.Native.JsValue.Undefined;
@@ -2240,7 +2240,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.fontStretch");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetFontStretch());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.fontStretch", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.fontStretch", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.fontStretch");
                     self.Target.SetFontStretch(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.fontStretch")); return global::Jint.Native.JsValue.Undefined;
@@ -2251,7 +2251,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.fontStyle");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetFontStyle());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.fontStyle", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.fontStyle", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.fontStyle");
                     self.Target.SetFontStyle(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.fontStyle")); return global::Jint.Native.JsValue.Undefined;
@@ -2262,7 +2262,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.fontVariant");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetFontVariant());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.fontVariant", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.fontVariant", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.fontVariant");
                     self.Target.SetFontVariant(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.fontVariant")); return global::Jint.Native.JsValue.Undefined;
@@ -2273,7 +2273,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.fontWeight");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetFontWeight());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.fontWeight", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.fontWeight", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.fontWeight");
                     self.Target.SetFontWeight(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.fontWeight")); return global::Jint.Native.JsValue.Undefined;
@@ -2298,7 +2298,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.glyphOrientationHorizontal");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetGlyphOrientationHorizontal());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.glyphOrientationHorizontal", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.glyphOrientationHorizontal", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.glyphOrientationHorizontal");
                     self.Target.SetGlyphOrientationHorizontal(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.glyphOrientationHorizontal")); return global::Jint.Native.JsValue.Undefined;
@@ -2309,7 +2309,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.glyphOrientationVertical");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetGlyphOrientationVertical());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.glyphOrientationVertical", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.glyphOrientationVertical", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.glyphOrientationVertical");
                     self.Target.SetGlyphOrientationVertical(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.glyphOrientationVertical")); return global::Jint.Native.JsValue.Undefined;
@@ -2320,7 +2320,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.height");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetHeight());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.height", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.height", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.height");
                     self.Target.SetHeight(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.height")); return global::Jint.Native.JsValue.Undefined;
@@ -2331,7 +2331,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.imeMode");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetImeMode());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.imeMode", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.imeMode", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.imeMode");
                     self.Target.SetImeMode(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.imeMode")); return global::Jint.Native.JsValue.Undefined;
@@ -2349,7 +2349,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.justifyContent");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetJustifyContent());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.justifyContent", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.justifyContent", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.justifyContent");
                     self.Target.SetJustifyContent(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.justifyContent")); return global::Jint.Native.JsValue.Undefined;
@@ -2360,7 +2360,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.layoutGrid");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetLayoutGrid());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.layoutGrid", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.layoutGrid", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.layoutGrid");
                     self.Target.SetLayoutGrid(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.layoutGrid")); return global::Jint.Native.JsValue.Undefined;
@@ -2371,7 +2371,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.layoutGridChar");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetLayoutGridChar());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.layoutGridChar", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.layoutGridChar", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.layoutGridChar");
                     self.Target.SetLayoutGridChar(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.layoutGridChar")); return global::Jint.Native.JsValue.Undefined;
@@ -2382,7 +2382,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.layoutGridLine");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetLayoutGridLine());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.layoutGridLine", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.layoutGridLine", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.layoutGridLine");
                     self.Target.SetLayoutGridLine(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.layoutGridLine")); return global::Jint.Native.JsValue.Undefined;
@@ -2393,7 +2393,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.layoutGridMode");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetLayoutGridMode());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.layoutGridMode", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.layoutGridMode", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.layoutGridMode");
                     self.Target.SetLayoutGridMode(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.layoutGridMode")); return global::Jint.Native.JsValue.Undefined;
@@ -2404,7 +2404,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.layoutGridType");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetLayoutGridType());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.layoutGridType", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.layoutGridType", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.layoutGridType");
                     self.Target.SetLayoutGridType(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.layoutGridType")); return global::Jint.Native.JsValue.Undefined;
@@ -2415,7 +2415,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.left");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetLeft());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.left", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.left", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.left");
                     self.Target.SetLeft(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.left")); return global::Jint.Native.JsValue.Undefined;
@@ -2432,7 +2432,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.letterSpacing");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetLetterSpacing());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.letterSpacing", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.letterSpacing", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.letterSpacing");
                     self.Target.SetLetterSpacing(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.letterSpacing")); return global::Jint.Native.JsValue.Undefined;
@@ -2443,7 +2443,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.lineHeight");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetLineHeight());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.lineHeight", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.lineHeight", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.lineHeight");
                     self.Target.SetLineHeight(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.lineHeight")); return global::Jint.Native.JsValue.Undefined;
@@ -2454,7 +2454,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.listStyle");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetListStyle());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.listStyle", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.listStyle", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.listStyle");
                     self.Target.SetListStyle(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.listStyle")); return global::Jint.Native.JsValue.Undefined;
@@ -2465,7 +2465,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.listStyleImage");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetListStyleImage());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.listStyleImage", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.listStyleImage", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.listStyleImage");
                     self.Target.SetListStyleImage(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.listStyleImage")); return global::Jint.Native.JsValue.Undefined;
@@ -2476,7 +2476,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.listStylePosition");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetListStylePosition());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.listStylePosition", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.listStylePosition", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.listStylePosition");
                     self.Target.SetListStylePosition(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.listStylePosition")); return global::Jint.Native.JsValue.Undefined;
@@ -2487,7 +2487,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.listStyleType");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetListStyleType());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.listStyleType", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.listStyleType", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.listStyleType");
                     self.Target.SetListStyleType(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.listStyleType")); return global::Jint.Native.JsValue.Undefined;
@@ -2498,7 +2498,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.margin");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetMargin());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.margin", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.margin", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.margin");
                     self.Target.SetMargin(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.margin")); return global::Jint.Native.JsValue.Undefined;
@@ -2509,7 +2509,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.marginBottom");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetMarginBottom());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.marginBottom", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.marginBottom", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.marginBottom");
                     self.Target.SetMarginBottom(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.marginBottom")); return global::Jint.Native.JsValue.Undefined;
@@ -2520,7 +2520,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.marginLeft");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetMarginLeft());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.marginLeft", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.marginLeft", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.marginLeft");
                     self.Target.SetMarginLeft(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.marginLeft")); return global::Jint.Native.JsValue.Undefined;
@@ -2531,7 +2531,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.marginRight");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetMarginRight());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.marginRight", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.marginRight", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.marginRight");
                     self.Target.SetMarginRight(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.marginRight")); return global::Jint.Native.JsValue.Undefined;
@@ -2542,7 +2542,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.marginTop");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetMarginTop());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.marginTop", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.marginTop", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.marginTop");
                     self.Target.SetMarginTop(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.marginTop")); return global::Jint.Native.JsValue.Undefined;
@@ -2553,7 +2553,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.marker");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetMarker());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.marker", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.marker", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.marker");
                     self.Target.SetMarker(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.marker")); return global::Jint.Native.JsValue.Undefined;
@@ -2564,7 +2564,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.markerEnd");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetMarkerEnd());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.markerEnd", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.markerEnd", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.markerEnd");
                     self.Target.SetMarkerEnd(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.markerEnd")); return global::Jint.Native.JsValue.Undefined;
@@ -2575,7 +2575,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.markerMid");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetMarkerMid());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.markerMid", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.markerMid", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.markerMid");
                     self.Target.SetMarkerMid(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.markerMid")); return global::Jint.Native.JsValue.Undefined;
@@ -2586,7 +2586,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.markerStart");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetMarkerStart());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.markerStart", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.markerStart", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.markerStart");
                     self.Target.SetMarkerStart(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.markerStart")); return global::Jint.Native.JsValue.Undefined;
@@ -2597,7 +2597,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.mask");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetMask());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.mask", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.mask", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.mask");
                     self.Target.SetMask(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.mask")); return global::Jint.Native.JsValue.Undefined;
@@ -2608,7 +2608,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.maxHeight");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetMaxHeight());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.maxHeight", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.maxHeight", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.maxHeight");
                     self.Target.SetMaxHeight(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.maxHeight")); return global::Jint.Native.JsValue.Undefined;
@@ -2619,7 +2619,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.minHeight");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetMinHeight());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.minHeight", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.minHeight", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.minHeight");
                     self.Target.SetMinHeight(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.minHeight")); return global::Jint.Native.JsValue.Undefined;
@@ -2630,7 +2630,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.minWidth");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetMinWidth());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.minWidth", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.minWidth", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.minWidth");
                     self.Target.SetMinWidth(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.minWidth")); return global::Jint.Native.JsValue.Undefined;
@@ -2641,7 +2641,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.opacity");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetOpacity());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.opacity", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.opacity", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.opacity");
                     self.Target.SetOpacity(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.opacity")); return global::Jint.Native.JsValue.Undefined;
@@ -2652,7 +2652,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.order");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetOrder());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.order", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.order", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.order");
                     self.Target.SetOrder(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.order")); return global::Jint.Native.JsValue.Undefined;
@@ -2663,7 +2663,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.orphans");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetOrphans());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.orphans", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.orphans", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.orphans");
                     self.Target.SetOrphans(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.orphans")); return global::Jint.Native.JsValue.Undefined;
@@ -2674,7 +2674,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.outline");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetOutline());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.outline", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.outline", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.outline");
                     self.Target.SetOutline(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.outline")); return global::Jint.Native.JsValue.Undefined;
@@ -2685,7 +2685,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.outlineColor");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetOutlineColor());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.outlineColor", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.outlineColor", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.outlineColor");
                     self.Target.SetOutlineColor(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.outlineColor")); return global::Jint.Native.JsValue.Undefined;
@@ -2696,7 +2696,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.outlineStyle");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetOutlineStyle());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.outlineStyle", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.outlineStyle", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.outlineStyle");
                     self.Target.SetOutlineStyle(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.outlineStyle")); return global::Jint.Native.JsValue.Undefined;
@@ -2707,7 +2707,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.outlineWidth");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetOutlineWidth());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.outlineWidth", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.outlineWidth", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.outlineWidth");
                     self.Target.SetOutlineWidth(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.outlineWidth")); return global::Jint.Native.JsValue.Undefined;
@@ -2718,7 +2718,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.overflow");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetOverflow());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.overflow", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.overflow", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.overflow");
                     self.Target.SetOverflow(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.overflow")); return global::Jint.Native.JsValue.Undefined;
@@ -2729,7 +2729,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.overflowWrap");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetOverflowWrap());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.overflowWrap", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.overflowWrap", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.overflowWrap");
                     self.Target.SetOverflowWrap(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.overflowWrap")); return global::Jint.Native.JsValue.Undefined;
@@ -2740,7 +2740,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.overflowX");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetOverflowX());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.overflowX", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.overflowX", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.overflowX");
                     self.Target.SetOverflowX(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.overflowX")); return global::Jint.Native.JsValue.Undefined;
@@ -2751,7 +2751,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.overflowY");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetOverflowY());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.overflowY", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.overflowY", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.overflowY");
                     self.Target.SetOverflowY(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.overflowY")); return global::Jint.Native.JsValue.Undefined;
@@ -2762,7 +2762,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.padding");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPadding());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.padding", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.padding", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.padding");
                     self.Target.SetPadding(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.padding")); return global::Jint.Native.JsValue.Undefined;
@@ -2773,7 +2773,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.paddingBottom");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPaddingBottom());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.paddingBottom", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.paddingBottom", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.paddingBottom");
                     self.Target.SetPaddingBottom(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.paddingBottom")); return global::Jint.Native.JsValue.Undefined;
@@ -2784,7 +2784,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.paddingLeft");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPaddingLeft());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.paddingLeft", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.paddingLeft", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.paddingLeft");
                     self.Target.SetPaddingLeft(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.paddingLeft")); return global::Jint.Native.JsValue.Undefined;
@@ -2795,7 +2795,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.paddingRight");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPaddingRight());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.paddingRight", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.paddingRight", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.paddingRight");
                     self.Target.SetPaddingRight(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.paddingRight")); return global::Jint.Native.JsValue.Undefined;
@@ -2806,7 +2806,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.paddingTop");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPaddingTop());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.paddingTop", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.paddingTop", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.paddingTop");
                     self.Target.SetPaddingTop(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.paddingTop")); return global::Jint.Native.JsValue.Undefined;
@@ -2817,7 +2817,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.pageBreakAfter");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPageBreakAfter());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.pageBreakAfter", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.pageBreakAfter", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.pageBreakAfter");
                     self.Target.SetPageBreakAfter(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.pageBreakAfter")); return global::Jint.Native.JsValue.Undefined;
@@ -2828,7 +2828,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.pageBreakBefore");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPageBreakBefore());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.pageBreakBefore", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.pageBreakBefore", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.pageBreakBefore");
                     self.Target.SetPageBreakBefore(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.pageBreakBefore")); return global::Jint.Native.JsValue.Undefined;
@@ -2839,7 +2839,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.pageBreakInside");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPageBreakInside());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.pageBreakInside", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.pageBreakInside", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.pageBreakInside");
                     self.Target.SetPageBreakInside(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.pageBreakInside")); return global::Jint.Native.JsValue.Undefined;
@@ -2856,7 +2856,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.perspective");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPerspective());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.perspective", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.perspective", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.perspective");
                     self.Target.SetPerspective(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.perspective")); return global::Jint.Native.JsValue.Undefined;
@@ -2867,7 +2867,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.perspectiveOrigin");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPerspectiveOrigin());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.perspectiveOrigin", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.perspectiveOrigin", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.perspectiveOrigin");
                     self.Target.SetPerspectiveOrigin(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.perspectiveOrigin")); return global::Jint.Native.JsValue.Undefined;
@@ -2878,7 +2878,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.pointerEvents");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPointerEvents());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.pointerEvents", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.pointerEvents", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.pointerEvents");
                     self.Target.SetPointerEvents(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.pointerEvents")); return global::Jint.Native.JsValue.Undefined;
@@ -2889,7 +2889,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.position");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPosition());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.position", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.position", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.position");
                     self.Target.SetPosition(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.position")); return global::Jint.Native.JsValue.Undefined;
@@ -2900,13 +2900,13 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.quotes");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetQuotes());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.quotes", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.quotes", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.quotes");
                     self.Target.SetQuotes(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.quotes")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Method("removeProperty",
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.removeProperty", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.removeProperty", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.removeProperty");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.RemoveProperty(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.removeProperty")));
@@ -2918,7 +2918,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.right");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetRight());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.right", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.right", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.right");
                     self.Target.SetRight(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.right")); return global::Jint.Native.JsValue.Undefined;
@@ -2929,7 +2929,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.rubyAlign");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetRubyAlign());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.rubyAlign", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.rubyAlign", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.rubyAlign");
                     self.Target.SetRubyAlign(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.rubyAlign")); return global::Jint.Native.JsValue.Undefined;
@@ -2940,7 +2940,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.rubyOverhang");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetRubyOverhang());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.rubyOverhang", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.rubyOverhang", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.rubyOverhang");
                     self.Target.SetRubyOverhang(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.rubyOverhang")); return global::Jint.Native.JsValue.Undefined;
@@ -2951,7 +2951,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.rubyPosition");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetRubyPosition());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.rubyPosition", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.rubyPosition", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.rubyPosition");
                     self.Target.SetRubyPosition(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.rubyPosition")); return global::Jint.Native.JsValue.Undefined;
@@ -2962,7 +2962,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.scrollbar3dLightColor");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetScrollbar3dLightColor());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.scrollbar3dLightColor", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.scrollbar3dLightColor", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.scrollbar3dLightColor");
                     self.Target.SetScrollbar3dLightColor(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.scrollbar3dLightColor")); return global::Jint.Native.JsValue.Undefined;
@@ -2973,7 +2973,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.scrollbarArrowColor");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetScrollbarArrowColor());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.scrollbarArrowColor", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.scrollbarArrowColor", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.scrollbarArrowColor");
                     self.Target.SetScrollbarArrowColor(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.scrollbarArrowColor")); return global::Jint.Native.JsValue.Undefined;
@@ -2984,7 +2984,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.scrollbarDarkShadowColor");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetScrollbarDarkShadowColor());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.scrollbarDarkShadowColor", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.scrollbarDarkShadowColor", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.scrollbarDarkShadowColor");
                     self.Target.SetScrollbarDarkShadowColor(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.scrollbarDarkShadowColor")); return global::Jint.Native.JsValue.Undefined;
@@ -2995,7 +2995,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.scrollbarFaceColor");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetScrollbarFaceColor());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.scrollbarFaceColor", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.scrollbarFaceColor", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.scrollbarFaceColor");
                     self.Target.SetScrollbarFaceColor(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.scrollbarFaceColor")); return global::Jint.Native.JsValue.Undefined;
@@ -3006,7 +3006,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.scrollbarHighlightColor");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetScrollbarHighlightColor());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.scrollbarHighlightColor", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.scrollbarHighlightColor", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.scrollbarHighlightColor");
                     self.Target.SetScrollbarHighlightColor(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.scrollbarHighlightColor")); return global::Jint.Native.JsValue.Undefined;
@@ -3017,7 +3017,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.scrollbarShadowColor");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetScrollbarShadowColor());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.scrollbarShadowColor", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.scrollbarShadowColor", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.scrollbarShadowColor");
                     self.Target.SetScrollbarShadowColor(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.scrollbarShadowColor")); return global::Jint.Native.JsValue.Undefined;
@@ -3028,13 +3028,13 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.scrollbarTrackColor");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetScrollbarTrackColor());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.scrollbarTrackColor", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.scrollbarTrackColor", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.scrollbarTrackColor");
                     self.Target.SetScrollbarTrackColor(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.scrollbarTrackColor")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Method("setProperty",
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.setProperty", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.setProperty", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.setProperty");
                     self.Target.SetProperty(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.setProperty"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "CSSStyleDeclaration.setProperty"), global::Jint.Browser.Dom.DomConvert.NullableText(args, 2)); return global::Jint.Native.JsValue.Undefined;
@@ -3046,7 +3046,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.stroke");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetStroke());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.stroke", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.stroke", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.stroke");
                     self.Target.SetStroke(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.stroke")); return global::Jint.Native.JsValue.Undefined;
@@ -3057,7 +3057,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.strokeDasharray");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetStrokeDashArray());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.strokeDasharray", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.strokeDasharray", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.strokeDasharray");
                     self.Target.SetStrokeDashArray(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.strokeDasharray")); return global::Jint.Native.JsValue.Undefined;
@@ -3068,7 +3068,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.strokeDashoffset");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetStrokeDashOffset());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.strokeDashoffset", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.strokeDashoffset", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.strokeDashoffset");
                     self.Target.SetStrokeDashOffset(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.strokeDashoffset")); return global::Jint.Native.JsValue.Undefined;
@@ -3079,7 +3079,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.strokeLinecap");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetStrokeLineCap());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.strokeLinecap", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.strokeLinecap", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.strokeLinecap");
                     self.Target.SetStrokeLineCap(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.strokeLinecap")); return global::Jint.Native.JsValue.Undefined;
@@ -3090,7 +3090,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.strokeLinejoin");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetStrokeLineJoin());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.strokeLinejoin", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.strokeLinejoin", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.strokeLinejoin");
                     self.Target.SetStrokeLineJoin(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.strokeLinejoin")); return global::Jint.Native.JsValue.Undefined;
@@ -3101,7 +3101,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.strokeMiterlimit");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetStrokeMiterLimit());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.strokeMiterlimit", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.strokeMiterlimit", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.strokeMiterlimit");
                     self.Target.SetStrokeMiterLimit(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.strokeMiterlimit")); return global::Jint.Native.JsValue.Undefined;
@@ -3112,7 +3112,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.strokeOpacity");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetStrokeOpacity());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.strokeOpacity", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.strokeOpacity", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.strokeOpacity");
                     self.Target.SetStrokeOpacity(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.strokeOpacity")); return global::Jint.Native.JsValue.Undefined;
@@ -3123,7 +3123,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.strokeWidth");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetStrokeWidth());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.strokeWidth", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.strokeWidth", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.strokeWidth");
                     self.Target.SetStrokeWidth(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.strokeWidth")); return global::Jint.Native.JsValue.Undefined;
@@ -3134,7 +3134,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.tableLayout");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetTableLayout());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.tableLayout", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.tableLayout", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.tableLayout");
                     self.Target.SetTableLayout(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.tableLayout")); return global::Jint.Native.JsValue.Undefined;
@@ -3145,7 +3145,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.textAlign");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetTextAlign());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.textAlign", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.textAlign", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.textAlign");
                     self.Target.SetTextAlign(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.textAlign")); return global::Jint.Native.JsValue.Undefined;
@@ -3156,7 +3156,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.textAlignLast");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetTextAlignLast());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.textAlignLast", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.textAlignLast", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.textAlignLast");
                     self.Target.SetTextAlignLast(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.textAlignLast")); return global::Jint.Native.JsValue.Undefined;
@@ -3167,7 +3167,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.textAnchor");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetTextAnchor());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.textAnchor", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.textAnchor", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.textAnchor");
                     self.Target.SetTextAnchor(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.textAnchor")); return global::Jint.Native.JsValue.Undefined;
@@ -3178,7 +3178,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.textAutospace");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetTextAutospace());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.textAutospace", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.textAutospace", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.textAutospace");
                     self.Target.SetTextAutospace(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.textAutospace")); return global::Jint.Native.JsValue.Undefined;
@@ -3189,7 +3189,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.textDecoration");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetTextDecoration());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.textDecoration", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.textDecoration", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.textDecoration");
                     self.Target.SetTextDecoration(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.textDecoration")); return global::Jint.Native.JsValue.Undefined;
@@ -3200,7 +3200,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.textDecorationColor");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetTextDecorationColor());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.textDecorationColor", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.textDecorationColor", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.textDecorationColor");
                     self.Target.SetTextDecorationColor(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.textDecorationColor")); return global::Jint.Native.JsValue.Undefined;
@@ -3211,7 +3211,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.textDecorationLine");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetTextDecorationLine());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.textDecorationLine", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.textDecorationLine", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.textDecorationLine");
                     self.Target.SetTextDecorationLine(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.textDecorationLine")); return global::Jint.Native.JsValue.Undefined;
@@ -3222,7 +3222,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.textDecorationStyle");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetTextDecorationStyle());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.textDecorationStyle", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.textDecorationStyle", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.textDecorationStyle");
                     self.Target.SetTextDecorationStyle(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.textDecorationStyle")); return global::Jint.Native.JsValue.Undefined;
@@ -3233,7 +3233,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.textIndent");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetTextIndent());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.textIndent", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.textIndent", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.textIndent");
                     self.Target.SetTextIndent(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.textIndent")); return global::Jint.Native.JsValue.Undefined;
@@ -3244,7 +3244,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.textJustify");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetTextJustify());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.textJustify", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.textJustify", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.textJustify");
                     self.Target.SetTextJustify(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.textJustify")); return global::Jint.Native.JsValue.Undefined;
@@ -3255,7 +3255,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.textOverflow");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetTextOverflow());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.textOverflow", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.textOverflow", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.textOverflow");
                     self.Target.SetTextOverflow(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.textOverflow")); return global::Jint.Native.JsValue.Undefined;
@@ -3266,7 +3266,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.textShadow");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetTextShadow());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.textShadow", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.textShadow", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.textShadow");
                     self.Target.SetTextShadow(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.textShadow")); return global::Jint.Native.JsValue.Undefined;
@@ -3277,7 +3277,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.textTransform");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetTextTransform());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.textTransform", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.textTransform", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.textTransform");
                     self.Target.SetTextTransform(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.textTransform")); return global::Jint.Native.JsValue.Undefined;
@@ -3288,7 +3288,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.textUnderlinePosition");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetTextUnderlinePosition());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.textUnderlinePosition", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.textUnderlinePosition", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.textUnderlinePosition");
                     self.Target.SetTextUnderlinePosition(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.textUnderlinePosition")); return global::Jint.Native.JsValue.Undefined;
@@ -3299,7 +3299,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.top");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetTop());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.top", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.top", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.top");
                     self.Target.SetTop(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.top")); return global::Jint.Native.JsValue.Undefined;
@@ -3310,7 +3310,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.transform");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetTransform());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.transform", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.transform", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.transform");
                     self.Target.SetTransform(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.transform")); return global::Jint.Native.JsValue.Undefined;
@@ -3321,7 +3321,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.transformOrigin");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetTransformOrigin());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.transformOrigin", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.transformOrigin", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.transformOrigin");
                     self.Target.SetTransformOrigin(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.transformOrigin")); return global::Jint.Native.JsValue.Undefined;
@@ -3332,7 +3332,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.transformStyle");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetTransformStyle());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.transformStyle", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.transformStyle", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.transformStyle");
                     self.Target.SetTransformStyle(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.transformStyle")); return global::Jint.Native.JsValue.Undefined;
@@ -3343,7 +3343,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.transition");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetTransition());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.transition", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.transition", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.transition");
                     self.Target.SetTransition(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.transition")); return global::Jint.Native.JsValue.Undefined;
@@ -3354,7 +3354,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.transitionDelay");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetTransitionDelay());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.transitionDelay", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.transitionDelay", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.transitionDelay");
                     self.Target.SetTransitionDelay(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.transitionDelay")); return global::Jint.Native.JsValue.Undefined;
@@ -3365,7 +3365,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.transitionDuration");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetTransitionDuration());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.transitionDuration", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.transitionDuration", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.transitionDuration");
                     self.Target.SetTransitionDuration(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.transitionDuration")); return global::Jint.Native.JsValue.Undefined;
@@ -3376,7 +3376,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.transitionProperty");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetTransitionProperty());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.transitionProperty", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.transitionProperty", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.transitionProperty");
                     self.Target.SetTransitionProperty(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.transitionProperty")); return global::Jint.Native.JsValue.Undefined;
@@ -3387,7 +3387,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.transitionTimingFunction");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetTransitionTimingFunction());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.transitionTimingFunction", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.transitionTimingFunction", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.transitionTimingFunction");
                     self.Target.SetTransitionTimingFunction(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.transitionTimingFunction")); return global::Jint.Native.JsValue.Undefined;
@@ -3398,7 +3398,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.unicodeBidi");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetUnicodeBidi());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.unicodeBidi", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.unicodeBidi", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.unicodeBidi");
                     self.Target.SetUnicodeBidi(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.unicodeBidi")); return global::Jint.Native.JsValue.Undefined;
@@ -3409,7 +3409,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.verticalAlign");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetVerticalAlign());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.verticalAlign", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.verticalAlign", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.verticalAlign");
                     self.Target.SetVerticalAlign(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.verticalAlign")); return global::Jint.Native.JsValue.Undefined;
@@ -3420,7 +3420,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.visibility");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetVisibility());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.visibility", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.visibility", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.visibility");
                     self.Target.SetVisibility(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.visibility")); return global::Jint.Native.JsValue.Undefined;
@@ -3431,7 +3431,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.whiteSpace");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetWhiteSpace());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.whiteSpace", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.whiteSpace", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.whiteSpace");
                     self.Target.SetWhiteSpace(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.whiteSpace")); return global::Jint.Native.JsValue.Undefined;
@@ -3442,7 +3442,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.widows");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetWidows());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.widows", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.widows", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.widows");
                     self.Target.SetWidows(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.widows")); return global::Jint.Native.JsValue.Undefined;
@@ -3453,7 +3453,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.width");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetWidth());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.width", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.width", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.width");
                     self.Target.SetWidth(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.width")); return global::Jint.Native.JsValue.Undefined;
@@ -3464,7 +3464,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.wordBreak");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetWordBreak());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.wordBreak", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.wordBreak", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.wordBreak");
                     self.Target.SetWordBreak(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.wordBreak")); return global::Jint.Native.JsValue.Undefined;
@@ -3475,7 +3475,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.wordSpacing");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetWordSpacing());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.wordSpacing", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.wordSpacing", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.wordSpacing");
                     self.Target.SetWordSpacing(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.wordSpacing")); return global::Jint.Native.JsValue.Undefined;
@@ -3486,7 +3486,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.wordWrap");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetWordWrap());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.wordWrap", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.wordWrap", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.wordWrap");
                     self.Target.SetWordWrap(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.wordWrap")); return global::Jint.Native.JsValue.Undefined;
@@ -3497,7 +3497,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.writingMode");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetWritingMode());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.writingMode", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.writingMode", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.writingMode");
                     self.Target.SetWritingMode(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.writingMode")); return global::Jint.Native.JsValue.Undefined;
@@ -3508,7 +3508,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.zIndex");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetZIndex());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.zIndex", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.zIndex", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.zIndex");
                     self.Target.SetZIndex(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.zIndex")); return global::Jint.Native.JsValue.Undefined;
@@ -3519,7 +3519,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.zoom");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetZoom());
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.zoom", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.zoom", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleDeclaration>(thisObj, "CSSStyleDeclaration.zoom");
                     self.Target.SetZoom(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.zoom")); return global::Jint.Native.JsValue.Undefined;
@@ -3549,7 +3549,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleRule>(thisObj, "CSSStyleRule.selectorText");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.SelectorText);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleRule.selectorText", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleRule.selectorText", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleRule>(thisObj, "CSSStyleRule.selectorText");
                     self.Target.SelectorText = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleRule.selectorText"); return global::Jint.Native.JsValue.Undefined;
@@ -3560,7 +3560,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleRule>(thisObj, "CSSStyleRule.style");
                     return self.Realm.Wrap(self.Target.Style);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleRule.style", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleRule.style", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleRule>(thisObj, "CSSStyleRule.style");
                     var forwardTarget = self.Target.Style; if (forwardTarget is not null) { forwardTarget.CssText = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleRule.style"); } return global::Jint.Native.JsValue.Undefined;
@@ -3579,14 +3579,14 @@ internal static partial class DomInterfaces
                     return self.Realm.Wrap(self.Target.Rules);
                 }))
             .Method("deleteRule",
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleSheet.deleteRule", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleSheet.deleteRule", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleSheet>(thisObj, "CSSStyleSheet.deleteRule");
                     self.Target.RemoveAt(global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "CSSStyleSheet.deleteRule")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 1)
             .Method("insertRule",
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleSheet.insertRule", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleSheet.insertRule", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssStyleSheet>(thisObj, "CSSStyleSheet.insertRule");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Insert(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleSheet.insertRule"), global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 1, "CSSStyleSheet.insertRule")));
@@ -3645,14 +3645,14 @@ internal static partial class DomInterfaces
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);
                 }))
             .Method("removeProperty",
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSViewTransitionRule.removeProperty", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSViewTransitionRule.removeProperty", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssViewTransitionRule>(thisObj, "CSSViewTransitionRule.removeProperty");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.RemoveProperty(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSViewTransitionRule.removeProperty")));
                 }),
                 length: 1)
             .Method("setProperty",
-                global::Jint.Browser.Dom.DomFailures.Guard("CSSViewTransitionRule.setProperty", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSViewTransitionRule.setProperty", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.ICssViewTransitionRule>(thisObj, "CSSViewTransitionRule.setProperty");
                     self.Target.SetProperty(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSViewTransitionRule.setProperty"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "CSSViewTransitionRule.setProperty"), global::Jint.Browser.Dom.DomConvert.NullableText(args, 2)); return global::Jint.Native.JsValue.Undefined;
@@ -3688,7 +3688,7 @@ internal static partial class DomInterfaces
                 global::Jint.Native.Symbol.GlobalSymbolRegistry.Iterator,
                 global::Jint.Browser.Dom.Collections.DomIterator.ArrayValues)
             .Method("appendMedium",
-                global::Jint.Browser.Dom.DomFailures.Guard("MediaList.appendMedium", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("MediaList.appendMedium", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.IMediaList>(thisObj, "MediaList.appendMedium");
                     self.Target.Add(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "MediaList.appendMedium")); return global::Jint.Native.JsValue.Undefined;
@@ -3713,13 +3713,13 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.IMediaList>(thisObj, "MediaList.mediaText");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.MediaText);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("MediaList.mediaText", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("MediaList.mediaText", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.IMediaList>(thisObj, "MediaList.mediaText");
                     self.Target.MediaText = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "MediaList.mediaText"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Method("removeMedium",
-                global::Jint.Browser.Dom.DomFailures.Guard("MediaList.removeMedium", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("MediaList.removeMedium", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Css.Dom.IMediaList>(thisObj, "MediaList.removeMedium");
                     self.Target.Remove(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "MediaList.removeMedium")); return global::Jint.Native.JsValue.Undefined;

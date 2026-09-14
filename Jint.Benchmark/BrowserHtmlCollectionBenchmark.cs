@@ -1,3 +1,5 @@
+#nullable enable annotations
+
 using System.Text;
 using BenchmarkDotNet.Attributes;
 using Jint.Browser;

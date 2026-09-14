@@ -11,7 +11,7 @@ namespace Jint.Browser.Layout;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The scroll is virtual and it is the only state here.</b> There is nothing to paint, so scrolling is a
+/// <b>The scroll is virtual.</b> Alongside the document's invalidated measurements, scrolling is a
 /// number the page keeps and every viewport-relative answer subtracts. <c>window.scrollTo</c>,
 /// <c>scrollBy</c>, <c>element.scrollIntoView</c>, <c>DOM.scrollIntoViewIfNeeded</c> and Playwright's own
 /// scroll path all set it; <c>window.scrollY</c>, <c>pageYOffset</c> and
@@ -33,7 +33,7 @@ namespace Jint.Browser.Layout;
 /// It belongs to the page runtime, so a navigation starts a document at the top with no bookkeeping.
 /// </para>
 /// </remarks>
-internal sealed class PageLayout
+internal sealed partial class PageLayout
 {
     private readonly PageRuntime _runtime;
     private readonly Action _scrollJob;
@@ -60,8 +60,18 @@ internal sealed class PageLayout
     /// <summary>How far the page is scrolled down, in CSS pixels.</summary>
     internal double ScrollY => _scrollY;
 
-    /// <summary>Starts a fresh size-only query without laying out unrelated document branches.</summary>
+    /// <summary>Shares current measurements where all writers are tracked; otherwise starts a fresh query.</summary>
     internal FlatLayout.SizeQuery MeasureSizes()
+    {
+        if (!CanReuse())
+        {
+            return CreateSizes();
+        }
+
+        return _sizes ??= CreateSizes();
+    }
+
+    private FlatLayout.SizeQuery CreateSizes()
         => new(_runtime.Document, Visibility, _runtime.Viewport.Width, Visibility.CreateTraversal(_runtime.Document));
 
     /// <summary>A single rectangle using the same placement and scroll clamp as a complete layout.</summary>
@@ -88,19 +98,35 @@ internal sealed class PageLayout
     /// <summary>The layout of the document as it stands, with the current viewport and scroll offset.</summary>
     internal FlatLayout Current()
     {
+        var reuse = CanReuse();
+        if (reuse && _layout is { } cached && cached.ScrollY == _scrollY)
+        {
+            return cached;
+        }
+
         var viewport = _runtime.Viewport;
-        var layout = FlatLayout.Of(_runtime.Document, Visibility, viewport.Width, viewport.Height, _scrollY);
+        var sizes = MeasureSizes();
+        var layout = FlatLayout.Of(_runtime.Document, Visibility, viewport.Width, viewport.Height, _scrollY, sizes);
 
         // A document that shrank under a scrolled page leaves the offset past its end, so the clamp is read
         // here rather than only written in ScrollTo: what a box answers must agree with what scrollY reads.
         var clamped = Math.Min(_scrollY, layout.MaxScrollY);
         if (clamped == _scrollY)
         {
+            if (reuse)
+            {
+                _layout = layout;
+            }
             return layout;
         }
 
         _scrollY = clamped;
-        return FlatLayout.Of(_runtime.Document, Visibility, viewport.Width, viewport.Height, clamped);
+        layout = FlatLayout.Of(_runtime.Document, Visibility, viewport.Width, viewport.Height, clamped, sizes);
+        if (reuse)
+        {
+            _layout = layout;
+        }
+        return layout;
     }
 
     /// <summary>

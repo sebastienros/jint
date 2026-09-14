@@ -60,7 +60,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Svg.Dom.ISvgStyleElement>(thisObj, "SVGStyleElement.disabled");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsDisabled);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("SVGStyleElement.disabled", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("SVGStyleElement.disabled", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Svg.Dom.ISvgStyleElement>(thisObj, "SVGStyleElement.disabled");
                     self.Target.IsDisabled = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
@@ -71,7 +71,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Svg.Dom.ISvgStyleElement>(thisObj, "SVGStyleElement.media");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Media);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("SVGStyleElement.media", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("SVGStyleElement.media", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Svg.Dom.ISvgStyleElement>(thisObj, "SVGStyleElement.media");
                     self.Target.Media = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "SVGStyleElement.media"); return global::Jint.Native.JsValue.Undefined;
@@ -88,7 +88,7 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Svg.Dom.ISvgStyleElement>(thisObj, "SVGStyleElement.type");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Type);
                 }),
-                global::Jint.Browser.Dom.DomFailures.Guard("SVGStyleElement.type", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("SVGStyleElement.type", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Svg.Dom.ISvgStyleElement>(thisObj, "SVGStyleElement.type");
                     self.Target.Type = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "SVGStyleElement.type"); return global::Jint.Native.JsValue.Undefined;

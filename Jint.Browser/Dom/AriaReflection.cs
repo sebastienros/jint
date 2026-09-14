@@ -137,6 +137,7 @@ internal static class AriaReflection
         internal JsValue Set(JsValue thisObject, JsValue[] arguments)
         {
             var self = DomBindings.Bind<IElement>(thisObject, Member);
+            using var mutation = self.Realm.MutateLayout();
             var value = arguments.Length > 0 ? arguments[0] : JsValue.Undefined;
 
             // https://html.spec.whatwg.org/multipage/common-dom-interfaces.html#reflecting-content-attributes-in-idl-attributes:

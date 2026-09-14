@@ -265,7 +265,7 @@ internal sealed class Emitter
                     // configurable: true }, which is JsObjectShape.Method's default and the opposite of
                     // ECMAScript's rule for a built-in.
                     builder.Append("            .Method(").Append(CSharpNames.Literal(member.DomName)).Append(",\n");
-                    AppendGuardedBody(builder, label, member.Body);
+                    AppendGuardedBody(builder, label, member.Body, mutation: !IsLayoutRead(member.DomName));
                     builder.Append(",\n");
                     builder.Append("                length: ").Append(member.Length).Append(")\n");
                 }
@@ -279,7 +279,7 @@ internal sealed class Emitter
                     if (member.SetterBody is { } setter)
                     {
                         builder.Append(",\n");
-                        AppendGuardedBody(builder, label, setter);
+                        AppendGuardedBody(builder, label, setter, mutation: true);
                     }
 
                     builder.Append(")\n");
@@ -316,9 +316,28 @@ internal sealed class Emitter
     /// <summary>The field holding one interface's <c>[Unscopable]</c> member names.</summary>
     private static string UnscopablesField(InterfaceModel model) => "_unscopables" + model.FieldName;
 
-    private static void AppendGuardedBody(StringBuilder builder, string label, string body)
+    // Only operations with no native writes may keep geometry alive. Unknown operations default to
+    // a mutation scope; getters remain reads and every setter is bracketed independently of its name.
+    private static bool IsLayoutRead(string name) => name is
+        "querySelector" or "querySelectorAll" or "getElementById" or "getElementsByClassName"
+        or "getElementsByTagName" or "getElementsByTagNameNS" or "getElementsByName"
+        or "getAttribute" or "getAttributeNS" or "getAttributeNode" or "getAttributeNodeNS"
+        or "getAttributeNames" or "hasAttribute" or "hasAttributeNS" or "hasAttributes"
+        or "contains" or "matches" or "closest" or "isSameNode" or "isEqualNode"
+        or "compareDocumentPosition" or "lookupPrefix" or "lookupNamespaceURI" or "isDefaultNamespace"
+        or "item" or "namedItem" or "getPropertyValue" or "getPropertyPriority"
+        or "getBoundingClientRect" or "getClientRects" or "elementFromPoint" or "elementsFromPoint"
+        or "getRootNode" or "hasChildNodes" or "getNamedItem" or "getNamedItemNS"
+        or "substringData" or "toString" or "supports" or "webkitMatchesSelector"
+        or "compareBoundaryPoints" or "comparePoint" or "intersectsNode" or "isPointInRange"
+        or "getSelection" or "hasFocus" or "findRule" or "getByType" or "getTrackById" or "getCueById"
+        or "assignedNodes" or "assignedElements" or "getDistributedNodes";
+
+    private static void AppendGuardedBody(StringBuilder builder, string label, string body, bool mutation = false)
     {
-        builder.Append("                global::Jint.Browser.Dom.DomFailures.Guard(")
+        builder.Append(mutation
+                ? "                global::Jint.Browser.Dom.DomFailures.GuardMutation("
+                : "                global::Jint.Browser.Dom.DomFailures.Guard(")
             .Append(CSharpNames.Literal(label))
             .Append(", static (thisObj, args) =>\n                {\n");
         AppendBody(builder, body, "                    ");

@@ -60,10 +60,17 @@ internal sealed class DomNamedMapObject : NamedPropertyObject, IDomWrapper
 
     /// <inheritdoc />
     protected override bool TrySetNamedValue(string name, JsValue value)
-        => _accessor.TrySetNamed(DomRealm, DomTarget, name, value);
+    {
+        using var mutation = DomRealm.MutateLayout();
+        return _accessor.TrySetNamed(DomRealm, DomTarget, name, value);
+    }
 
     /// <inheritdoc />
-    protected override bool TryDeleteName(string name) => _accessor.TryDeleteNamed(DomTarget, name);
+    protected override bool TryDeleteName(string name)
+    {
+        using var mutation = DomRealm.MutateLayout();
+        return _accessor.TryDeleteNamed(DomTarget, name);
+    }
 
     public override string ToString() => "[object " + Definition.Name + "]";
 }

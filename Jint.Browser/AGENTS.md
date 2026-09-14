@@ -175,7 +175,8 @@ and nothing belonging to an engine — a `JsValue`, an AngleSharp node — may b
   one size-only query per check/delivery, and schedules a task only for changed dimensions. That query
   visits observed subtrees, their visibility ancestors and the flex siblings needed for distributed
   widths or stretched heights, not unrelated document branches; all delivery
-  measurements are captured before any callback, and no cascade or measurement survives into another query. No mutation observer is
+  measurements are captured before any callback. `PageLayout` may reuse its traversal only while its
+  Browser-owned invalidation identity is current; mutation scopes and unknown writers use fresh queries. No mutation observer is
   installed: ancestor `classList`, CSSOM writes and viewport changes must work too. Idle wakes do not scan,
   and a page with no resize observers allocates no lane. Entries retain measured sizes; the active list
   retains observers only while they have targets. Callback-caused changes wait for another task rather than

@@ -366,6 +366,7 @@ internal sealed class ReflectedAttribute
     /// <summary>Sets the IDL attribute, which is one write of the content attribute.</summary>
     internal JsValue Set(DomRealm realm, IElement element, JsValue[] arguments)
     {
+        using var mutation = realm.MutateLayout();
         var value = DomConvert.At(arguments, 0);
 
         switch (_kind)

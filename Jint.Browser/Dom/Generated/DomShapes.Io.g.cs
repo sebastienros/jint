@@ -20,7 +20,7 @@ internal static partial class DomInterfaces
             .ToStringTag("Blob")
             .PerRealmSlot("constructor", enumerable: false)
             .Method("close",
-                global::Jint.Browser.Dom.DomFailures.Guard("Blob.close", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Blob.close", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Io.Dom.IBlob>(thisObj, "Blob.close");
                     self.Target.Close(); return global::Jint.Native.JsValue.Undefined;
@@ -39,7 +39,7 @@ internal static partial class DomInterfaces
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);
                 }))
             .Method("slice",
-                global::Jint.Browser.Dom.DomFailures.Guard("Blob.slice", static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Blob.slice", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Io.Dom.IBlob>(thisObj, "Blob.slice");
                     return self.Realm.Wrap(self.Target.Slice(global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 0, 0), global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 1, 2147483647), global::Jint.Browser.Dom.DomConvert.NullableText(args, 2)));

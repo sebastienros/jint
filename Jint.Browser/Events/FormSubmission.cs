@@ -130,6 +130,7 @@ internal static class FormSubmission
     /// </remarks>
     internal static void Reset(DomRealm realm, IHtmlFormElement? form)
     {
+        using var mutation = realm.MutateLayout();
         if (form is null)
         {
             return;
