@@ -357,7 +357,15 @@ internal sealed class JintCallExpression : JintExpression
 
         var callable = Unsafe.As<ICallable>(func);
 
-        // ensure logic is in sync between Call, Construct and JintCallExpression!
+        // Ensure logic is in sync between Call, Construct, engine.Invoke and JintCallExpression: the
+        // call-stack frame and the pop in a finally, and the ScriptFunction-vs-native branch.
+        //
+        // NOT the native stack probe, which is asymmetric on purpose: only Engine.Call's and
+        // Engine.Construct's copies have one (Engine.CallNativeFunction). ClrFunction, HostFunction,
+        // DelegateWrapper and BindFunction probe at the top of their own Call, which is what covers this
+        // copy and the ~170 other sites that invoke ICallable.Call with no dispatcher above them, so a
+        // probe here would be the second one on every host method call and would guard nothing new. Do
+        // not restore the symmetry; Jint/Constraints/AGENTS.md carries the rule and what it guards.
 
         JsValue result;
         if (IsFunctionFlagged(func))

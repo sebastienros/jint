@@ -1,5 +1,8 @@
 #nullable enable
 
+using System.Reflection;
+using Jint.Native;
+using Jint.Native.Function;
 using Jint.Runtime;
 
 namespace Jint.Tests.Runtime;
@@ -303,5 +306,92 @@ public class StackOverflowGuardTests
                 exception.Message.Should().Be("Maximum call stack size exceeded");
             },
             maxStackSize: SmallStack);
+    }
+
+    /// <summary>
+    /// The native-stack probe at the top of an interop or forwarding type's <c>Call</c> is the only probe on
+    /// every route that reaches it without a dispatcher above it — <c>JintCallExpression</c>'s native branch,
+    /// <c>Engine.Invoke</c>'s copy, <c>Function.prototype.apply</c>, every callback dispatch, every bound- and
+    /// proxy-forwarding hop. Delete one and the guard is simply gone there, which ends the host process
+    /// instead of failing an assertion: removing <c>ClrFunction</c>'s aborts the run inside
+    /// <c>Jint.Tests.PublicInterface.HostNativeRecursionGuardTests</c> with a native stack overflow.
+    /// <para>
+    /// So the four probes are pinned by name here, read out of the IL rather than from a list somebody
+    /// maintains, and a fifth <see cref="Function"/> that starts probing has to be added deliberately. A test
+    /// that <em>names</em> the missing probe is worth having beside one that dies of it.
+    /// </para>
+    /// </summary>
+    [Test]
+    public void ExactlyTheInteropAndForwardingFunctionsProbeTheNativeStack()
+    {
+        var probing = new List<string>();
+
+        foreach (var type in typeof(Engine).Assembly.GetTypes())
+        {
+            if (!typeof(Function).IsAssignableFrom(type))
+            {
+                continue;
+            }
+
+            var call = type.GetMethod(
+                nameof(Function.Call),
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly,
+                binder: null,
+                [typeof(JsValue), typeof(JsValue[])],
+                modifiers: null);
+
+            if (call is not null && CallsMethodNamed(call, "EnsureNativeStackHeadroom"))
+            {
+                probing.Add(type.Name);
+            }
+        }
+
+        probing.Sort(StringComparer.Ordinal);
+
+        // Not implied by the equality below: an IL scan that stopped finding anything would produce an empty
+        // set, and the only thing that catches that is asking for the set to be non-empty first.
+        probing.Should().NotBeEmpty();
+        probing.Should().Equal("BindFunction", "ClrFunction", "DelegateWrapper", "HostFunction");
+    }
+
+    /// <summary>
+    /// Whether <paramref name="method"/>'s body calls a parameterless method of this name. A linear scan
+    /// rather than a decoder: a four-byte operand that both begins with a call opcode and resolves to a
+    /// method of the wanted name is not a case worth a disassembler, and the scan cannot miss a real call.
+    /// </summary>
+    private static bool CallsMethodNamed(MethodBase method, string name)
+    {
+        var il = method.GetMethodBody()?.GetILAsByteArray();
+        if (il is null)
+        {
+            return false;
+        }
+
+        for (var i = 0; i + 4 < il.Length; i++)
+        {
+            const byte Call = 0x28;
+            const byte Callvirt = 0x6F;
+            if (il[i] != Call && il[i] != Callvirt)
+            {
+                continue;
+            }
+
+            MethodBase? target;
+            try
+            {
+                target = method.Module.ResolveMethod(BitConverter.ToInt32(il, i + 1));
+            }
+            catch (ArgumentException)
+            {
+                continue;
+            }
+
+            if (string.Equals(target?.Name, name, StringComparison.Ordinal) && target!.GetParameters().Length == 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
