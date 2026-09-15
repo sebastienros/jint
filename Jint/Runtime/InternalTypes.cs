@@ -27,7 +27,16 @@ internal enum InternalTypes
     RequiresCloning = 2048,
     Module = 4096,
 
-    // the object doesn't override important GetOwnProperty etc which change behavior
+    // the object doesn't override important GetOwnProperty etc which change behavior. Set only through the
+    // internal constructor, by JsObject, JsDate, GlobalObject, NumberPrototype and Prototype (the base of
+    // every built-in prototype) — none of which overrides a property internal method.
+    //
+    // ObjectInstance's [[Set]] and [[HasProperty]] chain walks read it as exactly that claim: a LINK
+    // carrying it is resolved by the walk itself, anything else is handed the rest of the algorithm. So a
+    // type that takes this flag must not override Get, Set or HasProperty — declaring it while overriding
+    // one would make another object's walk skip that override. The direction is safe: a type that does not
+    // take the flag is merely handed over to, which is what always happened. Pinned by
+    // Jint.Tests/Runtime/PrototypeChainWalkTests over every object a built engine can reach.
     PlainObject = 8192,
     // our native array
     Array = 16384,

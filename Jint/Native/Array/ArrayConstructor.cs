@@ -747,7 +747,7 @@ public sealed partial class ArrayConstructor : Constructor
     private static JsValue Species(JsValue thisObject) => thisObject;
 
     // Leaf for exactly one shape of argument, and framed for every other. IsArray on a revoked Proxy
-    // throws a TypeError (JsProxy.IsArray -> AssertNotRevoked), and "argument is not a revoked proxy"
+    // throws a TypeError (JsProxy.IsArray -> EnterProxyOperation), and "argument is not a revoked proxy"
     // is not something a FastCallGuard can express — but "argument is one of our own arrays" is, and
     // it settles the question outright: InternalTypes.Array is set by ArrayInstance's constructors
     // and nothing else, and ArrayInstance seals IsSpecArray() to true. So a guarded call is a flag test
