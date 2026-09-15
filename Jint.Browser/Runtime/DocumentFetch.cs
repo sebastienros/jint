@@ -1,16 +1,29 @@
 using System.Net.Http;
 using System.Text;
+using Jint.Browser.Dom;
 using Jint.WebApi.Fetch;
 using Jint.WebApi.Url.Parsing;
 
 namespace Jint.Browser.Runtime;
 
 /// <summary>What one document fetch produced: the markup to parse, and the response it came from.</summary>
-/// <param name="Html">The markup, already decoded and — for a plain-text answer — wrapped.</param>
+/// <param name="Markup">
+/// The markup, already decoded and — for a plain-text answer — wrapped. It is HTML or XML according to
+/// <paramref name="ContentType"/>, which is why it is not called <c>Html</c>.
+/// </param>
 /// <param name="Url">The URL the document ends up with: the last hop of the redirect chain.</param>
 /// <param name="Response">The response, for <see cref="Page.Response"/>.</param>
 /// <param name="RedirectCount">The redirect count exposed by Navigation Timing, zero for a cross-origin chain.</param>
-internal sealed record FetchedDocument(string Html, string Url, PageResponse Response, int RedirectCount);
+/// <param name="ContentType">
+/// Which of HTML's <i>read</i> algorithms the navigate rules chose: <c>text/html</c> for markup and for the
+/// <c>&lt;pre&gt;</c> a text document was wrapped in, and the response's own essence for an XML MIME type.
+/// </param>
+internal sealed record FetchedDocument(
+    string Markup,
+    string Url,
+    PageResponse Response,
+    int RedirectCount,
+    string ContentType);
 
 /// <summary>
 /// A navigation's document fetch: Jint's own engine-free fetch pipeline, driven by the page rather than by
@@ -32,7 +45,10 @@ internal sealed record FetchedDocument(string Html, string Url, PageResponse Res
 /// deliberately does not run it twice.
 /// </para>
 /// <para>
-/// <b>What a document may be.</b> <c>text/html</c> is parsed as markup; JSON, JavaScript,
+/// <b>What a document may be.</b> <c>text/html</c> is parsed as markup; an
+/// <a href="https://mimesniff.spec.whatwg.org/#xml-mime-type">XML MIME type</a> is
+/// <a href="https://html.spec.whatwg.org/multipage/document-lifecycle.html#read-xml">read with the XML
+/// parser</a> and becomes a real XML document, whose scripts do not run; JSON, JavaScript,
 /// <c>text/plain</c>, <c>text/css</c> and <c>text/vtt</c> use HTML's text document — a <c>&lt;pre&gt;</c>
 /// holding the text, which is what makes <c>document.body.textContent</c> the file. Anything else is refused with a
 /// <see cref="NavigationFailedException"/> naming the type, because a page showing a PDF or an image as if
@@ -116,9 +132,10 @@ internal static class DocumentFetch
                 headerList,
                 exchange.Redirected);
 
-            var html = Decode(bytes, pageResponse, url);
-            return new FetchedDocument(html, url, pageResponse,
-                exchange.HasCrossOriginRedirect ? 0 : exchange.RedirectCount);
+            var document = Decode(bytes, pageResponse, url);
+            return new FetchedDocument(document.Text, url, pageResponse,
+                exchange.HasCrossOriginRedirect ? 0 : exchange.RedirectCount,
+                document.ContentType);
         }
         catch (OperationCanceledException)
         {
@@ -188,7 +205,7 @@ internal static class DocumentFetch
     /// https://html.spec.whatwg.org/multipage/browsing-the-web.html#navigate — what kind of document the
     /// response's <c>Content-Type</c> asks for, and the encoding to read it in.
     /// </summary>
-    private static string Decode(byte[] bytes, PageResponse response, string url)
+    private static (string Text, string ContentType) Decode(byte[] bytes, PageResponse response, string url)
     {
         var declared = response.Header("content-type");
         var mime = declared is null ? null : MimeType.Parse(declared);
@@ -201,12 +218,25 @@ internal static class DocumentFetch
         {
             // No Content-Type at all. Browsers sniff; the one distinction that matters here is markup versus
             // text, and a body whose first non-space character opens a tag is markup.
-            essence = LooksLikeMarkup(text) ? "text/html" : "text/plain";
+            essence = LooksLikeMarkup(text) ? DomContentType.Html : "text/plain";
         }
 
-        if (string.Equals(essence, "text/html", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(essence, DomContentType.Html, StringComparison.OrdinalIgnoreCase))
         {
-            return text;
+            return (text, DomContentType.Html);
+        }
+
+        // https://html.spec.whatwg.org/multipage/document-lifecycle.html#read-xml — an XML MIME type is read
+        // with the XML parser, which is a real XML document and not markup wrapped in an HTML skeleton. The
+        // bytes go on as they are and the essence rides with them: the parse states it back to AngleSharp,
+        // whose document factory is what turns it into an XmlDocument (see PageDocumentFactory), and it is
+        // also the document's own `contentType`, which is what DOM's createElement reads to decide whether
+        // an XHTML document's elements are in the HTML namespace. **A <script> in such a document does not
+        // run**: AngleSharp's XML parser prepares none, which is the same reason `DOMParser` produces an
+        // inert document and is recorded in Dom/divergences.md.
+        if (DomContentType.IsXml(essence))
+        {
+            return (text, essence);
         }
 
         // https://html.spec.whatwg.org/multipage/browsing-the-web.html#loading-a-document
@@ -216,13 +246,15 @@ internal static class DocumentFetch
             || essence.EndsWith("+json", StringComparison.Ordinal)
             || AngleSharp.Io.MimeTypeNames.IsJavaScript(essence))
         {
-            return PlainTextDocument(text);
+            // The wrapper *is* the document HTML's read text asked for, so what is parsed from here is HTML
+            // whatever the response said it was.
+            return (PlainTextDocument(text), DomContentType.Html);
         }
 
         throw new NavigationFailedException(
             url,
             "Navigation to '" + url + "' produced a '" + essence + "' response, and a page can render only "
-            + "HTML and text documents (plain text, JSON, JavaScript, CSS and WebVTT) in this version. "
+            + "HTML, XML and text documents (plain text, JSON, JavaScript, CSS and WebVTT) in this version. "
             + "Fetch it with fetch() or XMLHttpRequest instead.");
     }
 

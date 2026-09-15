@@ -102,11 +102,11 @@ public sealed class NavigationTests
         fixture.Page.Errors.Should().BeEmpty();
     }
 
+    // No XML MIME type is here any more: HTML's read XML makes one a document a page can show, and
+    // Parsing/XmlDocumentLoadTests is what holds it to that.
     [TestCase("application/octet-stream")]
     [TestCase("application/pdf")]
     [TestCase("image/png")]
-    [TestCase("application/xml")]
-    [TestCase("text/xml")]
     [TestCase("application/json-seq")]
     public async Task AContentTypeAPageCannotRenderIsRefusedWithTheTypeInTheMessage(string contentType)
     {

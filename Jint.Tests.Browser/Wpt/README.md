@@ -26,7 +26,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | Suite | Documents | Synthesized | Tests | Not passing |
 | --- | --- | --- | --- | --- |
 | `dom/events/` | 56 | 9 | 548 | 10 |
-| `dom/nodes/` | 168 | 0 | 8,115 | 516 |
+| `dom/nodes/` | 168 | 0 | 8,115 | 272 |
 | `dom/collections/` | 8 | 0 | 43 | 0 |
 | `dom/lists/` | 5 | 0 | 189 | 1 |
 | `dom/traversal/` | 13 | 0 | 52 | 0 |
@@ -42,7 +42,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 52 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 0 |
-| **total** | **392** | **9** | **66,916** | **646** |
+| **total** | **392** | **9** | **66,916** | **402** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -355,7 +355,7 @@ has the upstream half of each, and `Dom/AGENTS.md` says which override list carr
 
 `dom/nodes/`, `dom/collections/`, `dom/lists/`, `dom/traversal/`, `dom/ranges/` and `html/dom/` are the DOM
 standard's own suites and HTML's DOM half — the corpus every other suite in this lane is written on top of.
-Across the six of them there are 226 documents and 65,228 tests, and **537 of those tests do not pass**.
+Across the six of them there are 226 documents and 65,228 tests, and **293 of those tests do not pass**.
 Those three figures are live and checked against the census. They arrived together as 207 documents and
 5,247 tests with 1,532 not passing; those arrival figures are historical and deliberately not re-derived.
 
@@ -370,9 +370,9 @@ table needs to be regenerated.
 
 | Tests | Documents | What it is |
 | ---: | ---: | --- |
-| 277 | 9 | [#3771](https://github.com/sebastienros/jint/issues/3771) **Remaining frame environments and XML document differences.** Sourced frames have their own realms and run classic scripts. Empty iframes still lack a native document, affecting `node-realm-*`, `node-creation-realm` and connectivity cases; the group also includes XML/XHTML creation differences and the missing `TextEvent` interface. <!-- cause: a frame that runs script --> |
 | 137 | 1 | **Members of DOM interfaces are absent.** The rows cover `ProcessingInstruction` attributes, `ChildNode` unscopables and event aliases that have no constructor. <!-- cause: a member of a DOM interface the bindings do not have --> |
 | 46 | 2 | [#3772](https://github.com/sebastienros/jint/issues/3772) **`createDocumentType` is the one creating member DOM's name rules cannot reach.** `AngleSharp.Dom.DocumentType` and `DomImplementation` are both `internal sealed`, `IDocumentType` exposes its three values get-only, and `Document.Doctype` is `FindChild<DocumentType>()` over that internal class — so a doctype built here would not be the one `document.doctype` answers. `Dom/divergences.md` records the probe. 45 rows are the member's own and one is `name-validation.html`'s third test. <!-- cause: DOM's validate-and-extract, and the XML name productions --> |
+| 33 | 7 | [#3771](https://github.com/sebastienros/jint/issues/3771) **Remaining frame environments.** Sourced frames have their own realms and run classic scripts, and a frame served `application/xhtml+xml` is an XHTML document now — so the 244 rows of `Document-createElement*` this cause used to carry are gone from it, and both files pass whole. What is left really is a frame or a second global: empty iframes still lack a native document, which is what `node-realm-*`, `node-creation-realm` and the connectivity cases wait for, and `TextEvent` is an interface the bindings do not have. <!-- cause: a frame that runs script --> |
 | 32 | 1 | **The Selectors-API table and selector-only element states.** The selector-error contracts are `DomSelectorText`'s now, so what is left is `ParentNode-querySelector-All.html`'s two matching differences — the empty namespace prefix and `::slotted` — and every row is `NeedsTriage`. <!-- cause: the Selectors-API table and selector-only element states --> |
 | 16 | 1 | **AngleSharp.Css refuses an unparseable media query, from inside `Element.setAttribute`.** `<style>` registers an attribute observer that assigns the sheet's `MediaList.mediaText`, whose setter throws where Media Queries §2.1 requires `not all`; the sixteen rows are the values it cannot parse and the member's other thirty tests pass. `Dom/divergences.md` records it. <!-- cause: 8. AngleSharp.Css refuses an unparseable media query --> |
 | 10 | 6 | **One assertion each or one small family per document.** These cover conversion order, import/clone identity, attribute selection and ordering, element-name identity, node equality and `accessKeyLabel`; each pattern is kept separate where neighboring rows pass. <!-- cause: one assertion each --> |
@@ -397,10 +397,21 @@ document that is not an HTML one keeps the name's case. **137 are not about XML 
 yet, and three of its four sources are an HTML-document PI or a `DOMParser` XML document, both of which
 work. **42 were the name refusals the table already named**, reached three times each; [#3950](https://github.com/sebastienros/jint/issues/3950) made them pass and took the rows out. **The rest are
 AngleSharp's**: node equality compares base URLs, a live range is not adjusted across documents, and the
-HTML element factory lower-cases a local name it is handed. `NeedsXmlDocuments` still names something —
-`application/xhtml+xml` is routed to the HTML parser, so 244 rows of `Document-createElement*` never see
-the XHTML document they are about — and that, not the absence of an XML document, is what the category
-means now.
+HTML element factory lower-cases a local name it is handed.
+
+**`NeedsXmlDocuments` has no rows left at all.** The last thing it named was one AngleSharp mapping:
+`application/xhtml+xml` reached the **HTML** parser, so the two XHTML fixtures `Document-createElementNS.html`
+and `Document-createElement.html` frame came back wrapped in a second `<html><body>` skeleton and all 244
+rows died on the trailing newline that adds, before either reached the member it is about. A page picks its
+own parser from the response's content type now, for a frame and for a navigation alike
+([`Jint.Browser/Runtime/Parsing/AGENTS.md`](../../Jint.Browser/Runtime/Parsing/AGENTS.md)), so **all 244 of
+them pass** and neither file carries a single exclusion — [#3950](https://github.com/sebastienros/jint/issues/3950)
+having already taken out the name-validation rows that would otherwise have been the XHTML half's share. The
+category was read for a long time as "AngleSharp cannot be made to do this", and what was actually
+unreachable was a second **document factory**; choosing the parser was never the same question. The member stays for the one
+thing an XML document here still cannot do — **run a script** — which is also why no `.xhtml` document in
+the not-vendored table below becomes vendorable: each of them loads `testharness.js` through a
+`<script src>` and would report nothing.
 
 **`html/dom/historical.html` is the file that tells three different things apart**, and "remove it" is the wrong
 answer for two of them. `HTMLAppletElement`, `HTMLTableDataCellElement` and `HTMLTableHeaderCellElement` are names
@@ -586,7 +597,7 @@ which is what a fixture sitting beside the cases that load it needs — see belo
 | a `custom-elements/` finding, and one whose cause is spent | 2 | the parser's upgrade-instead-of-construct, and the file whose `unhandledrejection` the engine used to raise at the tracker's cadence rather than at the checkpoint (fixed; vendoring it is a change of its own) |
 | a DOM sub-directory that is not a suite | 13 | `Document-contentType/`, `moveBefore/`, `insertion-removing-steps/`, `crashtests/`, `tentative/`, `unfinished/`, and five of `html/dom/`'s |
 | a DOM marker, or not a document | 6 | `.window.js`, `.tentative.html` and `.sub.html` under the six new suites |
-| an XML document | 6 | `.xhtml`, `.xht`, `.svg` and the three `.xml` fixture globs: a page here parses HTML |
+| an XML document | 6 | `.xhtml`, `.xht`, `.svg` and the three `.xml` fixture globs. A page here parses XML now, and these are still absent for the half that did not move: a `<script>` in an XML document does not run, so none of them could load `testharness.js` |
 | the WebIDL conformance harness, again | 2 | `html/dom/idlharness.https.html`, and one that needs an `RTCPeerConnection` |
 | HTML's reflection suite, the two files that are not the suite | 2 | [#3770](https://github.com/sebastienros/jint/issues/3770); all ten `reflection-*.html` documents are cases now, so what is left out is `reflection-original.html`, the same suite in the aggregating spelling, and the attribute table of a `.tentative.` document nothing here runs |
 | a DOM crash test or reftest | 5 | none loads `testharness.js` |

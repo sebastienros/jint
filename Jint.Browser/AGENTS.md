@@ -190,10 +190,11 @@ None of the five interface objects is generated, so they are hand-written `JsObj
 `XMLSerializer`, `Selection`, `MediaQueryListEvent` — plus the members that make the generated `Range`,
 `TreeWalker` and `NodeIterator` usable. Three things there are worth knowing:
 
-- **`DOMParser`'s XML half is `AngleSharp.Xml`**, referenced for that and nothing else; writing an XML parser
-  here instead is the one thing this package is not for. It is deliberately **not** in `pin.json` — the
-  generator reads two assemblies and projects no interface from this one. A failed parse answers the
-  `parsererror` document the standard prescribes, which is what a page tests for.
+- **`DOMParser`'s XML half is `AngleSharp.Xml`**, referenced for that and for the XML documents a frame or a
+  navigation is served, and nothing else; writing an XML parser here instead is the one thing this package is
+  not for. It is deliberately **not** in `pin.json` — the generator reads two assemblies and projects no
+  interface from this one. A failed parse answers the `parsererror` document the standard prescribes, which
+  is what a page tests for. Which responses reach it is `Runtime/Parsing/AGENTS.md`'s.
 - **A parsed document cannot run anything**: its parser gets a browsing context of its own with no scripting
   service and `IsScripting` false, so a `<script>` in the input is an element with text and nothing more.
 - **`Selection` has no direction**, because direction comes from which end a user dragged from: the anchor is
