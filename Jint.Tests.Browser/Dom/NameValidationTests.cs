@@ -8,9 +8,11 @@ namespace Jint.Tests.Browser.Dom;
 /// The two refusals are not interchangeable and a page branches on which one it got: a name whose code
 /// points are not allowed is an <c>InvalidCharacterError</c>, while a prefixed name with a null namespace, an
 /// <c>xml</c> prefix outside the XML namespace or an <c>xmlns</c> name outside the XMLNS namespace is a
-/// <c>NamespaceError</c>. The rows are <c>dom/nodes/Document-createElementNS.js</c>'s own, minus the ones
-/// AngleSharp's stricter name check refuses before the standard's algorithm can accept them — those are the
-/// last test in this file, and a row of <c>Jint.Browser/Dom/AGENTS.md</c>'s divergence table.
+/// <c>NamespaceError</c>. The rows are <c>dom/nodes/Document-createElementNS.js</c>'s own, and they are all of
+/// them now: the names AngleSharp's stricter XML <c>Name</c> production used to refuse before the standard's
+/// algorithm could accept them are created by <see cref="Jint.Browser.Dom.DomElementFactory"/>, and the test
+/// below pins the WebIDL interface each one gets. What is still refused is the doctype half, which has a test
+/// of its own here and a row in <c>Jint.Browser/Dom/divergences.md</c>.
 /// </remarks>
 public sealed class NameValidationTests
 {
@@ -27,6 +29,8 @@ public sealed class NameValidationTests
     [TestCase("null", "'1foo'", "InvalidCharacterError")]
     [TestCase("null", "'f1oo'", null)]
     [TestCase("null", "'}foo'", "InvalidCharacterError")]
+    [TestCase("null", "'f}oo'", null)]
+    [TestCase("null", "'\uFFFFfoo'", null)]
     [TestCase("null", "'<foo'", "InvalidCharacterError")]
     [TestCase("null", "'foo>'", "InvalidCharacterError")]
     [TestCase("null", "'fo o'", "InvalidCharacterError")]
@@ -49,6 +53,7 @@ public sealed class NameValidationTests
     [TestCase("'http://example.com/'", "'foo'", null)]
     [TestCase("'http://example.com/'", "'f:oo'", null)]
     [TestCase("'http://example.com/'", "'f::oo'", null)]
+    [TestCase("'http://example.com/'", "'0:a'", null)]
     [TestCase("'http://example.com/'", "'a:0'", "InvalidCharacterError")]
     [TestCase("'http://example.com/'", "'xml:test'", "NamespaceError")]
     [TestCase("'http://example.com/'", "'xmlns:test'", "NamespaceError")]
@@ -107,6 +112,8 @@ public sealed class NameValidationTests
     [TestCase("document.createElement('1foo')", "InvalidCharacterError")]
     [TestCase("document.createElement('fo o')", "InvalidCharacterError")]
     [TestCase("document.createElement('foo>')", "InvalidCharacterError")]
+    [TestCase("document.createElement('f<oo')", null)]
+    [TestCase("document.createElement('f}oo')", null)]
     [TestCase("document.createElement('')", "InvalidCharacterError")]
     [TestCase("document.createAttribute('f=oo')", "InvalidCharacterError")]
     [TestCase("document.createAttribute('b:')", null)]
@@ -137,25 +144,126 @@ public sealed class NameValidationTests
     }
 
     /// <summary>
-    /// The other half of the algorithm, which is AngleSharp's and stays a divergence: it holds a name to
-    /// XML's <c>Name</c> production, which DOM deliberately stopped doing, so the names below are refused
-    /// where a browser creates the element or attribute.
+    /// A name that <c>AngleSharp.Text.XmlExtensions.IsXmlName</c> refuses and DOM allows creates the element
+    /// the standard asks for, and it is the WebIDL interface the element-interface rule gives it rather than
+    /// a generic one.
     /// </summary>
     /// <remarks>
-    /// The refusal is now DOM's <c>InvalidCharacterError</c> rather than whatever AngleSharp chose, which is
-    /// as far as this side of the binding can go: nothing here can build an element whose local name
-    /// AngleSharp will not accept, because the element factories are internal to that assembly. Recorded in
-    /// <c>Jint.Browser/Dom/AGENTS.md</c>'s divergence table and in
-    /// <see href="https://github.com/sebastienros/jint/issues/3772">#3772</see>.
+    /// <para>
+    /// The interface is what says <see cref="Jint.Browser.Dom.DomElementFactory"/> went through AngleSharp's
+    /// own <c>IElementFactory</c> rather than constructing an <c>HtmlElement</c> by hand: an unknown HTML name
+    /// only becomes an <c>HtmlUnknownElement</c> — and therefore only reaches
+    /// <c>DomManualInterfaces.For</c>'s rule, which sorts it into <c>HTMLUnknownElement</c> or, for a valid
+    /// custom element name, <c>HTMLElement</c> — because the factory decides that.
+    /// </para>
+    /// <para>
+    /// <c>createElement</c> on an HTML document lower-cases, which is why the astral name comes back
+    /// lower-cased; the surrogate pair is untouched by ASCII lower-casing, which is the point of the row.
+    /// </para>
     /// </remarks>
-    [TestCase("document.createElement('f<oo')", TestName = "createElement with a code point XML forbids")]
-    [TestCase("document.createElement('f}oo')", TestName = "createElement with a brace")]
-    [TestCase("document.createElementNS(null, 'f}oo')", TestName = "createElementNS with a brace")]
-    [TestCase("document.createElementNS(null, '\\uFFFFfoo')", TestName = "createElementNS with a non-character")]
-    [TestCase("document.createElementNS('http://example.com/', '0:a')", TestName = "createElementNS with a digit prefix")]
-    public void ANameAngleSharpRefusesStaysARefusal(string source)
+    [TestCase("document.createElement('f<oo')", "[object HTMLUnknownElement]|f<oo|http://www.w3.org/1999/xhtml|null")]
+    [TestCase("document.createElement('f}oo')", "[object HTMLUnknownElement]|f}oo|http://www.w3.org/1999/xhtml|null")]
+    [TestCase("document.createElement('smallEmoji\\uD83C\\uDD96')", "[object HTMLUnknownElement]|smallemoji🆖|http://www.w3.org/1999/xhtml|null")]
+    [TestCase("document.createElement('my-\\uD83C\\uDD96')", "[object HTMLElement]|my-🆖|http://www.w3.org/1999/xhtml|null")]
+    [TestCase("document.createElementNS(null, 'f}oo')", "[object Element]|f}oo|null|null")]
+    [TestCase("document.createElementNS(null, '\\uFFFFfoo')", "[object Element]|￿foo|null|null")]
+    [TestCase("document.createElementNS('http://example.com/', '0:a')", "[object Element]|a|http://example.com/|0")]
+    [TestCase("document.createElementNS('http://www.w3.org/1999/xhtml', 'f}oo')", "[object HTMLUnknownElement]|f}oo|http://www.w3.org/1999/xhtml|null")]
+    // A document the page made rather than parsed resolves the same factory service, through its own
+    // browsing context.
+    [TestCase("document.implementation.createHTMLDocument('t').createElement('f<oo')", "[object HTMLUnknownElement]|f<oo|http://www.w3.org/1999/xhtml|null")]
+    [TestCase("document.implementation.createDocument(null, '').createElementNS(null, 'f}oo')", "[object Element]|f}oo|null|null")]
+    [TestCase("document.createElementNS('http://www.w3.org/2000/svg', 'f}oo')", "[object SVGElement]|f}oo|http://www.w3.org/2000/svg|null")]
+    // Every MathML element is an `Element` here, valid name or not: AngleSharp has no `[DomName]` for
+    // MathMLElement, so the generator cannot emit the interface and DomTypeMap answers the base one.
+    [TestCase("document.createElementNS('http://www.w3.org/1998/Math/MathML', 'f}oo')", "[object Element]|f}oo|http://www.w3.org/1998/Math/MathML|null")]
+    [TestCase("document.createElementNS('http://www.w3.org/1998/Math/MathML', 'mrow')", "[object Element]|mrow|http://www.w3.org/1998/Math/MathML|null")]
+    public void ANameAngleSharpRefusesIsCreatedWithTheInterfaceTheStandardGivesIt(string source, string expected)
     {
-        Refusal(source).Should().Be("InvalidCharacterError");
+        using var fixture = DomTestFixture.Create(Page);
+
+        fixture.Text($$"""
+            (function () {
+              var e = {{source}};
+              return [Object.prototype.toString.call(e), e.localName, String(e.namespaceURI), String(e.prefix)].join('|');
+            })()
+            """).Should().Be(expected);
+    }
+
+    /// <summary>
+    /// One of those elements is an ordinary node of AngleSharp's tree: it serializes, it is found by a
+    /// selector, its clone keeps all three names, and a write to <c>innerHTML</c> parses a fragment in its
+    /// context.
+    /// </summary>
+    /// <remarks>
+    /// The last of those is the only member a namespace with no AngleSharp factory has to answer for itself,
+    /// because <c>Element.ParseSubtree</c> is the base class's one abstract member.
+    /// </remarks>
+    [Test]
+    public void AnElementInANamespaceWithNoFactoryIsAnOrdinaryNode()
+    {
+        using var fixture = DomTestFixture.Create(Page);
+
+        fixture.Text("""
+            (function () {
+              var e = document.createElementNS('http://example.com/', '0:a');
+              e.setAttribute('x', '1');
+              document.body.appendChild(e);
+              e.innerHTML = '<b>hi</b>';
+              var clone = e.cloneNode(true);
+              return [
+                e.outerHTML,
+                document.querySelector('[x="1"]') === e,
+                clone.localName + '/' + clone.prefix + '/' + clone.namespaceURI,
+                clone.firstChild.localName
+              ].join('|');
+            })()
+            """).Should().Be("<0:a x=\"1\"><b>hi</b></0:a>|true|a/0/http://example.com/|b");
+    }
+
+    /// <summary>
+    /// <a href="https://dom.spec.whatwg.org/#valid-doctype-name">A valid doctype name</a> is the one name
+    /// predicate that is not a local name: no ASCII whitespace, no U+0000 and no U+003E, and everything else
+    /// — including <c>/</c>, <c>=</c>, a colon and the empty string — allowed.
+    /// </summary>
+    /// <remarks>
+    /// The names DOM allows and AngleSharp refuses are still refused, which is the doctype half of
+    /// <see href="https://github.com/sebastienros/jint/issues/3950">#3950</see> and is recorded in
+    /// <c>Jint.Browser/Dom/divergences.md</c>: <c>AngleSharp.Dom.DocumentType</c> is <c>internal sealed</c>
+    /// and <c>Document.Doctype</c> is a <c>FindChild</c> over that exact class, so there is nothing to build
+    /// one with. What this pins is that the refusals the standard <i>requires</i> are made, by DOM's
+    /// predicate, and carry DOM's name.
+    /// </remarks>
+    [TestCase("document.implementation.createDocumentType('a b', '', '')", "InvalidCharacterError")]
+    [TestCase("document.implementation.createDocumentType('a\\nb', '', '')", "InvalidCharacterError")]
+    [TestCase("document.implementation.createDocumentType('a\\0b', '', '')", "InvalidCharacterError")]
+    [TestCase("document.implementation.createDocumentType('a>b', '', '')", "InvalidCharacterError")]
+    [TestCase("document.implementation.createDocumentType('a:b', '', '')", null)]
+    [TestCase("document.implementation.createDocumentType('foo', '', '')", null)]
+    public void CreateDocumentTypeValidatesADoctypeName(string source, string? error)
+    {
+        Refusal(source).Should().Be(error);
+    }
+
+    /// <summary>
+    /// <c>createDocument</c> runs the internal createElementNS steps at its step 3, so it makes the same two
+    /// refusals — and, since its element is no longer AngleSharp's to refuse, it has to make them itself.
+    /// </summary>
+    /// <remarks>
+    /// The empty qualified name is step 2: it creates no element at all, so nothing is validated. Its
+    /// argument is <c>[LegacyNullToEmptyString]</c>, which is why <c>null</c> is that case as well and
+    /// <see langword="undefined"/> is the four-letter name.
+    /// </remarks>
+    [TestCase("document.implementation.createDocument(null, 'f:oo')", "NamespaceError")]
+    [TestCase("document.implementation.createDocument('http://example.com/', 'a:0')", "InvalidCharacterError")]
+    [TestCase("document.implementation.createDocument('http://example.com/', ':foo')", "InvalidCharacterError")]
+    [TestCase("document.implementation.createDocument(null, 'xmlns')", "NamespaceError")]
+    [TestCase("document.implementation.createDocument('http://example.com/', '')", null)]
+    [TestCase("document.implementation.createDocument('http://example.com/', null)", null)]
+    [TestCase("document.implementation.createDocument('http://example.com/', 'smallEmoji\\uD83C\\uDD96:div')", null)]
+    public void CreateDocumentValidatesAndExtracts(string source, string? error)
+    {
+        Refusal(source).Should().Be(error);
     }
 
     private static string? Refusal(string source)

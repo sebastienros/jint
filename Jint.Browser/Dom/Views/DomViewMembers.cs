@@ -290,9 +290,12 @@ internal static class DomViewMembers
         // something set on it afterwards.
         var document = DomConstructors.NewXmlDocument(ContentTypeFor(namespaceUri));
 
-        // Step 3: the internal createElementNS steps, which is where a NamespaceError or an
-        // InvalidCharacterError for a bad qualified name comes from — AngleSharp raises both.
-        var element = qualifiedName.Length == 0 ? null : document.CreateElement(namespaceUri, qualifiedName);
+        // Step 3: the internal createElementNS steps. Validate-and-extract's two refusals are DomNames', which
+        // this member now has a row of its own in: the creation no longer leans on AngleSharp's stricter name
+        // check to make them, because that check refuses names the standard allows.
+        var element = qualifiedName.Length == 0
+            ? null
+            : DomElementFactory.CreateNamespaced(document, namespaceUri, qualifiedName);
 
         // Steps 4 and 5, in the standard's order: the doctype first, so a document built with both has them
         // the way a parse would. Appending adopts, which is what lets a doctype made by the page's own
