@@ -33,8 +33,8 @@ namespace Jint.Browser.Dom;
 /// <b>These are not the XML productions any more.</b> DOM used to validate against XML's <c>Name</c> and
 /// <c>QName</c>; it was loosened deliberately, because there were names the HTML parser could build and the
 /// DOM API could not. What is left is the four predicates below, and the register of what each forbids is the
-/// point: <c>=</c> is refused in an attribute local name and allowed in an element one, and a code point at
-/// or above U+0080 is allowed everywhere.
+/// point: <c>=</c> is refused in an attribute local name and allowed in an element one, <c>/</c> is refused in
+/// both and allowed in a doctype name, and a code point at or above U+0080 is allowed everywhere.
 /// </para>
 /// </remarks>
 internal static class DomNames
@@ -56,6 +56,12 @@ internal static class DomNames
 
         /// <summary>https://dom.spec.whatwg.org/#valid-attribute-local-name.</summary>
         Attribute,
+
+        /// <summary>
+        /// https://dom.spec.whatwg.org/#valid-doctype-name — not a local name at all, and the only one of the
+        /// three a <i>prefix</i> is never extracted from.
+        /// </summary>
+        Doctype,
     }
 
     /// <summary>
@@ -64,9 +70,20 @@ internal static class DomNames
     /// rather than by this.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <c>getAttributeNS</c>, <c>hasAttributeNS</c> and <c>removeAttributeNS</c> are deliberately absent:
     /// DOM validates nothing for a member that only reads or removes, and adding a refusal there would
     /// break the very feature detection a page writes.
+    /// </para>
+    /// <para>
+    /// <b>The two <c>DOMImplementation</c> rows are what keeps every creating member on one footing.</b>
+    /// <c>createDocument</c> runs the internal createElementNS steps at its step 3, and its element is built
+    /// by <see cref="DomElementFactory"/> now rather than by AngleSharp's stricter name check, so the
+    /// refusals have to be made here or they would not be made at all. <c>createDocumentType</c> is the other
+    /// direction: AngleSharp's check happens to refuse a superset of what DOM refuses, so the row changes
+    /// nothing a page can see today — it states the member's own rule, in DOM's vocabulary, instead of
+    /// leaving a refusal that DOM requires resting on an XML production DOM stopped naming.
+    /// </para>
     /// </remarks>
     private static readonly Dictionary<string, Validation> _validations = new(StringComparer.Ordinal)
     {
@@ -76,15 +93,35 @@ internal static class DomNames
         ["Document.createAttributeNS"] = new(Receiver.Document, NamespaceIndex: 0, NameIndex: 1, Arity: 2, NameContext.Attribute),
         ["Element.setAttribute"] = new(Receiver.Element, NamespaceIndex: -1, NameIndex: 0, Arity: 2, NameContext.Attribute),
         ["Element.setAttributeNS"] = new(Receiver.Element, NamespaceIndex: 0, NameIndex: 1, Arity: 3, NameContext.Attribute),
+        ["DOMImplementation.createDocument"] = new(Receiver.Implementation, NamespaceIndex: 0, NameIndex: 1, Arity: 2, NameContext.Element, OptionalName: true),
+        ["DOMImplementation.createDocumentType"] = new(Receiver.Implementation, NamespaceIndex: -1, NameIndex: 0, Arity: 3, NameContext.Doctype),
     };
 
     /// <summary>
     /// The validation <paramref name="member"/> runs before its body, or <see langword="null"/> when it runs
-    /// none — which is every member but the six above, and is why the wrapper this feeds is chosen once when
+    /// none — which is every member but the eight above, and is why the wrapper this feeds is chosen once when
     /// the shape is built rather than tested on every call.
     /// </summary>
     internal static Validation? ValidationOf(string member)
         => _validations.TryGetValue(member, out var validation) ? validation : null;
+
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#valid-doctype-name — a string holding none of ASCII whitespace, U+0000
+    /// and U+003E (&gt;). The empty string is one, which is what <c>createDocumentType("", "", "")</c> rests
+    /// on; <c>/</c> and <c>=</c> are allowed, because a doctype name is never serialized into a tag.
+    /// </summary>
+    internal static bool IsValidDoctypeName(string value)
+    {
+        foreach (var c in value)
+        {
+            if (c is '\t' or '\n' or '\f' or '\r' or ' ' or '\0' or '>')
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     /// <summary>
     /// https://dom.spec.whatwg.org/#valid-namespace-prefix — at least one code point, and none of ASCII
@@ -180,7 +217,7 @@ internal static class DomNames
 
         if (!valid)
         {
-            Refuse(realm, member, DomExceptionNames.InvalidCharacter, "the name '" + qualifiedName + "' is not a valid " + (context == NameContext.Attribute ? "attribute" : "element") + " name.");
+            Refuse(realm, member, DomExceptionNames.InvalidCharacter, "the name '" + qualifiedName + "' is not a valid " + NounOf(context) + " name.");
         }
 
         // Step 8: a prefix names a namespace, so there has to be one to name.
@@ -235,11 +272,20 @@ internal static class DomNames
         return false;
     }
 
+    /// <summary>The noun a refusal about <paramref name="context"/> names the name as.</summary>
+    private static string NounOf(NameContext context) => context switch
+    {
+        NameContext.Attribute => "attribute",
+        NameContext.Doctype => "doctype",
+        _ => "element",
+    };
+
     /// <summary>The interface a validated member is declared on, so the brand check keeps its place.</summary>
     internal enum Receiver
     {
         Document,
         Element,
+        Implementation,
     }
 
     /// <summary>
@@ -247,12 +293,21 @@ internal static class DomNames
     /// the member needs before WebIDL would get as far as validating one, and which local-name predicate
     /// applies.
     /// </summary>
+    /// <remarks>
+    /// <c>OptionalName</c> is <c>createDocument</c>'s and no other member's: its name argument is
+    /// <c>[LegacyNullToEmptyString]</c>, so <see langword="null"/> is the empty string rather than
+    /// <c>"null"</c>, and
+    /// <a href="https://dom.spec.whatwg.org/#dom-domimplementation-createdocument">step 2</a> runs the
+    /// createElementNS steps only when it is not empty — so an empty name creates nothing and validates
+    /// nothing.
+    /// </remarks>
     internal readonly record struct Validation(
         Receiver On,
         int NamespaceIndex,
         int NameIndex,
         int Arity,
-        NameContext Context)
+        NameContext Context,
+        bool OptionalName = false)
     {
         internal JsValue[] ConvertAttributeArguments(JsValue thisObject, JsValue[] arguments)
         {
@@ -307,7 +362,14 @@ internal static class DomNames
                 return;
             }
 
-            var qualifiedName = TypeConverter.ToString(arguments[NameIndex]);
+            var qualifiedName = OptionalName && arguments[NameIndex].IsNull()
+                ? ""
+                : TypeConverter.ToString(arguments[NameIndex]);
+
+            if (OptionalName && qualifiedName.Length == 0)
+            {
+                return;
+            }
 
             // A DOMString? parameter, deliberately: DOM's algorithm turns on whether the namespace is null,
             // and `createElementNS(null, 'f:oo')` is the commonest way a page reaches that step. What the
@@ -323,10 +385,14 @@ internal static class DomNames
             }
 
             // The unprefixed members validate a local name and nothing else: `setAttribute('a:b', …)` is an
-            // ordinary attribute whose name holds a colon, and no NamespaceError can arise.
-            var valid = Context == NameContext.Attribute
-                ? IsValidAttributeLocalName(qualifiedName)
-                : IsValidElementLocalName(qualifiedName);
+            // ordinary attribute whose name holds a colon, and no NamespaceError can arise. A doctype name is
+            // the same shape and a narrower rule still: a colon is ordinary there too.
+            var valid = Context switch
+            {
+                NameContext.Attribute => IsValidAttributeLocalName(qualifiedName),
+                NameContext.Doctype => IsValidDoctypeName(qualifiedName),
+                _ => IsValidElementLocalName(qualifiedName),
+            };
 
             if (!valid)
             {
@@ -334,11 +400,15 @@ internal static class DomNames
                     wrapper.DomRealm,
                     member,
                     DomExceptionNames.InvalidCharacter,
-                    "the name '" + qualifiedName + "' is not a valid " + (Context == NameContext.Attribute ? "attribute" : "element") + " name.");
+                    "the name '" + qualifiedName + "' is not a valid " + NounOf(Context) + " name.");
             }
         }
 
-        private bool Accepts(IDomWrapper wrapper)
-            => On == Receiver.Document ? wrapper.DomTarget is IDocument : wrapper.DomTarget is IElement;
+        private bool Accepts(IDomWrapper wrapper) => On switch
+        {
+            Receiver.Document => wrapper.DomTarget is IDocument,
+            Receiver.Implementation => wrapper.DomTarget is IImplementation,
+            _ => wrapper.DomTarget is IElement,
+        };
     }
 }

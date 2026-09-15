@@ -1085,31 +1085,9 @@ internal static class WptBrowserExclusions
         // has a window now, so what is left of these 49 is that `application/xhtml+xml` is parsed by the
         // HTML parser — the fixture never loads as XHTML and every row fails on that first assertion.
         new("dom/nodes/Document-createElement.html", "*XHTML document", WptDivergence.NeedsXmlDocuments),
-        // Narrowed by the run: a frame has a window now, so the ten rows that only needed one pass.
-        // What is left is the XML twins of the HTML rows above — the same arguments, refused or accepted
-        // by the same two defects — so they are named the same way.
-        new("dom/nodes/Document-createElement.html", "*(\"\\ufffffoo\") in XML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElement.html", "*(\"f::oo\") in XML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElement.html", "*(\"f::oo:\") in XML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElement.html", "*(\"f:o:o\") in XML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElement.html", "*(\"f:oo\") in XML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElement.html", "*(\"f<oo\") in XML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElement.html", "*(\"f\\uffffoo\") in XML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElement.html", "*(\"foo:\") in XML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElement.html", "*(\"foo:0\") in XML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElement.html", "*(\"foo:_\") in XML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElement.html", "*(\"foo:fooெ\") in XML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElement.html", "*(\"foo:ெ\") in XML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElement.html", "*(\"foo\\uffff\") in XML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElement.html", "*(\"foo}\") in XML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElement.html", "*(\"fooெ:foo\") in XML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElement.html", "*(\"f}oo\") in XML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElement.html", "*(\"xml:foo\") in XML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElement.html", "*(\"xmlfoo:bar\") in XML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElement.html", "*(\"xmlns\") in XML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElement.html", "*(\"xmlns:foo\") in XML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElement.html", "*(\"̀\") in XML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElement.html", "*(\"̀foo\") in XML document", WptDivergence.NeedsTriage),
+        // The twenty-two XML-document rows that stood beside it are gone: they were `createElement` handing a
+        // local name to AngleSharp's validate-and-extract overload, which #3950 stopped doing, so the XML
+        // document's half of the file passes entirely now.
         // Not the frame any more: the frame has its document. `application/xhtml+xml` is routed to the
         // HTML parser even with the XML factory registered, so the XHTML fixture comes back as an HTML
         // document and all 195 fail on its first assertion — the trailing newline an HTML skeleton adds.
@@ -1188,69 +1166,18 @@ internal static class WptBrowserExclusions
         new("dom/nodes/DOMImplementation-createDocumentType.html", "createDocumentType(\"{*", WptDivergence.NeedsTriage),
         new("dom/nodes/DOMImplementation-createDocumentType.html", "createDocumentType(\"}*", WptDivergence.NeedsTriage),
         new("dom/nodes/DOMImplementation-createDocumentType.html", "createDocumentType(\"~*", WptDivergence.NeedsTriage),
-        new("dom/nodes/name-validation.html", "Valid and invalid characters in createElement.", WptDivergence.NeedsTriage),
-        new("dom/nodes/name-validation.html", "Valid and invalid characters in createElementNS and createDocument.", WptDivergence.NeedsTriage),
         new("dom/nodes/name-validation.html", "Valid and invalid characters in createDocumentType.", WptDivergence.NeedsTriage),
     ];
 
-    // ---------------------------------------------------------------- a name AngleSharp refuses that the standard allows
-    private static readonly WptExclusion[] _aNameAngleSharpRefusesThatTheStandardAllows =
+    // ---------------------------------------------------------------- two refusals the bindings do not make
+    private static readonly WptExclusion[] _twoRefusalsTheBindingsDoNotMake =
     [
-        // a name AngleSharp refuses that the standard allows, and the two refusals it still does not make
-        new("dom/nodes/Document-createElement.html", "*<oo\") in HTML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElement.html", "*uffff\") in HTML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElement.html", "*ufffffoo\") in HTML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElement.html", "*uffffoo\") in HTML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElement.html", "*}\") in HTML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElement.html", "*}oo\") in HTML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElement.html", "createElement(\"̀* HTML document", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElementNS.html", "* HTML document: null,\"\\ufffffoo\",null", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElementNS.html", "* HTML document: null,\"f<oo\",null", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElementNS.html", "* HTML document: null,\"f\\uffffoo\",null", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElementNS.html", "* HTML document: null,\"foo\\uffff\",null", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElementNS.html", "* HTML document: null,\"foo}\",null", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElementNS.html", "* HTML document: null,\"f}oo\",null", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElementNS.html", "* HTML document: null,\";foo\",null", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElementNS.html", "createElementNS test in HTML*0:a\",null", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElementNS.html", "createElementNS test in HTML*<o\",null", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElementNS.html", "createElementNS test in HTML*̀:a\",null", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElementNS.html", "createElementNS test in HTML*;\",null", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElementNS.html", "createElementNS test in HTML*;:a\",null", WptDivergence.NeedsTriage),
+        // What is left of the element-creation cause once #3950 emptied it: two refusals about *insertion*,
+        // grouped here because the same pull request that named the name-creation rows named these beside
+        // them. Neither is about a name.
         new("dom/nodes/Node-insertBefore.html", "*, must throw TypeError.", WptDivergence.NeedsTriage),
         new("dom/nodes/Node-replaceChild.html", "*a doctype should throw a HierarchyRequestError.", WptDivergence.NeedsTriage),
         new("dom/nodes/Node-replaceChild.html", "*node should throw a HierarchyRequestError.", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElementNS.html", "* XML document: \"http://example.com/\",\"0:a\",null", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElementNS.html", "* XML document: \"http://example.com/\",\"a:̀\",null", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElementNS.html", "* XML document: \"http://example.com/\",\"a:;\",null", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElementNS.html", "* XML document: \"http://example.com/\",\"f:o:o\",null", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElementNS.html", "* XML document: \"http://example.com/\",\"fo<o\",null", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElementNS.html", "* XML document: \"http://example.com/\",\"̀:a\",null", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElementNS.html", "* XML document: \"http://example.com/\",\";:a\",null", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElementNS.html", "* XML document: null,\"\\ufffffoo\",null", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElementNS.html", "* XML document: null,\"f<oo\",null", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElementNS.html", "* XML document: null,\"f\\uffffoo\",null", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElementNS.html", "* XML document: null,\"foo\\uffff\",null", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElementNS.html", "* XML document: null,\"foo}\",null", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElementNS.html", "* XML document: null,\"f}oo\",null", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElementNS.html", "* XML document: null,\";foo\",null", WptDivergence.NeedsTriage),
-        // The same fourteen argument tuples through createDocument, where each one is three rows rather
-        // than one: the file also runs a "metadata for" and a "characterSet aliases for" test per tuple
-        // whose expected exception is null, and all three die on the same refusal before any metadata is
-        // read. The glob is the tuple, which is what makes it name exactly those three.
-        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: *null,\";foo\",null*", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: *null,\"f}oo\",null*", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: *null,\"foo}\",null*", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: *null,\"\\ufffffoo\",null*", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: *null,\"f\\uffffoo\",null*", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: *null,\"foo\\uffff\",null*", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: *null,\"f<oo\",null*", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: *\"http://example.com/\",\"fo<o\",null*", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: *\"http://example.com/\",\"f:o:o\",null*", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: *\"http://example.com/\",\"0:a\",null*", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: *\"http://example.com/\",\"a:;\",null*", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: *\"http://example.com/\",\"a:̀\",null*", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: *\"http://example.com/\",\"̀:a\",null*", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: *\"http://example.com/\",\";:a\",null*", WptDivergence.NeedsTriage),
     ];
 
     // ---------------------------------------------------------------- Range's own algorithms
@@ -1342,8 +1269,6 @@ internal static class WptBrowserExclusions
         // for, and the cascade reports only what a sheet declared. Nothing about `<applet>` - the same read
         // of any element answers the same way, and Jint.Browser/AGENTS.md argues which ten.
         new("html/dom/historical.html", "*styled", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElementNS.html", "createElementNS test in HTML*:o\",null", WptDivergence.NeedsTriage),
-        new("dom/nodes/Document-createElementNS.html", "createElementNS test in HTML*̀\",null", WptDivergence.NeedsTriage),
         // The members #3768 added, and what the corpus says about them once they are reachable. Each is
         // AngleSharp's: a parser-inserted namespaced attribute records no prefix, and IChildNode.Replace
         // converts its arguments before it checks whether the child has a parent at all.
@@ -1355,13 +1280,6 @@ internal static class WptBrowserExclusions
         new("dom/nodes/attributes.html", "Basic functionality of getAttributeNode/getAttributeNodeNS", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "Basic functionality of setAttributeNode", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "setAttributeNode doesn't have case-insensitivity even with an HTMLElement 2", WptDivergence.NeedsTriage),
-        // createDocument's own share of the refusal defects the table already names: DOM's
-        // validate-and-extract makes an empty prefix or an empty local part an InvalidCharacterError, and
-        // AngleSharp answers a NamespaceError or nothing at all.
-        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: *,\":foo\",null,\"INVALID_CHARACTER_ERR\"", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: *,\"foo:\",null,\"INVALID_CHARACTER_ERR\"", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: null,\":\",null,\"INVALID_CHARACTER_ERR\"", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocument.html", "createDocument test: \"http://example.com/\",\"a:0\",null,\"INVALID_CHARACTER_ERR\"", WptDivergence.NeedsTriage),
         // Attribute selection and ordering. DOM keys the attribute list on (namespace, local name) and
         // selects for setAttribute/removeAttribute/getAttribute on the *qualified* name, so an element can
         // hold two attributes spelling the same qualified name in different namespaces and the first one
@@ -1485,7 +1403,7 @@ internal static class WptBrowserExclusions
         new("a relList on a MathML <a> that no standard defines", _aRelListOnAMathMLAThatNoStandardDefines),
         new("a member of a DOM interface the bindings do not have", _aMemberOfADOMInterfaceTheBindingsDoNotHave),
         new("DOM's validate-and-extract, and the XML name productions", _dOMSValidateAndExtractAndTheXMLNameProductions),
-        new("a name AngleSharp refuses that the standard allows", _aNameAngleSharpRefusesThatTheStandardAllows),
+        new("two refusals the bindings do not make", _twoRefusalsTheBindingsDoNotMake),
         new("Range's own algorithms", _rangeSOwnAlgorithms),
         new("a document with no browsing context", _aDocumentWithNoBrowsingContext),
         new("the selector engine: escapes, :scope and :has", _theSelectorEngineEscapesScopeAndHas),
