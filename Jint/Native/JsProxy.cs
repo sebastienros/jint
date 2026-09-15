@@ -82,9 +82,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     JsValue ICallable.Call(JsValue thisObject, params JsCallArguments arguments)
     {
-        _engine._stackGuard.EnsureNativeStackHeadroom();
-
-        AssertNotRevoked(TrapApply);
+        EnterProxyOperation(TrapApply);
 
         // a proxy only has [[Call]] if its target does - emulate the missing internal
         // method for callers that reach us through the ICallable interface
@@ -131,9 +129,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     ObjectInstance IConstructor.Construct(JsCallArguments arguments, JsValue newTarget)
     {
-        _engine._stackGuard.EnsureNativeStackHeadroom();
-
-        AssertNotRevoked(TrapConstruct);
+        EnterProxyOperation(TrapConstruct);
 
         if (!_isConstructor)
         {
@@ -184,13 +180,13 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
 
     internal override bool IsSpecArray()
     {
-        AssertNotRevoked(KeyIsArray);
+        EnterProxyOperation(KeyIsArray);
         return _target.IsSpecArray();
     }
 
     public override object ToObject()
     {
-        AssertNotRevoked(KeyToObject);
+        EnterProxyOperation(KeyToObject);
         return _target.ToObject();
     }
 
@@ -201,7 +197,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     public override JsValue Get(JsValue property, JsValue receiver)
     {
-        AssertNotRevoked(TrapGet);
+        EnterProxyOperation(TrapGet);
         var target = _target;
 
         JsValue result;
@@ -261,7 +257,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     public override List<JsValue> GetOwnPropertyKeys(Types types = Types.Empty | Types.String | Types.Symbol)
     {
-        AssertNotRevoked(TrapOwnKeys);
+        EnterProxyOperation(TrapOwnKeys);
         var target = _target;
 
         JsValue result;
@@ -389,7 +385,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     public override PropertyDescriptor GetOwnProperty(JsValue property)
     {
-        AssertNotRevoked(TrapGetOwnPropertyDescriptor);
+        EnterProxyOperation(TrapGetOwnPropertyDescriptor);
         var target = _target;
 
         JsValue trapResultObj;
@@ -513,7 +509,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     public override bool Set(JsValue property, JsValue value, JsValue receiver)
     {
-        AssertNotRevoked(TrapSet);
+        EnterProxyOperation(TrapSet);
         var target = _target;
 
         var clrHandler = _clrHandler;
@@ -579,7 +575,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     public override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
     {
-        AssertNotRevoked(TrapDefineProperty);
+        EnterProxyOperation(TrapDefineProperty);
         var target = _target;
 
         var clrHandler = _clrHandler;
@@ -665,7 +661,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     public override bool HasProperty(JsValue property)
     {
-        AssertNotRevoked(TrapHas);
+        EnterProxyOperation(TrapHas);
         var target = _target;
 
         bool trapResult;
@@ -722,7 +718,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     public override bool Delete(JsValue property)
     {
-        AssertNotRevoked(TrapDeleteProperty);
+        EnterProxyOperation(TrapDeleteProperty);
         var target = _target;
 
         var clrHandler = _clrHandler;
@@ -783,7 +779,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     public override bool PreventExtensions()
     {
-        AssertNotRevoked(TrapPreventExtensions);
+        EnterProxyOperation(TrapPreventExtensions);
         var target = _target;
 
         bool success;
@@ -823,7 +819,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     internal override bool IsExtensible()
     {
-        AssertNotRevoked(TrapIsExtensible);
+        EnterProxyOperation(TrapIsExtensible);
         var target = _target;
 
         bool booleanTrapResult;
@@ -864,7 +860,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     protected internal override ObjectInstance? GetPrototypeOf()
     {
-        AssertNotRevoked(TrapGetProtoTypeOf);
+        EnterProxyOperation(TrapGetProtoTypeOf);
         var target = _target;
 
         JsValue handlerProto;
@@ -916,7 +912,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     internal override bool SetPrototypeOf(JsValue value)
     {
-        AssertNotRevoked(TrapSetProtoTypeOf);
+        EnterProxyOperation(TrapSetProtoTypeOf);
         var target = _target;
 
         bool success;
@@ -1043,8 +1039,28 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         return result;
     }
 
-    private void AssertNotRevoked(JsValue key)
+    /// <summary>
+    /// The one gate every proxy internal method passes through: the proxy is not revoked, and the current
+    /// thread still has the runtime's stack reserve below it.
+    /// <para>
+    /// Both halves are about the hop the operation is about to make. A proxy with no trap for what it was
+    /// asked forwards the whole algorithm to its target — <c>return target.Get(property, receiver)</c>, and
+    /// the same for every other internal method — so <c>new Proxy(new Proxy(new Proxy(…)))</c> is a native
+    /// recursion as deep as script cares to build it, and it used to end the process with a stack overflow no
+    /// <c>catch</c> could see (sebastienros/jint#4076). Unlike an ordinary prototype chain, this one cannot be
+    /// flattened into a loop: each hop runs its own algorithm, including trap lookup and the invariant checks
+    /// on the way back out. So it is probed instead, which is what every other forwarding hop in the engine
+    /// already does, and a proxy operation is nowhere near hot enough for the probe to be a question.
+    /// </para>
+    /// <para>
+    /// Previously <c>[[Call]]</c> and <c>[[Construct]]</c> probed here by hand and nothing else probed at all;
+    /// those two hand-written probes are gone, because this is the same point in the same order.
+    /// </para>
+    /// </summary>
+    private void EnterProxyOperation(JsValue key)
     {
+        _engine._stackGuard.EnsureNativeStackHeadroom();
+
         if (_target is null)
         {
             Throw.TypeError(_engine.Realm, $"Cannot perform '{key}' on a proxy that has been revoked");
