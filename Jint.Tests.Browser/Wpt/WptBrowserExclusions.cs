@@ -1291,19 +1291,27 @@ internal static class WptBrowserExclusions
         // querySelector/querySelectorAll in five contexts. Most of its old syntax divergences now pass;
         // these patterns are the remaining current-main failures, grouped only where the test names state
         // the same selector and outcome. The runner holds every pattern against passing and failing rows.
-        new("dom/nodes/Element-matches.html", "*Undeclared namespace: ns|div*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Element-matches.html", "*Undeclared namespace: :not(ns|div)*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Element-matches.html", "*Attribute value selector, matching align attribute with value, unclosed bracket*", WptDivergence.NeedsTriage),
-
-        new("dom/nodes/Element-webkitMatchesSelector.html", "*Undeclared namespace: ns|div*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Element-webkitMatchesSelector.html", "*Undeclared namespace: :not(ns|div)*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Element-webkitMatchesSelector.html", "*Attribute value selector, matching align attribute with value, unclosed bracket*", WptDivergence.NeedsTriage),
-
-        new("dom/nodes/ParentNode-querySelector-All.html", "*Undeclared namespace: ns|div*", WptDivergence.NeedsTriage),
-        new("dom/nodes/ParentNode-querySelector-All.html", "*Undeclared namespace: :not(ns|div)*", WptDivergence.NeedsTriage),
-        new("dom/nodes/ParentNode-querySelector-All.html", "*Attribute value selector, matching align attribute with value, unclosed bracket*", WptDivergence.NeedsTriage),
+        //
+        // The undeclared-prefix and unclosed-attribute groups are gone: DomSelectorText refuses a prefix at
+        // every depth and closes an open construct at EOF, so Element-matches.html and
+        // Element-webkitMatchesSelector.html pass entirely and only this document has rows left. Both of
+        // the groups that remain were measured against the pinned AngleSharp 1.8.1 binary, and neither has
+        // a public seam to reach.
+        //
+        // The empty namespace, `|div` and `|*`: NamespaceSelector is internal sealed and CssSelectorConstructor
+        // constructs it inline, consulting no factory, and the defect is inside the public *extension*
+        // ElementExtensions.MatchesCssNamespace, which compares an element's null namespace against "" with
+        // string.Equals(null, "", Ordinal) — so a no-namespace selector matches nothing. Nothing replaceable
+        // reaches it short of substituting ICssSelectorParser, which is a rival selector parser and is what
+        // Jint.Browser/AGENTS.md's package principle forbids.
         new("dom/nodes/ParentNode-querySelector-All.html", "*Namespace selector, matching div elements in no namespace only*", WptDivergence.NeedsTriage),
         new("dom/nodes/ParentNode-querySelector-All.html", "*Namespace selector, matching any elements in no namespace only*", WptDivergence.NeedsTriage),
+
+        // ::slotted(): CssSelectorConstructor.OnPseudoElement consults IPseudoElementSelectorFactory only in
+        // its CssTokenType.Ident arm; the functional form is looked up in a private static readonly
+        // FrozenDictionary holding exactly one entry (`picker`), with no registration seam. The second row is
+        // the same selector with no closing paren, which DomSelectorText now closes at EOF — so it reaches
+        // the same refusal the first one does rather than a different one.
         new("dom/nodes/ParentNode-querySelector-All.html", "*Slotted selector: ::slotted(foo)*", WptDivergence.NeedsTriage),
         new("dom/nodes/ParentNode-querySelector-All.html", "*Slotted selector (no matching closing paren): ::slotted(foo*", WptDivergence.NeedsTriage),
     ];
