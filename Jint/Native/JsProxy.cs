@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -82,7 +83,9 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     JsValue ICallable.Call(JsValue thisObject, params JsCallArguments arguments)
     {
-        EnterProxyOperation(TrapApply);
+        _engine._stackGuard.EnsureNativeStackHeadroom();
+
+        AssertNotRevoked(TrapApply);
 
         // a proxy only has [[Call]] if its target does - emulate the missing internal
         // method for callers that reach us through the ICallable interface
@@ -129,7 +132,9 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     ObjectInstance IConstructor.Construct(JsCallArguments arguments, JsValue newTarget)
     {
-        EnterProxyOperation(TrapConstruct);
+        _engine._stackGuard.EnsureNativeStackHeadroom();
+
+        AssertNotRevoked(TrapConstruct);
 
         if (!_isConstructor)
         {
@@ -180,14 +185,14 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
 
     internal override bool IsSpecArray()
     {
-        EnterProxyOperation(KeyIsArray);
-        return _target.IsSpecArray();
+        AssertNotRevoked(KeyIsArray);
+        return ForwardToTarget(_target).IsSpecArray();
     }
 
     public override object ToObject()
     {
-        EnterProxyOperation(KeyToObject);
-        return _target.ToObject();
+        AssertNotRevoked(KeyToObject);
+        return ForwardToTarget(_target).ToObject();
     }
 
     internal override bool IsConstructor => _isConstructor;
@@ -197,7 +202,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     public override JsValue Get(JsValue property, JsValue receiver)
     {
-        EnterProxyOperation(TrapGet);
+        AssertNotRevoked(TrapGet);
         var target = _target;
 
         JsValue result;
@@ -207,7 +212,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
             var clrResult = InvokeClrGet(clrHandler, target, TypeConverter.ToPropertyKey(property), receiver);
             if (clrResult is null)
             {
-                return target.Get(property, receiver);
+                return ForwardToTarget(target).Get(property, receiver);
             }
 
             result = clrResult;
@@ -218,7 +223,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
             var trap = GetTrap(handler, TrapGet);
             if (trap is null)
             {
-                return target.Get(property, receiver);
+                return ForwardToTarget(target).Get(property, receiver);
             }
 
             result = CallTrap(handler, trap, target, TypeConverter.ToPropertyKey(property), receiver);
@@ -257,7 +262,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     public override List<JsValue> GetOwnPropertyKeys(Types types = Types.Empty | Types.String | Types.Symbol)
     {
-        EnterProxyOperation(TrapOwnKeys);
+        AssertNotRevoked(TrapOwnKeys);
         var target = _target;
 
         JsValue result;
@@ -267,7 +272,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
             var clrResult = InvokeClrOwnKeys(clrHandler, target);
             if (clrResult is null)
             {
-                return target.GetOwnPropertyKeys(types);
+                return ForwardToTarget(target).GetOwnPropertyKeys(types);
             }
 
             result = CreateOwnKeysArray(clrResult);
@@ -278,7 +283,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
             var trap = GetTrap(handler, TrapOwnKeys);
             if (trap is null)
             {
-                return target.GetOwnPropertyKeys(types);
+                return ForwardToTarget(target).GetOwnPropertyKeys(types);
             }
 
             result = CallTrap(handler, trap, target);
@@ -385,7 +390,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     public override PropertyDescriptor GetOwnProperty(JsValue property)
     {
-        EnterProxyOperation(TrapGetOwnPropertyDescriptor);
+        AssertNotRevoked(TrapGetOwnPropertyDescriptor);
         var target = _target;
 
         JsValue trapResultObj;
@@ -395,7 +400,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
             var clrResult = InvokeClrGetOwnPropertyDescriptor(clrHandler, target, TypeConverter.ToPropertyKey(property));
             if (clrResult is null)
             {
-                return target.GetOwnProperty(property);
+                return ForwardToTarget(target).GetOwnProperty(property);
             }
 
             // PropertyDescriptor.Undefined round-trips as JsValue.Undefined ("no such property")
@@ -407,7 +412,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
             var trap = GetTrap(handler, TrapGetOwnPropertyDescriptor);
             if (trap is null)
             {
-                return target.GetOwnProperty(property);
+                return ForwardToTarget(target).GetOwnProperty(property);
             }
 
             trapResultObj = CallTrap(handler, trap, target, TypeConverter.ToPropertyKey(property));
@@ -509,7 +514,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     public override bool Set(JsValue property, JsValue value, JsValue receiver)
     {
-        EnterProxyOperation(TrapSet);
+        AssertNotRevoked(TrapSet);
         var target = _target;
 
         var clrHandler = _clrHandler;
@@ -518,7 +523,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
             var clrResult = InvokeClrSet(clrHandler, target, TypeConverter.ToPropertyKey(property), value, receiver);
             if (clrResult is null)
             {
-                return target.Set(property, value, receiver);
+                return ForwardToTarget(target).Set(property, value, receiver);
             }
 
             if (!clrResult.Value)
@@ -532,7 +537,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
             var trap = GetTrap(handler, TrapSet);
             if (trap is null)
             {
-                return target.Set(property, value, receiver);
+                return ForwardToTarget(target).Set(property, value, receiver);
             }
 
             var trapResult = CallTrap(handler, trap, target, TypeConverter.ToPropertyKey(property), value, receiver);
@@ -575,7 +580,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     public override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
     {
-        EnterProxyOperation(TrapDefineProperty);
+        AssertNotRevoked(TrapDefineProperty);
         var target = _target;
 
         var clrHandler = _clrHandler;
@@ -584,7 +589,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
             var clrResult = InvokeClrDefineProperty(clrHandler, target, TypeConverter.ToPropertyKey(property), desc);
             if (clrResult is null)
             {
-                return target.DefineOwnProperty(property, desc);
+                return ForwardToTarget(target).DefineOwnProperty(property, desc);
             }
 
             if (!clrResult.Value)
@@ -598,7 +603,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
             var trap = GetTrap(handler, TrapDefineProperty);
             if (trap is null)
             {
-                return target.DefineOwnProperty(property, desc);
+                return ForwardToTarget(target).DefineOwnProperty(property, desc);
             }
 
             var descObj = PropertyDescriptor.FromPropertyDescriptor(_engine, desc, strictUndefined: true);
@@ -661,7 +666,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     public override bool HasProperty(JsValue property)
     {
-        EnterProxyOperation(TrapHas);
+        AssertNotRevoked(TrapHas);
         var target = _target;
 
         bool trapResult;
@@ -671,7 +676,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
             var clrResult = InvokeClrHas(clrHandler, target, TypeConverter.ToPropertyKey(property));
             if (clrResult is null)
             {
-                return target.HasProperty(property);
+                return ForwardToTarget(target).HasProperty(property);
             }
 
             trapResult = clrResult.Value;
@@ -682,7 +687,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
             var trap = GetTrap(handler, TrapHas);
             if (trap is null)
             {
-                return target.HasProperty(property);
+                return ForwardToTarget(target).HasProperty(property);
             }
 
             trapResult = TypeConverter.ToBoolean(CallTrap(handler, trap, target, TypeConverter.ToPropertyKey(property)));
@@ -718,7 +723,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     public override bool Delete(JsValue property)
     {
-        EnterProxyOperation(TrapDeleteProperty);
+        AssertNotRevoked(TrapDeleteProperty);
         var target = _target;
 
         var clrHandler = _clrHandler;
@@ -727,7 +732,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
             var clrResult = InvokeClrDeleteProperty(clrHandler, target, TypeConverter.ToPropertyKey(property));
             if (clrResult is null)
             {
-                return target.Delete(property);
+                return ForwardToTarget(target).Delete(property);
             }
 
             if (!clrResult.Value)
@@ -741,7 +746,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
             var trap = GetTrap(handler, TrapDeleteProperty);
             if (trap is null)
             {
-                return target.Delete(property);
+                return ForwardToTarget(target).Delete(property);
             }
 
             if (!TypeConverter.ToBoolean(CallTrap(handler, trap, target, TypeConverter.ToPropertyKey(property))))
@@ -779,7 +784,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     public override bool PreventExtensions()
     {
-        EnterProxyOperation(TrapPreventExtensions);
+        AssertNotRevoked(TrapPreventExtensions);
         var target = _target;
 
         bool success;
@@ -789,7 +794,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
             var clrResult = InvokeClrPreventExtensions(clrHandler, target);
             if (clrResult is null)
             {
-                return target.PreventExtensions();
+                return ForwardToTarget(target).PreventExtensions();
             }
 
             success = clrResult.Value;
@@ -800,7 +805,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
             var trap = GetTrap(handler, TrapPreventExtensions);
             if (trap is null)
             {
-                return target.PreventExtensions();
+                return ForwardToTarget(target).PreventExtensions();
             }
 
             success = TypeConverter.ToBoolean(CallTrap(handler, trap, target));
@@ -819,7 +824,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     internal override bool IsExtensible()
     {
-        EnterProxyOperation(TrapIsExtensible);
+        AssertNotRevoked(TrapIsExtensible);
         var target = _target;
 
         bool booleanTrapResult;
@@ -829,7 +834,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
             var clrResult = InvokeClrIsExtensible(clrHandler, target);
             if (clrResult is null)
             {
-                return target.Extensible;
+                return ForwardToTarget(target).Extensible;
             }
 
             booleanTrapResult = clrResult.Value;
@@ -840,7 +845,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
             var trap = GetTrap(handler, TrapIsExtensible);
             if (trap is null)
             {
-                return target.Extensible;
+                return ForwardToTarget(target).Extensible;
             }
 
             booleanTrapResult = TypeConverter.ToBoolean(CallTrap(handler, trap, target));
@@ -860,7 +865,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     protected internal override ObjectInstance? GetPrototypeOf()
     {
-        EnterProxyOperation(TrapGetProtoTypeOf);
+        AssertNotRevoked(TrapGetProtoTypeOf);
         var target = _target;
 
         JsValue handlerProto;
@@ -870,7 +875,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
             var clrResult = InvokeClrGetPrototypeOf(clrHandler, target);
             if (clrResult is null)
             {
-                return target.Prototype;
+                return ForwardToTarget(target).Prototype;
             }
 
             handlerProto = clrResult;
@@ -881,7 +886,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
             var trap = GetTrap(handler, TrapGetProtoTypeOf);
             if (trap is null)
             {
-                return target.Prototype;
+                return ForwardToTarget(target).Prototype;
             }
 
             handlerProto = CallTrap(handler, trap, target);
@@ -912,7 +917,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     internal override bool SetPrototypeOf(JsValue value)
     {
-        EnterProxyOperation(TrapSetProtoTypeOf);
+        AssertNotRevoked(TrapSetProtoTypeOf);
         var target = _target;
 
         bool success;
@@ -922,7 +927,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
             var clrResult = InvokeClrSetPrototypeOf(clrHandler, target, value);
             if (clrResult is null)
             {
-                return target.SetPrototypeOf(value);
+                return ForwardToTarget(target).SetPrototypeOf(value);
             }
 
             success = clrResult.Value;
@@ -933,7 +938,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
             var trap = GetTrap(handler, TrapSetProtoTypeOf);
             if (trap is null)
             {
-                return target.SetPrototypeOf(value);
+                return ForwardToTarget(target).SetPrototypeOf(value);
             }
 
             success = TypeConverter.ToBoolean(CallTrap(handler, trap, target, value));
@@ -1040,31 +1045,49 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     }
 
     /// <summary>
-    /// The one gate every proxy internal method passes through: the proxy is not revoked, and the current
-    /// thread still has the runtime's stack reserve below it.
-    /// <para>
-    /// Both halves are about the hop the operation is about to make. A proxy with no trap for what it was
-    /// asked forwards the whole algorithm to its target — <c>return target.Get(property, receiver)</c>, and
-    /// the same for every other internal method — so <c>new Proxy(new Proxy(new Proxy(…)))</c> is a native
-    /// recursion as deep as script cares to build it, and it used to end the process with a stack overflow no
-    /// <c>catch</c> could see (sebastienros/jint#4076). Unlike an ordinary prototype chain, this one cannot be
-    /// flattened into a loop: each hop runs its own algorithm, including trap lookup and the invariant checks
-    /// on the way back out. So it is probed instead, which is what every other forwarding hop in the engine
-    /// already does, and a proxy operation is nowhere near hot enough for the probe to be a question.
-    /// </para>
-    /// <para>
-    /// Previously <c>[[Call]]</c> and <c>[[Construct]]</c> probed here by hand and nothing else probed at all;
-    /// those two hand-written probes are gone, because this is the same point in the same order.
-    /// </para>
+    /// The gate every proxy internal method passes through first: the proxy has not been revoked.
     /// </summary>
-    private void EnterProxyOperation(JsValue key)
+    private void AssertNotRevoked(JsValue key)
     {
-        _engine._stackGuard.EnsureNativeStackHeadroom();
-
         if (_target is null)
         {
             Throw.TypeError(_engine.Realm, $"Cannot perform '{key}' on a proxy that has been revoked");
         }
+    }
+
+    /// <summary>
+    /// The target an internal method is about to forward its <em>whole algorithm</em> to, having found no
+    /// trap for what it was asked (or a CLR <see cref="ProxyHandler"/> that declined it), with a native-stack
+    /// probe on the way past. It returns the target rather than merely probing so that every such site reads
+    /// as the one thing it is — <c>return ForwardToTarget(target).Get(property, receiver)</c> — and so that a
+    /// forward added later without a probe stands out beside its siblings.
+    /// <para>
+    /// A trapless proxy forwards to its target, so <c>new Proxy(new Proxy(new Proxy(…)))</c> is a native
+    /// recursion as deep as script cares to build it, and it used to end the process with a stack overflow no
+    /// <c>catch</c> could see (sebastienros/jint#4076). Unlike an ordinary prototype chain this one cannot be
+    /// flattened into a loop — each hop runs trap lookup and the result invariants on the way back out — so it
+    /// is probed. Every internal method here recurses on its trapless path, the three that forward through a
+    /// property included: <c>Prototype</c> is <c>GetPrototypeOf()</c> and <c>Extensible</c> is
+    /// <c>IsExtensible()</c>, both virtual and both overridden here.
+    /// </para>
+    /// <para>
+    /// <b>The probe is here and not at the entry of each operation, deliberately.</b> A <em>trapped</em> proxy
+    /// reaches its trap through <c>CallTrap</c> → <c>ICallable.Call</c>, and the callee probes for itself:
+    /// <see cref="Function.ScriptFunction"/>'s four entry points carry the backstop, the interop and
+    /// forwarding leaves carry theirs, and a callable proxy carries <c>[[Call]]</c>'s. So a trapped chain
+    /// already raised a catchable <c>RangeError</c> before any of this, and an entry probe would only add a
+    /// redundant third probe to the shape real code actually ships — a reactivity library puts a <c>get</c>
+    /// trap on every object it proxies. That is the redundancy <c>Jint/Constraints/AGENTS.md</c> records as a
+    /// measured NO-GO for the dispatcher probes, and <c>ProbeStackHeadroom</c> is not free. <c>[[Call]]</c>
+    /// and <c>[[Construct]]</c> keep their own entry probes, unchanged, because they are the dispatcher for
+    /// everything reached through them.
+    /// </para>
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private ObjectInstance ForwardToTarget(ObjectInstance target)
+    {
+        _engine._stackGuard.EnsureNativeStackHeadroom();
+        return target;
     }
 
     internal bool IsRevoked => _target is null;
