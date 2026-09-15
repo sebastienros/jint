@@ -93,16 +93,6 @@
     },
     {
       "interface": "Document",
-      "member": "open",
-      "reason": "document.open() re-enters the parser and replaces the document; the parser driver owns that (campaign item R3)."
-    },
-    {
-      "interface": "Document",
-      "member": "close",
-      "reason": "The other half of document.open(): it ends the parse the driver is running (campaign item R3)."
-    },
-    {
-      "interface": "Document",
       "member": "load",
       "reason": "A navigation, which the browser runtime owns (campaign item R5). AngleSharp's own load would fetch off the page's loop with none of the page's limits."
     },
@@ -2041,6 +2031,21 @@
       "half": "operation",
       "hook": "WriteLine",
       "reason": "document.write with a newline appended (campaign item R3)."
+    },
+    {
+      "interface": "Document",
+      "member": "open",
+      "half": "operation",
+      "hook": "Open",
+      "returns": true,
+      "reason": "HTML's document open steps (https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#document-open-steps). AngleSharp's Document.Open reads _context?.Parent!.Active, so it raises NullReferenceException for every context BrowsingContext.New built; past that it blocks on PromptToUnloadAsync().Result and Unload(recycle: true).Wait(); and where it completes it creates no parser, so the write that follows is silently lost. Dom/DynamicMarkupInsertion runs the steps for a document with no browsing context, and the displayed document keeps the recorded no-op."
+    },
+    {
+      "interface": "Document",
+      "member": "close",
+      "half": "operation",
+      "hook": "Close",
+      "reason": "The other half of document.open(): it ends the write session Dom/DynamicMarkupInsertion opened, so the next write opens the document afresh. AngleSharp's Close blocks on FinishLoadingAsync().Wait(), and close steps step 3 makes it a no-op on the page anyway -- the parser reading a page is never script-created."
     }
   ],
 

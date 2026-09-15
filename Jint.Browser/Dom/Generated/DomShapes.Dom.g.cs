@@ -786,6 +786,13 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.children");
                     return self.Realm.WrapCollection<global::AngleSharp.Dom.IElement>(self.Target.Children);
                 }))
+            .Method("close",
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.close", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.close");
+                    self.Realm.Hooks.Close(self.Realm, self.Target, args); return global::Jint.Native.JsValue.Undefined;
+                }),
+                length: 0)
             .Accessor("commands",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.commands", static (thisObj, args) =>
                 {
@@ -1179,6 +1186,13 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.location");
                     self.Realm.Hooks.SetLocation(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.location")); return global::Jint.Native.JsValue.Undefined;
                 }))
+            .Method("open",
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.open", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.open");
+                    return self.Realm.Hooks.Open(self.Realm, self.Target, args);
+                }),
+                length: 0)
             .Accessor("origin",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.origin", static (thisObj, args) =>
                 {

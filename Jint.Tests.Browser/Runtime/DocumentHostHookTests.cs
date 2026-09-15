@@ -161,8 +161,8 @@ public sealed class DocumentHostHookTests
     }
 
     /// <summary>
-    /// A write into a document the page is not showing is refused on its own terms: the page was not
-    /// involved, so no page error is recorded, and nothing is swallowed either.
+    /// A write into a document the page is not showing operates on <em>that</em> document: the implied
+    /// <c>document.open()</c> replaces its content, and the page — which was not involved — hears nothing.
     /// <para>
     /// https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#document-write-steps
     /// </para>
@@ -171,11 +171,13 @@ public sealed class DocumentHostHookTests
     /// The refusal used to select its page runtime by engine alone, so every secondary document in the
     /// page's engine was treated as the page and given the page's refusal — a silent no-op <em>and</em> an
     /// error against a page that had nothing to do with it (#3954). What decides now is which document the
-    /// call targets. An XML document is HTML's own first step; anything else with no parser reading it is a
-    /// <c>NotSupportedError</c> naming the capability AngleSharp does not have.
+    /// call targets: an XML document is HTML's own first step and still an <c>InvalidStateError</c>, the
+    /// displayed document keeps its no-op, and a secondary HTML document gets the standard's own steps —
+    /// run here, because every one of these documents sits in a browsing context with no parent, which is
+    /// the reference AngleSharp's <c>Document.Open</c> dereferences.
     /// </remarks>
     [Test]
-    public async Task ASecondaryDocumentIsRefusedOnItsOwnTermsAndNotAsThePage()
+    public async Task ASecondaryDocumentIsWrittenOnItsOwnTermsAndNotAsThePage()
     {
         await using var browser = new global::Jint.Browser.Browser();
         var page = await browser.NewPageAsync();
@@ -184,7 +186,7 @@ public sealed class DocumentHostHookTests
         (await page.EvaluateAsync<string>(
                 """
                 (function () {
-                  function refusal(document_, call) {
+                  function outcome(document_, call) {
                     try { call(document_); return 'wrote'; } catch (e) { return e.name; }
                   }
 
@@ -194,24 +196,175 @@ public sealed class DocumentHostHookTests
                   const xml = new DOMParser().parseFromString('<root/>', 'text/xml');
 
                   return [
-                    refusal(parsed, d => d.write('<p id="written">written</p>')),
-                    refusal(parsed, d => d.writeln('<p id="written">written</p>')),
-                    // The target is untouched: the refusal is a refusal and not a half-open document.
+                    outcome(parsed, d => d.write('<p id="written">written</p>')),
+                    // The issue's own reproduction: the implied open() replaced the document.
                     parsed.getElementById('old') !== null,
-                    parsed.getElementById('written') === null,
-                    parsed.readyState,
-                    refusal(constructed, d => d.write('x')),
-                    refusal(created, d => d.write('<p>x</p>')),
+                    parsed.getElementById('written') !== null,
+                    parsed.body.firstElementChild.id,
+                    // writeln is the write steps with a newline, and a second call with no close between
+                    // them appends at the insertion point rather than reopening.
+                    outcome(parsed, d => d.writeln('<p id="second">second</p>')),
+                    parsed.getElementById('written') !== null,
+                    parsed.getElementById('second') !== null,
+                    // A constructed Document is DOM's XML one, which has no dynamic markup insertion at all.
+                    outcome(constructed, d => d.write('x')),
+                    // A document the implementation created is an HTML one with no browsing context, so it
+                    // takes the same steps as a parsed one -- and the title it was created with goes.
+                    outcome(created, d => d.write('<p>x</p>')),
                     created.body.childElementCount,
-                    refusal(xml, d => d.write('<p>x</p>')),
+                    created.title,
+                    outcome(xml, d => d.write('<p>x</p>')),
+                    // The page is untouched, whatever those documents did.
+                    document.getElementById('page') !== null,
                   ].join('|');
                 })()
                 """))
             .Should().Be(
-                "NotSupportedError|NotSupportedError|true|true|complete|"
-                + "InvalidStateError|NotSupportedError|0|InvalidStateError");
+                "wrote|false|true|written|"
+                + "wrote|true|true|"
+                + "InvalidStateError|wrote|1||InvalidStateError|true");
 
         page.Errors.Should().BeEmpty("the page was not the document any of those writes targeted");
+    }
+
+    /// <summary>
+    /// Two writes with no close between them concatenate at the insertion point, which is the whole reason
+    /// HTML has one: a page that splits a tag across two calls gets one element, not two documents.
+    /// <para>
+    /// https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#insertion-point
+    /// </para>
+    /// </summary>
+    [Test]
+    public async Task TwoWritesConcatenateAtTheInsertionPoint()
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<p id='page'>page</p>");
+
+        (await page.EvaluateAsync<string>(
+                """
+                (function () {
+                  const d = new DOMParser().parseFromString('<p id="old">old</p>', 'text/html');
+                  d.write('<p id="split">a');
+                  d.write('b</p>');
+                  return [
+                    d.body.childElementCount,
+                    d.getElementById('split').textContent,
+                    d.getElementById('old') === null,
+                  ].join('|');
+                })()
+                """))
+            .Should().Be("1|ab|true");
+
+        page.Errors.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// <c>open()</c> answers the document it emptied, and <c>close()</c> ends the session so that the next
+    /// write opens it afresh rather than appending to what came before.
+    /// <para>
+    /// https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#document-open-steps
+    /// </para>
+    /// </summary>
+    [Test]
+    public async Task OpenEmptiesTheDocumentAndCloseEndsTheSession()
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<p id='page'>page</p>");
+
+        (await page.EvaluateAsync<string>(
+                """
+                (function () {
+                  const d = new DOMParser().parseFromString('<p id="old">old</p>', 'text/html');
+                  const answered = d.open();
+                  const emptied = [answered === d, d.documentElement === null, d.doctype === null].join('|');
+
+                  d.write('<p id="first">first</p>');
+                  d.close();
+                  d.write('<p id="second">second</p>');
+
+                  return [
+                    emptied,
+                    d.getElementById('first') === null,
+                    d.getElementById('second') !== null,
+                    // A close with no session open is HTML's own no-op, not a refusal.
+                    (function () { try { d.close(); d.close(); return 'ok'; } catch (e) { return e.name; } })(),
+                  ].join('|');
+                })()
+                """))
+            .Should().Be("true|true|true|true|true|ok");
+
+        page.Errors.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// A <c>&lt;script&gt;</c> written into a secondary document is an element with text and nothing more:
+    /// the reparse runs with <c>IsScripting</c> false in a browsing context carrying no scripting service,
+    /// exactly as <c>DOMParser</c>'s own parse does.
+    /// </summary>
+    [Test]
+    public async Task AScriptWrittenIntoASecondaryDocumentStaysInert()
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<p id='page'>page</p>");
+
+        (await page.EvaluateAsync<string>(
+                """
+                (function () {
+                  const d = new DOMParser().parseFromString('<p>old</p>', 'text/html');
+                  d.write('<script>globalThis.ranFromWrite = true;<\/script><p id="after">after</p>');
+                  return [
+                    globalThis.ranFromWrite === undefined,
+                    d.querySelector('script') !== null,
+                    d.querySelector('script').textContent,
+                    d.getElementById('after') !== null,
+                  ].join('|');
+                })()
+                """))
+            .Should().Be("true|true|globalThis.ranFromWrite = true;|true");
+
+        page.Errors.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// The document object survives the write: the reference the script already holds, its wrapper and its
+    /// expandos are all still the one <c>DOMParser</c> handed back. Building a replacement document and
+    /// swapping it in would be a different document wearing the same name.
+    /// </summary>
+    [Test]
+    public async Task TheWrittenDocumentIsTheObjectTheScriptAlreadyHeld()
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<p id='page'>page</p>");
+
+        (await page.EvaluateAsync<string>(
+                """
+                (function () {
+                  const d = new DOMParser().parseFromString('<p id="old">old</p>', 'text/html');
+                  d.expando = 'kept';
+                  const before = d;
+                  const orphan = d.getElementById('old');
+
+                  d.write('<p id="written">written</p>');
+
+                  return [
+                    d === before,
+                    d.expando,
+                    d.getElementById('written').ownerDocument === d,
+                    // The nodes the script held are off the tree but still the document's, which is what
+                    // "replace all with null within document" leaves behind.
+                    orphan.isConnected,
+                    d.contains(orphan),
+                    orphan.ownerDocument === d,
+                  ].join('|');
+                })()
+                """))
+            .Should().Be("true|kept|true|false|false|true");
+
+        page.Errors.Should().BeEmpty();
     }
 
     /// <summary>
