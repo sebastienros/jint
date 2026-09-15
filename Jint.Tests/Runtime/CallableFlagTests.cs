@@ -50,21 +50,29 @@ public class CallableFlagTests
     /// <c>InternalTypes.Function</c> rather than <c>is Function</c>, so the flag must agree with the type
     /// exactly: every <see cref="Function"/> carries it and every other <c>ICallable</c> root does not —
     /// if one of those did, it would be reinterpreted as a <see cref="Function"/> and pushed onto the call
-    /// stack.
+    /// stack. <c>ObjectInstance.UnwrapFromGetter</c> reads the flag the same way and reinterprets with
+    /// <c>Unsafe.As</c>, where a disagreement is memory corruption rather than a wrong stack trace.
     /// </summary>
     [Test]
     public void OnlyFunctionCarriesTheFunctionFlag()
     {
         var engine = new Engine(options => options.AllowClr(typeof(System.Collections.Generic.List<>).Assembly));
 
-        // a Function: ordinary script function, a built-in, and a bound function, which is one too
+        // a Function: ordinary script function, a built-in, a bound function (which is one too), a getter,
+        // a class method, an arrow, a generator and a CLR-backed function
         AssertFunctionFlag(engine.Evaluate("(function () {})"), expected: true);
         AssertFunctionFlag(engine.Evaluate("String.prototype.charAt"), expected: true);
         AssertFunctionFlag(engine.Evaluate("(function () {}).bind(null)"), expected: true);   // BindFunction
+        AssertFunctionFlag(engine.Evaluate("Object.getOwnPropertyDescriptor(Map.prototype, 'size').get"), expected: true);
+        AssertFunctionFlag(engine.Evaluate("(class { m() {} }).prototype.m"), expected: true);
+        AssertFunctionFlag(engine.Evaluate("(() => {})"), expected: true);
+        AssertFunctionFlag(engine.Evaluate("(function* () {})"), expected: true);
+        AssertFunctionFlag(engine.Evaluate("System.String.Format"), expected: true);
 
         // ICallable but NOT Function — these must not be reinterpreted as functions
         AssertFunctionFlag(engine.Evaluate("new Proxy(function () {}, {})"), expected: false); // JsProxy
         AssertFunctionFlag(engine.Evaluate("importNamespace('System.Collections.Generic')"), expected: false); // NamespaceReference
+        AssertFunctionFlag(new Jint.Native.IsHTMLDDA(engine, engine.Realm), expected: false); // Annex B's [[IsHTMLDDA]] bearer
 
         // and calling each of them still works, i.e. both branches are exercised
         Assert.That(engine.Evaluate("(function (a, b) { return a + b; }).bind(null, 1)(2)").AsNumber(), Is.EqualTo(3d));

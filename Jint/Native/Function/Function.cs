@@ -188,7 +188,12 @@ public abstract partial class Function : ObjectInstance, ICallable
         }
     }
 
-    internal override bool HasCall => true;
+    /// <summary>
+    /// Every <see cref="Function"/> has <c>[[Call]]</c>. Sealed because the accessor-read lane in
+    /// <c>ObjectInstance.UnwrapFromGetter</c> decides callability from <see cref="InternalTypes.Function"/>
+    /// alone and never asks: a subclass answering <see langword="false"/> here would be called regardless.
+    /// </summary>
+    internal sealed override bool HasCall => true;
 
     JsValue ICallable.Call(JsValue thisObject, params JsCallArguments arguments) => Call(thisObject, arguments);
 

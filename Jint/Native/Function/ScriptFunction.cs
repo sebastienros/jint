@@ -596,7 +596,7 @@ public sealed class ScriptFunction : Function, IConstructor
         {
             if (pushedFrame)
             {
-                callStack.TryPop(out _);
+                callStack.TryPopAndDiscard();
             }
 
             if (retained0 is not null)
