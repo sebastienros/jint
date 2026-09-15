@@ -175,7 +175,7 @@ internal sealed partial class CustomElementRegistry
 
             if (constructed is not DomNodeObject { Node: IElement element }
                 || !string.Equals(element.LocalName, localName, StringComparison.Ordinal)
-                || !string.Equals(element.NamespaceUri, HtmlNamespace, StringComparison.Ordinal)
+                || !string.Equals(DomNamespaces.Of(element), HtmlNamespace, StringComparison.Ordinal)
                 || !ReferenceEquals(element.Owner, document)
                 || element.Attributes.Length > 0
                 || element.ChildNodes.Length > 0

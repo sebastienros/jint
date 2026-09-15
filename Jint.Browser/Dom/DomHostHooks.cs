@@ -107,11 +107,17 @@ internal class DomHostHooks
     /// script writes activates its handler <i>then</i> — which is what fixes the handler's position in the
     /// element's listener list. See <c>Events.EventHandlerContentAttributes.AttributeChanged</c>.
     /// </summary>
+    /// <remarks>
+    /// Step 2's fold is gated on the element's own namespace (<see cref="DomNamespaces"/>), which is the one
+    /// AngleSharp's <c>GetAttribute</c>, <c>HasAttribute</c> and <c>RemoveAttribute</c> already read: the
+    /// computed namespace made this setter lower-case a name for a null-namespace element that every one of
+    /// those readers then looked up unfolded.
+    /// </remarks>
     internal virtual void SetAttribute(DomRealm realm, IElement element, JsValue[] arguments)
     {
         var name = DomConvert.RequiredText(arguments, 0, "Element.setAttribute");
         var value = DomConvert.RequiredText(arguments, 1, "Element.setAttribute");
-        if (element.Owner is IHtmlDocument && element.NamespaceUri == NamespaceNames.HtmlUri)
+        if (element.Owner is IHtmlDocument && DomNamespaces.Of(element) == NamespaceNames.HtmlUri)
         {
             name = AsciiLowercase(name);
         }
@@ -310,6 +316,11 @@ internal class DomHostHooks
     }
 
     /// <summary>The filter of https://dom.spec.whatwg.org/#concept-getelementsbytagname.</summary>
+    /// <remarks>
+    /// "Whose namespace is the HTML namespace" is the element's own namespace — <see cref="DomNamespaces"/> —
+    /// and not AngleSharp's ancestor-computed one, which folded the case of a null-namespace element merely
+    /// because it had been appended to an HTML parent.
+    /// </remarks>
     private sealed class TagNameFilter(string qualifiedName, string htmlName, bool htmlDocument) : DomElementFilter
     {
         internal override bool Matches(IElement element)
@@ -320,7 +331,7 @@ internal class DomHostHooks
             }
 
             var candidate = QualifiedName(element);
-            return htmlDocument && string.Equals(element.NamespaceUri, NamespaceNames.HtmlUri, StringComparison.Ordinal)
+            return htmlDocument && string.Equals(DomNamespaces.Of(element), NamespaceNames.HtmlUri, StringComparison.Ordinal)
                 ? string.Equals(candidate, htmlName, StringComparison.Ordinal)
                 : string.Equals(candidate, qualifiedName, StringComparison.Ordinal);
         }
@@ -344,12 +355,14 @@ internal class DomHostHooks
     /// <summary>The filter of https://dom.spec.whatwg.org/#concept-getelementsbynamespacename.</summary>
     /// <remarks>
     /// AngleSharp 1.8.1 preserves HTML local-name case, so the same DOM comparison now works in every
-    /// namespace. Its native HTML namespace query still folds case.
+    /// namespace. Its native HTML namespace query still folds case. The namespace compared is the element's
+    /// own (<see cref="DomNamespaces"/>), which is what makes <c>getElementsByTagNameNS("", "*")</c> find an
+    /// element created in no namespace instead of one its parent lent the XHTML namespace to.
     /// </remarks>
     private sealed class TagNameNSFilter(string? namespaceUri, string localName) : DomElementFilter
     {
         internal override bool Matches(IElement element)
-            => (namespaceUri == "*" || string.Equals(NullIfEmpty(element.NamespaceUri), namespaceUri, StringComparison.Ordinal))
+            => (namespaceUri == "*" || string.Equals(DomNamespaces.Of(element), namespaceUri, StringComparison.Ordinal))
                && (localName == "*" || string.Equals(element.LocalName, localName, StringComparison.Ordinal));
     }
 
@@ -586,12 +599,14 @@ internal class DomHostHooks
     /// AngleSharp decides on the namespace alone, so an element created in the page and then adopted into
     /// an XML document went on answering <c>DIV</c> where DOM says <c>div</c>: the name is not a property of
     /// the element, it is a question about the document the element is in at the moment it is asked. The
-    /// divergence table records it.
+    /// divergence table records it. The namespace half is the element's own
+    /// (<see cref="DomNamespaces"/>) and the same one <see cref="TagNameFilter"/> compares, so an element and
+    /// a query for it cannot disagree about whether its name folds.
     /// </remarks>
     internal virtual JsValue TagName(DomRealm realm, IElement element)
     {
         var qualified = QualifiedName(element);
-        return string.Equals(element.NamespaceUri, NamespaceNames.HtmlUri, StringComparison.Ordinal)
+        return string.Equals(DomNamespaces.Of(element), NamespaceNames.HtmlUri, StringComparison.Ordinal)
             && element.Owner is IHtmlDocument
                 // Memoized per realm: the transform is a pure function of the qualified name, and this is
                 // the branch every repeated read of an HTML element's tagName/nodeName takes.
@@ -612,6 +627,21 @@ internal class DomHostHooks
     /// </remarks>
     internal virtual JsValue NodeName(DomRealm realm, INode node)
         => node is IElement element ? TagName(realm, element) : JsString.Create(node.NodeName);
+
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#dom-element-namespaceuri — "this's namespace", the namespace the element
+    /// was <b>created</b> with.
+    /// </summary>
+    /// <remarks>
+    /// DOM has no computation here at all: an element's namespace is fixed at creation and adoption does not
+    /// move it. AngleSharp's <c>IElement.NamespaceUri</c> falls back to an ancestor walk when nothing was
+    /// stored, so a <c>createElementNS(null, 'body')</c> read as XHTML the moment it was appended to an HTML
+    /// element, disagreeing with the query that had just declined to find it
+    /// (<a href="https://github.com/sebastienros/jint/issues/3949">#3949</a>). <see cref="DomNamespaces"/> is
+    /// the one answer every namespace-sensitive member in the binding reads.
+    /// </remarks>
+    internal virtual JsValue NamespaceUri(DomRealm realm, IElement element)
+        => DomConvert.NullableText(DomNamespaces.Of(element));
 
     /// <summary>
     /// ASCII-uppercases <paramref name="value"/>: only the bytes <c>a</c>-<c>z</c> move, deliberately not
@@ -637,8 +667,6 @@ internal class DomHostHooks
 
         return copy is null ? value : new string(copy);
     }
-
-    private static string? NullIfEmpty(string? value) => string.IsNullOrEmpty(value) ? null : value;
 
     private static string AsciiLowercase(string value)
     {
