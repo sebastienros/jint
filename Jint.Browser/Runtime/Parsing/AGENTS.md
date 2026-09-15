@@ -84,14 +84,31 @@ script runs before a module script that precedes it in the document, because the
 HTML's one; and the first import map found anywhere applies to every module, because none of them could have
 resolved before the parse ended anyway.
 
-**A frame served XML gets an XML document, and only a frame can.** `Configuration` carries AngleSharp.Xml's
-document factory, so a response whose content type is an XML MIME type is parsed by the XML parser rather
-than wrapped in an HTML skeleton — without it `<foo>x</foo>` served as `text/xml` came back with
+**Anything served an XML MIME type is read with the XML parser, the page's own document included.**
+[HTML's *read XML*](https://html.spec.whatwg.org/multipage/document-lifecycle.html#read-xml) applies to every
+[XML MIME type](https://mimesniff.spec.whatwg.org/#xml-mime-type), and three pieces make it so. `WithXml()`
+is what supplies an XML document at all — without it `<foo>x</foo>` served as `text/xml` came back with
 `documentElement.tagName === "HTML"` and every XML rule a page then asked about was the wrong document's.
-The page's own document cannot reach it: `Parse` states `text/html` for what a navigation produces, and a
-navigation to an XML content type is refused by `DocumentFetch` before a parser sees it. `application/xhtml+xml`
-is **still** routed to the HTML parser — that is AngleSharp's own content-type mapping, not this file's, and
-it is what `NeedsXmlDocuments` covers in the browser lane.
+`PageDocumentFactory` widens the mapping it leaves: `WithXml()` registers `text/xml`, `application/xml` and
+`image/svg+xml` and leaves `application/xhtml+xml` on the **HTML** creator the base class seeded, with every
+other `+xml` type unmapped, so the subclass takes AngleSharp's own XML creator back out of the table and
+answers the rest from `CreateDefaultAsync`. And `Parse` states the *response's* content type rather than a
+fixed `text/html`, which is what lets the page's own document reach it — `DocumentFetch` used to refuse an
+XML navigation outright, so `DOMParser`, a frame and `Page.NavigateAsync` gave three answers for one sequence
+of bytes and now give one. Three rules go with it:
+
+- **What `Parse` states is the navigate rules' answer, not the response's header.** A text document arrives
+  as the `<pre>` skeleton *read text* already produced, so it is `text/html` whatever the server called it;
+  only markup and XML carry their own type through. The charset is always `utf-8` because `DocumentFetch`
+  decoded the bytes, so a `<meta charset>` or an XML declaration naming another one is not believed twice.
+- **A `<script>` in an XML document does not run.** AngleSharp.Xml's tree construction has no *prepare a
+  script element* step and never asks for the scripting service, so the element is in the tree with its text
+  and nothing else. That is what `DOMParser` requires and a divergence for a frame and for a page;
+  `Dom/divergences.md` carries it, and it is why no XHTML wpt document is vendorable — each one loads
+  `testharness.js` and would report nothing.
+- **`image/svg+xml` stays where AngleSharp put it**, on the creator that builds an `SvgDocument` rather than
+  a plain XML one, which is the document DOM §4.5.1 names for that namespace. Only a type AngleSharp has no
+  answer for reaches the widened default.
 
 **A document's culture is the engine's, not the thread's.** AngleSharp resolves `:lang()` on an element with
 no inherited language through its browsing context's culture, and a context given none takes

@@ -79,19 +79,31 @@ internal sealed class ParserDriver : IDisposable
         _baton = new ParserBaton(runtime.Engine, runtime.Options.PumpIdle, OnPumpError, cancellationToken);
     }
 
-    /// <summary>Parses <paramref name="html"/> as <paramref name="url"/> and runs the document's scripts.</summary>
-    /// <remarks>Called on the page loop, and returns to it with the whole load finished.</remarks>
-    internal static PageLoad Load(PageRuntime runtime, string html, string url, Action<NavigationPhase>? onPhase)
+    /// <summary>Parses <paramref name="markup"/> as <paramref name="url"/> and runs the document's scripts.</summary>
+    /// <remarks>
+    /// Called on the page loop, and returns to it with the whole load finished.
+    /// <paramref name="contentType"/> is the response's, which is what decides between HTML's
+    /// <a href="https://html.spec.whatwg.org/multipage/document-lifecycle.html#read-html">read HTML</a> and
+    /// <a href="https://html.spec.whatwg.org/multipage/document-lifecycle.html#read-xml">read XML</a>;
+    /// everything a page synthesizes for itself — <c>about:blank</c>, <c>setContent</c>, a text document's
+    /// <c>&lt;pre&gt;</c> — is already the markup HTML asked for and states <c>text/html</c>.
+    /// </remarks>
+    internal static PageLoad Load(
+        PageRuntime runtime,
+        string markup,
+        string url,
+        string contentType,
+        Action<NavigationPhase>? onPhase)
     {
         using var construction = runtime.Layout.BeginMutation();
         using var driver = new ParserDriver(runtime, url, runtime.Cancellation?.Token ?? CancellationToken.None);
-        return driver.Run(html, onPhase);
+        return driver.Run(markup, contentType, onPhase);
     }
 
     /// <summary>Releases the baton, once the parse it served has finished.</summary>
     public void Dispose() => _baton.Dispose();
 
-    private PageLoad Run(string html, Action<NavigationPhase>? onPhase)
+    private PageLoad Run(string markup, string contentType, Action<NavigationPhase>? onPhase)
     {
         // WithCss registers the declaration factory `element.style`, the computed-style cascade and the
         // styling service <link rel=stylesheet> needs; the resource loader is what makes AngleSharp ask for
@@ -105,7 +117,12 @@ internal sealed class ParserDriver : IDisposable
         // attached or not, where a mutation record needs the element to be under the observed document
         // and `el.setAttribute` before insertion is the commonest thing a component does. `.With` adds a
         // service rather than replacing one, so AngleSharp's own observer keeps working.
+        var documents = new PageDocumentFactory();
         var configuration = Dom.CaseSensitiveSvgFactory.Configure(Configuration.Default)
+            // Before WithXml, which reaches into whichever DefaultDocumentFactory the configuration holds
+            // and registers its creators on it: this one subclasses it, so WithXml finds it and this parse
+            // keeps every mapping AngleSharp contributes. PageDocumentFactory says what it then widens.
+            .WithOnly<AngleSharp.Dom.IDocumentFactory>(documents)
             .WithCss()
             // Selectors §8.2 matches :target only for the document's target element. AngleSharp compares
             // each candidate's ID with its owner document's fragment, so duplicate IDs, shadow descendants
@@ -128,13 +145,13 @@ internal sealed class ParserDriver : IDisposable
             // document.activeElement and every focus event already answer from.
             .WithOnly<AngleSharp.Css.IPseudoClassSelectorFactory>(new PagePseudoClassSelectorFactory(_runtime))
             // https://html.spec.whatwg.org/multipage/document-lifecycle.html#read-xml — a document whose
-            // content type is an XML MIME type is parsed by the XML parser, and without the factory
+            // content type is an XML MIME type is parsed by the XML parser, and without the creators
             // AngleSharp.Xml supplies there is no XML document for it to produce: `<foo>Dummy</foo>` served
             // as `text/xml` came back as an *HTML* document with the text inside an `<html><body>` skeleton,
             // so `documentElement.tagName` was `HTML` and every XML rule a page then asked about was the
-            // wrong document's. Only a *frame* can reach this: `Parse` states `text/html` for the page's own
-            // document, which is what the navigate rules already decided. AngleSharp.Xml is referenced for
-            // `DOMParser` either way, so this costs a service registration and no dependency.
+            // wrong document's. What it does *not* route is `application/xhtml+xml` and every other `+xml`
+            // type, which is what PageDocumentFactory widens. AngleSharp.Xml is referenced for `DOMParser`
+            // either way, so this costs a service registration and no dependency.
             .WithXml()
             // https://drafts.csswg.org/selectors-4/#the-lang-pseudo — a document's language is the
             // document's. AngleSharp resolves an element with no inherited language through
@@ -163,6 +180,9 @@ internal sealed class ParserDriver : IDisposable
             configuration = configuration.With(new PageScriptingService(this));
         }
 
+        // After WithXml, because what it takes is the creator WithXml registered.
+        documents.ReadXmlWithTheXmlParser();
+
         var context = BrowsingContext.New(configuration);
         _context = context;
         _runtime.Dom.AssociateContext(context);
@@ -170,7 +190,7 @@ internal sealed class ParserDriver : IDisposable
 
         try
         {
-            document = Parse(context, html);
+            document = Parse(context, markup, contentType);
         }
         catch
         {
@@ -250,7 +270,7 @@ internal sealed class ParserDriver : IDisposable
     /// <summary>
     /// Runs AngleSharp's parse on a thread of its own and serves it from the loop until it is finished.
     /// </summary>
-    private IDocument Parse(IBrowsingContext context, string html)
+    private IDocument Parse(IBrowsingContext context, string markup, string contentType)
     {
         var url = _url;
         IDocument? document = null;
@@ -265,12 +285,17 @@ internal sealed class ParserDriver : IDisposable
                 // The content type is stated rather than left to AngleSharp, which otherwise guesses one from
                 // the address: a document fetched from `/notes.txt` would be given AngleSharp's plain-text
                 // document factory and the markup below — already the plain-text wrapper the navigate rules
-                // asked for — would end up inside a second <pre>.
+                // asked for — would end up inside a second <pre>. It is the *navigate* rules' answer rather
+                // than the response's own: a text document arrives here as the `<pre>` skeleton HTML's read
+                // text produced and is therefore `text/html`, while an XML MIME type arrives as its own bytes
+                // and selects the XML parser through PageDocumentFactory. The charset is always utf-8 because
+                // the bytes were decoded before this method saw them, so a `<meta charset>` or an XML
+                // declaration naming another one must not be believed a second time.
                 document = context
                     .OpenAsync(response => response
-                        .Content(html)
+                        .Content(markup)
                         .Address(url)
-                        .Header(HeaderNames.ContentType, "text/html; charset=utf-8"))
+                        .Header(HeaderNames.ContentType, contentType + "; charset=utf-8"))
                     .GetAwaiter()
                     .GetResult();
             }

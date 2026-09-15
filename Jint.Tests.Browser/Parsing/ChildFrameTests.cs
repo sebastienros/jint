@@ -198,20 +198,10 @@ public class ChildFrameTests
         loopback.Page.Errors.Should().BeEmpty();
     }
 
-    [Test]
-    public async Task RegisteringTheXmlFactoryDoesNotMakeAPageNavigableToXml()
-    {
-        // The XML factory is registered on the whole browsing context, so this is the half that says only a
-        // *frame* can reach it. A top-level navigation to an XML content type is refused before any parser
-        // sees it — `DocumentFetch` decides that, and registering a document factory does not change it.
-        await using var loopback = await LoopbackPage.CreateAsync(server => server
-            .Map("/", _ => LoopbackResponse.Bytes("<foo>not a page</foo>", "text/xml")));
+    // The navigation half of the same rule used to be the opposite assertion — a top-level XML response was
+    // refused before any parser saw it, so a frame and `Page.NavigateAsync` disagreed about one sequence of
+    // bytes. Both read XML now; Parsing/XmlDocumentLoadTests is where that half lives.
 
-        var navigate = async () => await loopback.Page.NavigateAsync(loopback.Url("/"));
-
-        (await navigate.Should().ThrowAsync<NavigationFailedException>())
-            .Which.Message.Should().Contain("text/xml");
-    }
 
     [Test]
     public async Task AFrameHasAWindowOfItsOwnOnItsOwnRealm()

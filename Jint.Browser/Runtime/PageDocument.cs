@@ -14,9 +14,17 @@ namespace Jint.Browser.Runtime;
 /// </remarks>
 internal static class PageDocument
 {
-    /// <summary>Opens <paramref name="html"/> as <paramref name="url"/> and runs its scripts.</summary>
-    internal static PageLoad Load(PageRuntime runtime, string html, string url, Action<NavigationPhase>? onPhase = null)
-        => ParserDriver.Load(runtime, html, url, onPhase);
+    /// <summary>
+    /// Opens <paramref name="markup"/> as <paramref name="url"/>, read the way <paramref name="contentType"/>
+    /// says, and runs its scripts.
+    /// </summary>
+    internal static PageLoad Load(
+        PageRuntime runtime,
+        string markup,
+        string url,
+        string contentType,
+        Action<NavigationPhase>? onPhase = null)
+        => ParserDriver.Load(runtime, markup, url, contentType, onPhase);
 }
 
 /// <summary>What one parse produced: the document, the context that owns it, and how much script ran.</summary>

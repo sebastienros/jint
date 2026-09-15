@@ -589,15 +589,20 @@ public sealed partial class Page
             }
         }
 
-        string html;
+        string markup;
         string finalUrl;
         PageResponse? response = null;
         var redirectCount = 0;
 
+        // Which of HTML's read algorithms the response asked for. Everything that is not fetched — a
+        // `data:` URL, `about:blank`, a captured inline body — is markup a page synthesized and is read as
+        // HTML, which is what it was before there was a choice.
+        var contentType = Dom.DomContentType.Html;
+
         if (PageUrl.IsNetworkScheme(target))
         {
             var fetched = await FetchDocumentAsync(target, request, initiatorUrl, loaderId, timeout, cancellationToken).ConfigureAwait(false);
-            html = fetched.Html;
+            markup = fetched.Markup;
 
             // https://html.spec.whatwg.org/multipage/browsing-the-web.html#create-navigation-params-by-fetching:
             // the document's URL is the response's, and its fragment is the request's when the response
@@ -605,10 +610,11 @@ public sealed partial class Page
             finalUrl = WithFragmentOf(fetched.Url, target);
             response = fetched.Response;
             redirectCount = fetched.RedirectCount;
+            contentType = fetched.ContentType;
         }
         else
         {
-            html = request.InlineContent ?? ContentOf(target, href);
+            markup = request.InlineContent ?? ContentOf(target, href);
             finalUrl = href;
         }
 
@@ -617,10 +623,11 @@ public sealed partial class Page
 
         var commit = _loop.PostAsync(engine => Commit(
             engine,
-            new CommitRequest(finalUrl, html, response, request.History, request.TraversalIndex, referrer, signals.Reached, loaderId,
+            new CommitRequest(finalUrl, markup, response, request.History, request.TraversalIndex, referrer, signals.Reached, loaderId,
                 // Reload also forces a new document for POST and history traversal; those retain their own navigation types.
                 NavigationType: request.History == HistoryMode.Traverse ? 2 : request.Reload && request.Body is null ? 1 : 0,
-                RedirectCount: redirectCount)));
+                RedirectCount: redirectCount,
+                ContentType: contentType)));
 
         // The signal for the requested phase, so that WaitUntil.Commit really does answer before the load
         // events have run. A commit that fails before its phase arrives wins the race and throws.
@@ -748,7 +755,7 @@ public sealed partial class Page
         var runtime = PageRuntime.Find(engine)!;
         runtime.NavigationType = request.NavigationType;
         runtime.NavigationRedirectCount = request.RedirectCount;
-        LoadInto(engine, request.Url, request.Html, request.Response, request.Referrer, request.OnPhase, request.LoaderId);
+        LoadInto(engine, request.Url, request.Markup, request.Response, request.Referrer, request.OnPhase, request.LoaderId, request.ContentType);
 
         if (history == HistoryMode.Traverse)
         {
@@ -805,11 +812,12 @@ public sealed partial class Page
     private object? LoadInto(
         Engine engine,
         string url,
-        string html,
+        string markup,
         PageResponse? response,
         string referrer,
         Action<NavigationPhase>? onPhase,
-        string loaderId)
+        string loaderId,
+        string contentType = Dom.DomContentType.Html)
     {
         // The previous document goes first, and the page describes nothing until the new one exists. The
         // engine that document belonged to has already been replaced, so nothing can reach it; and a parse
@@ -844,7 +852,7 @@ public sealed partial class Page
             // What a woken waiter then posts queues behind this request, so it still observes the parsed document.
             SignalNavigation();
 
-            var load = PageDocument.Load(runtime, html, url, phase =>
+            var load = PageDocument.Load(runtime, markup, url, contentType, phase =>
             {
                 Reached(runtime, phase, loaderId);
                 onPhase?.Invoke(phase);
@@ -1117,7 +1125,7 @@ public sealed partial class Page
     /// <summary>What the loop is handed once the document's bytes are in.</summary>
     private sealed record CommitRequest(
         string Url,
-        string Html,
+        string Markup,
         PageResponse? Response,
         HistoryMode History,
         int TraversalIndex,
@@ -1125,7 +1133,8 @@ public sealed partial class Page
         Action<NavigationPhase>? OnPhase,
         string LoaderId,
         int NavigationType = 0,
-        int RedirectCount = 0);
+        int RedirectCount = 0,
+        string ContentType = Dom.DomContentType.Html);
 
     /// <summary>Mints the identifier the next document carries, unique for the life of the page.</summary>
     private string NextLoaderId()

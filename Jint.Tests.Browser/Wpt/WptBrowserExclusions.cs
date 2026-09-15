@@ -164,7 +164,7 @@ internal static class WptBrowserExclusions
         ("custom-elements/*.tentative.html", "tests a proposal the specification has not adopted"),
         ("custom-elements/reactions/*.tentative.html", "tests a proposal the specification has not adopted"),
         ("custom-elements/*.window.js", "a .window.js script, whose generated wrapper this lane does not synthesize"),
-        ("custom-elements/*.xhtml", "an XML document; the server serves this corpus as text/html and AngleSharp parses the page as HTML"),
+        ("custom-elements/*.xhtml", "an XML document; a page here reads XML now, but a <script> in one does not run, so testharness.js never loads"),
         ("custom-elements/parser/*.xhtml", "an XML document, for the same reason"),
         ("custom-elements/*.svg", "the SVG document a test frames, not a test"),
         ("custom-elements/parser/*.svg", "the SVG document a test frames, not a test"),
@@ -274,10 +274,12 @@ internal static class WptBrowserExclusions
         ("html/dom/*.sub.html", "wptserve substitution into a *second* origin, which this server does not have"),
 
         // ------------------------------------------------------------ an XML document
-        // The server answers `.xhtml` with application/xhtml+xml and `.svg` with image/svg+xml, and a page here
-        // parses HTML: AngleSharp builds no XML document. WptDivergence.NeedsXmlDocuments is the same fact from
-        // the HTML side, and the exclusion table names that half test by test.
-        ("dom/nodes/*.xhtml", "an XML document; a page here parses HTML and AngleSharp builds no XML document"),
+        // The server answers `.xhtml` with application/xhtml+xml and `.svg` with image/svg+xml, and a page
+        // here reads both with the XML parser now. What has not moved is the other half: AngleSharp's XML
+        // parser prepares no script element, so a document that loads `testharness.js` through a
+        // <script src> registers nothing and reports nothing — which is a not-vendored reason and never an
+        // exclusion. WptDivergence.NeedsXmlDocuments has no rows left; README.md says what its rows became.
+        ("dom/nodes/*.xhtml", "an XML document; a <script> in one does not run here, so testharness.js never loads"),
         ("dom/nodes/*.xht", "an XML document, in upstream's older spelling"),
         ("dom/nodes/*.svg", "an SVG document a test frames, not a test"),
         ("dom/nodes/*-xml.xml", "an XML fixture of a document that is not vendored"),
@@ -1080,22 +1082,12 @@ internal static class WptBrowserExclusions
     // ---------------------------------------------------------------- a frame that runs script
     private static readonly WptExclusion[] _aFrameThatRunsScript =
     [
-        // a second global with a document in it
-        // Not the frame any more, and the twin of the same move in Document-createElementNS.html: a frame
-        // has a window now, so what is left of these 49 is that `application/xhtml+xml` is parsed by the
-        // HTML parser — the fixture never loads as XHTML and every row fails on that first assertion.
-        new("dom/nodes/Document-createElement.html", "*XHTML document", WptDivergence.NeedsXmlDocuments),
-        // The twenty-two XML-document rows that stood beside it are gone: they were `createElement` handing a
-        // local name to AngleSharp's validate-and-extract overload, which #3950 stopped doing, so the XML
-        // document's half of the file passes entirely now.
-        // Not the frame any more: the frame has its document. `application/xhtml+xml` is routed to the
-        // HTML parser even with the XML factory registered, so the XHTML fixture comes back as an HTML
-        // document and all 195 fail on its first assertion — the trailing newline an HTML skeleton adds.
-        new("dom/nodes/Document-createElementNS.html", "createElementNS test in XHTML*", WptDivergence.NeedsXmlDocuments),
-        // Narrowed by the run rather than by hand: the XML document is real now, so 56 of these pass.
-        // What is left of them is the 110 rows that reach `doc.defaultView.DOMException`, and a frame
-        // has a document here and no window — every one of those names ends in the exception it expects,
-        // which is what separates them from the 56 that do not throw at all.
+        // Neither of the two creation documents is about a frame any more. The frame has a window, and
+        // `application/xhtml+xml` reaches the XML parser now, so the two blanket `NeedsXmlDocuments` rows
+        // that stood here — 244 rows between them — are gone, and #3950's element-creation fix means
+        // nothing of either file needs naming in their place. What is left of this cause really is a frame,
+        // a second global, or an interface there is none of: `createEvent('TextEvent')` builds an event and
+        // passes, and the three rows that fail look the interface up by name and find nothing.
         new("dom/nodes/Document-createEvent.https.html", "*TextEvent.", WptDivergence.NeedsIframeScripting),
         new("dom/nodes/Node-isConnected.html", "*iframes", WptDivergence.NeedsIframeScripting),
         new("dom/nodes/node-creation-realm.html", "*", WptDivergence.NeedsIframeScripting),
@@ -1436,7 +1428,7 @@ internal static class WptBrowserExclusions
     /// </para>
     /// <para>
     /// <b>The DOM suites made it much bigger, and every one of those causes is bounded.</b> They hold 226
-    /// documents and 65,228 tests, of which 757 do not pass -- three figures <c>Wpt/README.md</c> generates
+    /// documents and 65,228 tests, of which 293 do not pass -- three figures <c>Wpt/README.md</c> generates
     /// and checks rather than states, and whose split <c>Wpt/README.md</c>'s "What the DOM corpus says about
     /// this browser" gives as thirteen causes with the count each accounts for. Ten families were filed as
     /// https://github.com/sebastienros/jint/issues/3765 to 3774 and one was already open as

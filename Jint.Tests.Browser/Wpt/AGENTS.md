@@ -207,10 +207,12 @@ minimum-test counts, and the exclusions — because the runner is a driver and t
 The vocabulary is `WptDivergence`, shared. Six of its members exist for this lane, and the first four say so on
 themselves: `NeedsLayout`, `NeedsIframeScripting`, `NeedsIndexedDb`, `NeedsTestDriver`, `NeedsXmlDocuments` and
 `NeedsMoreEventInterfaces` — the last of which is a shape rather than `NeedsTriage`'s, its rows naming what
-would move them rather than a fix somebody owes. **`NeedsXmlDocuments` stopped being that and is now one
-AngleSharp mapping**: XML documents, `createDocument` and their metadata are this package's own now, and what is
-left is that `application/xhtml+xml` reaches the HTML parser — its own exclusion group is gone, and
-`README.md` says what its rows turned out to be. **`NeedsTestDriver` has no
+would move them rather than a fix somebody owes. **`NeedsXmlDocuments` has no entries any more**: XML
+documents, `createDocument` and their metadata became this package's own, and the last thing left — that
+`application/xhtml+xml` reached the HTML parser — is gone too, because a page chooses its own parser from the
+response's content type (`Jint.Browser/Runtime/Parsing/AGENTS.md`). Its 244 rows pass; its own exclusion group
+had already gone, and `README.md` says what the rest of its rows turned out to be. The member stays for the
+one thing an XML document here still cannot do, which is run a script. **`NeedsTestDriver` has no
 entries any more**: campaign item C4 mapped `testdriver.js` onto the same `InputDispatcher` the protocol's
 `Input` domain reaches, and the seven documents that were waiting for it were re-examined one at a time —
 five are cases now, and the two that still cannot report are `NotVendored` rows naming what each really needs
