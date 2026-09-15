@@ -220,8 +220,15 @@ selection, history, and network positioning) remain separate work. A child's Web
 page's network configuration; its browser-specific globals contain only the implemented frame surface.
 Location writes throw.
 
-**`document.write` after the parse is refused.** During one it is AngleSharp's own call and it is right — its
-writable text source inserts at the parser's index and the script processor restores the index afterwards, so
-the written markup is the next thing the tokenizer reads. Afterwards HTML implies `document.open()`, which
-AngleSharp implements by unloading through its own browsing context on the calling thread and rebuilding the
-document behind the page's back; `DomHostHooks.Write` answers with a page error naming it instead.
+**`document.write` during the parse is AngleSharp's; after it, *which document* decides who performs it.**
+During a parse it is AngleSharp's own call and it is right — its writable text source inserts at the parser's
+index and the script processor restores the index afterwards, so the written markup is the next thing the
+tokenizer reads. Afterwards HTML implies `document.open()`, which AngleSharp implements by unloading through
+its own browsing context on the calling thread and rebuilding the document behind the page's back, so the
+steps are owned here instead and `DomHostHooks.TargetOf` is what chooses. **The displayed document — the
+page's, or any frame of it — keeps its no-op and its recorded page error**, because replacing it means
+unloading a document, swapping the engine the page runs on and re-committing a navigation; do not implement
+it here. A **secondary** document (`DOMParser`'s, `createHTMLDocument`'s) has no page loop, no engine to swap
+and no navigation gate, so `Dom/DynamicMarkupInsertion` runs HTML's open, write and close steps against it in
+place, the document object itself never being replaced. An XML document is `InvalidStateError` at step 1
+whatever its readiness.

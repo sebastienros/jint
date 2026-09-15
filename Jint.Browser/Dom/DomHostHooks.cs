@@ -31,7 +31,8 @@ namespace Jint.Browser.Dom;
 /// is AngleSharp's own call and is correct — its writable text source inserts at the parser's index while the
 /// baton has the parser parked. Every write that is <i>not</i> into a document a parser is reading needed a
 /// decision, and which decision depends on the document it targets rather than on the engine it was made
-/// from; <see cref="RefusedWrite"/> below is that decision.
+/// from; <see cref="TargetOf"/> below is that decision, and <see cref="DynamicMarkupInsertion"/> is what
+/// performs HTML's own steps wherever they are this package's to run.
 /// </para>
 /// </remarks>
 internal class DomHostHooks
@@ -744,23 +745,89 @@ internal class DomHostHooks
     /// <summary>https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-document-write</summary>
     internal virtual void Write(DomRealm realm, IDocument document, JsValue[] arguments)
     {
-        if (RefusedWrite(realm, document, "write"))
+        switch (TargetOf(realm, document, "write"))
         {
-            return;
+            case MarkupInsertion.Parser:
+                document.Write(Join(arguments));
+                break;
+            case MarkupInsertion.Local:
+                DynamicMarkupInsertion.Write(realm, (IHtmlDocument) document, Join(arguments));
+                break;
+            default:
+                RecordDisplayedRefusal(realm, document, "write");
+                break;
         }
-
-        document.Write(Join(arguments));
     }
 
     /// <summary>https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-document-writeln</summary>
     internal virtual void WriteLine(DomRealm realm, IDocument document, JsValue[] arguments)
     {
-        if (RefusedWrite(realm, document, "writeln"))
+        switch (TargetOf(realm, document, "writeln"))
         {
-            return;
+            case MarkupInsertion.Parser:
+                document.WriteLine(Join(arguments));
+                break;
+            case MarkupInsertion.Local:
+                // "The document writeln steps ... are to run the document write steps with the concatenation
+                // of the strings and a newline" — which is what AngleSharp's own WriteLine does too.
+                DynamicMarkupInsertion.Write(realm, (IHtmlDocument) document, Join(arguments) + "\n");
+                break;
+            default:
+                RecordDisplayedRefusal(realm, document, "writeln");
+                break;
+        }
+    }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-document-open — the
+    /// two-argument form, whose arguments HTML ignores (it names them "unused1" and "unused2"), answering
+    /// the document it was called on.
+    /// </summary>
+    internal virtual JsValue Open(DomRealm realm, IDocument document, JsValue[] arguments)
+    {
+        switch (TargetOf(realm, document, "open"))
+        {
+            case MarkupInsertion.Parser:
+                // Open steps step 4: "if document has an active parser whose script nesting level is greater
+                // than zero, then return document" — which is exactly the call that got here, one made by a
+                // script of the parse the page is running. Nothing happens, and nothing is recorded.
+                break;
+            case MarkupInsertion.Local:
+                // https://html.spec.whatwg.org/multipage/nav-history-apis.html#dom-open-window: three
+                // arguments select window.open()'s overload, whose first step throws an InvalidAccessError
+                // when the document it is called on is not fully active — and one with no browsing context
+                // never is.
+                if (arguments.Length >= 3)
+                {
+                    DomFailures.Refuse(
+                        realm,
+                        "Document.open",
+                        DomExceptionNames.InvalidAccess,
+                        "the three-argument form is window.open(), and this document has no browsing context.");
+                }
+
+                DynamicMarkupInsertion.Open((IHtmlDocument) document);
+                break;
+            default:
+                RecordDisplayedRefusal(realm, document, "open");
+                break;
         }
 
-        document.WriteLine(Join(arguments));
+        return realm.WrapNodeValue(document);
+    }
+
+    /// <summary>https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-document-close</summary>
+    /// <remarks>
+    /// Close steps step 3 is "if there is no script-created parser associated with the document, then
+    /// return", and the parser reading a page is never script-created — so a page's <c>close()</c> is the
+    /// standard's own no-op rather than a refusal, and nothing is recorded against it.
+    /// </remarks>
+    internal virtual void Close(DomRealm realm, IDocument document, JsValue[] arguments)
+    {
+        if (TargetOf(realm, document, "close") == MarkupInsertion.Local)
+        {
+            DynamicMarkupInsertion.Close(document);
+        }
     }
 
     /// <summary>
@@ -1215,16 +1282,32 @@ internal class DomHostHooks
         return string.IsNullOrEmpty(href) ? documentUrl : PageUrl.Resolve(href, documentUrl) ?? documentUrl;
     }
 
+    /// <summary>Who performs a dynamic-markup-insertion call, once the document it targets is known.</summary>
+    private enum MarkupInsertion
+    {
+        /// <summary>A parser is reading the document, so AngleSharp's own call is the standard's step.</summary>
+        Parser,
+
+        /// <summary>
+        /// No parser is reading it and no browsing context is showing it, so
+        /// <see cref="DynamicMarkupInsertion"/> runs HTML's steps against it.
+        /// </summary>
+        Local,
+
+        /// <summary>The document the page is displaying, or a frame of it: the call does nothing.</summary>
+        Displayed,
+    }
+
     /// <summary>
-    /// Whether a write is refused, and how — which is a question about <em>which</em> document it targets
-    /// and not only about when that document stopped parsing.
+    /// Which document a dynamic-markup-insertion call targets, which decides who performs it — a question
+    /// about the <em>document</em> and not only about when it stopped parsing.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The one write that can be delegated is one into a document a parser is still reading, because that is
-    /// the only case where HTML's insertion point is defined — AngleSharp's writable text source inserts at
-    /// the parser's index while the baton has the parser parked, which is the standard's own step. Every
-    /// other write implies <c>document.open()</c>, and <c>Document.Open</c> cannot serve one:
+    /// A call into a document a parser is still reading is AngleSharp's, because that is the case where
+    /// HTML's insertion point is defined: its writable text source inserts at the parser's index while the
+    /// baton has the parser parked, which is the standard's own step. Every other call implies
+    /// <c>document.open()</c>, and <c>Document.Open</c> cannot serve one:
     /// </para>
     /// <list type="bullet">
     /// <item>it reads <c>_context?.Parent!.Active</c>, so any context <c>BrowsingContext.New</c> built —
@@ -1238,60 +1321,56 @@ internal class DomHostHooks
     /// inserts into a text source nothing will ever read. The markup is silently lost.</item>
     /// </list>
     /// <para>
-    /// So a refusal is owed in every remaining case, and which refusal depends on the target. An XML
-    /// document is HTML's own first step and an <c>InvalidStateError</c>. The <b>displayed</b> document —
-    /// the page's, or a frame's, which is why the browsing-context tree and not the one document decides —
-    /// keeps the page error it has always recorded and the call does nothing, because that is a page a host
-    /// is watching and a throw would break scripts that write into a document they think is still parsing.
-    /// Anything else is a <b>secondary</b> document: <c>DOMParser</c>'s, <c>new Document()</c>'s,
-    /// <c>createHTMLDocument</c>'s. The page was not involved, so no page error is recorded and nothing is
-    /// swallowed either — the script asked for a capability that is missing and is told so.
+    /// So the steps are owned here, and how far they go depends on the target. An XML document is HTML's own
+    /// first step and an <c>InvalidStateError</c>. The <b>displayed</b> document — the page's, or a frame's,
+    /// which is why the browsing-context tree and not the one document decides — is the one case left
+    /// unimplemented: replacing it means unloading a document, swapping the engine the page runs on and
+    /// re-committing a navigation, so the call does nothing and the host is told why, because a throw would
+    /// break scripts that write into a document they think is still parsing. Anything else is a
+    /// <b>secondary</b> document — <c>DOMParser</c>'s, <c>createHTMLDocument</c>'s — which has no page loop,
+    /// no engine to swap and no navigation gate, and there
+    /// <see cref="DynamicMarkupInsertion"/> performs HTML's steps in place.
     /// </para>
     /// </remarks>
-    private static bool RefusedWrite(DomRealm realm, IDocument document, string member)
+    private static MarkupInsertion TargetOf(DomRealm realm, IDocument document, string member)
     {
-        var qualified = "Document." + member;
-
         // https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#document-write-steps step 1,
-        // before anything else and whatever the document's readiness. AngleSharp raises the same error from
-        // inside Document.Open, which is reached only once the document is ready — so every XML document
-        // still parsing wrote into a text source nothing reads and the call answered success.
+        // before anything else and whatever the document's readiness — and the same first step the open and
+        // close steps take. AngleSharp raises the same error from inside Document.Open, which is reached only
+        // once the document is ready, so every XML document still parsing wrote into a text source nothing
+        // reads and the call answered success.
         if (document is not IHtmlDocument)
         {
             DomFailures.Refuse(
                 realm,
-                qualified,
+                "Document." + member,
                 DomExceptionNames.InvalidState,
                 "the document is an XML document, which has no dynamic markup insertion.");
         }
 
-        if (Runtime.PageRuntime.FindBrowsingContext(realm.Engine, document) is { } runtime)
+        if (Runtime.PageRuntime.FindBrowsingContext(realm.Engine, document) is null)
         {
-            // Still parsing: the insertion point is defined and AngleSharp's own write is the standard's.
-            if (document.ReadyState == DocumentReadyState.Loading)
-            {
-                return false;
-            }
-
-            runtime.Recorder.Add(
-                PageErrorKind.ReportedError,
-                "document." + member + "() after the document finished parsing implies document.open(), which "
-                + "would replace the document; Jint.Browser does not implement it, so the call did nothing. "
-                + "Build the markup with the DOM, or set the page's content again.",
-                document.Url);
-
-            return true;
+            return MarkupInsertion.Local;
         }
 
-        DomFailures.Refuse(
-            realm,
-            qualified,
-            DomExceptionNames.NotSupported,
-            "no parser is reading this document, so the write implies document.open(), and AngleSharp's "
-            + "Document.Open cannot reopen a document that has been parsed. Build the markup with the DOM, "
-            + "or parse a new document.");
+        return document.ReadyState == DocumentReadyState.Loading
+            ? MarkupInsertion.Parser
+            : MarkupInsertion.Displayed;
+    }
 
-        return true;
+    /// <summary>The page error the one unimplemented case records, and the no-op that goes with it.</summary>
+    private static void RecordDisplayedRefusal(DomRealm realm, IDocument document, string member)
+    {
+        var lead = string.Equals(member, "open", StringComparison.Ordinal)
+            ? "document.open() on the document the page is showing would replace it"
+            : "document." + member + "() after the document finished parsing implies document.open(), which "
+              + "would replace the document";
+
+        Runtime.PageRuntime.FindBrowsingContext(realm.Engine, document)!.Recorder.Add(
+            PageErrorKind.ReportedError,
+            lead + "; Jint.Browser does not implement replacing the displayed document, so the call did "
+            + "nothing. Build the markup with the DOM, or set the page's content again.",
+            document.Url);
     }
 
     /// <summary>

@@ -25,8 +25,8 @@ here. These rules bind every change:
   direction is that AngleSharp's decision to treat behavior as intentional or outside its scope must not
   leave a Jint conformance issue waiting indefinitely for an upstream fix. A local implementation is
   authorized; upstream acceptance, a new upstream report and a dependency release are not prerequisites.
-  This applies to the remaining selector, namespace/name-creation, secondary-document-write and
-  directionality issues as well as the algorithms already owned here.
+  This applies to the remaining selector, namespace/name-creation and directionality issues as well as
+  the algorithms already owned here.
 - **Compose with AngleSharp's existing tree and services.** Prefer a supported factory, hook, adapter or
   shared algorithm over a second parser or DOM store. That preference does not prohibit implementing a
   missing algorithm: class-name collections, form ownership and TreeWalker already do so. Keep one answer
