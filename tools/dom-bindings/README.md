@@ -40,7 +40,7 @@ upstream change landing unread.
 The short way, which is also what fails when the checked-in code is stale:
 
 ```bash
-JINT_DOM_BINDINGS=update dotnet test -c Release Jint.Tests.Browser/Jint.Tests.Browser.csproj \
+JINT_DOM_BINDINGS=update dotnet test -c Release --project Jint.Tests.Browser/Jint.Tests.Browser.csproj \
     --filter FullyQualifiedName~DomBindingsStalenessTests
 ```
 

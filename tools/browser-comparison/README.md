@@ -160,7 +160,7 @@ manifest is never accepted by analysis. Preserve the whole directory, not just a
 ## Validation and calibration
 
 ```sh
-dotnet test tools/browser-comparison.Tests/BrowserComparison.Tests.csproj -c Release
+dotnet test --project tools/browser-comparison.Tests/BrowserComparison.Tests.csproj -c Release
 python3 -m unittest discover -s tools/browser-comparison -p 'test_*.py'
 JINT_BROWSER_COMPARISON_CGROUP_ROOT=/sys/fs/cgroup/already-delegated-comparison-root \
   python3 -m unittest discover -s tools/browser-comparison -p test_linux_accounting.py

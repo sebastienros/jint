@@ -12,20 +12,29 @@
 ### When the run dies instead of failing
 
 A test host that stops talking is reported by the platform, not by the test framework: the run ends with
-`The active test run was aborted`, no test named and no stack trace. That is not an exception anything
-threw and not a failure the adapter observed — it is VSTest noticing that the pipe went quiet. Two
+`The active test run was aborted` under the former VSTest runner, no test named and no stack trace.
+That is not an exception anything threw and not a failure the adapter observed. Two
 consequences, both of which cost time on sebastienros/jint#3308 before they were understood:
 
-- **The sentence saying what happened is easily filtered out.** CI runs
-  `--logger "console;verbosity=quiet"`, which drops informational messages. Re-run the one assembly at
-  `verbosity=normal` to read them; do not raise the verbosity of the whole-solution run, which prints a
-  line per passing test.
+- **The sentence saying what happened is easily filtered out.** With MTP, re-run the one project using
+  `--output Detailed` to read the diagnostics; do not raise the verbosity of the whole-solution run,
+  which prints a line per passing test. The old VSTest `--logger` option does not apply.
 - **A summary is still printed for the subset that reported.** A partial run reports `Failed: 0` and only
   the process exit code disagrees. Never conclude a leg is green from the summary line alone.
 
 `JINT_TEST_TRACE=1` turns on `TestProcessTrace.cs`, which writes one stderr line per test start and
 finish; the highest ordinal with no matching finish names the test that was in flight when the process
-went, and `dotnet test -- NUnit.NumberOfTestWorkers=0` makes that exactly one test. Exit codes are worth
+went. To run one test at a time, pass `--settings local.runsettings` with this content:
+
+```xml
+<RunSettings>
+  <NUnit>
+    <NumberOfTestWorkers>0</NumberOfTestWorkers>
+  </NUnit>
+</RunSettings>
+```
+
+Exit codes are worth
 reading too: `134` is SIGABRT, which is what a managed stack overflow becomes, `139` SIGSEGV, `137` the
 OOM killer, and macOS leaves a `.ips` report in `~/Library/Logs/DiagnosticReports` besides.
 

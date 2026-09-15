@@ -14,6 +14,8 @@
     <SignAssembly>true</SignAssembly>
 
     <IsPackable>false</IsPackable>
+    <OutputType>Exe</OutputType>
+    <EnableNUnitRunner>true</EnableNUnitRunner>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
@@ -68,7 +70,6 @@
     -->
     <PackageReference Include="Microsoft.Playwright" />
     <PackageReference Include="GitHubActionsTestLogger" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="NUnit" />
     <PackageReference Include="NUnit3TestAdapter" />
   </ItemGroup>

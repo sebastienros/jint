@@ -111,16 +111,16 @@ public class WebApiFetchResponseBodyTests
         private readonly int _chunk;
         private readonly int _failAt;
         private readonly Action<int>? _reached;
-        private readonly bool _deferred;
+        private readonly Task? _readGate;
         private int _position;
 
-        internal ScriptedStream(byte[] bytes, int chunk = int.MaxValue, int failAt = -1, Action<int>? reached = null, bool deferred = false)
+        internal ScriptedStream(byte[] bytes, int chunk = int.MaxValue, int failAt = -1, Action<int>? reached = null, Task? readGate = null)
         {
             _bytes = bytes;
             _chunk = chunk;
             _failAt = failAt;
             _reached = reached;
-            _deferred = deferred;
+            _readGate = readGate;
         }
 
         internal int Reads { get; private set; }
@@ -171,11 +171,9 @@ public class WebApiFetchResponseBodyTests
 
         public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
         {
-            if (_deferred)
+            if (_readGate is not null)
             {
-                // Nothing completes synchronously, which is what lets a test start a second read while the
-                // first is genuinely still in flight.
-                await Task.Yield();
+                await _readGate.WaitAsync(cancellationToken).ConfigureAwait(false);
             }
 
             cancellationToken.ThrowIfCancellationRequested();
@@ -268,9 +266,9 @@ public class WebApiFetchResponseBodyTests
         long? contentLength = null,
         int failAt = -1,
         Action<int>? reached = null,
-        bool deferred = false)
+        Task? readGate = null)
     {
-        var content = new StreamContent(new ScriptedStream(bytes, chunk, failAt, reached, deferred));
+        var content = new StreamContent(new ScriptedStream(bytes, chunk, failAt, reached, readGate));
         content.Headers.TryAddWithoutValidation("content-type", "application/octet-stream");
 
         if (contentLength is { } length)
@@ -707,7 +705,7 @@ public class WebApiFetchResponseBodyTests
     {
         var observer = new Concurrent();
 
-        FetchBytes(Body(Pattern(2_000), chunk: 100, deferred: true), observer).Should().Be(Joined(Pattern(2_000)));
+        FetchBytes(Body(Pattern(2_000), chunk: 100, readGate: observer.ReadGate), observer).Should().Be(Joined(Pattern(2_000)));
 
         observer.Second.Should().BeOfType<InvalidOperationException>();
     }
@@ -715,6 +713,10 @@ public class WebApiFetchResponseBodyTests
     /// <summary>Starts a second read without awaiting the first, which the per-response state must refuse.</summary>
     private sealed class Concurrent : FetchObserver
     {
+        private readonly TaskCompletionSource<bool> _releaseRead = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        internal Task ReadGate => _releaseRead.Task;
+
         internal Exception? Second { get; private set; }
 
         public override async ValueTask<FetchResponseInterception?> OnInterceptedResponseAsync(
@@ -726,13 +728,20 @@ public class WebApiFetchResponseBodyTests
 
             try
             {
-                await context.TryReadBodyAsync(allowance, cancellationToken).ConfigureAwait(false);
+                var second = context.TryReadBodyAsync(allowance, cancellationToken);
+                // If the guard regresses, finish both reads so the assertion fails rather than hanging.
+                _releaseRead.TrySetResult(true);
+                await second.ConfigureAwait(false);
             }
 #pragma warning disable CA1031 // the test is what decides what a concurrent read means
             catch (Exception exception)
 #pragma warning restore CA1031
             {
                 Second = exception;
+            }
+            finally
+            {
+                _releaseRead.TrySetResult(true);
             }
 
             await first.ConfigureAwait(false);
