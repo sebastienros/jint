@@ -32,7 +32,7 @@ jobs:
         with:
           python-version: '3.x'
       - name: Verify runner contracts in Release
-        run: dotnet test tools/browser-comparison.Tests/BrowserComparison.Tests.csproj -c Release
+        run: dotnet test --project tools/browser-comparison.Tests/BrowserComparison.Tests.csproj -c Release --no-progress
       - name: Verify synthetic pairing and failure handling
         run: python3 -m unittest discover -s tools/browser-comparison -p test_measure.py
       - name: Verify real kernel descendant accounting and cleanup
@@ -44,7 +44,7 @@ jobs:
           trap 'sudo rmdir "$scope"' EXIT
           printf '+cpu +memory\n' | sudo tee "$scope/cgroup.subtree_control" >/dev/null
           sudo env JINT_BROWSER_COMPARISON_CGROUP_ROOT="$scope" DOTNET_ROOT="$DOTNET_ROOT" \
-            "$(command -v dotnet)" test tools/browser-comparison.Tests/BrowserComparison.Tests.csproj -c Release \
+            "$(command -v dotnet)" test --project tools/browser-comparison.Tests/BrowserComparison.Tests.csproj -c Release --no-progress \
             --filter FullyQualifiedName~ActualAdapterFailureAlwaysRecordsAndCleansItsOwnedProcessScope
           sudo env JINT_BROWSER_COMPARISON_CGROUP_ROOT="$scope" "$(command -v python3)" \
             -m unittest discover -s tools/browser-comparison -p test_linux_accounting.py

@@ -12,13 +12,6 @@ on:
 env:
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: 1
-  # vstest gives a testhost 90 seconds to connect back, and aborts the whole run when it does not.
-  # These jobs run four test assemblies at once on a four-core runner, and the net472 host is the one
-  # that loses that race: it has the slowest start and goes last. The abort reads as a red leg with no
-  # failing test in it -- every assembly reports "Passed!" and the step still exits 1 -- so it costs a
-  # diagnosis every time. Five minutes is startup contention rather than a hang; anything genuinely
-  # stuck is caught by the suite's own per-test budgets, not by this.
-  VSTEST_CONNECTION_TIMEOUT: 300
 
 concurrency:
   group: ${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.run_id }}
@@ -79,7 +72,7 @@ jobs:
 
     - name: Test
       if: matrix.os.name != 'windows'
-      run: dotnet test --configuration Release --logger "console;verbosity=quiet" --logger "GitHubActions;summary-include-passed=false;summary-include-skipped=false"
+      run: dotnet test --configuration Release --no-progress
 
     # The Windows leg runs the browser suite on its own, after everything else, because three vendored
     # documents (dom/nodes/NodeList-static-length-getter-tampered-*.html) are ~76 million interpreted
@@ -89,11 +82,20 @@ jobs:
     # the suite alone gives those documents the four cores; no bound, deadline or retry changes.
     - name: Test (everything but the browser suite)
       if: matrix.os.name == 'windows'
-      run: dotnet test --configuration Release --filter "FullyQualifiedName!~Jint.Tests.Browser" --logger "console;verbosity=quiet" --logger "GitHubActions;summary-include-passed=false;summary-include-skipped=false"
+      shell: pwsh
+      run: |
+        # Exclude the project, not its test cases: an empty MTP module is an error.
+        $solution = (Resolve-Path Jint.slnx).Path
+        $projects = ([xml](Get-Content -Raw $solution)).Solution.Project.Path |
+          Where-Object { $_ -ne 'Jint.Tests.Browser/Jint.Tests.Browser.csproj' }
+        $filter = Join-Path $env:RUNNER_TEMP 'tests-without-browser.slnf'
+        @{ solution = @{ path = $solution; projects = @($projects) } } |
+          ConvertTo-Json -Depth 3 | Set-Content $filter
+        dotnet test --solution $filter --configuration Release --no-progress
 
     - name: Test (the browser suite alone)
       if: matrix.os.name == 'windows'
-      run: dotnet test Jint.Tests.Browser/Jint.Tests.Browser.csproj --configuration Release --logger "console;verbosity=quiet" --logger "GitHubActions;summary-include-passed=false;summary-include-skipped=false"
+      run: dotnet test --project Jint.Tests.Browser/Jint.Tests.Browser.csproj --configuration Release --no-progress
 
   # The matrix above is the shipped configuration: Release with host-contract verification off, which is what
   # the probe-count and no-descriptor pins in Jint.Tests.PublicInterface document as costing nothing. This leg
@@ -126,10 +128,10 @@ jobs:
       uses: actions/checkout@v7
 
     - name: Test Jint.Tests
-      run: dotnet test Jint.Tests/Jint.Tests.csproj --configuration Release --logger "console;verbosity=quiet" --logger "GitHubActions;summary-include-passed=false;summary-include-skipped=false"
+      run: dotnet test --project Jint.Tests/Jint.Tests.csproj --configuration Release --no-progress
 
     - name: Test Jint.Tests.PublicInterface
-      run: dotnet test Jint.Tests.PublicInterface/Jint.Tests.PublicInterface.csproj --configuration Release --logger "console;verbosity=quiet" --logger "GitHubActions;summary-include-passed=false;summary-include-skipped=false"
+      run: dotnet test --project Jint.Tests.PublicInterface/Jint.Tests.PublicInterface.csproj --configuration Release --no-progress
 
   # <IsAotCompatible> is a csproj property, not evidence. Jint sets it for net7.0+ and then suppresses the
   # eight IL codes that would substantiate it, so nothing in the repository could tell an embedder whether a
@@ -264,7 +266,7 @@ jobs:
       uses: actions/checkout@v7
 
     - name: Test Jint.Tests.Browser with both client suites
-      run: dotnet test Jint.Tests.Browser/Jint.Tests.Browser.csproj --configuration Release --logger "console;verbosity=quiet" --logger "GitHubActions;summary-include-passed=false;summary-include-skipped=false"
+      run: dotnet test --project Jint.Tests.Browser/Jint.Tests.Browser.csproj --configuration Release --no-progress
 
     # The gate is only a gate if it is switched: a suite that ignored the variable and ran everywhere would
     # make the leg above pointless, and one that ignored it and ran nowhere would make this leg a lie. So the
@@ -276,12 +278,12 @@ jobs:
       shell: bash
       run: |
         set -o pipefail
-        env -u JINT_BROWSER_CLIENTS dotnet test Jint.Tests.Browser/Jint.Tests.Browser.csproj \
+        env -u JINT_BROWSER_CLIENTS dotnet test --project Jint.Tests.Browser/Jint.Tests.Browser.csproj \
           --configuration Release --framework net10.0 \
           --filter "FullyQualifiedName~PlaywrightCourseTests" \
-          --logger "console;verbosity=normal" | tee gate.log
-        total=$(sed -n 's/^Total tests: *\([0-9][0-9]*\).*$/\1/p' gate.log | tail -1)
-        skipped=$(sed -n 's/^ *Skipped: *\([0-9][0-9]*\).*$/\1/p' gate.log | tail -1)
+          --no-progress --no-ansi | tee gate.log
+        total=$(sed -n 's/^ *total: *\([0-9][0-9]*\).*$/\1/p' gate.log | tail -1)
+        skipped=$(sed -n 's/^ *skipped: *\([0-9][0-9]*\).*$/\1/p' gate.log | tail -1)
         echo "the filter selected ${total:-no} cases and skipped ${skipped:-none} of them"
         test -n "$total" && test "$total" -gt 0 && test "$skipped" = "$total"
 
