@@ -59,7 +59,7 @@ jobs:
         key: test262-generated-${{ hashFiles('Jint.Tests.Test262/Test262Harness.settings.json') }}
 
     - name: Test
-      run: dotnet test --configuration Release --no-progress
+      run: dotnet test --configuration Release --no-progress --report-github --report-github-summary-include-passed false --report-github-summary-include-skipped false
 
     - name: Determine version from tag
       id: version

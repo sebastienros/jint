@@ -130,7 +130,8 @@ jobs:
           JINT_BROWSER_TOOL_VERSION: ${{ steps.version.outputs.version }}
         run: |
           dotnet test --project Jint.Tests.Browser/Jint.Tests.Browser.csproj -c Release -f net10.0 \
-            --filter FullyQualifiedName~PublishedToolTests --no-progress
+            --filter FullyQualifiedName~PublishedToolTests --no-progress --report-github \
+            --report-github-summary-include-passed false --report-github-summary-include-skipped false
 
       - name: Stage the standalone binary from the same publish
         env:

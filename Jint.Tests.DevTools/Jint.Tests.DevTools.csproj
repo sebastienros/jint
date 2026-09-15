@@ -48,6 +48,7 @@
       connects, lists the target, opens a session and gets 42 back"; no in-process test can make that claim.
     -->
     <PackageReference Include="PuppeteerSharp" />
+    <PackageReference Include="GitHubActionsTestLogger" />
     <PackageReference Include="NUnit" />
     <PackageReference Include="NUnit3TestAdapter" />
   </ItemGroup>

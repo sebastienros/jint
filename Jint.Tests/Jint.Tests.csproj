@@ -65,6 +65,7 @@
     <PackageReference Include="Acornima.Extras" />
     <PackageReference Include="AwesomeAssertions" />
     <PackageReference Include="Flurl.Http.Signed" />
+    <PackageReference Include="GitHubActionsTestLogger" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="MongoDB.Bson.signed" />
     <PackageReference Include="Newtonsoft.Json" />

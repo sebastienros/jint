@@ -69,6 +69,7 @@
       CI leg is what sets it.
     -->
     <PackageReference Include="Microsoft.Playwright" />
+    <PackageReference Include="GitHubActionsTestLogger" />
     <PackageReference Include="NUnit" />
     <PackageReference Include="NUnit3TestAdapter" />
   </ItemGroup>

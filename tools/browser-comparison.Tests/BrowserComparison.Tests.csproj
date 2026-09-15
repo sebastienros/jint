@@ -9,6 +9,7 @@
   <ItemGroup>
     <PackageReference Include="NUnit" />
     <PackageReference Include="NUnit3TestAdapter" />
+    <PackageReference Include="GitHubActionsTestLogger" />
     <ProjectReference Include="../browser-comparison/BrowserComparison.csproj" />
     <Compile Include="../../Jint.Tests/TestFrameworkConventions.cs" Link="TestFrameworkConventions.cs" />
     <Using Include="NUnit.Framework" />

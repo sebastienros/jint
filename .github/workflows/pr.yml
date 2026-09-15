@@ -72,7 +72,7 @@ jobs:
 
     - name: Test
       if: matrix.os.name != 'windows'
-      run: dotnet test --configuration Release --no-progress
+      run: dotnet test --configuration Release --no-progress --report-github --report-github-summary-include-passed false --report-github-summary-include-skipped false
 
     # The Windows leg runs the browser suite on its own, after everything else, because three vendored
     # documents (dom/nodes/NodeList-static-length-getter-tampered-*.html) are ~76 million interpreted
@@ -91,11 +91,11 @@ jobs:
         $filter = Join-Path $env:RUNNER_TEMP 'tests-without-browser.slnf'
         @{ solution = @{ path = $solution; projects = @($projects) } } |
           ConvertTo-Json -Depth 3 | Set-Content $filter
-        dotnet test --solution $filter --configuration Release --no-progress
+        dotnet test --solution $filter --configuration Release --no-progress --report-github --report-github-summary-include-passed false --report-github-summary-include-skipped false
 
     - name: Test (the browser suite alone)
       if: matrix.os.name == 'windows'
-      run: dotnet test --project Jint.Tests.Browser/Jint.Tests.Browser.csproj --configuration Release --no-progress
+      run: dotnet test --project Jint.Tests.Browser/Jint.Tests.Browser.csproj --configuration Release --no-progress --report-github --report-github-summary-include-passed false --report-github-summary-include-skipped false
 
   # The matrix above is the shipped configuration: Release with host-contract verification off, which is what
   # the probe-count and no-descriptor pins in Jint.Tests.PublicInterface document as costing nothing. This leg
@@ -128,10 +128,10 @@ jobs:
       uses: actions/checkout@v7
 
     - name: Test Jint.Tests
-      run: dotnet test --project Jint.Tests/Jint.Tests.csproj --configuration Release --no-progress
+      run: dotnet test --project Jint.Tests/Jint.Tests.csproj --configuration Release --no-progress --report-github --report-github-summary-include-passed false --report-github-summary-include-skipped false
 
     - name: Test Jint.Tests.PublicInterface
-      run: dotnet test --project Jint.Tests.PublicInterface/Jint.Tests.PublicInterface.csproj --configuration Release --no-progress
+      run: dotnet test --project Jint.Tests.PublicInterface/Jint.Tests.PublicInterface.csproj --configuration Release --no-progress --report-github --report-github-summary-include-passed false --report-github-summary-include-skipped false
 
   # <IsAotCompatible> is a csproj property, not evidence. Jint sets it for net7.0+ and then suppresses the
   # eight IL codes that would substantiate it, so nothing in the repository could tell an embedder whether a
@@ -266,7 +266,7 @@ jobs:
       uses: actions/checkout@v7
 
     - name: Test Jint.Tests.Browser with both client suites
-      run: dotnet test --project Jint.Tests.Browser/Jint.Tests.Browser.csproj --configuration Release --no-progress
+      run: dotnet test --project Jint.Tests.Browser/Jint.Tests.Browser.csproj --configuration Release --no-progress --report-github --report-github-summary-include-passed false --report-github-summary-include-skipped false
 
     # The gate is only a gate if it is switched: a suite that ignored the variable and ran everywhere would
     # make the leg above pointless, and one that ignored it and ran nowhere would make this leg a lie. So the
@@ -281,7 +281,8 @@ jobs:
         env -u JINT_BROWSER_CLIENTS dotnet test --project Jint.Tests.Browser/Jint.Tests.Browser.csproj \
           --configuration Release --framework net10.0 \
           --filter "FullyQualifiedName~PlaywrightCourseTests" \
-          --no-progress --no-ansi | tee gate.log
+          --no-progress --no-ansi --report-github \
+          --report-github-summary-include-passed false --report-github-summary-include-skipped false | tee gate.log
         total=$(sed -n 's/^ *total: *\([0-9][0-9]*\).*$/\1/p' gate.log | tail -1)
         skipped=$(sed -n 's/^ *skipped: *\([0-9][0-9]*\).*$/\1/p' gate.log | tail -1)
         echo "the filter selected ${total:-no} cases and skipped ${skipped:-none} of them"

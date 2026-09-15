@@ -52,6 +52,11 @@ Use `--output Detailed` for diagnostics, `--list-tests` for discovery and
 limits a whole test module, not each test: use it for bounded unit-test runs and
 split larger runs by fixture or namespace rather than weakening a test's own budget.
 
+`GitHubActionsTestLogger` supplies MTP's `--report-github` reporter for CI annotations
+and job summaries. Keep its package references non-private so MTP can register it.
+CI passes `--report-github-summary-include-passed false` and
+`--report-github-summary-include-skipped false` to keep summaries focused on failures.
+
 Modules run concurrently by default; `--max-parallel-test-modules <count>` limits that
 outer concurrency without changing NUnit's CPU-based worker limit inside each module.
 Run the full Test262 suite separately from other large suites or lower the outer
