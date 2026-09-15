@@ -27,7 +27,6 @@
     <PackageVersion Include="BenchmarkDotNet.TestAdapter" Version="0.15.8" />
     <PackageVersion Include="AwesomeAssertions" Version="9.6.0" />
     <PackageVersion Include="Flurl.Http.Signed" Version="4.0.2" />
-    <PackageVersion Include="GitHubActionsTestLogger" Version="3.0.5" />
     <PackageVersion Include="ICU4N" Version="60.1.0-alpha.440" />
     <PackageVersion Include="Meziantou.Analyzer" Version="3.0.253" />
     <PackageVersion Include="Microsoft.ClearScript.V8" Version="7.5.1.1" />
@@ -45,7 +44,6 @@
          brings. -->
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.10.0" />
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.0" />
     <!--
       The second automation client, and the version tools/devtools-protocol/handshakes/playwright-dotnet.json
       was recorded with, so what it sends in Jint.Tests.Browser is what that file says it sends. The package

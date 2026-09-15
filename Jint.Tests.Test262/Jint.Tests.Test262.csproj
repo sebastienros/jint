@@ -5,6 +5,8 @@
     <AssemblyOriginatorKeyFile>..\Jint\Jint.snk</AssemblyOriginatorKeyFile>
     <SignAssembly>true</SignAssembly>
     <IsPackable>false</IsPackable>
+    <OutputType>Exe</OutputType>
+    <EnableNUnitRunner>true</EnableNUnitRunner>
     <NoWarn>$(NoWarn);CS8002</NoWarn>
     <GeneratedTestSuiteDir>Generated</GeneratedTestSuiteDir>
     <ICU4NSuppressNuGetBuildTasksPackVersionWarnings>true</ICU4NSuppressNuGetBuildTasksPackVersionWarnings>
@@ -18,9 +20,7 @@
 
   <ItemGroup>
     <PackageReference Include="Acornima.Extras" />
-    <PackageReference Include="GitHubActionsTestLogger" />
     <PackageReference Include="ICU4N" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="NodaTime" />
     <PackageReference Include="NUnit" />

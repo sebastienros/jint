@@ -6,6 +6,10 @@
     <AssemblyOriginatorKeyFile>..\Jint\Jint.snk</AssemblyOriginatorKeyFile>
     <SignAssembly>true</SignAssembly>
     <IsPackable>false</IsPackable>
+    <OutputType>Exe</OutputType>
+    <EnableNUnitRunner>true</EnableNUnitRunner>
+    <!-- Match VSTest's x64 host and its 4 MB stack reserve for recursive scripts. -->
+    <PlatformTarget Condition="'$(TargetFramework)' == 'net472'">x64</PlatformTarget>
     <NoWarn>$(NoWarn);612</NoWarn>
   </PropertyGroup>
 
@@ -61,9 +65,7 @@
     <PackageReference Include="Acornima.Extras" />
     <PackageReference Include="AwesomeAssertions" />
     <PackageReference Include="Flurl.Http.Signed" />
-    <PackageReference Include="GitHubActionsTestLogger" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="MongoDB.Bson.signed" />
     <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="System.Text.Json" Condition="'$(TargetFramework)' == 'net472'" />
@@ -75,6 +77,10 @@
     <Using Include="AwesomeAssertions" />
     <Using Include="AwesomeAssertions.FluentActions" Static="true" />
     <Using Include="NUnit.Framework" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net472'">
+    <Reference Include="Microsoft.CSharp" />
   </ItemGroup>
 
 </Project>

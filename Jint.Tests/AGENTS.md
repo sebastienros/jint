@@ -10,7 +10,7 @@
 > repeated there. The web-platform-tests corpus that lives under `Wpt/` has its own file,
 > [`Jint.Tests/Wpt/AGENTS.md`](Wpt/AGENTS.md).
 
-## The NUnit contract is assembly-level, and it belongs to four assemblies
+## The NUnit contract is assembly-level and shared between test assemblies
 
 `TestFrameworkConventions.cs` holds two assembly attributes and nothing else, and both exist to make an
 NUnit run mean what the xUnit run before it meant:
@@ -23,15 +23,47 @@ NUnit run mean what the xUnit run before it meant:
   object across every test of the class.
 - **`[assembly: Parallelizable(ParallelScope.Fixtures)]`.** Fixtures run in parallel, the tests inside one
   run sequentially. It is deliberately not `ParallelScope.All`: several fixtures hold state across their own
-  tests, and xUnit never ran those concurrently. The classes that must not run beside anything at all carry
+  tests, and xUnit never ran those concurrently. Audited independent fixtures such as `EngineTests` opt into
+  `ParallelScope.All` individually; their engines remain isolated by `InstancePerTestCase`.
+  The classes that must not run beside anything at all carry
   `[NonParallelizable]`, which NUnit runs in a single-worker shift — that shift is what gives them no
   parallel fixture *and* no other non-parallel fixture in flight, and it is what the garbage-collection
   fixtures depend on.
 
-That file is `<Compile Include>`-linked into **`Jint.Tests.Browser`, `Jint.Tests.DevTools` and
-`Jint.Tests.PublicInterface`** as well, so it is one contract for four assemblies and editing it edits all
-four. Widening it is not a local decision, and the failure it buys is not local either: a fixture that
+That file is `<Compile Include>`-linked into **`Jint.Tests.Browser`, `Jint.Tests.DevTools`,
+`Jint.Tests.PublicInterface`, `Jint.Tests.SourceGenerators` and `tools/browser-comparison.Tests`**
+as well, so it is one contract for six assemblies and editing it edits all six.
+Widening it is not a local decision, and the failure it buys is not local either: a fixture that
 starts sharing an engine fails somewhere else, intermittently, in a test nobody touched.
+
+## Local Microsoft Testing Platform runs
+
+All NUnit test projects use MTP v2 through `NUnit3TestAdapter`, with `EnableNUnitRunner`
+and `OutputType=Exe`. The .NET 10 SDK selects the native MTP runner via `global.json`.
+`dotnet test --project <project> -c Release --filter "FullyQualifiedName~<fixture>"`
+builds and runs a filtered suite;
+`dotnet run --project <project> -c Release -f <framework> -- --timeout 30s`
+runs its executable directly.
+
+Runner switches go directly after `dotnet test`, without VSTest's `--` separator.
+Use `--output Detailed` for diagnostics, `--list-tests` for discovery and
+`--settings local.runsettings` for NUnit settings such as `NumberOfTestWorkers`. VSTest's
+`--logger` and `--blame-hang-timeout` switches do not apply. MTP's `--timeout 30s`
+limits a whole test module, not each test: use it for bounded unit-test runs and
+split larger runs by fixture or namespace rather than weakening a test's own budget.
+
+Modules run concurrently by default; `--max-parallel-test-modules <count>` limits that
+outer concurrency without changing NUnit's CPU-based worker limit inside each module.
+Run the full Test262 suite separately from other large suites or lower the outer
+module limit to avoid CPU oversubscription and wall-clock timeouts.
+`Jint.Tests.Browser` deliberately retains `TestTfmsInParallel=false`: MTP runs its
+frameworks sequentially while other project groups remain parallel. Keep fixture-level
+isolation in the shared convention and existing `NonParallelizable` attributes;
+CommonScripts and generated Test262 cases already opt into finer-grained parallelism.
+
+The Windows `net472` executables target x64, matching the previous VSTest host's
+4 MB stack reserve. An AnyCPU executable reserves only 1 MB even when it runs as x64,
+which makes recursive scripts fail earlier. No engine recursion limit is relaxed.
 
 ## A wall-clock number is either the assertion or a wedge ceiling — never both
 

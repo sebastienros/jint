@@ -4,6 +4,10 @@
     <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
     <TargetFrameworks Condition="'$(OS)' == 'Windows_NT'">$(TargetFrameworks);net472</TargetFrameworks>
     <IsPackable>false</IsPackable>
+    <OutputType>Exe</OutputType>
+    <EnableNUnitRunner>true</EnableNUnitRunner>
+    <!-- Match VSTest's x64 host and its 4 MB stack reserve for recursive scripts. -->
+    <PlatformTarget Condition="'$(TargetFramework)' == 'net472'">x64</PlatformTarget>
     <NoWarn>$(NoWarn);612</NoWarn>
     <!-- Still needed on the net472 leg, and not for Jint itself: Microsoft.Extensions.TimeProvider.Testing
          ships a targets file that warns it does not support anything below net8.0. -->
@@ -27,8 +31,6 @@
     <PackageReference Include="Acornima.Extras" />
     <PackageReference Include="AwesomeAssertions" />
     <PackageReference Include="Flurl.Http.Signed" />
-    <PackageReference Include="GitHubActionsTestLogger" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="MongoDB.Bson.signed" />
     <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="NodaTime" />
@@ -140,6 +142,7 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net472'">
+    <Reference Include="Microsoft.CSharp" />
     <PackageReference Include="System.Text.Json" />
   </ItemGroup>
 

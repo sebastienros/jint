@@ -12,6 +12,7 @@ using Jint.Tests.Runtime.Debugger;
 
 namespace Jint.Tests.Runtime;
 
+[Parallelizable(ParallelScope.All)]
 public partial class EngineTests : IDisposable
 {
     private readonly Engine _engine;

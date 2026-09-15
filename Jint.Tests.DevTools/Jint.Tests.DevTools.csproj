@@ -12,6 +12,8 @@
     <SignAssembly>true</SignAssembly>
 
     <IsPackable>false</IsPackable>
+    <OutputType>Exe</OutputType>
+    <EnableNUnitRunner>true</EnableNUnitRunner>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
@@ -46,8 +48,6 @@
       connects, lists the target, opens a session and gets 42 back"; no in-process test can make that claim.
     -->
     <PackageReference Include="PuppeteerSharp" />
-    <PackageReference Include="GitHubActionsTestLogger" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="NUnit" />
     <PackageReference Include="NUnit3TestAdapter" />
   </ItemGroup>
