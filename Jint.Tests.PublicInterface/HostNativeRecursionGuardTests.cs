@@ -185,28 +185,53 @@ public class HostNativeRecursionGuardTests
     }
 
     /// <summary>
-    /// The same operations over a chain of <em>proxies</em> with no traps at all. A proxy runs its own
-    /// algorithm rather than the ordinary one, so it cannot be walked: each hop forwards to its target and
-    /// really is a native frame. That chain is bounded the way every other forwarding hop in the engine is —
-    /// by a probe at the hand-over, which turns the overflow into a catchable <c>RangeError</c>.
+    /// The same operations over a chain of <em>proxies</em>. A proxy runs its own algorithm rather than the
+    /// ordinary one, so it cannot be walked: each hop is a native frame, and the chain is bounded the way
+    /// every other forwarding hop in the engine is — by a probe, which turns the overflow into a catchable
+    /// <c>RangeError</c>.
+    /// <para>
+    /// Both handlers are here because only one of them was ever broken, and the pair is what says so. A
+    /// <b>trapless</b> proxy forwards the whole algorithm itself (<c>return target.Get(property, receiver)</c>)
+    /// with nothing in between, and that is the shape that ended the host process. A <b>trapped</b> one
+    /// reaches its trap through <c>ICallable.Call</c>, where the callee probes for itself, so it already
+    /// raised this <c>RangeError</c> before any of this — which is precisely why the fix probes the forward
+    /// and not the entry of each operation. Trapped proxies are the shape real code ships (every reactivity
+    /// library puts a <c>get</c> trap on every object it proxies), so a probe at the entry would be a third
+    /// probe on the common path buying nothing.
+    /// </para>
     /// </summary>
-    public static TestCases<string, string> DeepProxyChains => new()
+    public static TestCases<string, string, string> DeepProxyChains => new()
     {
-        { "proxy read", "outcome = String(x.missing);" },
-        { "proxy write", "x.missing = 1; outcome = 'written';" },
-        { "proxy has", "outcome = String('missing' in x);" },
+        { "trapless read", TraplessHandler, "outcome = String(x.missing);" },
+        { "trapless write", TraplessHandler, "x.missing = 1; outcome = 'written';" },
+        { "trapless has", TraplessHandler, "outcome = String('missing' in x);" },
+        { "trapped read", ForwardingHandler, "outcome = String(x.missing);" },
+        { "trapped write", ForwardingHandler, "x.missing = 1; outcome = 'written';" },
+        { "trapped has", ForwardingHandler, "outcome = String('missing' in x);" },
     };
 
+    private const string TraplessHandler = "{}";
+
+    private const string ForwardingHandler = """
+        {
+          get: function (target, key) { return target[key]; },
+          set: function (target, key, value) { target[key] = value; return true; },
+          has: function (target, key) { return key in target; }
+        }
+        """;
+
     [TestCaseSource(nameof(DeepProxyChains))]
-    public void ADeepProxyChainRaisesACatchableErrorAndTheEngineRecovers(string route, string operation)
+    public void ADeepProxyChainRaisesACatchableErrorAndTheEngineRecovers(string route, string handler, string operation)
     {
-        _ = route;
         DedicatedThread.Run(() =>
         {
             using var engine = new Engine();
             var outcome = engine.Evaluate("""
+                var handler =
+                """ + handler + """
+                ;
                 var x = {};
-                for (var i = 0; i < 10000; i++) { x = new Proxy(x, {}); }
+                for (var i = 0; i < 10000; i++) { x = new Proxy(x, handler); }
                 var outcome;
                 try {
                 """ + operation + """
@@ -216,8 +241,9 @@ public class HostNativeRecursionGuardTests
 #if NETFRAMEWORK
             // Same carve-out as the trapless proxy *call* above, and for the same reason: the .NET Framework
             // JIT turns `return target.Get(property, receiver)` into a tail call, so this one route can
-            // consume no stack and legitimately answer the read. Modern runtimes keep the forwarding frames.
-            if (route == "proxy read")
+            // consume no stack and legitimately answer the read. Modern runtimes keep the forwarding frames,
+            // and a trap in the way is a real call on every target framework.
+            if (route == "trapless read")
             {
                 outcome.Should().BeOneOf("undefined", "RangeError:Maximum call stack size exceeded");
             }
@@ -226,6 +252,7 @@ public class HostNativeRecursionGuardTests
                 outcome.Should().Be("RangeError:Maximum call stack size exceeded");
             }
 #else
+            _ = route;
             outcome.Should().Be("RangeError:Maximum call stack size exceeded");
 #endif
 
