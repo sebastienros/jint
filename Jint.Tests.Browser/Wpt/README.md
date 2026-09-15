@@ -26,7 +26,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | Suite | Documents | Synthesized | Tests | Not passing |
 | --- | --- | --- | --- | --- |
 | `dom/events/` | 56 | 9 | 548 | 10 |
-| `dom/nodes/` | 168 | 0 | 8,115 | 678 |
+| `dom/nodes/` | 168 | 0 | 8,115 | 636 |
 | `dom/collections/` | 8 | 0 | 43 | 0 |
 | `dom/lists/` | 5 | 0 | 189 | 1 |
 | `dom/traversal/` | 13 | 0 | 52 | 0 |
@@ -42,7 +42,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 52 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 0 |
-| **total** | **392** | **9** | **66,916** | **808** |
+| **total** | **392** | **9** | **66,916** | **766** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -355,7 +355,7 @@ has the upstream half of each, and `Dom/AGENTS.md` says which override list carr
 
 `dom/nodes/`, `dom/collections/`, `dom/lists/`, `dom/traversal/`, `dom/ranges/` and `html/dom/` are the DOM
 standard's own suites and HTML's DOM half — the corpus every other suite in this lane is written on top of.
-Across the six of them there are 226 documents and 65,228 tests, and **699 of those tests do not pass**.
+Across the six of them there are 226 documents and 65,228 tests, and **657 of those tests do not pass**.
 Those three figures are live and checked against the census. They arrived together as 207 documents and
 5,247 tests with 1,532 not passing; those arrival figures are historical and deliberately not re-derived.
 
@@ -373,8 +373,8 @@ table needs to be regenerated.
 | 299 | 9 | [#3771](https://github.com/sebastienros/jint/issues/3771) **Remaining frame environments and XML document differences.** Sourced frames have their own realms and run classic scripts. Empty iframes still lack a native document, affecting `node-realm-*`, `node-creation-realm` and connectivity cases; the group also includes XML/XHTML creation differences and the missing `TextEvent` interface. <!-- cause: a frame that runs script --> |
 | 137 | 1 | **Members of DOM interfaces are absent.** The rows cover `ProcessingInstruction` attributes, `ChildNode` unscopables and event aliases that have no constructor. <!-- cause: a member of a DOM interface the bindings do not have --> |
 | 80 | 5 | [#3774](https://github.com/sebastienros/jint/issues/3774) **A name AngleSharp refuses that the standard allows, plus required refusals it does not make.** The rows cover element creation, namespace validation and document insertion. <!-- cause: a name AngleSharp refuses that the standard allows --> |
-| 74 | 3 | **The Selectors-API table and selector-only element states.** The three newly vendored documents cover selector-error contracts, no-namespace selectors and `::slotted`; all 74 rows are `NeedsTriage`. <!-- cause: the Selectors-API table and selector-only element states --> |
 | 48 | 2 | [#3772](https://github.com/sebastienros/jint/issues/3772) **DOM's current name-validation rules differ from the XML productions.** `createDocumentType` contributes 45 rows and `name-validation.html` three. <!-- cause: DOM's validate-and-extract, and the XML name productions --> |
+| 32 | 1 | **The Selectors-API table and selector-only element states.** The selector-error contracts are `DomSelectorText`'s now, so what is left is `ParentNode-querySelector-All.html`'s two matching differences — the empty namespace prefix and `::slotted` — and every row is `NeedsTriage`. <!-- cause: the Selectors-API table and selector-only element states --> |
 | 30 | 8 | **One assertion each or one small family per document.** These cover conversion order, import/clone identity, attribute selection and ordering, element-name identity, node equality and `accessKeyLabel`; each pattern is kept separate where neighboring rows pass. <!-- cause: one assertion each --> |
 | 16 | 1 | **AngleSharp.Css refuses an unparseable media query, from inside `Element.setAttribute`.** `<style>` registers an attribute observer that assigns the sheet's `MediaList.mediaText`, whose setter throws where Media Queries §2.1 requires `not all`; the sixteen rows are the values it cannot parse and the member's other thirty tests pass. `Dom/divergences.md` records it. <!-- cause: 8. AngleSharp.Css refuses an unparseable media query --> |
 | 7 | 2 | **The selector engine's escapes, `:scope` and `:has` differ.** `ParentNode-querySelector-escapes.html` contributes five rows and `Element-closest.html` two. <!-- cause: the selector engine: escapes, :scope and :has --> |
@@ -619,11 +619,16 @@ through `matches()`, through its prefixed alias, and through `querySelector`/`qu
 contexts (a document, an in-document element, a detached element, an empty element and a fragment). They were not vendored for
 two reasons at once: the frame body above, and the fact that a frame had no document to be
 ([#3771](https://github.com/sebastienros/jint/issues/3771)). Both are answered, and the three documents bring
-**3,313 tests, of which 3,225 pass** — and `dom/nodes/` grows from 4,802 tests to 8,115. The 88 that do
-not pass are bounded to the patterns in the exclusion table. Some are selector-error contract differences:
-an undeclared namespace and a relative selector are accepted, while an unclosed attribute selector raises
-the wrong script-visible error. The others are matching differences for no-namespace selectors and
-`::slotted`. They are `NeedsTriage`, for the reason that category
+**3,313 tests, of which 3,281 pass** — and `dom/nodes/` grows from 4,802 tests to 8,115. The 32 that do
+not pass are bounded to the patterns in the exclusion table, and all 32 are in the third document: the
+selector-error contract differences are gone. A relative selector, an undeclared namespace prefix at any
+depth and an attribute selector closed by EOF are all `DomSelectorText`'s now
+([#3946](https://github.com/sebastienros/jint/issues/3946), and `Jint.Browser/Dom/divergences.md` has a row
+for each), so `Element-matches.html` and `Element-webkitMatchesSelector.html` pass entirely. What is left is
+two *matching* differences measured against the pinned AngleSharp binary and reachable through no public
+seam — the empty namespace prefix, whose comparison is inside a public extension over an `internal sealed`
+selector nothing can replace, and `::slotted()`, whose functional form is looked up in a private frozen
+dictionary with no registration point. They are `NeedsTriage`, for the reason that category
 exists: the change that first runs a suite is not also the change that moves the engine. The older branch
 named 518 failures; current `main` fixed 390 of them before the corpus landed, and the two-sided exclusion
 check removed every stale row rather than preserving that historical result.
