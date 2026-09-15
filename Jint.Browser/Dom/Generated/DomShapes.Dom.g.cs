@@ -1777,7 +1777,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.namespaceURI", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.namespaceURI");
-                    return global::Jint.Browser.Dom.DomConvert.NullableText(self.Target.NamespaceUri);
+                    return self.Realm.Hooks.NamespaceUri(self.Realm, self.Target);
                 }))
             .Accessor("nextElementSibling",
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.nextElementSibling", static (thisObj, args) =>

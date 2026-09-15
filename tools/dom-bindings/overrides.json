@@ -1932,6 +1932,13 @@
       "reason": "DOM 4.9: the HTML-uppercased qualified name, which is uppercased only when the element is in the HTML namespace AND its node document is an HTML document. AngleSharp decides on the namespace alone, so an element adopted into an XML document went on answering DIV where DOM asks for div."
     },
     {
+      "interface": "Element",
+      "member": "namespaceURI",
+      "half": "getter",
+      "hook": "NamespaceUri",
+      "reason": "DOM 4.9: namespaceURI is this's namespace -- the one the element was CREATED with, which nothing, adoption included, ever changes. AngleSharp stores it faithfully and exposes it as GivenNamespaceUri, but IElement.NamespaceUri falls back to an ancestor walk when nothing was stored, so createElementNS(null, 'body') read as XHTML the moment it was appended to an HTML element and disagreed with the query that had just declined to find it (#3949). Dom/DomNamespaces is the one answer every namespace-sensitive member reads, and it keeps a narrowed walk over the xmlns declarations in scope because AngleSharp's XML parser records no creation namespace at all."
+    },
+    {
       "interface": "Document",
       "member": "createElement",
       "half": "operation",

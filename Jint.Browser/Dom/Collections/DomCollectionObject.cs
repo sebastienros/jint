@@ -270,12 +270,14 @@ internal sealed class DomCollectionObject : DomCollectionBase, INamedPropertySup
 
     /// <summary>
     /// DOM §4.9.1's second step: whether this map's names are restricted to their own ASCII lowercase,
-    /// which they are exactly while the owning element is in the HTML namespace in an HTML document.
+    /// which they are exactly while the owning element is in the HTML namespace in an HTML document. That is
+    /// the element's own namespace (<see cref="DomNamespaces"/>), the same one <c>setAttribute</c> and
+    /// <c>toggleAttribute</c> fold against.
     /// </summary>
     private bool LowercaseNamesOnly()
         => DomTarget is INamedNodeMap { Length: > 0 } map
            && map[0] is { OwnerElement: { } owner }
-           && string.Equals(owner.NamespaceUri, NamespaceNames.HtmlUri, StringComparison.Ordinal)
+           && string.Equals(DomNamespaces.Of(owner), NamespaceNames.HtmlUri, StringComparison.Ordinal)
            && owner.Owner is IHtmlDocument;
 
     /// <summary>Whether <paramref name="name"/> ASCII-lowercased is <paramref name="name"/>.</summary>

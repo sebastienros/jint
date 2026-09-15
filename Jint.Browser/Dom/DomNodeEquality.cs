@@ -102,13 +102,20 @@ internal static class DomNodeEquality
     /// attribute in B's attribute list".
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The set match is quadratic on purpose. An attribute list is a handful of entries — the elements with
     /// the most of them in a real page have a dozen — and an index would allocate a dictionary per element
     /// pair for a walk that already visits every node in both trees.
+    /// </para>
+    /// <para>
+    /// "A's namespace" is the namespace each element was created with (<see cref="DomNamespaces"/>), so two
+    /// elements are equal on the identity <c>namespaceURI</c> reports and not on whatever their current
+    /// parents would lend them.
+    /// </para>
     /// </remarks>
     private static bool SameElement(IElement element, IElement other)
     {
-        if (!SameName(element.NamespaceUri, element.LocalName, other.NamespaceUri, other.LocalName)
+        if (!SameName(DomNamespaces.Of(element), element.LocalName, DomNamespaces.Of(other), other.LocalName)
             || !string.Equals(Prefix(element.Prefix), Prefix(other.Prefix), StringComparison.Ordinal)
             || element.Attributes.Length != other.Attributes.Length)
         {

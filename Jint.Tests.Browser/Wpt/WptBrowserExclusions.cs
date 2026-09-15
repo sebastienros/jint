@@ -1164,17 +1164,6 @@ internal static class WptBrowserExclusions
         new("dom/nodes/processing-instruction-attributes.html", "Processing*", WptDivergence.NeedsTriage),
     ];
 
-    // ---------------------------------------------------------------- a tag query's namespace and local-name identity
-    private static readonly WptExclusion[] _aTagQuerySNamespaceAndLocalNameIdentity =
-    [
-        // https://github.com/sebastienros/jint/issues/3949 - AngleSharp 1.8.1 preserves HTML local-name
-        // case. The remaining three assertions concern a null-namespace <body> becoming an XHTML one
-        // when appended to an HTML document; a query cannot recover the lost namespace.
-        new("dom/nodes/Document-getElementsByTagNameNS.html", "Empty string namespace", WptDivergence.NeedsTriage),
-        new("dom/nodes/Element-getElementsByTagName-change-document-HTMLNess.html", "*", WptDivergence.NeedsTriage),
-        new("dom/nodes/Element-getElementsByTagNameNS.html", "Empty string namespace", WptDivergence.NeedsTriage),
-    ];
-
     // ---------------------------------------------------------------- DOM's validate-and-extract, and the XML name productions
     private static readonly WptExclusion[] _dOMSValidateAndExtractAndTheXMLNameProductions =
     [
@@ -1489,7 +1478,6 @@ internal static class WptBrowserExclusions
         new("a member of a DOM interface the bindings do not have", _aMemberOfADOMInterfaceTheBindingsDoNotHave),
         new("DOM's validate-and-extract, and the XML name productions", _dOMSValidateAndExtractAndTheXMLNameProductions),
         new("a name AngleSharp refuses that the standard allows", _aNameAngleSharpRefusesThatTheStandardAllows),
-        new("a tag query's namespace and local-name identity", _aTagQuerySNamespaceAndLocalNameIdentity),
         new("Range's own algorithms", _rangeSOwnAlgorithms),
         new("a document with no browsing context", _aDocumentWithNoBrowsingContext),
         new("the selector engine: escapes, :scope and :has", _theSelectorEngineEscapesScopeAndHas),

@@ -1,4 +1,5 @@
 using AngleSharp.Dom;
+using Jint.Browser.Dom;
 using Jint.Browser.Runtime;
 using Jint.Native;
 using Jint.Runtime;
@@ -59,7 +60,7 @@ internal sealed partial class CustomElementRegistry
             return;
         }
 
-        if (Lookup(element.Owner, element.NamespaceUri, element.LocalName, IsValueOf(element)) is { } definition)
+        if (Lookup(element.Owner, DomNamespaces.Of(element), element.LocalName, IsValueOf(element)) is { } definition)
         {
             EnqueueUpgrade(element, definition);
         }
@@ -454,7 +455,7 @@ internal sealed partial class CustomElementRegistry
     /// element name, or one carrying an <c>is</c>.
     /// </summary>
     private static bool IsPotentiallyCustom(IElement element)
-        => string.Equals(element.NamespaceUri, HtmlNamespace, StringComparison.Ordinal)
+        => string.Equals(DomNamespaces.Of(element), HtmlNamespace, StringComparison.Ordinal)
         && (CustomElementNames.IsValid(element.LocalName) || element.HasAttribute("is"));
 
     /// <summary>
@@ -474,7 +475,7 @@ internal sealed partial class CustomElementRegistry
 
     /// <summary>Whether <paramref name="element"/> would be one of <paramref name="definition"/>'s candidates.</summary>
     private bool Matches(IElement element, CustomElementDefinition definition)
-        => string.Equals(element.NamespaceUri, HtmlNamespace, StringComparison.Ordinal)
+        => string.Equals(DomNamespaces.Of(element), HtmlNamespace, StringComparison.Ordinal)
         && string.Equals(element.LocalName, definition.LocalName, StringComparison.Ordinal)
         && StateOf(element) == CustomElementState.Undefined
         && (definition.IsAutonomous || string.Equals(IsValueOf(element), definition.Name, StringComparison.Ordinal));

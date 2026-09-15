@@ -36,7 +36,7 @@ internal static class DomDocumentElements
 
         return root is not null
             && string.Equals(root.LocalName, "html", StringComparison.Ordinal)
-            && string.Equals(root.NamespaceUri, NamespaceNames.HtmlUri, StringComparison.Ordinal)
+            && string.Equals(DomNamespaces.Of(root), NamespaceNames.HtmlUri, StringComparison.Ordinal)
             ? root
             : null;
     }

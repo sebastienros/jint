@@ -66,8 +66,10 @@ internal static class DomElementMembers
         }
 
         // Step 2: an HTML element in the HTML namespace lower-cases the name, which is the same fold
-        // setAttribute makes and the reason `toggleAttribute("FOO")` and `hasAttribute("foo")` agree.
-        if (target.Owner is IHtmlDocument && string.Equals(target.NamespaceUri, NamespaceNames.HtmlUri, StringComparison.Ordinal))
+        // setAttribute makes and the reason `toggleAttribute("FOO")` and `hasAttribute("foo")` agree. The
+        // namespace is the element's own (DomNamespaces), which is what makes them go on agreeing for an
+        // element created in no namespace under an HTML parent.
+        if (target.Owner is IHtmlDocument && string.Equals(DomNamespaces.Of(target), NamespaceNames.HtmlUri, StringComparison.Ordinal))
         {
             name = UrlCharacters.AsciiLowercase(name);
         }
