@@ -45,14 +45,18 @@ use the same boxes. Documents without these rows keep the existing ordinal hit-t
 The cascade indexes required subject classes through AngleSharp's selector visitor for the current layout revision.
 Selectors without a required class stay candidates for every element; the native matcher decides the
 result and specificity, with original rule order retained. Nested rules participate in the same index.
+A bounded cache shares candidate lists for repeated class attributes within that query. Elements with no
+indexed class use the common unkeyed list directly. Attributes, ancestors and pseudo-class state are still
+matched separately for every element.
 The full computed-style path supplies the union of the element and ancestor candidates to AngleSharp
 so its native inheritance and value computation still produce the complete declaration.
 
 **One rectangle uses the same placement as a complete layout.** `SizeQuery.Place` computes ancestor
 positions and preceding sibling extents on demand; a complete layout asks it for every rendered element.
-`PageLayout.ClientBoxOf` counts enough rows to establish the same scroll clamp when the offset is
-positive, stopping once the current viewport bottom is covered. A zero offset is already clamped and
-needs no document-height walk. Partial counts never enter the exact-size cache. Placement measures
+`PageLayout.ClientBoxOf` places the requested box first. Its bottom is a lower bound on document height,
+so a box covering the current viewport bottom proves the scroll offset remains valid. Otherwise it
+counts enough rows to establish the same scroll clamp, reusing rows measured for placement. A zero
+offset is already clamped and needs no document-height walk. Partial counts never enter the exact-size cache. Placement measures
 ancestor heights only when flex alignment needs them, then requests the chosen rectangle. It does not
 position unrelated descendants. A page with fully tracked writers can retain these results until invalidation.
 
@@ -71,7 +75,11 @@ coverage and fallbacks. `CssCascade.Traversal` shares the style collection and r
 `ComputeCurrentStyle` separately for every element rematches every ancestor, which made a nested admin form
 expensive at every step of Playwright's actionability checks. Visibility and flex measurements filter the active rule collection to the properties they consume,
 including shorthand values and their custom-property dependencies. AngleSharp still owns matching, specificity,
-inheritance and value computation. Individual style queries use Css 1.1.0's native computed-style API,
+inheritance and value computation. Within the walk, equivalent literal cascades can share a result only
+after matching each element: the matched rules and their specificity, inherited parent cascade, document
+and inline style must all agree. This bounded memo never shares variable-dependent or explicit-inherit
+ancestor-walk fallback results, because those can read ancestor values the scoped cascade omitted.
+Individual style queries use Css 1.1.0's native computed-style API,
 including its cycle-safe custom-property resolution. **The traversal still needs `Dom/Views/CustomProperties`
 (#3851)**: the native computed-parent overload is internal, and calling the public entry per element would
 rematch every ancestor. The public bulk renderer instead eagerly recurses through the whole document and

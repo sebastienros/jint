@@ -1,9 +1,12 @@
+using System.Runtime.CompilerServices;
 using AngleSharp;
 using AngleSharp.Css;
 using AngleSharp.Css.Dom;
 using AngleSharp.Css.RenderTree;
 using AngleSharp.Css.Values;
 using AngleSharp.Dom;
+using AngleSharp.Html.Dom;
+using AngleSharp.Svg.Dom;
 
 namespace Jint.Browser.Dom.Views;
 
@@ -117,6 +120,9 @@ internal static class CssCascade
             : styles;
         private readonly Dictionary<IElement, Cascade> _cascaded = new();
         private readonly Stack<IElement> _pending = new();
+        private readonly List<(ICssStyleRule Rule, Priority Specificity)> _matches = new();
+        private readonly Queue<CascadeKey> _sharedOrder = new();
+        private Dictionary<CascadeKey, Cascade>? _shared;
         private Traversal? _variableTraversal;
         private Traversal? _layoutTraversal;
 
@@ -186,6 +192,32 @@ internal static class CssCascade
                     // Capture local variables before inheritance. A rule matching both parent and
                     // child shares property objects, so reference identity cannot identify inheritance.
                     var candidates = _styles is ScopedStyles scoped ? scoped.For(current) : _styles;
+                    CascadeKey? key = null;
+                    if (scope != StyleScope.All && !includeVariables && current is IHtmlElement or ISvgElement)
+                    {
+                        // https://drafts.csswg.org/css-cascade/#cascade-sorting-order
+                        // Equal classes do not imply equal matches or specificity. Match every
+                        // element, then share only literal results with identical cascade inputs.
+                        _matches.Clear();
+                        foreach (var rule in candidates)
+                        {
+                            if (rule.TryMatch(current, current.Owner?.DocumentElement, out var specificity))
+                            {
+                                _matches.Add((rule, specificity));
+                            }
+                        }
+                        key = new CascadeKey(parent, current.Owner, current.GetAttribute("style"), _matches);
+                        _shared ??= new(CascadeKeyComparer.Instance);
+                        if (_shared.TryGetValue(key.Value, out var shared))
+                        {
+                            parent = shared;
+                            _cascaded.Add(current, parent);
+                            continue;
+                        }
+                        // Native sorting, !important handling and inline merging still own the
+                        // cascade. Replay the matches on a miss without running selectors twice.
+                        candidates = new MatchedStyles(_styles.Device, _matches);
+                    }
                     var cascade = candidates.ComputeExplicitStyle(current);
                     if (scope != StyleScope.All && !includeVariables)
                     {
@@ -210,6 +242,7 @@ internal static class CssCascade
                     if (current.ParentElement is not null
                         && cascade.Any(static property => property.IsInherited && !property.CanBeInherited))
                     {
+                        key = null;
                         cascade = _styles.GetDeclarations(current);
                         if (scope != StyleScope.All)
                         {
@@ -220,12 +253,27 @@ internal static class CssCascade
                     // Literal values need no custom-property graph. A pending shorthand longhand
                     // exposes an empty value through the public API; its internal child value may
                     // reference variables too, so resolve that case with the complete environment.
-                    var computed = scope != StyleScope.All && !includeVariables && cascade.Any(static property => property.RawValue is CssReferenceValue
-                        || property.RawValue is not null && property.Value.Length == 0)
+                    var needsVariables = scope != StyleScope.All && !includeVariables && cascade.Any(static property => property.RawValue is CssReferenceValue
+                        || property.RawValue is not null && property.Value.Length == 0);
+                    var computed = needsVariables
                         ? (_variableTraversal ??= new Traversal(styles, scope, includeVariables: true)).Of(current)
                         : Compute(current, cascade, variables, parent?.Computed);
                     parent = new Cascade(cascade, variables, computed);
                     _cascaded.Add(current, parent);
+                    // Variable and explicit-inherit fallbacks can consult ancestors whose values
+                    // this scope omitted. Their results must stay element-specific. Bound retention
+                    // independently of the document size; no entry survives this synchronous query.
+                    if (key is { } literal && !needsVariables && computed is not null)
+                    {
+                        if (_shared!.Count == 128)
+                        {
+                            // Keep serving later subtrees even when earlier elements filled the memo.
+                            _shared.Remove(_sharedOrder.Dequeue());
+                        }
+                        var retained = literal with { Matches = new(_matches) };
+                        _shared.Add(retained, parent);
+                        _sharedOrder.Enqueue(retained);
+                    }
                 }
 
                 return _cascaded[element].Computed;
@@ -304,6 +352,60 @@ internal static class CssCascade
 
         private sealed record Cascade(ICssStyleDeclaration Raw, CustomProperties Variables, ICssStyleDeclaration? Computed);
 
+        private readonly record struct CascadeKey(Cascade? Parent, IDocument? Document, string? InlineStyle,
+            List<(ICssStyleRule Rule, Priority Specificity)> Matches);
+
+        private sealed class CascadeKeyComparer : IEqualityComparer<CascadeKey>
+        {
+            internal static readonly CascadeKeyComparer Instance = new();
+
+            public bool Equals(CascadeKey x, CascadeKey y)
+            {
+                if (!ReferenceEquals(x.Parent, y.Parent) || !ReferenceEquals(x.Document, y.Document)
+                    || x.InlineStyle != y.InlineStyle || x.Matches.Count != y.Matches.Count)
+                {
+                    return false;
+                }
+                for (var i = 0; i < x.Matches.Count; i++)
+                {
+                    if (!ReferenceEquals(x.Matches[i].Rule, y.Matches[i].Rule)
+                        || x.Matches[i].Specificity != y.Matches[i].Specificity)
+                    {
+                        return false;
+                    }
+                }
+                return true;
+            }
+
+            public int GetHashCode(CascadeKey key)
+            {
+                var hash = new HashCode();
+                hash.Add(key.Parent is null ? 0 : RuntimeHelpers.GetHashCode(key.Parent));
+                hash.Add(key.Document is null ? 0 : RuntimeHelpers.GetHashCode(key.Document));
+                hash.Add(key.InlineStyle, StringComparer.Ordinal);
+                foreach (var match in key.Matches)
+                {
+                    hash.Add(RuntimeHelpers.GetHashCode(match.Rule));
+                    hash.Add(match.Specificity);
+                }
+                return hash.ToHashCode();
+            }
+        }
+
+        private sealed class MatchedStyles(IRenderDevice device,
+            List<(ICssStyleRule Rule, Priority Specificity)> matches) : IStyleCollection
+        {
+            public IRenderDevice Device => device;
+            public IEnumerator<ICssStyleRule> GetEnumerator()
+            {
+                foreach (var match in matches)
+                {
+                    yield return new ScopedRule(match.Rule, null, match.Specificity);
+                }
+            }
+            System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+        }
+
         private static void RetainScope(ICssStyleDeclaration declarations, StyleScope scope)
         {
             for (var index = declarations.Length - 1; index >= 0; index--)
@@ -329,6 +431,8 @@ internal static class CssCascade
             private readonly ICssStyleRule[] _rules;
             private readonly List<(int Order, ICssStyleRule Rule)> _unkeyed = new();
             private readonly Dictionary<string, List<(int Order, ICssStyleRule Rule)>> _classes = new(StringComparer.Ordinal);
+            private readonly Dictionary<string, Candidates> _candidates = new(StringComparer.Ordinal);
+            private readonly Candidates _unkeyedCandidates;
 
             internal ScopedStyles(IStyleCollection styles, StyleScope scope, bool includeVariables)
             {
@@ -362,6 +466,7 @@ internal static class CssCascade
                     }
                 });
                 _rules = rules.ToArray();
+                _unkeyedCandidates = new Candidates(Device, _unkeyed);
             }
 
             private static bool HasIncludedProperty(ICssStyleDeclaration style, Func<string, bool> includes)
@@ -380,16 +485,41 @@ internal static class CssCascade
             // candidate, including specificity, combinators, pseudo-classes and nested selectors.
             internal Candidates For(IElement element)
             {
-                var candidates = new List<(int Order, ICssStyleRule Rule)>(_unkeyed);
+                // The required-class index depends only on the class attribute. Reuse its ordered
+                // candidate list within this traversal, but let native matching inspect each element's
+                // attributes, ancestors and pseudo-class state separately.
+                var classes = element.GetAttribute("class") ?? "";
+                if (classes.Length == 0)
+                {
+                    return _unkeyedCandidates;
+                }
+                if (_candidates.TryGetValue(classes, out var cached))
+                {
+                    return cached;
+                }
+
+                List<(int Order, ICssStyleRule Rule)>? candidates = null;
                 foreach (var name in element.ClassList)
                 {
                     if (_classes.TryGetValue(name, out var bucket))
                     {
+                        candidates ??= new(_unkeyed);
                         candidates.AddRange(bucket);
                     }
                 }
+                if (candidates is null)
+                {
+                    return _unkeyedCandidates;
+                }
                 candidates.Sort(static (left, right) => left.Order.CompareTo(right.Order));
-                return new Candidates(Device, candidates);
+                var result = new Candidates(Device, candidates);
+                // A document may give every element a different class string. Bound retained lists
+                // independently of its node count; uncached combinations still use the same matcher.
+                if (_candidates.Count < 128)
+                {
+                    _candidates.Add(classes, result);
+                }
+                return result;
             }
 
             public IRenderDevice Device { get; }
@@ -463,7 +593,7 @@ internal static class CssCascade
     // The native merge enumerates Rule.Style. Filtering only the rule list still makes it copy every
     // paint declaration in a mixed rule for every element, then remove those declarations afterwards.
     // Keep the original property objects: serializing/reparsing would lose pending shorthand values.
-    private sealed class ScopedRule(ICssStyleRule source, Func<string, bool>? includes) : ICssStyleRule
+    private sealed class ScopedRule(ICssStyleRule source, Func<string, bool>? includes, Priority? matchedSpecificity = null) : ICssStyleRule
     {
         public ICssStyleDeclaration Style { get; } = includes is null ? source.Style
             : new ScopedDeclaration(source.Style, source.Style.Where(property => includes(property.Name)).ToArray());
@@ -475,7 +605,14 @@ internal static class CssCascade
         public ICssRule Parent => source.Parent;
         public ICssStyleSheet Owner => source.Owner;
         public bool TryMatch(IElement element, IElement? scope, out Priority specificity)
-            => source.TryMatch(element, scope, out specificity);
+        {
+            if (matchedSpecificity is { } matched)
+            {
+                specificity = matched;
+                return true;
+            }
+            return source.TryMatch(element, scope, out specificity);
+        }
         public void SetParent(ICssRule rule) => throw new NotSupportedException();
         public void SetOwner(ICssStyleSheet sheet) => throw new NotSupportedException();
         public void ToCss(TextWriter writer, IStyleFormatter formatter) => source.ToCss(writer, formatter);
