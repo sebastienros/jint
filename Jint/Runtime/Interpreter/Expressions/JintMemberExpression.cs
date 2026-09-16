@@ -355,9 +355,19 @@ internal sealed class JintMemberExpression : JintExpression
                     // The object-side expression itself suspended (e.g. it's a call
                     // expression with an awaiting argument). Do NOT save suspend data:
                     // on resume we re-evaluate _objectExpression so it produces the
-                    // real result via its own resume mechanism. Returning a sentinel
-                    // Reference here matches previous behavior; the caller's IsSuspended
-                    // check bails before use.
+                    // real result via its own resume mechanism.
+                    //
+                    // What comes back is a sentinel Reference(undefined, undefined), and it is only ever a
+                    // placeholder for the shape of the answer: every caller owes an IsSuspended() check
+                    // before it reads one. That used to be asserted here as though it held; it did not, and
+                    // completing the read through Reference(undefined, undefined) raised a TypeError inside
+                    // a frame that was already suspended, which then wiped the statement-list resume
+                    // position on its way out and replayed the whole body (sebastienros/jint#4086). The
+                    // checks are in JintMemberExpression.GetValue (both lanes) and GetCalleeForCall,
+                    // JintCallExpression (callee and argument list), JintUnaryExpression (typeof, delete),
+                    // JintUpdateExpression, JintAssignmentExpression (both forms),
+                    // DestructuringPatternAssignmentExpression and JintTaggedTemplateExpression - a new
+                    // consumer of an evaluated member reference owes one too.
                     return context.Engine._referencePool.Rent(JsValue.Undefined, JsValue.Undefined, strict, thisValue: null);
                 }
                 if (ReferenceEquals(ShortCircuited, baseReference))
@@ -633,6 +643,22 @@ internal sealed class JintMemberExpression : JintExpression
         }
 
         var result = Evaluate(context);
+
+        // Before the `is not Reference` test rather than after it, because a suspended pass can hand back
+        // either kind and neither may be used. A suspension on the object side produces the sentinel
+        // Reference(undefined, undefined), and completing that read is what raised a TypeError inside an
+        // already-suspended frame (sebastienros/jint#4086); one on the property side produces
+        // Reference(base, undefined), whose completion is an observable `base[undefined]` probe that a
+        // Proxy or a getter sees. Testing first also keeps a non-Reference signal from escaping as a value.
+        // Returns Undefined exactly as the guarded fast lane above does; the caller discards it after its
+        // own IsSuspended() check.
+        if (context.IsSuspended())
+        {
+            // Resume re-evaluates this node and rents its own reference, so this one is done with.
+            engine._referencePool.Return(result as Reference);
+            return JsValue.Undefined;
+        }
+
         if (result is not Reference reference)
         {
             // see JintExpression.GetValue: not a Reference means the protocol guarantees a JsValue

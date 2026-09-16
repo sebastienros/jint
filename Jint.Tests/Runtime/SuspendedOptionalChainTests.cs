@@ -246,11 +246,64 @@ public class SuspendedOptionalChainTests
             .Should().Be("9|pre,post");
     }
 
+    /// <summary>
+    /// Every array-pattern branch of <c>ProcessPatterns</c> already checked for suspension after resolving
+    /// a member target; the two object-pattern branches did not.
+    /// </summary>
     [Test]
     public void AnObjectPatternTargetingAMemberOfAnAwaitedValueRunsItsSideEffectsOnce()
     {
         AsyncProbe("var o = {}; var p = Promise.resolve(o);", "({ q: (await p).a } = { q: 5 });", "JSON.stringify(o)")
             .Should().Be("{\"a\":5}|pre,post");
+    }
+
+    [Test]
+    public void AnObjectRestTargetingAMemberOfAnAwaitedValueRunsItsSideEffectsOnce()
+    {
+        AsyncProbe("var o = {}; var p = Promise.resolve(o);", "({ ...(await p).a } = { q: 5 });", "JSON.stringify(o)")
+            .Should().Be("{\"a\":{\"q\":5}}|pre,post");
+    }
+
+    /// <summary>
+    /// The array-pattern twins of the two above, which carried the check already. Controls.
+    /// </summary>
+    [Test]
+    public void AnArrayPatternTargetingAMemberOfAnAwaitedValueIsAControl()
+    {
+        AsyncProbe("var o = {}; var p = Promise.resolve(o);", "[(await p).a] = [5];", "JSON.stringify(o)")
+            .Should().Be("{\"a\":5}|pre,post");
+    }
+
+    [Test]
+    public void AnArrayRestTargetingAMemberOfAnAwaitedValueIsAControl()
+    {
+        AsyncProbe("var o = {}; var p = Promise.resolve(o);", "[...(await p).a] = [1, 2];", "JSON.stringify(o)")
+            .Should().Be("{\"a\":[1,2]}|pre,post");
+    }
+
+    /// <summary>
+    /// The for-in/for-of head resolves its non-destructuring target through the same
+    /// <c>Evaluate</c>-then-write shape, in <c>JintForInForOfStatement</c> rather than in an expression.
+    /// </summary>
+    [Test]
+    public void AForOfHeadTargetingAMemberOfAnAwaitedValueRunsItsSideEffectsOnce()
+    {
+        AsyncProbe("var o = {}; var p = Promise.resolve(o);", "for ((await p).a of [7]) { }", "JSON.stringify(o)")
+            .Should().Be("{\"a\":7}|pre,post");
+    }
+
+    [Test]
+    public void AForInHeadTargetingAMemberOfAnAwaitedValueRunsItsSideEffectsOnce()
+    {
+        AsyncProbe("var o = {}; var p = Promise.resolve(o);", "for ((await p).a in { z: 1 }) { }", "JSON.stringify(o)")
+            .Should().Be("{\"a\":\"z\"}|pre,post");
+    }
+
+    [Test]
+    public void AForAwaitOfHeadTargetingAMemberOfAnAwaitedValueRunsItsSideEffectsOnce()
+    {
+        AsyncProbe("var o = {}; var p = Promise.resolve(o);", "for await ((await p).a of [7]) { }", "JSON.stringify(o)")
+            .Should().Be("{\"a\":7}|pre,post");
     }
 
     // ------------------------------------------------------------------ the generator twin
@@ -306,6 +359,20 @@ public class SuspendedOptionalChainTests
     public void AnAssignmentToAMemberOfAYieldedValueCompletes()
     {
         GeneratorProbe("var o = { x: 1 };", "(yield 1).x = 9;", "o.x", "o").Should().Be("9|pre,post");
+    }
+
+    [Test]
+    public void AnObjectPatternTargetingAMemberOfAYieldedValueCompletes()
+    {
+        GeneratorProbe("var o = {};", "({ q: (yield 1).a } = { q: 5 });", "JSON.stringify(o)", "o")
+            .Should().Be("{\"a\":5}|pre,post");
+    }
+
+    [Test]
+    public void AForOfHeadTargetingAMemberOfAYieldedValueCompletes()
+    {
+        GeneratorProbe("var o = {};", "for ((yield 1).a of [7]) { }", "JSON.stringify(o)", "o")
+            .Should().Be("{\"a\":7}|pre,post");
     }
 
     /// <summary>
