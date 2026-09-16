@@ -63,7 +63,7 @@ jobs:
       uses: actions/cache@v6
       with:
         path: Jint.Tests.Test262/Generated
-        key: test262-generated-${{ hashFiles('Jint.Tests.Test262/Test262Harness.settings.json') }}
+        key: test262-generated-${{ hashFiles('Jint.Tests.Test262/Test262Harness.settings.json', 'Jint.Tests.Test262/.config/dotnet-tools.json') }}
 
     - name: Test
       run: dotnet test --configuration Release --logger "console;verbosity=quiet" --logger "GitHubActions;summary-include-passed=false;summary-include-skipped=false"

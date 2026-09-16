@@ -72,7 +72,7 @@
     <PackageVersion Include="Spectre.Console.Cli" Version="0.55.0" />
     <PackageVersion Include="System.Reflection.MetadataLoadContext" Version="10.0.12" />
     <PackageVersion Include="System.Text.Json" Version="10.0.12" />
-    <PackageVersion Include="Test262Harness" Version="1.1.2" />
+    <PackageVersion Include="Test262Harness" Version="1.2.1" />
     <PackageVersion Include="YantraJS.Core" Version="1.2.476" />
     <PackageVersion Include="Zio" Version="0.24.0" />
   </ItemGroup>

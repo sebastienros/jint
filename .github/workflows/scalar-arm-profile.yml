@@ -37,7 +37,7 @@ jobs:
       - uses: actions/cache@v6
         with:
           path: Jint.Tests.Test262/Generated
-          key: test262-generated-${{ hashFiles('Jint.Tests.Test262/Test262Harness.settings.json') }}
+          key: test262-generated-${{ hashFiles('Jint.Tests.Test262/Test262Harness.settings.json', 'Jint.Tests.Test262/.config/dotnet-tools.json') }}
           enableCrossOsArchive: true
       - name: Install trace reader
         run: dotnet tool install dotnet-trace --tool-path "$RUNNER_TEMP/trace-tools" --version 9.0.652701
@@ -76,7 +76,7 @@ jobs:
       - uses: actions/cache@v6
         with:
           path: Jint.Tests.Test262/Generated
-          key: test262-generated-${{ hashFiles('Jint.Tests.Test262/Test262Harness.settings.json') }}
+          key: test262-generated-${{ hashFiles('Jint.Tests.Test262/Test262Harness.settings.json', 'Jint.Tests.Test262/.config/dotnet-tools.json') }}
           enableCrossOsArchive: true
       - name: Repeat the full suite without profiling
         run: python3 tools/scalar-arm-profile/verify.py --attempts 3 --output "$RUNNER_TEMP/scalar-verify"

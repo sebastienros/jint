@@ -71,7 +71,7 @@ jobs:
       uses: actions/cache@v6
       with:
         path: Jint.Tests.Test262/Generated
-        key: test262-generated-${{ hashFiles('Jint.Tests.Test262/Test262Harness.settings.json') }}
+        key: test262-generated-${{ hashFiles('Jint.Tests.Test262/Test262Harness.settings.json', 'Jint.Tests.Test262/.config/dotnet-tools.json') }}
         # The generated suite is pure codegen (identical on every OS), so share one cache across
         # platforms. Without this, only the Build workflow (Linux) ever seeds the cache and the
         # Windows/macOS/ARM jobs regenerate the whole suite on every run.
