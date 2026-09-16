@@ -12,6 +12,20 @@
     <SettingsHashFile>$(GeneratedTestSuiteDir)\.settings.hash</SettingsHashFile>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <!-- The suite runs ~103k cases across a worker per core, each building and discarding its own
+         Engine. Workstation GC gives that one allocating context and suspends every worker on each
+         Gen0; server GC gives each core its own heap. Worth ~28% of the run's wall clock together
+         with TieredPGO below, and nothing here depends on which collector is in use. -->
+    <ServerGarbageCollection>true</ServerGarbageCollection>
+    <!-- Dynamic PGO instruments tier-0 code to guide later tiering. That pays for itself in a
+         long-lived process; here the work is spread over ~103k short-lived engines that never reach
+         the optimised tier, so the counters (JIT_CountProfile32 / JIT_ClassProfile32) were measuring
+         about a third of all CPU samples. This affects only how this test assembly is run - it does
+         not change how Jint itself is built or what an embedder gets. -->
+    <TieredPGO>false</TieredPGO>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Jint\Jint.csproj" />
   </ItemGroup>
