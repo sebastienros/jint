@@ -104,7 +104,20 @@ internal sealed class JintAssignmentExpression : JintExpression
         else
         {
             // fast lookup with binding name failed, we need to go through the reference
-            lref = (_left.Evaluate(context) as Reference)!;
+            var leftTarget = _left.Evaluate(context);
+
+            // `(await p).x += 1`: the left-hand side suspended and this is the suspension sentinel. It must
+            // not be read, and above all must not be parked as the resolved lref below — the resume would
+            // then compound into Reference(undefined, undefined) (sebastienros/jint#4086). Nothing is
+            // parked, so the resume re-evaluates the left-hand side; the member link parks its own already
+            // resolved base, so a side-effecting object expression still runs once.
+            if (context.IsSuspended())
+            {
+                engine._referencePool.Return(leftTarget as Reference);
+                return JsValue.Undefined;
+            }
+
+            lref = (leftTarget as Reference)!;
             if (lref is null)
             {
                 Throw.ReferenceError(context.Engine.Realm, "Invalid left-hand side in assignment");
@@ -989,7 +1002,22 @@ internal sealed class JintAssignmentExpression : JintExpression
             }
             else
             {
-                lref = _left.Evaluate(context) as Reference;
+                var leftTarget = _left.Evaluate(context);
+
+                // The left-hand side suspended, so this is the suspension sentinel: an unfinished
+                // Reference(undefined, undefined) for `(await p).x = 1`, or a Reference(base, undefined)
+                // whose key is still to come for `o[await k] = 1`. Parking either one as the resolved lref
+                // below is what the parking mechanism must never do — the resume then wrote through it, so
+                // `(await p).x = 1` rejected with a TypeError and `o[await k] = 1` landed on the literal key
+                // "undefined" and never on the real one (sebastienros/jint#4086). Bailing here also stops
+                // the right-hand side from being evaluated on this pass and again on the resume.
+                if (context.IsSuspended())
+                {
+                    engine._referencePool.Return(leftTarget as Reference);
+                    return JsValue.Undefined;
+                }
+
+                lref = leftTarget as Reference;
                 if (lref is null)
                 {
                     Throw.ReferenceError(engine.Realm, "Invalid left-hand side in assignment");

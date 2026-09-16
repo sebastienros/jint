@@ -5601,6 +5601,45 @@ projected name cannot be replaced. A named setter still handles writes to the co
 
 Jint's `HTMLCollection` wrappers opt in, matching WebIDL's legacy-platform-object `[[Set]]` algorithm.
 
+### 4.137 An `await` or `yield` inside an optional chain or a computed member access no longer replays the body ([#4086](https://github.com/sebastienros/jint/issues/4086))
+
+Jint resumes an async function or a generator by replaying its body and fast-forwarding to the statement it
+suspended at. `await` and `yield` suspend by handing back plain `undefined`, and the member access around one
+turned that into an internal placeholder that every consumer is supposed to recognise before reading. Several
+did not, and reading it raised a `TypeError` *while the frame was still suspended* — swallowed on the async
+side, so nothing reached the host, but it wiped the recorded resume position on the way out and the resume
+started again from the first statement. Every un-awaited side effect before the suspension therefore ran once
+more per suspension point:
+
+```js
+var log = [];
+const h = { M: async function () { return { P: async function () { return { DATA: 0.05 }; } }; } };
+const s = {};
+async function m() {
+    log.push("pre");
+    s.r = (await (await h?.M())?.P())?.DATA;
+    log.push("post");
+}
+
+// 4.16.x / earlier 5.0: log is 'pre,pre,pre,post' - one extra 'pre' per suspension point
+// 5.x:                  log is 'pre,post'
+```
+
+With the re-entrancy guard embedders usually write, the replay is not merely duplicated but fatal: the second
+pass takes the early return, so the assignment never happens and everything after it is skipped
+(`r=undefined log=pre,guard`).
+
+The optional chain is not the only trigger. Any *computed* member access on an awaited or yielded value —
+`(await p)[0]`, `(await p)[k]` — reaches the same lane, as do `typeof (await p).x`, `delete (await p).x`,
+`(await p).x++`, `(await p).x = 1`, `(await p).x += 1`, `({ q: (await p).a } = src)` and
+`for ((await p).a of it)`. Two of those were wrong answers rather than duplicated side effects:
+`(await p).x = 1` rejected the function's promise with `TypeError: Cannot convert undefined or null to
+object`, and `o[await k] = 1` assigned to the literal key `"undefined"` instead of to the awaited one. In a
+generator nothing swallowed the `TypeError`, so these shapes threw straight out of `next()`.
+
+Plain `.` member access on an awaited value was never affected, and neither was an `await` in a call's
+arguments.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

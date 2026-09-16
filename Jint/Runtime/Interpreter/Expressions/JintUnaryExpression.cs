@@ -86,6 +86,16 @@ internal sealed class JintUnaryExpression : JintExpression
         {
             var engine = context.Engine;
             var result = _argument.Evaluate(context);
+
+            // `typeof (await p).x`: the operand suspended and what came back is the suspension sentinel,
+            // never a reference to read (sebastienros/jint#4086). The value is discarded by the caller's
+            // own suspension check; the resume re-evaluates the operand.
+            if (context.IsSuspended())
+            {
+                engine._referencePool.Return(result as Reference);
+                return JsValue.Undefined;
+            }
+
             JsValue v;
 
             if (result is Reference rf)
@@ -253,7 +263,19 @@ internal sealed class JintUnaryExpression : JintExpression
 
             case Operator.Delete:
                 // https://262.ecma-international.org/5.1/#sec-11.4.1
-                if (_argument.Evaluate(context) is not Reference r)
+                var deleteTarget = _argument.Evaluate(context);
+
+                // `delete (await p).x`: the operand suspended, so this is the suspension sentinel and the
+                // delete has not happened yet — deleting through it coerced undefined to an object and
+                // threw inside the suspended frame (sebastienros/jint#4086). The resume re-runs the whole
+                // operator, so answering anything here is fine; the caller discards it.
+                if (context.IsSuspended())
+                {
+                    engine._referencePool.Return(deleteTarget as Reference);
+                    return JsValue.Undefined;
+                }
+
+                if (deleteTarget is not Reference r)
                 {
                     return JsBoolean.True;
                 }

@@ -655,6 +655,25 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                         if (!destructuring)
                         {
                             lhsRef = lhs!.Evaluate(context);
+
+                            // `for ((await p).a of it)`: the target expression itself suspended, so this is
+                            // the suspension sentinel rather than a reference the step's value may be
+                            // written through — doing so threw inside a frame that was already suspended
+                            // (sebastienros/jint#4086). Mirrors the destructuring branch below, including
+                            // its `close = false`: the iterator is not closed, the resume replays the loop.
+                            if (context.IsSuspended())
+                            {
+                                close = false;
+                                engine._referencePool.Return(lhsRef as Reference);
+                                if (_iterationKind == IterationKind.AsyncIterate && suspendable is not null)
+                                {
+                                    var lhsAsyncData = suspendable.Data.GetOrCreate<ForAwaitSuspendData>(this);
+                                    lhsAsyncData.CurrentValue = valueForResume;
+                                    lhsAsyncData.AccumulatedValue = v;
+                                }
+                                completionType = CompletionType.Return;
+                                return new Completion(CompletionType.Return, suspendable?.SuspendedValue ?? nextValue, _statement!);
+                            }
                         }
                     }
                     else if (reusableEnv is not null)
