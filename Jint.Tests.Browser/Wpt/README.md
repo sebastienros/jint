@@ -51,10 +51,10 @@ fall fails as staleness, and the rewrite refuses to write a larger figure. Take 
 
 ```bash
 # check the table (about ten seconds; it runs every document)
-JINT_WPT_BROWSER_CENSUS=1 dotnet test Jint.Tests.Browser -c Release
+JINT_WPT_BROWSER_CENSUS=1 dotnet test --project Jint.Tests.Browser -c Release
 
 # rewrite it from what the lane measures, then commit the diff
-JINT_WPT_BROWSER_CENSUS=update dotnet test Jint.Tests.Browser -c Release
+JINT_WPT_BROWSER_CENSUS=update dotnet test --project Jint.Tests.Browser -c Release
 ```
 
 `JINT_WPT_BROWSER_CENSUS=update-raising-the-ceiling` is the one spelling that may write a *larger*

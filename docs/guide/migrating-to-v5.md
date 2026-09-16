@@ -7121,5 +7121,5 @@ a branch, that branch's entry ends up *above* it — distinct numbers, no confli
 document whose numbers run backwards. This happened during the v5 campaign to a branch that rebased
 with no conflict at all, which is exactly the case nothing draws attention to. So after **every**
 rebase, not only after one that conflicted, move the section block to the end of its chapter and run
-`dotnet test -c Release --filter "FullyQualifiedName~MigrationGuideTests"`; that is what
+`dotnet test --project Jint.Tests -c Release --filter "FullyQualifiedName~MigrationGuideTests"`; that is what
 `SectionNumbersAscendInDocumentOrder` is there to catch.

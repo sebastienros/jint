@@ -303,7 +303,7 @@ Document an area, then regenerate and read the diff:
 
 ```bash
 JINT_PUBLIC_API_DOCS=update dotnet test -c Release \
-    Jint.Tests.PublicInterface/Jint.Tests.PublicInterface.csproj -f net10.0
+    --project Jint.Tests.PublicInterface/Jint.Tests.PublicInterface.csproj -f net10.0
 ```
 
 The count on the first line of `UndocumentedPublicApi.txt` goes down by exactly as many lines as

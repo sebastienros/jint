@@ -23,7 +23,7 @@ whatever that edit turns out to be. Everything else lives in an `AGENTS.md` besi
 | write a call site needing an API `net472` / `netstandard2.0` / `netstandard2.1` lacks | [`Jint/Extensions/AGENTS.md`](Jint/Extensions/AGENTS.md) | The polyfill-downwards discipline and the ways a polyfill stops being one. Cost: `#if` scattered through spec algorithms, or a downlevel `OrderBy` that spins forever on a comparer JavaScript may legally supply. |
 | touch anything under `Jint/WebApi/` or `Options.WebApi` | [`Jint/WebApi/AGENTS.md`](Jint/WebApi/AGENTS.md) | The four subtree conventions, the whole-file `net8.0` gate, WebIDL's property attributes (enumerable — the opposite of ECMAScript's rule), timer ordering, the diagnostics sink. Cost: a member shipped with the wrong attributes, or a build that breaks only on `net472`. |
 | touch `fetch`, a cookie jar, a redirect hop, or `FetchObserver` | [`Jint/WebApi/Fetch/AGENTS.md`](Jint/WebApi/Fetch/AGENTS.md) | The five settings that make `fetch` a browsing position, per-hop recomputation, the engine-free observer. Cost: a `JsValue` on the transport thread. |
-| write or change a test in the main suite, or read a failure from one of the tests that police this repository | [`Jint.Tests/AGENTS.md`](Jint.Tests/AGENTS.md) | The two assembly attributes four test assemblies share, the rule that a wall-clock number is either the assertion or a wedge ceiling and never both, the helpers that replace xUnit's vocabulary, and the guardian tests no edit to what they check will satisfy. Cost: fixtures that silently share one engine, or a regression hidden by widening a timeout. |
+| write or change a test in the main suite, or read a failure from one of the tests that police this repository | [`Jint.Tests/AGENTS.md`](Jint.Tests/AGENTS.md) | The two assembly attributes six test assemblies share, the rule that a wall-clock number is either the assertion or a wedge ceiling and never both, the helpers that replace xUnit's vocabulary, and the guardian tests no edit to what they check will satisfy. Cost: fixtures that silently share one engine, or a regression hidden by widening a timeout. |
 | touch the vendored web-platform-tests corpus, its shim or its driver | [`Jint.Tests/Wpt/AGENTS.md`](Jint.Tests/Wpt/AGENTS.md) | The exclusion table is the artefact — an entry must match a failing test and no passing one — and a non-zero `NeedsTriage` count means the corpus found a defect somebody still owes the engine a fix for. Cost: five thousand green cases that mean nothing. |
 | run a wpt suite in a real page — the browser lane, its overlay, its wrappers | [`Jint.Tests.Browser/Wpt/AGENTS.md`](Jint.Tests.Browser/Wpt/AGENTS.md) | One corpus and one pin shared with the lane above, upstream's real harness, the results overlay, the five browser-only categories, the census ceiling. Cost: a document that reports nothing counted as a document that passed. |
 | bump the pinned test262 SHA or triage a conformance failure | [`Jint.Tests.Test262/AGENTS.md`](Jint.Tests.Test262/AGENTS.md) | A bump is a code change, not a pin change; and the three exclusion banners, one of which is deliberately not debt. Cost: an upstream normative change landing unread. |
@@ -46,7 +46,7 @@ Before adding to any of them, read [the size budget](#the-size-budget-and-which-
 
 ## Build & Test
 
-```bash
+```powershell
 # Build (solution, or a single project)
 dotnet build -c Release
 dotnet build -c Release Jint/Jint.csproj
@@ -55,15 +55,20 @@ dotnet build -c Release Jint/Jint.csproj
 dotnet test -c Release
 
 # A specific project, class, or single test
-dotnet test Jint.Tests\Jint.Tests.csproj -c Release
-dotnet test -c Release --filter "FullyQualifiedName~Jint.Tests.Runtime.EngineTests"
-dotnet test -c Release --filter "FullyQualifiedName~Jint.Tests.Runtime.EngineTests.CanAccessCLR"
+dotnet test --project Jint.Tests\Jint.Tests.csproj -c Release --timeout 30s
+dotnet test --project Jint.Tests\Jint.Tests.csproj -c Release --filter "FullyQualifiedName~Jint.Tests.Runtime.EngineTests" --timeout 30s
+dotnet test --project Jint.Tests\Jint.Tests.csproj -c Release --filter "FullyQualifiedName~Jint.Tests.Runtime.EngineTests.CanAccessCLR" --timeout 30s
 
 # Test262 conformance suite
-dotnet test -c Release Jint.Tests.Test262/Jint.Tests.Test262.csproj
+dotnet test -c Release --project Jint.Tests.Test262\Jint.Tests.Test262.csproj
 ```
 
 Always build and test in **Release** — it is the faster feedback loop and the configuration performance claims are about. Never pass `--no-build`; always work against freshly compiled code. `TreatWarningsAsErrors` is on, so every warning must be fixed. Packages are managed centrally through `Directory.Packages.props`.
+
+`global.json` selects Microsoft Testing Platform v2 for all NUnit test projects.
+Use `--project` for a project path and pass runner options directly, without VSTest's
+`--` separator. Local runner, filtering and parallelism details are in
+[`Jint.Tests/AGENTS.md`](Jint.Tests/AGENTS.md#local-microsoft-testing-platform-runs).
 
 A separate leg runs `Jint.Tests` and `Jint.Tests.PublicInterface` with the host-contract verifiers on
 (`JINT_HOST_CONTRACT_VERIFICATION=1`), the configuration an embedder is told to use. For a quick manual run

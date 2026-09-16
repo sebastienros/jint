@@ -1559,11 +1559,11 @@ measured on Windows.
 
 ```bash
 # check the table (about a minute; it censuses the whole corpus)
-JINT_WPT_CENSUS=1 dotnet test -c Release Jint.Tests/Jint.Tests.csproj -f net10.0 \
+JINT_WPT_CENSUS=1 dotnet test -c Release --project Jint.Tests/Jint.Tests.csproj -f net10.0 \
   --filter "FullyQualifiedName~Jint.Tests.Wpt.WptCensusTests"
 
 # rewrite the table from what the corpus measures, then commit the diff
-JINT_WPT_CENSUS=update dotnet test -c Release Jint.Tests/Jint.Tests.csproj -f net10.0 \
+JINT_WPT_CENSUS=update dotnet test -c Release --project Jint.Tests/Jint.Tests.csproj -f net10.0 \
   --filter "FullyQualifiedName~Jint.Tests.Wpt.WptCensusTests"
 ```
 
