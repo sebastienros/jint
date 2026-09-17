@@ -138,7 +138,18 @@ internal sealed class JintUpdateExpression : JintExpression
     private JsValue UpdateNonIdentifier(EvaluationContext context)
     {
         var engine = context.Engine;
-        var reference = _argument.Evaluate(context) as Reference;
+        var target = _argument.Evaluate(context);
+
+        // `(await p).x++`: the target suspended and this is the suspension sentinel, not a reference to
+        // read and write back (sebastienros/jint#4086). Bail before the "invalid left-hand side" test as
+        // well, since a suspended pass is not an invalid target. The resume re-evaluates the whole update.
+        if (context.IsSuspended())
+        {
+            engine._referencePool.Return(target as Reference);
+            return JsValue.Undefined;
+        }
+
+        var reference = target as Reference;
         if (reference is null)
         {
             Throw.ReferenceError(engine.Realm, "Invalid left-hand side in assignment");

@@ -631,6 +631,17 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                 else if (p.Value is MemberExpression memberExpression)
                 {
                     var reference = GetReferenceFromMember(context, memberExpression);
+
+                    // Check for suspension after evaluating the member expression, as every array-pattern
+                    // branch above already does: `({ q: (await p).a } = src)` hands back the suspension
+                    // sentinel, and writing through it threw inside the suspended frame - which also meant
+                    // the statement never reached the point where its resume position is recorded, so the
+                    // body replayed from the start (sebastienros/jint#4086). The resume re-runs the pattern.
+                    if (context.IsSuspended())
+                    {
+                        return JsValue.Undefined;
+                    }
+
                     var value = source.Get(sourceKey);
                     AssignToReference(context.Engine, reference, value, environment);
                 }
@@ -675,6 +686,14 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                 else if (restElement.Argument is MemberExpression memberExpression)
                 {
                     var left = GetReferenceFromMember(context, memberExpression);
+
+                    // Same suspension check as the property branch above: `({ ...(await p).a } = src)` must
+                    // not copy into the suspension sentinel (sebastienros/jint#4086).
+                    if (context.IsSuspended())
+                    {
+                        return JsValue.Undefined;
+                    }
+
                     var rest = context.Engine.Realm.Intrinsics.Object.ConstructShapeBuilding();
                     source.CopyDataProperties(rest, processedProperties);
                     AssignToReference(context.Engine, left, rest, environment);
