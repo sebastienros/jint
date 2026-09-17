@@ -47,7 +47,7 @@ jobs:
       uses: actions/cache/restore@v6
       with:
         path: Jint.Tests.Test262/Generated
-        key: test262-generated-${{ hashFiles('Jint.Tests.Test262/Test262Harness.settings.json') }}
+        key: test262-generated-${{ hashFiles('Jint.Tests.Test262/Test262Harness.settings.json', 'Jint.Tests.Test262/.config/dotnet-tools.json') }}
         # Seed a cross-OS cache so the PR workflow's Windows/macOS/ARM jobs can restore it too.
         enableCrossOsArchive: true
 
@@ -59,7 +59,7 @@ jobs:
       uses: actions/cache/save@v6
       with:
         path: Jint.Tests.Test262/Generated
-        key: test262-generated-${{ hashFiles('Jint.Tests.Test262/Test262Harness.settings.json') }}
+        key: test262-generated-${{ hashFiles('Jint.Tests.Test262/Test262Harness.settings.json', 'Jint.Tests.Test262/.config/dotnet-tools.json') }}
         enableCrossOsArchive: true
 
     - name: Pack with dotnet

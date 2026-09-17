@@ -58,13 +58,19 @@
     <PropertyGroup>
       <_SettingsHashFilePath>$([System.IO.Path]::Combine($(MSBuildThisFileDirectory), $(SettingsHashFile)))</_SettingsHashFilePath>
       <_SettingsFilePath>$([System.IO.Path]::Combine($(MSBuildThisFileDirectory), $(SettingsFile)))</_SettingsFilePath>
+      <_ToolManifestPath>$([System.IO.Path]::Combine($(MSBuildThisFileDirectory), '.config', 'dotnet-tools.json'))</_ToolManifestPath>
       <_GeneratedDirPath>$([System.IO.Path]::Combine($(MSBuildThisFileDirectory), $(GeneratedTestSuiteDir)))</_GeneratedDirPath>
     </PropertyGroup>
     
-    <!-- Compute current settings file hash -->
-    <GetFileHash Files="$(_SettingsFilePath)" Algorithm="SHA256">
-      <Output TaskParameter="Hash" PropertyName="_CurrentSettingsHash" />
+    <!-- Compute the hash of everything the generated suite depends on. The tool manifest is in here
+         because the generator's output shape is the tool's, not just the settings file's: bumping
+         test262harness.console has to regenerate, or the suite silently keeps the old tool's output. -->
+    <GetFileHash Files="$(_SettingsFilePath);$(_ToolManifestPath)" Algorithm="SHA256">
+      <Output TaskParameter="Items" ItemName="_SuiteInputHashes" />
     </GetFileHash>
+    <PropertyGroup>
+      <_CurrentSettingsHash>@(_SuiteInputHashes->'%(FileHash)')</_CurrentSettingsHash>
+    </PropertyGroup>
     
     <!-- Read stored hash if it exists -->
     <ReadLinesFromFile File="$(_SettingsHashFilePath)" Condition="Exists('$(_SettingsHashFilePath)')">
