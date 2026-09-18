@@ -139,8 +139,15 @@ internal static class DomSelectors
                         // Let the same native tokenizer decode the name. A no-namespace local name is
                         // case-sensitive even in an HTML document, unlike AngleSharp's TypeSelector.
                         var visitor = new TypeNameVisitor();
-                        (parser.ParseSelector(type) ?? throw new DomException(DomError.Syntax)).Accept(visitor);
-                        localName = visitor.Name ?? throw new DomException(DomError.Syntax);
+                        parser.ParseSelector(type)?.Accept(visitor);
+                        if (visitor.Name is not { } name)
+                        {
+                            // A forgiving :is()/:where() list can contain an invalid type branch.
+                            // Leave that branch intact for the native parser to discard; normalizing
+                            // it must not promote its local parse error to an error for the whole list.
+                            continue;
+                        }
+                        localName = name;
                     }
                     factory.Markers.Add(marker, new EmptyNamespaceSelector(localName));
                     builder.Append(text, copied, range.Start - copied);
@@ -194,15 +201,15 @@ internal static class DomSelectors
 
         public void Type(string name) => Name = name;
 
-        public void Attribute(string name, string op, string? value) => throw new DomException(DomError.Syntax);
-        public void Id(string value) => throw new DomException(DomError.Syntax);
-        public void Child(string name, int step, int offset, ISelector selector) => throw new DomException(DomError.Syntax);
-        public void Class(string value) => throw new DomException(DomError.Syntax);
-        public void PseudoClass(string value) => throw new DomException(DomError.Syntax);
-        public void PseudoElement(string value) => throw new DomException(DomError.Syntax);
-        public void List(IEnumerable<ISelector> selectors) => throw new DomException(DomError.Syntax);
-        public void Combinator(IEnumerable<ISelector> selectors, IEnumerable<string> symbols) => throw new DomException(DomError.Syntax);
-        public void Many(IEnumerable<ISelector> selectors) => throw new DomException(DomError.Syntax);
+        public void Attribute(string name, string op, string? value) { }
+        public void Id(string value) { }
+        public void Child(string name, int step, int offset, ISelector selector) { }
+        public void Class(string value) { }
+        public void PseudoClass(string value) { }
+        public void PseudoElement(string value) { }
+        public void List(IEnumerable<ISelector> selectors) { }
+        public void Combinator(IEnumerable<ISelector> selectors, IEnumerable<string> symbols) { }
+        public void Many(IEnumerable<ISelector> selectors) { }
     }
 
     private sealed class ScopedSelector(ISelector selector, IElement? scope) : ISelector

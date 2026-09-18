@@ -34,6 +34,30 @@ public sealed class EmptyNamespaceSelectorTests
         fixture.Text("root.querySelector(selector)?.id ?? ''").Should().Be(expected.Split(',')[0]);
     }
 
+    [TestCase(":is(|123, |div)")]
+    [TestCase(":where(|123, |div)")]
+    [TestCase(":is(|\\\n, |div)")]
+    [TestCase(":where(|\\\n, |div)")]
+    public void InvalidForgivingBranchesPreserveTheNativeErrorContract(string selector)
+    {
+        using var fixture = DomTestFixture.Create("<div id='root'></div>");
+        fixture.Execute(Setup);
+        fixture.Engine.SetValue("selector", selector);
+        var nativeFailure = Caught.Exception(() => fixture.Document.QuerySelectorAll(selector));
+        if (nativeFailure is AngleSharp.Dom.DomException)
+        {
+            // The pinned parser currently rejects these forgiving lists itself (#4103). The adapter must not
+            // change that error into a different failure or silently accept the invalid branch.
+            fixture.Text("try { document.querySelectorAll(selector); 'accepted'; } catch(e) { e.name; }")
+                .Should().Be("SyntaxError");
+        }
+        else
+        {
+            nativeFailure.Should().BeNull();
+            fixture.Text("document.querySelector(selector)?.id ?? ''").Should().Be("plain");
+        }
+    }
+
     [Test]
     public void AllEntryPointsUseTheSamePredicateAndKeepTheirScope()
     {
@@ -66,6 +90,28 @@ public sealed class EmptyNamespaceSelectorTests
                     plain.matches('|div'), child.closest('|div') === plain].join('/');
             })()
             """).Should().Be("true/true/true/true/true/true/true");
+    }
+
+    [Test]
+    public void FragmentAndShadowScopeRetainNativeMatchingBehavior()
+    {
+        using var fixture = DomTestFixture.Create("<div id='host'></div>");
+        fixture.Bool("""
+            (() => {
+                const fragment = document.createDocumentFragment();
+                const shadow = document.getElementById('host').attachShadow({mode: 'open'});
+                const outcomes = [];
+                for (const root of [fragment, shadow]) {
+                    const child = document.createElementNS(null, 'span'); root.append(child);
+                    outcomes.push(root.querySelector('|span') === child);
+                    for (const prefix of [':scope > ', ':scope ']) {
+                        outcomes.push(root.querySelector(prefix + '|span') === root.querySelector(prefix + '*|span'));
+                        outcomes.push(root.querySelectorAll(prefix + '|span').length === root.querySelectorAll(prefix + '*|span').length);
+                    }
+                }
+                return outcomes.every(Boolean);
+            })()
+            """).Should().BeTrue();
     }
 
     [TestCase("|-jint-empty-namespace-0")]
