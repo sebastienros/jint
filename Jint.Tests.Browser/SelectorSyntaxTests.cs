@@ -53,6 +53,17 @@ public sealed class SelectorSyntaxTests
     /// selector invalid — at any depth, which is what <c>:not(ns|div)</c> and <c>[ns|attr]</c> are here for.
     /// </summary>
     [TestCase("ns|div")]
+    [TestCase("ns/**/|div")]
+    [TestCase(":not(ns/**/|div)")]
+    [TestCase("[ns/**/|attr]")]
+    [TestCase(@"n\73 |div")]
+    [TestCase(@"n\000073 |div")]
+    [TestCase("n\\73\t|div")]
+    [TestCase("n\\73\r\n|div")]
+    [TestCase("n\\73\f|div")]
+    [TestCase(@"\6e s|div")]
+    [TestCase(":not(n\\73 |div)")]
+    [TestCase("[n\\73 |attr]")]
     [TestCase("ns|*")]
     [TestCase(":not(ns|div)")]
     [TestCase(":is(p, ns|div)")]
@@ -85,6 +96,10 @@ public sealed class SelectorSyntaxTests
     [TestCase("[title='ns|div']")]
     [TestCase("/* ns|div */ #parent")]
     [TestCase(@".ns\|div")]
+    [TestCase(@".ns\7c div")]
+    [TestCase("div /**/|div")]
+    [TestCase(@"n\73  |div")]
+    [TestCase("[lang/**/|=\"en\"]")]
     [TestCase(":has(> span)")]
     [TestCase("div:has(> span)")]
     public void SelectorsWhosePipeIsNotAnUndeclaredPrefixAreLeftToTheNativeParser(string selector)
