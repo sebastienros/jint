@@ -1,3 +1,6 @@
+using AngleSharp.Xml.Parser;
+using Jint.Browser.Dom;
+
 namespace Jint.Tests.Browser.Dom;
 
 using Browser = global::Jint.Browser.Browser;
@@ -25,6 +28,23 @@ public sealed class HtmlSerializationTests
         fixture.Engine.SetValue("value", value);
         fixture.Execute("var el = new Document().createElement('el'); el.setAttribute('attr', value);");
         fixture.Text("el.outerHTML").Should().Be("<el attr=\"" + escaped + "\"></el>");
+    }
+
+    [Test]
+    public void XmlMarkupGettersPreserveNativeNamesEmptyTagsAndNonbreakingSpaces()
+    {
+        using var fixture = DomTestFixture.Create("<main></main>");
+        using var xml = new XmlParser().ParseDocument(
+            "<root xmlns='urn:root' xmlns:p='urn:p'><p:leaf/></root>");
+        var root = xml.DocumentElement!;
+        root.FirstElementChild!.SetAttribute("data", "\u00a0");
+        var nativeInner = root.InnerHtml;
+        var nativeOuter = root.OuterHtml;
+        fixture.Engine.SetValue("xml", DomBindings.Wrap(fixture.Engine, xml));
+        fixture.Text("xml.documentElement.innerHTML").Should().Be(nativeInner);
+        fixture.Text("xml.documentElement.outerHTML").Should().Be(nativeOuter);
+        nativeInner.Should().Contain("<p:leaf data=\"&nbsp;\">");
+        nativeOuter.Should().Contain("xmlns=\"urn:root\" xmlns:p=\"urn:p\"");
     }
 
     [Test]
