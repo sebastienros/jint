@@ -54,6 +54,9 @@ internal static class ServeCommand
         await using var browser = new Browser(settings.ToBrowserOptions());
         await using var server = new DevToolsServer(new DevToolsServerOptions { Host = host, Port = port });
 
+        // AddBrowser awaits publication of existing pages. A page opened afterwards is registered in
+        // the background, so create the initial tab first to make the ready banner a discovery barrier.
+        await browser.NewPageAsync().ConfigureAwait(false);
         await server.AddBrowser(browser).ConfigureAwait(false);
 
         try
@@ -68,10 +71,6 @@ internal static class ServeCommand
             error.WriteLine($"cannot listen on {host}:{port.ToString(CultureInfo.InvariantCulture)}: {exception.Message}");
             return ExitCode.Usage;
         }
-
-        // A browser opens with a tab. A client that lists targets before it creates one — every recorded
-        // client does — would otherwise be told this browser has no pages.
-        await browser.NewPageAsync().ConfigureAwait(false);
 
         PrintBanner(output, host, server, settings);
 
