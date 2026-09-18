@@ -196,3 +196,7 @@ identifier ends the token, so `publicId = "foo>"` comes back as `foo` (two rows 
 is delimited by `"` or `'`, so `f'o"o` — which the same file tests, in both positions — has no delimiter that
 can carry it. Building the markup from the arguments is string injection into a parser, not composition, and
 it would cost a whole document parse per call. So the rows stay, with this as the record of why.
+
+### HTML attribute serialization
+
+The native HTML formatter escapes ampersands, nonbreaking spaces and quotes in attribute values, but emits literal angle brackets. [HTML's escaping algorithm](https://html.spec.whatwg.org/multipage/parsing.html#escapingString) also requires `&lt;` and `&gt;` in attribute mode ([#4109](https://github.com/sebastienros/jint/issues/4109)). `DomHtmlMarkupFormatter` overrides the supported attribute formatter hook, preserving native attribute-name serialization and adding only those escapes to its quoted value. Element and shadow-root markup getters, page content and the DOM protocol use that formatter; XML serialization keeps its existing XML formatter. Native traversal, raw text, comments and template content remain native.

@@ -1,4 +1,5 @@
 using System.Globalization;
+using AngleSharp;
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
 using Jint.Browser.Dom.Files;
@@ -197,8 +198,8 @@ internal sealed partial class DomDomain : DOMDomainBase, IDetachableDomain, ITar
 
         var markup = node switch
         {
-            IElement element => element.OuterHtml,
-            IDocument document => document.DocumentElement?.OuterHtml ?? "",
+            IElement element => element.ToHtml(Dom.DomHtmlMarkupFormatter.BrowserInstance),
+            IDocument document => document.DocumentElement?.ToHtml(Dom.DomHtmlMarkupFormatter.BrowserInstance) ?? "",
             _ => node.NodeValue ?? "",
         };
 
