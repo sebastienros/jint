@@ -30,7 +30,7 @@ namespace Jint.Browser.Dom;
 /// <para>
 /// <b>Creation provenance distinguishes an explicit null from an unresolved XML name.</b> Binding factories
 /// record the namespace before exposing a node; document observation captures parsed XML declarations before
-/// a binding-driven move or declaration edit can change their answer. Clone/import carry that immutable value.
+/// a binding-driven move or declaration edit can change their answer. Clone/import and range copies carry that immutable value.
 /// Metadata is weak and engine-free, and elements with a native namespace never consult it. A native host
 /// that creates and moves a node before any binding observation remains outside this recorded boundary.
 /// </para>
