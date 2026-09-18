@@ -1999,7 +1999,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.webkitMatchesSelector", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.webkitMatchesSelector");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Matches(global::Jint.Browser.Dom.DomSelectorText.Required(args, "Element.webkitMatchesSelector")));
+                    return global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Dom.DomSelectors.Matches(self.Target, global::Jint.Browser.Dom.DomSelectorText.Required(args, "Element.webkitMatchesSelector")));
                 }),
                 length: 1);
 

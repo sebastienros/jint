@@ -1213,19 +1213,10 @@ internal static class WptBrowserExclusions
         //
         // The undeclared-prefix and unclosed-attribute groups are gone: DomSelectorText refuses a prefix at
         // every depth and closes an open construct at EOF, so Element-matches.html and
-        // Element-webkitMatchesSelector.html pass entirely and only this document has rows left. Both of
-        // the groups that remain were measured against the pinned AngleSharp 1.8.1 binary, and neither has
-        // a public seam to reach.
+        // Element-webkitMatchesSelector.html pass entirely and only this document has rows left. The
+        // remaining group is ::slotted(). DomSelectors now adapts the empty namespace type token through
+        // the native parser and a public predicate factory; its sixteen rows pass without changing the tree.
         //
-        // The empty namespace, `|div` and `|*`: NamespaceSelector is internal sealed and CssSelectorConstructor
-        // constructs it inline, consulting no factory, and the defect is inside the public *extension*
-        // ElementExtensions.MatchesCssNamespace, which compares an element's null namespace against "" with
-        // string.Equals(null, "", Ordinal) — so a no-namespace selector matches nothing. Nothing replaceable
-        // reaches it short of substituting ICssSelectorParser, which is a rival selector parser and is what
-        // Jint.Browser/AGENTS.md's package principle forbids.
-        new("dom/nodes/ParentNode-querySelector-All.html", "*Namespace selector, matching div elements in no namespace only*", WptDivergence.NeedsTriage),
-        new("dom/nodes/ParentNode-querySelector-All.html", "*Namespace selector, matching any elements in no namespace only*", WptDivergence.NeedsTriage),
-
         // ::slotted(): CssSelectorConstructor.OnPseudoElement consults IPseudoElementSelectorFactory only in
         // its CssTokenType.Ident arm; the functional form is looked up in a private static readonly
         // FrozenDictionary holding exactly one entry (`picker`), with no registration seam. The second row is
