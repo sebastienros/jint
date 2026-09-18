@@ -11,22 +11,9 @@ internal static class DomProcessingInstructions
 {
     internal static IProcessingInstruction Create(IDocument document, string target, string data)
     {
-        var astral = false;
-        for (var i = 0; i < target.Length; i++)
+        if (!IsXmlName(target, out var astral))
         {
-            var c = target[i];
-            if (char.IsHighSurrogate(c) && i + 1 < target.Length && char.IsLowSurrogate(target[i + 1]))
-            {
-                if (char.ConvertToUtf32(c, target[++i]) > 0xEFFFF)
-                {
-                    throw new DomException(DomError.InvalidCharacter);
-                }
-                astral = true;
-            }
-            else if (!(i == 0 ? c.IsXmlNameStart() : c.IsXmlName()))
-            {
-                throw new DomException(DomError.InvalidCharacter);
-            }
+            throw new DomException(DomError.InvalidCharacter);
         }
 
         if (target.Length == 0 || data.Contains("?>", StringComparison.Ordinal))
@@ -57,4 +44,28 @@ internal static class DomProcessingInstructions
         instruction.Data = data;
         return instruction;
     }
+    // XML 1.0 Fifth Edition Name, including supplementary scalar values.
+    internal static bool IsXmlName(string target, out bool astral)
+    {
+        astral = false;
+        for (var i = 0; i < target.Length; i++)
+        {
+            var c = target[i];
+            if (char.IsHighSurrogate(c) && i + 1 < target.Length && char.IsLowSurrogate(target[i + 1]))
+            {
+                if (char.ConvertToUtf32(c, target[++i]) > 0xEFFFF)
+                {
+                    return false;
+                }
+                astral = true;
+            }
+            else if (!(i == 0 ? c.IsXmlNameStart() : c.IsXmlName()))
+            {
+                return false;
+            }
+        }
+
+        return target.Length != 0;
+    }
+
 }

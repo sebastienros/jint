@@ -46,6 +46,21 @@ internal static class DomFailures
         Func<JsValue, JsValue[], JsValue> implementation)
     {
         var guarded = Guard(member, implementation);
+        if (member is "CharacterData.data" or "Node.nodeValue" or "Node.textContent"
+            or "CharacterData.appendData" or "CharacterData.insertData" or "CharacterData.deleteData" or "CharacterData.replaceData")
+        {
+            return (receiver, arguments) =>
+            {
+                using var mutation = (receiver as IDomWrapper)?.DomRealm.MutateLayout() ?? default;
+                var result = guarded(receiver, arguments);
+                if (receiver is IDomWrapper { DomTarget: IProcessingInstruction instruction })
+                {
+                    DomProcessingInstructionAttributes.DataChanged(instruction);
+                }
+                return result;
+            };
+        }
+
         return (receiver, arguments) =>
         {
             using var mutation = (receiver as IDomWrapper)?.DomRealm.MutateLayout() ?? default;
