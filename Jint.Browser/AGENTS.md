@@ -38,8 +38,8 @@ here. These rules bind every change:
 - **A local correction needs a specification citation, regression coverage and a divergence entry.**
   Remove or narrow only the exclusions its tests prove stale, then refresh the required census. Keep
   historical upstream links as context; do not present an upstream scope decision as a promise of a fix.
-  Reuse a later upstream implementation when it satisfies the same tests. Do not file or reopen upstream
-  issues without an explicit request.
+  Reuse a later upstream implementation when it satisfies the same tests. Do not file or reopen issues or submit pull requests in AngleSharp repositories.
+  Record the integration evidence locally.
 - **No document or README sentence positions this as a rival DOM stack.** It is "AngleSharp + Jint".
 - **A seam that proves useful is offered, not hoarded.** The tree-aware event dispatcher the engine grew for
   this package (`Jint/WebApi/Events/EventDispatch.cs`) knows nothing about a node; it asks the target. The
@@ -119,7 +119,8 @@ expression and calls `CSS.escape` at the top level of its bundle.
 How AngleSharp's attributes are read as WebIDL, the override table, the conversion table and its divergences in
 both directions, wrapper identity and the shape discipline are [`Dom/AGENTS.md`](Dom/AGENTS.md). The one rule to
 carry across without opening it: **never hand-edit a file under `Dom/Generated/`**; regenerate with
-`JINT_DOM_BINDINGS=update`, and report an AngleSharp divergence upstream rather than working around it.
+`JINT_DOM_BINDINGS=update`, and record AngleSharp divergences locally, implementing required browser behavior according to the
+package principle above.
 
 ### The events bridge has a file of its own
 
