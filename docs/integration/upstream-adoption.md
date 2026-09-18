@@ -4,6 +4,10 @@ These are repository review drafts for [campaign #3575, X6](https://github.com/s
 prepared under [#3904](https://github.com/sebastienros/jint/issues/3904) and merged by
 [#3906](https://github.com/sebastienros/jint/pull/3906). They describe an offer the maintainer can review and
 revise. They have **not been delivered** to AngleSharp.Js or Jither, and no adoption agreement is implied.
+The maintainer's current delivery constraint is repository preparation only: do not file issues or pull
+requests in AngleSharp repositories. No alternate delivery channel has been selected, and no external
+posts have been made. This constraint does not complete or waive X6.
+
 Source observations below were rechecked against Jint main `cd4037d8b9f751d42ab98000c8f0ce9d4fe45726`.
 
 ## Proposal for AngleSharp Js
@@ -129,7 +133,7 @@ host/adapter allocations separately from engine stepping before drawing a conclu
 | Stage | Evidence needed | Status of this document |
 | --- | --- | --- |
 | Repository preparation | Audited source links, concrete proposals and focused tracking issue | Merged in #3906; #3904 closed |
-| Maintainer review | Chosen scope, recipients, revised message and approval to send | Pending |
+| Maintainer review | Chosen scope, recipients, revised message and approval to send | Pending; AngleSharp issues and pull requests are prohibited; alternate channel not selected |
 | External delivery | Links to actual messages or upstream discussions | Not sent |
 | Adoption decision | Recipient feedback, agreed experiment and owned follow-up issues | Not requested |
 
