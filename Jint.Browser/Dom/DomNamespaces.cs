@@ -1,4 +1,6 @@
+using System.Runtime.CompilerServices;
 using AngleSharp.Dom;
+using AngleSharp.Html.Dom;
 
 namespace Jint.Browser.Dom;
 
@@ -26,24 +28,70 @@ namespace Jint.Browser.Dom;
 /// would answer <see langword="null"/> there and lose a namespace the parse really did resolve.
 /// </para>
 /// <para>
-/// <b>So the fallback is kept and narrowed to what XML namespace scoping actually is: an <c>xmlns</c>
-/// declaration.</b> With nothing stored, the answer is the nearest inclusive ancestor's default <c>xmlns</c>
-/// (or <c>xmlns:</c><i>prefix</i>) content attribute — exactly the declarations the parse would have applied —
-/// and never an ancestor <i>element's</i> own namespace, which is the step DOM does not have and the one every
-/// symptom in #3949 came from. An element created in no namespace under an ordinary HTML parent therefore
-/// answers <see langword="null"/>, while a parsed XML subtree keeps the namespace its declarations give it.
-/// </para>
-/// <para>
-/// One residual divergence stays, and <c>divergences.md</c> records it: an element created in <i>no</i>
-/// namespace and then inserted <i>under an <c>xmlns</c> declaration</i> takes that declaration's namespace
-/// where DOM says <see langword="null"/>. Telling the two apart needs a creation provenance AngleSharp does
-/// not record, and the case that matters — a parsed XML tree — is the one that would break without it.
+/// <b>Creation provenance distinguishes an explicit null from an unresolved XML name.</b> Binding factories
+/// record the namespace before exposing a node; document observation captures parsed XML declarations before
+/// a binding-driven move or declaration edit can change their answer. Clone/import carry that immutable value.
+/// Metadata is weak and engine-free, and elements with a native namespace never consult it. A native host
+/// that creates and moves a node before any binding observation remains outside this recorded boundary.
 /// </para>
 /// </remarks>
 internal static class DomNamespaces
 {
     /// <summary>The <c>xmlns</c> attribute name, which declares the default namespace for a subtree.</summary>
     private const string XmlNsPrefix = "xmlns";
+
+    private sealed class NamespaceValue(string? value)
+    {
+        internal string? Value { get; } = value;
+        internal static readonly NamespaceValue None = new(null);
+    }
+
+    private static readonly ConditionalWeakTable<IElement, NamespaceValue> _creationNamespaces = new();
+
+    /// <summary>Records API creation while the requested namespace is still known.</summary>
+    internal static IElement Created(IElement element, string? namespaceUri)
+    {
+        if (string.IsNullOrEmpty(element.GivenNamespaceUri))
+        {
+            _creationNamespaces.GetValue(element, _ => string.IsNullOrEmpty(namespaceUri)
+                ? NamespaceValue.None : new NamespaceValue(namespaceUri));
+        }
+        return element;
+    }
+
+    /// <summary>Captures an unrecorded parsed element before binding-driven mutation or adoption.</summary>
+    internal static void Capture(IElement element)
+    {
+        if (string.IsNullOrEmpty(element.GivenNamespaceUri) && !_creationNamespaces.TryGetValue(element, out _))
+        {
+            Created(element, Declared(element));
+        }
+    }
+
+    /// <summary>https://dom.spec.whatwg.org/#concept-node-clone: copy each element's namespace.</summary>
+    internal static void Copy(INode source, INode copy)
+    {
+        var pending = new Stack<(INode Source, INode Copy)>();
+        pending.Push((source, copy));
+        while (pending.TryPop(out var pair))
+        {
+            if (pair.Source is IElement original && pair.Copy is IElement cloned
+                && string.IsNullOrEmpty(cloned.GivenNamespaceUri))
+            {
+                Created(cloned, Of(original));
+            }
+            var sources = pair.Source.ChildNodes;
+            var copies = pair.Copy.ChildNodes;
+            for (var i = 0; i < Math.Min(sources.Length, copies.Length); i++)
+            {
+                pending.Push((sources[i], copies[i]));
+            }
+            if (pair.Source is IHtmlTemplateElement template && pair.Copy is IHtmlTemplateElement templateCopy)
+            {
+                pending.Push((template.Content, templateCopy.Content));
+            }
+        }
+    }
 
     /// <summary>
     /// DOM's namespace of <paramref name="element"/>: the namespace it was created with, normalized so that
@@ -56,7 +104,9 @@ internal static class DomNamespaces
 
         // The overwhelmingly common case: the HTML parser, the SVG and MathML factories and every
         // createElementNS with a namespace all record one, so this is a field read and a length test.
-        return string.IsNullOrEmpty(given) ? Declared(element) : given;
+        return string.IsNullOrEmpty(given)
+            ? _creationNamespaces.TryGetValue(element, out var recorded) ? recorded.Value : Declared(element)
+            : given;
     }
 
     /// <summary>

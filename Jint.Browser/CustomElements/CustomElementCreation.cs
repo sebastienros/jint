@@ -70,6 +70,7 @@ internal static class CustomElementCreation
         // only the parse the XMLDocument brand. Carry the source wrapper's choice through DOM's clone steps.
         var documentDefinition = node is IDocument ? realm.WrapNode(node).Definition : null;
         var clone = node.Clone(DomConvert.OptionalBool(arguments, 0, false));
+        DomNamespaces.Copy(node, clone);
 
         // DOM's clone steps for a ProcessingInstruction are "set copy's target to node's target and copy's
         // data to node's data". AngleSharp's clone carries the target and drops the data, so
