@@ -199,7 +199,7 @@ removed after the upstream parser stopped dereferencing the invalid `:has()` bra
 Divergences that are **AngleSharp's** — where it answers differently from the standard and the binding has to
 work around it — are the register in [`divergences.md`](divergences.md), which is data rather than instruction
 and so is not budgeted here. **Add a row there for every one you find**, and never work around a divergence
-silently; never open an issue on the AngleSharp repositories without being asked to.
+silently; never file or reopen issues or submit pull requests in AngleSharp repositories.
 
 The `dataset` one has a visible consequence inside the binding: AngleSharp exposes a CLR string map over raw
 attribute suffixes, while HTML and Web IDL expose a named-property object whose keys are converted. The

@@ -4,7 +4,11 @@ These are repository review drafts for [campaign #3575, X6](https://github.com/s
 prepared under [#3904](https://github.com/sebastienros/jint/issues/3904) and merged by
 [#3906](https://github.com/sebastienros/jint/pull/3906). They describe an offer the maintainer can review and
 revise. They have **not been delivered** to AngleSharp.Js or Jither, and no adoption agreement is implied.
-Source observations below were rechecked against Jint main `a04b5836d590e79ff52c350bf72bc436530daf3f`.
+The maintainer's current delivery constraint is repository preparation only: do not file issues or pull
+requests in AngleSharp repositories. No alternate delivery channel has been selected, and no external
+posts have been made. This constraint does not complete or waive X6.
+
+Source observations below were rechecked against Jint main `cd4037d8b9f751d42ab98000c8f0ce9d4fe45726`.
 
 ## Proposal for AngleSharp Js
 
@@ -22,7 +26,7 @@ this proposal claims no measured speedup over reflection bindings.
 | [Metadata reader and emitter](https://github.com/sebastienros/jint/tree/main/tools/dom-bindings/Jint.Browser.BindingGenerator/) | Read AngleSharp attributes with `MetadataLoadContext`; emit static interface calls and checked-in shapes | Generator output currently names `Jint.Browser.Dom` helpers; namespace and runtime targeting need an explicit extraction design |
 | [Pin and overrides](https://github.com/sebastienros/jint/blob/main/tools/dom-bindings/README.md) | Versioned input assemblies, WebIDL corrections, diagnostics and skipped-member reports | Some overrides are browser services, such as navigation, parser insertion and custom-element reactions; adopting every override would also adopt those obligations |
 | [Generated output](https://github.com/sebastienros/jint/tree/main/Jint.Browser/Dom/Generated/) | Interface shapes, constants, inheritance, conversion call sites and collection accessors | It is source to review, not a standalone consumer library |
-| [Binding runtime](https://github.com/sebastienros/jint/blob/main/Jint.Browser/Dom/DomBindings.cs) and [realm](https://github.com/sebastienros/jint/blob/main/Jint.Browser/Dom/DomRealm.cs) | Receiver brands, wrapping, per-engine identity, lazy prototypes and constructors | Both are internal; global installation and principal-realm capture reach `Engine._mainRealm` |
+| [Binding runtime](https://github.com/sebastienros/jint/blob/main/Jint.Browser/Dom/DomBindings.cs) and [realm](https://github.com/sebastienros/jint/blob/main/Jint.Browser/Dom/DomRealm.cs) | Receiver brands, one native-object/wrapper identity cache per engine, and realm-owned lazy prototypes and constructors | Both are internal; installation accepts an owning realm, with the principal default reaching `Engine._mainRealm`; realm scoping and installation still need a public extraction boundary |
 | [Node wrapper](https://github.com/sebastienros/jint/blob/main/Jint.Browser/Dom/DomNodeObject.cs) and [tree dispatcher](https://github.com/sebastienros/jint/blob/main/Jint/WebApi/Events/EventDispatch.cs) | DOM event paths, retargeting and listener dispatch over host-provided tree relationships | `JsEventTarget`, the dispatch entry and tree overrides are internal; this is not a public event adapter today |
 | [Host hooks](https://github.com/sebastienros/jint/blob/main/Jint.Browser/Dom/DomHostHooks.cs) | A place for the host to supply lifecycle operations behind generated members | Internal hooks already call browser event/custom-element services; they need separation before another host can implement them |
 
@@ -35,14 +39,15 @@ page runtime and `Jint.DevTools` dependency; there is no supported binding-only 
 ### Proposed integration experiment
 
 1. Agree with AngleSharp.Js on one target Jint version and the document/engine ownership model. Start with
-   one document and one engine. Wrapper identity, prototypes and constructors belong to that engine;
-   process-shared shapes must retain no document, engine or script value.
+   one document and one engine. Native-object/wrapper identity is engine-wide; prototypes and constructors
+   belong to the document's realm. Preserve node creation-realm identity across adoption, including before
+   first wrapping. Process-shared shapes must retain no document, engine, realm or script value.
 2. Extract a minimal generator fixture containing `Node`, `Element` and `Document`, their inherited
    interfaces, and the collection/conversion helpers required by the selected members. Keep a reviewed
    input pin and explicit report of every omitted member. Retain existing runtime behavior outside this
    fixture until parity is demonstrated.
 3. Design the smallest public installation/wrap/unwrap and host-callback boundary the fixture needs.
-   Resolve principal-realm access and event dispatch through separately reviewed engine APIs, each proven
+   Resolve realm installation/scoping and event dispatch through separately reviewed engine APIs, each proven
    by a consumer without `InternalsVisibleTo`. A blanket friendship grant or making every helper public
    would hide the boundary rather than establish it. No new API signature is promised by this document.
 4. Let the adopter own script execution, navigation, parser callbacks and document lifetime. Map each
@@ -128,7 +133,7 @@ host/adapter allocations separately from engine stepping before drawing a conclu
 | Stage | Evidence needed | Status of this document |
 | --- | --- | --- |
 | Repository preparation | Audited source links, concrete proposals and focused tracking issue | Merged in #3906; #3904 closed |
-| Maintainer review | Chosen scope, recipients, revised message and approval to send | Pending |
+| Maintainer review | Chosen scope, recipients, revised message and approval to send | Pending; AngleSharp issues and pull requests are prohibited; alternate channel not selected |
 | External delivery | Links to actual messages or upstream discussions | Not sent |
 | Adoption decision | Recipient feedback, agreed experiment and owned follow-up issues | Not requested |
 
