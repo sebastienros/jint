@@ -78,7 +78,7 @@ internal static class WptBrowserCensus
     /// <summary>
     /// Records what one case produced. Called from the runner, which is the single funnel every case's
     /// outcome comes back through — so the census sees the whole lane without the theories knowing it exists,
-    /// and re-running one document simply overwrites its own entry.
+    /// and another successful observation of a document replaces its own counts without erasing a failure.
     /// </summary>
     internal static void Record(string path, WptBrowserOutcome outcome) => _observed.Record(path, outcome);
 
@@ -86,6 +86,7 @@ internal static class WptBrowserCensus
     /// Per-document counts, including failed reports. A harness error is an invalid measurement, never a
     /// successful observation of zero registrations. Keep it until rendering so the document's own runner
     /// can still report its original outcome, and the census cannot silently retry or rewrite that failure.
+    /// Concurrent census and direct-runner observations preserve the first failure for each case.
     /// </summary>
     internal sealed class Measurements
     {
@@ -106,7 +107,10 @@ internal static class WptBrowserCensus
                 }
             }
 
-            _counts[path] = new Counts(outcome.Results.Count, notPassing, outcome.HarnessError);
+            var counts = new Counts(outcome.Results.Count, notPassing, outcome.HarnessError);
+            // The direct runner and the census can both start a case before either records it.
+            // Preserve its first harness failure atomically, whichever observation finishes last.
+            _counts.AddOrUpdate(path, counts, (_, previous) => previous.HarnessError is null ? counts : previous);
         }
 
         internal IReadOnlyDictionary<string, (int Tests, int NotPassing)> CompleteCounts()

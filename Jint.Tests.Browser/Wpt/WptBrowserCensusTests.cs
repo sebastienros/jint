@@ -66,7 +66,7 @@ public class WptBrowserCensusTests
     public void CompleteReportsCountPassingAndExcludedFailuresAndReplaceOnlyTheirOwnObservation()
     {
         var measurements = new WptBrowserCensus.Measurements();
-        measurements.Record("first.html", WptBrowserOutcome.Failed("incomplete first run"));
+        measurements.Record("first.html", new WptBrowserOutcome([new("old result", 1, "excluded failure")], null));
         measurements.Record("second.html", new WptBrowserOutcome([new("failure", 1, "assertion failed")], null));
         measurements.Record("first.html", new WptBrowserOutcome([new("pass", 0, "")], null));
 
@@ -74,6 +74,39 @@ public class WptBrowserCensusTests
         counts.Should().HaveCount(2);
         counts["first.html"].Should().Be((1, 0));
         counts["second.html"].Should().Be((1, 1));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void ARepeatedSuccessfulDocumentCannotEraseAHarnessFailure(bool successFirst)
+    {
+        const string path = "dom/ranges/Range-attribute-nodes.html";
+        var measurements = new WptBrowserCensus.Measurements();
+        var success = new WptBrowserOutcome([new("registered test", 0, "")], null);
+        var failure = WptBrowserOutcome.Failed("the harness reported TIMEOUT: original failure");
+
+        // The census and the direct runner can both start a case before either records it.
+        // Both completion orders must retain the failure, including a later successful run.
+        measurements.Record(path, successFirst ? success : failure);
+        measurements.Record(path, successFirst ? failure : success);
+        measurements.Record(path, success);
+
+        Action render = () => WptBrowserCensus.Render(measured: true, measurements);
+        render.Should().Throw<InvalidOperationException>()
+            .WithMessage($"*{path}: the harness reported TIMEOUT: original failure*No table can be rendered or rewritten*");
+    }
+
+    [Test]
+    public void ARepeatedFailurePreservesTheOriginalDiagnostic()
+    {
+        const string path = "dom/ranges/Range-attribute-nodes.html";
+        var measurements = new WptBrowserCensus.Measurements();
+        measurements.Record(path, WptBrowserOutcome.Failed("original failure"));
+        measurements.Record(path, WptBrowserOutcome.Failed("later failure"));
+
+        Action render = () => WptBrowserCensus.Render(measured: true, measurements);
+        render.Should().Throw<InvalidOperationException>()
+            .WithMessage($"*{path}: original failure*No table can be rendered or rewritten*");
     }
 
     /// <summary>
