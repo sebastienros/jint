@@ -23,6 +23,7 @@ public class CreationRealmTests
     [TestCase("const n = a.Document.prototype.createTextNode.call(document, 'x'); return n instanceof Text && !(n instanceof a.Text);")]
     [TestCase("const n = new a.ProcessingInstruction('t', 'data'); return n.ownerDocument === a.document && n instanceof a.ProcessingInstruction && !(n instanceof ProcessingInstruction);")]
     [TestCase("const n = new a.ProcessingInstruction('𐀀', 'data'); return n.ownerDocument === a.document && n instanceof a.ProcessingInstruction && !(n instanceof ProcessingInstruction);")]
+    [TestCase("const p = new a.ProcessingInstruction('t'); return p.getAttributeNames() instanceof a.Array && !(p.getAttributeNames() instanceof Array);")]
     public async Task FrameNodesAndConstructorsKeepTheirOwningRealm(string assertion)
     {
         await using var loopback = await LoopbackPage.CreateAsync(server => server

@@ -26,6 +26,60 @@ public class ProcessingInstructionAttributeTests
             .ToString().Should().Be(expected);
     }
 
+    [TestCase("p.toggleAttribute('a')", "true|true")]
+    [TestCase("p.toggleAttribute('a', undefined)", "true|true")]
+    [TestCase("p.toggleAttribute('a', false)", "false|false")]
+    [TestCase("p.toggleAttribute('a', null)", "false|false")]
+    [TestCase("p.toggleAttribute('a', {})", "true|true")]
+    public void ToggleUsesTheOptionalBooleanForce(string operation, string expected)
+    {
+        using var fixture = DomTestFixture.Create("");
+        fixture.Evaluate("(() => { const p = document.createProcessingInstruction('t', ''); return (" + operation + ") + '|' + p.hasAttribute('a'); })()")
+            .ToString().Should().Be(expected);
+    }
+
+    [Test]
+    public void RequiredArgumentCountIsCheckedBeforeConversions()
+    {
+        using var fixture = DomTestFixture.Create("");
+        fixture.Evaluate("""
+            (() => {
+              const p = document.createProcessingInstruction('t', '');
+              let converted = false;
+              try { p.setAttribute({toString() { converted = true; return 'a'; }}); }
+              catch (e) { return (e instanceof TypeError) + '|' + converted; }
+            })()
+            """).ToString().Should().Be("true|false");
+    }
+
+    [Test]
+    public async Task WellFormedXmlParsingInitializesTheNativePiMap()
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+        (await page.EvaluateAsync<string>("""
+            const xml = new DOMParser().parseFromString("<?t a='v'?><root/>", 'application/xml');
+            const pi = xml.firstChild;
+            [pi.nodeType, pi.target, pi.getAttribute('a'), pi.ownerDocument === xml].join('|')
+            """)).Should().Be("7|t|v|true");
+    }
+
+    [TestCase("p.cloneNode()")]
+    [TestCase("document.importNode(p)")]
+    public void EqualDataWriteInitializesAnEmptyClonedMap(string clone)
+    {
+        using var fixture = DomTestFixture.Create("");
+        fixture.Evaluate($$"""
+            (() => {
+              const p = document.createProcessingInstruction('t', 'a="v"');
+              const copy = {{clone}};
+              const empty = !copy.hasAttributes();
+              copy.data = copy.data;
+              return empty + '|' + copy.getAttribute('a');
+            })()
+            """).ToString().Should().Be("true|v");
+    }
+
     [TestCase("p.data = p.data")]
     [TestCase("p.nodeValue = p.nodeValue")]
     [TestCase("p.textContent = p.textContent")]
