@@ -196,3 +196,20 @@ identifier ends the token, so `publicId = "foo>"` comes back as `foo` (two rows 
 is delimited by `"` or `'`, so `f'o"o` — which the same file tests, in both positions — has no delimiter that
 can carry it. Building the markup from the arguments is string injection into a parser, not composition, and
 it would cost a whole document parse per call. So the rows stay, with this as the record of why.
+
+### ProcessingInstruction construction
+
+DOM §4.13's [ProcessingInstruction constructor](https://dom.spec.whatwg.org/#dom-processinginstruction-processinginstruction)
+is absent from AngleSharp's interface metadata. `DomConstructors` projects it using the native document
+factory and the shared DOM exception guard, with one required target and optional data. The required
+constructor arity is supplied beside that constructor table. The attribute-map methods and HTML parser
+integration are separate remaining gaps tracked by [#4098](https://github.com/sebastienros/jint/issues/4098).
+
+The native factory checks XML Name one UTF-16 code unit at a time, rejecting permitted scalar values
+U+10000–U+EFFFF. `DomProcessingInstructions` shares XML Name validation between the constructor and
+`document.createProcessingInstruction`, retaining the native BMP predicates and checking surrogate pairs.
+For an astral name only, a constant PI token is produced by the public HTML tokenizer. Its public payload
+is replaced with the validated target and passed to `IConstructableDocument.AddComment` on an inert scratch
+document. This avoids the tokenizer retaining a leading `?` in a parsed PI target. Neither target nor data
+enters markup. The native node is adopted into the requested document before assigning data. There is no
+substitute node class, reflection, page parse, or loader. The ordinary BMP path keeps the native factory.

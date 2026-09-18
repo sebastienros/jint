@@ -370,7 +370,7 @@ table needs to be regenerated.
 
 | Tests | Documents | What it is |
 | ---: | ---: | --- |
-| 137 | 1 | **Members of DOM interfaces are absent.** The rows cover `ProcessingInstruction` attributes, `ChildNode` unscopables and event aliases that have no constructor. <!-- cause: a member of a DOM interface the bindings do not have --> |
+| 137 | 1 | **ProcessingInstruction attributes and parsing are absent.** All rows belong to the PI attribute document; the standardized attribute map and HTML parser support remain tracked by [#4098](https://github.com/sebastienros/jint/issues/4098). <!-- cause: a member of a DOM interface the bindings do not have --> |
 | 46 | 2 | [#3772](https://github.com/sebastienros/jint/issues/3772) **`createDocumentType` is the one creating member DOM's name rules cannot reach.** `AngleSharp.Dom.DocumentType` and `DomImplementation` are both `internal sealed`, `IDocumentType` exposes its three values get-only, and `Document.Doctype` is `FindChild<DocumentType>()` over that internal class — so a doctype built here would not be the one `document.doctype` answers. `Dom/divergences.md` records the probe. 45 rows are the member's own and one is `name-validation.html`'s third test. <!-- cause: DOM's validate-and-extract, and the XML name productions --> |
 | 33 | 7 | [#3771](https://github.com/sebastienros/jint/issues/3771) **Remaining frame environments.** Sourced frames have their own realms and run classic scripts, and a frame served `application/xhtml+xml` is an XHTML document now — so the 244 rows of `Document-createElement*` this cause used to carry are gone from it, and both files pass whole. What is left really is a frame or a second global: empty iframes still lack a native document, which is what `node-realm-*`, `node-creation-realm` and the connectivity cases wait for, and `TextEvent` is an interface the bindings do not have. <!-- cause: a frame that runs script --> |
 | 32 | 1 | **The Selectors-API table and selector-only element states.** The selector-error contracts are `DomSelectorText`'s now, so what is left is `ParentNode-querySelector-All.html`'s two matching differences — the empty namespace prefix and `::slotted` — and every row is `NeedsTriage`. <!-- cause: the Selectors-API table and selector-only element states --> |
@@ -393,9 +393,10 @@ sentence had stopped being true: a frame parses XML ([#3873](https://github.com/
 browsing context, `characterSet` answers the Encoding Standard's name with `charset` and `inputEncoding`
 beside it, `contentType` is what the algorithm that made the document gave it, and `createElement` on a
 document that is not an HTML one keeps the name's case. **137 are not about XML documents at all** —
-`processing-instruction-attributes.html` needs a `ProcessingInstruction` attribute surface no standard has
-yet, and three of its four sources are an HTML-document PI or a `DOMParser` XML document, both of which
-work. **42 were the name refusals the table already named**, reached three times each; [#3950](https://github.com/sebastienros/jint/issues/3950) made them pass and took the rows out. **The rest are
+`processing-instruction-attributes.html` exercises the attribute surface now specified by
+[DOM §4.13](https://dom.spec.whatwg.org/#interface-processinginstruction), plus HTML processing-instruction
+parsing. Its earlier description as an unstandardized proposal is obsolete. DOM-created and XML-parsed PIs
+already exist, but their attribute map and HTML parser support remain missing ([#4098](https://github.com/sebastienros/jint/issues/4098)). **42 were the name refusals the table already named**, reached three times each; [#3950](https://github.com/sebastienros/jint/issues/3950) made them pass and took the rows out. **The rest are
 AngleSharp's**: node equality compares base URLs, a live range is not adjusted across documents, and the
 HTML element factory lower-cases a local name it is handed.
 

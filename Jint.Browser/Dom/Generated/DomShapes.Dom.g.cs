@@ -903,7 +903,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.createProcessingInstruction", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.createProcessingInstruction");
-                    return self.Realm.WrapNodeValue(self.Target.CreateProcessingInstruction(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.createProcessingInstruction"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Document.createProcessingInstruction")));
+                    return self.Realm.Hooks.CreateProcessingInstruction(self.Realm, self.Target, args);
                 }),
                 length: 2)
             .Method("createRange",

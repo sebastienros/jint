@@ -1930,6 +1930,14 @@
     },
     {
       "interface": "Document",
+      "member": "createProcessingInstruction",
+      "half": "operation",
+      "hook": "CreateProcessingInstruction",
+      "returns": true,
+      "reason": "DOM 4.13 initializes a processing instruction with XML Name validation. AngleSharp's code-unit check rejects valid astral names; DomProcessingInstructions preserves the native node using the parser for that case (#4098)."
+    },
+    {
+      "interface": "Document",
       "member": "createElement",
       "half": "operation",
       "hook": "CreateElement",

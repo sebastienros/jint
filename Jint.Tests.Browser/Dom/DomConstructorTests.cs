@@ -227,6 +227,104 @@ public sealed class DomConstructorTests
         Answer(source).Should().Be(expected);
     }
 
+    /// <summary>https://dom.spec.whatwg.org/#dom-processinginstruction-processinginstruction.</summary>
+    [TestCase("new ProcessingInstruction('t').data", "")]
+    [TestCase("new ProcessingInstruction('t', undefined).data", "")]
+    [TestCase("new ProcessingInstruction('t', null).data", "null")]
+    [TestCase("new ProcessingInstruction('xml:target', 'data').target", "xml:target")]
+    [TestCase("new ProcessingInstruction('t', 'data').data", "data")]
+    [TestCase("new ProcessingInstruction('t').nodeType", "7")]
+    [TestCase("new ProcessingInstruction('t') instanceof CharacterData", "true")]
+    [TestCase("new ProcessingInstruction('t') instanceof ProcessingInstruction", "true")]
+    [TestCase("Object.prototype.toString.call(new ProcessingInstruction('t'))", "[object ProcessingInstruction]")]
+    [TestCase("ProcessingInstruction.length", "1")]
+    [TestCase("new ProcessingInstruction('A\u00B7A', 'x').target", "A\u00B7A")]
+    [TestCase("new ProcessingInstruction('a0').target", "a0")]
+    [TestCase("new ProcessingInstruction('xml').target", "xml")]
+    [TestCase("new ProcessingInstruction('XML').target", "XML")]
+    [TestCase("new ProcessingInstruction(null).target", "null")]
+    [TestCase("new ProcessingInstruction(':_').target", ":_")]
+    [TestCase("new ProcessingInstruction('\\u{10000}').target", "\U00010000")]
+    [TestCase("new ProcessingInstruction('\\u{EFFFF}').target", "\U000EFFFF")]
+    public void ProcessingInstructionTakesATargetAndOptionalData(string source, string expected)
+    {
+        Answer(source).Should().Be(expected);
+    }
+
+    [TestCase("new ProcessingInstruction()", "TypeError", false)]
+    [TestCase("ProcessingInstruction('t')", "TypeError", false)]
+    [TestCase("new ProcessingInstruction(Symbol())", "TypeError", false)]
+    [TestCase("new ProcessingInstruction('t', Symbol())", "TypeError", false)]
+    [TestCase("new ProcessingInstruction('', '')", "InvalidCharacterError", true)]
+    [TestCase("new ProcessingInstruction('0', '')", "InvalidCharacterError", true)]
+    [TestCase("new ProcessingInstruction('\u00B7A', 'x')", "InvalidCharacterError", true)]
+    [TestCase("new ProcessingInstruction('A\u00D7', 'x')", "InvalidCharacterError", true)]
+    [TestCase("new ProcessingInstruction('t', 'before?>after')", "InvalidCharacterError", true)]
+    [TestCase("new ProcessingInstruction('\\u{F0000}')", "InvalidCharacterError", true)]
+    [TestCase("new ProcessingInstruction('\\uD800')", "InvalidCharacterError", true)]
+    public void ProcessingInstructionRejectsInvalidArguments(string source, string name, bool domException)
+    {
+        Answer($$"""
+            (() => {
+              try { {{source}}; return 'no exception'; }
+              catch (e) { return e.name + '|' + (e instanceof DOMException); }
+            })()
+            """).Should().Be(name + "|" + (domException ? "true" : "false"));
+    }
+
+    [TestCase("new ProcessingInstruction(target, data)")]
+    [TestCase("document.createProcessingInstruction(target, data)")]
+    public async Task AstralProcessingInstructionsKeepNativeIdentityAndOwnership(string create)
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(Page);
+        (await page.EvaluateAsync<string>($$"""
+            (() => {
+              const target = 'XML:𐀀Mixed';
+              const data = 'a\r\n\0b';
+              const before = document.documentElement;
+              const observer = new MutationObserver(() => {});
+              observer.observe(document, { childList: true, subtree: true });
+              const pi = {{create}};
+              const clone = pi.cloneNode();
+              const unchanged = observer.takeRecords().length === 0 && document.documentElement === before;
+              document.body.appendChild(pi);
+              return [pi.target === target, pi.data === data, pi.ownerDocument === document,
+                pi === document.body.lastChild, clone !== pi, clone.target === target,
+                clone.data === data, clone.ownerDocument === document, unchanged].join('|');
+            })()
+            """)).Should().Be("true|true|true|true|true|true|true|true|true");
+    }
+
+    [TestCase("{ toString() { throw sentinel; } }, { toString() { throw 0; } }")]
+    [TestCase("'invalid target', { toString() { throw sentinel; } }")]
+    public void ProcessingInstructionPreservesConversionExceptions(string arguments)
+    {
+        Answer($$"""
+            (() => {
+              const sentinel = {};
+              try { new ProcessingInstruction({{arguments}}); }
+              catch (error) { return error === sentinel; }
+              return false;
+            })()
+            """).Should().Be("true");
+    }
+
+    [Test]
+    public void ProcessingInstructionConvertsArgumentsOnceInOrder()
+    {
+        Answer("""
+            (() => {
+              const calls = [];
+              const pi = new ProcessingInstruction(
+                { toString() { calls.push('target'); return 't'; } },
+                { toString() { calls.push('data'); return 'value'; } });
+              return calls.join(',') + '|' + pi.target + '|' + pi.data;
+            })()
+            """).Should().Be("target,data|t|value");
+    }
+
     /// <summary>
     /// https://dom.spec.whatwg.org/#dom-range-range: the new range's start and end are that document at
     /// offset 0, so it is collapsed on the document node.
@@ -273,10 +371,11 @@ public sealed class DomConstructorTests
             [
               new Comment('x').ownerDocument === document,
               new Text('x').ownerDocument === document,
+              new ProcessingInstruction('t').ownerDocument === document,
               new Range().startContainer === document,
               new Range().endContainer === document,
             ].join('|')
-            """)).Should().Be("true|true|true|true");
+            """)).Should().Be("true|true|true|true|true");
     }
 
     private static string? Answer(string source)

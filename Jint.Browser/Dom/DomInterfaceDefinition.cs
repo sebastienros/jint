@@ -52,8 +52,8 @@ internal sealed class DomInterfaceDefinition
     /// https://webidl.spec.whatwg.org/#es-interface-call — the interface object's <c>length</c>, which is
     /// the number of arguments the constructor <em>requires</em>. Zero for every interface the generator
     /// produces: an interface with no constructor has no required arguments, and the handful
-    /// <c>DomConstructors</c> gives one to all take optional arguments only. <c>StaticRange</c> is the
-    /// exception, and the reason this is a value rather than a constant.
+    /// <c>DomConstructors</c> supplies missing constructor metadata separately. <c>StaticRange</c> declares
+    /// its required argument here because its entire interface is hand-written.
     /// </summary>
     internal int ConstructorLength { get; }
 
