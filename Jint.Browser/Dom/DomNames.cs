@@ -76,13 +76,8 @@ internal static class DomNames
     /// break the very feature detection a page writes.
     /// </para>
     /// <para>
-    /// <b>The two <c>DOMImplementation</c> rows are what keeps every creating member on one footing.</b>
-    /// <c>createDocument</c> runs the internal createElementNS steps at its step 3, and its element is built
-    /// by <see cref="DomElementFactory"/> now rather than by AngleSharp's stricter name check, so the
-    /// refusals have to be made here or they would not be made at all. <c>createDocumentType</c> is the other
-    /// direction: AngleSharp's check happens to refuse a superset of what DOM refuses, so the row changes
-    /// nothing a page can see today — it states the member's own rule, in DOM's vocabulary, instead of
-    /// leaving a refusal that DOM requires resting on an XML production DOM stopped naming.
+    /// <c>createDocument</c> runs the internal createElementNS steps. <c>createDocumentType</c> validates
+    /// its name in <see cref="DomDocumentTypeFactory"/> after converting all three WebIDL arguments.
     /// </para>
     /// </remarks>
     private static readonly Dictionary<string, Validation> _validations = new(StringComparer.Ordinal)
@@ -94,7 +89,6 @@ internal static class DomNames
         ["Element.setAttribute"] = new(Receiver.Element, NamespaceIndex: -1, NameIndex: 0, Arity: 2, NameContext.Attribute),
         ["Element.setAttributeNS"] = new(Receiver.Element, NamespaceIndex: 0, NameIndex: 1, Arity: 3, NameContext.Attribute),
         ["DOMImplementation.createDocument"] = new(Receiver.Implementation, NamespaceIndex: 0, NameIndex: 1, Arity: 2, NameContext.Element, OptionalName: true),
-        ["DOMImplementation.createDocumentType"] = new(Receiver.Implementation, NamespaceIndex: -1, NameIndex: 0, Arity: 3, NameContext.Doctype),
     };
 
     /// <summary>
