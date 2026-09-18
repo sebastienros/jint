@@ -877,6 +877,14 @@ internal class DomHostHooks
     internal virtual JsValue CreateElement(DomRealm realm, IDocument document, JsValue[] arguments)
         => CustomElements.CustomElementCreation.CreateElement(realm, document, arguments);
 
+    /// <summary>https://dom.spec.whatwg.org/#dom-document-createprocessinginstruction.</summary>
+    internal virtual JsValue CreateProcessingInstruction(DomRealm realm, IDocument document, JsValue[] arguments)
+    {
+        var target = DomConvert.RequiredText(arguments, 0, "Document.createProcessingInstruction");
+        var data = DomConvert.RequiredText(arguments, 1, "Document.createProcessingInstruction");
+        return realm.WrapNode(DomProcessingInstructions.Create(document, target, data));
+    }
+
     /// <inheritdoc cref="CreateElement" />
     internal virtual JsValue CreateElementNS(DomRealm realm, IDocument document, JsValue[] arguments)
         => CustomElements.CustomElementCreation.CreateElementNS(realm, document, arguments);
@@ -957,6 +965,7 @@ internal class DomHostHooks
             document.Adopt(imported);
         }
 
+        DomProcessingInstructionAttributes.Cloned(source, imported);
         Files.FileTransferRealm.ResetCopiedInputs(imported);
         CustomElements.CustomElementRegistry.Cloned(realm, source, imported);
         return realm.WrapNodeValue(imported);
