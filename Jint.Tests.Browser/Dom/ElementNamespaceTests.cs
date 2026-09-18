@@ -238,4 +238,87 @@ public sealed class ElementNamespaceTests
         page.Errors.Should().BeEmpty();
     }
 
+    [TestCase("cloneContents", "range.selectNode(root)", "root,child,leaf,sibling", "abcxyz")]
+    [TestCase("cloneContents", "range.selectNodeContents(root)", "child,leaf,sibling", "abcxyz")]
+    [TestCase("extractContents", "range.selectNodeContents(root)", "child,leaf,sibling", "abcxyz")]
+    [TestCase("cloneContents", "range.setStart(leaf.firstChild, 1); range.setEnd(root, 1)", "child,leaf", "bc")]
+    [TestCase("extractContents", "range.setStart(leaf.firstChild, 1); range.setEnd(root, 1)", "child,leaf", "bc")]
+    [TestCase("cloneContents", "range.setStart(root, 0); range.setEnd(sibling.firstChild, 1)", "child,leaf,sibling", "abcx")]
+    [TestCase("extractContents", "range.setStart(leaf.firstChild, 1); range.setEnd(sibling.firstChild, 1)", "child,leaf,sibling", "bcx")]
+    [TestCase("cloneContents", "range.setStart(leaf.firstChild, 3); range.setEnd(root, 1)", "child,leaf", "")]
+    [TestCase("extractContents", "range.setStart(root, 1); range.setEnd(sibling.firstChild, 0)", "sibling", "")]
+    [TestCase("cloneContents", "range.selectNodeContents(leaf); range.collapse(true)", "", "")]
+    [TestCase("extractContents", "range.setStart(leaf.firstChild, 1); range.setEnd(leaf.firstChild, 2)", "", "b")]
+    public void RangeResultsCarryNamespacesWithoutChangingNativeSelection(
+        string operation, string select, string names, string text)
+    {
+        using var fixture = DomTestFixture.Create("<main></main>");
+        fixture.Execute("""
+            var root = document.createElementNS(null, 'root');
+            var child = root.appendChild(document.createElementNS(null, 'child'));
+            var leaf = child.appendChild(document.createElementNS(null, 'leaf'));
+            leaf.textContent = 'abc';
+            var sibling = root.appendChild(document.createElementNS(null, 'sibling'));
+            sibling.textContent = 'xyz';
+            for (var node of [root, child, leaf, sibling]) node.setAttribute('xmlns', 'urn:wrong');
+            var range = document.createRange();
+            """);
+        if (select == "range.selectNode(root)")
+        {
+            fixture.Execute("document.querySelector('main').append(root);");
+        }
+        // The other cases exercise detached source trees as well as partial boundary containers.
+        fixture.Execute(select + "; var result = range." + operation + "();");
+        fixture.Text("Array.from(result.querySelectorAll('*'), e => e.localName).join(',')").Should().Be(names);
+        fixture.Text("result.textContent").Should().Be(text);
+        fixture.Bool("Array.from(result.querySelectorAll('*')).every(e => e.namespaceURI === null)").Should().BeTrue();
+        if (operation == "extractContents" && select == "range.selectNodeContents(root)")
+        {
+            fixture.Bool("result.firstChild === child && result.lastChild === sibling").Should().BeTrue();
+        }
+    }
+
+    [Test]
+    public void RangeCloningCarriesTemplateContentAndSurroundMovesOriginalElements()
+    {
+        using var fixture = DomTestFixture.Create("<main></main>");
+        fixture.Execute("""
+            var root = document.querySelector('main');
+            var template = root.appendChild(document.createElement('template'));
+            var child = template.content.appendChild(document.createElementNS(null, 'child'));
+            child.setAttribute('xmlns', 'urn:wrong');
+            var range = document.createRange();
+            range.selectNode(template);
+            var result = range.cloneContents();
+            var wrapper = document.createElementNS(null, 'wrapper');
+            wrapper.setAttribute('xmlns', 'urn:wrong');
+            range.surroundContents(wrapper);
+            """);
+        fixture.Text("result.firstChild.content.firstChild.namespaceURI").Should().BeNull();
+        fixture.Bool("wrapper.firstChild === template && template.content.firstChild === child").Should().BeTrue();
+        fixture.Text("child.namespaceURI").Should().BeNull();
+    }
+
+    [TestCase("cloneContents")]
+    [TestCase("extractContents")]
+    public void PartiallySelectedTemplatePreservesTheNativeShallowContentCopy(string operation)
+    {
+        // #4108 tracks the native shallow-template copying divergence. Provenance transfer must still
+        // preserve that native result without throwing after extraction has already mutated the source.
+        using var fixture = DomTestFixture.Create("<main></main>");
+        fixture.Execute("""
+            var root = document.querySelector('main');
+            var template = root.appendChild(document.createElement('template'));
+            var child = template.content.appendChild(document.createElementNS(null, 'child'));
+            child.setAttribute('xmlns', 'urn:wrong');
+            child.appendChild(document.createElementNS(null, 'leaf'));
+            var range = document.createRange();
+            range.setStart(template, 0);
+            range.setEnd(root, 1);
+            """);
+        fixture.Execute("var result = range." + operation + "();");
+        fixture.Text("result.firstChild.content.firstChild.namespaceURI").Should().BeNull();
+        fixture.Number("result.firstChild.content.firstChild.childNodes.length").Should().Be(0);
+    }
+
 }
