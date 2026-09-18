@@ -530,7 +530,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("DOMImplementation.createDocumentType", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IImplementation>(thisObj, "DOMImplementation.createDocumentType");
-                    return self.Realm.WrapNodeValue(self.Target.CreateDocumentType(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "DOMImplementation.createDocumentType"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "DOMImplementation.createDocumentType"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 2, "DOMImplementation.createDocumentType")));
+                    return self.Realm.Hooks.CreateDocumentType(self.Realm, self.Target, args);
                 }),
                 length: 3)
             .Method("createHTMLDocument",

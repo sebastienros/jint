@@ -11,8 +11,8 @@ namespace Jint.Tests.Browser.Dom;
 /// <c>NamespaceError</c>. The rows are <c>dom/nodes/Document-createElementNS.js</c>'s own, and they are all of
 /// them now: the names AngleSharp's stricter XML <c>Name</c> production used to refuse before the standard's
 /// algorithm could accept them are created by <see cref="Jint.Browser.Dom.DomElementFactory"/>, and the test
-/// below pins the WebIDL interface each one gets. What is still refused is the doctype half, which has a test
-/// of its own here and a row in <c>Jint.Browser/Dom/divergences.md</c>.
+/// below pins the WebIDL interface each one gets. The doctype half uses the native parser construction factory and has its own
+/// regression coverage below.
 /// </remarks>
 public sealed class NameValidationTests
 {
@@ -226,20 +226,15 @@ public sealed class NameValidationTests
     /// predicate that is not a local name: no ASCII whitespace, no U+0000 and no U+003E, and everything else
     /// — including <c>/</c>, <c>=</c>, a colon and the empty string — allowed.
     /// </summary>
-    /// <remarks>
-    /// The names DOM allows and AngleSharp refuses are still refused, which is the doctype half of
-    /// <see href="https://github.com/sebastienros/jint/issues/3950">#3950</see> and is recorded in
-    /// <c>Jint.Browser/Dom/divergences.md</c>: <c>AngleSharp.Dom.DocumentType</c> is <c>internal sealed</c>
-    /// and <c>Document.Doctype</c> is a <c>FindChild</c> over that exact class, so there is nothing to build
-    /// one with. What this pins is that the refusals the standard <i>requires</i> are made, by DOM's
-    /// predicate, and carry DOM's name.
-    /// </remarks>
     [TestCase("document.implementation.createDocumentType('a b', '', '')", "InvalidCharacterError")]
     [TestCase("document.implementation.createDocumentType('a\\nb', '', '')", "InvalidCharacterError")]
     [TestCase("document.implementation.createDocumentType('a\\0b', '', '')", "InvalidCharacterError")]
     [TestCase("document.implementation.createDocumentType('a>b', '', '')", "InvalidCharacterError")]
     [TestCase("document.implementation.createDocumentType('a:b', '', '')", null)]
     [TestCase("document.implementation.createDocumentType('foo', '', '')", null)]
+    [TestCase("document.implementation.createDocumentType('', '', '')", null)]
+    [TestCase("document.implementation.createDocumentType('~', '', '')", null)]
+    [TestCase("document.implementation.createDocumentType('edi:{', '', '')", null)]
     public void CreateDocumentTypeValidatesADoctypeName(string source, string? error)
     {
         Refusal(source).Should().Be(error);

@@ -10,6 +10,7 @@ namespace Jint.Tests.Browser.Dom;
 
 public class CreationRealmTests
 {
+    [TestCase("const n = a.document.implementation.createDocumentType('~', 'p', 's'); document.adoptNode(n); return n instanceof a.DocumentType && !(n instanceof DocumentType) && n.ownerDocument === document;")]
     [TestCase("const n = a.document.createElement('div'); b.document.body.append(n, {toString() { n.innerHTML = '<p>late</p>'; return ''; }}); return n.firstChild instanceof a.HTMLParagraphElement && n.firstChild.firstChild instanceof a.Text;")]
     [TestCase("const n = a.document.createComment('x'); document.adoptNode(n); return n instanceof a.Comment && !(n instanceof Comment) && n.ownerDocument === document;")]
     [TestCase("const n = a.document.createElement('div'); n.innerHTML = '<p>text</p><!--x-->'; document.adoptNode(n); return n.firstChild instanceof a.HTMLParagraphElement && n.firstChild.firstChild instanceof a.Text && n.lastChild instanceof a.Comment;")]

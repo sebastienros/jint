@@ -858,6 +858,10 @@ internal class DomHostHooks
         }
     }
 
+    /// <summary>https://dom.spec.whatwg.org/#dom-domimplementation-createdocumenttype.</summary>
+    internal virtual JsValue CreateDocumentType(DomRealm realm, IImplementation implementation, JsValue[] arguments)
+        => DomDocumentTypeFactory.Create(realm, implementation, arguments);
+
     /// <summary>
     /// https://dom.spec.whatwg.org/#dom-document-createelement, and its namespaced and cloning siblings.
     /// </summary>
