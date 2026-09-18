@@ -1987,6 +1987,27 @@
     {
       "interface": "Element",
       "member": "innerHTML",
+      "half": "getter",
+      "hook": "GetInnerHtml",
+      "reason": "HTML serialization escapes angle brackets in attribute values through the shared native formatter extension."
+    },
+    {
+      "interface": "Element",
+      "member": "outerHTML",
+      "half": "getter",
+      "hook": "GetOuterHtml",
+      "reason": "HTML serialization escapes angle brackets in attribute values through the shared native formatter extension."
+    },
+    {
+      "interface": "ShadowRoot",
+      "member": "innerHTML",
+      "half": "getter",
+      "hook": "GetInnerHtml",
+      "reason": "HTML serialization escapes angle brackets in attribute values through the shared native formatter extension."
+    },
+    {
+      "interface": "Element",
+      "member": "innerHTML",
       "half": "setter",
       "hook": "SetInnerHtml",
       "reason": "Setting innerHTML parses markup into the tree, and a <script> inserted that way has to reach the script scheduler. Until the parser driver exists (campaign item R3) the hook's default body assigns AngleSharp's property directly, which is exactly today's behaviour; R3 replaces the body and nothing generated changes."

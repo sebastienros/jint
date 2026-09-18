@@ -1,4 +1,5 @@
 using System.Buffers;
+using AngleSharp;
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
 using Jint.Browser.Dom.Collections;
@@ -74,6 +75,12 @@ internal class DomHostHooks
             Events.EventHandlerContentAttributes.InstallFromMarkup(node);
         }
     }
+
+    internal virtual JsValue GetInnerHtml(DomRealm realm, INode node)
+        => JsString.Create(DomHtmlMarkupFormatter.InnerHtml(node));
+
+    internal virtual JsValue GetOuterHtml(DomRealm realm, IElement element)
+        => JsString.Create(element.ToHtml(DomHtmlMarkupFormatter.BrowserInstance));
 
     /// <summary>https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-innerhtml</summary>
     /// <remarks>
