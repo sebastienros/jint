@@ -382,17 +382,17 @@ internal class DomHostHooks
     internal virtual JsValue QuerySelectorAll(DomRealm realm, INode root, JsValue[] arguments)
     {
         var selectors = DomSelectorText.Required(arguments, Member(root, "querySelectorAll"));
-        return realm.WrapStaticNodeList(((IParentNode) root).QuerySelectorAll(selectors));
+        return realm.WrapStaticNodeList(DomSelectors.QuerySelectorAll(root, selectors));
     }
 
     internal virtual JsValue QuerySelector(DomRealm realm, INode root, JsValue[] arguments)
-        => realm.WrapNodeValue(((IParentNode) root).QuerySelector(DomSelectorText.Required(arguments, Member(root, "querySelector"))));
+        => realm.WrapNodeValue(DomSelectors.QuerySelector(root, DomSelectorText.Required(arguments, Member(root, "querySelector"))));
 
     internal virtual JsValue Matches(DomRealm realm, IElement element, JsValue[] arguments)
-        => DomConvert.Bool(element.Matches(DomSelectorText.Required(arguments, "Element.matches")));
+        => DomConvert.Bool(DomSelectors.Matches(element, DomSelectorText.Required(arguments, "Element.matches")));
 
     internal virtual JsValue Closest(DomRealm realm, IElement element, JsValue[] arguments)
-        => realm.WrapNodeValue(element.Closest(DomSelectorText.Required(arguments, "Element.closest")));
+        => realm.WrapNodeValue(DomSelectors.Closest(element, DomSelectorText.Required(arguments, "Element.closest")));
 
     private static string Member(INode root, string operation)
         => root switch
