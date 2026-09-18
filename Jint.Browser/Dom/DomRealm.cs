@@ -337,6 +337,7 @@ internal sealed class DomRealm
             }
             if (node is IElement element)
             {
+                DomNamespaces.Capture(element);
                 foreach (var attribute in element.Attributes)
                 {
                     _creationRealms.GetValue(attribute, _ => node.Owner is { } owner ? RealmOfDocument(owner) : this);

@@ -38,6 +38,55 @@ public sealed class ElementNamespaceTests
         fixture.Text("empty.namespaceURI").Should().BeNull();
     }
 
+    [TestCase("null")]
+    [TestCase("''")]
+    public void ExplicitlyNullNamespacesIgnoreXmlnsOnSelfAndAncestors(string namespaceArgument)
+    {
+        using var fixture = DomTestFixture.Create("<main xmlns='urn:ancestor'></main>");
+        fixture.Execute("var node = document.createElementNS(" + namespaceArgument + ", 'child');");
+        fixture.Execute("""
+            var root = document.querySelector('main');
+            node.setAttribute('xmlns', 'urn:self');
+            root.append(node);
+            """);
+        fixture.Text("node.namespaceURI").Should().BeNull();
+        fixture.Number("root.getElementsByTagNameNS(null, 'child').length").Should().Be(1);
+        fixture.Number("root.getElementsByTagNameNS('urn:self', 'child').length").Should().Be(0);
+    }
+
+    [TestCase("original.cloneNode(true)")]
+    [TestCase("document.importNode(original, true)")]
+    [TestCase("document.adoptNode(original)")]
+    public void NullNamespaceProvenanceSurvivesSubtreeCopyAndAdoption(string operation)
+    {
+        using var fixture = DomTestFixture.Create("<main xmlns='urn:destination'></main>");
+        fixture.Execute("""
+            var other = new Document();
+            var original = other.createElement('outer');
+            original.appendChild(other.createElementNS(null, 'inner'));
+            original.setAttribute('xmlns', 'urn:source');
+            """);
+        fixture.Execute("var moved = " + operation + "; document.querySelector('main').append(moved);");
+        fixture.Text("moved.namespaceURI").Should().BeNull();
+        fixture.Text("moved.firstChild.namespaceURI").Should().BeNull();
+        fixture.Number("moved.getElementsByTagNameNS(null, '*').length").Should().Be(1);
+        fixture.Bool("moved.ownerDocument === document && moved.firstChild.ownerDocument === document").Should().BeTrue();
+        fixture.Bool("moved.isEqualNode(original)").Should().BeTrue();
+    }
+
+    [Test]
+    public void TemplateContentClonesKeepExplicitlyNullNamespaces()
+    {
+        using var fixture = DomTestFixture.Create("<main xmlns='urn:destination'></main>");
+        fixture.Execute("""
+            var source = document.createElement('template');
+            source.content.appendChild(document.createElementNS(null, 'child'));
+            var copy = source.cloneNode(true);
+            var child = document.querySelector('main').appendChild(copy.content.firstChild);
+            """);
+        fixture.Text("child.namespaceURI").Should().BeNull();
+    }
+
     [Test]
     public void TheQueryAndNamespaceUriAgreeAboutANullNamespaceElement()
     {
@@ -156,4 +205,37 @@ public sealed class ElementNamespaceTests
             .Should().Be("http://www.w3.org/2000/svg|http://www.w3.org/2000/svg|3|0|http://www.w3.org/2000/svg");
         page.Errors.Should().BeEmpty();
     }
+    [TestCase("leaf.cloneNode(true)", false)]
+    [TestCase("document.importNode(leaf, true)", false)]
+    [TestCase("document.adoptNode(leaf)", true)]
+    public async Task ParsedXmlNamespacesSurviveMoves(string operation, bool changeDeclarations)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<main xmlns='urn:destination'></main>");
+        await page.EvaluateAsync<string>("""
+            var xml = new DOMParser().parseFromString(
+              '<root xmlns="urn:original" xmlns:p="urn:prefixed"><leaf><p:child/><none xmlns=""/></leaf></root>',
+              'text/xml');
+            'ready';
+            """);
+        if (changeDeclarations)
+        {
+            // Capture at document observation, before any descendant wrapper is requested.
+            await page.EvaluateAsync<string>("""
+                xml.documentElement.setAttribute('xmlns', 'urn:changed');
+                xml.documentElement.setAttribute('xmlns:p', 'urn:changed-prefix');
+                'changed';
+                """);
+        }
+        await page.EvaluateAsync<string>("var leaf = xml.documentElement.firstChild; var moved = " + operation + "; document.querySelector('main').append(moved); 'done';");
+        (await page.EvaluateAsync<string>("""
+            [moved.namespaceURI, moved.firstChild.namespaceURI,
+             moved.lastChild.namespaceURI === null,
+             moved.getElementsByTagNameNS('urn:prefixed', 'child').length,
+             moved.ownerDocument === document].join('|')
+            """)).Should().Be("urn:original|urn:prefixed|true|1|true");
+        page.Errors.Should().BeEmpty();
+    }
+
 }
