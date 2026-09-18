@@ -7,6 +7,73 @@ namespace Jint.Tests.Browser.Dom;
 
 public class ProcessingInstructionAttributeTests
 {
+    [TestCase("deleteContents", "start", "")]
+    [TestCase("deleteContents", "end", "")]
+    [TestCase("deleteContents", "collapsed", "$")]
+    [TestCase("extractContents", "start", "")]
+    [TestCase("extractContents", "end", "")]
+    [TestCase("extractContents", "collapsed", "$")]
+    public void RangeReplacementResetsTheBoundaryMapEvenWhenDataIsUnchanged(string operation, string edge, string names)
+    {
+        using var fixture = DomTestFixture.Create("");
+        fixture.Evaluate($$"""
+            (() => {
+              const p = document.createProcessingInstruction('t', '');
+              p.setAttribute('$', 'value');
+              const div = document.createElement('div'); div.append(p);
+              const range = document.createRange();
+              if ('{{edge}}' === 'end') { range.setStart(div, 0); range.setEnd(p, 0); }
+              else {
+                range.setStart(p, p.length);
+                range.setEnd('{{edge}}' === 'collapsed' ? p : div, '{{edge}}' === 'collapsed' ? p.length : 1);
+              }
+              const before = p.data;
+              range.{{operation}}();
+              return (p.data === before) + '|' + p.getAttributeNames().join(',') + '|' + (p.parentNode === div);
+            })()
+            """).ToString().Should().Be("true|" + names + "|true");
+    }
+
+    [TestCase("start", "InvalidStateError")]
+    [TestCase("end", "InvalidStateError")]
+    [TestCase("collapsed", "HierarchyRequestError")]
+    public void RejectedSurroundContentsPreservesBoundaryAttributes(string edge, string error)
+    {
+        using var fixture = DomTestFixture.Create("");
+        fixture.Evaluate($$"""
+            (() => {
+              const p = document.createProcessingInstruction('t', ''); p.setAttribute('$', 'value');
+              const div = document.createElement('div'); div.append(p);
+              const range = document.createRange();
+              if ('{{edge}}' === 'end') { range.setStart(div, 0); range.setEnd(p, 0); }
+              else {
+                range.setStart(p, p.length);
+                range.setEnd('{{edge}}' === 'collapsed' ? p : div, '{{edge}}' === 'collapsed' ? p.length : 1);
+              }
+              const before = p.data;
+              try { range.surroundContents(document.createElement('span')); }
+              catch (e) { return e.name + '|' + (p.data === before) + '|' + p.getAttributeNames().join(','); }
+            })()
+            """).ToString().Should().Be(error + "|true|$");
+    }
+
+    [TestCase(false, "")]
+    [TestCase(true, "$")]
+    public async Task SelectionDeletionResetsOnlyNoncollapsedBoundaryMaps(bool collapsed, string names)
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+        (await page.EvaluateAsync<string>($$"""
+            const p = document.createProcessingInstruction('t', ''); p.setAttribute('$', 'value');
+            document.body.append(p);
+            const range = document.createRange(); range.setStart(p, p.length);
+            if (!{{(collapsed ? "true" : "false")}}) range.setEnd(document.body, document.body.childNodes.length);
+            const selection = getSelection(); selection.removeAllRanges(); selection.addRange(range);
+            selection.deleteFromDocument();
+            p.getAttributeNames().join(',')
+            """)).Should().Be(names);
+    }
+
     [TestCase("p.setAttribute('$', 'v'); return p.getAttribute('$')", "v")]
     [TestCase("p.setAttribute('a','1'); p.setAttribute('b','2'); p.setAttribute('a','3'); p.removeAttribute('a'); p.setAttribute('a','4'); return p.getAttributeNames().join(',')", "b,a")]
     [TestCase("p.data = `a='&amp;&#65;&#x10000;'`; return p.getAttribute('a')", "&A𐀀")]

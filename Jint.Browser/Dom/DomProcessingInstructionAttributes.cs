@@ -89,6 +89,26 @@ internal static class DomProcessingInstructionAttributes
     // Called only after a successful script-visible replace-data operation, including equal-value writes.
     internal static void DataChanged(IProcessingInstruction node) => _states.Remove(node);
 
+    // DOM §5.5 replaces data at CharacterData boundaries even when it removes an empty span.
+    // Snapshot the native identities before the operation adjusts its live range endpoints.
+    internal readonly struct RangeDataReplacement(IRange? range)
+    {
+        private readonly IProcessingInstruction? _head = range is { IsCollapsed: false } ? range.Head as IProcessingInstruction : null;
+        private readonly IProcessingInstruction? _tail = range is { IsCollapsed: false } ? range.Tail as IProcessingInstruction : null;
+
+        internal void Complete()
+        {
+            if (_head is not null)
+            {
+                DataChanged(_head);
+            }
+            if (_tail is not null && !ReferenceEquals(_head, _tail))
+            {
+                DataChanged(_tail);
+            }
+        }
+    }
+
     // Clone-single-node copies target and data, but the new attribute map remains initially empty.
     internal static void Cloned(INode source, INode copy)
     {
