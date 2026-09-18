@@ -280,6 +280,83 @@
   ],
   "additions": [
     {
+      "interface": "ProcessingInstruction",
+      "member": "hasAttributes",
+      "kind": "operation",
+      "length": 0,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IProcessingInstruction>(thisObj, \"ProcessingInstruction.hasAttributes\");",
+        "return global::Jint.Browser.Dom.DomProcessingInstructionAttributes.Invoke(self.Realm, self.Target, \"hasAttributes\", args);"
+      ],
+      "reason": "DOM §4.13 specifies an ordered PI attribute map, missing from native metadata; state is tied to the native PI and data writes retain native mutation records (#4098)."
+    },
+    {
+      "interface": "ProcessingInstruction",
+      "member": "getAttributeNames",
+      "kind": "operation",
+      "length": 0,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IProcessingInstruction>(thisObj, \"ProcessingInstruction.getAttributeNames\");",
+        "return global::Jint.Browser.Dom.DomProcessingInstructionAttributes.Invoke(self.Realm, self.Target, \"getAttributeNames\", args);"
+      ],
+      "reason": "DOM §4.13 specifies an ordered PI attribute map, missing from native metadata; state is tied to the native PI and data writes retain native mutation records (#4098)."
+    },
+    {
+      "interface": "ProcessingInstruction",
+      "member": "getAttribute",
+      "kind": "operation",
+      "length": 1,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IProcessingInstruction>(thisObj, \"ProcessingInstruction.getAttribute\");",
+        "return global::Jint.Browser.Dom.DomProcessingInstructionAttributes.Invoke(self.Realm, self.Target, \"getAttribute\", args);"
+      ],
+      "reason": "DOM §4.13 specifies an ordered PI attribute map, missing from native metadata; state is tied to the native PI and data writes retain native mutation records (#4098)."
+    },
+    {
+      "interface": "ProcessingInstruction",
+      "member": "setAttribute",
+      "kind": "operation",
+      "length": 2,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IProcessingInstruction>(thisObj, \"ProcessingInstruction.setAttribute\");",
+        "return global::Jint.Browser.Dom.DomProcessingInstructionAttributes.Invoke(self.Realm, self.Target, \"setAttribute\", args);"
+      ],
+      "reason": "DOM §4.13 specifies an ordered PI attribute map, missing from native metadata; state is tied to the native PI and data writes retain native mutation records (#4098)."
+    },
+    {
+      "interface": "ProcessingInstruction",
+      "member": "removeAttribute",
+      "kind": "operation",
+      "length": 1,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IProcessingInstruction>(thisObj, \"ProcessingInstruction.removeAttribute\");",
+        "return global::Jint.Browser.Dom.DomProcessingInstructionAttributes.Invoke(self.Realm, self.Target, \"removeAttribute\", args);"
+      ],
+      "reason": "DOM §4.13 specifies an ordered PI attribute map, missing from native metadata; state is tied to the native PI and data writes retain native mutation records (#4098)."
+    },
+    {
+      "interface": "ProcessingInstruction",
+      "member": "toggleAttribute",
+      "kind": "operation",
+      "length": 1,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IProcessingInstruction>(thisObj, \"ProcessingInstruction.toggleAttribute\");",
+        "return global::Jint.Browser.Dom.DomProcessingInstructionAttributes.Invoke(self.Realm, self.Target, \"toggleAttribute\", args);"
+      ],
+      "reason": "DOM §4.13 specifies an ordered PI attribute map, missing from native metadata; state is tied to the native PI and data writes retain native mutation records (#4098)."
+    },
+    {
+      "interface": "ProcessingInstruction",
+      "member": "hasAttribute",
+      "kind": "operation",
+      "length": 1,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IProcessingInstruction>(thisObj, \"ProcessingInstruction.hasAttribute\");",
+        "return global::Jint.Browser.Dom.DomProcessingInstructionAttributes.Invoke(self.Realm, self.Target, \"hasAttribute\", args);"
+      ],
+      "reason": "DOM §4.13 specifies an ordered PI attribute map, missing from native metadata; state is tied to the native PI and data writes retain native mutation records (#4098)."
+    },
+    {
       "interface": "Document",
       "member": "applets",
       "kind": "attribute",

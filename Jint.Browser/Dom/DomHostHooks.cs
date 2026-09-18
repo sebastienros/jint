@@ -965,6 +965,7 @@ internal class DomHostHooks
             document.Adopt(imported);
         }
 
+        DomProcessingInstructionAttributes.Cloned(source, imported);
         Files.FileTransferRealm.ResetCopiedInputs(imported);
         CustomElements.CustomElementRegistry.Cloned(realm, source, imported);
         return realm.WrapNodeValue(imported);

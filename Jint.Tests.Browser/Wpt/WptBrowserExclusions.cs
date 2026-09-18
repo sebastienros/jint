@@ -1119,14 +1119,26 @@ internal static class WptBrowserExclusions
     // ---------------------------------------------------------------- a member of a DOM interface the bindings do not have
     private static readonly WptExclusion[] _aMemberOfADOMInterfaceTheBindingsDoNotHave =
     [
-        // a member of a DOM interface the bindings do not have
-        // DOM §4.13 now defines ProcessingInstruction's attribute map and seven methods:
-        // https://dom.spec.whatwg.org/#interface-processinginstruction. The document also exercises
-        // HTML PI parsing. The constructor exists, but the attribute/parser surface remains #4098.
-        new("dom/nodes/processing-instruction-attributes.html", "*)", WptDivergence.NeedsTriage),
-        new("dom/nodes/processing-instruction-attributes.html", "Distinct attribute name (source: html*", WptDivergence.NeedsTriage),
-        new("dom/nodes/processing-instruction-attributes.html", "Distinct attribute name (source: xml-dom*", WptDivergence.NeedsTriage),
-        new("dom/nodes/processing-instruction-attributes.html", "Processing*", WptDivergence.NeedsTriage),
+        // PI attributes are implemented; current HTML PI tokenization remains #4098.
+        new("dom/nodes/processing-instruction-attributes.html", "Processing instruction in main parser", WptDivergence.NeedsTriage),
+        new("dom/nodes/processing-instruction-attributes.html", "Processing*from html-parser", WptDivergence.NeedsTriage),
+        new("dom/nodes/processing-instruction-attributes.html", "check attribute value:*source: \"html-parser\")", WptDivergence.NeedsTriage),
+        new("dom/nodes/processing-instruction-attributes.html", "Valid attribute name:*source: html-parser)", WptDivergence.NeedsTriage),
+        new("dom/nodes/processing-instruction-attributes.html", "Distinct attribute name (source: html-parser*", WptDivergence.NeedsTriage),
+
+        // #4109: PI serialization is correct; the compared native Element.outerHTML omits <> escaping.
+        new("dom/nodes/processing-instruction-attributes.html", "check attribute value: \"axx>\" (source: \"html-dom\")", WptDivergence.NeedsTriage),
+        new("dom/nodes/processing-instruction-attributes.html", "check attribute value: \"some<>\" (source: \"html-dom\")", WptDivergence.NeedsTriage),
+        new("dom/nodes/processing-instruction-attributes.html", "check attribute value: \"axx>\" (source: \"xml-dom\")", WptDivergence.NeedsTriage),
+        new("dom/nodes/processing-instruction-attributes.html", "check attribute value: \"some<>\" (source: \"xml-dom\")", WptDivergence.NeedsTriage),
+
+        // The XML fixture parses only a PI, with no document element: ill-formed XML. HTML §8.5.1
+        // https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-domparser-parsefromstring
+        // requires an empty error document followed by a parsererror element, not a preserved first PI.
+        // Exactly these 17 rows fail; the other XML-source rows are passing and remain unexcluded.
+        new("dom/nodes/processing-instruction-attributes.html", "Processing*from xml-parser", WptDivergence.AssertsWhatNothingRequires),
+        new("dom/nodes/processing-instruction-attributes.html", "check attribute value:*source: \"xml-parser\")", WptDivergence.AssertsWhatNothingRequires),
+        new("dom/nodes/processing-instruction-attributes.html", "Valid attribute name:*source: xml-parser)", WptDivergence.AssertsWhatNothingRequires),
     ];
 
     // ---------------------------------------------------------------- DOM's validate-and-extract, and the XML name productions

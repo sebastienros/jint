@@ -2375,12 +2375,61 @@ internal static partial class DomInterfaces
         => new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("ProcessingInstruction")
             .PerRealmSlot("constructor", enumerable: false)
+            .Method("getAttribute",
+                global::Jint.Browser.Dom.DomFailures.Guard("ProcessingInstruction.getAttribute", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IProcessingInstruction>(thisObj, "ProcessingInstruction.getAttribute");
+                    return global::Jint.Browser.Dom.DomProcessingInstructionAttributes.Invoke(self.Realm, self.Target, "getAttribute", args);
+                }),
+                length: 1)
+            .Method("getAttributeNames",
+                global::Jint.Browser.Dom.DomFailures.Guard("ProcessingInstruction.getAttributeNames", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IProcessingInstruction>(thisObj, "ProcessingInstruction.getAttributeNames");
+                    return global::Jint.Browser.Dom.DomProcessingInstructionAttributes.Invoke(self.Realm, self.Target, "getAttributeNames", args);
+                }),
+                length: 0)
+            .Method("hasAttribute",
+                global::Jint.Browser.Dom.DomFailures.Guard("ProcessingInstruction.hasAttribute", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IProcessingInstruction>(thisObj, "ProcessingInstruction.hasAttribute");
+                    return global::Jint.Browser.Dom.DomProcessingInstructionAttributes.Invoke(self.Realm, self.Target, "hasAttribute", args);
+                }),
+                length: 1)
+            .Method("hasAttributes",
+                global::Jint.Browser.Dom.DomFailures.Guard("ProcessingInstruction.hasAttributes", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IProcessingInstruction>(thisObj, "ProcessingInstruction.hasAttributes");
+                    return global::Jint.Browser.Dom.DomProcessingInstructionAttributes.Invoke(self.Realm, self.Target, "hasAttributes", args);
+                }),
+                length: 0)
+            .Method("removeAttribute",
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("ProcessingInstruction.removeAttribute", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IProcessingInstruction>(thisObj, "ProcessingInstruction.removeAttribute");
+                    return global::Jint.Browser.Dom.DomProcessingInstructionAttributes.Invoke(self.Realm, self.Target, "removeAttribute", args);
+                }),
+                length: 1)
+            .Method("setAttribute",
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("ProcessingInstruction.setAttribute", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IProcessingInstruction>(thisObj, "ProcessingInstruction.setAttribute");
+                    return global::Jint.Browser.Dom.DomProcessingInstructionAttributes.Invoke(self.Realm, self.Target, "setAttribute", args);
+                }),
+                length: 2)
             .Accessor("target",
                 global::Jint.Browser.Dom.DomFailures.Guard("ProcessingInstruction.target", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IProcessingInstruction>(thisObj, "ProcessingInstruction.target");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Target);
                 }))
+            .Method("toggleAttribute",
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("ProcessingInstruction.toggleAttribute", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IProcessingInstruction>(thisObj, "ProcessingInstruction.toggleAttribute");
+                    return global::Jint.Browser.Dom.DomProcessingInstructionAttributes.Invoke(self.Realm, self.Target, "toggleAttribute", args);
+                }),
+                length: 1)
             .Build();
 
     /// <summary>The members of <c>PseudoElement</c>.</summary>
