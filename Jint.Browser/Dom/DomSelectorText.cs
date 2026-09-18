@@ -67,7 +67,7 @@ internal static class DomSelectorText
             var c = text[i];
             if (c == '\\')
             {
-                i++;
+                i = EndOfEscape(text, i);
                 atStart = false;
                 identifier = true;
                 continue;
@@ -91,7 +91,7 @@ internal static class DomSelectorText
                     break;
                 }
                 i = end + 1;
-                identifier = false;
+                // CSS Syntax §4.3.2 emits no token for a comment: ns/**/|div still names a prefix.
                 continue;
             }
 
@@ -160,6 +160,38 @@ internal static class DomSelectorText
         }
 
         return ClosedAtEof(text, quote, comment, depth, kinds);
+    }
+
+    /// <summary>
+    /// CSS Syntax §4.3.7 consumes up to six hex digits and one optional whitespace code point as part of
+    /// an escape. That whitespace is not a descendant combinator: <c>n\73 |div</c> still names the
+    /// undeclared prefix "ns". CRLF is one newline after CSS input preprocessing (§3.3).
+    /// </summary>
+    private static int EndOfEscape(string text, int start)
+    {
+        var end = start + 1;
+        if (end >= text.Length || !char.IsAsciiHexDigit(text[end]))
+        {
+            return end;
+        }
+
+        var digits = 1;
+        while (digits < 6 && end + 1 < text.Length && char.IsAsciiHexDigit(text[end + 1]))
+        {
+            end++;
+            digits++;
+        }
+
+        if (end + 1 < text.Length && text[end + 1] is '\t' or '\n' or '\r' or '\f' or ' ')
+        {
+            end++;
+            if (text[end] == '\r' && end + 1 < text.Length && text[end + 1] == '\n')
+            {
+                end++;
+            }
+        }
+
+        return end;
     }
 
     /// <summary>
