@@ -61,6 +61,18 @@ internal static class DomFailures
             };
         }
 
+        if (member is "Range.deleteContents" or "Range.extractContents")
+        {
+            return (receiver, arguments) =>
+            {
+                using var mutation = (receiver as IDomWrapper)?.DomRealm.MutateLayout() ?? default;
+                var replacement = new DomProcessingInstructionAttributes.RangeDataReplacement((receiver as IDomWrapper)?.DomTarget as IRange);
+                var result = guarded(receiver, arguments);
+                replacement.Complete();
+                return result;
+            };
+        }
+
         return (receiver, arguments) =>
         {
             using var mutation = (receiver as IDomWrapper)?.DomRealm.MutateLayout() ?? default;
