@@ -9,6 +9,117 @@ namespace Jint.Tests.PublicInterface;
 
 public class HostNativeRecursionGuardTests
 {
+    /// <summary>
+    /// A prototype chain whose links are <em>adjacent</em> host objects — one <c>ObjectWrapper</c> after
+    /// another, with no ordinary object between any two of them. It is the one chain shape the iterative
+    /// walk cannot flatten: a wrapper answers a member miss by forwarding the read to its prototype and
+    /// then inspecting the answer for <c>Options.Interop.ThrowOnUnresolvedMember</c>, so the forward is not
+    /// a tail call and the link cannot join the loop. A hop to an <em>ordinary</em> link re-enters that loop
+    /// and costs nothing further; a hop to another wrapper is a native frame, and a wrapper does not
+    /// override <c>SetPrototypeOf</c>, so script builds the chain itself and its depth is an input. Twenty
+    /// thousand links ended the host process with a native stack overflow no <c>catch</c> could see
+    /// (sebastienros/jint#4087, the shape left over from #4076).
+    /// <para>
+    /// Both settings of <c>ThrowOnUnresolvedMember</c> are rows because the post-check is the whole reason
+    /// the forward cannot be flattened, so the fix has to hold with it on and off alike. What either may
+    /// answer is the read's own result or a catchable <c>RangeError</c>; what neither may do is end the
+    /// process. <see cref="AShortChainOfAdjacentWrappersAnswersExactlyAsItDid"/> is what says the probe did
+    /// not buy that by changing the answer.
+    /// </para>
+    /// </summary>
+    public static TestCases<string, bool> AdjacentWrapperChains => new()
+    {
+        { "lenient", false },
+        { "strict", true },
+    };
+
+    [TestCaseSource(nameof(AdjacentWrapperChains))]
+    public void AChainOfAdjacentHostWrappersRaisesACatchableErrorAndTheEngineRecovers(string route, bool throwOnUnresolvedMember)
+    {
+        _ = route;
+        DedicatedThread.Run(() =>
+        {
+            using var engine = new Engine(options =>
+            {
+                options.AllowClr();
+                options.Interop.ThrowOnUnresolvedMember = throwOnUnresolvedMember;
+            });
+
+            engine.SetValue("w", WrapperChain(engine, 20000));
+
+            var outcome = engine.Evaluate("""
+                for (var i = 1; i < w.length; i++) { Object.setPrototypeOf(w[i - 1], w[i]); }
+                var outcome;
+                try { outcome = String(w[0].missing); }
+                catch (error) { outcome = error.name + ':' + error.message; }
+                outcome;
+                """).AsString();
+
+            // Resolving the miss outright would be just as correct — the probe bounds the chain, it does
+            // not shorten it — but no thread this test may run on holds twenty thousand of these frames,
+            // so what is actually seen is the error the probe raises in place of the dead process.
+            outcome.Should().BeOneOf("undefined", "RangeError:Maximum call stack size exceeded");
+
+            engine.Evaluate("6 * 7").AsNumber().Should().Be(42);
+        }, maxStackSize: 1024 * 1024);
+    }
+
+    /// <summary>
+    /// The same chain three links long, which every stack holds: a probe on the forward must not change
+    /// what a wrapper answers. Reading <c>tail</c> walks all three links and resolves on the last, which is
+    /// what says the chain is a chain; reading a name no link carries is <c>undefined</c> when the option is
+    /// off and the host-facing <see cref="MissingMemberException"/> the option exists for when it is on.
+    /// </summary>
+    [Test]
+    public void AShortChainOfAdjacentWrappersAnswersExactlyAsItDid()
+    {
+        const string Link = "for (var i = 1; i < w.length; i++) { Object.setPrototypeOf(w[i - 1], w[i]); }";
+
+        using var lenient = new Engine(options => options.AllowClr());
+        lenient.SetValue("w", WrapperChain(lenient, 3));
+        lenient.Evaluate(Link);
+        lenient.Evaluate("w[0].Tail").AsString().Should().Be("reached");
+        lenient.Evaluate("String(w[0].missing)").AsString().Should().Be("undefined");
+
+        using var strict = new Engine(options =>
+        {
+            options.AllowClr();
+            options.Interop.ThrowOnUnresolvedMember = true;
+        });
+        strict.SetValue("w", WrapperChain(strict, 3));
+        strict.Evaluate(Link);
+        strict.Evaluate("w[0].Tail").AsString().Should().Be("reached");
+        strict.Invoking(e => e.Evaluate("w[0].missing")).Should().Throw<MissingMemberException>();
+    }
+
+    /// <summary>
+    /// <paramref name="length"/> host objects, each wrapped once and held by a JavaScript array so the
+    /// wrappers keep their identity across reads — <c>w[i]</c> has to be the same object every time or the
+    /// script would be setting the prototype of a wrapper it then throws away. The last link is a different
+    /// type, so a read that resolves on it can only have walked the whole chain.
+    /// </summary>
+    private static JsValue WrapperChain(Engine engine, int length)
+    {
+        var links = new JsValue[length];
+        for (var i = 0; i < length - 1; i++)
+        {
+            links[i] = JsValue.FromObject(engine, new HostChainLink());
+        }
+
+        links[length - 1] = JsValue.FromObject(engine, new HostChainTail());
+        return new JsArray(engine, links);
+    }
+
+    private sealed class HostChainLink
+    {
+        public string Kind => "link";
+    }
+
+    private sealed class HostChainTail
+    {
+        public string Tail => "reached";
+    }
+
     public static TestCases<string, string> NativeTraversals => new()
     {
         { "flat dense", "var a = [1]; for (var i = 0; i < 10000; i++) a = [a]; a.flat(Infinity);" },
