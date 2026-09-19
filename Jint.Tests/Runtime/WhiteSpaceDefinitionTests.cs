@@ -184,10 +184,10 @@ public class WhiteSpaceDefinitionTests
     // here too until sebastienros/jint#3541 took the trailing NUL that long.TryParse read as a C string
     // terminator off this lane, which 4.x already carries.
     [InlineData("Number('12' + c) === 12", "002E", TestDisplayName = "Number with a trailing pad")]
-    // "012" is a StringIntegerLiteral with a leading zero. BigInt also rejects a leading "+" that the
-    // grammar allows (sebastienros/jint#3540), which is likewise a defect of its own and not about white
-    // space, so it is absent from this list rather than present in it.
-    [InlineData("(function () { try { return BigInt(c + '12') === BigInt(12); } catch (e) { return false; } })()", "0030", TestDisplayName = "BigInt with a leading pad")]
+    // "+12" and "012" carry the StringIntegerLiteral's own leading sign and leading zero, which is the
+    // same pair the decimal lanes above admit: StrIntegerLiteral's SignedInteger takes either sign
+    // (sebastienros/jint#3540, backported as #4121).
+    [InlineData("(function () { try { return BigInt(c + '12') === BigInt(12); } catch (e) { return false; } })()", "002B,0030", TestDisplayName = "BigInt with a leading pad")]
     [InlineData("(function () { try { return BigInt('12' + c) === BigInt(12); } catch (e) { return false; } })()", "", TestDisplayName = "BigInt with a trailing pad")]
     [InlineData("/\\s/.test(c)", "", TestDisplayName = "the backslash-s character class")]
     public void EveryLaneAcceptsExactlyTheSpecWhiteSpaceSet(string predicate, string grammarExtras)
