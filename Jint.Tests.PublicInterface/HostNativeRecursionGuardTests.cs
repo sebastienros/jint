@@ -40,19 +40,26 @@ public class HostNativeRecursionGuardTests
         }, maxStackSize: 1024 * 1024);
     }
 
+    /// <summary>
+    /// A hundred thousand hops, not ten thousand: the frames on these routes got leaner as main moved, and
+    /// ten thousand of them came to fit the 1 MB test stack on linux x64 - the row then completed instead of
+    /// probing, which says nothing about the guard. A hundred thousand cannot fit on any runtime, so the only
+    /// outcomes left are the probe's RangeError, a tail call (the .NET Framework proxy route), or a dead
+    /// host - and the last is what the case exists to rule out.
+    /// </summary>
     public static TestCases<string, string> NativeForwardingChains => new()
     {
         {
             "bound call",
-            "var f = function () { return 1; }; for (var i = 0; i < 10000; i++) f = f.bind(null); f();"
+            "var f = function () { return 1; }; for (var i = 0; i < 100000; i++) f = f.bind(null); f();"
         },
         {
             "proxy call",
-            "var f = function () { return 1; }; for (var i = 0; i < 10000; i++) f = new Proxy(f, {}); f();"
+            "var f = function () { return 1; }; for (var i = 0; i < 100000; i++) f = new Proxy(f, {}); f();"
         },
         {
             "proxy construct",
-            "var C = function () {}; for (var i = 0; i < 10000; i++) C = new Proxy(C, {}); new C();"
+            "var C = function () {}; for (var i = 0; i < 100000; i++) C = new Proxy(C, {}); new C();"
         },
     };
 
