@@ -432,10 +432,54 @@ public abstract partial class Function : ObjectInstance, ICallable
 
         if (!string.IsNullOrWhiteSpace(prefix))
         {
-            name = prefix + " " + name;
+            name = PrefixName(prefix!, name);
         }
 
         _nameDescriptor = new PropertyDescriptor(name, PropertyFlag.Configurable);
+    }
+
+    // The three prefixes SetFunctionName is ever called with, each already carrying the separating
+    // space, so the common case concatenates two values the engine already holds.
+    private static readonly JsString _boundPrefix = JsString.CachedCreate("bound ");
+    private static readonly JsString _getPrefix = JsString.CachedCreate("get ");
+    private static readonly JsString _setPrefix = JsString.CachedCreate("set ");
+
+    /// <summary>
+    /// Produces step 4's <c>prefix, " ", name</c> concatenation of
+    /// <see href="https://tc39.es/ecma262/#sec-setfunctionname">SetFunctionName</see>.
+    /// </summary>
+    /// <remarks>
+    /// Deferred rather than copied, because the result can itself be the next call's <c>name</c>. A CLR
+    /// <c>string</c> concatenation flattens whatever it is handed, so binding an already-bound function
+    /// materialized <c>"bound bound … f"</c> afresh at every level and left that copy in the level's own
+    /// name descriptor: N binds retained Σ 6·i characters, about 30 GB at a depth of 100,000
+    /// (<see href="https://github.com/sebastienros/jint/issues/4129">#4129</see>).
+    /// <see cref="JsString.Concat"/> builds a node over the level below instead — O(1) per level,
+    /// flattened once if something ever reads the text — and yields the same characters either way.
+    /// </remarks>
+    private static JsString PrefixName(string prefix, JsValue name)
+    {
+        if (name is not JsString jsName)
+        {
+            return JsString.Create(prefix + " " + name);
+        }
+
+        var prefixWithSeparator = prefix switch
+        {
+            "bound" => _boundPrefix,
+            "get" => _getPrefix,
+            "set" => _setPrefix,
+            _ => JsString.Create(prefix + " "),
+        };
+
+        if ((long) prefixWithSeparator.Length + jsName.Length > JsString.MaxLength)
+        {
+            // Concat's caller owes it a result that fits. Only a host-supplied string reaches that
+            // length, and for it the flat concatenation is what this path has always produced.
+            return JsString.Create(prefix + " " + name);
+        }
+
+        return JsString.Concat(prefixWithSeparator, jsName);
     }
 
     /// <summary>
