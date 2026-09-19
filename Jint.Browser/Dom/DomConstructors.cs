@@ -48,6 +48,20 @@ namespace Jint.Browser.Dom;
 /// </remarks>
 internal static class DomConstructors
 {
+    // Use the same native factory and exception translation as Document.createProcessingInstruction.
+    private static readonly Func<JsValue, JsValue[], JsValue> _processingInstruction =
+        DomFailures.Guard("ProcessingInstruction", static (receiver, arguments) =>
+        {
+            var self = DomBindings.Bind<IDocument>(receiver, "ProcessingInstruction");
+            var target = DomConvert.RequiredText(arguments, 0, "ProcessingInstruction");
+            var data = DomConvert.OptionalText(arguments, 1, string.Empty)!;
+            return self.Realm.WrapNode(DomProcessingInstructions.Create(self.Target, target, data));
+        });
+
+    /// <summary>Required constructor arguments absent from AngleSharp's interface metadata.</summary>
+    internal static int LengthOf(DomInterfaceDefinition definition)
+        => ReferenceEquals(definition, DomInterfaces.ProcessingInstruction) ? 1 : definition.ConstructorLength;
+
     /// <summary>The legacy factory functions installed beside the generated interface objects.</summary>
     internal static readonly DomLegacyFactoryDefinition[] LegacyFactories =
     [
@@ -83,6 +97,14 @@ internal static class DomConstructors
         if (ReferenceEquals(definition, DomInterfaces.Text))
         {
             instance = (ObjectInstance) realm.WrapNode(NodeDocument(realm).CreateTextNode(Data(arguments)));
+            return true;
+        }
+
+        // https://dom.spec.whatwg.org/#dom-processinginstruction-processinginstruction:
+        // the target is required, data defaults to empty, and the document is the associated document.
+        if (ReferenceEquals(definition, DomInterfaces.ProcessingInstruction))
+        {
+            instance = (ObjectInstance) _processingInstruction(realm.WrapNode(NodeDocument(realm)), arguments);
             return true;
         }
 

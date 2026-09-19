@@ -21,6 +21,8 @@ public class CreationRealmTests
     [TestCase("try { a.document.createElement('a b'); } catch(e) { return e instanceof a.DOMException && !(e instanceof DOMException); } return false;")]
     [TestCase("const n = a.document.createTextNode('x'); document.body.appendChild(n); return a.document.createTreeWalker(n).currentNode === n && n instanceof a.Text;")]
     [TestCase("const n = a.Document.prototype.createTextNode.call(document, 'x'); return n instanceof Text && !(n instanceof a.Text);")]
+    [TestCase("const n = new a.ProcessingInstruction('t', 'data'); return n.ownerDocument === a.document && n instanceof a.ProcessingInstruction && !(n instanceof ProcessingInstruction);")]
+    [TestCase("const n = new a.ProcessingInstruction('𐀀', 'data'); return n.ownerDocument === a.document && n instanceof a.ProcessingInstruction && !(n instanceof ProcessingInstruction);")]
     public async Task FrameNodesAndConstructorsKeepTheirOwningRealm(string assertion)
     {
         await using var loopback = await LoopbackPage.CreateAsync(server => server
@@ -29,6 +31,31 @@ public class CreationRealmTests
         await loopback.Page.NavigateAsync(loopback.Url("/"));
         (await loopback.Page.EvaluateAsync<bool>("(() => { const a = frames[0], b = frames[1]; " + assertion + " })()"))
             .Should().BeTrue(assertion);
+    }
+
+    [TestCase("t")]
+    [TestCase("𐀀")]
+    public async Task SavedProcessingInstructionConstructorKeepsItsDocumentAfterFrameNavigation(string target)
+    {
+        await using var loopback = await LoopbackPage.CreateAsync(server => server
+            .MapHtml("/child", "<!doctype html><body>old")
+            .MapHtml("/", "<!doctype html><body><iframe src=/child></iframe>"));
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+        await loopback.Page.EvaluateAsync("""
+            var frame = document.querySelector('iframe');
+            var oldDocument = frame.contentDocument;
+            var OldPI = frame.contentWindow.ProcessingInstruction;
+            frame.srcdoc = '<!doctype html><body>new';
+            """);
+        (await loopback.Page.WaitForAsync("frame.contentDocument !== oldDocument", TimeSpan.FromSeconds(30)))
+            .Should().BeTrue();
+        (await loopback.Page.EvaluateAsync<bool>($$"""
+            (() => {
+              const pi = new OldPI('{{target}}', 'data');
+              return pi.ownerDocument === oldDocument && pi instanceof OldPI &&
+                !(pi instanceof frame.contentWindow.ProcessingInstruction) && pi.data === 'data';
+            })()
+            """)).Should().BeTrue();
     }
 
     [Test]
