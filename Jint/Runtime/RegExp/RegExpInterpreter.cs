@@ -30,6 +30,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
+using Jint.Extensions;
 using Jint.Runtime.RegExp.Unicode;
 
 namespace Jint.Runtime.RegExp;
@@ -375,30 +376,13 @@ internal static class RegExpInterpreter
     }
 
     /// <summary>
-    /// ECMAScript WhiteSpace + LineTerminator test (matches \s character class).
+    /// ECMAScript WhiteSpace + LineTerminator test (matches the <c>\s</c> character class), which is the
+    /// same set <c>String.prototype.trim</c> removes and so reads the one definition rather than keeping a
+    /// second copy of the list. A supplementary code point is in neither production, and the range test is
+    /// what rejects it.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool IsSpace(int c)
-    {
-        if ((uint) c <= 0xFF)
-        {
-            // Fast path: tab(9)..cr(13), space(32), nbsp(160)
-            return c is (>= 0x09 and <= 0x0D) or 0x20 or 0xA0;
-        }
-
-        return IsSpaceNonAscii(c);
-    }
-
-    private static bool IsSpaceNonAscii(int c)
-    {
-        return c is 0x1680
-            or (>= 0x2000 and <= 0x200A)
-            or 0x2028 or 0x2029
-            or 0x202F
-            or 0x205F
-            or 0x3000
-            or 0xFEFF;
-    }
+    private static bool IsSpace(int c) => (uint) c <= 0xFFFF && ((char) c).IsJsWhiteSpace();
 
     /// <summary>
     /// Test if c is a word character ([A-Za-z0-9_]) for \b / \w matching.

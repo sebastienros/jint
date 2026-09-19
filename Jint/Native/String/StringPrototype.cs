@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
+using Jint.Extensions;
 using Jint.Native.Intl;
 using Jint.Native.Json;
 using Jint.Native.Function;
@@ -87,23 +88,13 @@ internal sealed partial class StringPrototype : StringInstance
         return s.StringData;
     }
 
-    // http://msdn.microsoft.com/en-us/library/system.char.iswhitespace(v=vs.110).aspx
-    // http://en.wikipedia.org/wiki/Byte_order_mark
-    const char BOM_CHAR = '\uFEFF';
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool IsWhiteSpaceEx(char c)
-    {
-        return char.IsWhiteSpace(c) || c == BOM_CHAR;
-    }
-
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static string TrimEndEx(string s)
     {
         if (s.Length == 0)
             return string.Empty;
 
-        if (!IsWhiteSpaceEx(s[s.Length - 1]))
+        if (!s[s.Length - 1].IsJsWhiteSpace())
             return s;
 
         return TrimEnd(s);
@@ -114,7 +105,7 @@ internal sealed partial class StringPrototype : StringInstance
         var i = s.Length - 1;
         while (i >= 0)
         {
-            if (IsWhiteSpaceEx(s[i]))
+            if (s[i].IsJsWhiteSpace())
                 i--;
             else
                 break;
@@ -129,7 +120,7 @@ internal sealed partial class StringPrototype : StringInstance
         if (s.Length == 0)
             return string.Empty;
 
-        if (!IsWhiteSpaceEx(s[0]))
+        if (!s[0].IsJsWhiteSpace())
             return s;
 
         return TrimStart(s);
@@ -140,7 +131,7 @@ internal sealed partial class StringPrototype : StringInstance
         var i = 0;
         while (i < s.Length)
         {
-            if (IsWhiteSpaceEx(s[i]))
+            if (s[i].IsJsWhiteSpace())
                 i++;
             else
                 break;
@@ -149,6 +140,11 @@ internal sealed partial class StringPrototype : StringInstance
         return i >= s.Length ? string.Empty : s.Substring(i);
     }
 
+    /// <summary>
+    /// Removes leading and trailing JavaScript white space, which is what <c>TrimString</c> means by it
+    /// and is the <c>StrWhiteSpace</c> the string-to-number lanes strip.
+    /// https://tc39.es/ecma262/#sec-trimstring
+    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static string TrimEx(string s)
     {
@@ -164,7 +160,7 @@ internal sealed partial class StringPrototype : StringInstance
     private static JsValue Trim(JsValue thisObject)
     {
         var s = TypeConverter.ToJsString(thisObject);
-        if (s.Length == 0 || (!IsWhiteSpaceEx(s[0]) && !IsWhiteSpaceEx(s[s.Length - 1])))
+        if (s.Length == 0 || (!s[0].IsJsWhiteSpace() && !s[s.Length - 1].IsJsWhiteSpace()))
         {
             return s;
         }
@@ -179,7 +175,7 @@ internal sealed partial class StringPrototype : StringInstance
     private static JsValue TrimStart(JsValue thisObject)
     {
         var s = TypeConverter.ToJsString(thisObject);
-        if (s.Length == 0 || !IsWhiteSpaceEx(s[0]))
+        if (s.Length == 0 || !s[0].IsJsWhiteSpace())
         {
             return s;
         }
@@ -194,7 +190,7 @@ internal sealed partial class StringPrototype : StringInstance
     private static JsValue TrimEnd(JsValue thisObject)
     {
         var s = TypeConverter.ToJsString(thisObject);
-        if (s.Length == 0 || !IsWhiteSpaceEx(s[s.Length - 1]))
+        if (s.Length == 0 || !s[s.Length - 1].IsJsWhiteSpace())
         {
             return s;
         }

@@ -1,5 +1,6 @@
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using System.Threading;
+using Jint.Extensions;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -197,7 +198,7 @@ public static class AstExtensions
         // prevent conversion to scientific notation
         if (literal is NumericLiteral numericLiteral)
         {
-            return TypeConverter.ToString(numericLiteral.Value);
+            return TypeConverter.ToString(numericLiteral.NearestDouble());
         }
 
         if (literal is BigIntLiteral bigIntLiteral)
@@ -227,6 +228,235 @@ public static class AstExtensions
             NullLiteral => "null",
             _ => literal.Raw ?? "",
         };
+    }
+
+    private const double TwoPow63 = 9223372036854775808.0;
+
+    /// <summary>
+    /// The number a numeric literal denotes, rounded the same way on every runtime Jint targets.
+    /// </summary>
+    /// <remarks>
+    /// The scanner settles a literal it can accumulate into a <c>ulong</c> with a conversion that no
+    /// runtime before .NET 9 rounds once above <c>2^63</c>, and hands everything else - a fraction, an
+    /// exponent, more digits than the accumulator holds - to <c>double.Parse</c>, which .NET Framework
+    /// does not round correctly at all. Both are re-read from the literal's own source text here, the
+    /// first through <see cref="NumberParser.UInt64ToDouble"/> and the second through
+    /// <see cref="NumberParser.TryParseDouble"/>; everything the scanner already rounded once is handed
+    /// back exactly as scanned. Reported upstream as
+    /// <see href="https://github.com/adams85/acornima/issues/53">adams85/acornima#53</see>, and this
+    /// can go when a release carrying the fix is picked up.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static double NearestDouble(this NumericLiteral literal)
+    {
+        var value = literal.Value;
+
+        // Nearly every literal ever written lands here: the scanner accumulated its digits itself, and
+        // the signed conversion it reached below 2^63 is correctly rounded on every runtime.
+        if (value < TwoPow63 && !HasFractionOrExponent(literal.Raw))
+        {
+            return value;
+        }
+
+        return RereadLiteral(literal.Raw, value);
+    }
+
+    /// <summary>
+    /// Whether the literal's text carries a fraction or an exponent, which is what sends the scanner to
+    /// <c>double.Parse</c> instead of its own accumulator.
+    /// </summary>
+    private static bool HasFractionOrExponent(string raw)
+    {
+        // 'e' is a hexadecimal digit, so a 0x literal has to be recognised before looking for an
+        // exponent. The other two radix prefixes admit neither character, and none of the three admits
+        // a '.', so a plain scan answers for them.
+        if (raw.Length > 1 && raw[0] == '0' && (raw[1] | 0x20) == 'x')
+        {
+            return false;
+        }
+
+        foreach (var c in raw)
+        {
+            if (c == '.' || (c | 0x20) == 'e')
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Re-derives a literal's value from its raw text, in whichever spelling the scanner read it.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static double RereadLiteral(string raw, double scanned)
+    {
+        var digits = raw.AsSpan();
+        var radix = 10;
+        if (digits.Length > 1 && digits[0] == '0')
+        {
+            var prefix = digits[1];
+            if (prefix is 'x' or 'X')
+            {
+                radix = 16;
+                digits = digits.Slice(2);
+            }
+            else if (prefix is 'o' or 'O')
+            {
+                radix = 8;
+                digits = digits.Slice(2);
+            }
+            else if (prefix is 'b' or 'B')
+            {
+                radix = 2;
+                digits = digits.Slice(2);
+            }
+            else if (IsLegacyOctal(digits))
+            {
+                // A leading zero followed only by octal digits is a legacy octal literal; the scanner
+                // re-reads the whole thing as decimal as soon as an 8 or a 9 turns up in it.
+                radix = 8;
+            }
+        }
+
+        return radix == 10
+            ? RereadDecimalLiteral(digits, scanned)
+            : RereadRadixLiteral(digits, radix, scanned);
+    }
+
+    /// <summary>
+    /// Reads a decimal literal's own digits, which is the only way to round them once on a target
+    /// framework whose <c>double.Parse</c> does not (sebastienros/jint#3533).
+    /// </summary>
+    private static double RereadDecimalLiteral(ReadOnlySpan<char> digits, double scanned)
+    {
+        if (digits.IndexOf('_') < 0)
+        {
+            return NumberParser.TryParseDouble(digits, out var parsed) ? parsed : scanned;
+        }
+
+        // A numeric separator is not part of the number's text; the scanner strips it the same way.
+        Span<char> stripped = digits.Length <= 128 ? stackalloc char[128] : new char[digits.Length];
+        var length = 0;
+        foreach (var c in digits)
+        {
+            if (c != '_')
+            {
+                stripped[length++] = c;
+            }
+        }
+
+        return NumberParser.TryParseDouble(stripped.Slice(0, length), out var separated) ? separated : scanned;
+    }
+
+    /// <summary>
+    /// Accumulates a hexadecimal, octal or binary literal's digits and converts them in managed code,
+    /// which is what the scanner's own <c>ulong</c> conversion gets wrong in <c>[2^63, 2^64)</c>.
+    /// </summary>
+    private static double RereadRadixLiteral(ReadOnlySpan<char> digits, int radix, double scanned)
+    {
+        ulong accumulated = 0;
+        var limit = ulong.MaxValue / (uint) radix;
+        foreach (var c in digits)
+        {
+            if (c == '_')
+            {
+                continue;
+            }
+
+            var digit = DigitValue(c);
+            if (digit < 0 || digit >= radix)
+            {
+                return scanned;
+            }
+
+            if (accumulated > limit)
+            {
+                return RereadWideRadixLiteral(digits, radix, scanned);
+            }
+
+            var next = accumulated * (uint) radix + (uint) digit;
+            if (next < accumulated)
+            {
+                return RereadWideRadixLiteral(digits, radix, scanned);
+            }
+
+            accumulated = next;
+        }
+
+        if (accumulated < 1UL << 63)
+        {
+            // The digits did not re-read into the octave the scanned value sits in, so this reader has
+            // not understood the text; the scanner's own answer stands.
+            return scanned;
+        }
+
+        return NumberParser.UInt64ToDouble(accumulated);
+    }
+
+    /// <summary>
+    /// Reads a radix literal wider than a <c>ulong</c>, which the scanner rebuilt one digit at a time in a
+    /// <c>double</c> and therefore rounded once per digit rather than once overall.
+    /// </summary>
+    /// <remarks>
+    /// Every radix a literal can be written in is a power of two, so the exact value is the digits' own
+    /// bits and rounding them costs no big-integer arithmetic (sebastienros/jint#3536). A wide legacy
+    /// octal literal moves further than one ULP: the scanner abandons its accumulator and re-reads those
+    /// digits as decimal, which is the wrong base entirely.
+    /// </remarks>
+    private static double RereadWideRadixLiteral(ReadOnlySpan<char> digits, int radix, double scanned)
+    {
+        if (digits.IndexOf('_') < 0)
+        {
+            return NumberParser.TryParseRadixInteger(digits, radix, out var parsed) ? parsed : scanned;
+        }
+
+        // A numeric separator is not part of the number's text; the scanner strips it the same way.
+        Span<char> stripped = digits.Length <= 128 ? stackalloc char[128] : new char[digits.Length];
+        var length = 0;
+        foreach (var c in digits)
+        {
+            if (c != '_')
+            {
+                stripped[length++] = c;
+            }
+        }
+
+        return NumberParser.TryParseRadixInteger(stripped.Slice(0, length), radix, out var separated) ? separated : scanned;
+    }
+
+    private static bool IsLegacyOctal(ReadOnlySpan<char> digits)
+    {
+        foreach (var c in digits)
+        {
+            if (c is < '0' or > '7')
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static int DigitValue(char c)
+    {
+        if (c is >= '0' and <= '9')
+        {
+            return c - '0';
+        }
+
+        if (c is >= 'a' and <= 'f')
+        {
+            return c - 'a' + 10;
+        }
+
+        if (c is >= 'A' and <= 'F')
+        {
+            return c - 'A' + 10;
+        }
+
+        return -1;
     }
 
     internal static void GetBoundNames(this VariableDeclaration variableDeclaration, List<Key> target)
