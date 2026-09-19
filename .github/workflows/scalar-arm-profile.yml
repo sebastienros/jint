@@ -47,7 +47,7 @@ jobs:
         run: python3 tools/scalar-arm-profile/run.py --attempts 6 --output "$RUNNER_TEMP/scalar-profile"
       - name: Upload diagnostic evidence even on failure
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: scalar-arm-profile-${{ matrix.worker }}
           path: ${{ runner.temp }}/scalar-profile
@@ -82,7 +82,7 @@ jobs:
         run: python3 tools/scalar-arm-profile/verify.py --attempts 3 --output "$RUNNER_TEMP/scalar-verify"
       - name: Upload all verification attempts
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: scalar-arm-verify-${{ matrix.worker }}
           path: ${{ runner.temp }}/scalar-verify
