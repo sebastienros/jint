@@ -959,6 +959,7 @@ internal class DomHostHooks
     {
         var source = DomBindings.Argument<INode>(arguments, 0, "Document.importNode");
         var imported = document.Import(source, DomConvert.OptionalBool(arguments, 1, false));
+        DomNamespaces.Copy(source, imported);
 
         if (imported is not IAttr && !ReferenceEquals(imported.Owner, document))
         {

@@ -86,9 +86,9 @@ internal static class DomElementFactory
             && localName.IndexOf(':', StringComparison.Ordinal) < 0
             && !string.Equals(localName, "xmlns", StringComparison.Ordinal);
 
-        return passesThrough
+        return DomNamespaces.Created(passesThrough
             ? document.CreateElement(namespaceUri, localName)
-            : Build(document, namespaceUri, localName, prefix: null);
+            : Build(document, namespaceUri, localName, prefix: null), namespaceUri);
     }
 
     /// <summary>
@@ -103,7 +103,7 @@ internal static class DomElementFactory
     {
         if (qualifiedName.IsXmlName() && qualifiedName.IsQualifiedName())
         {
-            return document.CreateElement(namespaceUri, qualifiedName);
+            return DomNamespaces.Created(document.CreateElement(namespaceUri, qualifiedName), namespaceUri);
         }
 
         var colon = qualifiedName.IndexOf(':', StringComparison.Ordinal);
@@ -114,7 +114,7 @@ internal static class DomElementFactory
         // GetPrefixAndLocalName does with it.
         var namespaceOrNone = string.IsNullOrEmpty(namespaceUri) ? null : namespaceUri;
 
-        return Build(document, namespaceOrNone, localName, prefix);
+        return DomNamespaces.Created(Build(document, namespaceOrNone, localName, prefix), namespaceOrNone);
     }
 
     /// <summary>
