@@ -439,10 +439,22 @@ internal sealed class LocaleConstructor : Constructor
     }
 
     /// <summary>
-    /// Gets and validates the firstDayOfWeek option.
-    /// Numeric values (0-7) are converted to weekday strings.
-    /// String values must be 3-8 alphanumeric characters (can be hyphenated).
+    /// https://tc39.es/ecma402/#sec-Intl.Locale steps 22-24 — the <c>firstDayOfWeek</c> option is read
+    /// with <c>GetOption(options, "firstDayOfWeek", string, empty, undefined)</c>, so every value is
+    /// coerced with ToString before anything inspects it; the result is mapped by
+    /// https://tc39.es/ecma402/#sec-weekdaytouvalue and then checked against the <c>type</c>
+    /// Unicode locale nonterminal.
     /// </summary>
+    /// <remarks>
+    /// Reading the Number before the String was the defect. A numeric option was truncated to an
+    /// <c>int</c>, so <c>0.5</c> and <c>Number.MIN_VALUE</c> both resolved to <c>"sun"</c> where the
+    /// spec rejects them, <c>NaN</c> resolved to <c>"sun"</c> rather than to <c>"nan"</c>, and
+    /// <c>Infinity</c> resolved to the digits of <see cref="int.MaxValue"/> rather than to
+    /// <c>"infinity"</c> — all of which fall out correctly once ToString runs first. The boolean arm
+    /// went the same way: <c>true</c> is now the ordinary string <c>"true"</c>, which UTS #35 Annex C
+    /// removes in <see cref="IntlUtilities.CanonicalizeUValue"/>, so it needs no special case and
+    /// <c>"TRUE"</c> reaches the same answer.
+    /// </remarks>
     private string? GetFirstDayOfWeekOption(ObjectInstance options, string? fallback)
     {
         var value = options.Get("firstDayOfWeek");
@@ -451,98 +463,37 @@ internal sealed class LocaleConstructor : Constructor
             return fallback;
         }
 
-        string stringValue;
+        var stringValue = WeekdayToUValue(TypeConverter.ToString(value));
 
-        // Check if it's a boolean first (true means no value, like kn extension)
-        if (value.IsBoolean())
-        {
-            if (TypeConverter.ToBoolean(value))
-            {
-                // Boolean true means just "fw" with no value
-                return "";
-            }
-            else
-            {
-                // Boolean false becomes "false"
-                stringValue = "false";
-            }
-        }
-        // Check if it's a number
-        else if (value.IsNumber())
-        {
-            var numValue = (int) TypeConverter.ToNumber(value);
-            stringValue = WeekdayToString(numValue);
-        }
-        else
-        {
-            stringValue = TypeConverter.ToString(value);
-
-            // Try to parse as integer string
-            if (int.TryParse(stringValue, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var numValue) && numValue >= 0 && numValue <= 7)
-            {
-                stringValue = WeekdayToString(numValue);
-            }
-        }
-
-        // Validate the string value matches type sequence pattern
-        // Pattern: (3*8alphanum) *("-" (3*8alphanum))
-        if (!IsValidFirstDayOfWeekValue(stringValue))
+        // The type nonterminal: (3*8alphanum) *("-" (3*8alphanum)), ASCII-only. The local copy this
+        // replaces used char.IsLetterOrDigit, which answers for the whole of Unicode, so a value of
+        // three accented Latin letters, or of a CJK ideograph followed by "bc", was accepted as
+        // well-formed instead of raising a RangeError.
+        if (!IntlUtilities.IsValidUnicodeExtensionValue(stringValue))
         {
             Throw.RangeError(_realm, $"Invalid value '{stringValue}' for option 'firstDayOfWeek'");
         }
 
-        return stringValue.ToLowerInvariant();
+        return IntlUtilities.CanonicalizeUValue("fw", stringValue);
     }
 
     /// <summary>
-    /// Converts a weekday number to its string representation.
-    /// 0 and 7 = sun, 1 = mon, 2 = tue, 3 = wed, 4 = thu, 5 = fri, 6 = sat
+    /// https://tc39.es/ecma402/#sec-weekdaytouvalue — the Unicode First Day Identifier for a
+    /// String that numerically names a day of the week, and every other String unmodified.
     /// </summary>
-    private static string WeekdayToString(int day)
+    private static string WeekdayToUValue(string fw)
     {
-        return day switch
+        return fw switch
         {
-            1 => "mon",
-            2 => "tue",
-            3 => "wed",
-            4 => "thu",
-            5 => "fri",
-            6 => "sat",
-            0 or 7 => "sun",
-            _ => day.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            "1" => "mon",
+            "2" => "tue",
+            "3" => "wed",
+            "4" => "thu",
+            "5" => "fri",
+            "6" => "sat",
+            "0" or "7" => "sun",
+            _ => fw
         };
-    }
-
-    /// <summary>
-    /// Validates that a string matches the firstDayOfWeek value pattern.
-    /// Pattern: (3*8alphanum) *("-" (3*8alphanum))
-    /// Each part must be 3-8 alphanumeric characters.
-    /// </summary>
-    private static bool IsValidFirstDayOfWeekValue(string value)
-    {
-        if (string.IsNullOrEmpty(value))
-        {
-            return false;
-        }
-
-        var parts = value.Split('-');
-        foreach (var part in parts)
-        {
-            if (part.Length < 3 || part.Length > 8)
-            {
-                return false;
-            }
-
-            foreach (var c in part)
-            {
-                if (!char.IsLetterOrDigit(c))
-                {
-                    return false;
-                }
-            }
-        }
-
-        return true;
     }
 
     private static ParsedLocale ParseLanguageTag(string tag)
@@ -642,133 +593,67 @@ internal sealed class LocaleConstructor : Constructor
                         var key = parts[index].ToLowerInvariant();
                         index++;
 
-                        // Check if this key has a value (next part is not a singleton and is 3+ chars for type values)
+                        // A keyword's value runs to the next key, so every subtag until then belongs to
+                        // it. That rule is UnicodeExtension's, and it now applies to every key alike:
+                        // "hc", "kf" and "kn" used to read a single subtag while "ca", "co" and "nu"
+                        // collected the whole run.
                         string? value = null;
-                        if (index < parts.Length && parts[index].Length != 1 && parts[index].Length >= 3)
+                        if (index < parts.Length && parts[index].Length >= 3 && parts[index].Length <= 8)
                         {
-                            value = parts[index].ToLowerInvariant();
+                            var firstValuePart = parts[index].ToLowerInvariant();
                             index++;
+                            value = CollectMultiPartValue(parts, ref index, firstValuePart);
                         }
 
-                        var handled = false;
+                        // https://tc39.es/ecma402/#sec-Intl.Locale step 13 canonicalizes the whole tag
+                        // before a single option is read, and that carries UTS #35 Annex C down to each
+                        // keyword's value: the bcp47 aliases, and the removal of a value of "true". This
+                        // parser only ASCII-lowercased, so "en-u-kb-yes" kept its "yes" and every
+                        // "-true" survived on every key the switch below does not name. A key written
+                        // with no value at all is already in that form, which is the empty string.
+                        var canonicalValue = value is null ? "" : IntlUtilities.CanonicalizeUValue(key, value);
+
+                        // Duplicate keys: the first occurrence wins, so every assignment below is
+                        // conditional on the field still being absent — and absent is null, because the
+                        // empty string is now a value a tag can legitimately carry.
+                        var handled = true;
                         switch (key)
                         {
                             case "ca":
-                                // Calendar can have multi-part values (e.g., islamic-civil)
-                                // Only use first occurrence (duplicate keys: first wins)
-                                if (value != null)
-                                {
-                                    var calendarValue = CollectMultiPartValue(parts, ref index, value);
-                                    if (result.Calendar == null)
-                                    {
-                                        result.Calendar = calendarValue;
-                                    }
-                                    handled = true;
-                                }
+                                result.Calendar ??= canonicalValue;
                                 break;
                             case "co":
-                                // Collation can have multi-part values
-                                // Only use first occurrence (duplicate keys: first wins)
-                                if (value != null)
-                                {
-                                    var collationValue = CollectMultiPartValue(parts, ref index, value);
-                                    if (result.Collation == null)
-                                    {
-                                        result.Collation = collationValue;
-                                    }
-                                    handled = true;
-                                }
+                                result.Collation ??= canonicalValue;
                                 break;
                             case "fw":
-                                // FirstDayOfWeek can have multi-part values (e.g., frank-yung-fong-tang)
-                                // Only use first occurrence (duplicate keys: first wins)
-                                if (value != null)
-                                {
-                                    // Collect additional value parts
-                                    var fwParts = new List<string> { value };
-                                    while (index < parts.Length && parts[index].Length >= 3 && parts[index].Length <= 8 && parts[index].Length != 1)
-                                    {
-                                        // Check if this looks like a key (2 chars) or next extension
-                                        if (parts[index].Length == 2)
-                                        {
-                                            break;
-                                        }
-                                        fwParts.Add(parts[index].ToLowerInvariant());
-                                        index++;
-                                    }
-                                    if (result.FirstDayOfWeek == null)
-                                    {
-                                        result.FirstDayOfWeek = string.Join('-', fwParts);
-                                    }
-                                    handled = true;
-                                }
+                                result.FirstDayOfWeek ??= canonicalValue;
                                 break;
                             case "hc":
-                                // Only use first occurrence (duplicate keys: first wins)
-                                if (value != null && result.HourCycle == null)
-                                {
-                                    result.HourCycle = value;
-                                }
-                                handled = value != null;
+                                result.HourCycle ??= canonicalValue;
                                 break;
                             case "kf":
-                                // Per UTS35, "true" value is canonicalized to empty string (just "kf")
-                                // Only use first occurrence (duplicate keys: first wins)
-                                if (result.CaseFirst == null)
-                                {
-                                    if (value != null)
-                                    {
-                                        result.CaseFirst = string.Equals(value, "true", StringComparison.OrdinalIgnoreCase) ? "" : value;
-                                    }
-                                    else
-                                    {
-                                        // kf without value means "true" which canonicalizes to empty string
-                                        result.CaseFirst = "";
-                                    }
-                                }
-                                handled = true;
+                                result.CaseFirst ??= canonicalValue;
                                 break;
                             case "kn":
-                                // Only use first occurrence (duplicate keys: first wins)
-                                if (!result.Numeric.HasValue)
-                                {
-                                    if (value != null)
-                                    {
-                                        result.Numeric = string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
-                                    }
-                                    else
-                                    {
-                                        result.Numeric = true;
-                                    }
-                                }
-                                handled = true;
+                                // https://tc39.es/ecma402/#sec-Intl.Locale sets [[Numeric]] to true
+                                // when the record's [[kn]] is "true" or the empty String. The
+                                // canonicalization above has already turned "true" — and the "yes" the
+                                // bcp47 data aliases to it — into the empty string.
+                                result.Numeric ??= canonicalValue.Length == 0;
                                 break;
                             case "nu":
-                                // Numbering system can have multi-part values
-                                // Only use first occurrence (duplicate keys: first wins)
-                                if (value != null)
-                                {
-                                    var nuValue = CollectMultiPartValue(parts, ref index, value);
-                                    if (result.NumberingSystem == null)
-                                    {
-                                        result.NumberingSystem = nuValue;
-                                    }
-                                    handled = true;
-                                }
+                                result.NumberingSystem ??= canonicalValue;
+                                break;
+                            default:
+                                handled = false;
                                 break;
                         }
 
                         // Store unhandled unicode extension key/value pairs
                         if (!handled)
                         {
-                            if (value != null)
-                            {
-                                result.OtherUnicodeExtensions.Add(key + "-" + value);
-                            }
-                            else
-                            {
-                                result.OtherUnicodeExtensions.Add(key);
-                            }
+                            result.OtherUnicodeExtensions.Add(
+                                canonicalValue.Length == 0 ? key : key + "-" + canonicalValue);
                         }
                     }
                 }
@@ -885,6 +770,19 @@ internal sealed class LocaleConstructor : Constructor
     /// <summary>
     /// Gets the key (first 2-char subtag) from a Unicode extension part like "ca-gregory" or "kn".
     /// </summary>
+    /// <summary>
+    /// Appends one Unicode extension keyword, as the bare key when its value is present but empty.
+    /// </summary>
+    private static void AddKeyword(List<string> unicodeExtParts, string key, string? value)
+    {
+        if (value is null)
+        {
+            return;
+        }
+
+        unicodeExtParts.Add(value.Length == 0 ? key : key + "-" + value);
+    }
+
     private static string GetUnicodeExtensionKey(string part)
     {
         var dashIndex = part.IndexOf('-');
@@ -977,45 +875,16 @@ internal sealed class LocaleConstructor : Constructor
             unicodeExtParts.AddRange(sortedAttributes);
         }
 
-        // Add key-value pairs
-        if (!string.IsNullOrEmpty(calendar))
-        {
-            unicodeExtParts.Add("ca-" + calendar);
-        }
-
-        if (!string.IsNullOrEmpty(collation))
-        {
-            unicodeExtParts.Add("co-" + collation);
-        }
-
-        if (firstDayOfWeek != null)
-        {
-            if (firstDayOfWeek.Length == 0)
-            {
-                unicodeExtParts.Add("fw");
-            }
-            else
-            {
-                unicodeExtParts.Add("fw-" + firstDayOfWeek);
-            }
-        }
-
-        if (!string.IsNullOrEmpty(hourCycle))
-        {
-            unicodeExtParts.Add("hc-" + hourCycle);
-        }
-
-        if (caseFirst != null)
-        {
-            if (caseFirst.Length == 0)
-            {
-                unicodeExtParts.Add("kf");
-            }
-            else
-            {
-                unicodeExtParts.Add("kf-" + caseFirst);
-            }
-        }
+        // Add key-value pairs. https://tc39.es/ecma402/#sec-insert-unicode-extension-and-canonicalize
+        // (9.2.9) appends a keyword's value only when that value is not the empty String, so a key
+        // whose value UTS #35 Annex C removed - "en-u-ca-true", or "en-u-kb-yes" through its alias -
+        // is written as the bare key. Absent is null; present-and-empty is the empty string, which is
+        // why none of these test IsNullOrEmpty.
+        AddKeyword(unicodeExtParts, "ca", calendar);
+        AddKeyword(unicodeExtParts, "co", collation);
+        AddKeyword(unicodeExtParts, "fw", firstDayOfWeek);
+        AddKeyword(unicodeExtParts, "hc", hourCycle);
+        AddKeyword(unicodeExtParts, "kf", caseFirst);
 
         if (numeric.HasValue)
         {
@@ -1029,10 +898,7 @@ internal sealed class LocaleConstructor : Constructor
             }
         }
 
-        if (!string.IsNullOrEmpty(numberingSystem))
-        {
-            unicodeExtParts.Add("nu-" + numberingSystem);
-        }
+        AddKeyword(unicodeExtParts, "nu", numberingSystem);
 
         // Add other unicode extensions that were not recognized
         if (otherUnicodeExtensions != null && otherUnicodeExtensions.Count > 0)

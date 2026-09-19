@@ -994,7 +994,26 @@ internal static class IntlUtilities
     /// separate, because an ill-formed value is a RangeError however the locale would have resolved a
     /// well-formed one.
     /// </summary>
+    /// <remarks>
+    /// The alias substitution is only the first half of UTS #35 Annex C §5; the second is "Any type or
+    /// tfield value 'true' is removed"
+    /// (https://unicode.org/reports/tr35/#Canonical_Unicode_Locale_Identifiers), which is why a value
+    /// that canonicalizes to <c>true</c> comes back as the empty string rather than as <c>"true"</c>.
+    /// An empty value is what makes
+    /// https://tc39.es/ecma402/#sec-insert-unicode-extension-and-canonicalize (9.2.9) write the bare key,
+    /// so <c>en-u-ca-true</c> and <c>en-u-kb-yes</c> — the latter through the <c>yes</c> alias, which
+    /// the bcp47 data maps to <c>true</c> for <c>kb</c>, <c>kc</c>, <c>kh</c>, <c>kk</c> and
+    /// <c>kn</c> — both canonicalize to a keyword carrying no value at all.
+    /// </remarks>
     internal static string CanonicalizeUValue(string unicodeKey, string value)
+    {
+        var canonicalized = ApplyUValueAliases(unicodeKey, value);
+
+        // UTS #35 Annex C §5: any type value "true" is removed, leaving the key on its own.
+        return string.Equals(canonicalized, "true", StringComparison.Ordinal) ? "" : canonicalized;
+    }
+
+    private static string ApplyUValueAliases(string unicodeKey, string value)
     {
         var lowerValue = AsciiLowercase(value);
 
