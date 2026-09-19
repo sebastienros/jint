@@ -54,8 +54,10 @@ dotnet build -c Release Jint/Jint.csproj
 # Run all tests
 dotnet test -c Release
 
-# A specific project, class, or single test
-dotnet test --project Jint.Tests\Jint.Tests.csproj -c Release --timeout 30s
+# A specific project (no --timeout: MTP's --timeout bounds the WHOLE run, not one test, and a full
+# Jint.Tests run takes minutes per framework - a 30 s cap ends it early while still printing "Passed!")
+dotnet test --project Jint.Tests\Jint.Tests.csproj -c Release
+# A class or a single test, where a whole-run cap is a sane wedge ceiling
 dotnet test --project Jint.Tests\Jint.Tests.csproj -c Release --filter "FullyQualifiedName~Jint.Tests.Runtime.EngineTests" --timeout 30s
 dotnet test --project Jint.Tests\Jint.Tests.csproj -c Release --filter "FullyQualifiedName~Jint.Tests.Runtime.EngineTests.CanAccessCLR" --timeout 30s
 
