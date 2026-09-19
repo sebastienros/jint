@@ -1,4 +1,4 @@
-﻿#if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
 #nullable enable
 
 using System.Reflection;
@@ -385,6 +385,25 @@ public class WptTestRunner
         ("xhr/abort-after-timeout.any.js", "its one test asks for /common/blank.html?pipe=trickle(d1), a wptserve pipe directive the driver's server does not implement"),
 
         ("xhr/xhr-timeout-longtask.any.js", "its outcome still depends on the machine. The deadline is a task on the engine's timer queue since #3627, so it can no longer fire *during* the 200 ms busy-wait — but the file also needs the 100 ms response to have arrived before that wait ends, and a loaded runner cannot promise that: when the body lands after the loop, the deadline behind it is due and the file's assert_unreached fires. It passed on Linux and failed on macOS in the same run"),
+
+        // ---------------------------------------------------------------- web locks
+        // Two files whose whole subject is a context this engine does not have and must not pretend to.
+        // `[SecureContext]` is WebIDL's gate on an origin and a transport, and an embedded engine has
+        // neither — LockManagerConstructor records the decision — so the feature is present exactly when its
+        // flag names it. One file would therefore assert an API that is there and the other an
+        // `isSecureContext` that is not; `assert_idl_attribute` is not in the shim either.
+        ("web-locks/non-secure-context.any.js", "asserts the API is absent, which is a secure-context rule this engine does not have"),
+        ("web-locks/secure-context.https.any.js", "asserts self.isSecureContext, and uses assert_idl_attribute"),
+
+        // A browsing context in every case: frames, opaque origins, clientIds across windows, query ordering
+        // and workers.html. The `.html` glob reaches resources/ too, which is the iframe, window and
+        // service-worker pages those documents load. `storage-buckets.tentative.https.any.js` and
+        // `idlharness.https.any.js` are covered by the two globs above.
+        ("web-locks/*.html", "a document, and there is no browsing context in this lane"),
+        ("web-locks/windows.https.window.js", "a .window.js needs a browsing context"),
+        ("web-locks/bfcache/*", "the back/forward cache; three of its five files are .tentative as well"),
+        ("web-locks/crashtests/*", "a crashtest rather than an assertion"),
+        ("web-locks/resources/*worker*.js", "classic worker and service-worker scripts, the workers/*.worker.js shape"),
 
         // ---------------------------------------------------------------- resources/ and common/
         // The two shared roots hold helpers rather than tests, and the rule for them is the rule for every
@@ -837,6 +856,18 @@ public class WptTestRunner
         ["xhr/sync-no-progress.any.js"] = 1,
         ["xhr/sync-no-timeout.any.js"] = 1,
 
+        ["web-locks/acquire.https.any.js"] = 9,
+        ["web-locks/held.https.any.js"] = 4,
+        ["web-locks/ifAvailable.https.any.js"] = 10,
+        ["web-locks/lock-attributes.https.any.js"] = 2,
+        ["web-locks/mode-exclusive.https.any.js"] = 2,
+        ["web-locks/mode-mixed.https.any.js"] = 3,
+        ["web-locks/mode-shared.https.any.js"] = 2,
+        ["web-locks/query-empty.https.any.js"] = 1,
+        ["web-locks/query.https.any.js"] = 8,
+        ["web-locks/resource-names.https.any.js"] = 8,
+        ["web-locks/signal.https.any.js"] = 13,
+        ["web-locks/steal.https.any.js"] = 5,
     };
 
     /// <summary>
@@ -1323,6 +1354,15 @@ public class WptTestRunner
         new("html/webappapis/structured-clone/structured-clone.any.js", "ImageBitmap", WptDivergence.NeedsOffscreenCanvas),
         new("html/webappapis/structured-clone/structured-clone.any.js", "OffscreenCanvas", WptDivergence.NeedsOffscreenCanvas),
 
+        // ---------------------------------------------------------------- web locks
+        // The only two rows of the whole corpus that do not pass, and both for the same reason: they build a
+        // second context with `new Worker(...)` so that two client ids can appear on one resource. The
+        // driver's engine has no Worker — WebApiFeatures.Default never includes the flag and names no
+        // provider — so both throw before asserting. WebLocksTests asserts the same property with two
+        // engines and one shared LockManager, which is the seam that exists for it.
+        new("web-locks/query.https.any.js", "query() reports different ids for held locks from different contexts", WptDivergence.NeedsASecondClient),
+        new("web-locks/query.https.any.js", "query() can observe a deadlock", WptDivergence.NeedsASecondClient),
+
         // The three defects this corpus filed — an Error's `cause` was not carried, Blob and File were not
         // serializable at all, and %Object.prototype% was refused — were fixed by
         // https://github.com/sebastienros/jint/issues/3212, and their thirty rows left with them. What
@@ -1529,6 +1569,13 @@ public class WptTestRunner
 
     public static IEnumerable<object[]> XhrSuiteFiles() => Cases("xhr");
 
+    /// <summary>
+    /// The Web Locks corpus, one directory. Its helper — <c>web-locks/resources/helpers.js</c>, which eight
+    /// of the files include — is vendored beside it and is not a suite: a sub-directory is only a suite when
+    /// something names it as one, and <see cref="WptCorpus.TestFiles"/> never descends.
+    /// </summary>
+    public static IEnumerable<object[]> WebLocksSuiteFiles() => Cases("web-locks");
+
     [TestCaseSource(nameof(UrlSuiteFiles))]
     public void RunsTheUrlSuite(string file) => RunSuiteFile(file);
 
@@ -1660,6 +1707,9 @@ public class WptTestRunner
 
     [TestCaseSource(nameof(FetchRequestSuiteFiles))]
     public void RunsTheFetchRequestSuite(string file) => RunSuiteFile(file);
+
+    [TestCaseSource(nameof(WebLocksSuiteFiles))]
+    public void RunsTheWebLocksSuite(string file) => RunSuiteFile(file);
 
     /// <summary>
     /// The inventory check: what is vendored, what is run, and what is deliberately absent must all agree.

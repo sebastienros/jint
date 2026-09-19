@@ -5674,6 +5674,7 @@ none of it changes an engine that does not.
 | The program a function value was parsed in, so a tooling protocol resolves its script by identity | `function.Program`, beside `FunctionDeclaration` | [§5.28](#5-28-a-function-value-names-the-program-it-was-parsed-in-3666) |
 | `LazyJsString` — one base class for a host string whose text is expensive to produce | `class Field : LazyJsString { public Field(int len) : base(len) {} protected override string Materialize() => … }` | [Advanced hosting](advanced-hosting.md) |
 | A synchronous, bounded callback in a host-created realm | `engine.Advanced.WithRealm(realm, action)` | [§5.33](#5-33-a-host-can-run-a-bounded-callback-in-one-of-its-realms-3917) |
+| Web Locks — `navigator.locks`, in a lock space several engines can share | in `UseWebApis()` already; `options.UseWebLocks(manager)` names the shared space | [§5.37](#5-37-several-engines-can-share-one-lock-space-navigator-locks) |
 
 The last row is the only one that replaces an existing spelling rather than adding a capability, so it is
 worth saying what happens to the old one. A lazy host string used to be written by deriving from `JsString`
@@ -6841,6 +6842,51 @@ The protocol reaches the same dispatcher through
 [`Input.dispatchTouchEvent`](https://chromedevtools.github.io/devtools-protocol/tot/Input/#method-dispatchTouchEvent),
 with the multi-touch, move and cancel cases the public API does not spell, so a client driving the page over
 CDP — Playwright's `hasTouch` and `TapAsync`, Puppeteer's `Page.tap` — reaches the same finger.
+
+### 5.37 Several engines can share one lock space: `navigator.locks`
+
+The [Web Locks API](https://w3c.github.io/web-locks/) is part of `WebApiFeatures.Default`, so
+`options.UseWebApis()` already installs `navigator.locks` with the `LockManager` and `Lock` interfaces. It
+grants script no reach and no persistence: a lock exists only while something holds it, and by default the
+lock space is private to one engine.
+
+```javascript
+const result = await navigator.locks.request('inventory', async lock => {
+  // Nothing else in this lock space holds 'inventory' while this runs.
+  return await rebuildIndex();
+});
+```
+
+What the host decides is who shares a lock space. `LockManager` is the seam, in the shape
+`BroadcastChannelBroker` and `StorageProvider` already have — **one manager is one agent cluster and one
+origin**:
+
+```csharp
+var locks = new LockManager();
+
+var window = new Engine(options => options.UseWebApis().UseWebLocks(locks));
+var worker = new Engine(options => options.UseWebApis().UseWebLocks(locks));
+```
+
+| Member | What it is |
+| --- | --- |
+| `Jint.WebApi.LockManager` | The lock state a set of engines coordinate through. Thread-safe, so the engines may run on different threads; nothing that crosses between them is a `JsValue` |
+| `Options.WebApi.Locks.Manager` | The manager this engine joins. `null` — the default — gives it a private one of its own |
+| `options.UseWebLocks(manager)` | Sets the flag and the manager together |
+| `WebApiFeatures.WebLocks` | The flag, `1 << 26`. Implies `Navigator` (where `locks` lives) and `Events` (the `signal` option is an `AbortSignal`) |
+
+Three things a host should know before sharing one. **A lock is granted as an event-loop task on the engine
+that asked**, so it is never granted inside the `request()` call and it only happens while that engine is
+pumped — an engine that stops being pumped holds its locks against everything sharing its manager, which is
+what script's `steal` option exists to recover from. **`RestoreGlobalSnapshot` and `Dispose` give an engine's
+locks and requests back**, which is the specification's *terminate remaining locks and requests* for that
+agent and the reason a pooled engine does not hold up the pool. And **a worker does not inherit the
+manager**: `WorkerRequest.CreateDefaultOptions()` leaves it unset exactly as it leaves
+`Options.WebApi.Messaging.Broker` unset, so a `WorkerProvider` that wants a browser's arrangement — one
+window and its workers in one agent cluster — assigns the parent's manager to the options it builds the
+worker from. The flag itself travels, because it grants a worker nothing.
+
+[Web Locks](web-apis/locks.md) is the guide page.
 
 ## 6. AOT and trimming
 

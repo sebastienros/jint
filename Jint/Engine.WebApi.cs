@@ -9,6 +9,7 @@ using Jint.WebApi.Abort;
 using Jint.WebApi.Fetch;
 using Jint.WebApi.GlobalEvents;
 using Jint.WebApi.Idle;
+using Jint.WebApi.Locks;
 using Jint.WebApi.Files;
 using Jint.WebApi.Messaging;
 using Jint.WebApi.Performance;
@@ -308,6 +309,20 @@ internal sealed class WebApiEngineState
     private BroadcastChannelBroker? _broadcastChannelBroker;
 
     /// <summary>
+    /// Where this engine's Web Locks requests queue, or <see langword="null"/> until one is needed. Seeded
+    /// from <c>Options.WebApi.Locks.Manager</c> when the engine was built, and defaulted per engine on first
+    /// use — see <see cref="Locks"/>.
+    /// </summary>
+    private LockManager? _lockManager;
+
+    /// <summary>
+    /// This engine's standing in <see cref="Locks"/>: the <c>clientId</c> its locks are reported under, and
+    /// the handle a manager schedules a grant through. Built with the manager, and never rebuilt — an engine
+    /// is one client for its whole life, which is what a browser's frame or worker is.
+    /// </summary>
+    private LockAgent? _lockAgent;
+
+    /// <summary>
     /// The <c>MessagePort</c> objects this engine has created, held <b>weakly</b>. Engine-thread-only, and
     /// exists for one reason: a restore or a dispose has to be able to <i>close</i> this engine's ports, not
     /// merely stop delivering into them — a port's side may be entangled with one belonging to an engine that
@@ -346,7 +361,7 @@ internal sealed class WebApiEngineState
     /// </summary>
     private BlobUrlStore? _blobUrls;
 
-    internal WebApiEngineState(Engine engine, TimeProvider timeProvider, TimerQueue? timers, Options.FetchOptions? fetchOptions, SchedulerQueue? scheduler, DiagnosticsSink? diagnostics, Options.StorageOptions? storage = null, CacheStorageProvider? cacheProvider = null, IdleCallbackQueue? idleCallbacks = null, Options.MessagingOptions? messaging = null)
+    internal WebApiEngineState(Engine engine, TimeProvider timeProvider, TimerQueue? timers, Options.FetchOptions? fetchOptions, SchedulerQueue? scheduler, DiagnosticsSink? diagnostics, Options.StorageOptions? storage = null, CacheStorageProvider? cacheProvider = null, IdleCallbackQueue? idleCallbacks = null, Options.MessagingOptions? messaging = null, Options.WebLocksOptions? locks = null)
     {
         _engine = engine;
         _timeProvider = timeProvider;
@@ -366,6 +381,10 @@ internal sealed class WebApiEngineState
         // Read once, here, exactly as the storage providers above are — and, like them, left null when the
         // host named none so that an engine which never creates a channel allocates no broker at all.
         _broadcastChannelBroker = messaging?.Broker;
+
+        // And once more, for the same reason: a host that named no LockManager gets a private one, built the
+        // first time a script reads `navigator.locks` rather than now.
+        _lockManager = locks?.Manager;
 
         // Both halves of the time origin, read back to back: the monotonic reading every later now() is a
         // duration from, and the wall-clock moment that reading corresponds to.
@@ -626,6 +645,24 @@ internal sealed class WebApiEngineState
         _broadcastChannelBroker ??= new BroadcastChannelBroker();
 
     /// <summary>
+    /// The <see cref="LockManager"/> this engine's <c>navigator.locks</c> works on: the host's, when it
+    /// assigned one to <see cref="Options.WebLocksOptions.Manager"/>, and otherwise a private one of this
+    /// engine's own — so a script always serializes against itself and nothing crosses an engine boundary
+    /// unless the host deliberately shared a manager.
+    /// </summary>
+    /// <remarks>
+    /// Defaulted on first use rather than at construction, so an engine that enabled the feature and never
+    /// read <c>navigator.locks</c> has still allocated nothing. Deliberately <b>not</b> replaced by
+    /// <see cref="ResetTransientState"/>, for the reason the broker is not: a host's manager is host state,
+    /// and the private default is the identity of this engine's own agent cluster. What a restore ends is
+    /// the locks and the requests, not the cluster they were in.
+    /// </remarks>
+    internal LockManager Locks => _lockManager ??= new LockManager();
+
+    /// <inheritdoc cref="_lockAgent" />
+    internal LockAgent LockAgent => _lockAgent ??= new LockAgent(_engine);
+
+    /// <summary>
     /// Records a live <c>BroadcastChannel</c>, so that a restore or a dispose can end it — which is also what
     /// takes it out of a broker the host may be sharing with engines that outlive this one.
     /// </summary>
@@ -771,6 +808,14 @@ internal sealed class WebApiEngineState
     /// enabling messaging for.
     /// </summary>
     internal void AttachMessaging(Options.MessagingOptions messaging) => _broadcastChannelBroker ??= messaging.Broker;
+
+    /// <summary>
+    /// Reads the Web Locks group into a state that was built without it, exactly as
+    /// <see cref="AttachMessaging"/> does and with the same <c>??=</c>: the manager is defaulted lazily on
+    /// first use, and only <c>navigator.locks</c> reads it, so nothing can have resolved one before the
+    /// feature was on.
+    /// </summary>
+    internal void AttachLocks(Options.WebLocksOptions locks) => _lockManager ??= locks.Manager;
 
     /// <summary>
     /// Promotes at most one due timer into an event-loop job, and failing that runs at most one idle callback.
@@ -1118,6 +1163,7 @@ internal sealed class WebApiEngineState
         AbandonWebSockets();
         CloseBroadcastChannels();
         CloseMessagePorts();
+        ReleaseLocks();
         IdleCallbacks?.Clear();
         _performanceObservers?.Clear();
         _fileReads?.Clear();
@@ -1317,6 +1363,26 @@ internal sealed class WebApiEngineState
         }
     }
 
+    /// <summary>
+    /// https://w3c.github.io/web-locks/#termination-of-locks — "when an agent terminates, terminate
+    /// remaining locks and requests with the agent": every lock this engine holds is released and every
+    /// request it made is aborted, which is what lets an engine sharing a host's manager stop holding it up.
+    /// </summary>
+    /// <remarks>
+    /// Reached from both a restore and a dispose, for the reason the broadcast channels are: a manager the
+    /// host shares with engines that outlive this one would otherwise keep a finished cycle's lock, and
+    /// every request behind it would wait on a callback nothing will ever run. Nothing is settled — the
+    /// promises belong to the cycle that is ending — and the agent is deliberately kept, so an engine that
+    /// takes a lock again in the next cycle is the same client it was.
+    /// </remarks>
+    private void ReleaseLocks()
+    {
+        if (_lockManager is { } manager && _lockAgent is { } agent)
+        {
+            manager.Terminate(agent);
+        }
+    }
+
     private void AbandonFetchBodies()
     {
         if (_fetchBodies is not { Count: > 0 } bodies)
@@ -1356,6 +1422,7 @@ internal sealed class WebApiEngineState
         ReleaseHostAbortBridges();
         CloseBroadcastChannels();
         CloseMessagePorts();
+        ReleaseLocks();
 
         return endedWorkers;
     }

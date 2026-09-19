@@ -3,6 +3,7 @@ using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Interop;
 
 namespace Jint.WebApi.Navigator;
 
@@ -76,6 +77,45 @@ internal sealed partial class NavigatorPrototype : Prototype
     {
         CreateProperties_Generated();
         CreateSymbols_Generated();
+
+        if ((_engine._webApiFeatures & WebApiFeatures.WebLocks) == WebApiFeatures.None)
+        {
+            return;
+        }
+
+        // https://w3c.github.io/web-locks/#navigator-mixins — `interface mixin NavigatorLocks { readonly
+        // attribute LockManager locks; }`, so a WebIDL readonly attribute and therefore an enumerable,
+        // configurable accessor (https://webidl.spec.whatwg.org/#es-attributes). Added after the shape
+        // rather than declared in it because its presence is conditional, exactly as URL.createObjectURL is:
+        // an engine that asked for `navigator` and not for the locks feature must answer
+        // `typeof navigator.locks === "undefined"` rather than carry a member that throws.
+        //
+        // It follows — and this is the same consequence URL.createObjectURL has — that a feature set read
+        // here is the one the engine carries when this prototype is *first* touched. `Engine.WebApi.Enable`
+        // sets `_webApiFeatures` before it installs anything, so a live enable reaches an engine whose
+        // script has not yet named `navigator`; one whose script already has keeps the prototype it built.
+        var getter = new ClrFunction(_engine, _realm, "locks", LocksGet, length: 0, PropertyFlag.Configurable);
+        SetProperty("locks", new GetSetPropertyDescriptor(getter, set: null, PropertyFlag.Configurable | PropertyFlag.Enumerable));
+    }
+
+    /// <summary>
+    /// https://w3c.github.io/web-locks/#dom-navigatorlocks-locks — "the locks getter's steps are to return
+    /// this's relevant settings object's LockManager object".
+    /// </summary>
+    /// <remarks>
+    /// The attribute is <c>[SameObject]</c>, which the per-realm memo behind
+    /// <c>Intrinsics.LockManagerObject</c> is what makes true: two reads answer with one object, and that
+    /// object is the only handle on the manager this engine's agent cluster shares.
+    /// </remarks>
+    private JsValue LocksGet(JsValue thisObject, JsCallArguments arguments)
+    {
+        if (thisObject is not JsNavigator)
+        {
+            Throw.TypeError(_realm, "Failed to read the 'locks' property from 'Navigator': illegal invocation, receiver is not a Navigator object.");
+            return JsValue.Undefined;
+        }
+
+        return _realm.Intrinsics.LockManagerObject;
     }
 
     /// <summary>

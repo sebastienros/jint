@@ -107,6 +107,7 @@ internal static class WptCensus
         ("DOM", "dom/"),
         ("Fetch", "fetch/api/"),
         ("XMLHttpRequest", "xhr/"),
+        ("Web Locks", "web-locks/"),
     ];
 
     private static readonly ConcurrentDictionary<string, Counts> _observed = new(StringComparer.Ordinal);
