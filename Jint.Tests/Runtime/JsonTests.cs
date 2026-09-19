@@ -757,27 +757,23 @@ public class JsonTests
         var parser = new JsonParser(new Engine());
         var value = parser.Parse(json).AsNumber();
         value.Should().Be(expected);
-#if !NETFRAMEWORK
-        // .NET Framework's double.Parse loses the sign of negative zero (fixed in .NET Core 3.0)
         double.IsNegativeInfinity(1 / value).Should().Be(double.IsNegativeInfinity(1 / expected));
-#endif
     }
 
-    private const NumberStyles JsonNumberStyles =
-        NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent;
-
     [Fact]
-    public void NumberFastPathIsBitIdenticalToDoubleParse()
+    public void NumberParsingRoundsToNearest()
     {
+        // Not double.Parse as the oracle: .NET Framework's is not correctly rounded, which is the whole
+        // reason JSON.parse no longer asks it (sebastienros/jint#3532).
         var parser = new JsonParser(new Engine());
         var random = new Random(20260721);
 
         for (var iteration = 0; iteration < 200_000; iteration++)
         {
             var json = GenerateRandomJsonNumber(random);
-            var expected = BitConverter.DoubleToInt64Bits(double.Parse(json, JsonNumberStyles, CultureInfo.InvariantCulture));
-            var actual = BitConverter.DoubleToInt64Bits(parser.Parse(json).AsNumber());
-            expected.Should().Be(actual, $"Bit mismatch for '{json}': expected 0x{expected:X16}, actual 0x{actual:X16}");
+            var actual = parser.Parse(json).AsNumber();
+            StringToNumberPrecisionTests.IsNearestDouble(json, actual)
+                .Should().BeTrue($"'{json}' must parse to the nearest double, not 0x{BitConverter.DoubleToInt64Bits(actual):X16}");
         }
     }
 
@@ -803,32 +799,31 @@ public class JsonTests
     [InlineData("9007199254740992")]   // 2^53 exactly (integer path)
     [InlineData("1.7976931348623157e308")] // exponent -> falls back
     [InlineData("5e-324")]             // exponent -> falls back
-    public void NumberFastPathEdgeCasesMatchDoubleParse(string json)
+    public void NumberEdgeCasesRoundToNearest(string json)
     {
         var parser = new JsonParser(new Engine());
-        var expected = BitConverter.DoubleToInt64Bits(double.Parse(json, JsonNumberStyles, CultureInfo.InvariantCulture));
-        var actual = BitConverter.DoubleToInt64Bits(parser.Parse(json).AsNumber());
-        actual.Should().Be(expected);
+        var actual = parser.Parse(json).AsNumber();
+        StringToNumberPrecisionTests.IsNearestDouble(json, actual).Should().BeTrue(json);
     }
 
     [Theory]
     [InlineData("-0")]
     [InlineData("-0.0")]
     [InlineData("-0.00")]
-    public void NumberFastPathMatchesDoubleParseForNegativeZero(string json)
+    public void NegativeZeroKeepsItsSign(string json)
     {
-        // Negative zero is deliberately deferred to double.Parse so the platform-specific sign of zero
-        // (+0.0 on .NET Framework, -0.0 on .NET Core) is preserved exactly rather than normalized.
-        var expected = BitConverter.DoubleToInt64Bits(double.Parse(json, JsonNumberStyles, CultureInfo.InvariantCulture));
+        // .NET Framework's double.Parse returned +0.0 here, so the sign of zero used to depend on which
+        // target framework an embedder loaded.
         var parser = new JsonParser(new Engine());
-        BitConverter.DoubleToInt64Bits(parser.Parse(json).AsNumber()).Should().Be(expected);
+        BitConverter.DoubleToInt64Bits(parser.Parse(json).AsNumber())
+            .Should().Be(BitConverter.DoubleToInt64Bits(-0.0));
     }
 
     [Theory]
     [InlineData("0")]
     [InlineData("0.0")]
     [InlineData("0.5")]
-    public void NumberFastPathProducesPositiveZeroWhereExpected(string json)
+    public void PositiveZeroStaysPositive(string json)
     {
         var positiveZeroBits = BitConverter.DoubleToInt64Bits(0.0);
         var parser = new JsonParser(new Engine());
@@ -971,12 +966,15 @@ public class JsonTests
     [InlineData("3.14159")]
     [InlineData("9007199254740991")]
     [InlineData("0.123456789012345")]
-    public void SpanNumberPathIsBitIdenticalToDoubleParse(string json)
+    public void SpanNumberPathRoundsToNearest(string json)
     {
-        var expected = BitConverter.DoubleToInt64Bits(double.Parse(json, JsonNumberStyles, CultureInfo.InvariantCulture));
         var parser = new JsonParser(new Engine());
-        var actual = BitConverter.DoubleToInt64Bits(parser.Parse(json).AsNumber());
-        actual.Should().Be(expected);
+        var actual = parser.Parse(json).AsNumber();
+        StringToNumberPrecisionTests.IsNearestDouble(json, actual).Should().BeTrue(json);
+        if (json.StartsWith('-') && actual == 0)
+        {
+            BitConverter.DoubleToInt64Bits(actual).Should().Be(BitConverter.DoubleToInt64Bits(-0.0));
+        }
     }
 
     [Fact]
