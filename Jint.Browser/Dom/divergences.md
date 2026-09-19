@@ -223,9 +223,13 @@ native `Data` for normal character-data mutation delivery, and invalidates after
 CharacterData writes, including equal-value writes through borrowed base methods. Attribute writes retain
 the map instead of reparsing its serialization: valid DOM attribute names can be invalid XML names.
 
-Clone/import copy native target/data but start with an empty map, as DOM's clone steps specify (also checked
-against Chromium 153). The paired correction restores native PI data at every descendant, including template
-contents; previously only a directly cloned PI was repaired (#4107).
+Clone/import preserve native target/data, and each new identity parses its copied data rather than copying
+the source attribute map. Chromium 153 confirms this separately for XML-valid names (attributes survive)
+and DOM-valid but XML-invalid names such as `$` (the copied data fails parsing, so the map is empty).
+DOM's current clone-single-node prose copies target/data without an explicit attribute initialization step;
+this parsing behavior follows the browser evidence, not an asserted requirement of that omission. The paired
+correction restores native PI data at every descendant, including template contents (#4107). Fully contained
+PI copies through `Range.cloneContents` still lose data and are separately tracked in #4113.
 
 A per-PI native MutationObserver was rejected: its owner-document registration retains detached targets and
 does not follow adoption. The weak state retains no node, realm, or engine. Changed native data is detected
