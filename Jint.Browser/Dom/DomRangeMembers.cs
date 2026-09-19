@@ -42,30 +42,34 @@ internal static class DomRangeMembers
         // Native range operations clone partial ancestors, so the source and result are not parallel
         // subtrees. Snapshot just the intersecting elements in tree order before extraction moves them;
         // the common ancestor itself is not part of the result. Intersects excludes touching siblings.
-        var sources = new List<(IElement Element, string? Namespace)>();
+        var sources = new List<(IElement Element, string? Namespace, bool PartialTemplate)>();
         if (!range.IsCollapsed)
         {
             foreach (var element in Elements(range.CommonAncestor, range))
             {
-                sources.Add((element, DomNamespaces.Of(element)));
+                sources.Add((element, DomNamespaces.Of(element), IsPartialTemplate(element, range)));
             }
         }
         var fragment = extract ? range.ExtractContent() : range.CopyContent();
-        var copies = Elements(fragment, range: null).ToArray();
-        // Refuse a mismatched projection rather than attach one source's provenance to another node.
-        // AngleSharp remains responsible for all selection, cloning, movement and range adjustment.
-        if (sources.Count != copies.Length)
+        // Enumerate lazily: a partial template's mistakenly cloned native contents must be removed
+        // before descending into that copy. All nodes remain AngleSharp-owned; moved templates are intact.
+        using var copies = Elements(fragment, range: null).GetEnumerator();
+        foreach (var source in sources)
         {
-            throw new InvalidOperationException("The native range result does not match its intersecting elements.");
-        }
-        for (var i = 0; i < copies.Length; i++)
-        {
-            var source = sources[i];
-            if (source.Element.LocalName != copies[i].LocalName || source.Element.Prefix != copies[i].Prefix)
+            if (!copies.MoveNext() || source.Element.LocalName != copies.Current.LocalName
+                || source.Element.Prefix != copies.Current.Prefix)
             {
-                throw new InvalidOperationException("The native range result changed element order.");
+                throw new InvalidOperationException("The native range result does not match its intersecting elements.");
             }
-            DomNamespaces.Created(copies[i], source.Namespace);
+            if (source.PartialTemplate)
+            {
+                DomTemplateCloning.ClearShallowContent(copies.Current);
+            }
+            DomNamespaces.Created(copies.Current, source.Namespace);
+        }
+        if (copies.MoveNext())
+        {
+            throw new InvalidOperationException("The native range result has unexpected elements.");
         }
         CustomElements.CustomElementRegistry.SubtreeCreated(realm, fragment);
         return realm.WrapNodeValue(fragment);
@@ -73,7 +77,7 @@ internal static class DomRangeMembers
 
     private static IEnumerable<IElement> Elements(INode root, IRange? range)
     {
-        var pending = new Stack<(INode Node, IRange? Range, bool Shallow)>();
+        var pending = new Stack<(INode Node, IRange? Range)>();
         PushChildren(root, range);
         while (pending.TryPop(out var current))
         {
@@ -85,29 +89,26 @@ internal static class DomRangeMembers
             {
                 yield return element;
             }
-            if (!current.Shallow)
+            PushChildren(current.Node, current.Range);
+            // Only a fully contained template is deep-cloned (or moved by extraction).
+            if (current.Node is IHtmlTemplateElement template && !IsPartialTemplate(template, current.Range))
             {
-                PushChildren(current.Node, current.Range);
-            }
-            // Template contents are outside the range's tree but native deep cloning copies them too.
-            if (current.Node is IHtmlTemplateElement template)
-            {
-                // Native template.Clone(false) still clones each direct content child shallowly (#4108).
-                // A template on either boundary is a partial ancestor, hence takes that shallow path.
-                var shallow = current.Shallow || current.Range is { } selected
-                    && (template.IsInclusiveAncestorOf(selected.Head) || template.IsInclusiveAncestorOf(selected.Tail));
-                PushChildren(template.Content, range: null, shallow);
+                PushChildren(template.Content, range: null);
             }
         }
 
-        void PushChildren(INode node, IRange? range, bool shallow = false)
+        void PushChildren(INode node, IRange? range)
         {
             for (var i = node.ChildNodes.Length - 1; i >= 0; i--)
             {
-                pending.Push((node.ChildNodes[i], range, shallow));
+                pending.Push((node.ChildNodes[i], range));
             }
         }
     }
+
+    private static bool IsPartialTemplate(IElement element, IRange? range)
+        => element is IHtmlTemplateElement && range is not null
+           && (element.IsInclusiveAncestorOf(range.Head) || element.IsInclusiveAncestorOf(range.Tail));
 
     private static int Compare(DomRealm realm, IRange range, JsValue[] arguments, bool contains)
     {
