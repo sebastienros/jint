@@ -1,4 +1,4 @@
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 
 namespace Jint.Diagnostics;
 
@@ -254,6 +254,12 @@ public sealed record HandlerTreeCacheReport
     /// whether the next run of a script counts as a re-evaluation, so it reaches one for a script before
     /// <see cref="ScriptStatementLists"/> does.
     /// </summary>
+    /// <remarks>
+    /// Each entry holds that script's AST, so like <see cref="FunctionDefinitions"/> the set resets
+    /// wholesale at 2048 entries; a reading at or just below that ceiling is the backstop working. Without
+    /// it a host evaluating a fresh source per operation on one long-lived engine grew this without bound
+    /// and never got the memory back (issue #4094).
+    /// </remarks>
     public int EvaluatedScripts { get; }
 
     /// <summary>

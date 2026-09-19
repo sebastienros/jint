@@ -116,6 +116,85 @@ public class GarbageCollectionTests
         GC.Collect(2, GCCollectionMode.Forced, blocking: true);
     }
 
+    /// <summary>
+    /// A host that hands the engine a fresh script per operation - <c>Evaluate(string)</c> and
+    /// <c>Execute(string)</c> both parse a new one on every call - must not leave that engine holding
+    /// every script it has ever run.
+    /// </summary>
+    /// <remarks>
+    /// The set recording which scripts an engine has already evaluated is what decides whether the next
+    /// run of one counts as a re-evaluation, and it keys on - and so holds - that script's whole AST. It
+    /// was the one handler-tree cache without the ceiling its three siblings have, so a long-lived engine
+    /// fed ad-hoc sources grew by roughly half a kilobyte per call forever and gave none of it back short
+    /// of being dropped (issue #4094). Reachability, not residency: the first script's AST is named by a
+    /// <see cref="WeakReference"/> and by nothing else, so this asks whether the engine still reaches it
+    /// rather than whether the heap merely looks smaller.
+    /// <see cref="AnEvaluatedScriptIsStillHeldBelowTheCeiling"/> is the control that stops it passing
+    /// because the observation cannot see retention at all.
+    /// </remarks>
+    [Test]
+    public void AnEngineFedEndlessFreshScriptsDoesNotRetainThemAll()
+    {
+        var engine = new Engine();
+
+        var first = EvaluateAFreshScript(engine, 0);
+
+        // One script past the ceiling, so the set has had to reset since the one above went in.
+        for (var i = 1; i <= Engine.HandlerTreeCacheCeiling; i++)
+        {
+            EvaluateAFreshScript(engine, i);
+        }
+
+        Collect();
+
+        var firstScriptStillReachable = first.IsAlive;
+        firstScriptStillReachable.Should().BeFalse("an engine must not go on holding the AST of every script it has ever run");
+
+        engine.EvaluatedScriptCount.Should().BeLessThanOrEqualTo(Engine.HandlerTreeCacheCeiling);
+
+        // ...and not because the engine itself died.
+        GC.KeepAlive(engine);
+    }
+
+    /// <summary>
+    /// The control, and the reason the test above can be trusted: below the ceiling an evaluated script
+    /// <em>is</em> still recorded - that is what the set is for, and it is the state the unbounded engine
+    /// never left. Without it, an observation that could not see retention at all would satisfy the
+    /// assertion above for the wrong reason.
+    /// </summary>
+    [Test]
+    public void AnEvaluatedScriptIsStillHeldBelowTheCeiling()
+    {
+        var engine = new Engine();
+
+        var first = EvaluateAFreshScript(engine, 0);
+
+        // A second script, so the first is no longer merely the most recent thing the engine touched.
+        EvaluateAFreshScript(engine, 1);
+
+        Collect();
+
+        var firstScriptStillReachable = first.IsAlive;
+        firstScriptStillReachable.Should().BeTrue("below the ceiling the engine still records the script it evaluated");
+
+        engine.EvaluatedScriptCount.Should().Be(2);
+
+        GC.KeepAlive(engine);
+    }
+
+    /// <summary>
+    /// Parses and runs a script nothing else names, handing back a weak reference to its AST and keeping
+    /// no strong one. <c>NoInlining</c> so the prepared script cannot stay rooted in the caller's frame
+    /// across the collection.
+    /// </summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private static WeakReference EvaluateAFreshScript(Engine engine, int ordinal)
+    {
+        var prepared = Engine.PrepareScript("1 + " + ordinal);
+        engine.Execute(prepared);
+        return new WeakReference(prepared.Program);
+    }
+
     [Test]
     public void PreparedScriptsDoNotRetainSourceTextByDefault()
     {
