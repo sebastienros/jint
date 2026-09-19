@@ -183,6 +183,117 @@ public class GarbageCollectionTests
     }
 
     /// <summary>
+    /// A realm canonicalizes one template object per tagged-template Parse Node, and it used to do so in a
+    /// dictionary strong on both ends - so an engine fed a fresh source per operation accumulated a frozen
+    /// array and its raw array per call, ~1.35 KB a time, forever (issue #4117).
+    /// </summary>
+    /// <remarks>
+    /// The ceiling that bounds the handler-tree caches is no remedy here, because evicting a <em>live</em>
+    /// site is script-visible. What is not observable is losing an object no script holds any more, which is
+    /// what this asserts - and then that the site rebuilds a proper frozen template object rather than a
+    /// husk, since that rebuild path exists only because the value is weak.
+    /// <see cref="ACollectionBetweenEvaluationsDoesNotBreakSiteIdentity"/> is the control.
+    /// </remarks>
+    [Test]
+    public void ATaggedTemplateObjectNoScriptHoldsIsNotRetainedByTheRealm()
+    {
+        var engine = new Engine();
+        var prepared = Engine.PrepareScript(TaggedTemplateSite);
+
+        var templateObject = RunAndForget(engine, prepared);
+
+        // so that the engine's most recent result is not the template object itself
+        engine.Evaluate("1 + 1");
+
+        Collect();
+
+        var stillReachable = templateObject.IsAlive;
+        stillReachable.Should().BeFalse("no script holds the template object, so the realm must not either");
+
+        engine.SetValue("rebuilt", engine.Evaluate(prepared));
+        engine.Evaluate("rebuilt.length === 2 && rebuilt[0] === 'head' && rebuilt[1] === 'tail' && rebuilt.raw[0] === 'head' && Object.isFrozen(rebuilt)")
+            .AsBoolean().Should().BeTrue("a site whose object was collected must rebuild a proper frozen template object");
+
+        GC.KeepAlive(engine);
+
+        // NoInlining so the result cannot stay rooted in the caller's frame across the collection.
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static WeakReference RunAndForget(Engine engine, Prepared<Script> prepared)
+            => new WeakReference(engine.Evaluate(prepared));
+    }
+
+    /// <summary>
+    /// The control, and the one real hazard of a weak value: a collection between two runs of the same site
+    /// must not hand the second run a different object while the first is still held. Without it the test
+    /// above would be satisfied by a cache that had simply stopped caching.
+    /// </summary>
+    [Test]
+    public void ACollectionBetweenEvaluationsDoesNotBreakSiteIdentity()
+    {
+        var engine = new Engine();
+        var prepared = Engine.PrepareScript(TaggedTemplateSite);
+
+        var first = engine.Evaluate(prepared);
+
+        Collect();
+
+        var second = engine.Evaluate(prepared);
+
+        ReferenceEquals(first, second).Should().BeTrue("the template object is still held, so the site must still name it");
+
+        GC.KeepAlive(engine);
+    }
+
+    /// <summary>
+    /// Why the realm's template map holds a <see cref="WeakReference{T}"/> rather than the
+    /// <c>JsArray</c> itself.
+    /// </summary>
+    /// <remarks>
+    /// A <see cref="System.Runtime.CompilerServices.ConditionalWeakTable{TKey, TValue}"/> keeps its value
+    /// alive on <em>key</em> reachability, and the key here is a parse node inside a prepared script the host
+    /// shares across engines. A table holding the template object directly would therefore have that shared
+    /// AST pin the object - and through it the engine and realm that built it - for as long as the host kept
+    /// the script. Measured while choosing the shape: holding the array directly leaves 20 of 20 engines
+    /// alive here; the weak reference leaves none. Same hazard as
+    /// <see cref="SharedPreparedScriptDoesNotRetainEngines"/>, reached through a different table.
+    /// </remarks>
+    [Test]
+    public void ASharedPreparedScriptWithATaggedTemplateDoesNotRetainEngines()
+    {
+        var prepared = Engine.PrepareScript("function t(s) { return s; } t`head${1}tail`;");
+
+        const int count = 20;
+        var references = new List<WeakReference>(count);
+        for (var i = 0; i < count; i++)
+        {
+            references.Add(EvaluateOnceAndForget(prepared));
+        }
+
+        Collect();
+
+        var aliveCount = references.Count(static r => r.IsAlive);
+        aliveCount.Should().Be(0, $"{aliveCount} of {count} engines were not collected - the shared site's template object still pins the engine that built it.");
+
+        // The shared script is the subject of the claim, so it has to outlive the collection.
+        GC.KeepAlive(prepared);
+
+        // NoInlining so the engine reference cannot be stack-rooted in this frame across the collection.
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static WeakReference EvaluateOnceAndForget(Prepared<Script> prepared)
+        {
+            var engine = new Engine();
+            engine.Execute(prepared);
+            return new WeakReference(engine);
+        }
+    }
+
+    /// <summary>
+    /// One tagged-template site, reached through a function call rather than merely parsed, handing its
+    /// template object back as the script's completion value.
+    /// </summary>
+    private const string TaggedTemplateSite = "function t(s) { return s; } function f() { return t`head${1}tail`; } f();";
+
+    /// <summary>
     /// Parses and runs a script nothing else names, handing back a weak reference to its AST and keeping
     /// no strong one. <c>NoInlining</c> so the prepared script cannot stay rooted in the caller's frame
     /// across the collection.
