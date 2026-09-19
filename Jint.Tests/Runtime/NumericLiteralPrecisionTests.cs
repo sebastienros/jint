@@ -1,13 +1,16 @@
 ﻿using System.Globalization;
 using System.Numerics;
+using System.Text;
 
 namespace Jint.Tests.Runtime;
 
 /// <summary>
-/// Pins the double an integer literal holds when its mathematical value lands in
-/// <c>[2^63, 2^64)</c>. The scanner reads those digits into a <see cref="ulong"/> and converts,
-/// and that conversion double-rounds on .NET Framework and on .NET 8 and below, so the same source
-/// used to hold two different numbers depending only on which target framework was loaded.
+/// Pins the double a numeric literal holds. The scanner settles a whole-number literal with its own
+/// <see cref="ulong"/> accumulator, and that conversion double-rounds on .NET Framework and on .NET 8
+/// and below for a value in <c>[2^63, 2^64)</c>; everything it cannot accumulate - a fraction, an
+/// exponent, more digits than a <see cref="ulong"/> holds - it hands to <c>double.Parse</c>, which is
+/// not IEEE correctly-rounded on .NET Framework. Both used to make the same source hold two different
+/// numbers depending only on which target framework was loaded.
 /// </summary>
 public class NumericLiteralPrecisionTests
 {
@@ -107,6 +110,156 @@ public class NumericLiteralPrecisionTests
             }
         }
     }
+
+    // Every expected string is the shortest round-tripping decimal of the double nearest the literal's
+    // mathematical value. These are the spellings the scanner hands to double.Parse: a fraction, an
+    // exponent, or more digits than its ulong accumulator holds.
+    [Theory]
+    [InlineData("28643790.0509245228", "28643790.05092452")]
+    [InlineData("414404623.816719085", "414404623.8167191")]
+    [InlineData("123456789.012345678", "123456789.01234567")]
+    [InlineData("1.95232124646081910e-200", "1.952321246460819e-200")]
+    [InlineData("4.21015488674265630e+200", "4.2101548867426566e+200")]
+    [InlineData("5.14083278005553983e-200", "5.1408327800555395e-200")]
+    [InlineData("1898787416396742135391", "1.8987874163967423e+21")]
+    [InlineData("5530464618918194971810", "5.530464618918195e+21")]
+    [InlineData("12345678901234567890.0", "12345678901234567000")]
+    [InlineData("1.2345678901234567e19", "12345678901234567000")]
+    // The Number.MIN_VALUE region, where a double.Parse that rounds twice is wrong about half the time.
+    [InlineData("3.32605247755496039e-311", "3.326052477555e-311")]
+    [InlineData("5e-324", "5e-324")]
+    [InlineData("1e-323", "1e-323")]
+    [InlineData("4.9406564584124654e-324", "5e-324")]
+    [InlineData("2.4703282292062327e-324", "0")]
+    [InlineData("2.4703282292062328e-324", "5e-324")]
+    [InlineData("2.2250738585072011e-308", "2.225073858507201e-308")]
+    // Both ends of the representable range, where a value saturates to an infinity or to a zero.
+    [InlineData("1.7976931348623157e308", "1.7976931348623157e+308")]
+    [InlineData("1.7976931348623159e308", "Infinity")]
+    [InlineData("1e309", "Infinity")]
+    [InlineData("1e999", "Infinity")]
+    [InlineData("1e-400", "0")]
+    [InlineData("0.000000000000000000000000000001", "1e-30")]
+    // The boundary spellings: a leading point, a trailing point, a bare exponent, and separators in
+    // both the significand and the exponent.
+    [InlineData(".5", "0.5")]
+    [InlineData("5.", "5")]
+    [InlineData("5e3", "5000")]
+    [InlineData("0.1", "0.1")]
+    [InlineData("1e23", "1e+23")]
+    [InlineData("9007199254740993", "9007199254740992")]
+    [InlineData("1_000.000_1", "1000.0001")]
+    [InlineData("1.234_5e1_0", "12345000000")]
+    // The exact midpoint between 1 and the next double is a tie and rounds to even; one more digit
+    // anywhere past it, however far out, is no longer a tie.
+    [InlineData("1.00000000000000011102230246251565404236316680908203125", "1")]
+    [InlineData("1.000000000000000111022302462515654042363166809082031251", "1.0000000000000002")]
+    public void DecimalLiteralHoldsTheNearestDouble(string literal, string expected)
+    {
+        var engine = new Engine();
+        engine.Evaluate($"({literal}).toString()").AsString().Should().Be(expected);
+    }
+
+    /// <summary>
+    /// The invariant the whole family restores: one source text of a number denotes one double, whichever
+    /// of the routes to a Number reads it.
+    /// </summary>
+    [Theory]
+    [InlineData("28643790.0509245228")]
+    [InlineData("1.95232124646081910e-200")]
+    [InlineData("4.21015488674265630e+200")]
+    [InlineData("1898787416396742135391")]
+    [InlineData("3.32605247755496039e-311")]
+    [InlineData("2.4703282292062328e-324")]
+    [InlineData("2.2250738585072011e-308")]
+    [InlineData("1.2345678901234567e19")]
+    [InlineData("0.1")]
+    [InlineData("1e23")]
+    public void ALiteralDenotesWhatEveryOtherRouteReads(string text)
+    {
+        var engine = new Engine();
+        engine.Evaluate($@"
+            ({text} === Number('{text}'))
+            && ({text} === parseFloat('{text}'))
+            && ({text} === JSON.parse('{text}'))
+            ").AsBoolean().Should().BeTrue(text);
+    }
+
+    [Fact]
+    public void AFractionalLiteralReadsTheSameThroughEveryReader()
+    {
+        var engine = new Engine();
+        engine.Evaluate("Object.keys({ 28643790.0509245228: 1 })[0]").AsString().Should().Be("28643790.05092452");
+        engine.Evaluate("(function () { var a = 0; a += 28643790.0509245228; return a.toString(); })()")
+            .AsString().Should().Be("28643790.05092452");
+    }
+
+    /// <summary>
+    /// The same exact oracle the string lanes are held to, over the literal reader: whatever the engine
+    /// holds must be the double nearest the literal's mathematical value, decided in exact integer
+    /// arithmetic rather than by a second floating-point parse.
+    /// </summary>
+    [Theory]
+    [InlineData(LiteralShape.Fraction)]
+    [InlineData(LiteralShape.PositiveExponent)]
+    [InlineData(LiteralShape.NegativeExponent)]
+    [InlineData(LiteralShape.Subnormal)]
+    [InlineData(LiteralShape.WideWholeNumber)]
+    [InlineData(LiteralShape.ShortFraction)]
+    public void EveryDecimalLiteralRoundsToNearest(LiteralShape shape)
+    {
+        var engine = new Engine();
+        var random = new Random(20260901);
+
+        for (var i = 0; i < 500; i++)
+        {
+            var text = Generate(random, shape);
+            var held = engine.Evaluate(text).AsNumber();
+
+            StringToNumberPrecisionTests.IsNearestDouble(text, held)
+                .Should().BeTrue($"the literal {text} must hold the double nearest it");
+        }
+    }
+
+    public enum LiteralShape
+    {
+        Fraction,
+        PositiveExponent,
+        NegativeExponent,
+        Subnormal,
+        WideWholeNumber,
+        ShortFraction,
+    }
+
+    private static string Generate(Random random, LiteralShape shape)
+    {
+        var length = shape switch
+        {
+            LiteralShape.WideWholeNumber => 22,
+            LiteralShape.ShortFraction => 6,
+            _ => 18,
+        };
+
+        var digits = new StringBuilder(length);
+        digits.Append((char) ('1' + random.Next(9)));
+        for (var i = 1; i < length; i++)
+        {
+            digits.Append((char) ('0' + random.Next(10)));
+        }
+
+        var text = digits.ToString();
+        return shape switch
+        {
+            LiteralShape.WideWholeNumber => text,
+            LiteralShape.PositiveExponent => Scientific(text, "+200"),
+            LiteralShape.NegativeExponent => Scientific(text, "-200"),
+            LiteralShape.Subnormal => Scientific(text, "-" + (310 + random.Next(11)).ToString(CultureInfo.InvariantCulture)),
+            _ => text.Substring(0, text.Length / 2) + "." + text.Substring(text.Length / 2),
+        };
+    }
+
+    private static string Scientific(string digits, string exponent)
+        => digits.Substring(0, 1) + "." + digits.Substring(1) + "e" + exponent;
 
     /// <summary>
     /// Nothing below the affected octave may move: the signed conversion the scanner reaches there is
