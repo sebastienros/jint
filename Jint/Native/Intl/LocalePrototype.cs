@@ -380,9 +380,6 @@ internal sealed partial class LocalePrototype : Prototype
     }
 
     /// <summary>
-    /// Converts a day name abbreviation (mon, tue, wed, etc.) to a number (1-7).
-    /// </summary>
-    /// <summary>
     /// https://tc39.es/ecma402/#sec-weekdayuvaluetonumber - the ISO 8601 day number for a
     /// Unicode First Day Identifier, and undefined for any other string.
     /// </summary>

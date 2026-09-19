@@ -768,9 +768,6 @@ internal sealed class LocaleConstructor : Constructor
     }
 
     /// <summary>
-    /// Gets the key (first 2-char subtag) from a Unicode extension part like "ca-gregory" or "kn".
-    /// </summary>
-    /// <summary>
     /// Appends one Unicode extension keyword, as the bare key when its value is present but empty.
     /// </summary>
     private static void AddKeyword(List<string> unicodeExtParts, string key, string? value)
@@ -783,6 +780,9 @@ internal sealed class LocaleConstructor : Constructor
         unicodeExtParts.Add(value.Length == 0 ? key : key + "-" + value);
     }
 
+    /// <summary>
+    /// Gets the key (first 2-char subtag) from a Unicode extension part like "ca-gregory" or "kn".
+    /// </summary>
     private static string GetUnicodeExtensionKey(string part)
     {
         var dashIndex = part.IndexOf('-');
