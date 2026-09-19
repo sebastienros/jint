@@ -14,6 +14,11 @@ namespace Jint.Native.Global;
 [JsObject(UseShape = true)]
 public sealed partial class GlobalObject : ObjectInstance
 {
+    /// <summary>
+    /// The widest an <see cref="int"/> spells: <c>-2147483648</c>.
+    /// </summary>
+    private const int MaxInt32Length = 11;
+
     private readonly Realm _realm;
     private ErrorDispatchInfo? _uriError;
     private ErrorDispatchInfo UriError => _uriError ??= Throw.CreateUriError(_realm, "URI malformed");
@@ -84,8 +89,10 @@ public sealed partial class GlobalObject : ObjectInstance
             radix = 16;
         }
 
-        // check fast case
-        if (radix == 10 && int.TryParse(trimmed, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number))
+        // The fast case, which is nearly every call: a decimal integer an Int32 holds. The length bound
+        // is what keeps it a fast case - int.MinValue is eleven characters with its sign and nothing
+        // longer can be an Int32, while int.TryParse reads a hundred million of them before saying so.
+        if (radix == 10 && trimmed.Length <= MaxInt32Length && int.TryParse(trimmed, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number))
         {
             // Step 15: zero keeps a recorded minus sign, and the cached integers are all positive.
             return number == 0 && sign == -1 ? JsNumber.NegativeZero : JsNumber.Create(number);
@@ -98,39 +105,17 @@ public sealed partial class GlobalObject : ObjectInstance
             return JsNumber.DoubleNaN;
         }
 
-        // Steps 11-14: numberString is the longest radix-R digit prefix. Accumulating from the end
-        // and resetting on every non-digit leaves exactly that prefix standing at index 0.
-        var hasResult = false;
-        double result = 0;
-        double pow = 1;
-        for (var i = s.Length - 1; i >= 0; i--)
+        // Steps 11-14: numberString is the longest radix-R digit prefix, and step 15's 𝔽 rounds the
+        // exact integer mathInt those digits denote to the nearest Number - once, however many of them
+        // there are. Accumulating them into a double instead rounds once per digit and lands one or more
+        // ULP away past the 53rd significant bit, so the digits stay exact until the end.
+        if (!NumberParser.TryParseRadixInteger(s, radix, out var mathInt))
         {
-            var digit = s[i];
-
-            var index = digit switch
-            {
-                >= '0' and <= '9' => digit - '0',
-                >= 'a' and <= 'z' => digit - 'a' + 10,
-                >= 'A' and <= 'Z' => digit - 'A' + 10,
-                _ => -1
-            };
-
-            if (index == -1 || index >= radix)
-            {
-                // reset
-                hasResult = false;
-                result = 0;
-                pow = 1;
-                continue;
-            }
-
-            hasResult = true;
-            result += index * pow;
-            pow *= radix;
+            return JsNumber.DoubleNaN;
         }
 
         // Steps 15-16: sign * 0 is already -0 in IEEE 754, and JsNumber.Create keeps that sign.
-        return hasResult ? JsNumber.Create(sign * result) : JsNumber.DoubleNaN;
+        return JsNumber.Create(sign * mathInt);
     }
 
     /// <summary>
