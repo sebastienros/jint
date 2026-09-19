@@ -40,42 +40,66 @@ internal static class DomRangeMembers
     private static JsValue CopyContents(DomRealm realm, IRange range, bool extract)
     {
         // Native range operations clone partial ancestors, so the source and result are not parallel
-        // subtrees. Snapshot just the intersecting elements in tree order before extraction moves them;
-        // the common ancestor itself is not part of the result. Intersects excludes touching siblings.
-        var sources = new List<(IElement Element, string? Namespace, bool PartialTemplate)>();
+        // subtrees. Snapshot intersecting elements and PIs in tree order before extraction moves them.
+        var sources = new List<(INode Node, string? Namespace, bool PartialTemplate, string? PiData)>();
         if (!range.IsCollapsed)
         {
-            foreach (var element in Elements(range.CommonAncestor, range))
+            if (range.CommonAncestor is IProcessingInstruction instruction)
             {
-                sources.Add((element, DomNamespaces.Of(element), IsPartialTemplate(element, range)));
+                // A range inside one PI produces that PI's substring, not its children.
+                sources.Add((instruction, null, false, null));
+            }
+            foreach (var node in CopyNodes(range.CommonAncestor, range))
+            {
+                sources.Add(node is IElement element
+                    ? (element, DomNamespaces.Of(element), IsPartialTemplate(element, range), null)
+                    : (node, null, false, ReferenceEquals(node, range.Head) || ReferenceEquals(node, range.Tail)
+                        ? null : ((IProcessingInstruction) node).Data));
             }
         }
         var fragment = extract ? range.ExtractContent() : range.CopyContent();
         // Enumerate lazily: a partial template's mistakenly cloned native contents must be removed
         // before descending into that copy. All nodes remain AngleSharp-owned; moved templates are intact.
-        using var copies = Elements(fragment, range: null).GetEnumerator();
+        using var copies = CopyNodes(fragment, range: null).GetEnumerator();
         foreach (var source in sources)
         {
-            if (!copies.MoveNext() || source.Element.LocalName != copies.Current.LocalName
-                || source.Element.Prefix != copies.Current.Prefix)
+            if (!copies.MoveNext())
             {
-                throw new InvalidOperationException("The native range result does not match its intersecting elements.");
+                throw new InvalidOperationException("The native range result is missing an intersecting node.");
             }
-            if (source.PartialTemplate)
+            if (source.Node is IElement element && copies.Current is IElement copy
+                && element.LocalName == copy.LocalName && element.Prefix == copy.Prefix)
             {
-                DomTemplateCloning.ClearShallowContent(copies.Current);
+                if (source.PartialTemplate)
+                {
+                    DomTemplateCloning.ClearShallowContent(copy);
+                }
+                DomNamespaces.Created(copy, source.Namespace);
             }
-            DomNamespaces.Created(copies.Current, source.Namespace);
+            else if (source.Node is IProcessingInstruction instruction && copies.Current is IProcessingInstruction copiedInstruction
+                     && instruction.Target == copiedInstruction.Target)
+            {
+                // Only fully contained clones need repair. Native partial copies already hold the
+                // selected substring, and extraction moves whole nodes with their identity and state.
+                if (source.PiData is not null && !ReferenceEquals(instruction, copiedInstruction))
+                {
+                    copiedInstruction.Data = source.PiData;
+                }
+            }
+            else
+            {
+                throw new InvalidOperationException("The native range result does not match its intersecting nodes.");
+            }
         }
         if (copies.MoveNext())
         {
-            throw new InvalidOperationException("The native range result has unexpected elements.");
+            throw new InvalidOperationException("The native range result has unexpected nodes.");
         }
         CustomElements.CustomElementRegistry.SubtreeCreated(realm, fragment);
         return realm.WrapNodeValue(fragment);
     }
 
-    private static IEnumerable<IElement> Elements(INode root, IRange? range)
+    private static IEnumerable<INode> CopyNodes(INode root, IRange? range)
     {
         var pending = new Stack<(INode Node, IRange? Range)>();
         PushChildren(root, range);
@@ -85,9 +109,9 @@ internal static class DomRangeMembers
             {
                 continue;
             }
-            if (current.Node is IElement element)
+            if (current.Node is IElement or IProcessingInstruction)
             {
-                yield return element;
+                yield return current.Node;
             }
             PushChildren(current.Node, current.Range);
             // Only a fully contained template is deep-cloned (or moved by extraction).
