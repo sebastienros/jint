@@ -1244,9 +1244,41 @@ public sealed partial class Engine : IDisposable
     // behavior.
     private readonly Dictionary<Node, JintFunctionDefinition> _functionDefinitions = new();
 
+    // The ceiling each of the four handler-tree caches resets itself at. Steady-state reuse of a sane
+    // number of prepared scripts never reaches it; a host streaming endless distinct sources through one
+    // long-lived engine does, and the reset is what bounds what that engine retains.
+    internal const int HandlerTreeCacheCeiling = 2048;
+
     // Scripts this engine has run global declaration instantiation for, so the definition cache
     // above only engages on RE-evaluation (see GlobalDeclarationInstantiation).
+    //
+    // Bounded like the caches it gates. A membership marker looks free, but a HashSet holds its keys
+    // strongly, so every distinct script an engine had ever run stayed reachable through this set -
+    // with its whole AST, and the hoisting scope and var-name lists cached on that AST. A host
+    // evaluating a fresh source per operation on one long-lived engine therefore grew it forever
+    // (issue #4094): ~530 bytes per Evaluate(string) of "1+1", reclaimed by nothing short of
+    // dropping the engine.
     private readonly HashSet<Script> _evaluatedScripts = new();
+
+    // Marks the script as evaluated on this engine and answers whether it already was, which is what
+    // decides whether the handler-tree caches engage (see GlobalDeclarationInstantiation). Membership
+    // is tested before the ceiling so that a script the host does reuse keeps its re-evaluation
+    // standing across a reset, and only a genuinely new script can trip one.
+    private bool MarkScriptEvaluated(Script script)
+    {
+        if (_evaluatedScripts.Contains(script))
+        {
+            return true;
+        }
+
+        if (_evaluatedScripts.Count >= HandlerTreeCacheCeiling)
+        {
+            _evaluatedScripts.Clear();
+        }
+
+        _evaluatedScripts.Add(script);
+        return false;
+    }
 
     // Per-engine cache of the top-level (Program) statement handler tree, keyed on the stable AST.
     // Engine-owned for the same lifetime reasons as _functionDefinitions: the tree accumulates
@@ -1269,7 +1301,7 @@ public sealed partial class Engine : IDisposable
         {
             // backstop mirroring CacheFunctionDefinition: bound growth for hosts streaming endless
             // distinct sources through one long-lived engine.
-            if (cache.Count >= 2048)
+            if (cache.Count >= HandlerTreeCacheCeiling)
             {
                 cache.Clear();
             }
@@ -1300,7 +1332,7 @@ public sealed partial class Engine : IDisposable
         {
             // backstop mirroring CacheFunctionDefinition: bound growth for hosts streaming endless
             // distinct sources through one long-lived engine.
-            if (cache.Count >= 2048)
+            if (cache.Count >= HandlerTreeCacheCeiling)
             {
                 cache.Clear();
             }
@@ -1339,7 +1371,7 @@ public sealed partial class Engine : IDisposable
         // backstop for hosts streaming endless distinct sources (unique eval/script texts)
         // through one engine: reset rather than grow without bound - steady-state reuse of a
         // sane number of scripts never reaches this
-        if (_functionDefinitions.Count >= 2048)
+        if (_functionDefinitions.Count >= HandlerTreeCacheCeiling)
         {
             _functionDefinitions.Clear();
         }
@@ -4338,7 +4370,7 @@ public sealed partial class Engine : IDisposable
         // again (the cached-Prepared<Script> embedding pattern); a first evaluation - fresh-engine-
         // per-run hosts never see a second one - takes plain construction so one-shot scripts stay
         // byte-identical to the uncached path.
-        var reEvaluation = !_evaluatedScripts.Add(script);
+        var reEvaluation = MarkScriptEvaluated(script);
 
         if (functionDeclarations != null)
         {
