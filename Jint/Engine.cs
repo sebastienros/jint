@@ -120,8 +120,10 @@ public sealed partial class Engine : IDisposable
     // on KEY reachability alone: with the key rooted by a live Prepared<Script>, value → inline
     // caches → engine → table becomes self-sustaining and pins the dropped engine — the exact
     // failure the weak table was meant to avoid. The strong form instead retains definitions for
-    // scripts this engine evaluated until the engine dies, mirroring Realm._templateMap's existing
-    // behavior.
+    // scripts this engine evaluated until the engine dies - bounded by the ceiling below.
+    // (Realm._templateMap, which this used to point at as precedent, escapes that trade by holding a
+    // WeakReference as its VALUE, which is open to it only because it has an object to hand back rather
+    // than engine-affine caches to keep warm.)
     private readonly Dictionary<Node, JintFunctionDefinition> _functionDefinitions = new();
 
     // The ceiling each of the four handler-tree caches resets itself at. Steady-state reuse of a sane
