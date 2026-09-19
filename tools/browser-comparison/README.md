@@ -50,9 +50,12 @@ not retention of a mutated DOM across iterations. No sibling workload warms anot
 | `fetch-update` | Fetch deterministic loopback JSON, update the DOM and cross a promise continuation |
 | `interpreter-control` | Run a deterministic arithmetic loop without DOM operations |
 
-Main `052b45aa9` fails the unchanged `event-form` workload because `FormData(form)` rejects a DOM
-form ([#3931](https://github.com/sebastienros/jint/issues/3931)). Collection deliberately stops there;
-the #3931 implementation is being verified against this unchanged workload before publication.
+The `FormData(form)` compatibility failure originally found by the unchanged `event-form` workload
+([#3931](https://github.com/sebastienros/jint/issues/3931)) is resolved. The collector and correctness smoke
+landed in [#3941](https://github.com/sebastienros/jint/pull/3941). The remaining X4 acceptance work is an
+empirical Jint A/A calibration and the complete three-browser comparison on a dedicated idle Linux host
+with delegated cgroup v2, followed by retained evidence and a scoped conclusion in
+[#3930](https://github.com/sebastienros/jint/issues/3930).
 
 These cover the campaign's extraction, mutation, interaction and local asynchronous automation use cases.
 They do not represent rendering, Internet latency, arbitrary production sites, or every framework.
