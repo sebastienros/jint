@@ -1,3 +1,4 @@
+﻿using System.Runtime.CompilerServices;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -133,8 +134,12 @@ internal sealed class JintTaggedTemplateExpression : JintExpression
     private JsArray GetTemplateObject(EvaluationContext context)
     {
         var realm = context.Engine.Realm;
-        var templateRegistry = realm._templateMap;
-        if (templateRegistry.TryGetValue(this._expression, out var cached))
+        var templateRegistry = realm._templateMap ??= new ConditionalWeakTable<Node, WeakReference<JsArray>>();
+
+        // The slot outlives the object it points at: the table is keyed on this parse node, so the entry
+        // lives exactly as long as the site does, while the template object itself may be collected once
+        // no script holds it any more. See Realm._templateMap for why both ends have to be weak.
+        if (templateRegistry.TryGetValue(this._expression, out var slot) && slot.TryGetTarget(out var cached))
         {
             return cached;
         }
@@ -156,7 +161,19 @@ internal sealed class JintTaggedTemplateExpression : JintExpression
 
         template.SetIntegrityLevel(ObjectInstance.IntegrityLevel.Frozen);
 
-        realm._templateMap[_expression] = template;
+        if (slot is null)
+        {
+            // Add rather than a set: nothing between the lookup above and here can run script - building a
+            // template object is a frozen array of literals and cannot reach a getter - so the site cannot
+            // have acquired a slot in the meantime.
+            templateRegistry.Add(_expression, new WeakReference<JsArray>(template));
+        }
+        else
+        {
+            // Rebuilt after the previous object was collected; reusing the slot spares a Remove/Add pair,
+            // which matters because ConditionalWeakTable.AddOrUpdate is absent from netstandard2.0.
+            slot.SetTarget(template);
+        }
 
         return template;
     }
