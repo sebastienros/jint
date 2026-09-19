@@ -14,8 +14,8 @@
 # The 'verified' date is the only thing bounding anchor rot: a clause renamed upstream keeps
 # resolving here until somebody re-runs that.
 #
-verified: 2026-09-09
-anchors: 1255
+verified: 2026-09-19
+anchors: 1259
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -839,6 +839,7 @@ ecma402 sec-Intl.ListFormat.prototype.formatToParts
 ecma402 sec-Intl.ListFormat.prototype.resolvedoptions
 ecma402 sec-Intl.ListFormat.supportedLocalesOf
 ecma402 sec-Intl.Locale
+ecma402 sec-Intl.Locale.prototype.firstDayOfWeek
 ecma402 sec-Intl.Locale.prototype.getCalendars
 ecma402 sec-Intl.Locale.prototype.getCollations
 ecma402 sec-Intl.Locale.prototype.getHourCycles
@@ -886,6 +887,7 @@ ecma402 sec-getbooleanorstringnumberformatoption
 ecma402 sec-getnumberformatpattern
 ecma402 sec-getoption
 ecma402 sec-initializedatetimeformat
+ecma402 sec-insert-unicode-extension-and-canonicalize
 ecma402 sec-internal-slots
 ecma402 sec-intl-collator-internal-slots
 ecma402 sec-intl-datetimeformat-constructor
@@ -949,6 +951,8 @@ ecma402 sec-the-intl-collator-constructor
 ecma402 sec-tointlmathematicalvalue
 ecma402 sec-torawfixed
 ecma402 sec-torawprecision
+ecma402 sec-weekdaytouvalue
+ecma402 sec-weekdayuvaluetonumber
 ecma402 segmenter-objects
 ecma402 sup-String.prototype.localeCompare
 ecma402 sup-bigint.prototype.tolocalestring

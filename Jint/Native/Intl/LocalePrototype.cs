@@ -169,19 +169,17 @@ internal sealed partial class LocalePrototype : Prototype
         return string.Join('-', variants);
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma402/#sec-Intl.Locale.prototype.firstDayOfWeek returns [[FirstDayOfWeek]]
+    /// unchanged. A keyword carrying no value - "en-u-fw", or "en-u-fw-true" once UTS #35 Annex C has
+    /// removed the "true" - is the empty string, which is present rather than absent, so only a null
+    /// answers undefined here.
+    /// </summary>
     [JsAccessor("firstDayOfWeek")]
     private JsValue GetFirstDayOfWeek(JsValue thisObject)
     {
         var locale = ValidateLocale(thisObject);
-
-        // Return the firstDayOfWeek value from the locale if set
-        if (!string.IsNullOrEmpty(locale.FirstDayOfWeek))
-        {
-            return locale.FirstDayOfWeek;
-        }
-
-        // If not explicitly set, return undefined per spec
-        return Undefined;
+        return locale.FirstDayOfWeek ?? Undefined;
     }
 
     /// <summary>
@@ -337,9 +335,9 @@ internal sealed partial class LocalePrototype : Prototype
         // First day of week (1=Monday, 7=Sunday). The fw extension wins over the provider; without one,
         // a provider with no opinion falls back to the embedded CLDR data.
         int firstDayNum;
-        if (locale.FirstDayOfWeek != null)
+        if (locale.FirstDayOfWeek is { } firstDayOfWeek && WeekdayUValueToNumber(firstDayOfWeek) is { } overrideDay)
         {
-            firstDayNum = ConvertDayNameToNumber(locale.FirstDayOfWeek);
+            firstDayNum = overrideDay;
         }
         else if (weekInfo != null)
         {
@@ -382,11 +380,19 @@ internal sealed partial class LocalePrototype : Prototype
     }
 
     /// <summary>
-    /// Converts a day name abbreviation (mon, tue, wed, etc.) to a number (1-7).
+    /// https://tc39.es/ecma402/#sec-weekdayuvaluetonumber - the ISO 8601 day number for a
+    /// Unicode First Day Identifier, and undefined for any other string.
     /// </summary>
-    private static int ConvertDayNameToNumber(string dayName)
+    /// <remarks>
+    /// The undefined answer is what makes https://tc39.es/ecma402/#sec-Intl.Locale.prototype.getWeekInfo
+    /// leave [[FirstDay]] at the region's own value: the override applies only "If firstDay is not
+    /// undefined". This used to answer Monday for every unrecognized identifier, which a tag could not
+    /// reach while "en-u-fw" and "en-u-fw-true" were parked in the unrecognized-keyword list; now that
+    /// they resolve to a present, empty [[FirstDayOfWeek]], they reach it.
+    /// </remarks>
+    private static int? WeekdayUValueToNumber(string dayName)
     {
-        return dayName.ToLowerInvariant() switch
+        return dayName switch
         {
             "mon" => 1,
             "tue" => 2,
@@ -395,7 +401,7 @@ internal sealed partial class LocalePrototype : Prototype
             "fri" => 5,
             "sat" => 6,
             "sun" => 7,
-            _ => 1 // Default to Monday
+            _ => null
         };
     }
 }
