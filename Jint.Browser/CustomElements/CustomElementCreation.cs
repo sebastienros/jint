@@ -69,7 +69,13 @@ internal static class CustomElementCreation
         // `new Document()` and an XML parse share AngleSharp's IXmlDocument runtime type, while WebIDL gives
         // only the parse the XMLDocument brand. Carry the source wrapper's choice through DOM's clone steps.
         var documentDefinition = node is IDocument ? realm.WrapNode(node).Definition : null;
-        var clone = node.Clone(DomConvert.OptionalBool(arguments, 0, false));
+        var deep = DomConvert.OptionalBool(arguments, 0, false);
+        var clone = node.Clone(deep);
+        if (!deep)
+        {
+            DomTemplateCloning.ClearShallowContent(clone);
+        }
+        DomNamespaces.Copy(node, clone);
 
         // DOM's clone steps for a ProcessingInstruction are "set copy's target to node's target and copy's
         // data to node's data". AngleSharp's clone carries the target and drops the data, so

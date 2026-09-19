@@ -1,4 +1,5 @@
 using AngleSharp.Dom;
+using AngleSharp.Html.Dom;
 using Jint.Native;
 using Jint.WebApi.DomException;
 
@@ -26,7 +27,7 @@ internal static class DomRangeMembers
     /// be found at once, which is the same door <c>Node.cloneNode</c> already comes through.
     /// </remarks>
     internal static JsValue CloneContents(DomRealm realm, IRange range)
-        => Created(realm, range.CopyContent());
+        => CopyContents(realm, range, extract: false);
 
     /// <summary>https://dom.spec.whatwg.org/#dom-range-extractcontents</summary>
     /// <remarks>
@@ -34,13 +35,80 @@ internal static class DomRangeMembers
     /// walk — and the clones of the partially contained ancestors, which are the ones an upgrade is for.
     /// </remarks>
     internal static JsValue ExtractContents(DomRealm realm, IRange range)
-        => Created(realm, range.ExtractContent());
+        => CopyContents(realm, range, extract: true);
 
-    private static JsValue Created(DomRealm realm, IDocumentFragment fragment)
+    private static JsValue CopyContents(DomRealm realm, IRange range, bool extract)
     {
+        // Native range operations clone partial ancestors, so the source and result are not parallel
+        // subtrees. Snapshot just the intersecting elements in tree order before extraction moves them;
+        // the common ancestor itself is not part of the result. Intersects excludes touching siblings.
+        var sources = new List<(IElement Element, string? Namespace, bool PartialTemplate)>();
+        if (!range.IsCollapsed)
+        {
+            foreach (var element in Elements(range.CommonAncestor, range))
+            {
+                sources.Add((element, DomNamespaces.Of(element), IsPartialTemplate(element, range)));
+            }
+        }
+        var fragment = extract ? range.ExtractContent() : range.CopyContent();
+        // Enumerate lazily: a partial template's mistakenly cloned native contents must be removed
+        // before descending into that copy. All nodes remain AngleSharp-owned; moved templates are intact.
+        using var copies = Elements(fragment, range: null).GetEnumerator();
+        foreach (var source in sources)
+        {
+            if (!copies.MoveNext() || source.Element.LocalName != copies.Current.LocalName
+                || source.Element.Prefix != copies.Current.Prefix)
+            {
+                throw new InvalidOperationException("The native range result does not match its intersecting elements.");
+            }
+            if (source.PartialTemplate)
+            {
+                DomTemplateCloning.ClearShallowContent(copies.Current);
+            }
+            DomNamespaces.Created(copies.Current, source.Namespace);
+        }
+        if (copies.MoveNext())
+        {
+            throw new InvalidOperationException("The native range result has unexpected elements.");
+        }
         CustomElements.CustomElementRegistry.SubtreeCreated(realm, fragment);
         return realm.WrapNodeValue(fragment);
     }
+
+    private static IEnumerable<IElement> Elements(INode root, IRange? range)
+    {
+        var pending = new Stack<(INode Node, IRange? Range)>();
+        PushChildren(root, range);
+        while (pending.TryPop(out var current))
+        {
+            if (current.Range is { } selection && !selection.Intersects(current.Node))
+            {
+                continue;
+            }
+            if (current.Node is IElement element)
+            {
+                yield return element;
+            }
+            PushChildren(current.Node, current.Range);
+            // Only a fully contained template is deep-cloned (or moved by extraction).
+            if (current.Node is IHtmlTemplateElement template && !IsPartialTemplate(template, current.Range))
+            {
+                PushChildren(template.Content, range: null);
+            }
+        }
+
+        void PushChildren(INode node, IRange? range)
+        {
+            for (var i = node.ChildNodes.Length - 1; i >= 0; i--)
+            {
+                pending.Push((node.ChildNodes[i], range));
+            }
+        }
+    }
+
+    private static bool IsPartialTemplate(IElement element, IRange? range)
+        => element is IHtmlTemplateElement && range is not null
+           && (element.IsInclusiveAncestorOf(range.Head) || element.IsInclusiveAncestorOf(range.Tail));
 
     private static int Compare(DomRealm realm, IRange range, JsValue[] arguments, bool contains)
     {
