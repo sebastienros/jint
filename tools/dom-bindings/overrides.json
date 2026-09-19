@@ -1284,7 +1284,7 @@
       "length": 1,
       "body": [
         "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, \"Element.webkitMatchesSelector\");",
-        "return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Matches(global::Jint.Browser.Dom.DomSelectorText.Required(args, \"Element.webkitMatchesSelector\")));"
+        "return global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Dom.DomSelectors.Matches(self.Target, global::Jint.Browser.Dom.DomSelectorText.Required(args, \"Element.webkitMatchesSelector\")));"
       ],
       "reason": "DOM §4.9 requires the alias, and it is not decoration: a library that feature-detects `matches` still falls back to this one."
     },
