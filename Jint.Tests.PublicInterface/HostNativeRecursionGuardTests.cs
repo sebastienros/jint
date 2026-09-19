@@ -185,6 +185,66 @@ public class HostNativeRecursionGuardTests
     }
 
     /// <summary>
+    /// The same chain, built out of the shaped prototypes a host declares through
+    /// <see cref="JsObjectShape"/> — what a Web IDL binding generator emits, and what a page's ~170
+    /// interface prototypes are moving to. Every level overrides nothing and runs the ordinary algorithm,
+    /// so the walk must resolve it in its loop rather than hand it the rest of the chain: a hand-over is a
+    /// native frame per level, which at this depth is the probe's <c>RangeError</c> instead of the answer.
+    /// <para>
+    /// That is what makes this an assertion about the <em>walk</em> and not merely about the answers: a
+    /// shaped chain shallow enough to recurse through would answer identically either way. One shape
+    /// instantiated at every level is deliberate — a shape is process-shared and a host declares it once
+    /// per interface, so this is also the allocation shape a real binding has.
+    /// </para>
+    /// </summary>
+    public static TestCases<string, string, string> DeepShapedPrototypeChains => new()
+    {
+        { "read hit", "outcome = x.tag;", "shaped" },
+        { "read miss", "outcome = String(x.missing);", "undefined" },
+        { "inherited getter", "outcome = x.computed;", "shaped!" },
+        { "write", "x.missing = 1; outcome = x.missing + ':' + x.hasOwnProperty('missing');", "1:true" },
+        { "in hit", "outcome = String('tag' in x);", "true" },
+        { "in miss", "outcome = String('missing' in x);", "false" },
+        { "with hit", "with (x) { outcome = tag; }", "shaped" },
+        { "with miss", "with (x) { outcome = typeof missing; }", "undefined" },
+    };
+
+    [TestCaseSource(nameof(DeepShapedPrototypeChains))]
+    public void ADeepShapedPrototypeChainIsWalkedWithoutExhaustingTheNativeStack(string route, string operation, string expected)
+    {
+        _ = route;
+        DedicatedThread.Run(() =>
+        {
+            using var engine = new Engine();
+
+            var shape = new JsObjectShape.Builder()
+                .Constant("tag", new JsString("shaped"))
+                .Accessor("computed", static (thisObject, _) => new JsString(((ObjectInstance) thisObject).Get("tag").AsString() + "!"))
+                .Build();
+
+            ObjectInstance level = shape.Instantiate(engine);
+            for (var i = 0; i < 20000; i++)
+            {
+                level = shape.Instantiate(engine, level);
+            }
+
+            engine.SetValue("chainLeaf", level);
+
+            var outcome = engine.Evaluate("""
+                var x = Object.create(chainLeaf);
+                var outcome;
+                try {
+                """ + operation + """
+                } catch (error) { outcome = error.name + ':' + error.message; }
+                String(outcome);
+                """).AsString();
+            outcome.Should().Be(expected);
+
+            engine.Evaluate("({ a: 1 }).a").AsNumber().Should().Be(1);
+        }, maxStackSize: 1024 * 1024);
+    }
+
+    /// <summary>
     /// The same operations over a chain of <em>proxies</em>. A proxy runs its own algorithm rather than the
     /// ordinary one, so it cannot be walked: each hop is a native frame, and the chain is bounded the way
     /// every other forwarding hop in the engine is — by a probe, which turns the overflow into a catchable

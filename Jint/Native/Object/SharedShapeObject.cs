@@ -50,8 +50,19 @@ internal sealed class SharedShapeObject : ObjectInstance, IBuiltinShaped
     /// </summary>
     internal object? HostState;
 
+    // PlainObject, because this type overrides no property internal method and so is a link another
+    // object's [[Set]] / [[HasProperty]] walk may resolve itself rather than hand the rest of the chain
+    // to. Without it a host's shaped prototype declined the walk AND paid its flag test at every level —
+    // the old recursion plus the new overhead (sebastienros/jint#4076). It is the flag's storage claim
+    // too, and that costs nothing here: the three lanes reading it for storage
+    // (ObjectInstance.Get / Set / CreateDataProperty) spell the test `== PlainObject` against
+    // `PlainObject | BuiltinShapeMode` and so exclude this object for as long as its shape is installed,
+    // while after a deopt DeoptBuiltinShape has moved every slot into _properties and the object really is
+    // the ordinary dictionary they assume. Object.prototype is the same pair (a Prototype, hence
+    // PlainObject, declared [JsObject(UseShape = true)], hence BuiltinShapeMode) and has been walked that
+    // way all along.
     internal SharedShapeObject(Engine engine, JsObjectShape shape, ObjectInstance? prototype)
-        : base(engine, ObjectClass.Object, InternalTypes.Object)
+        : base(engine, ObjectClass.Object, InternalTypes.Object | InternalTypes.PlainObject)
     {
         _shape = shape;
         _realm = engine.Realm;

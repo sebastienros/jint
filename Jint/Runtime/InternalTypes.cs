@@ -28,8 +28,12 @@ internal enum InternalTypes
     Module = 4096,
 
     // the object doesn't override important GetOwnProperty etc which change behavior. Set only through the
-    // internal constructor, by JsObject, JsDate, GlobalObject, NumberPrototype and Prototype (the base of
-    // every built-in prototype) — none of which overrides a property internal method.
+    // internal constructor, by JsObject, JsDate, GlobalObject, NumberPrototype, SharedShapeObject (what a
+    // host's JsObjectShape instantiates) and Prototype (the base of every built-in prototype) — none of
+    // which overrides a property internal method. It is orthogonal to BuiltinShapeMode rather than
+    // exclusive with it: the three lanes that read it as a *storage* claim spell the test
+    // `(_type & (PlainObject | BuiltinShapeMode)) == PlainObject` precisely so that a shaped object is
+    // excluded while its shape is installed and served again once a deopt has made it a dictionary.
     //
     // ObjectInstance's [[Set]] and [[HasProperty]] chain walks read it as exactly that claim: a LINK
     // carrying it is resolved by the walk itself, anything else is handed the rest of the algorithm. So a
