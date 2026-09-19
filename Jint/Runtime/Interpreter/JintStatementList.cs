@@ -256,10 +256,24 @@ internal sealed class JintStatementList
     /// </summary>
     private bool LeavingOnException(ISuspendable? suspendable, Exception exception)
     {
-        // Safe to do from the first pass: nothing between the throw point and this frame reads or writes
-        // this list's saved position — only this method's own suspension path sets it, and that path
-        // cannot be running while an exception is in flight through it.
-        suspendable?.Data.ClearStatementListPosition(this);
+        // A suspended frame's resume position outlives an exception in flight through it. The premise this
+        // guard replaces was that the suspension path above and an unwind cannot be live at once; they can,
+        // because `await`/`yield` suspend by returning plain undefined and whatever the enclosing
+        // expression then does with that sentinel runs *inside* the suspended frame — so a throw from it
+        // unwinds through here while the position it just saved is the only record of where to resume.
+        // Clearing it sent the resume back to statement 0 and replayed the whole body: every un-awaited
+        // side effect again, and a re-entrancy guard silently truncating the rest (sebastienros/jint#4086).
+        // Nothing consumes the position but a resume of this same suspended frame, which is exactly the
+        // case being kept, so keeping it cannot mis-resume some other shape — the normal-completion and
+        // return-requested paths above already clear it under the same condition.
+        //
+        // Still safe to do from the first pass: nothing between the throw point and this frame reads or
+        // writes this list's saved position.
+        if (suspendable is not null && !suspendable.IsSuspended)
+        {
+            suspendable.Data.ClearStatementListPosition(this);
+        }
+
         return ShouldCatch(exception);
     }
 
