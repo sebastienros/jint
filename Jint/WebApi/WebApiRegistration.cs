@@ -438,6 +438,17 @@ internal static class WebApiRegistration
             Install(global, realm, "Navigator", static r => r.Intrinsics.Navigator, PropertyFlag.NonEnumerable);
         }
 
+        if ((features & WebApiFeatures.WebLocks) != WebApiFeatures.None)
+        {
+            // `navigator.locks` itself is not here: it is a [SameObject] readonly attribute of Navigator,
+            // so it lives on Navigator.prototype and is added there — conditionally, the way
+            // URL.createObjectURL is — by NavigatorPrototype.Initialize. What this block installs is the two
+            // interface objects, which a script names for `instanceof` and for feature detection
+            // (`'LockManager' in self`), and which carry WebIDL's interface-object attributes.
+            Install(global, realm, "LockManager", static r => r.Intrinsics.LockManager, PropertyFlag.NonEnumerable);
+            Install(global, realm, "Lock", static r => r.Intrinsics.Lock, PropertyFlag.NonEnumerable);
+        }
+
         if ((features & WebApiFeatures.Fetch) != WebApiFeatures.None)
         {
             InstallFetchModel(realm);
@@ -717,6 +728,15 @@ internal static class WebApiRegistration
             features |= WebApiFeatures.Messaging | WebApiFeatures.GlobalEvents;
         }
 
+        // `navigator.locks` is a member of Navigator, so without that feature there would be no object to
+        // hang it off; and the `signal` option is an AbortSignal, which is the events feature's — the same
+        // argument fetch makes for the same two, and the reason this is a closure rather than a member of
+        // some merged feature.
+        if ((features & WebApiFeatures.WebLocks) != WebApiFeatures.None)
+        {
+            features |= WebApiFeatures.Navigator | WebApiFeatures.Events;
+        }
+
         // The three global operations register listeners on an EventTarget and dispatch an Event, and the two
         // interface objects the feature adds are Event subclasses — so without the events feature it would
         // install operations with nothing to use them on.
@@ -779,10 +799,13 @@ internal static class WebApiRegistration
     /// it needs the state is its own — a target to fire at, not the time origin the events feature wants. The
     /// fetch events are named for the same reason once more removed: what
     /// <c>Engine.WebApi.InvokeFetchHandler</c> reads is that very target plus the registered handler slot,
-    /// both of which live here, and a closure is not a reason to depend on one.
+    /// both of which live here, and a closure is not a reason to depend on one. The Web Locks feature keeps
+    /// the host's <c>LockManager</c> — or the private one this engine defaults — and the agent whose
+    /// <c>clientId</c> every lock is reported under, which is what makes a restore able to give this
+    /// engine's locks back.
     /// </summary>
     private const WebApiFeatures NeedsEngineState =
-        WebApiFeatures.Timers | WebApiFeatures.Events | WebApiFeatures.Performance | WebApiFeatures.Fetch | WebApiFeatures.Scheduler | WebApiFeatures.Messaging | WebApiFeatures.Storage | WebApiFeatures.WebSocket | WebApiFeatures.CacheApi | WebApiFeatures.IdleCallback | WebApiFeatures.GlobalEvents | WebApiFeatures.FetchEvents | WebApiFeatures.Workers | WebApiFeatures.XmlHttpRequest;
+        WebApiFeatures.Timers | WebApiFeatures.Events | WebApiFeatures.Performance | WebApiFeatures.Fetch | WebApiFeatures.Scheduler | WebApiFeatures.Messaging | WebApiFeatures.Storage | WebApiFeatures.WebSocket | WebApiFeatures.CacheApi | WebApiFeatures.IdleCallback | WebApiFeatures.GlobalEvents | WebApiFeatures.FetchEvents | WebApiFeatures.Workers | WebApiFeatures.XmlHttpRequest | WebApiFeatures.WebLocks;
 
     /// <summary>
     /// The queue exists for the timer globals, for AbortSignal.timeout(), for a delayed scheduler.postTask()
@@ -859,7 +882,11 @@ internal static class WebApiRegistration
         // host that named no BroadcastChannelBroker gets one of its own, and only once a channel asks for it.
         var messaging = (features & WebApiFeatures.Messaging) != WebApiFeatures.None ? options.WebApi.Messaging : null;
 
-        engine._webApi = new WebApiEngineState(engine, timeProvider, timers, fetch, scheduler, diagnostics, storage, cache, idleCallbacks, messaging);
+        // Passed whole for the reason the messaging group is: a host that named no LockManager gets one of
+        // its own, and only once a script reads `navigator.locks`.
+        var locks = (features & WebApiFeatures.WebLocks) != WebApiFeatures.None ? options.WebApi.Locks : null;
+
+        engine._webApi = new WebApiEngineState(engine, timeProvider, timers, fetch, scheduler, diagnostics, storage, cache, idleCallbacks, messaging, locks);
 
         if ((features & WebApiFeatures.XmlHttpRequest) != WebApiFeatures.None)
         {
@@ -948,6 +975,11 @@ internal static class WebApiRegistration
         if ((added & WebApiFeatures.Messaging) != WebApiFeatures.None)
         {
             state.AttachMessaging(options.WebApi.Messaging);
+        }
+
+        if ((added & WebApiFeatures.WebLocks) != WebApiFeatures.None)
+        {
+            state.AttachLocks(options.WebApi.Locks);
         }
 
         AttachWorkers(options, state, added);

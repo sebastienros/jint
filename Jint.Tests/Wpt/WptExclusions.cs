@@ -383,6 +383,30 @@ internal enum WptDivergence
     NeedsWindowGlobal,
 
     /// <summary>
+    /// <para>
+    /// The test needs a <b>second client</b> — a second global, with a client id of its own — to observe
+    /// something one context cannot, and builds one with <c>new Worker(…)</c>. The driver's top-level engine
+    /// is built with <see cref="WebApiFeatures.Default"/>, which never includes
+    /// <see cref="WebApiFeatures.Workers"/> and names no <c>WorkerProvider</c>, so <c>Worker</c> is
+    /// <c>undefined</c> there and the two rows throw a <c>ReferenceError</c> before they assert anything.
+    /// </para>
+    /// <para>
+    /// Both rows are in <c>web-locks/query.https.any.js</c> and both are about the <i>same</i> property: that
+    /// two contexts sharing a lock manager report two different <c>clientId</c>s, which is what lets a script
+    /// read a deadlock out of a snapshot. It is not a property the engine lacks — it is one the lane cannot
+    /// express, because its unit is one engine per file. <c>Jint.Tests.Runtime.WebApi.WebLocksTests</c>
+    /// asserts it directly, with two engines given one <c>Jint.WebApi.LockManager</c>, which is the seam a
+    /// host puts a window and its workers in one agent cluster through.
+    /// </para>
+    /// <para>
+    /// Giving the lane a <c>WorkerProvider</c> would not fix it either: the worker's own module loader would
+    /// have to serve <c>resources/worker.js</c>, which is a classic worker script built on
+    /// <c>importScripts</c> — the shape <c>Vendor/README.md</c>'s <c>workers/*.worker.js</c> row is about.
+    /// </para>
+    /// </summary>
+    NeedsASecondClient,
+
+    /// <summary>
     /// The test clones an <c>ImageBitmap</c> or an <c>OffscreenCanvas</c>. Both are browser graphics objects
     /// with no analogue in an embedded interpreter — the rows obtain one by drawing into a canvas — so this is
     /// the corpus meeting an environment it was not written for rather than a gap to close.

@@ -17,8 +17,8 @@ grant is enabled. That total consists of 59 present members and three global eve
 WinterTC requires this non-`EventTarget` global shape not to expose. The remaining 16 members are WebAssembly,
 which Jint declines by design because it would require a separate bytecode virtual machine.
 
-The vendored `.any.js` web-platform-tests corpus passes **38,649 of 41,581 assertions (92.9%)** across 44 selected
-suite directories representing 14 standards. It is a gated, Windows-measured subset rather than a claim about
+The vendored `.any.js` web-platform-tests corpus passes **38,717 of 41,651 assertions (92.9%)** across 45 selected
+suite directories representing 15 standards. It is a gated, Windows-measured subset rather than a claim about
 the complete web platform.
 
 | Area | Examples | Default |
@@ -27,6 +27,7 @@ the complete web platform.
 | Data | encoding, base64, blobs, files, streams, compression | Yes |
 | Platform | events, URL, crypto, performance, navigator | Yes |
 | Messaging | structured clone, message channels, broadcast channels | Yes |
+| Coordination | Web Locks (`navigator.locks`) | Yes |
 | Storage | local and session storage | No |
 | Networking | fetch, XHR, WebSocket, EventSource | No |
 | Cache | Cache API with host-provided storage | No |

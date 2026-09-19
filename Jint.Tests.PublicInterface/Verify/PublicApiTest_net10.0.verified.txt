@@ -459,12 +459,18 @@ namespace Jint
             public Jint.Options.DiagnosticsOptions Diagnostics { get; }
             public Jint.WebApiFeatures Features { get; set; }
             public Jint.Options.FetchOptions Fetch { get; }
+            public Jint.Options.WebLocksOptions Locks { get; }
             public Jint.Options.MessagingOptions Messaging { get; }
             public Jint.Options.NavigatorOptions Navigator { get; }
             public Jint.Options.StorageOptions Storage { get; }
             public Jint.Options.TimerOptions Timers { get; }
             public Jint.Options.WorkerOptions Workers { get; }
             public Jint.Options.XhrOptions Xhr { get; }
+        }
+        public sealed class WebLocksOptions
+        {
+            public WebLocksOptions() { }
+            public Jint.WebApi.LockManager? Manager { get; set; }
         }
         public sealed class WorkerOptions
         {
@@ -777,7 +783,8 @@ namespace Jint
         FetchEvents = 8388608,
         Workers = 16777216,
         XmlHttpRequest = 33554432,
-        Default = 7404543,
+        WebLocks = 67108864,
+        Default = 74513407,
     }
     public static class WebApiOptionsExtensions
     {
@@ -792,6 +799,7 @@ namespace Jint
         public static Jint.Options UseWebApis(this Jint.Options options) { }
         public static Jint.Options UseWebApis(this Jint.Options options, Jint.WebApiFeatures features) { }
         public static Jint.Options UseWebApis(this Jint.Options options, System.Action<Jint.Options.WebApiOptions> configure) { }
+        public static Jint.Options UseWebLocks(this Jint.Options options, Jint.WebApi.LockManager? manager = null) { }
         public static Jint.Options UseWebSocket(this Jint.Options options, System.Action<Jint.Options.FetchOptions>? configure = null) { }
         public static Jint.Options UseWorkers(this Jint.Options options, Jint.WebApi.WorkerProvider provider) { }
         public static Jint.Options UseXmlHttpRequest(this Jint.Options options, System.Action<Jint.Options.FetchOptions>? configure = null) { }
@@ -2979,6 +2987,10 @@ namespace Jint.WebApi
         public override string? GetItem(string key) { }
         public override void RemoveItem(string key) { }
         public override void SetItem(string key, string value) { }
+    }
+    public sealed class LockManager
+    {
+        public LockManager() { }
     }
     public readonly struct MessagePortPair : System.IEquatable<Jint.WebApi.MessagePortPair>
     {

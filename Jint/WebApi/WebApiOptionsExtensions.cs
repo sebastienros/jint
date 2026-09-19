@@ -434,6 +434,46 @@ public static class WebApiOptionsExtensions
     }
 
     /// <summary>
+    /// Enables <c>navigator.locks</c> over a lock space shared with every other engine given the same
+    /// <see cref="LockManager"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="WebApiFeatures.WebLocks"/> is part of <see cref="WebApiFeatures.Default"/>, so this call
+    /// is not how the feature is turned on — it is how a <i>shared</i> manager is named, which is the only
+    /// thing about the API a host has to decide. A default engine has a private manager of its own and a
+    /// script serializes only against itself.
+    /// </para>
+    /// <para>
+    /// Give the same instance to every engine of one agent cluster: a page and its workers, or a pool whose
+    /// engines contend for one host resource. See <see cref="LockManager"/> for what it keeps alive, and
+    /// for what an engine nobody pumps does to everyone sharing it.
+    /// </para>
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// var locks = new LockManager();
+    /// var engine = new Engine(o =&gt; o.UseWebApis().UseWebLocks(locks));
+    /// </code>
+    /// </example>
+    /// <param name="options">Options to modify.</param>
+    /// <param name="manager">
+    /// The lock space to join, or <see langword="null"/> to let this engine default a private one.
+    /// </param>
+    /// <returns>Options instance for fluent syntax.</returns>
+    public static Options UseWebLocks(this Options options, LockManager? manager = null)
+    {
+        if (options is null)
+        {
+            Throw.ArgumentNullException(nameof(options));
+        }
+
+        options.WebApi.Features |= WebApiFeatures.WebLocks;
+        options.WebApi.Locks.Manager = manager;
+        return options;
+    }
+
+    /// <summary>
     /// Enables <c>localStorage</c> and <c>sessionStorage</c>, each over its own in-memory store that dies
     /// with the engine.
     /// </summary>

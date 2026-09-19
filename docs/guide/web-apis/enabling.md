@@ -18,17 +18,17 @@ var engine = new Engine(options => options.UseWebApis(
 ```
 
 `WebApiFeatures.Default` includes console, timers, encoding, base64, structured clone, crypto, performance,
-events, URLs, files, navigator, streams, scheduling, messaging, reporting, compression, idle callbacks, and
-global error events. It deliberately excludes:
+events, URLs, files, navigator, streams, scheduling, messaging, reporting, compression, idle callbacks,
+global error events, and `WebLocks`. It deliberately excludes:
 
 - `Fetch`, `EventSource`, `WebSocket`, and `XmlHttpRequest`
 - `Storage` and `CacheApi`
 - `FetchEvents`, which lets script claim inbound requests
 - `Workers`, which asks the host to create engines and execution resources
 
-Dedicated helpers such as `UseFetch`, `UseStorage`, `UseCacheApi`, and `UseWorkers` enable their flags and
-configure the associated options. Feature dependencies are expanded automatically; for example, fetch brings
-the events, URL, files, and streams surfaces it uses.
+Dedicated helpers such as `UseFetch`, `UseStorage`, `UseCacheApi`, `UseWorkers`, and `UseWebLocks` enable their
+flags and configure the associated options. Feature dependencies are expanded automatically; for example, fetch
+brings the events, URL, files, and streams surfaces it uses, and `WebLocks` brings navigator and events.
 
 Globals are installed lazily and do not replace an own global already registered by the host. Only the principal
 realm is changed; a `ShadowRealm` receives none of these globals unless the host installs them.
@@ -49,4 +49,6 @@ Enable features before capturing a reusable global snapshot. Restoring an older 
 installed later but does not reset the feature record, so another `Enable` call cannot reinstall them.
 
 Continue with [Console and timers](./console-and-timers.md) or review
-[Fetch and networking](./fetch-and-networking.md) before granting network access.
+[Fetch and networking](./fetch-and-networking.md) before granting network access. `WebLocks` is in the default
+set and grants nothing on its own; [Web Locks](./locks.md) covers the one decision it does ask a host to make,
+which is whether several engines share a lock space.

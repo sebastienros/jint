@@ -174,6 +174,14 @@ public sealed partial class Options
 
         private WorkerOptions? _workers;
 
+        /// <summary>
+        /// Settings for the Web Locks API, installed when <see cref="Features"/> contains
+        /// <see cref="WebApiFeatures.WebLocks"/>.
+        /// </summary>
+        public WebLocksOptions Locks => Materialize(ref _locks, ref _readOnly);
+
+        private WebLocksOptions? _locks;
+
         internal WebApiOptions Clone()
         {
             // MemberwiseClone would share the sub-groups with the original, which is exactly what the
@@ -190,6 +198,7 @@ public sealed partial class Options
             clone._cache = _cache?.Clone();
             clone._messaging = _messaging?.Clone();
             clone._workers = _workers?.Clone();
+            clone._locks = _locks?.Clone();
             return clone;
         }
     }
@@ -227,6 +236,58 @@ public sealed partial class Options
         public BroadcastChannelBroker? Broker { get; set { ThrowIfReadOnly(); field = value; } }
 
         internal MessagingOptions Clone() => (MessagingOptions) MemberwiseClone();
+    }
+
+    /// <summary>
+    /// Settings for the <c>WebLocks</c> feature — which engines coordinate through one lock space.
+    /// Requires .NET 8 or higher.
+    /// </summary>
+    /// <remarks>
+    /// There is one setting, for the same reason <see cref="MessagingOptions"/> has one: a lock addresses a
+    /// <i>name</i> rather than a peer, so which engines are in earshot of each other is the one thing about
+    /// it a host has to be able to say.
+    /// </remarks>
+    public sealed partial class WebLocksOptions
+    {
+        /// <summary>
+        /// Creates the group with its defaults, which is what an engine that names none of them gets.
+        /// </summary>
+        /// <remarks>
+        /// Declared rather than left implicit because <c>Jint.Tests.PublicInterface</c>'s allowlist of
+        /// undocumented public declarations may only ever shrink, and every other option group's constructor
+        /// is already on it.
+        /// </remarks>
+        public WebLocksOptions()
+        {
+        }
+
+        /// <summary>
+        /// Which engines share one lock space: one manager is one agent cluster and one origin.
+        /// <see langword="null"/> — the default — gives each engine a private manager of its own, so a
+        /// script still serializes against itself and nothing crosses an engine boundary.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Assign one instance to an <see cref="Options"/> object several engines are built from — or the
+        /// same instance to several <see cref="Options"/> objects — and those engines queue behind each
+        /// other's locks. A manager is thread-safe, so the engines may run concurrently; what crosses
+        /// between them is a resource name, a mode and a client id and never a <c>JsValue</c>, and a grant
+        /// still arrives on the receiving engine's own pump. See <see cref="LockManager"/>, including what
+        /// it keeps alive and what a never-pumped engine does to everyone sharing it.
+        /// </para>
+        /// <para>
+        /// <b>A worker does not inherit it.</b> <see cref="WorkerRequest.CreateDefaultOptions"/> leaves this
+        /// unset exactly as it leaves <see cref="MessagingOptions.Broker"/> unset, so a provider that wants
+        /// a window and its workers to be one agent cluster — which is what a browser gives them — assigns
+        /// this manager to the options it builds the worker from.
+        /// </para>
+        /// <para>
+        /// Read once, when the engine is built.
+        /// </para>
+        /// </remarks>
+        public LockManager? Manager { get; set { ThrowIfReadOnly(); field = value; } }
+
+        internal WebLocksOptions Clone() => (WebLocksOptions) MemberwiseClone();
     }
 
     /// <summary>
@@ -1486,16 +1547,49 @@ public enum WebApiFeatures
     XmlHttpRequest = 1 << 25,
 
     /// <summary>
+    /// <c>navigator.locks</c> — the Web Locks API, https://w3c.github.io/web-locks/ — with the
+    /// <c>LockManager</c> and <c>Lock</c> interface objects. A script asks for a named resource, runs a
+    /// callback while it holds it, and the promise <c>request()</c> answered settles when the lock is
+    /// released; <c>"shared"</c> and <c>"exclusive"</c> modes model the readers-writer pattern, and
+    /// <c>query()</c> reports what is held and what is waiting.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Implies <see cref="Navigator"/>, which is where <c>locks</c> lives, and <see cref="Events"/>, whose
+    /// <c>AbortController</c> is what the <c>signal</c> option is given — the same argument
+    /// <see cref="Fetch"/> makes for both.
+    /// </para>
+    /// <para>
+    /// <b>Part of <see cref="Default"/>.</b> It grants a script no reach and no persistence: a lock dies
+    /// with the manager holding it, and the default manager is private to one engine, so
+    /// <c>navigator.locks</c> on a default engine is a script serializing against itself. What makes it
+    /// worth having at all is the other arrangement — <see cref="Options.WebLocksOptions.Manager"/>, which
+    /// puts several engines in one agent cluster the way a browser puts a window and its workers in one.
+    /// </para>
+    /// <para>
+    /// <b>The interface is <c>[SecureContext]</c> in the IDL and that decides nothing here</b>, for the
+    /// reason <c>LockManagerConstructor</c> gives: an embedded engine has no context to be secure and no
+    /// origin to be one of. Nothing is faked either way — the feature is on when the flag names it.
+    /// </para>
+    /// <para>
+    /// A lock is only ever granted while the engine is being pumped, exactly as a timer only fires then. So
+    /// <b>an engine nobody pumps holds its locks forever</b>, which is a real way for one engine to stall
+    /// every other engine sharing its manager, and is what the <c>steal</c> option exists to recover from.
+    /// </para>
+    /// </remarks>
+    WebLocks = 1 << 26,
+
+    /// <summary>
     /// The web APIs a host normally wants: everything except outbound network access and persistent state.
     /// Today that is
     /// <see cref="Console"/>, <see cref="Timers"/>, <see cref="Encoding"/>, <see cref="Base64"/>,
     /// <see cref="StructuredClone"/>, <see cref="Crypto"/>, <see cref="Performance"/>, <see cref="Events"/>,
     /// <see cref="Url"/>, <see cref="Files"/>, <see cref="Navigator"/>, <see cref="Streams"/>,
     /// <see cref="Scheduler"/>, <see cref="Messaging"/>, <see cref="Reporting"/>, <see cref="Compression"/>,
-    /// <see cref="IdleCallback"/> and <see cref="GlobalEvents"/>; it grows as further features land, and never
-    /// comes to include fetch, <see cref="Storage"/>, <see cref="FetchEvents"/>, <see cref="Workers"/> or
-    /// <see cref="XmlHttpRequest"/>.
+    /// <see cref="IdleCallback"/>, <see cref="GlobalEvents"/> and <see cref="WebLocks"/>; it grows as further
+    /// features land, and never comes to include fetch, <see cref="Storage"/>, <see cref="FetchEvents"/>,
+    /// <see cref="Workers"/> or <see cref="XmlHttpRequest"/>.
     /// </summary>
-    Default = Console | Timers | Encoding | Base64 | StructuredClone | Crypto | Performance | Events | Url | Files | Navigator | Streams | Scheduler | Messaging | Reporting | Compression | IdleCallback | GlobalEvents,
+    Default = Console | Timers | Encoding | Base64 | StructuredClone | Crypto | Performance | Events | Url | Files | Navigator | Streams | Scheduler | Messaging | Reporting | Compression | IdleCallback | GlobalEvents | WebLocks,
 }
 #endif

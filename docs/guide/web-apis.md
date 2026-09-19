@@ -27,4 +27,5 @@ network position: restrict destinations and sizes, partition state per tenant, a
 - [Fetch and networking](./web-apis/fetch-and-networking.md)
 - [Storage and Cache API](./web-apis/storage-and-cache.md)
 - [Crypto and performance](./web-apis/crypto-and-performance.md)
+- [Web Locks](./web-apis/locks.md)
 - [Workers](./web-apis/workers.md)

@@ -36,17 +36,18 @@ and `Response.formData()`, one algorithm reached three ways; and the `headers/` 
 about those three interfaces and nothing else, which is what let that half of the corpus be vendored years
 before there was anything for the other half to talk to).
 
-Fourteen standards are vendored: `url/`, `encoding/`, `compression/`, `urlpattern/`, `hr-time/`,
-`user-timing/`, `performance-timeline/` and `xhr/` as one suite each, `FileAPI/` as **five** (its root,
-`blob/`, `file/`, `reading-data-section/` and `url/`), `workers/` as **four**, `html/webappapis/` as
+Fifteen standards are vendored: `url/`, `encoding/`, `compression/`, `urlpattern/`, `hr-time/`,
+`user-timing/`, `performance-timeline/`, `xhr/` and `web-locks/` as one suite each, `FileAPI/` as **five** (its
+root, `blob/`, `file/`, `reading-data-section/` and `url/`), `workers/` as **four**, `html/webappapis/` as
 **three** (timers, microtask-queuing, structured-clone), `dom/` as **two** (events, abort), `fetch/api/` as
 **seven** (abort, basic, body, headers, redirect, request, response), `WebCryptoAPI/` as **eight** and
-`streams/` as **seven** — their root files plus one suite per sub-directory, because `WptCorpus.TestFiles` lists a directory's own files and never descends. That is 382
-theory cases over 41,581 assertions, of which 2,932 do not pass and every one is named in the driver's
+`streams/` as **seven** — their root files plus one suite per sub-directory, because `WptCorpus.TestFiles` lists a directory's own files and never descends. That is 394
+theory cases over 41,651 assertions, of which 2,934 do not pass and every one is named in the driver's
 table; the whole driver runs in about two minutes.
 
 Those three figures are a census taken at the pin rather than a running tally, so they are restated whenever a
-change moves them; the counts before the three File and Performance suites arrived were
+change moves them; the counts before the `web-locks/` suite arrived were 382 / 41,581 / 2,932, before the
+three File and Performance suites
 348 / 41,435 / 2,939, before the
 `xhr/` corpus 305 / 41,157 / 2,966, before
 [#3260](https://github.com/sebastienros/jint/issues/3260) stood a wpt server up 273 / 40,657 / 2,889,
@@ -474,6 +475,12 @@ without revisiting the reason fails rather than quietly adding a red suite.
 | `fetch/api/headers/headers-no-cors.any.js` | The `"no-cors"` request mode. The rest of that directory is vendored. |
 | `fetch/api/response/json.any.js` | Fetches a `data:` url and `/xhr/resources/utf16-bom.json`. |
 | `fetch/api/response/response-blob-realm.any.js` | Needs a document and a second realm: it builds an `iframe` to obtain one. |
+| `web-locks/non-secure-context.any.js`, `web-locks/secure-context.https.any.js` | The two files whose whole subject is the `[SecureContext]` gate on the interface. That gate is about an origin and a transport, and an embedded engine has neither — `LockManagerConstructor` records the decision: the feature is present exactly when `WebApiFeatures.WebLocks` names it, and nothing is faked either way. So one file would assert an API that is there and the other an `isSecureContext` that is not. The second also calls `assert_idl_attribute`, which the shim does not implement. |
+| `web-locks/*.html`, `web-locks/resources/*.html` | Documents: `frames`, `clientids`, `opaque-origin`, `query-ordering`, `workers.html`, `non-fully-active` and the `partitioned-web-locks` tentative, plus the iframe, window and service-worker pages they load. A browsing context in every case, and for `opaque-origin` and `partitioned` a second origin as well. |
+| `web-locks/windows.https.window.js` | A `.window.js` needs a browsing context, like every other one. |
+| `web-locks/bfcache/*`, `web-locks/crashtests/*` | The back/forward cache — three of those five files are `.tentative` too — and crash reproductions rather than assertions, the same reason `streams/*/crashtests/*` is out. |
+| `web-locks/resources/worker.js`, `parentworker.js`, `service-worker.js` | Classic worker scripts and a service worker: the `workers/*.worker.js` shape, which Jint runs no lane for. `worker.js` is what `query.https.any.js`'s two excluded rows would have loaded. |
+| `web-locks/storage-buckets.tentative.https.any.js`, `web-locks/idlharness.https.any.js` | Covered by the two globs above — upstream's `.tentative` marker (Storage Buckets is a proposal the Storage Standard has not adopted) and the WebIDL conformance harness. |
 | `resources/idlharness.js` | The WebIDL conformance harness, out for the reason its `.any.js` files are. Its three companions (`webidl2/`, `test-only-api.js`, `sriharness.js`) are out with it. |
 | `common/slow.py`, `common/redirect.py` | wptserve handlers, which are Python and not files to serve. Port them the way the seven above were ported if a lane needs one. |
 | `common/reftest-wait.js` | A reftest's rendering handshake, and there is nothing here to render. |
@@ -1449,6 +1456,48 @@ corpus, and every one of those files fetches `get_host_info().HTTP_REMOTE_ORIGIN
 and no CORS model, so there is nothing in them to run. The [not-vendored table](#deliberately-not-vendored)
 has the rest.
 
+## What the Web Locks corpus says about this engine
+
+Twelve files, 70 assertions, **68 passing and two excluded** — and the two are not about the engine at all.
+This is the corpus that arrived with the API rather than after it, which is why there is no list of defects
+here: the implementation was written against these files, and the interesting thing the corpus records is what
+a one-engine lane can and cannot ask.
+
+The two excluded rows are both in `query.https.any.js` and both do the same thing: `new Worker('resources/
+worker.js')`, so that two client ids appear on one resource and a snapshot can be read as a deadlock. The
+driver's engine is built with `WebApiFeatures.Default`, which never includes `WebApiFeatures.Workers` and names
+no `WorkerProvider`, so `Worker` is `undefined` and both rows throw a `ReferenceError` before asserting
+anything. They are `NeedsASecondClient`. Giving the lane a provider would not rescue them either: the worker
+they want is `resources/worker.js`, a *classic* worker script built on `importScripts`, which is the shape the
+`workers/*.worker.js` row above is about.
+
+What they assert is nevertheless asserted, in `Jint.Tests/Runtime/WebApi/WebLocksTests.cs`, with two engines
+given one `Jint.WebApi.LockManager` — which is the seam that exists for exactly this, and the thing a lane of
+one engine per file cannot reach. That file also pins the two other properties the corpus is silent about: that
+a worker built from `WorkerRequest.CreateDefaultOptions()` inherits the *flag* and never the *manager*, so it
+starts in an agent cluster of its own; and that a grant is an event-loop **task**, so the microtask checkpoint
+an event listener returns to runs the reaction the listener queued and stops at the grant behind it.
+
+Three things about the vendored files are worth knowing before touching them.
+
+**`resources/helpers.js` is vendored and the rest of `resources/` is not.** Eight of the twelve files include
+it for `uniqueName`, `requestLockAndHold` and `makePromiseAndResolveFunc`, none of which need a document; its
+`iframe`, `postToFrameAndWait` and `postToWorkerAndWait` helpers do, and are simply never called from the files
+that run here. It reads `self.location.pathname`, which the shim's stub `location` does not have, so a resource
+name comes out as `undefined-<prefix>-<test>-<n>` — still unique per test, which is the only property
+`uniqueName` promises.
+
+**`resource-names.https.any.js` is the file that decides `DOMString` versus `USVString`.** It requests locks
+named with an unpaired surrogate and with `�`, and asserts that the two do not collide and that
+`lock.name` comes back exactly as it went in. A `USVString` conversion would map the first to the second and
+the file would time out holding one lock while waiting for it. The same file requires the **empty string** to
+be a perfectly good resource name: the only name the specification reserves is one starting with `-`.
+
+**`held.https.any.js` declares `setup({allow_uncaught_exception: true})`, and means it.** One of its tests
+rejects the promise a callback returned and never handles the `request()` promise that adopts it, which is a
+genuine unhandled rejection — the driver's `DiagnosticsSink` records it and the harness would otherwise turn it
+into a harness error for the whole file.
+
 ## The whole corpus, standard by standard
 
 **This table is generated, not maintained.** `Jint.Tests/Wpt/WptCensusTests.cs` derives every figure in it
@@ -1490,7 +1539,8 @@ their exclusions without revisiting this table.
 | DOM | `dom/` ×2 | 13 | 76 | 0 |
 | Fetch | `fetch/api/` ×7 | 62 | 906 | 116 |
 | XMLHttpRequest | `xhr/` | 43 | 287 | 8 |
-| **total** | **44** | **382** | **41,581** | **2,932** |
+| Web Locks | `web-locks/` | 12 | 70 | 2 |
+| **total** | **45** | **394** | **41,651** | **2,934** |
 
 Re-censused whole rather than adjusted row by row, because several rows had gone stale between the changes
 that moved them: before [#3195](https://github.com/sebastienros/jint/issues/3195) the true figures were
@@ -1525,8 +1575,9 @@ creating workers rather than the worker global itself. The rest of `fetch/api/` 
 ([#3260](https://github.com/sebastienros/jint/issues/3260)), then `request/`, once
 `Options.WebApi.Fetch.BaseUrl` gave a relative url something to resolve against, and last the one file of
 `abort/` that neither wptserve substitution nor the Cache API keeps out
-([#3619](https://github.com/sebastienros/jint/issues/3619)). This file records what each of them says about
-the engine.
+([#3619](https://github.com/sebastienros/jint/issues/3619)). `web-locks/` is the odd one out and the only one
+so far: it arrived **with** the feature rather than after it, because the API it covers had no implementation
+to be run against until that change. This file records what each of them says about the engine.
 
 What remains deliberately unvendored, in one place: everything in the "Deliberately not vendored" table
 above, plus every upstream file that is not a `.any.js` — `.window.js`, `.html`, `.xhtml`, `.worker.js` and
@@ -1621,7 +1672,7 @@ SHA=$(grep -oE '\b[0-9a-f]{40}\b' README.md | head -1)
 # every extension the corpus vendors, so a bump that brings a new one in is walked rather than skipped
 TYPES='-name *.asis -o -name *.headers -o -name *.htm -o -name *.html -o -name *.js -o -name *.json -o -name *.txt -o -name *.xhtml -o -name *.xml'
 
-# one call per directory that holds a vendored file (83 at this pin)
+# one call per directory that holds a vendored file (85 at this pin)
 for d in $(find . -type f \( $TYPES \) -printf '%h\n' | sort -u | sed 's|^\./||'); do
   gh api "repos/web-platform-tests/wpt/contents/$d?ref=$SHA" \
      --jq '.[] | select(.type=="file") | "\(.sha) \(.path)"'
@@ -1635,7 +1686,7 @@ find . -type f \( $TYPES \) | sort | while read -r f; do
 done
 ```
 
-Silence is a clean corpus, and at this pin there are 937 files in 83 directories to be silent
+Silence is a clean corpus, and at this pin there are 950 files in 85 directories to be silent
 about — 402 of them the documents the browser lane navigates to, the rest the scripts, payloads and
 sidecars every lane reads.
 
@@ -1662,6 +1713,12 @@ and every blob id upstream reports matches `git hash-object` of what is here, wh
 the loop above makes for one directory. The two generated figures moved with them, so by this file's own
 rule the whole-tree runs the two paragraphs above describe are runs of a smaller corpus — 937 files in 83
 directories is what a re-run would now have to be silent about.
+
+**`web-locks/` was compared the same way as it was vendored**, and moves those figures once more. Its
+thirteen files — twelve `.any.js` and `resources/helpers.js` — were read out of
+`repos/web-platform-tests/wpt/contents/web-locks?ref=<pin>` and `…/web-locks/resources?ref=<pin>`, and every
+blob id upstream reports matches `git hash-object` of what is here. So 950 files in 85 directories is what a
+re-run of the whole-tree comparison would have to be silent about.
 
 The figures above are what say which corpus that run was a run *of*: they were four vendored suites out of
 date when [#3647](https://github.com/sebastienros/jint/issues/3647) was filed, and the recipe was walking five

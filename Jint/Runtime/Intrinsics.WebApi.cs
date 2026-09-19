@@ -13,6 +13,7 @@ using Jint.WebApi.FetchEvents;
 using Jint.WebApi.Files;
 using Jint.WebApi.GlobalEvents;
 using Jint.WebApi.Idle;
+using Jint.WebApi.Locks;
 using Jint.WebApi.Messaging;
 using Jint.WebApi.Navigator;
 using Jint.WebApi.ServerSentEvents;
@@ -350,6 +351,28 @@ public sealed partial class Intrinsics
     /// </summary>
     internal JsNavigator NavigatorObject =>
         _navigatorObject ??= JsNavigator.Create(_engine, _realm);
+
+    private LockManagerConstructor? _lockManager;
+    private JsLockManager? _lockManagerObject;
+    private LockConstructor? _lock;
+
+    /// <summary>
+    /// The <c>LockManager</c> interface object. Reaching it builds <c>LockManager.prototype</c>, which is
+    /// what <c>navigator.locks</c> inherits from and where both of its operations live.
+    /// </summary>
+    internal LockManagerConstructor LockManager =>
+        _lockManager ??= new LockManagerConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    /// <summary>
+    /// The <c>navigator.locks</c> object. <c>locks</c> is a <c>[SameObject]</c> attribute, so this memo is
+    /// what makes two reads answer with one object.
+    /// </summary>
+    internal JsLockManager LockManagerObject =>
+        _lockManagerObject ??= JsLockManager.Create(_engine, _realm);
+
+    /// <summary>The <c>Lock</c> interface object, of what a granted callback is handed.</summary>
+    internal LockConstructor Lock =>
+        _lock ??= new LockConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 
     private ReadableStreamConstructor? _readableStream;
     private ReadableStreamDefaultReaderConstructor? _readableStreamDefaultReader;
