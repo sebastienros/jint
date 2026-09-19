@@ -109,7 +109,7 @@ internal static class DomProcessingInstructionAttributes
         }
     }
 
-    // Clone-single-node copies target and data, but the new attribute map remains initially empty.
+    // Preserve native clone data; the new identity parses its own data on first attribute access.
     internal static void Cloned(INode source, INode copy)
     {
         var pending = new Stack<(INode Source, INode Copy)>();
@@ -119,7 +119,6 @@ internal static class DomProcessingInstructionAttributes
             if (pair.Source is IProcessingInstruction from && pair.Copy is IProcessingInstruction instruction)
             {
                 instruction.Data = from.Data;
-                _states.Add(instruction, new State(instruction.Data));
             }
             var count = Math.Min(pair.Source.ChildNodes.Length, pair.Copy.ChildNodes.Length);
             for (var i = 0; i < count; i++)

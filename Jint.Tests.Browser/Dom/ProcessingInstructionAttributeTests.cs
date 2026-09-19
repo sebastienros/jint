@@ -133,18 +133,18 @@ public class ProcessingInstructionAttributeTests
 
     [TestCase("p.cloneNode()")]
     [TestCase("document.importNode(p)")]
-    public void EqualDataWriteInitializesAnEmptyClonedMap(string clone)
+    public void EqualDataWritePreservesParsedClonedAttributes(string clone)
     {
         using var fixture = DomTestFixture.Create("");
         fixture.Evaluate($$"""
             (() => {
               const p = document.createProcessingInstruction('t', 'a="v"');
               const copy = {{clone}};
-              const empty = !copy.hasAttributes();
+              const initial = copy.getAttribute('a');
               copy.data = copy.data;
-              return empty + '|' + copy.getAttribute('a');
+              return initial + '|' + copy.getAttribute('a');
             })()
-            """).ToString().Should().Be("true|v");
+            """).ToString().Should().Be("v|v");
     }
 
     [TestCase("p.data = p.data")]
@@ -185,19 +185,25 @@ public class ProcessingInstructionAttributeTests
             """)).Should().Be("2|characterData|true|a=\"1\"|a=\"2\"|a=\"2\"");
     }
 
-    [TestCase("p.cloneNode()")]
-    [TestCase("document.importNode(p)")]
-    public void CloningStartsWithAnEmptyAttributeMap(string clone)
+    [TestCase("p.cloneNode()", "a", "a")]
+    [TestCase("document.importNode(p)", "a", "a")]
+    [TestCase("container.cloneNode(true).firstChild", "a", "a")]
+    [TestCase("document.importNode(container, true).firstChild", "a", "a")]
+    [TestCase("p.cloneNode()", "$", "")]
+    [TestCase("document.importNode(p)", "$", "")]
+    [TestCase("container.cloneNode(true).firstChild", "$", "")]
+    [TestCase("document.importNode(container, true).firstChild", "$", "")]
+    public void CloningReparsesNativeDataInsteadOfCopyingAttributeState(string clone, string name, string expectedNames)
     {
         using var fixture = DomTestFixture.Create("");
         fixture.Evaluate($$"""
             (() => {
-              const p = document.createProcessingInstruction('t', 'a="1"');
-              p.setAttribute('$', 'value');
+              const p = document.createProcessingInstruction('t', ''); p.setAttribute('{{name}}', 'value');
+              const container = document.createElement('div'); container.append(p);
               const copy = {{clone}};
-              return copy.hasAttributes() + '|' + p.getAttributeNames().join(',');
+              return (copy.data === p.data) + '|' + copy.getAttributeNames().join(',') + '|' + p.getAttribute('{{name}}');
             })()
-            """).ToString().Should().Be("false|a,$");
+            """).ToString().Should().Be("true|" + expectedNames + "|value");
     }
 
     [Test]
