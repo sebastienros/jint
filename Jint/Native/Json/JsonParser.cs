@@ -169,6 +169,16 @@ public sealed class JsonParser
             ;
     }
 
+    /// <summary>
+    /// JSON white space, which is TAB, LF, CR and SP and nothing else: <c>JSON.parse</c> defers the
+    /// grammar to ECMA-404, whose <c>ws</c> production is those four.
+    /// https://tc39.es/ecma262/#sec-json.parse
+    /// </summary>
+    /// <remarks>
+    /// Deliberately not <see cref="Character.IsJsWhiteSpace"/>: JSON's grammar is a strict subset of the
+    /// language's, so NBSP, U+FEFF and the two line separators end a JSON document rather than pad it. Do
+    /// not widen this to the language set to make the two agree.
+    /// </remarks>
     private static bool IsWhiteSpace(char ch)
     {
         return (ch == ' ') ||

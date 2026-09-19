@@ -45,4 +45,61 @@ internal static class Character
 
         return (long) (shift & mask) < 0 ? true : false;
     }
+
+    /// <summary>
+    /// Whether <paramref name="c"/> is JavaScript white space: the union of the <c>WhiteSpace</c> and
+    /// <c>LineTerminator</c> productions. https://tc39.es/ecma262/#sec-trimstring
+    /// </summary>
+    /// <remarks>
+    /// This is the set every language-level lane means by "white space" — <c>String.prototype.trim</c>
+    /// and its two halves, the <c>StrWhiteSpace</c> a <c>StringNumericLiteral</c> may be padded with, the
+    /// <c>StringIntegerLiteral</c> behind <c>BigInt</c>, and the regular-expression <c>\s</c> class. It is
+    /// deliberately not <c>char.IsWhiteSpace</c>, which answers a Unicode question rather than an
+    /// ECMAScript one and disagrees in both directions.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool IsJsWhiteSpace(this char c)
+    {
+        if (c < 0x80)
+        {
+            // SP, then the TAB..CR run, which holds VT and FF along with the two ASCII line terminators.
+            return c == ' ' || c.IsInRange('\t', '\r');
+        }
+
+        return IsNonAsciiJsWhiteSpace(c);
+    }
+
+    /// <summary>
+    /// Whether <paramref name="c"/> is the <c>WhiteSpace</c> production alone, which is every member of
+    /// <see cref="IsJsWhiteSpace"/> that is not a line terminator. https://tc39.es/ecma262/#sec-white-space
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool IsJsWhiteSpaceExceptLineTerminator(this char c) => c.IsJsWhiteSpace() && !c.IsJsLineTerminator();
+
+    /// <summary>
+    /// Whether <paramref name="c"/> is <c>LineTerminator</c>: LF, CR, LS and PS.
+    /// https://tc39.es/ecma262/#sec-line-terminators
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool IsJsLineTerminator(this char c) => c is '\n' or '\r' or '\u2028' or '\u2029';
+
+    /// <summary>
+    /// The members above U+007F: the non-ASCII half of <c>Space_Separator</c>, ZWNBSP, and the two
+    /// non-ASCII line terminators.
+    /// </summary>
+    /// <remarks>
+    /// The <c>Space_Separator</c> members are enumerated rather than read out of
+    /// <c>char.GetUnicodeCategory</c> so that every target framework answers alike: .NET Framework carries
+    /// an older Unicode table than .NET 10 does, and the whole point of one definition is that it does not
+    /// move under an embedder. The category has not gained or lost a code point since Unicode 6.3 dropped
+    /// U+180E from it, and <c>Jint.Tests/Runtime/WhiteSpaceDefinitionTests.cs</c> checks the enumeration
+    /// against the running framework's table on every target framework so a future addition cannot land
+    /// unnoticed.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static bool IsNonAsciiJsWhiteSpace(char c) => c switch
+    {
+        '\u00A0' or '\u1680' or '\u2028' or '\u2029' or '\u202F' or '\u205F' or '\u3000' or '\uFEFF' => true,
+        _ => c.IsInRange('\u2000', '\u200A'),
+    };
 }

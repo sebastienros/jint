@@ -67,13 +67,18 @@ internal static class NumberParser
     /// and the invariant culture, minus its <c>Infinity</c> and <c>NaN</c> spellings, which every caller
     /// recognises before it gets here.
     /// </summary>
+    /// <remarks>
+    /// The padding it tolerates is JavaScript's <c>StrWhiteSpace</c> and not the framework's, which is the
+    /// difference between accepting a trailing U+0085 and rejecting a leading U+FEFF. Every caller but
+    /// <c>TypeConverter.ToNumber</c> hands over a span it scanned itself and that carries no padding at all.
+    /// </remarks>
     internal static bool TryParseDouble(ReadOnlySpan<char> text, out double result)
     {
         result = 0;
         var length = text.Length;
         var i = 0;
 
-        while (i < length && char.IsWhiteSpace(text[i]))
+        while (i < length && text[i].IsJsWhiteSpace())
         {
             i++;
         }
@@ -179,7 +184,7 @@ internal static class NumberParser
             exponent += literalExponent;
         }
 
-        while (i < length && char.IsWhiteSpace(text[i]))
+        while (i < length && text[i].IsJsWhiteSpace())
         {
             i++;
         }
