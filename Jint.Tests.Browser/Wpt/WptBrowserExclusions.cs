@@ -1066,7 +1066,6 @@ internal static class WptBrowserExclusions
         new("custom-elements/reactions/Element.html", "insertAdjacentHTML on Element must enqueue a connected reaction for a newly constructed custom element", WptDivergence.NeedsTriage),
         new("custom-elements/reactions/HTMLElement.html", "draggable on HTMLElement must enqueue an attributeChanged reaction when adding draggable content attribute", WptDivergence.NeedsTriage),
         new("custom-elements/reactions/HTMLElement.html", "draggable on HTMLElement must enqueue an attributeChanged reaction when replacing an existing attribute", WptDivergence.NeedsTriage),
-        new("custom-elements/reactions/HTMLElement.html", "hidden on HTMLElement must enqueue an attributeChanged reaction when replacing an existing attribute", WptDivergence.NeedsTriage),
         new("custom-elements/reactions/HTMLElement.html", "outerText on HTMLElement must enqueue a disconnected reaction", WptDivergence.NeedsTriage),
         new("custom-elements/reactions/HTMLElement.html", "popover on HTMLElement must enqueue an attributeChanged reaction when adding popover content attribute", WptDivergence.NeedsTriage),
         new("custom-elements/reactions/HTMLElement.html", "popover on HTMLElement must enqueue an attributeChanged reaction when replacing an existing attribute", WptDivergence.NeedsTriage),
