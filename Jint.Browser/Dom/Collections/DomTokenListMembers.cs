@@ -87,15 +87,17 @@ internal static class DomTokenListMembers
         var tokens = DomConvert.TextRest(arguments, 0);
         Validate(realm, tokens, Member.Add);
 
+        var next = Snapshot(list);
+
         foreach (var token in tokens)
         {
-            if (!list.Contains(token))
+            if (!next.Contains(token, StringComparer.Ordinal))
             {
-                list.Add(token);
+                next.Add(token);
             }
         }
 
-        Update(realm, list);
+        Update(realm, list, next);
         return JsValue.Undefined;
     }
 
@@ -105,8 +107,9 @@ internal static class DomTokenListMembers
         var tokens = DomConvert.TextRest(arguments, 0);
         Validate(realm, tokens, Member.Remove);
 
-        list.Remove(tokens);
-        Update(realm, list);
+        var next = Snapshot(list);
+        next.RemoveAll(existing => tokens.Contains(existing, StringComparer.Ordinal));
+        Update(realm, list, next);
         return JsValue.Undefined;
     }
 
@@ -129,8 +132,9 @@ internal static class DomTokenListMembers
                 return JsBoolean.True;
             }
 
-            list.Remove(token);
-            Update(realm, list);
+            var removed = Snapshot(list);
+            removed.RemoveAll(existing => string.Equals(existing, token, StringComparison.Ordinal));
+            Update(realm, list, removed);
             return JsBoolean.False;
         }
 
@@ -139,8 +143,9 @@ internal static class DomTokenListMembers
             return JsBoolean.False;
         }
 
-        list.Add(token);
-        Update(realm, list);
+        var added = Snapshot(list);
+        added.Add(token);
+        Update(realm, list, added);
         return JsBoolean.True;
     }
 
@@ -220,10 +225,8 @@ internal static class DomTokenListMembers
     /// <remarks>
     /// It is the step that makes <c>classList.add("a")</c> on <c>class="a a"</c> leave <c>class="a"</c>
     /// behind: the token set is unchanged, and the attribute is still rewritten in serialized form.
-    /// AngleSharp raises its own change notification only when the set moved, so without this the attribute
-    /// keeps whatever the page wrote.
     /// </remarks>
-    private static void Update(DomRealm realm, ITokenList list)
+    private static void Update(DomRealm realm, ITokenList list, List<string> tokens)
     {
         if (!_owners.TryGetValue(list, out var owner))
         {
@@ -232,12 +235,46 @@ internal static class DomTokenListMembers
 
         // Step 1: an absent attribute and an empty token set is the one case that writes nothing, so that
         // reading `classList` never gives an element a `class` attribute it did not have.
-        if (list.Length == 0 && owner.Element.GetAttribute(owner.Attribute) is null)
+        if (tokens.Count == 0 && owner.Element.GetAttribute(owner.Attribute) is null)
         {
             return;
         }
 
-        Write(realm, list, string.Join(" ", list));
+        Write(realm, list, string.Join(" ", tokens));
+    }
+
+    /// <summary>
+    /// The token set, as an ordered set, for a mutating member to compute over.
+    /// </summary>
+    /// <remarks>
+    /// AngleSharp's own list is deliberately left unmutated. Since AngleSharp 1.8.2 a mutation through it
+    /// <i>is</i> a <i>set an attribute value</i> that runs the attribute change steps and queues a mutation
+    /// record - the defect its release notes record as "<c>classList</c> and the other reflected token lists
+    /// writing their content attribute without running the attribute change steps". Mutating it and then
+    /// writing the serialized set, which is what <c>Add</c>, <c>Remove</c> and <c>Toggle</c> used to do,
+    /// therefore runs those steps <b>twice</b> and enqueues two <c>attributeChangedCallback</c> reactions for
+    /// one operation, where DOM §7.1 has exactly one update-steps write per member call and
+    /// <c>custom-elements/reactions/DOMTokenList.html</c> asserts exactly one reaction.
+    /// <para>
+    /// <c>Replace</c> has always computed its set this way, because an in-place replacement is not something
+    /// <c>Add</c> and <c>Remove</c> can express; the rest now do the same, and the single <c>Write</c> is the
+    /// operation's one attribute change. The list AngleSharp holds is refreshed by that write, since it is a
+    /// reflection of the attribute.
+    /// </para>
+    /// </remarks>
+    private static List<string> Snapshot(ITokenList list)
+    {
+        var tokens = new List<string>(list.Length);
+
+        foreach (var token in list)
+        {
+            if (!tokens.Contains(token, StringComparer.Ordinal))
+            {
+                tokens.Add(token);
+            }
+        }
+
+        return tokens;
     }
 
     private static void Write(DomRealm realm, ITokenList list, string value)
