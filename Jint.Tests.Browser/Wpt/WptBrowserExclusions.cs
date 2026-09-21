@@ -1128,33 +1128,6 @@ internal static class WptBrowserExclusions
         new("dom/nodes/processing-instruction-attributes.html", "Processing*", WptDivergence.NeedsTriage),
     ];
 
-    // ---------------------------------------------------------------- DOM's validate-and-extract, and the XML name productions
-    private static readonly WptExclusion[] _dOMSValidateAndExtractAndTheXMLNameProductions =
-    [
-        // DOM's validate-and-extract, and the XML name productions
-        new("dom/nodes/DOMImplementation-createDocumentType.html", "*:\", \"\", \"\") should work", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocumentType.html", "*@\", \"\", \"\") should work", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocumentType.html", "createDocumentType(\"\"*", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocumentType.html", "createDocumentType(\"#*", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocumentType.html", "createDocumentType(\"$*", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocumentType.html", "createDocumentType(\"%*", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocumentType.html", "createDocumentType(\"&*", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocumentType.html", "createDocumentType(\"'*", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocumentType.html", "createDocumentType(\"(*", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocumentType.html", "createDocumentType(\")*", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocumentType.html", "createDocumentType(\"1foo*", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocumentType.html", "createDocumentType(\"@*", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocumentType.html", "createDocumentType(\"\\**", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocumentType.html", "createDocumentType(\"^*", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocumentType.html", "createDocumentType(\"`*", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocumentType.html", "createDocumentType(\"edi*work", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocumentType.html", "createDocumentType(\"f@*", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocumentType.html", "createDocumentType(\"{*", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocumentType.html", "createDocumentType(\"}*", WptDivergence.NeedsTriage),
-        new("dom/nodes/DOMImplementation-createDocumentType.html", "createDocumentType(\"~*", WptDivergence.NeedsTriage),
-        new("dom/nodes/name-validation.html", "Valid and invalid characters in createDocumentType.", WptDivergence.NeedsTriage),
-    ];
-
     // ---------------------------------------------------------------- two refusals the bindings do not make
     private static readonly WptExclusion[] _twoRefusalsTheBindingsDoNotMake =
     [
@@ -1388,7 +1361,6 @@ internal static class WptBrowserExclusions
         new("a frame that runs script", _aFrameThatRunsScript),
         new("a relList on a MathML <a> that no standard defines", _aRelListOnAMathMLAThatNoStandardDefines),
         new("a member of a DOM interface the bindings do not have", _aMemberOfADOMInterfaceTheBindingsDoNotHave),
-        new("DOM's validate-and-extract, and the XML name productions", _dOMSValidateAndExtractAndTheXMLNameProductions),
         new("two refusals the bindings do not make", _twoRefusalsTheBindingsDoNotMake),
         new("Range's own algorithms", _rangeSOwnAlgorithms),
         new("a document with no browsing context", _aDocumentWithNoBrowsingContext),

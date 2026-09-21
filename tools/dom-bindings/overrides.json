@@ -1410,6 +1410,14 @@
   ],
   "hooks": [
     {
+      "interface": "DOMImplementation",
+      "member": "createDocumentType",
+      "half": "operation",
+      "hook": "CreateDocumentType",
+      "returns": true,
+      "reason": "DOM 4.5.1 accepts modern doctype names. Use AngleSharp's public parser construction factory for names its XML validation rejects, preserving exact identifiers and native node identity."
+    },
+    {
       "interface": "Document",
       "member": "querySelector",
       "half": "operation",
