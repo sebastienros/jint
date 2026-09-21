@@ -42,7 +42,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 51 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 0 |
-| **total** | **392** | **9** | **66,916** | **355** |
+| **total** | **392** | **9** | **66,916** | **339** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -372,7 +372,7 @@ table needs to be regenerated.
 | ---: | ---: | --- |
 | 137 | 1 | **ProcessingInstruction attributes and parsing are absent.** All rows belong to the PI attribute document; the standardized attribute map and HTML parser support remain tracked by [#4098](https://github.com/sebastienros/jint/issues/4098). <!-- cause: a member of a DOM interface the bindings do not have --> |
 | 33 | 7 | [#3771](https://github.com/sebastienros/jint/issues/3771) **Remaining frame environments.** Sourced frames have their own realms and run classic scripts, and a frame served `application/xhtml+xml` is an XHTML document now — so the 244 rows of `Document-createElement*` this cause used to carry are gone from it, and both files pass whole. What is left really is a frame or a second global: empty iframes still lack a native document, which is what `node-realm-*`, `node-creation-realm` and the connectivity cases wait for, and `TextEvent` is an interface the bindings do not have. <!-- cause: a frame that runs script --> |
-| 32 | 1 | **The Selectors-API table and selector-only element states.** The selector-error contracts are `DomSelectorText`'s now, so what is left is `ParentNode-querySelector-All.html`'s `::slotted` matching difference — and every row is `NeedsTriage`. <!-- cause: the Selectors-API table and selector-only element states --> |
+| 16 | 1 | **The Selectors-API table and selector-only element states.** The selector-error contracts are `DomSelectorText`'s now, so what is left is `ParentNode-querySelector-All.html`'s `::slotted` matching difference — and every row is `NeedsTriage`. <!-- cause: the Selectors-API table and selector-only element states --> |
 | 16 | 1 | **AngleSharp.Css refuses an unparseable media query, from inside `Element.setAttribute`.** `<style>` registers an attribute observer that assigns the sheet's `MediaList.mediaText`, whose setter throws where Media Queries §2.1 requires `not all`; the sixteen rows are the values it cannot parse and the member's other thirty tests pass. `Dom/divergences.md` records it. <!-- cause: 8. AngleSharp.Css refuses an unparseable media query --> |
 | 10 | 6 | **One assertion each or one small family per document.** These cover conversion order, import/clone identity, attribute selection and ordering, element-name identity, node equality and `accessKeyLabel`; each pattern is kept separate where neighboring rows pass. <!-- cause: one assertion each --> |
 | 7 | 2 | **The selector engine's escapes, `:scope` and `:has` differ.** `ParentNode-querySelector-escapes.html` contributes five rows and `Element-closest.html` two. <!-- cause: the selector engine: escapes, :scope and :has --> |

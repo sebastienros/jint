@@ -154,6 +154,19 @@ public sealed class EmptyNamespaceSelectorTests
             """)).Should().Be("true/true/true/true/true/true/true");
     }
 
+    [Test]
+    public void NamespaceDeclarationsDoNotChangeAnHtmlElementsCreationNamespace()
+    {
+        using var fixture = DomTestFixture.Create("<div id='root'><div id='html' xmlns=''></div></div>");
+        fixture.Execute(Setup);
+        fixture.Text("Array.from(root.querySelectorAll('|*'), e => e.id).join(',')")
+            .Should().Be("plain,child");
+        fixture.Text("Array.from(root.querySelectorAll('|div'), e => e.id).join(',')")
+            .Should().Be("plain");
+        fixture.Text("document.getElementById('html').matches('|*') ? 'wrong' : 'correct'")
+            .Should().Be("correct");
+    }
+
     [TestCase("|div#")]
     [TestCase("|div[")]
     [TestCase("|div >")]
