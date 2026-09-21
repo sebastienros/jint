@@ -57,7 +57,10 @@ internal static class DomRangeMembers
                         ? null : ((IProcessingInstruction) node).Data));
             }
         }
+        var replacement = extract ? new DomProcessingInstructionAttributes.RangeDataReplacement(range) : default;
         var fragment = extract ? range.ExtractContent() : range.CopyContent();
+        // Native extraction replaces boundary data before reactions can observe the resulting tree.
+        replacement.Complete();
         // Enumerate lazily: a partial template's mistakenly cloned native contents must be removed
         // before descending into that copy. All nodes remain AngleSharp-owned; moved templates are intact.
         using var copies = CopyNodes(fragment, range: null).GetEnumerator();

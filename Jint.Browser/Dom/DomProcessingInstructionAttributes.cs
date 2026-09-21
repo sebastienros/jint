@@ -109,30 +109,6 @@ internal static class DomProcessingInstructionAttributes
         }
     }
 
-    // Preserve native clone data; the new identity parses its own data on first attribute access.
-    internal static void Cloned(INode source, INode copy)
-    {
-        var pending = new Stack<(INode Source, INode Copy)>();
-        pending.Push((source, copy));
-        while (pending.TryPop(out var pair))
-        {
-            if (pair.Source is IProcessingInstruction from && pair.Copy is IProcessingInstruction instruction)
-            {
-                instruction.Data = from.Data;
-            }
-            var count = Math.Min(pair.Source.ChildNodes.Length, pair.Copy.ChildNodes.Length);
-            for (var i = 0; i < count; i++)
-            {
-                pending.Push((pair.Source.ChildNodes[i]!, pair.Copy.ChildNodes[i]!));
-            }
-            if (pair.Source is AngleSharp.Html.Dom.IHtmlTemplateElement template
-                && pair.Copy is AngleSharp.Html.Dom.IHtmlTemplateElement clonedTemplate)
-            {
-                pending.Push((template.Content, clonedTemplate.Content));
-            }
-        }
-    }
-
     private static State Read(IProcessingInstruction node)
     {
         var state = _states.GetValue(node, static pi => Parse(pi.Data));

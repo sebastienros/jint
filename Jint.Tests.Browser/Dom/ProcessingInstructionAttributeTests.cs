@@ -7,6 +7,48 @@ namespace Jint.Tests.Browser.Dom;
 
 public class ProcessingInstructionAttributeTests
 {
+    [TestCase("cloneContents", false, "a", "a|false")]
+    [TestCase("cloneContents", false, "$", "|false")]
+    [TestCase("extractContents", false, "a", "a|true")]
+    [TestCase("extractContents", false, "$", "$|true")]
+    [TestCase("cloneContents", true, "a", "a|false")]
+    [TestCase("extractContents", true, "a", "a|false")]
+    [TestCase("extractContents", true, "$", "|false")]
+    public void RangeCopiesParseDataWhileMovedInstructionsKeepTheirMap(string operation, bool boundary, string name, string expected)
+    {
+        using var fixture = DomTestFixture.Create("");
+        fixture.Evaluate($$"""
+            (() => {
+              const p = document.createProcessingInstruction('t', ''); p.setAttribute('{{name}}', 'value');
+              const parent = document.createElement('div'); parent.append(p);
+              const range = document.createRange();
+              if ({{(boundary ? "true" : "false")}}) { range.setStart(p, 0); range.setEnd(p, p.length); }
+              else range.selectNode(p);
+              const copy = range.{{operation}}().firstChild;
+              return copy.getAttributeNames().join(',') + '|' + (copy === p);
+            })()
+            """).ToString().Should().Be(expected);
+    }
+
+    [Test]
+    public async Task ExtractedBoundaryMapResetsBeforeCloneUpgradeReactions()
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+        (await page.EvaluateAsync<string>("""
+            const p = document.createProcessingInstruction('t', ''); p.setAttribute('$', 'value');
+            let active = false, seen = 'not upgraded';
+            customElements.define('x-pi-boundary', class extends HTMLElement {
+              constructor() { super(); if (active) seen = p.getAttributeNames().join(','); }
+            });
+            const parent = document.createElement('x-pi-boundary'); parent.append(p); document.body.append(parent);
+            const range = document.createRange(); range.setStart(p, p.length); range.setEndAfter(parent);
+            active = true;
+            range.extractContents();
+            seen
+            """)).Should().Be("");
+    }
+
     [TestCase("deleteContents", "start", "")]
     [TestCase("deleteContents", "end", "")]
     [TestCase("deleteContents", "collapsed", "$")]

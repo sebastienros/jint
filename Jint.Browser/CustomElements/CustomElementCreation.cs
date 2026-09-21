@@ -75,9 +75,8 @@ internal static class CustomElementCreation
         {
             DomTemplateCloning.ClearShallowContent(clone);
         }
-        DomNamespaces.Copy(node, clone);
+        DomCloneSteps.Copy(node, clone);
 
-        Dom.DomProcessingInstructionAttributes.Cloned(node, clone);
         Dom.Files.FileTransferRealm.ResetCopiedInputs(clone);
         CustomElementRegistry.Cloned(realm, node, clone);
         return documentDefinition is null ? realm.WrapNodeValue(clone) : realm.Wrap(clone, documentDefinition);

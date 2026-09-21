@@ -61,7 +61,7 @@ internal static class DomFailures
             };
         }
 
-        if (member is "Range.deleteContents" or "Range.extractContents")
+        if (member is "Range.deleteContents")
         {
             return (receiver, arguments) =>
             {

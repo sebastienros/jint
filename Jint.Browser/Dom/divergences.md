@@ -231,13 +231,14 @@ the source attribute map. Chromium 153 confirms this separately for XML-valid na
 and DOM-valid but XML-invalid names such as `$` (the copied data fails parsing, so the map is empty).
 DOM's current clone-single-node prose copies target/data without an explicit attribute initialization step;
 this parsing behavior follows the browser evidence, not an asserted requirement of that omission. The paired
-correction restores native PI data at every descendant, including template contents (#4107). Fully contained
-PI copies through `Range.cloneContents` still lose data and are separately tracked in #4113.
+correction restores native PI data at every descendant, including template contents (#4107). The shared
+range projection also preserves fully contained PI copy data, while partial copies keep native substrings
+and extraction preserves moved identity (#4113).
 
 A per-PI native MutationObserver was rejected: its owner-document registration retains detached targets and
 does not follow adoption. The weak state retains no node, realm, or engine. Changed native data is detected
 on access, but a host mutating a raw native PI to the same data outside the binding cannot be detected;
-this host-boundary limitation is explicit. HTML PI tokenization remains #4098. The PI WPT's four element
-serialization comparisons remain #4109. Its 17 failing XML-parser rows feed an ill-formed PI-only document
+this host-boundary limitation is explicit. HTML PI tokenization remains #4098. The four element
+serialization comparisons pass with #4111. Its 17 failing XML-parser rows feed an ill-formed PI-only document
 and assume Chromium preserves the PI before its error tree, contrary to HTML §8.5.1's required empty error
 document followed by a `parsererror` element; those rows assert behavior the specification does not require.

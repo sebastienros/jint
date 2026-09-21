@@ -1125,12 +1125,6 @@ internal static class WptBrowserExclusions
         new("dom/nodes/processing-instruction-attributes.html", "Valid attribute name:*source: html-parser)", WptDivergence.NeedsTriage),
         new("dom/nodes/processing-instruction-attributes.html", "Distinct attribute name (source: html-parser*", WptDivergence.NeedsTriage),
 
-        // #4109: PI serialization is correct; the compared native Element.outerHTML omits <> escaping.
-        new("dom/nodes/processing-instruction-attributes.html", "check attribute value: \"axx>\" (source: \"html-dom\")", WptDivergence.NeedsTriage),
-        new("dom/nodes/processing-instruction-attributes.html", "check attribute value: \"some<>\" (source: \"html-dom\")", WptDivergence.NeedsTriage),
-        new("dom/nodes/processing-instruction-attributes.html", "check attribute value: \"axx>\" (source: \"xml-dom\")", WptDivergence.NeedsTriage),
-        new("dom/nodes/processing-instruction-attributes.html", "check attribute value: \"some<>\" (source: \"xml-dom\")", WptDivergence.NeedsTriage),
-
         // The XML fixture parses only a PI, with no document element: ill-formed XML. HTML §8.5.1
         // https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-domparser-parsefromstring
         // requires an empty error document followed by a parsererror element, not a preserved first PI.
