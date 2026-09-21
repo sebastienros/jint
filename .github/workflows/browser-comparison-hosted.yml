@@ -1,0 +1,81 @@
+name: Hosted browser comparison feasibility
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: Verification, Jint A/A calibration, or calibration followed by comparison
+        type: choice
+        options: [verify, calibrate, compare]
+        default: verify
+      browser_pins:
+        description: Optional JSON replacing hosted-pins.json (chromium URL/hash/version; lightpanda URL/hash/asset ID)
+        type: string
+        required: false
+defaults:
+  run:
+    shell: bash
+permissions:
+  contents: read
+concurrency:
+  group: hosted-browser-comparison
+  cancel-in-progress: false
+jobs:
+  comparison:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      PHASE: ${{ inputs.phase }}
+      BROWSER_PINS: ${{ inputs.browser_pins }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0'
+      - name: Preserve runner and dispatch provenance
+        run: |
+          OUTPUT="$RUNNER_TEMP/browser-comparison"
+          printf 'OUTPUT=%s\n' "$OUTPUT" >> "$GITHUB_ENV"
+          mkdir -p "$OUTPUT"
+          if [[ -n "$BROWSER_PINS" ]]; then
+            printf '%s\n' "$BROWSER_PINS" > "$OUTPUT/pins.json"
+          else
+            cp tools/browser-comparison/hosted-pins.json "$OUTPUT/pins.json"
+          fi
+          uname -a > "$OUTPUT/uname.txt"
+          lscpu > "$OUTPUT/lscpu.txt"
+          dotnet --info > "$OUTPUT/dotnet-info.txt"
+          systemd --version > "$OUTPUT/systemd-version.txt"
+          printf '%s\n' "run=$GITHUB_RUN_ID attempt=$GITHUB_RUN_ATTEMPT sha=$GITHUB_SHA phase=$PHASE" "image=$ImageOS version=$ImageVersion" > "$OUTPUT/runner.txt"
+      - name: Install and verify exact browser assets before collection
+        run: python3 tools/browser-comparison/setup_hosted.py --pins "$OUTPUT/pins.json" --output "$OUTPUT/setup"
+      - name: Build Jint in Release before collection
+        run: dotnet build Jint.Browser.Tool/Jint.Browser.Tool.csproj -c Release -f net10.0 | tee "$OUTPUT/jint-build.log"
+      - name: Verify offline browser workloads
+        if: inputs.phase == 'verify'
+        run: bash tools/browser-comparison/run_hosted.sh "$PHASE" "$OUTPUT" 2>&1 | tee "$OUTPUT/driver.log"
+      - name: Run serial collection in a scoped delegated unit
+        if: inputs.phase != 'verify'
+        run: |
+          sudo systemd-run --wait --pipe --collect \
+            --unit="jint-comparison-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
+            --uid="$(id -u)" --gid="$(id -g)" \
+            --property='Delegate=cpu memory' --property=DelegateSubgroup=controller \
+            --property="WorkingDirectory=$GITHUB_WORKSPACE" \
+            --property=RuntimeMaxSec=21000 --property=KillMode=control-group \
+            --setenv=PYTHONDONTWRITEBYTECODE=1 --setenv="PATH=$PATH" --setenv="HOME=$HOME" --setenv="DOTNET_ROOT=$DOTNET_ROOT" \
+            /usr/bin/bash tools/browser-comparison/run_hosted.sh "$PHASE" "$OUTPUT" 2>&1 | tee "$OUTPUT/driver.log"
+      - name: Stop only this run's owned service
+        if: always() && inputs.phase != 'verify'
+        run: sudo systemctl stop "jint-comparison-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT.service" || true
+      - name: Preserve complete or refused evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-comparison-${{ inputs.phase }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/browser-comparison
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
