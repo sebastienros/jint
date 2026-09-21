@@ -1,3 +1,4 @@
+using System.Text;
 using AngleSharp.Dom;
 using Jint.Native;
 
@@ -30,9 +31,8 @@ namespace Jint.Browser.Dom;
 /// function, string and comment at EOF, so <c>#attr-value [align="center"</c> is a <b>valid</b> selector
 /// that matches. AngleSharp's <c>CssSelectorConstructor</c> clears its <c>_ready</c> flag on <c>[</c> and
 /// only a <c>]</c> restores it, so <c>ParseSelector</c> answers null and the caller raises a
-/// <c>SyntaxError</c> instead. The walk closes those constructs itself, which is the one case where the
-/// text handed to the native matcher is <b>not</b> the text the script passed — everywhere else it is
-/// returned unchanged, and a selector that is already balanced allocates nothing.
+/// <c>SyntaxError</c> instead. The walk closes those constructs before native parsing. Quoted-string continuations are
+/// corrected separately before this scan; selectors needing neither correction are returned unchanged.
 /// </para>
 /// </remarks>
 internal static class DomSelectorText
@@ -46,8 +46,93 @@ internal static class DomSelectorText
 
     internal static string Required(JsValue[] arguments, string member)
     {
-        var text = DomConvert.RequiredText(arguments, 0, member);
+        var text = NormalizeStringContinuations(DomConvert.RequiredText(arguments, 0, member));
         return Scan(text, !DomForgivingSelectors.MayNeedNormalization(text));
+    }
+
+    /// <summary>
+    /// https://drafts.csswg.org/css-syntax/#consume-string-token consumes escaped newlines without
+    /// appending them. Normalize only those string tokens; the native parser still decodes their values.
+    /// </summary>
+    internal static string NormalizeStringContinuations(string text)
+    {
+        if (!text.Contains('\\') || text.AsSpan().IndexOfAny('\n', '\r', '\f') < 0)
+        {
+            return text;
+        }
+        StringBuilder? builder = null;
+        var copied = 0;
+        for (var i = 0; i < text.Length; i++)
+        {
+            if (text[i] == '\\')
+            {
+                i = EndOfEscape(text, i);
+                continue;
+            }
+            if (text[i] == '/' && i + 1 < text.Length && text[i + 1] == '*')
+            {
+                var end = text.IndexOf("*/", i + 2, StringComparison.Ordinal);
+                i = end < 0 ? text.Length : end + 1;
+                continue;
+            }
+            if (text[i] is not ('\'' or '"'))
+            {
+                continue;
+            }
+            var quote = text[i];
+            var start = i + 1;
+            var endOfString = start;
+            for (; endOfString < text.Length && text[endOfString] != quote; endOfString++)
+            {
+                if (text[endOfString] == '\\')
+                {
+                    endOfString = EndOfEscape(text, endOfString);
+                }
+                else if (text[endOfString] is '\n' or '\r' or '\f')
+                {
+                    break;
+                }
+            }
+            // A bad-string token remains byte-for-byte unchanged, including earlier continuations.
+            // EOF, unlike a bare newline, ends a valid string token which Scan will close as before.
+            if (endOfString < text.Length && text[endOfString] != quote)
+            {
+                i = endOfString;
+                continue;
+            }
+            var unterminatedHexEscape = false;
+            for (var cursor = start; cursor < Math.Min(endOfString, text.Length); cursor++)
+            {
+                if (text[cursor] != '\\')
+                {
+                    unterminatedHexEscape = false;
+                    continue;
+                }
+                var end = EndOfEscape(text, cursor);
+                if (cursor + 1 < text.Length && text[cursor + 1] is '\n' or '\r' or '\f')
+                {
+                    builder ??= new StringBuilder(text.Length);
+                    builder.Append(text, copied, cursor - copied);
+                    // Removing a continuation after \61 must not merge the next hex digit into that
+                    // escape, or make the next literal whitespace its optional terminator. This space
+                    // is consumed by the native escape decoder, never added to the string's value.
+                    if (unterminatedHexEscape)
+                    {
+                        builder.Append(' ');
+                    }
+                    copied = end + 1;
+                    unterminatedHexEscape = false;
+                }
+                else
+                {
+                    unterminatedHexEscape = cursor + 1 < text.Length && char.IsAsciiHexDigit(text[cursor + 1])
+                                            && end < text.Length && char.IsAsciiHexDigit(text[end]);
+                }
+                cursor = end;
+            }
+            i = endOfString;
+        }
+        return builder is null ? text : builder.Append(text, copied, text.Length - copied).ToString();
     }
 
     internal static string Scan(string text, bool validate = true, bool relative = false)

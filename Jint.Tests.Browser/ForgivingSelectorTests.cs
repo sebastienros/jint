@@ -118,8 +118,8 @@ public sealed class ForgivingSelectorTests
         normalized.Should().Be(selector);
         var parser = fixture.Document.Context.GetService<ICssSelectorParser>()!;
         parser.ParseSelector(normalized)!.Specificity.Should().Be(parser.ParseSelector(selector)!.Specificity);
-        // This is a source-preservation control. Native escaped-newline value decoding remains #4139;
-        // the incorrect native attribute match is deliberately not asserted as desired conformance.
+        // This exercises branch filtering directly. DOM entry points normalize string continuations
+        // in DomSelectorText first; SelectorStringContinuationTests covers that value correction.
     }
 
     [TestCase("\n")]
