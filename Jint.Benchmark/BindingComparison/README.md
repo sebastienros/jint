@@ -49,7 +49,8 @@ a missing setter fail. The control exposes interpreter differences; it is not a 
 can be subtracted from other rows. `verification.json` records the runtime, SDK, git head and dirty state,
 assembly informational versions and SHA-256 hashes, and the HTML/script hash. Logs are retained on failure.
 No clocks are sampled and no timing claims are produced by verification. The `Binding comparison verification`
-workflow runs these checks on relevant pull requests and main pushes; CI never measures performance.
+workflow runs these checks on relevant pull requests and main pushes. Measurement is a separate, manually
+dispatched workflow; ordinary PR and push checks never measure performance.
 
 List the benchmark methods without running them:
 
@@ -74,6 +75,32 @@ It does not calculate or publish a ratio. Pair rows by method and workload withi
 paired differences with confidence intervals as described in [measure-paired.ps1](../measure-paired.ps1).
 That script's worktree runner is not directly interchangeable with these two project runners.
 After an interrupted measurement, follow the power-plan restoration instructions in the benchmark guide.
+
+## Manual hosted-runner measurement
+
+The `Binding comparison measurement` workflow runs the same six-round gate on an Ubuntu 24.04
+GitHub-hosted VM. It records the runner image, CPU, SDK, commit, driver transcript and complete raw
+artifacts, including refused or partial runs. Its job has a six-hour ceiling; a timeout is not a result.
+Setup and synthetic analysis tests finish before measurement, and no other workload is launched by
+this job during collection. Idle checks remain enabled and there are no automatic retries.
+
+After a complete run, `analyze.py` validates every arm, row, launch, checksum, idle verdict and recorded
+revision before reporting any statistics. It requires exactly six complete pairs and reports the median
+paired percentage difference with a 95% percentile bootstrap interval (5,000 resamples, seed 20260816,
+Python's Mersenne Twister, reset per row). An interval crossing zero has unresolved direction. These
+are exploratory per-row intervals without multiple-comparison adjustment; both interpreter controls
+remain visible and are never subtracted from the DOM rows.
+
+```sh
+python3 Jint.Benchmark/BindingComparison/analyze.py \
+  --artifacts /absolute/path/raw --driver-log /absolute/path/driver.log \
+  --expected-head FULL_COMMIT_SHA > analysis.json
+```
+
+Hosted results describe this virtualized environment. A guest idle verdict does not prove the physical
+host is uncontended. Before completing D0.3, inspect the controls and require reproducible conclusions
+across complete independent hosted runs; retain inconclusive and rejected runs alongside successful ones.
+Do not generalize the result to dedicated hardware or claim that calibration removes unobserved host noise.
 
 **Cold** includes DOM parsing, engine and binding setup, first prepared-script execution and disposal on
 every operation; script parsing is excluded. Process initialization, first-ever reflection and static
