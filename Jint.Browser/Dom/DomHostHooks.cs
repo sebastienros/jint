@@ -969,7 +969,12 @@ internal class DomHostHooks
     internal virtual JsValue ImportNode(DomRealm realm, IDocument document, JsValue[] arguments)
     {
         var source = DomBindings.Argument<INode>(arguments, 0, "Document.importNode");
-        var imported = document.Import(source, DomConvert.OptionalBool(arguments, 1, false));
+        var deep = DomConvert.OptionalBool(arguments, 1, false);
+        var imported = document.Import(source, deep);
+        if (!deep)
+        {
+            DomTemplateCloning.ClearShallowContent(imported);
+        }
         DomNamespaces.Copy(source, imported);
 
         if (imported is not IAttr && !ReferenceEquals(imported.Owner, document))

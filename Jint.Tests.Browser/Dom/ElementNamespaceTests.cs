@@ -301,10 +301,9 @@ public sealed class ElementNamespaceTests
 
     [TestCase("cloneContents")]
     [TestCase("extractContents")]
-    public void PartiallySelectedTemplatePreservesTheNativeShallowContentCopy(string operation)
+    public void PartiallySelectedTemplateCopiesHaveNoContent(string operation)
     {
-        // #4108 tracks the native shallow-template copying divergence. Provenance transfer must still
-        // preserve that native result without throwing after extraction has already mutated the source.
+        // The partial ancestor is shallow-cloned, including an empty template content fragment.
         using var fixture = DomTestFixture.Create("<main></main>");
         fixture.Execute("""
             var root = document.querySelector('main');
@@ -317,8 +316,8 @@ public sealed class ElementNamespaceTests
             range.setEnd(root, 1);
             """);
         fixture.Execute("var result = range." + operation + "();");
-        fixture.Text("result.firstChild.content.firstChild.namespaceURI").Should().BeNull();
-        fixture.Number("result.firstChild.content.firstChild.childNodes.length").Should().Be(0);
+        fixture.Number("result.firstChild.content.childNodes.length").Should().Be(0);
+        fixture.Bool("template.content.firstChild === child && child.firstChild.localName === 'leaf'").Should().BeTrue();
     }
 
 }
