@@ -38,24 +38,12 @@ public sealed class EmptyNamespaceSelectorTests
     [TestCase(":where(|123, |div)")]
     [TestCase(":is(|\\\n, |div)")]
     [TestCase(":where(|\\\n, |div)")]
-    public void InvalidForgivingBranchesPreserveTheNativeErrorContract(string selector)
+    public void InvalidForgivingBranchesAreDiscardedBeforeNamespaceAdaptation(string selector)
     {
         using var fixture = DomTestFixture.Create("<div id='root'></div>");
         fixture.Execute(Setup);
         fixture.Engine.SetValue("selector", selector);
-        var nativeFailure = Caught.Exception(() => fixture.Document.QuerySelectorAll(selector));
-        if (nativeFailure is AngleSharp.Dom.DomException)
-        {
-            // The pinned parser currently rejects these forgiving lists itself (#4103). The adapter must not
-            // change that error into a different failure or silently accept the invalid branch.
-            fixture.Text("try { document.querySelectorAll(selector); 'accepted'; } catch(e) { e.name; }")
-                .Should().Be("SyntaxError");
-        }
-        else
-        {
-            nativeFailure.Should().BeNull();
-            fixture.Text("document.querySelector(selector)?.id ?? ''").Should().Be("plain");
-        }
+        fixture.Text("document.querySelector(selector)?.id ?? ''").Should().Be("plain");
     }
 
     [Test]

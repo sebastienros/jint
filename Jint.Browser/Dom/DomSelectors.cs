@@ -20,6 +20,7 @@ internal static class DomSelectors
 
     internal static IElement? QuerySelector(INode root, string text)
     {
+        text = DomForgivingSelectors.Normalize(root, text);
         var selector = Adapt(root, text);
         return selector is null
             ? ((IParentNode) root).QuerySelector(text)
@@ -28,6 +29,7 @@ internal static class DomSelectors
 
     internal static IHtmlCollection<IElement> QuerySelectorAll(INode root, string text)
     {
+        text = DomForgivingSelectors.Normalize(root, text);
         var selector = Adapt(root, text);
         return selector is null
             ? ((IParentNode) root).QuerySelectorAll(text)
@@ -35,10 +37,14 @@ internal static class DomSelectors
     }
 
     internal static bool Matches(IElement element, string text)
-        => Adapt(element, text) is { } selector ? selector.Match(element, element) : element.Matches(text);
+    {
+        text = DomForgivingSelectors.Normalize(element, text);
+        return Adapt(element, text) is { } selector ? selector.Match(element, element) : element.Matches(text);
+    }
 
     internal static IElement? Closest(IElement element, string text)
     {
+        text = DomForgivingSelectors.Normalize(element, text);
         if (Adapt(element, text) is not { } selector)
         {
             return element.Closest(text);

@@ -47,6 +47,11 @@ internal static class DomSelectorText
     internal static string Required(JsValue[] arguments, string member)
     {
         var text = DomConvert.RequiredText(arguments, 0, member);
+        return Scan(text, !DomForgivingSelectors.MayNeedNormalization(text));
+    }
+
+    internal static string Scan(string text, bool validate = true, bool relative = false)
+    {
         var depth = 0;
         var atStart = true;
         var quote = '\0';
@@ -75,7 +80,9 @@ internal static class DomSelectorText
 
             if (quote != '\0')
             {
-                if (c == quote)
+                // CSS Syntax's bad-string token ends at an unescaped newline. Forgiving-list
+                // branch validation will discard it; it must not swallow subsequent list boundaries.
+                if (c == quote || !validate && c is '\n' or '\r' or '\f')
                 {
                     quote = '\0';
                 }
@@ -105,7 +112,7 @@ internal static class DomSelectorText
             // attribute selector, and both are as invalid as `ns|div` when the prefix map is empty. `||` is
             // the column combinator and `|=` the hyphen-separated attribute operator, so neither of those
             // is a prefix at all.
-            if (c == '|' && identifier && (i + 1 >= text.Length || (text[i + 1] != '|' && text[i + 1] != '=')))
+            if (validate && c == '|' && identifier && (i + 1 >= text.Length || (text[i + 1] != '|' && text[i + 1] != '=')))
             {
                 throw new DomException(DomError.Syntax);
             }
@@ -119,7 +126,7 @@ internal static class DomSelectorText
                     continue;
                 }
 
-                if (atStart && (c is '>' or '+' or '~' || c == '|' && i + 1 < text.Length && text[i + 1] == '|'))
+                if (validate && !relative && atStart && (c is '>' or '+' or '~' || c == '|' && i + 1 < text.Length && text[i + 1] == '|'))
                 {
                     throw new DomException(DomError.Syntax);
                 }
@@ -167,12 +174,12 @@ internal static class DomSelectorText
     /// an escape. That whitespace is not a descendant combinator: <c>n\73 |div</c> still names the
     /// undeclared prefix "ns". CRLF is one newline after CSS input preprocessing (§3.3).
     /// </summary>
-    private static int EndOfEscape(string text, int start)
+    internal static int EndOfEscape(string text, int start)
     {
         var end = start + 1;
         if (end >= text.Length || !char.IsAsciiHexDigit(text[end]))
         {
-            return end;
+            return end + (end + 1 < text.Length && text[end] == '\r' && text[end + 1] == '\n' ? 1 : 0);
         }
 
         var digits = 1;

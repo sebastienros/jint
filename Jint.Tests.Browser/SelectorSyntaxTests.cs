@@ -66,7 +66,6 @@ public sealed class SelectorSyntaxTests
     [TestCase("[n\\73 |attr]")]
     [TestCase("ns|*")]
     [TestCase(":not(ns|div)")]
-    [TestCase(":is(p, ns|div)")]
     [TestCase(":has(> ns|div)")]
     [TestCase("div ns|p")]
     [TestCase("#parent, ns|div")]
