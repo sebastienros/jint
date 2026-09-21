@@ -307,6 +307,24 @@ public class DomDomainTests
     }
 
     [Test]
+    public async Task OuterHtmlEscapesAttributeAnglesLikeTheDom()
+    {
+        await using var session = await PageSession.CreateAsync();
+        var attachment = await session.OpenPageAsync();
+        await Content(session, attachment, "<el attr='some<>'></el>");
+        var root = (await session.ResultAsync("DOM.getDocument", "{}", attachment)).GetProperty("root");
+        var documentId = root.GetProperty("nodeId").GetInt32();
+        var element = (await session.ResultAsync("DOM.querySelector",
+            $$"""{"nodeId":{{documentId}},"selector":"el"}""", attachment)).GetProperty("nodeId").GetInt32();
+        (await session.ResultAsync("DOM.getOuterHTML", $$"""{"nodeId":{{element}}}""", attachment))
+            .GetProperty("outerHTML").GetString().Should().Be("<el attr=\"some&lt;&gt;\"></el>");
+        (await session.ResultAsync("DOM.getOuterHTML", $$"""{"nodeId":{{documentId}}}""", attachment))
+            .GetProperty("outerHTML").GetString().Should().Contain("<el attr=\"some&lt;&gt;\"></el>");
+        (await session.EvaluateAsync("document.querySelector('el').outerHTML", attachment))
+            .GetProperty("value").GetString().Should().Be("<el attr=\"some&lt;&gt;\"></el>");
+    }
+
+    [Test]
     public async Task QuerySelectorAttributesAndOuterHtmlEditTheDocument()
     {
         await using var session = await PageSession.CreateAsync();

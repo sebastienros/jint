@@ -211,3 +211,7 @@ is replaced with the validated target and passed to `IConstructableDocument.AddC
 document. This avoids the tokenizer retaining a leading `?` in a parsed PI target. Neither target nor data
 enters markup. The native node is adopted into the requested document before assigning data. There is no
 substitute node class, reflection, page parse, or loader. The ordinary BMP path keeps the native factory.
+
+### HTML attribute serialization
+
+The native HTML formatter escapes ampersands, nonbreaking spaces and quotes in attribute values, but emits literal angle brackets. [HTML's escaping algorithm](https://html.spec.whatwg.org/multipage/parsing.html#escapingString) also requires `&lt;` and `&gt;` in attribute mode ([#4109](https://github.com/sebastienros/jint/issues/4109)). `DomHtmlMarkupFormatter` overrides the supported attribute formatter hook, preserving native attribute-name serialization and adding only those escapes to its quoted value. Element and shadow-root markup getters, page content and the DOM protocol use that formatter; XML serialization keeps its existing XML formatter. Native traversal, raw text, comments and template content remain native.

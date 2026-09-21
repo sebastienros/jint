@@ -1729,7 +1729,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.innerHTML", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.innerHTML");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.InnerHtml);
+                    return self.Realm.Hooks.GetInnerHtml(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.innerHTML", static (thisObj, args) =>
                 {
@@ -1803,7 +1803,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.outerHTML", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.outerHTML");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.OuterHtml);
+                    return self.Realm.Hooks.GetOuterHtml(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.outerHTML", static (thisObj, args) =>
                 {
@@ -2637,7 +2637,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("ShadowRoot.innerHTML", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IShadowRoot>(thisObj, "ShadowRoot.innerHTML");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.InnerHtml);
+                    return self.Realm.Hooks.GetInnerHtml(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("ShadowRoot.innerHTML", static (thisObj, args) =>
                 {
