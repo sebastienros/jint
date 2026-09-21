@@ -975,13 +975,14 @@ internal class DomHostHooks
         {
             DomTemplateCloning.ClearShallowContent(imported);
         }
-        DomNamespaces.Copy(source, imported);
-
         if (imported is not IAttr && !ReferenceEquals(imported.Owner, document))
         {
             document.Adopt(imported);
         }
 
+        // The source metadata remains available after adopting the detached copy. Repair native PI
+        // data on its destination owner, before file-state reset and custom-element reactions.
+        DomCloneSteps.Copy(source, imported);
         Files.FileTransferRealm.ResetCopiedInputs(imported);
         CustomElements.CustomElementRegistry.Cloned(realm, source, imported);
         return realm.WrapNodeValue(imported);

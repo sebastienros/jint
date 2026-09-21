@@ -75,16 +75,7 @@ internal static class CustomElementCreation
         {
             DomTemplateCloning.ClearShallowContent(clone);
         }
-        DomNamespaces.Copy(node, clone);
-
-        // DOM's clone steps for a ProcessingInstruction are "set copy's target to node's target and copy's
-        // data to node's data". AngleSharp's clone carries the target and drops the data, so
-        // `document.createProcessingInstruction('t', 'd').cloneNode().data` was the empty string; the
-        // divergence register records it.
-        if (node is IProcessingInstruction instruction && clone is IProcessingInstruction copy)
-        {
-            copy.Data = instruction.Data;
-        }
+        DomCloneSteps.Copy(node, clone);
 
         Dom.Files.FileTransferRealm.ResetCopiedInputs(clone);
         CustomElementRegistry.Cloned(realm, node, clone);

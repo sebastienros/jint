@@ -203,8 +203,8 @@ secondary-document and saved-implementation ownership without maintaining anothe
 DOM §4.13's [ProcessingInstruction constructor](https://dom.spec.whatwg.org/#dom-processinginstruction-processinginstruction)
 is absent from AngleSharp's interface metadata. `DomConstructors` projects it using the native document
 factory and the shared DOM exception guard, with one required target and optional data. The required
-constructor arity is supplied beside that constructor table. The attribute-map methods and HTML parser
-integration are separate remaining gaps tracked by [#4098](https://github.com/sebastienros/jint/issues/4098).
+constructor arity is supplied beside that constructor table. The attribute-map methods are described below; HTML parser
+integration remains tracked by [#4098](https://github.com/sebastienros/jint/issues/4098).
 
 The native factory checks XML Name one UTF-16 code unit at a time, rejecting permitted scalar values
 U+10000–U+EFFFF. `DomProcessingInstructions` shares XML Name validation between the constructor and
@@ -218,3 +218,29 @@ substitute node class, reflection, page parse, or loader. The ordinary BMP path 
 ### HTML attribute serialization
 
 The native HTML formatter escapes ampersands, nonbreaking spaces and quotes in attribute values, but emits literal angle brackets. [HTML's escaping algorithm](https://html.spec.whatwg.org/multipage/parsing.html#escapingString) also requires `&lt;` and `&gt;` in attribute mode ([#4109](https://github.com/sebastienros/jint/issues/4109)). `DomHtmlMarkupFormatter` overrides the supported attribute formatter hook, preserving native attribute-name serialization and adding only those escapes to its quoted value. Element and shadow-root markup getters, page content and the DOM protocol use that formatter; XML serialization keeps its existing XML formatter. Native traversal, raw text, comments and template content remain native.
+
+### ProcessingInstruction attributes
+
+[DOM §4.13](https://dom.spec.whatwg.org/#interface-processinginstruction) now defines the seven attribute-map
+operations. `DomProcessingInstructionAttributes` holds an ordered map in a conditional weak table keyed by
+the native PI, not its wrapper or realm. It parses the XML stylesheet pseudo-attribute grammar, writes the
+native `Data` for normal character-data mutation delivery, and invalidates after successful script-visible
+CharacterData writes, including equal-value writes through borrowed base methods. Attribute writes retain
+the map instead of reparsing its serialization: valid DOM attribute names can be invalid XML names.
+
+Clone/import preserve native target/data, and each new identity parses its copied data rather than copying
+the source attribute map. Chromium 153 confirms this separately for XML-valid names (attributes survive)
+and DOM-valid but XML-invalid names such as `$` (the copied data fails parsing, so the map is empty).
+DOM's current clone-single-node prose copies target/data without an explicit attribute initialization step;
+this parsing behavior follows the browser evidence, not an asserted requirement of that omission. The paired
+correction restores native PI data at every descendant, including template contents (#4107). The shared
+range projection also preserves fully contained PI copy data, while partial copies keep native substrings
+and extraction preserves moved identity (#4113).
+
+A per-PI native MutationObserver was rejected: its owner-document registration retains detached targets and
+does not follow adoption. The weak state retains no node, realm, or engine. Changed native data is detected
+on access, but a host mutating a raw native PI to the same data outside the binding cannot be detected;
+this host-boundary limitation is explicit. HTML PI tokenization remains #4098. The four element
+serialization comparisons pass with #4111. Its 17 failing XML-parser rows feed an ill-formed PI-only document
+and assume Chromium preserves the PI before its error tree, contrary to HTML §8.5.1's required empty error
+document followed by a `parsererror` element; those rows assert behavior the specification does not require.

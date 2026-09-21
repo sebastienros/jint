@@ -26,7 +26,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | Suite | Documents | Synthesized | Tests | Not passing |
 | --- | --- | --- | --- | --- |
 | `dom/events/` | 56 | 9 | 548 | 10 |
-| `dom/nodes/` | 168 | 0 | 8,115 | 210 |
+| `dom/nodes/` | 168 | 0 | 8,115 | 110 |
 | `dom/collections/` | 8 | 0 | 43 | 0 |
 | `dom/lists/` | 5 | 0 | 189 | 1 |
 | `dom/traversal/` | 13 | 0 | 52 | 0 |
@@ -42,7 +42,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 51 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 0 |
-| **total** | **392** | **9** | **66,916** | **339** |
+| **total** | **392** | **9** | **66,916** | **239** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -355,7 +355,7 @@ has the upstream half of each, and `Dom/AGENTS.md` says which override list carr
 
 `dom/nodes/`, `dom/collections/`, `dom/lists/`, `dom/traversal/`, `dom/ranges/` and `html/dom/` are the DOM
 standard's own suites and HTML's DOM half — the corpus every other suite in this lane is written on top of.
-Across the six of them there are 226 documents and 65,228 tests, and **231 of those tests do not pass**.
+Across the six of them there are 226 documents and 65,228 tests, and **131 of those tests do not pass**.
 Those three figures are live and checked against the census. They arrived together as 207 documents and
 5,247 tests with 1,532 not passing; those arrival figures are historical and deliberately not re-derived.
 
@@ -370,7 +370,7 @@ table needs to be regenerated.
 
 | Tests | Documents | What it is |
 | ---: | ---: | --- |
-| 137 | 1 | **ProcessingInstruction attributes and parsing are absent.** All rows belong to the PI attribute document; the standardized attribute map and HTML parser support remain tracked by [#4098](https://github.com/sebastienros/jint/issues/4098). <!-- cause: a member of a DOM interface the bindings do not have --> |
+| 37 | 1 | **ProcessingInstruction HTML parsing and XML fixture assertions.** The attribute map and element serialization are implemented; 20 rows need HTML PI parsing and 17 assert preservation of a PI from an ill-formed XML document ([#4098](https://github.com/sebastienros/jint/issues/4098)). <!-- cause: a member of a DOM interface the bindings do not have --> |
 | 33 | 7 | [#3771](https://github.com/sebastienros/jint/issues/3771) **Remaining frame environments.** Sourced frames have their own realms and run classic scripts, and a frame served `application/xhtml+xml` is an XHTML document now — so the 244 rows of `Document-createElement*` this cause used to carry are gone from it, and both files pass whole. What is left really is a frame or a second global: empty iframes still lack a native document, which is what `node-realm-*`, `node-creation-realm` and the connectivity cases wait for, and `TextEvent` is an interface the bindings do not have. <!-- cause: a frame that runs script --> |
 | 16 | 1 | **The Selectors-API table and selector-only element states.** The selector-error contracts are `DomSelectorText`'s now, so what is left is `ParentNode-querySelector-All.html`'s `::slotted` matching difference — and every row is `NeedsTriage`. <!-- cause: the Selectors-API table and selector-only element states --> |
 | 16 | 1 | **AngleSharp.Css refuses an unparseable media query, from inside `Element.setAttribute`.** `<style>` registers an attribute observer that assigns the sheet's `MediaList.mediaText`, whose setter throws where Media Queries §2.1 requires `not all`; the sixteen rows are the values it cannot parse and the member's other thirty tests pass. `Dom/divergences.md` records it. <!-- cause: 8. AngleSharp.Css refuses an unparseable media query --> |
@@ -395,7 +395,7 @@ document that is not an HTML one keeps the name's case. **137 are not about XML 
 `processing-instruction-attributes.html` exercises the attribute surface now specified by
 [DOM §4.13](https://dom.spec.whatwg.org/#interface-processinginstruction), plus HTML processing-instruction
 parsing. Its earlier description as an unstandardized proposal is obsolete. DOM-created and XML-parsed PIs
-already exist, but their attribute map and HTML parser support remain missing ([#4098](https://github.com/sebastienros/jint/issues/4098)). **42 were the name refusals the table already named**, reached three times each; [#3950](https://github.com/sebastienros/jint/issues/3950) made them pass and took the rows out. **The rest are
+already exist and their attribute map is implemented. The attribute-map implementation and element serialization fix removed 100 failures; 20 still need HTML PI parsing. Another 17 assert that an ill-formed PI-only XML document preserves a PI before its error tree, contrary to HTML §8.5.1; these are `AssertsWhatNothingRequires`, not engine debt. **42 were the name refusals the table already named**, reached three times each; [#3950](https://github.com/sebastienros/jint/issues/3950) made them pass and took the rows out. **The rest are
 AngleSharp's**: node equality compares base URLs, a live range is not adjusted across documents, and the
 HTML element factory lower-cases a local name it is handed.
 
