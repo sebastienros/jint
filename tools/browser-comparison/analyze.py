@@ -31,7 +31,7 @@ def sha256(value):
 def identity_valid(identity):
     if not identity.get('VersionLabel') or not identity.get('Executable') or not isinstance(identity.get('Arguments'), list):
         raise ValueError('Incomplete executable identity')
-    if identity.get('DependencyCoverage') != 'installation-and-system-library-trees-except-private-key-directory' or not identity.get('DependencyRoots'):
+    if identity.get('DependencyCoverage') != 'adapter-and-harness-union-installation-and-system-library-trees-except-private-key-directory' or not identity.get('DependencyRoots'):
         raise ValueError('Incomplete runtime dependency coverage')
     if identity.get('DependencyExclusions') != {'/etc/ssl/private': 'private-key-directory; contents intentionally not read'}:
         raise ValueError('Invalid private-key dependency exclusion policy')
@@ -128,6 +128,7 @@ def analyze(root):
     if len(names) != len(set(names)):
         raise ValueError('Duplicate adapter names')
     dependency_identities = {}
+    union = None
     for adapter in [*adapters, dict(name='__harness',kind='jint')]:
         provenance = manifest['dependencyManifests'].get(adapter['name'], {})
         before = None
@@ -142,6 +143,10 @@ def analyze(root):
             if before is not None and before != identity:
                 raise ValueError('Runtime dependencies changed during collection')
             before = identity
+        snapshot = (before['DependencyRoots'], before['FileSha256'], before['DependencyExclusions'])
+        if union is not None and snapshot != union:
+            raise ValueError('Dependency manifests do not share the declared batch union')
+        union = snapshot
         dependency_identities[adapter['name']] = before
         if adapter['kind']=='lightpanda':
             external = manifest['externalIdentity'].get(adapter['name'], {})

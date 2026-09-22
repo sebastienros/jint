@@ -11,42 +11,68 @@ internal sealed record BinaryIdentity(string? VersionLabel, string? Executable,
     internal const string PrivateKeyExclusionReason = "private-key-directory; contents intentionally not read";
 
     internal static async Task<BinaryIdentity> ReadAsync(AdapterOptions options)
+        => (await ReadBatchCoreAsync([options], union: false, includeSystemLibraries: true))[0];
+
+    internal static Task<BinaryIdentity[]> ReadBatchAsync(AdapterOptions[] options)
+        => ReadBatchCoreAsync(options, union: true, includeSystemLibraries: true);
+
+    // Synthetic tests exercise installation unions without scanning the host's system libraries.
+    internal static Task<BinaryIdentity[]> ReadInstallationBatchAsync(AdapterOptions[] options)
+        => ReadBatchCoreAsync(options, union: true, includeSystemLibraries: false);
+
+    private static async Task<BinaryIdentity[]> ReadBatchCoreAsync(AdapterOptions[] options, bool union, bool includeSystemLibraries)
     {
+        if (options.Length == 0 || options.Select(x => x.Name).Distinct(StringComparer.Ordinal).Count() != options.Length)
+            throw new ArgumentException("Identity batch requires nonempty, uniquely named adapters.");
         var roots = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var entry in new[] { options.Executable }.Concat(options.Arguments ?? []).OfType<string>())
+        foreach (var adapter in options)
         {
-            if (OperatingSystem.IsLinux() && Path.IsPathFullyQualified(entry)) RejectExcludedRoot(entry, PrivateKeyDirectory);
-            if (!File.Exists(entry)) continue;
-            if (OperatingSystem.IsLinux()) RejectExcludedRoot(entry, PrivateKeyDirectory);
-            var file = new FileInfo(Path.GetFullPath(entry));
-            var resolved = file.ResolveLinkTarget(true)?.FullName ?? file.FullName;
-            var directory = Path.GetDirectoryName(resolved)!;
-            // A Chromium macOS executable depends on sibling Frameworks, resources and helper apps.
-            var app = directory.IndexOf(".app" + Path.DirectorySeparatorChar, StringComparison.Ordinal);
-            roots.Add(app < 0 ? directory : directory[..(app + 4)]);
+            adapter.Validate();
+            foreach (var entry in new[] { adapter.Executable }.Concat(adapter.Arguments ?? []).OfType<string>())
+            {
+                if (OperatingSystem.IsLinux() && Path.IsPathFullyQualified(entry)) RejectExcludedRoot(entry, PrivateKeyDirectory);
+                if (!File.Exists(entry))
+                {
+                    if (entry == adapter.Executable) throw new FileNotFoundException("Adapter executable is missing.", entry);
+                    continue;
+                }
+                if (OperatingSystem.IsLinux()) RejectExcludedRoot(entry, PrivateKeyDirectory);
+                var resolved = ResolvePath(entry, null);
+                var directory = Path.GetDirectoryName(resolved)!;
+                // A Chromium macOS executable depends on sibling Frameworks, resources and helper apps.
+                var app = directory.IndexOf(".app" + Path.DirectorySeparatorChar, StringComparison.Ordinal);
+                roots.Add(app < 0 ? directory : directory[..(app + 4)]);
+            }
+            foreach (var root in adapter.DependencyRoots ?? [])
+            {
+                if (OperatingSystem.IsLinux()) RejectExcludedRoot(root, PrivateKeyDirectory);
+                roots.Add(ResolvePath(root, null));
+            }
         }
-        foreach (var root in options.DependencyRoots ?? [])
-        {
-            if (OperatingSystem.IsLinux()) RejectExcludedRoot(root, PrivateKeyDirectory);
-            roots.Add(Path.GetFullPath(root));
-        }
-        // Native loaders and libraries can live outside a browser installation. Hash the complete
-        // system library trees, not just ldd's startup subset (dlopen and child helpers matter too).
-        if (OperatingSystem.IsLinux())
+        // Include dlopen candidates and child helpers, not just the startup loader dependency subset.
+        if (includeSystemLibraries && OperatingSystem.IsLinux())
             foreach (var root in new[] { "/lib", "/lib64", "/usr/lib", "/usr/lib64" })
-                if (Directory.Exists(root)) roots.Add(root);
+                if (Directory.Exists(root)) roots.Add(ResolvePath(root, null));
         var hashes = await HashRootsAsync(roots);
-        if (options.Executable is not null)
+        foreach (var adapter in options)
         {
-            await using var executable = File.OpenRead(options.Executable);
-            hashes[options.Executable] = Convert.ToHexString(await SHA256.HashDataAsync(executable));
+            if (adapter.Executable is not null)
+            {
+                // Retain the configured spelling as well as the canonical key without a second read.
+                hashes[adapter.Executable] = hashes[ResolvePath(adapter.Executable, null)];
+            }
         }
-        return new BinaryIdentity(options.VersionLabel, options.Executable, options.Arguments ?? [], hashes,
-            roots.Order(StringComparer.Ordinal).ToArray(), OperatingSystem.IsLinux()
-                ? "installation-and-system-library-trees-except-private-key-directory" : "installation-trees; OS shared runtime is diagnostic-only",
-            OperatingSystem.IsLinux()
-                ? new Dictionary<string, string>(StringComparer.Ordinal) { [PrivateKeyDirectory] = PrivateKeyExclusionReason }
-                : new Dictionary<string, string>(StringComparer.Ordinal));
+        var coverage = includeSystemLibraries && OperatingSystem.IsLinux()
+            ? (union ? "adapter-and-harness-union-installation-and-system-library-trees-except-private-key-directory"
+                     : "installation-and-system-library-trees-except-private-key-directory")
+            : (union ? "installation-union; OS shared runtime is diagnostic-only"
+                     : "installation-trees; OS shared runtime is diagnostic-only");
+        var dependencyRoots = roots.Order(StringComparer.Ordinal).ToArray();
+        IReadOnlyDictionary<string, string> exclusions = OperatingSystem.IsLinux()
+            ? new Dictionary<string, string>(StringComparer.Ordinal) { [PrivateKeyDirectory] = PrivateKeyExclusionReason }
+            : new Dictionary<string, string>(StringComparer.Ordinal);
+        return options.Select(adapter => new BinaryIdentity(adapter.VersionLabel, adapter.Executable,
+            adapter.Arguments ?? [], hashes, dependencyRoots, coverage, exclusions)).ToArray();
     }
     internal static Task<Dictionary<string, string>> HashRootsAsync(IEnumerable<string> roots)
         => HashRootsAsync(roots, OperatingSystem.IsLinux() ? PrivateKeyDirectory : null);

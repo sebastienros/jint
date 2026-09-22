@@ -139,6 +139,48 @@ public sealed class AccountingTests
     }
 
     [Test]
+    public async Task DependencyBatchFreshSnapshotsIncludeEveryAdaptersNativeHelpers()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        directory = BinaryIdentity.ResolvePath(directory, null);
+        try
+        {
+            var first = Path.Combine(directory, "first");
+            var second = Path.Combine(directory, "second");
+            Directory.CreateDirectory(first);
+            Directory.CreateDirectory(second);
+            var executableA = Path.Combine(first, "browser");
+            var executableB = Path.Combine(second, "browser");
+            var helper = Path.Combine(second, "native.so");
+            File.WriteAllText(executableA, "browser A");
+            File.WriteAllText(executableB, "browser B");
+            File.WriteAllText(helper, "native helper");
+            AdapterOptions[] adapters = [new("a", "jint", executableA, VersionLabel: "A"), new("b", "chromium", executableB, VersionLabel: "B")];
+            var before = await BinaryIdentity.ReadInstallationBatchAsync(adapters);
+            Assert.That(before[0].DependencyRoots, Is.EqualTo(before[1].DependencyRoots));
+            Assert.That(before[0].FileSha256, Is.EqualTo(before[1].FileSha256));
+            Assert.That(before[0].FileSha256.ContainsKey(executableB), Is.True);
+            Assert.That(before[1].FileSha256.ContainsKey(executableA), Is.True);
+            Assert.That(before[0].VersionLabel, Is.EqualTo("A"));
+            Assert.That(before[1].VersionLabel, Is.EqualTo("B"));
+            File.WriteAllText(helper, "changed native helper");
+            var after = await BinaryIdentity.ReadInstallationBatchAsync(adapters);
+            foreach (var index in new[] { 0, 1 })
+            {
+                Assert.That(after[index].FileSha256[helper], Is.Not.EqualTo(before[index].FileSha256[helper]));
+                Assert.That(after[index].FileSha256[executableA], Is.EqualTo(before[index].FileSha256[executableA]));
+            }
+            File.Delete(executableB);
+            Assert.ThrowsAsync<ArgumentException>(async () => await BinaryIdentity.ReadInstallationBatchAsync(adapters));
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [Test]
     public async Task DependencyManifestIncludesNativeHelpersAndRuntimeResources()
     {
         var directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));

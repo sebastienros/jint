@@ -81,8 +81,15 @@ for smoke/raw diagnostics and are rejected by the comparison gate.
 | Teardown | Page close, browser close/disconnect, and confirmed owned process-scope exit |
 | Total lifecycle | Continuous launch-through-teardown clock, including observer/boundary overhead |
 
-Complete installation/runtime manifests and workload export happen before the idle checks. Each adapter
-and the harness are hashed again after collection; changed dependencies invalidate the entire run.
+Complete installation/runtime manifests and workload export happen before the idle checks. A single batch
+hashes the union of every configured adapter and harness installation plus system library roots once.
+Each adapter retains its own executable, arguments and version label, with the same conservative superset
+of dependency hashes. Coverage metadata explicitly identifies the batch union; analysis requires identical
+union contents for every adapter and the harness. An independent fresh batch after collection hashes the
+whole union again; there is no cache across phases, and changed dependencies invalidate the entire run.
+The batch setup deadline is 1,800 seconds, bounded separately from measurement: hosted diagnostics showed
+steady progress through 130,796 files / 9.47 GB at 870 seconds before the former 900-second identity limit.
+No measurement-window, idle-check or accounting deadline changes.
 The Linux manifests include complete system library trees to cover native loaders, dynamic libraries,
 child helpers and runtime snapshots, plus configured `dependencyRoots` for additional installations.
 The one declared exclusion is canonical `/etc/ssl/private` and its descendants: this private-key
