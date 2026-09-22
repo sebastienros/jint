@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using System.Security.Cryptography;
+using System.Runtime.ExceptionServices;
+using System.Threading.Channels;
 
 namespace BrowserComparison;
 
@@ -77,48 +79,118 @@ internal sealed record BinaryIdentity(string? VersionLabel, string? Executable,
     internal static Task<Dictionary<string, string>> HashRootsAsync(IEnumerable<string> roots)
         => HashRootsAsync(roots, OperatingSystem.IsLinux() ? PrivateKeyDirectory : null);
 
-    // The boundary parameter is internal for synthetic filesystem tests, never adapter configuration.
-    internal static async Task<Dictionary<string, string>> HashRootsAsync(IEnumerable<string> roots, string? excludedDirectory)
+    // The boundary and hasher seam are internal for synthetic filesystem/concurrency tests only.
+    internal static Task<Dictionary<string, string>> HashRootsAsync(IEnumerable<string> roots, string? excludedDirectory)
+        => HashRootsAsync(roots, excludedDirectory, HashFile);
+
+    internal static async Task<Dictionary<string, string>> HashRootsAsync(IEnumerable<string> roots,
+        string? excludedDirectory, Func<string, (string Hash, long Bytes)> hashFile)
     {
         if (excludedDirectory is not null) excludedDirectory = ResolvePath(excludedDirectory, null);
         await using var progress = new DependencyHashProgress();
-        var hashes = new Dictionary<string, string>(StringComparer.Ordinal);
-        var visited = new HashSet<string>(StringComparer.Ordinal);
-        var pending = new Stack<string>();
-        foreach (var root in roots)
+        using var stop = new CancellationTokenSource();
+        var paths = Channel.CreateBounded<string>(new BoundedChannelOptions(32)
         {
-            if (excludedDirectory is not null) RejectExcludedRoot(root, excludedDirectory);
-            pending.Push(ResolvePath(root, excludedDirectory));
-        }
-        while (pending.TryPop(out var path))
+            SingleWriter = true,
+            FullMode = BoundedChannelFullMode.Wait
+        });
+        ExceptionDispatchInfo? failure = null;
+        void Fail(Exception error)
         {
-            progress.Begin("resolving-next-path", null);
-            // Children are enumerated from canonical parents. Only a link can leave that tree,
-            // so ordinary files do not repeatedly resolve every ancestor in /usr/lib.
-            FileSystemInfo info = Directory.Exists(path) ? new DirectoryInfo(path) : new FileInfo(path);
-            var target = info.ResolveLinkTarget(true);
-            var actual = target is null ? info.FullName : ResolvePath(target.FullName, excludedDirectory);
-            // Check before enumeration/open: private keys are not runtime library dependencies.
-            if (excludedDirectory is not null && IsWithin(actual, excludedDirectory)) continue;
-            if (!visited.Add(actual)) continue;
-            if (Directory.Exists(actual))
+            Interlocked.CompareExchange(ref failure, ExceptionDispatchInfo.Capture(error), null);
+            stop.Cancel();
+        }
+
+        // Only this producer resolves links, applies the boundary, and owns the visited set.
+        // A bounded handoff limits resolved file paths awaiting a worker.
+        async Task ProduceAsync()
+        {
+            try
             {
-                progress.Begin("enumerating", actual);
-                foreach (var child in Directory.EnumerateFileSystemEntries(actual)) pending.Push(child);
+                var visited = new HashSet<string>(StringComparer.Ordinal);
+                var pending = new Stack<string>();
+                foreach (var root in roots)
+                {
+                    if (excludedDirectory is not null) RejectExcludedRoot(root, excludedDirectory);
+                    pending.Push(ResolvePath(root, excludedDirectory));
+                    while (pending.TryPop(out var path))
+                    {
+                        stop.Token.ThrowIfCancellationRequested();
+                        progress.Begin("resolving-next-path", null);
+                        // Canonical parents need no repeated ancestor traversal for ordinary files.
+                        FileSystemInfo info = Directory.Exists(path) ? new DirectoryInfo(path) : new FileInfo(path);
+                        var target = info.ResolveLinkTarget(true);
+                        var actual = target is null ? info.FullName : ResolvePath(target.FullName, excludedDirectory);
+                        if (excludedDirectory is not null && IsWithin(actual, excludedDirectory)) continue;
+                        if (!visited.Add(actual)) continue;
+                        if (Directory.Exists(actual))
+                        {
+                            progress.Begin("enumerating", actual);
+                            foreach (var child in Directory.EnumerateFileSystemEntries(actual)) pending.Push(child);
+                        }
+                        else
+                        {
+                            progress.Begin("waiting-for-hash-worker", actual);
+                            await paths.Writer.WriteAsync(actual, stop.Token);
+                        }
+                    }
+                }
             }
-            else
+            catch (Exception error)
             {
-                progress.Begin("hashing", actual);
-                // Identity collection is serial and outside measurement. Synchronous buffered reads
-                // avoid scheduling an asynchronous read for every small block of a synchronous file.
-                // A missing/unreadable dependency still invalidates provenance.
-                using var file = new FileStream(actual, FileMode.Open, FileAccess.Read, FileShare.Read,
-                    bufferSize: 128 * 1024, FileOptions.SequentialScan);
-                hashes[actual] = Convert.ToHexString(SHA256.HashData(file));
-                progress.Completed(file.Length);
+                Fail(error);
+            }
+            finally
+            {
+                paths.Writer.TryComplete();
             }
         }
-        return hashes;
+
+        // Exactly four workers, outside measurement. Each file is freshly read in each snapshot;
+        // there is no cached hash, metadata shortcut, or best-effort omission on failure.
+        var workers = Enumerable.Range(0, 4).Select(_ => Task.Run(async () =>
+        {
+            var hashes = new Dictionary<string, string>(StringComparer.Ordinal);
+            try
+            {
+                await foreach (var path in paths.Reader.ReadAllAsync(stop.Token))
+                {
+                    stop.Token.ThrowIfCancellationRequested();
+                    progress.BeginHash(path);
+                    try
+                    {
+                        var (hash, bytes) = hashFile(path);
+                        hashes.Add(path, hash);
+                        progress.Completed(bytes);
+                    }
+                    finally
+                    {
+                        progress.EndHash(path);
+                    }
+                }
+            }
+            catch (Exception error)
+            {
+                Fail(error);
+            }
+            return hashes;
+        })).ToArray();
+        await ProduceAsync();
+        var results = await Task.WhenAll(workers);
+        // Join every in-flight reader before surfacing the original failure, including producer
+        // errors while the queue is full. A partial dictionary never becomes a manifest.
+        failure?.Throw();
+        var combined = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var (path, hash) in results.SelectMany(result => result).OrderBy(entry => entry.Key, StringComparer.Ordinal))
+            combined.Add(path, hash);
+        return combined;
+    }
+
+    private static (string Hash, long Bytes) HashFile(string path)
+    {
+        using var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read,
+            bufferSize: 128 * 1024, FileOptions.SequentialScan);
+        return (Convert.ToHexString(SHA256.HashData(file)), file.Length);
     }
 
     // A timer reports even if directory enumeration or a single file read stops making progress.
@@ -130,6 +202,7 @@ internal sealed record BinaryIdentity(string? VersionLabel, string? Executable,
         private readonly Timer _timer;
         private string _operation = "resolving-roots";
         private string? _path;
+        private readonly HashSet<string> _activeHashes = new(StringComparer.Ordinal);
         private long _files;
         private long _bytes;
 
@@ -145,6 +218,16 @@ internal sealed record BinaryIdentity(string? VersionLabel, string? Executable,
                 _operation = operation;
                 _path = path; // Only canonical paths that passed the private-key boundary check.
             }
+        }
+
+        internal void BeginHash(string path)
+        {
+            lock (_gate) _activeHashes.Add(path);
+        }
+
+        internal void EndHash(string path)
+        {
+            lock (_gate) _activeHashes.Remove(path);
         }
 
         internal void Completed(long bytes)
@@ -166,6 +249,7 @@ internal sealed record BinaryIdentity(string? VersionLabel, string? Executable,
                     elapsedSeconds = _elapsed.Elapsed.TotalSeconds,
                     operation = _operation,
                     canonicalPath = _path,
+                    activeHashPaths = _activeHashes.Order(StringComparer.Ordinal).ToArray(),
                     completedFiles = _files,
                     completedFileBytes = _bytes
                 }));

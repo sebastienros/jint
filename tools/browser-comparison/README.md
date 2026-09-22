@@ -89,6 +89,11 @@ union contents for every adapter and the harness. An independent fresh batch aft
 whole union again; there is no cache across phases, and changed dependencies invalidate the entire run.
 The batch setup deadline is 1,800 seconds, bounded separately from measurement: hosted diagnostics showed
 steady progress through 130,796 files / 9.47 GB at 870 seconds before the former 900-second identity limit.
+Canonical traversal remains serial; a bounded queue feeds at most four synchronous hashing workers
+only during setup. This overlaps independent file reads without dropping paths or reusing old hashes.
+Any traversal or worker failure rejects the entire snapshot. Progress records retain active read paths
+as well as completed file/byte totals. This addresses the variable cold-filesystem throughput observed
+in hosted run 35729896926, which reached 140,793 files / 10.55 GB before the same setup deadline.
 No measurement-window, idle-check or accounting deadline changes.
 The Linux manifests include complete system library trees to cover native loaders, dynamic libraries,
 child helpers and runtime snapshots, plus configured `dependencyRoots` for additional installations.
