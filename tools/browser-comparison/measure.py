@@ -101,11 +101,14 @@ def captured_run(command, directory, **kwargs):
     return result
 
 
+HOST_CPU_CATEGORIES = ('user', 'nice', 'system', 'idle', 'iowait', 'irq', 'softirq', 'steal')
+
+
 def host_snapshot():
     first = Path('/proc/stat').read_text().splitlines()[0].split()[1:9]
     values = [int(v) for v in first]
     # guest counters are already included in user/nice and must not be counted twice.
-    return sum(values) - values[3] - values[4]
+    return values
 
 
 def complete_host_idle():
@@ -113,9 +116,19 @@ def complete_host_idle():
     before = time.monotonic()
     time.sleep(2)
     elapsed = time.monotonic() - before
-    load = 100 * (host_snapshot() - start) / os.sysconf('SC_CLK_TCK') / elapsed
+    end = host_snapshot()
+    ticks_per_second = os.sysconf('SC_CLK_TCK')
+    # Preserve the guard's original arithmetic, including steal and excluding idle/iowait.
+    busy_start = sum(start) - start[3] - start[4]
+    busy_end = sum(end) - end[3] - end[4]
+    load = 100 * (busy_end - busy_start) / ticks_per_second / elapsed
+    deltas = dict(zip(HOST_CPU_CATEGORIES, (after - before for before, after in zip(start, end))))
+    contributions = {name: 0 if name in ('idle', 'iowait') else 100 * delta / ticks_per_second / elapsed
+                     for name, delta in deltas.items()}
     return dict(accepted=load <= 40, percentOfOneCore=load, elapsedSeconds=elapsed,
-                source='/proc/stat aggregate busy ticks including protected/exited processes', ceiling=40)
+                source='/proc/stat aggregate busy ticks including protected/exited processes', ceiling=40,
+                startCounters=dict(zip(HOST_CPU_CATEGORIES, start)), endCounters=dict(zip(HOST_CPU_CATEGORIES, end)),
+                tickDeltas=deltas, busyPercentOfOneCoreByCategory=contributions, clockTicksPerSecond=ticks_per_second)
 
 
 def idle(dotnet, assembly, env, directory):
