@@ -12,6 +12,20 @@ import measure
 
 
 class ComparisonTests(unittest.TestCase):
+    def test_private_key_boundary_is_exact_and_required(self):
+        identity = synthetic_identity('jint')
+        analyze.identity_valid(identity)
+        for exclusions in (None, {}, {'/etc/ssl': 'private-key-directory; contents intentionally not read'}):
+            invalid = {**identity, 'DependencyExclusions': exclusions}
+            with self.assertRaisesRegex(ValueError, 'exclusion policy'):
+                analyze.identity_valid(invalid)
+        for path in ('/etc/ssl/private/key', '/usr/lib/ssl/private/key'):
+            invalid = {**identity, 'FileSha256': {**identity['FileSha256'], path: 'a'*64}}
+            with self.assertRaisesRegex(ValueError, 'Private-key'):
+                analyze.identity_valid(invalid)
+        identity['FileSha256']['/etc/ssl/private-other/library.so'] = 'a'*64
+        analyze.identity_valid(identity)
+
     def test_missing_member_diagnostics_do_not_invalidate_kernel_counters(self):
         with tempfile.TemporaryDirectory() as directory:
             scope=Path(directory)
@@ -112,7 +126,8 @@ class ComparisonTests(unittest.TestCase):
 
 def synthetic_identity(name):
     return dict(VersionLabel='synthetic-only',Executable='/fake/'+name,Arguments=['synthetic'],
-                DependencyRoots=['/fake','/usr/lib'],DependencyCoverage='installation-and-system-library-trees',
+                DependencyRoots=['/fake','/usr/lib'],DependencyCoverage='installation-and-system-library-trees-except-private-key-directory',
+                DependencyExclusions={'/etc/ssl/private':'private-key-directory; contents intentionally not read'},
                 FileSha256={'/fake/'+name:'a'*64,'/fake/runtime':'b'*64})
 
 

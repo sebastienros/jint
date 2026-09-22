@@ -143,6 +143,7 @@ public sealed class AccountingTests
     {
         var directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Path.Combine(directory, "Frameworks"));
+        directory = BinaryIdentity.ResolvePath(directory, null);
         try
         {
             var helper = Path.Combine(directory, "Frameworks", "helper-runtime.so");
@@ -158,6 +159,84 @@ public sealed class AccountingTests
         }
         finally
         {
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [Test]
+    [Platform(Exclude = "Win")]
+    public async Task DependencyBoundarySkipsOnlyPrivateKeysAndRetainsExternalNativeLinks()
+    {
+        if (OperatingSystem.IsWindows()) { Assert.Ignore("Requires Unix permissions."); return; }
+        var directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        directory = BinaryIdentity.ResolvePath(directory, null);
+        var library = Path.Combine(directory, "libraries");
+        var secret = Path.Combine(directory, "private");
+        Directory.CreateDirectory(library);
+        Directory.CreateDirectory(secret);
+        var external = Path.Combine(directory, "external.so");
+        var sibling = Path.Combine(directory, "private-other");
+        Directory.CreateDirectory(sibling);
+        File.WriteAllText(external, "native library");
+        File.WriteAllText(Path.Combine(sibling, "helper.so"), "sibling native library");
+        File.WriteAllText(Path.Combine(secret, "key"), "must not read");
+        Directory.CreateSymbolicLink(Path.Combine(library, "secret-alias"), secret);
+        Directory.CreateSymbolicLink(Path.Combine(library, "sibling"), sibling);
+        File.CreateSymbolicLink(Path.Combine(library, "native.so"), external);
+        File.SetUnixFileMode(secret, UnixFileMode.None);
+        try
+        {
+            var before = await BinaryIdentity.HashRootsAsync([library], secret);
+            Assert.That(before, Has.Count.EqualTo(2));
+            Assert.That(before.ContainsKey(Path.Combine(secret, "key")), Is.False);
+            File.WriteAllText(external, "changed native library");
+            var after = await BinaryIdentity.HashRootsAsync([library], secret);
+            Assert.That(after[external], Is.Not.EqualTo(before[external]));
+            Assert.ThrowsAsync<InvalidOperationException>(async () => await BinaryIdentity.HashRootsAsync([secret], secret));
+            Assert.Throws<InvalidOperationException>(() => BinaryIdentity.RejectExcludedRoot(Path.Combine(library, "secret-alias", "key"), secret));
+        }
+        finally
+        {
+            File.SetUnixFileMode(secret, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [Test]
+    [Platform(Exclude = "Win")]
+    public void MissingNativeDependencyOutsidePrivateBoundaryStillFails()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            File.CreateSymbolicLink(Path.Combine(directory, "native.so"), Path.Combine(directory, "missing.so"));
+            Assert.ThrowsAsync<FileNotFoundException>(async () => await BinaryIdentity.HashRootsAsync([directory], Path.Combine(directory, "private")));
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [Test]
+    [Platform(Exclude = "Win")]
+    public void UnreadableNativeDependencyOutsidePrivateBoundaryStillFails()
+    {
+        if (OperatingSystem.IsWindows()) { Assert.Ignore("Requires Unix permissions."); return; }
+        var directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        var native = Path.Combine(directory, "native.so");
+        File.WriteAllText(native, "native library");
+        File.SetUnixFileMode(native, UnixFileMode.None);
+        try
+        {
+            Assert.ThrowsAsync<UnauthorizedAccessException>(async () => await BinaryIdentity.HashRootsAsync([directory], Path.Combine(directory, "private")));
+        }
+        finally
+        {
+            File.SetUnixFileMode(native, UnixFileMode.UserRead | UnixFileMode.UserWrite);
             Directory.Delete(directory, true);
         }
     }

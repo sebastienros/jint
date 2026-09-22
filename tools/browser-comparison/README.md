@@ -85,7 +85,13 @@ Complete installation/runtime manifests and workload export happen before the id
 and the harness are hashed again after collection; changed dependencies invalidate the entire run.
 The Linux manifests include complete system library trees to cover native loaders, dynamic libraries,
 child helpers and runtime snapshots, plus configured `dependencyRoots` for additional installations.
-Symlinks are resolved and missing/unreadable files fail visibly; dynamic-loader overrides are rejected.
+The one declared exclusion is canonical `/etc/ssl/private` and its descendants: this private-key
+store is reached by Ubuntu's `/usr/lib/ssl/private` directory link, but is not a library installation.
+Its contents are never enumerated or opened. The manifest records the exact boundary and reason,
+and analysis rejects absent or broadened exclusion metadata. Explicit executables, file arguments or
+configured dependency roots within that boundary are refused. Native helpers and external library
+symlinks remain covered, and every other missing/unreadable file still fails visibly.
+Symlinks are resolved before checking the boundary; dynamic-loader overrides are rejected.
 On macOS, application bundles are hashed but the OS shared runtime remains diagnostic-only.
 Binary hashing never runs between an accepted idle check and its browser launch. Stage sums can differ from the continuous total
 because scope snapshots and observer shutdown are explicit overhead. Cold results are not a whole-application

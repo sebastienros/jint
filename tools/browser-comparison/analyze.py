@@ -31,9 +31,14 @@ def sha256(value):
 def identity_valid(identity):
     if not identity.get('VersionLabel') or not identity.get('Executable') or not isinstance(identity.get('Arguments'), list):
         raise ValueError('Incomplete executable identity')
-    if identity.get('DependencyCoverage') != 'installation-and-system-library-trees' or not identity.get('DependencyRoots'):
+    if identity.get('DependencyCoverage') != 'installation-and-system-library-trees-except-private-key-directory' or not identity.get('DependencyRoots'):
         raise ValueError('Incomplete runtime dependency coverage')
+    if identity.get('DependencyExclusions') != {'/etc/ssl/private': 'private-key-directory; contents intentionally not read'}:
+        raise ValueError('Invalid private-key dependency exclusion policy')
     hashes = identity.get('FileSha256', {})
+    for path in [identity['Executable'], *identity['Arguments'], *identity['DependencyRoots'], *hashes]:
+        if any(path == boundary or path.startswith(boundary + '/') for boundary in ('/etc/ssl/private', '/usr/lib/ssl/private')):
+            raise ValueError('Private-key directory entered dependency provenance')
     if identity['Executable'] not in hashes or len(hashes) < 2 or not all(sha256(v) for v in hashes.values()):
         raise ValueError('Incomplete executable/runtime hashes')
 

@@ -4,14 +4,20 @@ using System.Security.Cryptography;
 namespace BrowserComparison;
 
 internal sealed record BinaryIdentity(string? VersionLabel, string? Executable,
-    string[] Arguments, IReadOnlyDictionary<string, string> FileSha256, string[] DependencyRoots, string DependencyCoverage)
+    string[] Arguments, IReadOnlyDictionary<string, string> FileSha256, string[] DependencyRoots, string DependencyCoverage,
+    IReadOnlyDictionary<string, string> DependencyExclusions)
 {
+    internal const string PrivateKeyDirectory = "/etc/ssl/private";
+    internal const string PrivateKeyExclusionReason = "private-key-directory; contents intentionally not read";
+
     internal static async Task<BinaryIdentity> ReadAsync(AdapterOptions options)
     {
         var roots = new HashSet<string>(StringComparer.Ordinal);
         foreach (var entry in new[] { options.Executable }.Concat(options.Arguments ?? []).OfType<string>())
         {
+            if (OperatingSystem.IsLinux() && Path.IsPathFullyQualified(entry)) RejectExcludedRoot(entry, PrivateKeyDirectory);
             if (!File.Exists(entry)) continue;
+            if (OperatingSystem.IsLinux()) RejectExcludedRoot(entry, PrivateKeyDirectory);
             var file = new FileInfo(Path.GetFullPath(entry));
             var resolved = file.ResolveLinkTarget(true)?.FullName ?? file.FullName;
             var directory = Path.GetDirectoryName(resolved)!;
@@ -19,7 +25,11 @@ internal sealed record BinaryIdentity(string? VersionLabel, string? Executable,
             var app = directory.IndexOf(".app" + Path.DirectorySeparatorChar, StringComparison.Ordinal);
             roots.Add(app < 0 ? directory : directory[..(app + 4)]);
         }
-        foreach (var root in options.DependencyRoots ?? []) roots.Add(Path.GetFullPath(root));
+        foreach (var root in options.DependencyRoots ?? [])
+        {
+            if (OperatingSystem.IsLinux()) RejectExcludedRoot(root, PrivateKeyDirectory);
+            roots.Add(Path.GetFullPath(root));
+        }
         // Native loaders and libraries can live outside a browser installation. Hash the complete
         // system library trees, not just ldd's startup subset (dlopen and child helpers matter too).
         if (OperatingSystem.IsLinux())
@@ -33,17 +43,35 @@ internal sealed record BinaryIdentity(string? VersionLabel, string? Executable,
         }
         return new BinaryIdentity(options.VersionLabel, options.Executable, options.Arguments ?? [], hashes,
             roots.Order(StringComparer.Ordinal).ToArray(), OperatingSystem.IsLinux()
-                ? "installation-and-system-library-trees" : "installation-trees; OS shared runtime is diagnostic-only");
+                ? "installation-and-system-library-trees-except-private-key-directory" : "installation-trees; OS shared runtime is diagnostic-only",
+            OperatingSystem.IsLinux()
+                ? new Dictionary<string, string>(StringComparer.Ordinal) { [PrivateKeyDirectory] = PrivateKeyExclusionReason }
+                : new Dictionary<string, string>(StringComparer.Ordinal));
     }
-    internal static async Task<Dictionary<string, string>> HashRootsAsync(IEnumerable<string> roots)
+    internal static Task<Dictionary<string, string>> HashRootsAsync(IEnumerable<string> roots)
+        => HashRootsAsync(roots, OperatingSystem.IsLinux() ? PrivateKeyDirectory : null);
+
+    // The boundary parameter is internal for synthetic filesystem tests, never adapter configuration.
+    internal static async Task<Dictionary<string, string>> HashRootsAsync(IEnumerable<string> roots, string? excludedDirectory)
     {
+        if (excludedDirectory is not null) excludedDirectory = ResolvePath(excludedDirectory, null);
         var hashes = new Dictionary<string, string>(StringComparer.Ordinal);
         var visited = new HashSet<string>(StringComparer.Ordinal);
-        var pending = new Stack<string>(roots);
+        var pending = new Stack<string>();
+        foreach (var root in roots)
+        {
+            if (excludedDirectory is not null) RejectExcludedRoot(root, excludedDirectory);
+            pending.Push(ResolvePath(root, excludedDirectory));
+        }
         while (pending.TryPop(out var path))
         {
+            // Children are enumerated from canonical parents. Only a link can leave that tree,
+            // so ordinary files do not repeatedly resolve every ancestor in /usr/lib.
             FileSystemInfo info = Directory.Exists(path) ? new DirectoryInfo(path) : new FileInfo(path);
-            var actual = info.ResolveLinkTarget(true)?.FullName ?? info.FullName;
+            var target = info.ResolveLinkTarget(true);
+            var actual = target is null ? info.FullName : ResolvePath(target.FullName, excludedDirectory);
+            // Check before enumeration/open: private keys are not runtime library dependencies.
+            if (excludedDirectory is not null && IsWithin(actual, excludedDirectory)) continue;
             if (!visited.Add(actual)) continue;
             if (Directory.Exists(actual))
             {
@@ -56,6 +84,32 @@ internal sealed record BinaryIdentity(string? VersionLabel, string? Executable,
             }
         }
         return hashes;
+    }
+
+    internal static void RejectExcludedRoot(string path, string excludedDirectory)
+    {
+        excludedDirectory = ResolvePath(excludedDirectory, null);
+        if (IsWithin(ResolvePath(path, excludedDirectory), excludedDirectory))
+            throw new InvalidOperationException("An explicit dependency cannot enter the excluded private-key directory.");
+    }
+
+    private static bool IsWithin(string path, string directory)
+        => path.Equals(directory, StringComparison.Ordinal)
+           || path.StartsWith(directory + Path.DirectorySeparatorChar, StringComparison.Ordinal);
+
+    internal static string ResolvePath(string path, string? excludedDirectory)
+    {
+        // Resolve parent links too: an explicitly configured file can live below a directory alias.
+        var full = Path.GetFullPath(path);
+        var current = Path.GetPathRoot(full)!;
+        foreach (var component in full[current.Length..].Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries))
+        {
+            current = Path.Combine(current, component);
+            FileSystemInfo info = Directory.Exists(current) ? new DirectoryInfo(current) : new FileInfo(current);
+            current = info.LinkTarget is null ? info.FullName : info.ResolveLinkTarget(true)!.FullName;
+            if (excludedDirectory is not null && IsWithin(current, excludedDirectory)) return current;
+        }
+        return current;
     }
 
 }
