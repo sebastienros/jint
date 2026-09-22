@@ -83,8 +83,12 @@ internal sealed record BinaryIdentity(string? VersionLabel, string? Executable,
             else
             {
                 progress.Begin("hashing", actual);
-                await using var file = File.OpenRead(actual); // A missing/unreadable dependency invalidates provenance.
-                hashes[actual] = Convert.ToHexString(await SHA256.HashDataAsync(file));
+                // Identity collection is serial and outside measurement. Synchronous buffered reads
+                // avoid scheduling an asynchronous read for every small block of a synchronous file.
+                // A missing/unreadable dependency still invalidates provenance.
+                using var file = new FileStream(actual, FileMode.Open, FileAccess.Read, FileShare.Read,
+                    bufferSize: 128 * 1024, FileOptions.SequentialScan);
+                hashes[actual] = Convert.ToHexString(SHA256.HashData(file));
                 progress.Completed(file.Length);
             }
         }
