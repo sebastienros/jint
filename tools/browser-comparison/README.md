@@ -214,6 +214,10 @@ The optional `browser_pins` JSON dispatch input replaces the reviewed pins in fu
 must have a versioned official linux64 ZIP URL, exact version and independently reviewed archive SHA256.
 Lightpanda must have an official release asset API URL, matching asset ID and SHA256 of the executable.
 The checked-in pins were resolved before measurement; a mutable nightly alias is never sufficient.
+The default Lightpanda asset is the Linux x86_64 binary from
+[stable release 0.4.1](https://github.com/lightpanda-io/browser/releases/tag/0.4.1).
+The earlier pinned nightly asset was removed upstream before calibration; changing the pin requires
+fresh correctness verification, and its results must not be mixed with the earlier binary's evidence.
 `setup_hosted.py` verifies downloaded bytes **before execution**, preserves download/executable hashes,
 records actual version output, and creates the collector configuration outside the clean checkout.
 No Lightpanda source is accessed. A removed asset or digest mismatch fails without resolving a replacement.
