@@ -1,8 +1,9 @@
 # DOM binding comparison spike
 
 This is the reproducible harness for [#3575 D0.3](https://github.com/sebastienros/jint/issues/3575),
-tracked by [#3898](https://github.com/sebastienros/jint/issues/3898). It contains no performance results.
-An idle-machine paired run and an evidence-based conclusion are still needed to complete D0.3.
+tracked by [#3898](https://github.com/sebastienros/jint/issues/3898). D0.3 now has
+[two independently reproduced hosted runs, a scoped conclusion, and complete durable evidence](../../docs/benchmarks/binding-comparison-2026-09/README.md).
+The conclusion applies to these two embedding paths, not production generated bindings or a causal shape-only speedup.
 
 Two **separate executables** use the same offline AngleSharp DOM and the same prepared JavaScript:
 
@@ -59,7 +60,7 @@ dotnet run -c Release --project Jint.Benchmark/BindingComparison/Baseline -- --l
 dotnet run -c Release --project Jint.Benchmark/BindingComparison/Candidate -- --list flat
 ```
 
-## Collect measurements later
+## Collect additional measurements
 
 Read [the benchmark instructions](../AGENTS.md) before measuring. On an otherwise idle machine:
 
@@ -98,8 +99,9 @@ python3 Jint.Benchmark/BindingComparison/analyze.py \
 ```
 
 Hosted results describe this virtualized environment. A guest idle verdict does not prove the physical
-host is uncontended. Before completing D0.3, inspect the controls and require reproducible conclusions
-across complete independent hosted runs; retain inconclusive and rejected runs alongside successful ones.
+host is uncontended. The [completed D0.3 report](../../docs/benchmarks/binding-comparison-2026-09/README.md)
+inspects the controls and reproduces its scoped conclusions across two complete independent hosted runs.
+For subsequent comparisons, retain inconclusive and rejected runs alongside successful ones.
 Do not generalize the result to dedicated hardware or claim that calibration removes unobserved host noise.
 
 **Cold** includes DOM parsing, engine and binding setup, first prepared-script execution and disposal on
