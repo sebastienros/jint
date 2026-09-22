@@ -256,3 +256,16 @@ fresh inventory must contain no dangling links. Unknown defects fail before muta
 before binary manifests or measurements; it neither skips library hashes nor changes the collector.
 `library-preflight/` retains link inventories, package versions, apt logs and the terminal repair verdict.
 The workflow's `inspect` phase (or the helper's `--inspect`) records evidence without any package mutation.
+
+### Hosted idle-category audit (diagnostics only)
+
+The `idle-audit` workflow phase samples the unchanged two-second aggregate `/proc/stat` guard
+continuously for 30 minutes on a fresh hosted VM. It skips .NET setup, library repair, browser downloads,
+AppArmor setup, builds, calibration and comparison. Every flushed JSONL observation retains the eight
+raw start/end counters, category tick deltas, and each category's contribution to percent of one core.
+Guest counters are already included in user/nice; idle and iowait contribute zero, while steal remains busy.
+The existing 40% acceptance boundary and elapsed-time arithmetic are unchanged.
+
+The always-uploaded artifact includes all observations and a diagnostics-only summary of refusals and
+category totals/maxima. An accepted observation or completed audit does not accept any benchmark,
+calibrate a noise floor, or establish physical-host isolation. Failures retain observations already written.

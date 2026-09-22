@@ -3,9 +3,9 @@ on:
   workflow_dispatch:
     inputs:
       phase:
-        description: Verification, Jint A/A calibration, or calibration followed by comparison
+        description: Verification, calibration/comparison, or a diagnostics-only 30-minute idle audit
         type: choice
-        options: [inspect, verify, calibrate, compare]
+        options: [inspect, idle-audit, verify, calibrate, compare]
         default: verify
       browser_pins:
         description: Optional JSON replacing hosted-pins.json (chromium URL/hash/version; lightpanda URL/hash/asset ID)
@@ -32,6 +32,7 @@ jobs:
         with:
           persist-credentials: false
       - uses: actions/setup-dotnet@v6
+        if: inputs.phase != 'idle-audit'
         with:
           dotnet-version: '10.0'
       - name: Preserve runner and dispatch provenance
@@ -47,19 +48,23 @@ jobs:
           fi
           uname -a > "$OUTPUT/uname.txt"
           lscpu > "$OUTPUT/lscpu.txt"
-          dotnet --info > "$OUTPUT/dotnet-info.txt"
+          if [[ "$PHASE" != idle-audit ]]; then dotnet --info > "$OUTPUT/dotnet-info.txt"; fi
           systemd --version > "$OUTPUT/systemd-version.txt"
           printf '%s\n' "run=$GITHUB_RUN_ID attempt=$GITHUB_RUN_ATTEMPT sha=$GITHUB_SHA phase=$PHASE" "image=$ImageOS version=$ImageVersion" > "$OUTPUT/runner.txt"
+      - name: Audit unchanged aggregate idle guard for 30 minutes (diagnostics only)
+        if: inputs.phase == 'idle-audit'
+        run: python3 tools/browser-comparison/idle_audit.py --output "$OUTPUT/idle-audit"
       - name: Inspect or repair the bounded hosted LLDB library defect
+        if: inputs.phase != 'idle-audit'
         run: |
           args=()
           if [[ "$PHASE" == inspect ]]; then args+=(--inspect); fi
           python3 tools/browser-comparison/repair_hosted_libraries.py --output "$OUTPUT/library-preflight" "${args[@]}"
       - name: Install and verify exact browser assets before collection
-        if: inputs.phase != 'inspect'
+        if: inputs.phase != 'inspect' && inputs.phase != 'idle-audit'
         run: python3 tools/browser-comparison/setup_hosted.py --pins "$OUTPUT/pins.json" --output "$OUTPUT/setup" --apparmor-profile-name "$APPARMOR_PROFILE"
       - name: Allow user namespaces for only this downloaded Chromium executable
-        if: inputs.phase != 'inspect'
+        if: inputs.phase != 'inspect' && inputs.phase != 'idle-audit'
         run: |
           profile="/etc/apparmor.d/$APPARMOR_PROFILE"
           test ! -e "$profile"
@@ -68,7 +73,7 @@ jobs:
           sudo apparmor_parser --add "$profile" 2>&1 | tee "$OUTPUT/apparmor-load.log"
           printf 'loaded=%s\n' "$APPARMOR_PROFILE" > "$OUTPUT/apparmor-loaded.txt"
       - name: Build Jint in Release before collection
-        if: inputs.phase != 'inspect'
+        if: inputs.phase != 'inspect' && inputs.phase != 'idle-audit'
         run: dotnet build Jint.Browser.Tool/Jint.Browser.Tool.csproj -c Release -f net10.0 | tee "$OUTPUT/jint-build.log"
       - name: Verify offline browser workloads
         if: inputs.phase == 'verify'
@@ -88,7 +93,7 @@ jobs:
         if: always() && (inputs.phase == 'calibrate' || inputs.phase == 'compare')
         run: sudo systemctl stop "jint-comparison-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT.service" || true
       - name: Remove only this run's Chromium AppArmor profile
-        if: always() && inputs.phase != 'inspect'
+        if: always() && inputs.phase != 'inspect' && inputs.phase != 'idle-audit'
         run: |
           if [[ -f "$OUTPUT/apparmor-owned-profile.txt" ]]; then
             profile="/etc/apparmor.d/$APPARMOR_PROFILE"
