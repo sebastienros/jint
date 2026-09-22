@@ -55,6 +55,7 @@ internal sealed record BinaryIdentity(string? VersionLabel, string? Executable,
     internal static async Task<Dictionary<string, string>> HashRootsAsync(IEnumerable<string> roots, string? excludedDirectory)
     {
         if (excludedDirectory is not null) excludedDirectory = ResolvePath(excludedDirectory, null);
+        await using var progress = new DependencyHashProgress();
         var hashes = new Dictionary<string, string>(StringComparer.Ordinal);
         var visited = new HashSet<string>(StringComparer.Ordinal);
         var pending = new Stack<string>();
@@ -65,6 +66,7 @@ internal sealed record BinaryIdentity(string? VersionLabel, string? Executable,
         }
         while (pending.TryPop(out var path))
         {
+            progress.Begin("resolving-next-path", null);
             // Children are enumerated from canonical parents. Only a link can leave that tree,
             // so ordinary files do not repeatedly resolve every ancestor in /usr/lib.
             FileSystemInfo info = Directory.Exists(path) ? new DirectoryInfo(path) : new FileInfo(path);
@@ -75,15 +77,72 @@ internal sealed record BinaryIdentity(string? VersionLabel, string? Executable,
             if (!visited.Add(actual)) continue;
             if (Directory.Exists(actual))
             {
+                progress.Begin("enumerating", actual);
                 foreach (var child in Directory.EnumerateFileSystemEntries(actual)) pending.Push(child);
             }
             else
             {
+                progress.Begin("hashing", actual);
                 await using var file = File.OpenRead(actual); // A missing/unreadable dependency invalidates provenance.
                 hashes[actual] = Convert.ToHexString(await SHA256.HashDataAsync(file));
+                progress.Completed(file.Length);
             }
         }
         return hashes;
+    }
+
+    // A timer reports even if directory enumeration or a single file read stops making progress.
+    // This runs only during identity collection, outside accepted measurement windows.
+    private sealed class DependencyHashProgress : IAsyncDisposable
+    {
+        private readonly object _gate = new();
+        private readonly Stopwatch _elapsed = Stopwatch.StartNew();
+        private readonly Timer _timer;
+        private string _operation = "resolving-roots";
+        private string? _path;
+        private long _files;
+        private long _bytes;
+
+        internal DependencyHashProgress()
+        {
+            _timer = new Timer(_ => Report(), null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
+        }
+
+        internal void Begin(string operation, string? path)
+        {
+            lock (_gate)
+            {
+                _operation = operation;
+                _path = path; // Only canonical paths that passed the private-key boundary check.
+            }
+        }
+
+        internal void Completed(long bytes)
+        {
+            lock (_gate)
+            {
+                _files++;
+                _bytes += bytes;
+            }
+        }
+
+        private void Report()
+        {
+            lock (_gate)
+            {
+                // JSON quoting keeps unusual filenames from becoming extra diagnostic lines.
+                Console.Error.WriteLine("Dependency hashing progress: " + System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    elapsedSeconds = _elapsed.Elapsed.TotalSeconds,
+                    operation = _operation,
+                    canonicalPath = _path,
+                    completedFiles = _files,
+                    completedFileBytes = _bytes
+                }));
+            }
+        }
+
+        public ValueTask DisposeAsync() => _timer.DisposeAsync();
     }
 
     internal static void RejectExcludedRoot(string path, string excludedDirectory)
