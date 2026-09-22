@@ -211,6 +211,14 @@ The checked-in pins were resolved before measurement; a mutable nightly alias is
 records actual version output, and creates the collector configuration outside the clean checkout.
 No Lightpanda source is accessed. A removed asset or digest mismatch fails without resolving a replacement.
 
+Ubuntu's user-namespace restriction needs a scoped allowance for downloaded Chrome. The workflow uses
+[Chromium's documented AppArmor option 2](https://chromium.googlesource.com/chromium/src/+/main/docs/security/apparmor-userns-restrictions.md),
+with an exact canonical executable path instead of a glob. A run/attempt-specific root-owned profile
+allows `userns` for that executable; the path alphabet rejects AppArmor patterns and variables.
+Chrome's sandbox stays enabled, no global sysctl is changed, and no unrelated profile is reloaded.
+The generated policy, its hash, and load/removal logs remain in the artifact. Cleanup removes only the
+profile installed by this run, after stopping its measurement service. No AppArmor setup runs locally.
+
 Only the measurement invocation runs in a transient systemd unit. Administrative creation delegates CPU and
 memory controllers to that unit; `DelegateSubgroup=controller` keeps the unprivileged collector out of the
 empty parent. `run_hosted.sh` enables controllers only in its own delegation and creates the empty measurement

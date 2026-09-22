@@ -39,6 +39,7 @@ jobs:
           OUTPUT="$RUNNER_TEMP/browser-comparison"
           printf 'OUTPUT=%s\n' "$OUTPUT" >> "$GITHUB_ENV"
           mkdir -p "$OUTPUT"
+          printf 'APPARMOR_PROFILE=jint-chromium-%s-%s\n' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" >> "$GITHUB_ENV"
           if [[ -n "$BROWSER_PINS" ]]; then
             printf '%s\n' "$BROWSER_PINS" > "$OUTPUT/pins.json"
           else
@@ -56,7 +57,16 @@ jobs:
           python3 tools/browser-comparison/repair_hosted_libraries.py --output "$OUTPUT/library-preflight" "${args[@]}"
       - name: Install and verify exact browser assets before collection
         if: inputs.phase != 'inspect'
-        run: python3 tools/browser-comparison/setup_hosted.py --pins "$OUTPUT/pins.json" --output "$OUTPUT/setup"
+        run: python3 tools/browser-comparison/setup_hosted.py --pins "$OUTPUT/pins.json" --output "$OUTPUT/setup" --apparmor-profile-name "$APPARMOR_PROFILE"
+      - name: Allow user namespaces for only this downloaded Chromium executable
+        if: inputs.phase != 'inspect'
+        run: |
+          profile="/etc/apparmor.d/$APPARMOR_PROFILE"
+          test ! -e "$profile"
+          sudo install -o root -g root -m 0644 "$OUTPUT/setup/chromium-userns.profile" "$profile"
+          printf '%s\n' "$profile" > "$OUTPUT/apparmor-owned-profile.txt"
+          sudo apparmor_parser --add "$profile" 2>&1 | tee "$OUTPUT/apparmor-load.log"
+          printf 'loaded=%s\n' "$APPARMOR_PROFILE" > "$OUTPUT/apparmor-loaded.txt"
       - name: Build Jint in Release before collection
         if: inputs.phase != 'inspect'
         run: dotnet build Jint.Browser.Tool/Jint.Browser.Tool.csproj -c Release -f net10.0 | tee "$OUTPUT/jint-build.log"
@@ -77,6 +87,19 @@ jobs:
       - name: Stop only this run's owned service
         if: always() && (inputs.phase == 'calibrate' || inputs.phase == 'compare')
         run: sudo systemctl stop "jint-comparison-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT.service" || true
+      - name: Remove only this run's Chromium AppArmor profile
+        if: always() && inputs.phase != 'inspect'
+        run: |
+          if [[ -f "$OUTPUT/apparmor-owned-profile.txt" ]]; then
+            profile="/etc/apparmor.d/$APPARMOR_PROFILE"
+            test "$(cat "$OUTPUT/apparmor-owned-profile.txt")" = "$profile"
+            status=0
+            # Redirect to the runner-owned artifact, not a privileged policy file.
+            # shellcheck disable=SC2024
+            sudo apparmor_parser --remove "$profile" > "$OUTPUT/apparmor-remove.log" 2>&1 || status=$?
+            sudo rm -- "$profile"
+            exit "$status"
+          fi
       - name: Preserve complete or refused evidence
         if: always()
         uses: actions/upload-artifact@v7

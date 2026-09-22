@@ -66,10 +66,23 @@ def extract_chrome(archive, destination):
                 (destination / item.filename).chmod(0o755 if item.external_attr >> 16 & 0o111 else 0o644)
 
 
+def chromium_userns_profile(executable, name):
+    """Render Chromium's documented userns exception for one exact executable, never a glob."""
+    if not re.fullmatch(r'jint-chromium-[0-9]+-[0-9]+', name):
+        raise ValueError('AppArmor profile must have this run and attempt identity')
+    path = str(executable.resolve(strict=True))
+    # Quoting alone does not disable AppArmor glob/variable expansion. Restrict the path alphabet.
+    if not executable.is_file() or not re.fullmatch(r'/[A-Za-z0-9_./-]+', path):
+        raise ValueError('AppArmor attachment requires an exact safe executable path without patterns')
+    return (f'abi <abi/4.0>,\ninclude <tunables/global>\n\n'
+            f'profile {name} "{path}" flags=(unconfined) {{\n  userns,\n}}\n')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--pins', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--apparmor-profile-name')
     args = parser.parse_args()
     pins = json.loads(args.pins.read_text())
     validate_pins(pins)
@@ -100,6 +113,14 @@ def main():
             {'name': 'chromium', 'kind': 'chromium', 'executable': str(chrome), 'versionLabel': record['assets']['chromium']['versionOutput']},
             {'name': 'lightpanda', 'kind': 'lightpanda', 'executable': str(lightpanda), 'versionLabel': record['assets']['lightpanda']['versionOutput'], 'releaseAsset': {key: pins['lightpanda'][key] for key in ('id', 'url', 'sha256')}}]}
         (output / 'config.json').write_text(json.dumps(config, indent=2) + '\n')
+        if args.apparmor_profile_name:
+            policy = chromium_userns_profile(chrome, args.apparmor_profile_name)
+            policy_path = output / 'chromium-userns.profile'
+            policy_path.write_text(policy)
+            record['apparmor'] = {'profileName': args.apparmor_profile_name,
+                                  'executable': str(chrome.resolve(strict=True)),
+                                  'policySha256': sha256(policy_path),
+                                  'scope': 'exact executable userns allowance; browser sandbox remains enabled'}
         record['complete'] = True
     finally:
         manifest.write_text(json.dumps(record, indent=2) + '\n')
