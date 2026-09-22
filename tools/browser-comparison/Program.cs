@@ -41,6 +41,17 @@ internal static class Program
                 }
                 return 0;
             }
+            if (args is ["--identities", var batchConfig, var batchOutput])
+            {
+                var adapters = JsonSerializer.Deserialize<AdapterOptions[]>(await File.ReadAllTextAsync(batchConfig), Json)
+                    ?? throw new ArgumentException("Empty identity batch.");
+                if (Directory.Exists(batchOutput)) throw new ArgumentException("Identity output directory must be new.");
+                var identities = await BinaryIdentity.ReadBatchAsync(adapters);
+                Directory.CreateDirectory(batchOutput);
+                for (var i = 0; i < identities.Length; i++)
+                    await File.WriteAllTextAsync(Path.Combine(batchOutput, $"{i}.json"), JsonSerializer.Serialize(identities[i], Json));
+                return 0;
+            }
             if (args is ["--identity", var identityConfig])
             {
                 var identityOptions = JsonSerializer.Deserialize<AdapterOptions>(await File.ReadAllTextAsync(identityConfig), Json)!;

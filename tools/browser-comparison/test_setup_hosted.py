@@ -13,6 +13,29 @@ class HostedSetupTests(unittest.TestCase):
     def setUp(self):
         self.pins = json.loads(Path(__file__).with_name('hosted-pins.json').read_text())
 
+    def test_userns_profile_attaches_only_to_exact_executable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            executable = Path(directory) / 'chrome'
+            executable.write_text('verified elsewhere')
+            policy = setup_hosted.chromium_userns_profile(executable, 'jint-chromium-123-2')
+            self.assertEqual(policy, 'abi <abi/4.0>,\ninclude <tunables/global>\n\n'
+                             f'profile jint-chromium-123-2 "{executable.resolve()}" flags=(unconfined) {{\n  userns,\n}}\n')
+
+    def test_userns_profile_rejects_patterns_and_policy_injection(self):
+        with tempfile.TemporaryDirectory() as directory:
+            for name in ('chrome*', 'chrome?', 'chrome[ab]', 'chrome{a,b}', 'chrome@{HOME}', 'chrome"', 'chrome\nrule'):
+                executable = Path(directory) / name
+                executable.write_text('not executed')
+                with self.assertRaises(ValueError):
+                    setup_hosted.chromium_userns_profile(executable, 'jint-chromium-123-2')
+            executable = Path(directory) / 'chrome'
+            executable.write_text('not executed')
+            for name in ('chrome', 'jint-chromium-123-*', 'jint-chromium-123-2\nuserns,'):
+                with self.assertRaises(ValueError):
+                    setup_hosted.chromium_userns_profile(executable, name)
+            with self.assertRaises(ValueError):
+                setup_hosted.chromium_userns_profile(Path(directory), 'jint-chromium-123-2')
+
     def test_reviewed_official_pins_are_valid(self):
         setup_hosted.validate_pins(self.pins)
 

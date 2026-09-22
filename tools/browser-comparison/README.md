@@ -81,11 +81,24 @@ for smoke/raw diagnostics and are rejected by the comparison gate.
 | Teardown | Page close, browser close/disconnect, and confirmed owned process-scope exit |
 | Total lifecycle | Continuous launch-through-teardown clock, including observer/boundary overhead |
 
-Complete installation/runtime manifests and workload export happen before the idle checks. Each adapter
-and the harness are hashed again after collection; changed dependencies invalidate the entire run.
+Complete installation/runtime manifests and workload export happen before the idle checks. A single batch
+hashes the union of every configured adapter and harness installation plus system library roots once.
+Each adapter retains its own executable, arguments and version label, with the same conservative superset
+of dependency hashes. Coverage metadata explicitly identifies the batch union; analysis requires identical
+union contents for every adapter and the harness. An independent fresh batch after collection hashes the
+whole union again; there is no cache across phases, and changed dependencies invalidate the entire run.
+The batch setup deadline is 1,800 seconds, bounded separately from measurement: hosted diagnostics showed
+steady progress through 130,796 files / 9.47 GB at 870 seconds before the former 900-second identity limit.
+No measurement-window, idle-check or accounting deadline changes.
 The Linux manifests include complete system library trees to cover native loaders, dynamic libraries,
 child helpers and runtime snapshots, plus configured `dependencyRoots` for additional installations.
-Symlinks are resolved and missing/unreadable files fail visibly; dynamic-loader overrides are rejected.
+The one declared exclusion is canonical `/etc/ssl/private` and its descendants: this private-key
+store is reached by Ubuntu's `/usr/lib/ssl/private` directory link, but is not a library installation.
+Its contents are never enumerated or opened. The manifest records the exact boundary and reason,
+and analysis rejects absent or broadened exclusion metadata. Explicit executables, file arguments or
+configured dependency roots within that boundary are refused. Native helpers and external library
+symlinks remain covered, and every other missing/unreadable file still fails visibly.
+Symlinks are resolved before checking the boundary; dynamic-loader overrides are rejected.
 On macOS, application bundles are hashed but the OS shared runtime remains diagnostic-only.
 Binary hashing never runs between an accepted idle check and its browser launch. Stage sums can differ from the continuous total
 because scope snapshots and observer shutdown are explicit overhead. Cold results are not a whole-application
@@ -205,6 +218,14 @@ The checked-in pins were resolved before measurement; a mutable nightly alias is
 records actual version output, and creates the collector configuration outside the clean checkout.
 No Lightpanda source is accessed. A removed asset or digest mismatch fails without resolving a replacement.
 
+Ubuntu's user-namespace restriction needs a scoped allowance for downloaded Chrome. The workflow uses
+[Chromium's documented AppArmor option 2](https://chromium.googlesource.com/chromium/src/+/main/docs/security/apparmor-userns-restrictions.md),
+with an exact canonical executable path instead of a glob. A run/attempt-specific root-owned profile
+allows `userns` for that executable; the path alphabet rejects AppArmor patterns and variables.
+Chrome's sandbox stays enabled, no global sysctl is changed, and no unrelated profile is reloaded.
+The generated policy, its hash, and load/removal logs remain in the artifact. Cleanup removes only the
+profile installed by this run, after stopping its measurement service. No AppArmor setup runs locally.
+
 Only the measurement invocation runs in a transient systemd unit. Administrative creation delegates CPU and
 memory controllers to that unit; `DelegateSubgroup=controller` keeps the unprivileged collector out of the
 empty parent. `run_hosted.sh` enables controllers only in its own delegation and creates the empty measurement
@@ -220,3 +241,14 @@ The setup helper's archive, URL and digest rejection tests run without network o
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/browser-comparison -p test_setup_hosted.py
 ```
+
+The hosted image `20260907.300.1` contained three dangling LLDB18 Python library links, all owned by
+`python3-lldb-18`; strict system-library hashing correctly refused verification. The setup preflight inventories
+all dangling links and installed package versions. It permits only those exact paths, targets and ownership,
+then simulates removal of the unused `python3-lldb-18` package without autoremove. The removal set must be a
+subset of `python3-lldb-18`, `lldb-18`, and `lldb`, contain the defective package, and install/configure nothing.
+The same package-manager removal is then applied, actual package changes must match the simulation, and a
+fresh inventory must contain no dangling links. Unknown defects fail before mutation. This is recorded setup
+before binary manifests or measurements; it neither skips library hashes nor changes the collector.
+`library-preflight/` retains link inventories, package versions, apt logs and the terminal repair verdict.
+The workflow's `inspect` phase (or the helper's `--inspect`) records evidence without any package mutation.

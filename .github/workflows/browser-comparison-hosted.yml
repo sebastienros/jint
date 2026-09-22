@@ -5,7 +5,7 @@ on:
       phase:
         description: Verification, Jint A/A calibration, or calibration followed by comparison
         type: choice
-        options: [verify, calibrate, compare]
+        options: [inspect, verify, calibrate, compare]
         default: verify
       browser_pins:
         description: Optional JSON replacing hosted-pins.json (chromium URL/hash/version; lightpanda URL/hash/asset ID)
@@ -39,6 +39,7 @@ jobs:
           OUTPUT="$RUNNER_TEMP/browser-comparison"
           printf 'OUTPUT=%s\n' "$OUTPUT" >> "$GITHUB_ENV"
           mkdir -p "$OUTPUT"
+          printf 'APPARMOR_PROFILE=jint-chromium-%s-%s\n' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" >> "$GITHUB_ENV"
           if [[ -n "$BROWSER_PINS" ]]; then
             printf '%s\n' "$BROWSER_PINS" > "$OUTPUT/pins.json"
           else
@@ -49,15 +50,31 @@ jobs:
           dotnet --info > "$OUTPUT/dotnet-info.txt"
           systemd --version > "$OUTPUT/systemd-version.txt"
           printf '%s\n' "run=$GITHUB_RUN_ID attempt=$GITHUB_RUN_ATTEMPT sha=$GITHUB_SHA phase=$PHASE" "image=$ImageOS version=$ImageVersion" > "$OUTPUT/runner.txt"
+      - name: Inspect or repair the bounded hosted LLDB library defect
+        run: |
+          args=()
+          if [[ "$PHASE" == inspect ]]; then args+=(--inspect); fi
+          python3 tools/browser-comparison/repair_hosted_libraries.py --output "$OUTPUT/library-preflight" "${args[@]}"
       - name: Install and verify exact browser assets before collection
-        run: python3 tools/browser-comparison/setup_hosted.py --pins "$OUTPUT/pins.json" --output "$OUTPUT/setup"
+        if: inputs.phase != 'inspect'
+        run: python3 tools/browser-comparison/setup_hosted.py --pins "$OUTPUT/pins.json" --output "$OUTPUT/setup" --apparmor-profile-name "$APPARMOR_PROFILE"
+      - name: Allow user namespaces for only this downloaded Chromium executable
+        if: inputs.phase != 'inspect'
+        run: |
+          profile="/etc/apparmor.d/$APPARMOR_PROFILE"
+          test ! -e "$profile"
+          sudo install -o root -g root -m 0644 "$OUTPUT/setup/chromium-userns.profile" "$profile"
+          printf '%s\n' "$profile" > "$OUTPUT/apparmor-owned-profile.txt"
+          sudo apparmor_parser --add "$profile" 2>&1 | tee "$OUTPUT/apparmor-load.log"
+          printf 'loaded=%s\n' "$APPARMOR_PROFILE" > "$OUTPUT/apparmor-loaded.txt"
       - name: Build Jint in Release before collection
+        if: inputs.phase != 'inspect'
         run: dotnet build Jint.Browser.Tool/Jint.Browser.Tool.csproj -c Release -f net10.0 | tee "$OUTPUT/jint-build.log"
       - name: Verify offline browser workloads
         if: inputs.phase == 'verify'
         run: bash tools/browser-comparison/run_hosted.sh "$PHASE" "$OUTPUT" 2>&1 | tee "$OUTPUT/driver.log"
       - name: Run serial collection in a scoped delegated unit
-        if: inputs.phase != 'verify'
+        if: inputs.phase == 'calibrate' || inputs.phase == 'compare'
         run: |
           sudo systemd-run --wait --pipe --collect \
             --unit="jint-comparison-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
@@ -68,8 +85,21 @@ jobs:
             --setenv=PYTHONDONTWRITEBYTECODE=1 --setenv="PATH=$PATH" --setenv="HOME=$HOME" --setenv="DOTNET_ROOT=$DOTNET_ROOT" \
             /usr/bin/bash tools/browser-comparison/run_hosted.sh "$PHASE" "$OUTPUT" 2>&1 | tee "$OUTPUT/driver.log"
       - name: Stop only this run's owned service
-        if: always() && inputs.phase != 'verify'
+        if: always() && (inputs.phase == 'calibrate' || inputs.phase == 'compare')
         run: sudo systemctl stop "jint-comparison-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT.service" || true
+      - name: Remove only this run's Chromium AppArmor profile
+        if: always() && inputs.phase != 'inspect'
+        run: |
+          if [[ -f "$OUTPUT/apparmor-owned-profile.txt" ]]; then
+            profile="/etc/apparmor.d/$APPARMOR_PROFILE"
+            test "$(cat "$OUTPUT/apparmor-owned-profile.txt")" = "$profile"
+            status=0
+            # Redirect to the runner-owned artifact, not a privileged policy file.
+            # shellcheck disable=SC2024
+            sudo apparmor_parser --remove "$profile" > "$OUTPUT/apparmor-remove.log" 2>&1 || status=$?
+            sudo rm -- "$profile"
+            exit "$status"
+          fi
       - name: Preserve complete or refused evidence
         if: always()
         uses: actions/upload-artifact@v7

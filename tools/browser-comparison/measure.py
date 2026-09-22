@@ -210,13 +210,25 @@ def validate_adapter_trx(path):
         raise ValueError('All four actual-adapter cleanup cases must execute successfully')
 
 
-def collect_identity(dotnet, assembly, adapter, env, directory):
+def collect_identities(dotnet, assembly, adapters, env, directory):
     directory.mkdir(exist_ok=False)
-    write(directory/'adapter.json', adapter)
-    result = captured_run([dotnet, str(assembly), '--identity', str(directory/'adapter.json')], directory, env=env, timeout=900)
-    identity = json.loads(result.stdout)
-    write(directory/'identity.json', identity)
-    return identity
+    if len({adapter['name'] for adapter in adapters}) != len(adapters):
+        raise ValueError('Identity batch requires unique adapter names')
+    write(directory/'adapters.json', adapters)
+    # One fresh union snapshot per phase; steady hosted progress justified this bounded setup budget.
+    captured_run([dotnet, str(assembly), '--identities', str(directory/'adapters.json'), str(directory/'identities')],
+                 directory, env=env, timeout=1800)
+    expected = {f'{index}.json' for index in range(len(adapters))}
+    if {path.name for path in (directory/'identities').iterdir()} != expected:
+        raise ValueError('Identity batch output count disagrees with requested adapters')
+    identities = {}
+    for index, adapter in enumerate(adapters):
+        identity = json.loads((directory/'identities'/f'{index}.json').read_text())
+        if (identity.get('Executable'), identity.get('Arguments'), identity.get('VersionLabel')) != (
+                adapter.get('executable'), adapter.get('arguments', []), adapter.get('versionLabel')):
+            raise ValueError('Identity batch output disagrees with requested adapter')
+        identities[adapter['name']] = identity
+    return identities
 
 
 def main():
@@ -301,13 +313,12 @@ def main():
             manifest['kernelValidation'] = dict(passed=True, sha256=digest(output/'kernel-validation.log'), adapterSha256=digest(output/'adapter-validation.log'), adapterTrxSha256=digest(output/'adapter-tests/adapter.trx'))
             write(output / 'manifest.json', manifest)
         identity_adapters = [*config['adapters'], dict(name='__harness', kind='jint', executable=str(Path(shutil.which(args.dotnet) or args.dotnet).resolve()), arguments=[str(assembly)], versionLabel=git_head)]
-        identities = {}
+        identities = collect_identities(args.dotnet, assembly, identity_adapters, env, output/'identity-before')
         manifest['dependencyManifests'] = {}
         for index, adapter in enumerate(identity_adapters):
-            directory = output/f'identity-{index}-before'
-            identities[adapter['name']] = collect_identity(args.dotnet, assembly, adapter, env, directory)
-            manifest['dependencyManifests'][adapter['name']] = dict(before=str(directory.name+'/identity.json'), beforeSha256=digest(directory/'identity.json'))
-            write(output/'manifest.json', manifest)
+            path = output/'identity-before'/'identities'/f'{index}.json'
+            manifest['dependencyManifests'][adapter['name']] = dict(before=str(path.relative_to(output)), beforeSha256=digest(path))
+        write(output/'manifest.json', manifest)
         names = [a['name'] for a in config['adapters']]
         adapters = {a['name']:a for a in config['adapters']}
         for index, row in enumerate(schedule(manifest['rounds'], manifest['launches'], names)):
@@ -369,13 +380,13 @@ def main():
                     row['cleanupSha256'] = digest(directory/'collector-cleanup.json')
                     manifest.pop('activeRow', None)
                     write(output/'manifest.json', manifest)
+        after_identities = collect_identities(args.dotnet, assembly, identity_adapters, env, output/'identity-after')
         for index, adapter in enumerate(identity_adapters):
-            directory = output/f'identity-{index}-after'
-            final_identity = collect_identity(args.dotnet, assembly, adapter, env, directory)
-            if final_identity != identities[adapter['name']]:
+            path = output/'identity-after'/'identities'/f'{index}.json'
+            if after_identities[adapter['name']] != identities[adapter['name']]:
                 raise ValueError('Executable/runtime dependency installation changed during collection')
-            manifest['dependencyManifests'][adapter['name']].update(after=str(directory.name+'/identity.json'), afterSha256=digest(directory/'identity.json'))
-            write(output/'manifest.json', manifest)
+            manifest['dependencyManifests'][adapter['name']].update(after=str(path.relative_to(output)), afterSha256=digest(path))
+        write(output/'manifest.json', manifest)
         manifest['complete'] = True
         write(output / 'manifest.json', manifest)
     except BaseException as error:

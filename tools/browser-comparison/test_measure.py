@@ -12,6 +12,52 @@ import measure
 
 
 class ComparisonTests(unittest.TestCase):
+    def test_private_key_boundary_is_exact_and_required(self):
+        identity = synthetic_identity('jint')
+        analyze.identity_valid(identity)
+        for exclusions in (None, {}, {'/etc/ssl': 'private-key-directory; contents intentionally not read'}):
+            invalid = {**identity, 'DependencyExclusions': exclusions}
+            with self.assertRaisesRegex(ValueError, 'exclusion policy'):
+                analyze.identity_valid(invalid)
+        for path in ('/etc/ssl/private/key', '/usr/lib/ssl/private/key'):
+            invalid = {**identity, 'FileSha256': {**identity['FileSha256'], path: 'a'*64}}
+            with self.assertRaisesRegex(ValueError, 'Private-key'):
+                analyze.identity_valid(invalid)
+        identity['FileSha256']['/etc/ssl/private-other/library.so'] = 'a'*64
+        analyze.identity_valid(identity)
+
+    def test_batch_identity_requires_complete_and_matching_outputs(self):
+        adapters = [dict(name='jint', executable='/fake/jint', arguments=['synthetic'], versionLabel='synthetic-only')]
+        for mode in ('valid', 'missing', 'extra', 'mismatch'):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as temporary:
+                directory = Path(temporary)/'snapshot'
+                def fake_run(command, output, **kwargs):
+                    self.assertEqual(kwargs['timeout'], 1800)
+                    identities = Path(command[-1]); identities.mkdir()
+                    if mode != 'missing':
+                        identity = synthetic_identity('jint')
+                        if mode == 'mismatch': identity['Executable'] = '/fake/other'
+                        measure.write(identities/'0.json', identity)
+                        if mode == 'extra': measure.write(identities/'1.json', identity)
+                with patch('measure.captured_run', side_effect=fake_run) as run:
+                    if mode == 'valid':
+                        self.assertEqual(measure.collect_identities('dotnet', 'runner.dll', adapters, {}, directory)['jint'], synthetic_identity('jint'))
+                        self.assertEqual(run.call_count, 1)
+                    else:
+                        with self.assertRaises(ValueError):
+                            measure.collect_identities('dotnet', 'runner.dll', adapters, {}, directory)
+
+    def test_analysis_rejects_nonunion_dependency_snapshot(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); manifest = synthetic_artifacts(root)
+            path = root/'chromium-identity.json'
+            identity = json.loads(path.read_text()); identity['FileSha256']['/fake/extra.so'] = 'c'*64
+            measure.write(path, identity)
+            manifest['dependencyManifests']['chromium'].update(beforeSha256=measure.digest(path), afterSha256=measure.digest(path))
+            measure.write(root/'manifest.json', manifest)
+            with self.assertRaisesRegex(ValueError, 'batch union'):
+                analyze.analyze(root)
+
     def test_missing_member_diagnostics_do_not_invalidate_kernel_counters(self):
         with tempfile.TemporaryDirectory() as directory:
             scope=Path(directory)
@@ -112,8 +158,9 @@ class ComparisonTests(unittest.TestCase):
 
 def synthetic_identity(name):
     return dict(VersionLabel='synthetic-only',Executable='/fake/'+name,Arguments=['synthetic'],
-                DependencyRoots=['/fake','/usr/lib'],DependencyCoverage='installation-and-system-library-trees',
-                FileSha256={'/fake/'+name:'a'*64,'/fake/runtime':'b'*64})
+                DependencyRoots=['/fake','/usr/lib'],DependencyCoverage='adapter-and-harness-union-installation-and-system-library-trees-except-private-key-directory',
+                DependencyExclusions={'/etc/ssl/private':'private-key-directory; contents intentionally not read'},
+                FileSha256={**{'/fake/'+adapter:'a'*64 for adapter in ('jint','chromium','lightpanda','__harness')}, '/fake/runtime':'b'*64})
 
 
 def synthetic_report(name,workload,lane):
