@@ -53,8 +53,9 @@ not retention of a mutated DOM across iterations. No sibling workload warms anot
 The `FormData(form)` compatibility failure originally found by the unchanged `event-form` workload
 ([#3931](https://github.com/sebastienros/jint/issues/3931)) is resolved. The collector and correctness smoke
 landed in [#3941](https://github.com/sebastienros/jint/pull/3941). The remaining X4 acceptance work is an
-empirical Jint A/A calibration and the complete three-browser comparison on a dedicated idle Linux host
-with delegated cgroup v2, followed by retained evidence and a scoped conclusion in
+empirical Jint A/A calibration and the complete three-browser comparison on an idle-accepted Linux host
+with delegated cgroup v2, including the scoped hosted-VM route below, followed by independent
+reproduction, retained evidence and a scoped conclusion in
 [#3930](https://github.com/sebastienros/jint/issues/3930).
 
 These cover the campaign's extraction, mutation, interaction and local asynchronous automation use cases.
@@ -121,7 +122,8 @@ the observer itself adds overhead outside the browser's scope.
 The portable root-PID snapshots remain labeled diagnostics and are never substituted for missing tree
 counters. Native macOS Lightpanda availability does not imply that complete accounting is available there.
 Container/VM results must identify that host boundary; do not treat an idle guest as proof its physical host
-is idle. Use a dedicated idle host for campaign evidence.
+is idle. A dedicated idle physical host gives stronger isolation; hosted-VM campaign evidence must retain
+that limitation, pass the same guards and accounting checks, and independently reproduce.
 
 ## Controlled collection and analysis
 
@@ -138,7 +140,7 @@ builds Release, exports workload bytes, requires a fresh successful real kernel 
 blind spots. Checks bracket every launch. An idle refusal invalidates the collection and is preserved;
 `JINT_BENCH_SKIP_IDLE_CHECK` is rejected. Unsupported platform/counter conditions fail before measurement.
 This does not continuously monitor interference inside an individual workload; that limitation remains in
-the evidence alongside the requirement for a dedicated host.
+the evidence alongside the recorded physical-host or hosted-VM boundary.
 
 The Linux topology behavior matches the repository's unpinned fallback. No power plan is changed; fixed-clock
 overrides are rejected. Production tiering/PGO stays enabled. Jint uses blocking workstation GC; other engines
@@ -176,5 +178,45 @@ It reports a skip when delegation is absent; that is not a passing kernel valida
 scheduling, counter failures, pairing and confidence intervals without supplying performance evidence.
 An empirical A/A calibration is available by adding `--calibrate jint` (the configured adapter name) to
 the gate collection command. It runs two identical owned configurations through the same collector and
-analysis. Calibration must run on the same dedicated machine before trusting small deltas; this
+analysis. Calibration must run on the same machine (the same VM for a hosted run) before trusting small deltas; this
 repository does not claim that synthetic zero-difference fixtures constitute that calibration.
+
+## Manual hosted-runner feasibility
+
+`.github/workflows/browser-comparison-hosted.yml` offers `verify`, `calibrate`, and `compare` dispatches
+on `ubuntu-24.04`, with a 360-minute job ceiling and no parallel measurement jobs. This is a hosted-VM
+feasibility experiment, not evidence that its physical host is dedicated or idle. An accepted guest idle
+check cannot observe noisy physical neighbors. Keep this boundary alongside any conclusions. Campaign
+acceptance also requires an independent repeat under the agreed criteria; a single successful hosted run
+does not establish reproducibility or guarantee that a later runner will qualify.
+
+`verify` installs the reviewed `hosted-pins.json` assets and runs correctness only. `calibrate` runs Jint
+A/A through the existing six-round, three-launch collector. `compare` first performs that calibration,
+then the full three-browser collection serially on the **same VM**. Inspect the calibration intervals and
+untouched controls before interpreting differences; a completed calibration is not an automatic noise-floor
+acceptance verdict. A refusal or timeout is feasibility evidence, never a timing result. No gate is weakened,
+no service unrelated to this run is disabled, and no physical-host control is claimed.
+
+The optional `browser_pins` JSON dispatch input replaces the reviewed pins in full. Full Chrome for Testing
+must have a versioned official linux64 ZIP URL, exact version and independently reviewed archive SHA256.
+Lightpanda must have an official release asset API URL, matching asset ID and SHA256 of the executable.
+The checked-in pins were resolved before measurement; a mutable nightly alias is never sufficient.
+`setup_hosted.py` verifies downloaded bytes **before execution**, preserves download/executable hashes,
+records actual version output, and creates the collector configuration outside the clean checkout.
+No Lightpanda source is accessed. A removed asset or digest mismatch fails without resolving a replacement.
+
+Only the measurement invocation runs in a transient systemd unit. Administrative creation delegates CPU and
+memory controllers to that unit; `DelegateSubgroup=controller` keeps the unprivileged collector out of the
+empty parent. `run_hosted.sh` enables controllers only in its own delegation and creates the empty measurement
+root there. The unchanged collector still creates a fresh child scope per owned browser launch and runs
+its real kernel validation. Unit termination cleans only that invocation's descendants. No collector code
+acquires elevated privileges or changes a parent cgroup policy.
+
+Always-uploaded artifacts include dispatch pins, runner image and source identity, browser archives/binaries,
+setup manifest, build and driver logs, full calibration/comparison directories, accepted analysis or partial
+failure evidence. Retention is 30 days; retain the artifact independently before using it for campaign closure.
+The setup helper's archive, URL and digest rejection tests run without network or browser execution:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/browser-comparison -p test_setup_hosted.py
+```

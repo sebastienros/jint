@@ -285,9 +285,9 @@ def main():
         write(output / 'manifest.json', manifest)
         if args.measure:
             kernel_env = dict(env, JINT_BROWSER_COMPARISON_CGROUP_ROOT=str(args.scope_root.resolve()))
-            adapter_check = subprocess.run([args.dotnet, 'test', str(ROOT/'tools/browser-comparison.Tests/BrowserComparison.Tests.csproj'), '-c', 'Release',
+            adapter_check = subprocess.run([args.dotnet, 'test', '--project', str(ROOT/'tools/browser-comparison.Tests/BrowserComparison.Tests.csproj'), '-c', 'Release',
                                             '--filter', 'FullyQualifiedName~ActualAdapterFailureAlwaysRecordsAndCleansItsOwnedProcessScope',
-                                            '--logger', 'trx;LogFileName=adapter.trx', '--results-directory', str(output/'adapter-tests')],
+                                            '--report-trx', '--report-trx-filename', 'adapter.trx', '--results-directory', str(output/'adapter-tests')],
                                            cwd=ROOT, env=kernel_env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=180)
             (output/'adapter-validation.log').write_text(adapter_check.stdout)
             adapter_check.check_returncode()

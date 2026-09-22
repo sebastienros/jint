@@ -1,0 +1,78 @@
+name: Binding comparison measurement
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: binding-comparison-measurement
+  cancel-in-progress: false
+
+jobs:
+  measure:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+    steps:
+      - name: Select artifact directory
+        run: echo "EVIDENCE=$RUNNER_TEMP/binding-measurement" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Validate collection and analysis
+        run: python3 -m unittest discover -s Jint.Benchmark/BindingComparison -p 'test_*.py'
+      - name: Record hosted environment
+        shell: bash
+        run: |
+          mkdir -p "$EVIDENCE"
+          python3 - <<'PY'
+          import json, os, platform, subprocess
+          from pathlib import Path
+          record = {
+              'environment': 'GitHub-hosted VM; physical-host contention is not observable',
+              'platform': platform.platform(),
+              'runId': os.environ['GITHUB_RUN_ID'],
+              'attempt': os.environ['GITHUB_RUN_ATTEMPT'],
+              'commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip(),
+              'runnerImage': {k: os.environ.get(k) for k in ('ImageOS', 'ImageVersion', 'RUNNER_ARCH')},
+              'cpu': Path('/proc/cpuinfo').read_text(),
+              'memory': Path('/proc/meminfo').read_text(),
+              'sdk': subprocess.check_output(['dotnet', '--info'], text=True),
+          }
+          Path(os.environ['EVIDENCE'], 'host.json').write_text(json.dumps(record, indent=2) + '\n')
+          PY
+      - name: Collect six complete paired rounds
+        timeout-minutes: 345
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -u Jint.Benchmark/BindingComparison/run.py --measure --rounds 6 \
+            --output "$EVIDENCE/raw" 2>&1 | tee "$EVIDENCE/driver.log"
+      - name: Analyze complete evidence
+        shell: bash
+        run: |
+          python3 Jint.Benchmark/BindingComparison/analyze.py \
+            --artifacts "$EVIDENCE/raw" --driver-log "$EVIDENCE/driver.log" \
+            --expected-head "$(git rev-parse HEAD)" > "$EVIDENCE/analysis.json"
+          cat >> "$GITHUB_STEP_SUMMARY" <<'EOF'
+          Six paired rounds completed and passed analysis validation.
+          Results describe these two embedding paths on this GitHub-hosted VM.
+          Inspect both interpreter controls and confidence intervals before drawing conclusions.
+          A successful workflow does not establish a pure binding speedup or physical-host isolation.
+          EOF
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: binding-measurement-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.EVIDENCE }}
+          if-no-files-found: error

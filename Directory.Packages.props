@@ -63,6 +63,7 @@
     <PackageVersion Include="NodaTime" Version="3.3.4" />
     <PackageVersion Include="NUnit" Version="4.6.1" />
     <PackageVersion Include="NUnit3TestAdapter" Version="6.3.0" />
+    <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.3.3" />
     <PackageVersion Include="Okojo" Version="0.1.2-preview.1" />
     <PackageVersion Include="PublicApiGenerator" Version="11.5.4" />
     <PackageVersion Include="PuppeteerSharp" Version="25.11.0" />
