@@ -2862,6 +2862,11 @@ public sealed partial class Engine : IDisposable
 
     internal void RunEventLoopJob(in EventLoopJob job)
     {
+        if (!_host.CanExecuteJob())
+        {
+            return;
+        }
+
         // A job runs on an empty JavaScript execution context stack — that is what a job is — whatever depth
         // the drain that dequeued it happens to sit at. ScriptEvaluation drains before it pops its own
         // context, so the depth here is 2 for a job run on the way out of Execute and 1 for one run by a

@@ -2052,6 +2052,7 @@ namespace Jint.Runtime
     {
         public Host() { }
         protected Jint.Engine Engine { get; }
+        public virtual bool CanExecuteJob() { }
         protected virtual Jint.Native.Object.ObjectInstance CreateGlobalObject(Jint.Runtime.Realm realm) { }
         protected virtual void CreateIntrinsics(Jint.Runtime.Realm realmRec) { }
         protected virtual Jint.Runtime.Realm CreateRealm() { }

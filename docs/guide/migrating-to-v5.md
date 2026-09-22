@@ -6888,6 +6888,17 @@ worker from. The flag itself travels, because it grants a worker nothing.
 
 [Web Locks](web-apis/locks.md) is the guide page.
 
+### 5.38 Hosts can reject jobs after their execution context retires
+
+Override `Host.CanExecuteJob()` to decide whether a queued interpreter job may run.
+The engine calls it on its owning thread before each job, including Promise reactions,
+async continuations and posted host work. The default returns `true`.
+
+Returning `false` discards the job without settling its promise. It does not interrupt
+the script or job currently running, cancel external operations, or settle host waits.
+A host retiring a document or another execution context should cancel those operations
+separately and keep returning `false` for that retired engine.
+
 ## 6. AOT and trimming
 
 Jint 4.16 asserted Native AOT compatibility with the `IsAotCompatible` property and nothing else. In
