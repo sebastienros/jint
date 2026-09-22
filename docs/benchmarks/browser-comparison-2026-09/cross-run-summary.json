@@ -1,0 +1,573 @@
+{
+  "gitHead": "6363436848365979b2201ed4ec9892ac140c13bc",
+  "phases": {
+    "calibration": {
+      "comparisons": 110,
+      "intervalDirectionCounts": {
+        "unresolved-both": 90,
+        "resolved-only-run1": 6,
+        "same-resolved-direction": 1,
+        "resolved-only-run2": 13
+      },
+      "changes": [
+        {
+          "key": [
+            "jint-a",
+            "jint-b",
+            "event-form",
+            "cold",
+            "observedPreparationPeakChargedBytes"
+          ],
+          "status": "resolved-only-run1",
+          "run1": {
+            "medianDifferencePercent": -0.034041858019916375,
+            "confidence95Percent": [
+              -0.4103963545459461,
+              -0.020382593684596294
+            ],
+            "direction": "lower"
+          },
+          "run2": {
+            "medianDifferencePercent": -0.01020221189985996,
+            "confidence95Percent": [
+              -0.43097552124191824,
+              0.35401289439835154
+            ],
+            "direction": "unresolved"
+          }
+        },
+        {
+          "key": [
+            "jint-a",
+            "jint-b",
+            "event-form",
+            "warm",
+            "lifecycleCpuMilliseconds"
+          ],
+          "status": "resolved-only-run1",
+          "run1": {
+            "medianDifferencePercent": -0.7172923644641347,
+            "confidence95Percent": [
+              -1.1840562711767637,
+              -0.25176699731872876
+            ],
+            "direction": "lower"
+          },
+          "run2": {
+            "medianDifferencePercent": -0.8169151636238794,
+            "confidence95Percent": [
+              -2.9456442180953184,
+              1.7813603118821042
+            ],
+            "direction": "unresolved"
+          }
+        },
+        {
+          "key": [
+            "jint-a",
+            "jint-b",
+            "event-form",
+            "warm",
+            "observedTeardownPeakChargedBytes"
+          ],
+          "status": "resolved-only-run1",
+          "run1": {
+            "medianDifferencePercent": -0.23325317476496582,
+            "confidence95Percent": [
+              -1.7477856257523952,
+              -0.07955643647379829
+            ],
+            "direction": "lower"
+          },
+          "run2": {
+            "medianDifferencePercent": -0.7278469913146615,
+            "confidence95Percent": [
+              -1.6921576432060248,
+              0.3888286894210747
+            ],
+            "direction": "unresolved"
+          }
+        },
+        {
+          "key": [
+            "jint-a",
+            "jint-b",
+            "fetch-update",
+            "cold",
+            "observedLaunchPeakChargedBytes"
+          ],
+          "status": "resolved-only-run2",
+          "run1": {
+            "medianDifferencePercent": 0.05746958712804128,
+            "confidence95Percent": [
+              -0.5180077473722743,
+              0.3695491500369549
+            ],
+            "direction": "unresolved"
+          },
+          "run2": {
+            "medianDifferencePercent": 0.22969898082475848,
+            "confidence95Percent": [
+              1.3316907283315513e-06,
+              0.4467455365257461
+            ],
+            "direction": "higher"
+          }
+        },
+        {
+          "key": [
+            "jint-a",
+            "jint-b",
+            "fetch-update",
+            "warm",
+            "lifecycleCpuMilliseconds"
+          ],
+          "status": "resolved-only-run2",
+          "run1": {
+            "medianDifferencePercent": -1.5291767071435167,
+            "confidence95Percent": [
+              -2.6439599450201294,
+              2.6168745945814043
+            ],
+            "direction": "unresolved"
+          },
+          "run2": {
+            "medianDifferencePercent": -0.9001985241029264,
+            "confidence95Percent": [
+              -2.600482532013347,
+              -0.02867225002505078
+            ],
+            "direction": "lower"
+          }
+        },
+        {
+          "key": [
+            "jint-a",
+            "jint-b",
+            "fetch-update",
+            "warm",
+            "lifecycleMilliseconds"
+          ],
+          "status": "resolved-only-run2",
+          "run1": {
+            "medianDifferencePercent": -1.1396883899122079,
+            "confidence95Percent": [
+              -2.362747219111032,
+              1.7797249838585052
+            ],
+            "direction": "unresolved"
+          },
+          "run2": {
+            "medianDifferencePercent": -1.025537963332058,
+            "confidence95Percent": [
+              -2.0040863946420697,
+              -0.06009203403313537
+            ],
+            "direction": "lower"
+          }
+        },
+        {
+          "key": [
+            "jint-a",
+            "jint-b",
+            "fetch-update",
+            "warm",
+            "workCpuMilliseconds"
+          ],
+          "status": "resolved-only-run2",
+          "run1": {
+            "medianDifferencePercent": -3.486752750520724,
+            "confidence95Percent": [
+              -11.902362969023761,
+              13.77343475185775
+            ],
+            "direction": "unresolved"
+          },
+          "run2": {
+            "medianDifferencePercent": -4.752928784803266,
+            "confidence95Percent": [
+              -5.872676009485682,
+              -1.926164744577135
+            ],
+            "direction": "lower"
+          }
+        },
+        {
+          "key": [
+            "jint-a",
+            "jint-b",
+            "fetch-update",
+            "warm",
+            "workMilliseconds"
+          ],
+          "status": "resolved-only-run2",
+          "run1": {
+            "medianDifferencePercent": -4.088699466421355,
+            "confidence95Percent": [
+              -12.179319156960286,
+              11.699321880770086
+            ],
+            "direction": "unresolved"
+          },
+          "run2": {
+            "medianDifferencePercent": -4.637576610212518,
+            "confidence95Percent": [
+              -5.870260138526906,
+              -2.299745958784831
+            ],
+            "direction": "lower"
+          }
+        },
+        {
+          "key": [
+            "jint-a",
+            "jint-b",
+            "mutate-query",
+            "cold",
+            "observedPreparationPeakChargedBytes"
+          ],
+          "status": "resolved-only-run1",
+          "run1": {
+            "medianDifferencePercent": 0.023772907416674857,
+            "confidence95Percent": [
+              1.1088402063684673e-05,
+              0.3097980135810282
+            ],
+            "direction": "higher"
+          },
+          "run2": {
+            "medianDifferencePercent": 0.12247556825806385,
+            "confidence95Percent": [
+              -0.0509501343355593,
+              0.4873167617715589
+            ],
+            "direction": "unresolved"
+          }
+        },
+        {
+          "key": [
+            "jint-a",
+            "jint-b",
+            "mutate-query",
+            "cold",
+            "observedWorkPeakChargedBytes"
+          ],
+          "status": "resolved-only-run1",
+          "run1": {
+            "medianDifferencePercent": -0.3056365885372848,
+            "confidence95Percent": [
+              -0.40543799549187887,
+              -0.05181291274518362
+            ],
+            "direction": "lower"
+          },
+          "run2": {
+            "medianDifferencePercent": 0.08575457167490276,
+            "confidence95Percent": [
+              -0.14664908252604486,
+              0.33069332798603146
+            ],
+            "direction": "unresolved"
+          }
+        },
+        {
+          "key": [
+            "jint-a",
+            "jint-b",
+            "mutate-query",
+            "warm",
+            "observedPreparationPeakChargedBytes"
+          ],
+          "status": "resolved-only-run2",
+          "run1": {
+            "medianDifferencePercent": -0.03285722319260606,
+            "confidence95Percent": [
+              -0.6497699411338278,
+              0.2758734447941227
+            ],
+            "direction": "unresolved"
+          },
+          "run2": {
+            "medianDifferencePercent": 0.3453978730128878,
+            "confidence95Percent": [
+              0.08695451775615726,
+              0.8379955425209802
+            ],
+            "direction": "higher"
+          }
+        },
+        {
+          "key": [
+            "jint-a",
+            "jint-b",
+            "parse-extract",
+            "cold",
+            "launchMilliseconds"
+          ],
+          "status": "resolved-only-run1",
+          "run1": {
+            "medianDifferencePercent": 0.9855252129224212,
+            "confidence95Percent": [
+              0.19735621148881938,
+              2.3979042447760572
+            ],
+            "direction": "higher"
+          },
+          "run2": {
+            "medianDifferencePercent": 0.18446762454547197,
+            "confidence95Percent": [
+              -1.9528135580373163,
+              1.7427816376981347
+            ],
+            "direction": "unresolved"
+          }
+        },
+        {
+          "key": [
+            "jint-a",
+            "jint-b",
+            "parse-extract",
+            "cold",
+            "observedWorkPeakChargedBytes"
+          ],
+          "status": "resolved-only-run2",
+          "run1": {
+            "medianDifferencePercent": -0.00929281802415224,
+            "confidence95Percent": [
+              -0.08115674979625478,
+              0.5334109447998256
+            ],
+            "direction": "unresolved"
+          },
+          "run2": {
+            "medianDifferencePercent": -0.2344629694385929,
+            "confidence95Percent": [
+              -0.3740212116372899,
+              -0.059376357689321424
+            ],
+            "direction": "lower"
+          }
+        },
+        {
+          "key": [
+            "jint-a",
+            "jint-b",
+            "parse-extract",
+            "warm",
+            "kernelLifetimePeakChargedBytes"
+          ],
+          "status": "resolved-only-run2",
+          "run1": {
+            "medianDifferencePercent": 0.013810323508108102,
+            "confidence95Percent": [
+              -1.5406142107129122,
+              0.1413165323236631
+            ],
+            "direction": "unresolved"
+          },
+          "run2": {
+            "medianDifferencePercent": -1.8546409970200328,
+            "confidence95Percent": [
+              -16.015513379871102,
+              -0.06581917778252597
+            ],
+            "direction": "lower"
+          }
+        },
+        {
+          "key": [
+            "jint-a",
+            "jint-b",
+            "parse-extract",
+            "warm",
+            "lifecycleCpuMilliseconds"
+          ],
+          "status": "resolved-only-run2",
+          "run1": {
+            "medianDifferencePercent": 1.407621417275386,
+            "confidence95Percent": [
+              -2.6446799788371615,
+              3.411101587416616
+            ],
+            "direction": "unresolved"
+          },
+          "run2": {
+            "medianDifferencePercent": -5.083630607350213,
+            "confidence95Percent": [
+              -7.3946495109717345,
+              -0.8083747879225224
+            ],
+            "direction": "lower"
+          }
+        },
+        {
+          "key": [
+            "jint-a",
+            "jint-b",
+            "parse-extract",
+            "warm",
+            "lifecycleMilliseconds"
+          ],
+          "status": "resolved-only-run2",
+          "run1": {
+            "medianDifferencePercent": -0.4647032773875976,
+            "confidence95Percent": [
+              -1.4635409126547543,
+              1.7833563543424238
+            ],
+            "direction": "unresolved"
+          },
+          "run2": {
+            "medianDifferencePercent": -2.9212589510943205,
+            "confidence95Percent": [
+              -4.688654855843078,
+              -1.4629885875853788
+            ],
+            "direction": "lower"
+          }
+        },
+        {
+          "key": [
+            "jint-a",
+            "jint-b",
+            "parse-extract",
+            "warm",
+            "observedLaunchPeakChargedBytes"
+          ],
+          "status": "resolved-only-run2",
+          "run1": {
+            "medianDifferencePercent": 4.2837816595309164e-05,
+            "confidence95Percent": [
+              -0.4856884130597776,
+              0.5253351209902641
+            ],
+            "direction": "unresolved"
+          },
+          "run2": {
+            "medianDifferencePercent": 0.44691692774588304,
+            "confidence95Percent": [
+              0.004085634580496116,
+              0.5045713682588777
+            ],
+            "direction": "higher"
+          }
+        },
+        {
+          "key": [
+            "jint-a",
+            "jint-b",
+            "parse-extract",
+            "warm",
+            "workCpuMilliseconds"
+          ],
+          "status": "resolved-only-run2",
+          "run1": {
+            "medianDifferencePercent": 3.953954274988189,
+            "confidence95Percent": [
+              -8.596126364944409,
+              8.642049987316398
+            ],
+            "direction": "unresolved"
+          },
+          "run2": {
+            "medianDifferencePercent": -13.083430615472889,
+            "confidence95Percent": [
+              -17.375429041707143,
+              -7.574714883817043
+            ],
+            "direction": "lower"
+          }
+        },
+        {
+          "key": [
+            "jint-a",
+            "jint-b",
+            "parse-extract",
+            "warm",
+            "workMilliseconds"
+          ],
+          "status": "resolved-only-run2",
+          "run1": {
+            "medianDifferencePercent": -0.2342728694392302,
+            "confidence95Percent": [
+              -9.650525261227553,
+              7.020031682392157
+            ],
+            "direction": "unresolved"
+          },
+          "run2": {
+            "medianDifferencePercent": -11.399909537979388,
+            "confidence95Percent": [
+              -13.580041182155819,
+              -6.910761855563075
+            ],
+            "direction": "lower"
+          }
+        }
+      ]
+    },
+    "comparison": {
+      "comparisons": 330,
+      "intervalDirectionCounts": {
+        "same-resolved-direction": 328,
+        "resolved-only-run1": 1,
+        "resolved-only-run2": 1
+      },
+      "changes": [
+        {
+          "key": [
+            "jint",
+            "chromium",
+            "interpreter-control",
+            "warm",
+            "lifecycleCpuMilliseconds"
+          ],
+          "status": "resolved-only-run1",
+          "run1": {
+            "medianDifferencePercent": 5.214972846103004,
+            "confidence95Percent": [
+              0.6821352331107576,
+              11.323251008762913
+            ],
+            "direction": "higher"
+          },
+          "run2": {
+            "medianDifferencePercent": 2.20822949138895,
+            "confidence95Percent": [
+              -22.661453774133264,
+              5.598373705112698
+            ],
+            "direction": "unresolved"
+          }
+        },
+        {
+          "key": [
+            "jint",
+            "chromium",
+            "parse-extract",
+            "warm",
+            "workCpuMilliseconds"
+          ],
+          "status": "resolved-only-run2",
+          "run1": {
+            "medianDifferencePercent": -6.092511724559918,
+            "confidence95Percent": [
+              -10.469255844217857,
+              11.308128586396629
+            ],
+            "direction": "unresolved"
+          },
+          "run2": {
+            "medianDifferencePercent": -14.770252041074908,
+            "confidence95Percent": [
+              -23.70449156176607,
+              -6.0904430885996526
+            ],
+            "direction": "lower"
+          }
+        }
+      ]
+    }
+  },
+  "method": "Separate six-round estimates; no pooled intervals, launch pooling, or control subtraction."
+}
