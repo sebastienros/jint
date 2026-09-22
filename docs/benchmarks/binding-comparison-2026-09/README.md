@@ -112,6 +112,6 @@ done
 
 On macOS, replace `sha256sum -c` with `shasum -a 256 -c`. Reanalysis changes machine-local file paths and
 Python version metadata; its `summary` must equal the retained analysis exactly. To collect new measurements,
-use the [harness instructions](../../../Jint.Benchmark/BindingComparison/README.md) and the
-[benchmark requirements](../../../Jint.Benchmark/AGENTS.md) at the measured revision. Use a clean isolated
+use the [harness instructions](https://github.com/sebastienros/jint/blob/c0725301810ad1454d7d1fbc0757659af1542f9b/Jint.Benchmark/BindingComparison/README.md) and the
+[benchmark requirements](https://github.com/sebastienros/jint/blob/c0725301810ad1454d7d1fbc0757659af1542f9b/Jint.Benchmark/AGENTS.md) at the measured revision. Use a clean isolated
 checkout and a new output directory, retain refused attempts, and do not weaken the idle guard to obtain a run.
