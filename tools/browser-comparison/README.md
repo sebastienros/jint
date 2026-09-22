@@ -220,3 +220,14 @@ The setup helper's archive, URL and digest rejection tests run without network o
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/browser-comparison -p test_setup_hosted.py
 ```
+
+The hosted image `20260907.300.1` contained three dangling LLDB18 Python library links, all owned by
+`python3-lldb-18`; strict system-library hashing correctly refused verification. The setup preflight inventories
+all dangling links and installed package versions. It permits only those exact paths, targets and ownership,
+then simulates removal of the unused `python3-lldb-18` package without autoremove. The removal set must be a
+subset of `python3-lldb-18`, `lldb-18`, and `lldb`, contain the defective package, and install/configure nothing.
+The same package-manager removal is then applied, actual package changes must match the simulation, and a
+fresh inventory must contain no dangling links. Unknown defects fail before mutation. This is recorded setup
+before binary manifests or measurements; it neither skips library hashes nor changes the collector.
+`library-preflight/` retains link inventories, package versions, apt logs and the terminal repair verdict.
+The workflow's `inspect` phase (or the helper's `--inspect`) records evidence without any package mutation.

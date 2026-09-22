@@ -49,25 +49,11 @@ jobs:
           dotnet --info > "$OUTPUT/dotnet-info.txt"
           systemd --version > "$OUTPUT/systemd-version.txt"
           printf '%s\n' "run=$GITHUB_RUN_ID attempt=$GITHUB_RUN_ATTEMPT sha=$GITHUB_SHA phase=$PHASE" "image=$ImageOS version=$ImageVersion" > "$OUTPUT/runner.txt"
-      - name: Inventory unresolved system library links
+      - name: Inspect or repair the bounded hosted LLDB library defect
         run: |
-          python3 - <<'PY'
-          import json, os, subprocess
-          from pathlib import Path
-          links = []
-          for root in ('/usr/lib', '/usr/lib64'):
-              if not Path(root).exists():
-                  continue
-              for directory, folders, files in os.walk(root, followlinks=False):
-                  for name in folders + files:
-                      path = Path(directory, name)
-                      if path.is_symlink() and not path.exists():
-                          owner = subprocess.run(['dpkg-query', '-S', str(path)], capture_output=True, text=True)
-                          links.append({'path': str(path), 'target': os.readlink(path),
-                                        'packageOwner': owner.stdout, 'packageError': owner.stderr})
-          Path(os.environ['OUTPUT'], 'unresolved-library-links.json').write_text(json.dumps(links, indent=2) + '\n')
-          print(json.dumps(links, indent=2))
-          PY
+          args=()
+          if [[ "$PHASE" == inspect ]]; then args+=(--inspect); fi
+          python3 tools/browser-comparison/repair_hosted_libraries.py --output "$OUTPUT/library-preflight" "${args[@]}"
       - name: Install and verify exact browser assets before collection
         if: inputs.phase != 'inspect'
         run: python3 tools/browser-comparison/setup_hosted.py --pins "$OUTPUT/pins.json" --output "$OUTPUT/setup"
