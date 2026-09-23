@@ -885,30 +885,53 @@ internal sealed partial class XmlTreeParser
         var start = _position;
         ConsumeLiteral("<!NOTATION", start);
         RequireDtdSpace();
-        ValidateUnprefixedDtdName(ReadName(_position), start);
+        var name = ReadName(_position);
+        ValidateUnprefixedDtdName(name, start);
         RequireDtdSpace();
+        string? publicId = null;
+        string? systemId = null;
         if (StartsWith("SYSTEM"))
         {
             ConsumeLiteral("SYSTEM", start);
             RequireDtdSpace();
-            ReadQuoted("xml/invalid-declaration", start);
+            systemId = NormalizeLines(ReadQuoted("xml/invalid-declaration", start).AsSpan());
         }
         else if (StartsWith("PUBLIC"))
         {
             ConsumeLiteral("PUBLIC", start);
             RequireDtdSpace();
-            var publicId = ReadQuoted("xml/invalid-declaration", start);
-            foreach (var c in publicId)
-            {
-                WorkUnit();
-                if (!IsPubidChar(c)) Error("xml/invalid-declaration", start);
-            }
+            publicId = NormalizeNotationPublicId(ReadQuoted("xml/invalid-declaration", start), start);
             if (SkipWhitespace(_position) && Current is '\'' or '"')
-                ReadQuoted("xml/invalid-declaration", start);
+                systemId = NormalizeLines(ReadQuoted("xml/invalid-declaration", start).AsSpan());
         }
         else Error("xml/invalid-declaration", _position);
         SkipWhitespace(_position);
         Expect('>', "xml/invalid-declaration", start);
+        _cancellationToken.ThrowIfCancellationRequested();
+        (_notations ??= new List<XmlNotationDeclaration>()).Add(new XmlNotationDeclaration(name,
+            publicId, systemId, _inputFrames.Count == 0 ? start : _inputFrames.Peek().OriginalOffset));
+        WorkUnit();
+        _cancellationToken.ThrowIfCancellationRequested();
+    }
+
+    private string NormalizeNotationPublicId(string value, int offset)
+    {
+        var normalized = new StringBuilder(value.Length);
+        var pendingSpace = false;
+        foreach (var c in value)
+        {
+            WorkUnit();
+            if (!IsPubidChar(c)) Error("xml/invalid-declaration", offset);
+            if (c is ' ' or '\r' or '\n')
+            {
+                pendingSpace = normalized.Length != 0;
+                continue;
+            }
+            if (pendingSpace) normalized.Append(' ');
+            normalized.Append(c);
+            pendingSpace = false;
+        }
+        return Materialize(normalized);
     }
 
     private sealed class ContentGroup
