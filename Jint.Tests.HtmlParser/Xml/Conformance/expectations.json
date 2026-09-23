@@ -2457,5 +2457,1676 @@
     ],
     "review": "Pinned OASIS not-wf source has only unread external subset p64fail2.dtd; with no fetch, the subset contributes no declarations to this empty document. Require one ExternalSubset omission at 0, an empty notation inventory, and the complete doctype/root projection. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance.",
     "notations": []
+  },
+  {
+    "key": "xmlconf/sun/sun-invalid.xml#optional01",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "../valid/dtdtest.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "../valid/dtdtest.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n    ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "once",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "Pinned main stream has the exact literal doctype/root/child shape; only unread ../valid/dtdtest.dtd supplies the content model making the catalog case invalid. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance. The catalog invalidity is the Element Valid VC under XML §3.1 https://www.w3.org/TR/xml/#sec-starttags."
+  },
+  {
+    "key": "xmlconf/sun/sun-invalid.xml#optional02",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "../valid/dtdtest.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "../valid/dtdtest.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n    ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "once",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 2,
+        "Kind": "Element",
+        "Name": "e",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 2,
+        "Kind": "Element",
+        "Name": "e",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "Pinned main stream has the exact literal doctype/root/child shape; only unread ../valid/dtdtest.dtd supplies the content model making the catalog case invalid. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance. The catalog invalidity is the Element Valid VC under XML §3.1 https://www.w3.org/TR/xml/#sec-starttags."
+  },
+  {
+    "key": "xmlconf/sun/sun-invalid.xml#optional03",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "../valid/dtdtest.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "../valid/dtdtest.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n    ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "twice",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "Pinned main stream has the exact literal doctype/root/child shape; only unread ../valid/dtdtest.dtd supplies the content model making the catalog case invalid. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance. The catalog invalidity is the Element Valid VC under XML §3.1 https://www.w3.org/TR/xml/#sec-starttags."
+  },
+  {
+    "key": "xmlconf/sun/sun-invalid.xml#optional04",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "../valid/dtdtest.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "../valid/dtdtest.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n    ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "twice",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 2,
+        "Kind": "Element",
+        "Name": "e",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 2,
+        "Kind": "Element",
+        "Name": "e",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 2,
+        "Kind": "Element",
+        "Name": "e",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "Pinned main stream has the exact literal doctype/root/child shape; only unread ../valid/dtdtest.dtd supplies the content model making the catalog case invalid. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance. The catalog invalidity is the Element Valid VC under XML §3.1 https://www.w3.org/TR/xml/#sec-starttags."
+  },
+  {
+    "key": "xmlconf/sun/sun-invalid.xml#optional05",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "../valid/dtdtest.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "../valid/dtdtest.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n    ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "once-or-twice-a",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "Pinned main stream has the exact literal doctype/root/child shape; only unread ../valid/dtdtest.dtd supplies the content model making the catalog case invalid. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance. The catalog invalidity is the Element Valid VC under XML §3.1 https://www.w3.org/TR/xml/#sec-starttags."
+  },
+  {
+    "key": "xmlconf/sun/sun-invalid.xml#optional06",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "../valid/dtdtest.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "../valid/dtdtest.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n    ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "once-or-twice-b",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "Pinned main stream has the exact literal doctype/root/child shape; only unread ../valid/dtdtest.dtd supplies the content model making the catalog case invalid. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance. The catalog invalidity is the Element Valid VC under XML §3.1 https://www.w3.org/TR/xml/#sec-starttags."
+  },
+  {
+    "key": "xmlconf/sun/sun-invalid.xml#optional07",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "../valid/dtdtest.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "../valid/dtdtest.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n    ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "once-or-twice-c",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "Pinned main stream has the exact literal doctype/root/child shape; only unread ../valid/dtdtest.dtd supplies the content model making the catalog case invalid. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance. The catalog invalidity is the Element Valid VC under XML §3.1 https://www.w3.org/TR/xml/#sec-starttags."
+  },
+  {
+    "key": "xmlconf/sun/sun-invalid.xml#optional08",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "../valid/dtdtest.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "../valid/dtdtest.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n    ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "once-or-twice-d",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "Pinned main stream has the exact literal doctype/root/child shape; only unread ../valid/dtdtest.dtd supplies the content model making the catalog case invalid. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance. The catalog invalidity is the Element Valid VC under XML §3.1 https://www.w3.org/TR/xml/#sec-starttags."
+  },
+  {
+    "key": "xmlconf/sun/sun-invalid.xml#optional09",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "../valid/dtdtest.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "../valid/dtdtest.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n    ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "once-or-twice-e",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "Pinned main stream has the exact literal doctype/root/child shape; only unread ../valid/dtdtest.dtd supplies the content model making the catalog case invalid. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance. The catalog invalidity is the Element Valid VC under XML §3.1 https://www.w3.org/TR/xml/#sec-starttags."
+  },
+  {
+    "key": "xmlconf/sun/sun-invalid.xml#optional10",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "../valid/dtdtest.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "../valid/dtdtest.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n    ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "once-or-twice-a",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 2,
+        "Kind": "Element",
+        "Name": "e",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 2,
+        "Kind": "Element",
+        "Name": "e",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 2,
+        "Kind": "Element",
+        "Name": "e",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "Pinned main stream has the exact literal doctype/root/child shape; only unread ../valid/dtdtest.dtd supplies the content model making the catalog case invalid. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance. The catalog invalidity is the Element Valid VC under XML §3.1 https://www.w3.org/TR/xml/#sec-starttags."
+  },
+  {
+    "key": "xmlconf/sun/sun-invalid.xml#optional11",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "../valid/dtdtest.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "../valid/dtdtest.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n    ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "once-or-twice-b",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 2,
+        "Kind": "Element",
+        "Name": "e",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 2,
+        "Kind": "Element",
+        "Name": "e",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 2,
+        "Kind": "Element",
+        "Name": "e",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "Pinned main stream has the exact literal doctype/root/child shape; only unread ../valid/dtdtest.dtd supplies the content model making the catalog case invalid. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance. The catalog invalidity is the Element Valid VC under XML §3.1 https://www.w3.org/TR/xml/#sec-starttags."
+  },
+  {
+    "key": "xmlconf/sun/sun-invalid.xml#optional12",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "../valid/dtdtest.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "../valid/dtdtest.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n    ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "once-or-twice-c",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 2,
+        "Kind": "Element",
+        "Name": "e",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 2,
+        "Kind": "Element",
+        "Name": "e",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 2,
+        "Kind": "Element",
+        "Name": "e",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "Pinned main stream has the exact literal doctype/root/child shape; only unread ../valid/dtdtest.dtd supplies the content model making the catalog case invalid. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance. The catalog invalidity is the Element Valid VC under XML §3.1 https://www.w3.org/TR/xml/#sec-starttags."
+  },
+  {
+    "key": "xmlconf/sun/sun-invalid.xml#optional13",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "../valid/dtdtest.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "../valid/dtdtest.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n    ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "once-or-twice-d",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 2,
+        "Kind": "Element",
+        "Name": "e",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 2,
+        "Kind": "Element",
+        "Name": "e",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 2,
+        "Kind": "Element",
+        "Name": "e",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "Pinned main stream has the exact literal doctype/root/child shape; only unread ../valid/dtdtest.dtd supplies the content model making the catalog case invalid. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance. The catalog invalidity is the Element Valid VC under XML §3.1 https://www.w3.org/TR/xml/#sec-starttags."
+  },
+  {
+    "key": "xmlconf/sun/sun-invalid.xml#optional14",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "../valid/dtdtest.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "../valid/dtdtest.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n    ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "once-or-twice-e",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 2,
+        "Kind": "Element",
+        "Name": "e",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 2,
+        "Kind": "Element",
+        "Name": "e",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 2,
+        "Kind": "Element",
+        "Name": "e",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "Pinned main stream has the exact literal doctype/root/child shape; only unread ../valid/dtdtest.dtd supplies the content model making the catalog case invalid. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance. The catalog invalidity is the Element Valid VC under XML §3.1 https://www.w3.org/TR/xml/#sec-starttags."
+  },
+  {
+    "key": "xmlconf/sun/sun-invalid.xml#optional20",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "../valid/dtdtest.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "../valid/dtdtest.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n    ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "once-or-twice-a",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "Pinned main stream has the exact literal doctype/root/child shape; only unread ../valid/dtdtest.dtd supplies the content model making the catalog case invalid. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance. The catalog invalidity is the Element Valid VC under XML §3.1 https://www.w3.org/TR/xml/#sec-starttags."
+  },
+  {
+    "key": "xmlconf/sun/sun-invalid.xml#optional21",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "../valid/dtdtest.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "../valid/dtdtest.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n    ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "once-or-twice-b",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "Pinned main stream has the exact literal doctype/root/child shape; only unread ../valid/dtdtest.dtd supplies the content model making the catalog case invalid. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance. The catalog invalidity is the Element Valid VC under XML §3.1 https://www.w3.org/TR/xml/#sec-starttags."
+  },
+  {
+    "key": "xmlconf/sun/sun-invalid.xml#optional22",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "../valid/dtdtest.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "../valid/dtdtest.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n    ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "once-or-twice-c",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "Pinned main stream has the exact literal doctype/root/child shape; only unread ../valid/dtdtest.dtd supplies the content model making the catalog case invalid. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance. The catalog invalidity is the Element Valid VC under XML §3.1 https://www.w3.org/TR/xml/#sec-starttags."
+  },
+  {
+    "key": "xmlconf/sun/sun-invalid.xml#optional23",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "../valid/dtdtest.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "../valid/dtdtest.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n    ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "once-or-twice-d",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "Pinned main stream has the exact literal doctype/root/child shape; only unread ../valid/dtdtest.dtd supplies the content model making the catalog case invalid. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance. The catalog invalidity is the Element Valid VC under XML §3.1 https://www.w3.org/TR/xml/#sec-starttags."
+  },
+  {
+    "key": "xmlconf/sun/sun-invalid.xml#optional24",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "../valid/dtdtest.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "../valid/dtdtest.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n    ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "once-or-twice-e",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "Pinned main stream has the exact literal doctype/root/child shape; only unread ../valid/dtdtest.dtd supplies the content model making the catalog case invalid. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance. The catalog invalidity is the Element Valid VC under XML §3.1 https://www.w3.org/TR/xml/#sec-starttags."
+  },
+  {
+    "key": "xmlconf/sun/sun-invalid.xml#optional25",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "../valid/dtdtest.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "../valid/dtdtest.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n    ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "once-or-twice-e",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 2,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "No text allowed!",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "Pinned main stream has the exact literal doctype/root/child shape; only unread ../valid/dtdtest.dtd supplies the content model making the catalog case invalid. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance. The catalog invalidity is the Element Valid VC under XML §3.1 https://www.w3.org/TR/xml/#sec-starttags."
   }
 ]
