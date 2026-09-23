@@ -55,7 +55,43 @@ public abstract partial class Node
     {
         ArgumentNullException.ThrowIfNull(child);
         EnsureContainer();
-        if (child is Document or DocumentFragment || child.ParentNode is not null ||
+        EnsureFreshParsedChild(child);
+        InsertValidated(child, null);
+    }
+
+    // DOM Standard §4.2.3 insertion steps. The parser has already proved
+    // document shape and host-inclusive acyclicity.
+    // Only directly inspectable preconditions are checked here; an ancestor walk
+    // would repeat the same prefix for every fostered insertion.
+    internal void InsertParsedBefore(Node child, Node? referenceChild, CancellationToken cancellationToken)
+        => InsertParsedBefore(child, referenceChild, null, cancellationToken);
+
+    // Per-invocation checkpoint permits a test to cancel after the complete
+    // semantic commit. It is neither stored nor used by production parsing.
+    internal void InsertParsedBefore(Node child, Node? referenceChild, Action? afterCommitCheckpoint,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(child);
+        EnsureContainer();
+        if (referenceChild is not null && !ReferenceEquals(referenceChild.ParentNode, this))
+        {
+            throw new InvalidOperationException("Parsed insertion requires a child of this destination as its reference.");
+        }
+
+        EnsureFreshParsedChild(child);
+        cancellationToken.ThrowIfCancellationRequested();
+        InsertValidated(child, referenceChild);
+        cancellationToken.ThrowIfCancellationRequested();
+        afterCommitCheckpoint?.Invoke();
+        cancellationToken.ThrowIfCancellationRequested();
+    }
+
+    private void EnsureFreshParsedChild(Node child)
+    {
+        if (ReferenceEquals(child, this) ||
+            ReferenceEquals((this as DocumentFragment)?.Host, child) ||
+            child is Document or DocumentFragment || child.ParentNode is not null ||
             child.FirstChild is not null || child.LastChild is not null || child.ChildCount != 0 ||
             child.PreviousSibling is not null || child.NextSibling is not null ||
             child.MutationRegistrations is not null ||
@@ -63,8 +99,6 @@ public abstract partial class Node
         {
             throw new InvalidOperationException("Parsed insertion requires a fresh detached node with this owner.");
         }
-
-        InsertValidated(child, null);
     }
 
     // DOM Standard §4.2.3: pre-insert, replace and remove algorithms. Validation
