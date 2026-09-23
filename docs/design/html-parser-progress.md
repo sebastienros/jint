@@ -23,10 +23,10 @@ the earlier repository direction to retain AngleSharp.
 | A1 dependency and binding inventory | `01a0cef5-3c12-7d22-926c-e2aeefe58949` | Reviewed and integrated |
 | A2/D1/D2 package and DOM foundation | `01a0cef5-4a7d-72e2-b551-74f03c9da7ec` | Reviewed fixes integrated; 52 combined tests pass |
 | H1/H2 resumable HTML tokenizer | `01a0cf2a-8177-7941-9413-ee60edc59454` | In progress |
-| C1 CSS syntax | `01a0cf2a-8a51-76b1-a12b-ac57c7d2b594` | In progress |
+| C1 CSS syntax | `01a0cf2a-8a51-76b1-a12b-ac57c7d2b594` | Reviewed and integrated |
 | A2 shared limits/diagnostics/errors and API snapshots | `01a0cf2c-ab5e-7023-95ab-1ab3a4fc8d77` | Reviewed and integrated |
 | D3a native cloning and import | `01a0cf34-dc42-75d0-960e-735bef6eb68a` | Reviewed and integrated |
-| XML shared contracts and provenance | `01a0cf2c-ab5e-7023-95ab-1ab3a4fc8d77` | Follow-up in progress |
+| XML shared contracts and provenance | `01a0cf2c-ab5e-7023-95ab-1ab3a4fc8d77` | Reviewed and integrated |
 | X1 native XML/SVG parsing | `01a0cf3f-9380-7513-a351-4078c30d2241` | Internal scanner milestone in progress |
 
 ## Initial repository evidence
@@ -59,7 +59,11 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   no failures/skips. Author separately verified signed packing and a Native AOT
   consumer of the packed package; this establishes only the current native surface.
 - After integrating clone/import, the suite passes 64 tests across both frameworks,
-  with zero failures/skips. HTML and CSS implementation commits remain under review.
+  with zero failures/skips.
+- After integrating CSS syntax, XML shared contracts and reviewed generated API
+  snapshots, the suite passes 102 tests across both frameworks, zero failures/skips.
+  HTML tokenization remains under review; no document parser or browser replacement
+  is claimed by these construct-level and native-DOM milestones.
 
 ## Integrated commits
 
@@ -85,3 +89,10 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   (source `8f275e24b`, `8f18f92bc`, `862696a2c`). The final reviewed policy supersedes
   the intermediate rejection proposal: no-fetch external entity omissions remain
   successful parses and are exposed through immutable document provenance.
+- `951f1693f`: reviewed current HTML PI and CSS UnicodeRange contract additions
+  (source `0d4384907`).
+- `9c5428c13`, `f25eb56ed`, `18fa7a2c0`: CSS syntax tokenizer, four construct APIs,
+  recovery and UnicodeRange corrections, and bounded cancellation through final
+  scans (source `370721cd7`, `1a99cca13`, `35d21d71d`); final Astra recheck clear.
+- `552108b99`: XML options, errors, expansion budget and immutable skipped-entity
+  provenance (source `e1c210c9e`); Astra review clear.

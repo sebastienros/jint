@@ -101,6 +101,13 @@
         public string Code { get; }
         public long Offset { get; }
     }
+    public static class MarkupParser
+    {
+        public static Jint.HtmlParser.Css.CssComponentValue ParseCssComponentValue(string source, Jint.HtmlParser.CssParseOptions? options = null, System.Threading.CancellationToken cancellationToken = default) { }
+        public static Jint.HtmlParser.Css.CssComponentValueList ParseCssComponentValues(string source, Jint.HtmlParser.CssParseOptions? options = null, System.Threading.CancellationToken cancellationToken = default) { }
+        public static Jint.HtmlParser.Css.CssDeclarationSyntax ParseCssDeclaration(string source, Jint.HtmlParser.CssParseOptions? options = null, System.Threading.CancellationToken cancellationToken = default) { }
+        public static Jint.HtmlParser.Css.CssRuleSyntax ParseCssRule(string source, Jint.HtmlParser.CssParseOptions? options = null, System.Threading.CancellationToken cancellationToken = default) { }
+    }
     public static class Namespaces
     {
         public const string Html = "http://www.w3.org/1999/xhtml";
@@ -201,5 +208,97 @@
         General = 0,
         Parameter = 1,
         ExternalSubset = 2,
+    }
+}
+namespace Jint.HtmlParser.Css
+{
+    public enum CssComponentKind
+    {
+        None = 0,
+        Token = 1,
+        Function = 2,
+        SimpleBlock = 3,
+    }
+    public readonly struct CssComponentValue
+    {
+        public string FunctionName { get; }
+        public Jint.HtmlParser.Css.CssComponentKind Kind { get; }
+        public char OpeningDelimiter { get; }
+        public Jint.HtmlParser.Css.CssSourceSpan Span { get; }
+        public Jint.HtmlParser.Css.CssToken Token { get; }
+        public Jint.HtmlParser.Css.CssComponentValueList Values { get; }
+    }
+    public sealed class CssComponentValueList : System.Collections.Generic.IEnumerable<Jint.HtmlParser.Css.CssComponentValue>, System.Collections.Generic.IReadOnlyCollection<Jint.HtmlParser.Css.CssComponentValue>, System.Collections.Generic.IReadOnlyList<Jint.HtmlParser.Css.CssComponentValue>, System.Collections.IEnumerable
+    {
+        public int Count { get; }
+        public Jint.HtmlParser.Css.CssComponentValue this[int index] { get; }
+        public System.Collections.Generic.IEnumerator<Jint.HtmlParser.Css.CssComponentValue> GetEnumerator() { }
+    }
+    public sealed class CssDeclarationSyntax
+    {
+        public bool IsImportant { get; }
+        public string Name { get; }
+        public Jint.HtmlParser.Css.CssSourceSpan Span { get; }
+        public Jint.HtmlParser.Css.CssComponentValueList Value { get; }
+    }
+    public enum CssRuleKind
+    {
+        AtRule = 0,
+        QualifiedRule = 1,
+    }
+    public sealed class CssRuleSyntax
+    {
+        public Jint.HtmlParser.Css.CssComponentValue? Block { get; }
+        public Jint.HtmlParser.Css.CssRuleKind Kind { get; }
+        public string Name { get; }
+        public Jint.HtmlParser.Css.CssComponentValueList Prelude { get; }
+        public Jint.HtmlParser.Css.CssSourceSpan Span { get; }
+    }
+    public readonly struct CssSourceSpan
+    {
+        public int Length { get; }
+        public int Start { get; }
+    }
+    public readonly struct CssToken
+    {
+        public char Delimiter { get; }
+        public bool IsIdHash { get; }
+        public bool IsInteger { get; }
+        public Jint.HtmlParser.Css.CssTokenKind Kind { get; }
+        public string NumberText { get; }
+        public Jint.HtmlParser.Css.CssSourceSpan Span { get; }
+        public string Text { get; }
+        public int UnicodeRangeEnd { get; }
+        public int UnicodeRangeStart { get; }
+        public string Unit { get; }
+    }
+    public enum CssTokenKind
+    {
+        None = 0,
+        Ident = 1,
+        Function = 2,
+        AtKeyword = 3,
+        Hash = 4,
+        String = 5,
+        BadString = 6,
+        Url = 7,
+        BadUrl = 8,
+        Delim = 9,
+        Number = 10,
+        Percentage = 11,
+        Dimension = 12,
+        UnicodeRange = 13,
+        Whitespace = 14,
+        Cdo = 15,
+        Cdc = 16,
+        Colon = 17,
+        Semicolon = 18,
+        Comma = 19,
+        OpenParenthesis = 20,
+        CloseParenthesis = 21,
+        OpenSquareBracket = 22,
+        CloseSquareBracket = 23,
+        OpenCurlyBracket = 24,
+        CloseCurlyBracket = 25,
     }
 }
