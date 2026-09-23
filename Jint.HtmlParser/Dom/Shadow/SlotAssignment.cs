@@ -155,6 +155,12 @@ internal static class SlotAssignment
             }
         }
 
+        if (oldShadow is not null && oldParent is Element fallbackSlot && IsSlot(fallbackSlot) &&
+            fallbackSlot.SlotState?.Assigned.Count is null or 0)
+        {
+            Signal(fallbackSlot);
+        }
+
         if (oldShadow is { } root && ContainsSlot(node))
         {
             Rebuild(root);
@@ -176,6 +182,7 @@ internal static class SlotAssignment
                 var name = SlottableName(node);
                 if (state.FirstByName.TryGetValue(name, out var slot))
                 {
+                    Signal(slot);
                     (slot.SlotState ??= new SlotElementState()).Assigned.Add(node);
                     node.StoredAssignedSlot = slot;
                 }
@@ -184,6 +191,12 @@ internal static class SlotAssignment
             {
                 Reassign(root);
             }
+        }
+
+        if (shadow is not null && parent is Element fallbackSlot && IsSlot(fallbackSlot) &&
+            fallbackSlot.SlotState?.Assigned.Count is null or 0)
+        {
+            Signal(fallbackSlot);
         }
 
         if (shadow is not null && ContainsSlot(node))
@@ -268,6 +281,9 @@ internal static class SlotAssignment
         var old = root.SlotState;
         var current = BuildIndex(root);
         root.SlotState = current;
+        // DOM removal assigns the surviving tree before assigning the detached
+        // subtree. This order is visible to the native signal collector.
+        Reassign(root);
         if (old is not null)
         {
             var present = new HashSet<Element>(current.Slots, ReferenceEqualityComparer.Instance);
@@ -280,7 +296,6 @@ internal static class SlotAssignment
             }
         }
 
-        Reassign(root);
     }
 
     private static void Reassign(ShadowRoot root)
@@ -332,6 +347,11 @@ internal static class SlotAssignment
         foreach (var slot in state.Slots)
         {
             var nodes = next[slot];
+            if (!SameIdentityList(slot.SlotState!.Assigned, nodes))
+            {
+                Signal(slot);
+            }
+
             (slot.SlotState ??= new SlotElementState()).Assigned = nodes;
             foreach (var node in nodes)
             {
@@ -348,6 +368,11 @@ internal static class SlotAssignment
             return;
         }
 
+        if (assigned.Count != 0)
+        {
+            Signal(slot);
+        }
+
         foreach (var node in assigned)
         {
             if (ReferenceEquals(node.StoredAssignedSlot, slot))
@@ -358,6 +383,26 @@ internal static class SlotAssignment
 
         assigned.Clear();
     }
+
+    private static bool SameIdentityList(List<Node> first, List<Node> second)
+    {
+        if (first.Count != second.Count)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < first.Count; i++)
+        {
+            if (!ReferenceEquals(first[i], second[i]))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static void Signal(Element slot) => slot.OwnerDocument?.SlotChangeSignal?.Invoke(slot);
 
     private static bool ContainsSlot(Node node)
     {

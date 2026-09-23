@@ -30,6 +30,9 @@ public sealed class Document : Node
     private readonly CustomElementRegistryIdentity? _creationDefaultCustomElementRegistry;
     private ulong _mutationStamp;
     private bool _mayHaveMutationRegistrations;
+    // Browser installs an agent-level collector. Native mutations notify at the
+    // algorithm's signal points; an absent sink retains no pending slot queue.
+    internal Action<Element>? SlotChangeSignal { get; set; }
     internal CustomElementRegistryIdentity? CustomElementRegistry { get; private set; }
 
     internal void SetCustomElementRegistry(CustomElementRegistryIdentity? registry)
