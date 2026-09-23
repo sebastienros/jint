@@ -3,38 +3,68 @@ namespace Jint.HtmlParser;
 /// <summary>Copies native tree state without routing through document factories.</summary>
 internal static class NodeCloner
 {
-    // DOM Standard §4.4, cloning and importing nodes. The source is an existing
-    // valid tree, but mutable data setters can admit values that creation rejects.
-    internal static Node Clone(Node source, Document document, bool deep)
+    // DOM Standard §4.4: a clonable shadow tree is copied even when light-tree
+    // subtree is false. Frames keep deep chains off the CLR call stack.
+    internal static Node Clone(Node source, Document document, bool deep,
+        CustomElementRegistryIdentity? fallbackRegistry = null)
     {
-        var root = CopySingle(source, document);
-        if (!deep)
+        if (source is ShadowRoot)
         {
-            return root;
+            throw DomException.NotSupported();
         }
 
-        var pending = new Stack<(Node Source, Node Copy)>();
-        pending.Push((source, root));
-        while (pending.TryPop(out var pair))
+        var root = CopySingle(source, document, fallbackRegistry);
+        var pending = new Stack<Frame>();
+        pending.Push(new Frame(source, root, deep, fallbackRegistry));
+        while (pending.TryPop(out var frame))
         {
-            var owner = pair.Copy as Document ?? pair.Copy.OwnerDocument!;
-            for (var child = pair.Source.FirstChild; child is not null; child = child.NextSibling)
+            if (frame.NextChild is { } child)
             {
-                var copy = CopySingle(child, owner);
-                pair.Copy.AppendClonedChild(copy);
-                pending.Push((child, copy));
+                frame.NextChild = child.NextSibling;
+                pending.Push(frame);
+                var owner = frame.Copy as Document ?? frame.Copy.OwnerDocument!;
+                var copy = CopySingle(child, owner, frame.FallbackRegistry);
+                frame.Copy.AppendClonedChild(copy);
+                pending.Push(new Frame(child, copy, true, frame.FallbackRegistry));
+                continue;
             }
 
-            if (pair.Source is Element { TemplateContent: { } sourceContent } &&
-                pair.Copy is Element { TemplateContent: { } copyContent })
+            if (frame.Stage == 0)
             {
-                var contentOwner = copyContent.OwnerDocument!;
-                for (var child = sourceContent.FirstChild; child is not null; child = child.NextSibling)
+                frame.Stage = 1;
+                pending.Push(frame);
+                if (frame.Deep && frame.Source is Element { TemplateContent: { } sourceContent } &&
+                    frame.Copy is Element { TemplateContent: { } copyContent })
                 {
-                    var copy = CopySingle(child, contentOwner);
-                    copyContent.AppendClonedChild(copy);
-                    pending.Push((child, copy));
+                    pending.Push(new Frame(sourceContent, copyContent, true, frame.FallbackRegistry));
                 }
+
+                continue;
+            }
+
+            if (frame.Stage == 1)
+            {
+                frame.Stage = 2;
+                pending.Push(frame);
+                if (frame.Source is Element { AttachedShadowRoot: { Clonable: true } sourceShadow } &&
+                    frame.Copy is Element copyHost)
+                {
+                    var shadowRegistry = sourceShadow.CustomElementRegistry;
+                    if (shadowRegistry is { IsScoped: false })
+                    {
+                        shadowRegistry = EffectiveGlobalRegistry(copyHost.OwnerDocument!);
+                    }
+
+                    var copyShadow = ShadowTree.AttachClone(copyHost,
+                        new ShadowRootInit(sourceShadow.Mode, sourceShadow.DelegatesFocus,
+                            sourceShadow.Serializable, sourceShadow.SlotAssignment, true),
+                        shadowRegistry);
+                    copyShadow.SetDeclarative(sourceShadow.Declarative);
+                    copyShadow.SetKeepCustomElementRegistryNull(sourceShadow.KeepCustomElementRegistryNull);
+                    pending.Push(new Frame(sourceShadow, copyShadow, true, null));
+                }
+
+                continue;
             }
         }
 
@@ -44,26 +74,36 @@ internal static class NodeCloner
     internal static Attr CloneAttribute(Attr source, Document document)
         => new(document, source.NamespaceUri, source.LocalName, source.Prefix, source.Value);
 
-    private static Node CopySingle(Node source, Document document)
+    private static Node CopySingle(Node source, Document document,
+        CustomElementRegistryIdentity? fallbackRegistry)
     {
         switch (source)
         {
             case Document original:
-                var clonedDocument = new Document(original.Kind, original.ContentType);
+                var clonedDocument = new Document(original.Kind, original.ContentType,
+                    original.CreationDefaultCustomElementRegistry);
                 clonedDocument.SetParserMode(original.Mode);
                 clonedDocument.CopySkippedXmlEntitiesFrom(original);
                 clonedDocument.CopyXmlNotationsFrom(original);
+                if (original.CustomElementRegistry is { IsScoped: true } scoped)
+                {
+                    clonedDocument.InitializeCustomElementRegistry(scoped);
+                }
+
                 return clonedDocument;
             case Element original:
                 var element = new Element(document, original.NamespaceUri, original.LocalName, original.Prefix);
                 element.CopyAttributesFrom(original, document);
+                var registry = original.CustomElementRegistry ?? fallbackRegistry;
+                element.InitializeCustomElementRegistry(registry is { IsScoped: false }
+                    ? EffectiveGlobalRegistry(document)
+                    : registry);
                 return element;
             case Text original:
                 return new Text(document, original.Data);
             case Comment original:
                 return new Comment(document, original.Data);
             case CDataSection original:
-                // The public setter permits a terminator after construction.
                 return new CDataSection(document, original.Data, clone: true);
             case ProcessingInstruction original:
                 return ProcessingInstruction.CopyTo(document, original);
@@ -74,5 +114,27 @@ internal static class NodeCloner
             default:
                 throw DomException.NotSupported();
         }
+    }
+
+    private static CustomElementRegistryIdentity? EffectiveGlobalRegistry(Document document)
+        => document.CustomElementRegistry is { IsScoped: false } registry ? registry : null;
+
+    private struct Frame
+    {
+        internal Frame(Node source, Node copy, bool deep, CustomElementRegistryIdentity? fallbackRegistry)
+        {
+            Source = source;
+            Copy = copy;
+            Deep = deep;
+            FallbackRegistry = fallbackRegistry;
+            NextChild = deep ? source.FirstChild : null;
+        }
+
+        internal Node Source { get; }
+        internal Node Copy { get; }
+        internal bool Deep { get; }
+        internal CustomElementRegistryIdentity? FallbackRegistry { get; }
+        internal Node? NextChild { get; set; }
+        internal int Stage { get; set; }
     }
 }

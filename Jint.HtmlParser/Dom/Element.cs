@@ -10,6 +10,30 @@ internal enum ParsedAttributeMergeCheckpoint
 public sealed class Element : Node
 {
     private List<Attr>? _attributes;
+    internal ShadowRoot? AttachedShadowRoot { get; private set; }
+    internal ShadowRoot? OpenShadowRoot => AttachedShadowRoot is { Mode: ShadowRootMode.Open } root ? root : null;
+    internal CustomElementRegistryIdentity? CustomElementRegistry { get; private set; }
+
+    internal void SetCustomElementRegistry(CustomElementRegistryIdentity? registry)
+    {
+        if (!ReferenceEquals(CustomElementRegistry, registry))
+        {
+            CustomElementRegistry = registry;
+            OwnerDocument!.MarkMutation();
+        }
+    }
+
+    internal void SetAttachedShadowRoot(ShadowRoot root)
+    {
+        if (AttachedShadowRoot is not null || !ReferenceEquals(root.Host, this))
+        {
+            throw new InvalidOperationException("A shadow root cannot be retargeted or replaced.");
+        }
+
+        AttachedShadowRoot = root;
+    }
+    internal void SetTemplateContent(ShadowRoot root) => TemplateContent = root;
+    internal void InitializeCustomElementRegistry(CustomElementRegistryIdentity? registry) => CustomElementRegistry = registry;
 
     internal Element(Document owner, string? namespaceUri, string localName, string? prefix) : base(owner)
     {
@@ -27,7 +51,7 @@ public sealed class Element : Node
     public string LocalName { get; }
     public string? Prefix { get; }
     public string TagName => Prefix is null ? LocalName : string.Concat(Prefix, ":", LocalName);
-    public DocumentFragment? TemplateContent { get; }
+    public DocumentFragment? TemplateContent { get; private set; }
     public int AttributeCount => _attributes?.Count ?? 0;
     public IEnumerable<Attr> Attributes
     {

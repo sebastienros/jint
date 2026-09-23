@@ -295,7 +295,7 @@ public sealed class DocumentType : Node
 }
 
 /// <summary>A detached container whose children can be inserted as a group.</summary>
-public sealed class DocumentFragment : Node
+public class DocumentFragment : Node
 {
     internal DocumentFragment(Document owner, Element? host = null) : base(owner) => Host = host;
     public override NodeType NodeType => NodeType.DocumentFragment;

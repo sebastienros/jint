@@ -27,24 +27,54 @@ public sealed class Document : Node
     private IReadOnlyList<XmlNotationDeclaration>? _xmlNotations;
     private Document? _templateContentsOwnerDocument;
     private readonly bool _isTemplateContentsOwnerDocument;
+    private readonly CustomElementRegistryIdentity? _creationDefaultCustomElementRegistry;
     private ulong _mutationStamp;
     private bool _mayHaveMutationRegistrations;
+    internal CustomElementRegistryIdentity? CustomElementRegistry { get; private set; }
+
+    internal void SetCustomElementRegistry(CustomElementRegistryIdentity? registry)
+    {
+        if (!ReferenceEquals(CustomElementRegistry, registry))
+        {
+            CustomElementRegistry = registry;
+            MarkMutation();
+        }
+    }
+
+    internal void InitializeCustomElementRegistry(CustomElementRegistryIdentity? registry) => CustomElementRegistry = registry;
 
     public Document(DocumentKind kind) : this(kind, kind == DocumentKind.Html ? "text/html" : "application/xml") { }
 
-    internal Document(DocumentKind kind, string contentType) : this(kind, contentType, false) { }
+    internal Document(DocumentKind kind, string contentType) : this(kind, contentType, false, null) { }
 
-    private Document(DocumentKind kind, string contentType, bool isTemplateContentsOwnerDocument) : base(null)
+    // Browser supplies its realm's actual global identity when creating a
+    // document. Standalone factories and inert template owners supply null.
+    internal Document(DocumentKind kind, string contentType,
+        CustomElementRegistryIdentity? creationDefaultCustomElementRegistry)
+        : this(kind, contentType, false, creationDefaultCustomElementRegistry) { }
+
+    private Document(DocumentKind kind, string contentType, bool isTemplateContentsOwnerDocument,
+        CustomElementRegistryIdentity? creationDefaultCustomElementRegistry) : base(null)
     {
+        if (creationDefaultCustomElementRegistry is { IsScoped: true })
+        {
+            throw new ArgumentException("A document creation default must be a global registry.",
+                nameof(creationDefaultCustomElementRegistry));
+        }
+
         Kind = kind;
         ContentType = contentType;
         _isTemplateContentsOwnerDocument = isTemplateContentsOwnerDocument;
+        _creationDefaultCustomElementRegistry = creationDefaultCustomElementRegistry;
+        CustomElementRegistry = creationDefaultCustomElementRegistry;
     }
+
+    internal CustomElementRegistryIdentity? CreationDefaultCustomElementRegistry => _creationDefaultCustomElementRegistry;
 
     internal Document GetTemplateContentsOwnerDocument()
         => _isTemplateContentsOwnerDocument
             ? this
-            : _templateContentsOwnerDocument ??= new Document(Kind, "application/xml", true);
+            : _templateContentsOwnerDocument ??= new Document(Kind, "application/xml", true, null);
 
     public static Document CreateHtml() => new(DocumentKind.Html);
     public static Document CreateXml() => new(DocumentKind.Xml);
@@ -246,18 +276,23 @@ public sealed class Document : Node
     public Node ImportNode(Node source, bool deep = false)
     {
         ArgumentNullException.ThrowIfNull(source);
-        if (source is Document)
+        if (source is Document or ShadowRoot)
         {
             throw DomException.NotSupported();
         }
 
-        return NodeCloner.Clone(source, this, deep);
+        return NodeCloner.Clone(source, this, deep, CustomElementRegistry);
     }
 
     /// <summary>Removes a node from its parent and gives this document its identity and subtree.</summary>
     public Node AdoptNode(Node node)
     {
         ArgumentNullException.ThrowIfNull(node);
+        if (node is ShadowRoot)
+        {
+            throw DomException.Hierarchy();
+        }
+
         if (node is Document)
         {
             throw DomException.NotSupported();

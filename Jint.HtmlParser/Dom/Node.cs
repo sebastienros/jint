@@ -45,8 +45,9 @@ public abstract partial class Node
     /// <summary>Creates a detached copy of this node, optionally including descendants.</summary>
     public Node CloneNode(bool deep = false) => NodeCloner.Clone(this, this as Document ?? _ownerDocument!, deep);
 
-    // A clone is already validated by its source tree. Link it directly so copying a
-    // deep chain does not repeat the ancestor walk performed by public insertion.
+    // A clone is already valid by its source tree. D6s2/D6s3 must add the
+    // insertion's assignment and slot-signal steps here, including for copied
+    // fallback children, without repeating public ancestor validation.
     internal void AppendClonedChild(Node child) => LinkBefore(child, null);
 
     // Trusted fresh-node parser insertion. The caller has established the full
@@ -594,10 +595,37 @@ public abstract partial class Node
             if (current.Node is Element element)
             {
                 element.AdoptAttributes(current.Owner);
-                if (element.TemplateContent is { } content)
+                if (element.CustomElementRegistry is null || !element.CustomElementRegistry.IsScoped)
+                {
+                    var parent = element.ParentNode;
+                    var registry = element.CustomElementRegistry is not null || parent is null ||
+                                   parent is DocumentFragment and not ShadowRoot
+                        ? current.Owner.CustomElementRegistry
+                        : parent switch
+                        {
+                            Element parentElement => parentElement.CustomElementRegistry,
+                            ShadowRoot parentShadow => parentShadow.CustomElementRegistry,
+                            Document parentDocument => parentDocument.CustomElementRegistry,
+                            _ => null
+                        };
+                    element.SetCustomElementRegistry(EffectiveGlobalRegistry(registry));
+                }
+
+                if (element.AttachedShadowRoot is { } shadowRoot)
+                {
+                    pending.Push((shadowRoot, current.Owner));
+                }
+
+                if (element.TemplateContent is { } content && content is not ShadowRoot)
                 {
                     pending.Push((content, current.Owner.GetTemplateContentsOwnerDocument()));
                 }
+            }
+            else if (current.Node is ShadowRoot shadow &&
+                     (shadow.CustomElementRegistry is null && !shadow.KeepCustomElementRegistryNull ||
+                      shadow.CustomElementRegistry is { IsScoped: false }))
+            {
+                shadow.SetCustomElementRegistry(EffectiveGlobalRegistry(current.Owner.CustomElementRegistry));
             }
 
             for (var child = current.Node.FirstChild; child is not null; child = child.NextSibling)
@@ -606,6 +634,9 @@ public abstract partial class Node
             }
         }
     }
+
+    private static CustomElementRegistryIdentity? EffectiveGlobalRegistry(CustomElementRegistryIdentity? registry)
+        => registry is { IsScoped: false } ? registry : null;
 
     // The normal element append needs no incoming-node collection allocation. A fragment
     // snapshots its children because detaching them changes the linked list as it is consumed.
