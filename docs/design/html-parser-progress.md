@@ -68,6 +68,8 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
 - After integrating H1/H2 and its reviewed preprocessing, EOF and cooperative quota
   fixes, 332 tests pass across both frameworks, zero failures/skips. H3 text modes,
   tree construction and the full XML implementation remain unfinished.
+- After integrating document MIME/charset metadata and XHTML creation behavior,
+  340 tests pass across both frameworks, zero failures/skips.
 
 ## Integrated commits
 
@@ -108,3 +110,9 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   current-spec processing instructions, focused boundary coverage, CR preprocessing
   and EOF diagnostics, and cooperative materialization accounting (source `1c917e00e`,
   `ad07d7f3e`, `03a72284b`, `69953b997`, `dc805af10`); final Astra rechecks clear.
+- `3a530e187`: reviewed mutation subscription and delivery contracts
+  (source `56e4fc086`).
+- `96b2fd38b`, `6e9c7d667`: reviewed trusted parser construction contracts and required
+  bulk-initialization cancellation (source `ccf8673a4`, `5f6837e3d`).
+- `c0a9ea848`, `686d5d43a`: document metadata, XHTML creation and XML MIME suffix
+  correction (source `bfcc65603`, `98399a3bd`); final Astra recheck clear.
