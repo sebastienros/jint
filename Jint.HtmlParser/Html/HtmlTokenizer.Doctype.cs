@@ -18,10 +18,10 @@ internal sealed partial class HtmlTokenizer
                 if (c == '>') { Error("missing-doctype-name"); _forceQuirks = true; Take(); return EmitDoctype(out token); }
                 _name.Clear(); _state = State.DoctypeName; return false;
             case State.DoctypeName:
-                if (White(c)) { _doctypeName = _name.ToString(); Take(); _state = State.AfterDoctypeName; return false; }
-                if (c == '>') { _doctypeName = _name.ToString(); Take(); return EmitDoctype(out token); }
+                if (White(c)) { _doctypeName = Materialize(_name); Take(); _state = State.AfterDoctypeName; return false; }
+                if (c == '>') { _doctypeName = Materialize(_name); Take(); return EmitDoctype(out token); }
                 if (c == '\0') Error("unexpected-null-character");
-                _name.Append(Lower(ReplaceNull(Take()))); return false;
+                Append(_name, Lower(ReplaceNull(Take()))); return false;
             case State.AfterDoctypeName:
                 if (White(c)) { Take(); return false; }
                 if (c == '>') { Take(); return EmitDoctype(out token); }
@@ -42,10 +42,10 @@ internal sealed partial class HtmlTokenizer
                 Error("missing-quote-before-doctype-public-identifier"); _forceQuirks = true; _state = State.BogusDoctype; return false;
             case State.PublicDouble:
             case State.PublicSingle:
-                if (c == (_state == State.PublicDouble ? '"' : '\'')) { Take(); _publicIdentifier = _value.ToString(); _state = State.AfterPublicIdentifier; return false; }
-                if (c == '>') { Error("abrupt-doctype-public-identifier"); _publicIdentifier = _value.ToString(); _forceQuirks = true; Take(); return EmitDoctype(out token); }
+                if (c == (_state == State.PublicDouble ? '"' : '\'')) { Take(); _publicIdentifier = Materialize(_value); _state = State.AfterPublicIdentifier; return false; }
+                if (c == '>') { Error("abrupt-doctype-public-identifier"); _publicIdentifier = Materialize(_value); _forceQuirks = true; Take(); return EmitDoctype(out token); }
                 if (c == '\0') Error("unexpected-null-character");
-                _value.Append(ReplaceNull(Take())); return false;
+                Append(_value, ReplaceNull(Take())); return false;
             case State.AfterPublicIdentifier:
                 if (White(c)) { Take(); _state = State.BetweenPublicAndSystem; return false; }
                 if (c == '>') { Take(); return EmitDoctype(out token); }
@@ -69,10 +69,10 @@ internal sealed partial class HtmlTokenizer
                 Error("missing-quote-before-doctype-system-identifier"); _forceQuirks = true; _state = State.BogusDoctype; return false;
             case State.SystemDouble:
             case State.SystemSingle:
-                if (c == (_state == State.SystemDouble ? '"' : '\'')) { Take(); _systemIdentifier = _value.ToString(); _state = State.AfterSystemIdentifier; return false; }
-                if (c == '>') { Error("abrupt-doctype-system-identifier"); _systemIdentifier = _value.ToString(); _forceQuirks = true; Take(); return EmitDoctype(out token); }
+                if (c == (_state == State.SystemDouble ? '"' : '\'')) { Take(); _systemIdentifier = Materialize(_value); _state = State.AfterSystemIdentifier; return false; }
+                if (c == '>') { Error("abrupt-doctype-system-identifier"); _systemIdentifier = Materialize(_value); _forceQuirks = true; Take(); return EmitDoctype(out token); }
                 if (c == '\0') Error("unexpected-null-character");
-                _value.Append(ReplaceNull(Take())); return false;
+                Append(_value, ReplaceNull(Take())); return false;
             case State.AfterSystemIdentifier:
                 if (White(c)) { Take(); return false; }
                 if (c == '>') { Take(); return EmitDoctype(out token); }
@@ -143,9 +143,9 @@ internal sealed partial class HtmlTokenizer
             case State.SystemSingle:
             case State.AfterSystemIdentifier:
                 Error("eof-in-doctype");
-                if (_state == State.DoctypeName) _doctypeName = _name.ToString();
-                if (_state is State.PublicDouble or State.PublicSingle) _publicIdentifier = _value.ToString();
-                if (_state is State.SystemDouble or State.SystemSingle) _systemIdentifier = _value.ToString();
+                if (_state == State.DoctypeName) _doctypeName = Materialize(_name);
+                if (_state is State.PublicDouble or State.PublicSingle) _publicIdentifier = Materialize(_value);
+                if (_state is State.SystemDouble or State.SystemSingle) _systemIdentifier = Materialize(_value);
                 if (_state != State.BogusDoctype) _forceQuirks = true;
                 return EmitDoctype(out token);
             case State.BogusDoctype:

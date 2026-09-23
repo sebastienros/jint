@@ -264,6 +264,26 @@ public class HtmlTokenizerTests
     }
 
     [Test]
+    public void AttributeFinalizationWorkGrowsLinearly()
+    {
+        static long WorkFor(int count)
+        {
+            var input = new StringBuilder("<a");
+            for (var i = 0; i < count; i++) input.Append(" a").Append(i).Append("=v");
+            input.Append('>');
+            var tokenizer = new HtmlTokenizer(default);
+            tokenizer.AppendInput(input.ToString(), true);
+            var tokens = new List<HtmlToken>();
+            Drain(tokenizer, 7, tokens, true);
+            Assert.That(tokens[0].Attributes.Count, Is.EqualTo(count));
+            return tokenizer.WorkCount;
+        }
+        var small = WorkFor(1000);
+        var large = WorkFor(2000);
+        Assert.That(large, Is.LessThan(small * 3));
+    }
+
+    [Test]
     public void StatusAndTerminalRules()
     {
         var tokenizer = new HtmlTokenizer(default);

@@ -22,6 +22,7 @@ internal sealed partial class HtmlTokenizer
     private readonly StringBuilder _comment = new();
     private readonly StringBuilder _piTarget = new();
     private readonly StringBuilder _piData = new();
+    private string? _piName;
     private readonly List<HtmlAttribute> _attributes = new();
     private readonly HashSet<string> _attributeNames = new(StringComparer.Ordinal);
     private State _state;
@@ -44,6 +45,8 @@ internal sealed partial class HtmlTokenizer
     private long _referenceStart = -1;
     private long _textStart;
     private long _work;
+    private long _remainingWork;
+    private CancellationToken _activeCancellationToken;
     private int _numericBase;
     private uint _numericValue;
     private bool _numericOverflow;
@@ -97,10 +100,13 @@ internal sealed partial class HtmlTokenizer
         if (_ended) return HtmlReadStatus.Complete;
         try
         {
+            _activeCancellationToken = cancellationToken;
+            _remainingWork = workQuota;
             cancellationToken.ThrowIfCancellationRequested();
-            for (var spent = 0; spent < workQuota; spent++)
+            while (_remainingWork > 0)
             {
-                _work++;
+                _remainingWork--;
+                if (_work < long.MaxValue) _work++;
                 cancellationToken.ThrowIfCancellationRequested();
                 if (_skipLf)
                 {
@@ -168,7 +174,7 @@ internal sealed partial class HtmlTokenizer
 
     private HtmlReadStatus FlushText(out HtmlToken token)
     {
-        token = new HtmlToken(HtmlTokenKind.Text, data: _text.ToString(), offset: _textStart);
+        token = new HtmlToken(HtmlTokenKind.Text, data: Materialize(_text), offset: _textStart);
         _text.Clear();
         return HtmlReadStatus.Token;
     }
@@ -189,13 +195,13 @@ internal sealed partial class HtmlTokenizer
     private void Text(char c, long offset)
     {
         if (_text.Length == 0) _textStart = offset;
-        _text.Append(c);
+        Append(_text, c);
     }
 
     private void Text(string s, long offset)
     {
         if (_text.Length == 0) _textStart = offset;
-        _text.Append(s);
+        Append(_text, s);
     }
 
     private char Take()
@@ -235,16 +241,24 @@ internal sealed partial class HtmlTokenizer
         _tagName.Clear();
         _name.Clear();
         _value.Clear();
+        Poll();
+        ChargeCopy((long) _attributes.Count + _attributeNames.Count);
         _attributes.Clear();
         _attributeNames.Clear();
+        Poll();
     }
 
     private void FinishAttribute()
     {
         if (_name.Length == 0) return;
-        var name = _name.ToString();
-        if (!_attributeNames.Add(name)) Error("duplicate-attribute");
-        else _attributes.Add(new HtmlAttribute(name, _value.ToString()));
+        var name = Materialize(_name);
+        EnsureAttributeNameCapacity();
+        Poll();
+        var unique = _attributeNames.Add(name);
+        ChargeCopy(name.Length); // Hashing the candidate name scans its UTF-16 units.
+        Poll();
+        if (!unique) Error("duplicate-attribute");
+        else AddAttribute(new HtmlAttribute(name, Materialize(_value)));
         if (_endTag) _endTagHadAttributes = true;
         _name.Clear();
         _value.Clear();
@@ -255,9 +269,9 @@ internal sealed partial class HtmlTokenizer
         FinishAttribute();
         if (_endTag && _endTagHadAttributes) Error("end-tag-with-attributes");
         if (_endTag && _endTagHadSelfClosing) Error("end-tag-with-trailing-solidus");
-        var attributes = _attributes.Count == 0 ? Array.Empty<HtmlAttribute>() : _attributes.ToArray();
+        var attributes = CopyAttributes();
         var produced = new HtmlToken(_endTag ? HtmlTokenKind.EndTag : HtmlTokenKind.StartTag,
-            name: _tagName.ToString(), attributes: Array.AsReadOnly(attributes),
+            name: Materialize(_tagName), attributes: Array.AsReadOnly(attributes),
             selfClosing: _selfClosing, offset: _tokenStart,
             endTagHadAttributes: _endTagHadAttributes,
             endTagHadSelfClosing: _endTagHadSelfClosing);
@@ -269,7 +283,7 @@ internal sealed partial class HtmlTokenizer
 
     private bool EmitComment(out HtmlToken token)
     {
-        var produced = new HtmlToken(HtmlTokenKind.Comment, data: _comment.ToString(), offset: _tokenStart);
+        var produced = new HtmlToken(HtmlTokenKind.Comment, data: Materialize(_comment), offset: _tokenStart);
         _comment.Clear();
         _tokenStart = -1;
         _state = State.Data;
@@ -289,9 +303,10 @@ internal sealed partial class HtmlTokenizer
     private bool EmitProcessingInstruction(out HtmlToken token)
     {
         var produced = new HtmlToken(HtmlTokenKind.ProcessingInstruction,
-            data: _piData.ToString(), name: _piTarget.ToString(), offset: _tokenStart);
+            data: Materialize(_piData), name: _piName, offset: _tokenStart);
         _piTarget.Clear();
         _piData.Clear();
+        _piName = null;
         _tokenStart = -1;
         _state = State.Data;
         return Emit(produced, out token);
@@ -329,5 +344,88 @@ internal sealed partial class HtmlTokenizer
     private void ConsumeCount(int count)
     {
         for (var i = 0; i < count; i++) Take();
+    }
+
+    // Quota is cooperative: CLR string/array allocation and copying cannot yield
+    // midway. Poll around each such call, charge copied units, then yield at the
+    // next safe state boundary. The scanner's authored loops yield by quota.
+    private void Poll() => _activeCancellationToken.ThrowIfCancellationRequested();
+
+    private void ChargeCopy(long units)
+    {
+        _work = _work > long.MaxValue - units ? long.MaxValue : _work + units;
+        _remainingWork -= units;
+    }
+
+    private void EnsureAppendCapacity(StringBuilder buffer, int extra)
+    {
+        if (extra <= buffer.Capacity - buffer.Length) return;
+        Poll();
+        var existing = buffer.Length;
+        var required = checked(existing + extra);
+        var doubled = Math.Min(buffer.MaxCapacity, (long) buffer.Capacity * 2);
+        buffer.EnsureCapacity((int) Math.Max(required, doubled));
+        ChargeCopy(existing);
+        Poll();
+    }
+
+    private void Append(StringBuilder buffer, char value)
+    {
+        EnsureAppendCapacity(buffer, 1);
+        buffer.Append(value);
+    }
+
+    private void Append(StringBuilder buffer, string value)
+    {
+        EnsureAppendCapacity(buffer, value.Length);
+        Poll();
+        buffer.Append(value);
+        ChargeCopy(value.Length);
+        Poll();
+    }
+
+    private void Append(StringBuilder buffer, StringBuilder value) => Append(buffer, Materialize(value));
+
+    private string Materialize(StringBuilder buffer)
+    {
+        Poll();
+        var result = buffer.ToString();
+        ChargeCopy(buffer.Length);
+        Poll();
+        return result;
+    }
+
+    private HtmlAttribute[] CopyAttributes()
+    {
+        if (_attributes.Count == 0) return Array.Empty<HtmlAttribute>();
+        Poll();
+        var result = _attributes.ToArray();
+        ChargeCopy(_attributes.Count);
+        Poll();
+        return result;
+    }
+
+    private void EnsureAttributeNameCapacity()
+    {
+        var capacity = _attributeNames.EnsureCapacity(0);
+        if (_attributeNames.Count < capacity) return;
+        Poll();
+        var target = capacity == 0 ? 4 : Math.Min(int.MaxValue, (long) capacity * 2);
+        _attributeNames.EnsureCapacity((int) target);
+        ChargeCopy(_attributeNames.Count);
+        Poll();
+    }
+
+    private void AddAttribute(HtmlAttribute attribute)
+    {
+        if (_attributes.Count == _attributes.Capacity)
+        {
+            Poll();
+            var target = _attributes.Capacity == 0 ? 4 : Math.Min(int.MaxValue, (long) _attributes.Capacity * 2);
+            _attributes.Capacity = (int) target;
+            ChargeCopy(_attributes.Count);
+            Poll();
+        }
+        _attributes.Add(attribute);
     }
 }

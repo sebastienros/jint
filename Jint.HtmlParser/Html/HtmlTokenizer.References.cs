@@ -14,7 +14,7 @@ internal sealed partial class HtmlTokenizer
                 _bestEntityValue = null;
                 if (c == '#')
                 {
-                    Take(); _reference.Append('#');
+                    Take(); Append(_reference, '#');
                     _numericBase = 10; _numericValue = 0; _numericOverflow = false; _numericDigits = false;
                     _state = State.NumericReference;
                 }
@@ -23,10 +23,10 @@ internal sealed partial class HtmlTokenizer
                 return false;
 
             case State.NamedReference:
-                var candidate = _reference.ToString() + c;
+                var candidate = Materialize(_reference) + c;
                 if (HtmlEntities.Prefixes.Contains(candidate))
                 {
-                    Take(); _reference.Append(c);
+                    Take(); Append(_reference, c);
                     if (HtmlEntities.Values.TryGetValue(candidate, out var value))
                     {
                         _bestEntityLength = _reference.Length;
@@ -43,7 +43,7 @@ internal sealed partial class HtmlTokenizer
                     var offset = _input.Offset;
                     var character = Take();
                     if (_returnState == State.Data) Text(character, offset);
-                    else _value.Append(character);
+                    else Append(_value, character);
                     return false;
                 }
                 if (c == ';') Error("unknown-named-character-reference", _input.Offset);
@@ -54,7 +54,7 @@ internal sealed partial class HtmlTokenizer
             case State.NumericReference:
                 if (c is 'x' or 'X')
                 {
-                    Take(); _reference.Append(c); _numericBase = 16; _state = State.HexStart;
+                    Take(); Append(_reference, c); _numericBase = 16; _state = State.HexStart;
                 }
                 else _state = State.DecimalStart;
                 return false;
@@ -109,7 +109,7 @@ internal sealed partial class HtmlTokenizer
 
     private void FinishNamedReference(char following)
     {
-        var spelling = _reference.ToString();
+        var spelling = Materialize(_reference);
         if (_bestEntityValue is null)
         {
             AppendReferenceResult("&" + spelling);
@@ -207,6 +207,6 @@ internal sealed partial class HtmlTokenizer
     private void AppendReferenceResult(string value)
     {
         if (_returnState == State.Data) Text(value, _referenceStart);
-        else _value.Append(value);
+        else Append(_value, value);
     }
 }

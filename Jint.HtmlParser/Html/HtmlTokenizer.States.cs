@@ -40,7 +40,7 @@ internal sealed partial class HtmlTokenizer
                 if (c == '!') { Take(); _state = State.MarkupDeclaration; return false; }
                 if (c == '/') { Take(); _state = State.EndTagOpen; return false; }
                 if (AsciiAlpha(c)) { BeginTag(false); _state = State.TagName; return false; }
-                if (c == '?') { Take(); _piTarget.Clear(); _piData.Clear(); _state = State.PiOpen; return false; }
+                if (c == '?') { Take(); _piTarget.Clear(); _piData.Clear(); _piName = null; _state = State.PiOpen; return false; }
                 Error("invalid-first-character-of-tag-name");
                 Text('<', _tokenStart); _tokenStart = -1; _state = State.Data;
                 return false;
@@ -57,7 +57,7 @@ internal sealed partial class HtmlTokenizer
                 if (c == '/') { Take(); _state = State.SelfClosing; return false; }
                 if (c == '>') { Take(); return EmitTag(out token); }
                 if (c == '\0') Error("unexpected-null-character");
-                _tagName.Append(Lower(ReplaceNull(Take()))); return false;
+                Append(_tagName, Lower(ReplaceNull(Take()))); return false;
 
             case State.BeforeAttributeName:
                 if (White(c)) { Take(); return false; }
@@ -66,7 +66,7 @@ internal sealed partial class HtmlTokenizer
                 if (c == '=')
                 {
                     Error("unexpected-equals-sign-before-attribute-name");
-                    _name.Append(Take());
+                    Append(_name, Take());
                 }
                 return false;
 
@@ -75,7 +75,7 @@ internal sealed partial class HtmlTokenizer
                 if (c == '=') { Take(); _state = State.BeforeAttributeValue; return false; }
                 if (c == '\0') Error("unexpected-null-character");
                 if (c is '"' or '\'' or '<') Error("unexpected-character-in-attribute-name");
-                _name.Append(Lower(ReplaceNull(Take()))); return false;
+                Append(_name, Lower(ReplaceNull(Take()))); return false;
 
             case State.AfterAttributeName:
                 if (White(c)) { Take(); return false; }
@@ -95,13 +95,13 @@ internal sealed partial class HtmlTokenizer
                 if (c == '"') { Take(); FinishAttribute(); _state = State.AfterQuotedValue; return false; }
                 if (c == '&') { _referenceStart = _input.Offset; Take(); _returnState = State.DoubleQuotedValue; _state = State.CharacterReference; return false; }
                 if (c == '\0') Error("unexpected-null-character");
-                _value.Append(ReplaceNull(Take())); return false;
+                Append(_value, ReplaceNull(Take())); return false;
 
             case State.SingleQuotedValue:
                 if (c == '\'') { Take(); FinishAttribute(); _state = State.AfterQuotedValue; return false; }
                 if (c == '&') { _referenceStart = _input.Offset; Take(); _returnState = State.SingleQuotedValue; _state = State.CharacterReference; return false; }
                 if (c == '\0') Error("unexpected-null-character");
-                _value.Append(ReplaceNull(Take())); return false;
+                Append(_value, ReplaceNull(Take())); return false;
 
             case State.UnquotedValue:
                 if (White(c)) { Take(); FinishAttribute(); _state = State.BeforeAttributeName; return false; }
@@ -109,7 +109,7 @@ internal sealed partial class HtmlTokenizer
                 if (c == '>') { Take(); return EmitTag(out token); }
                 if (c == '\0') Error("unexpected-null-character");
                 if (c is '"' or '\'' or '<' or '=' or '`') Error("unexpected-character-in-unquoted-attribute-value");
-                _value.Append(ReplaceNull(Take())); return false;
+                Append(_value, ReplaceNull(Take())); return false;
 
             case State.AfterQuotedValue:
                 if (White(c)) { Take(); _state = State.BeforeAttributeName; return false; }
@@ -133,7 +133,7 @@ internal sealed partial class HtmlTokenizer
                 {
                     ConsumeCount(7);
                     if (_allowCData) { _state = State.CData; _tokenStart = -1; }
-                    else { Error("cdata-in-html-content"); _comment.Clear(); _comment.Append("[CDATA["); _state = State.BogusComment; }
+                    else { Error("cdata-in-html-content"); _comment.Clear(); Append(_comment, "[CDATA["); _state = State.BogusComment; }
                     return false;
                 }
                 if (waitDash || waitDoc || waitCData) { _needsInput = true; return false; }
@@ -143,27 +143,27 @@ internal sealed partial class HtmlTokenizer
             case State.PiOpen:
                 if (AsciiAlpha(c) || c == '_') { _state = State.PiTarget; return false; }
                 Error("invalid-first-character-of-processing-instruction-target");
-                _comment.Clear(); _comment.Append('?'); _state = State.BogusComment; return false;
+                _comment.Clear(); Append(_comment, '?'); _state = State.BogusComment; return false;
             case State.PiTarget:
                 if (AsciiAlpha(c) || AsciiDigit(c) || c is '-' or '_')
                 {
-                    _piTarget.Append(Take()); return false;
+                    Append(_piTarget, Take()); return false;
                 }
                 if (White(c) || c is '?' or '>')
                 {
-                    var target = _piTarget.ToString();
+                    var target = Materialize(_piTarget);
                     if (target.Equals("xml", StringComparison.OrdinalIgnoreCase) ||
                         target.Equals("xml-stylesheet", StringComparison.OrdinalIgnoreCase))
                     {
                         Error("disallowed-processing-instruction-target");
-                        _comment.Clear(); _comment.Append('?').Append(target);
+                        _comment.Clear(); Append(_comment, '?'); Append(_comment, target);
                         _state = State.BogusComment;
                     }
-                    else _state = State.PiAfterTarget;
+                    else { _piName = target; _state = State.PiAfterTarget; }
                     return false;
                 }
                 Error("invalid-processing-instruction-target");
-                _comment.Clear(); _comment.Append('?').Append(_piTarget);
+                _comment.Clear(); Append(_comment, '?'); Append(_comment, _piTarget);
                 _state = State.BogusComment;
                 return false;
             case State.PiAfterTarget:
@@ -172,15 +172,15 @@ internal sealed partial class HtmlTokenizer
             case State.PiData:
                 if (c == '?') { Take(); _state = State.PiQuestionable; return false; }
                 if (c == '>') { Take(); return EmitProcessingInstruction(out token); }
-                _piData.Append(Take()); return false;
+                Append(_piData, Take()); return false;
             case State.PiQuestionable:
                 if (c == '>') { Take(); return EmitProcessingInstruction(out token); }
-                _piData.Append('?'); _state = State.PiData; return false;
+                Append(_piData, '?'); _state = State.PiData; return false;
 
             case State.BogusComment:
                 if (c == '>') { Take(); return EmitComment(out token); }
                 if (c == '\0') Error("unexpected-null-character");
-                _comment.Append(ReplaceNull(Take())); return false;
+                Append(_comment, ReplaceNull(Take())); return false;
 
             case State.CommentStart:
                 if (c == '-') { Take(); _state = State.CommentStartDash; return false; }
@@ -190,17 +190,17 @@ internal sealed partial class HtmlTokenizer
             case State.CommentStartDash:
                 if (c == '-') { Take(); _state = State.CommentEnd; return false; }
                 if (c == '>') { Error("abrupt-closing-of-empty-comment"); Take(); return EmitComment(out token); }
-                _comment.Append('-'); _state = State.Comment; return false;
+                Append(_comment, '-'); _state = State.Comment; return false;
 
             case State.Comment:
-                if (c == '<') { Take(); _comment.Append('<'); _state = State.CommentLessThan; return false; }
+                if (c == '<') { Take(); Append(_comment, '<'); _state = State.CommentLessThan; return false; }
                 if (c == '-') { Take(); _state = State.CommentEndDash; return false; }
                 if (c == '\0') Error("unexpected-null-character");
-                _comment.Append(ReplaceNull(Take())); return false;
+                Append(_comment, ReplaceNull(Take())); return false;
 
             case State.CommentLessThan:
-                if (c == '!') { Take(); _comment.Append('!'); _state = State.CommentLessThanBang; return false; }
-                if (c == '<') { Take(); _comment.Append('<'); return false; }
+                if (c == '!') { Take(); Append(_comment, '!'); _state = State.CommentLessThanBang; return false; }
+                if (c == '<') { Take(); Append(_comment, '<'); return false; }
                 _state = State.Comment; return false;
 
             case State.CommentLessThanBang:
@@ -209,7 +209,7 @@ internal sealed partial class HtmlTokenizer
 
             case State.CommentLessThanBangDash:
                 if (c == '-') { Take(); _state = State.CommentLessThanBangDashDash; return false; }
-                _comment.Append('-'); _state = State.Comment; return false;
+                Append(_comment, '-'); _state = State.Comment; return false;
 
             case State.CommentLessThanBangDashDash:
                 if (c != '>') Error("nested-comment");
@@ -217,18 +217,18 @@ internal sealed partial class HtmlTokenizer
 
             case State.CommentEndDash:
                 if (c == '-') { Take(); _state = State.CommentEnd; return false; }
-                _comment.Append('-'); _state = State.Comment; return false;
+                Append(_comment, '-'); _state = State.Comment; return false;
 
             case State.CommentEnd:
                 if (c == '>') { Take(); return EmitComment(out token); }
                 if (c == '!') { Take(); _state = State.CommentEndBang; return false; }
-                if (c == '-') { Take(); _comment.Append('-'); return false; }
-                _comment.Append("--"); _state = State.Comment; return false;
+                if (c == '-') { Take(); Append(_comment, '-'); return false; }
+                Append(_comment, "--"); _state = State.Comment; return false;
 
             case State.CommentEndBang:
                 if (c == '>') { Error("incorrectly-closed-comment"); Take(); return EmitComment(out token); }
-                if (c == '-') { _comment.Append("--!"); Take(); _state = State.CommentEndDash; return false; }
-                _comment.Append("--!"); _state = State.Comment; return false;
+                if (c == '-') { Append(_comment, "--!"); Take(); _state = State.CommentEndDash; return false; }
+                Append(_comment, "--!"); _state = State.Comment; return false;
 
             case State.CData:
                 if (c == ']') { Take(); _state = State.CDataBracket; return false; }
