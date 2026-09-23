@@ -296,6 +296,37 @@ public partial class HtmlTreeConstructionTests
         larger.Session.WorkCount.Should().BeLessThan(smaller.Session.WorkCount * 3);
     }
 
+    [TestCase("x")]
+    [TestCase(" ")]
+    [TestCase("\0")]
+    public void FosterCharacterReportsTableErrorOnceAcrossQuotasAndSplits(string character)
+    {
+        var source = "<!doctype html><table><div>" + character + "</div></table>";
+        foreach (var quota in new[] { 1, 3, 100_000 })
+        {
+            var parsed = Parse(source, quota);
+            parsed.Step.Kind.Should().Be(HtmlParseStepKind.Complete);
+            TableErrorOffsets(parsed.Diagnostics).Should().Equal(22L, 27L, 28L);
+
+            for (var split = 0; split <= source.Length; split++)
+            {
+                var diagnostics = new ParseDiagnosticCollector();
+                var document = Document.CreateHtml();
+                var session = new HtmlParserSession(document, new HtmlParseOptions { Diagnostics = diagnostics });
+                session.AppendInput(source[..split]);
+                DrainToNeedInput(session, quota);
+                session.AppendInput(source[split..], isFinal: true);
+                DrainToCompletion(session, quota);
+                TableErrorOffsets(diagnostics).Should().Equal(new[] { 22L, 27L, 28L },
+                    $"character {(int) character[0]:X4}, split {split}, quota {quota}");
+            }
+        }
+    }
+
+    private static long[] TableErrorOffsets(ParseDiagnosticCollector diagnostics)
+        => diagnostics.Items.Where(item => item.Code == "html/tree-unexpected-token-in-table")
+            .Select(item => item.Offset).ToArray();
+
     private static object BuilderOf(HtmlParserSession session)
         => typeof(HtmlParserSession).GetField("_builder",
             System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(session)!;
@@ -316,22 +347,22 @@ public partial class HtmlTreeConstructionTests
             (Node?) type.GetProperty("Before", flags)!.GetValue(location));
     }
 
-    private static void DrainToNeedInput(HtmlParserSession session)
+    private static void DrainToNeedInput(HtmlParserSession session, int quota = 1)
     {
         for (var turn = 0; turn < 100_000; turn++)
         {
-            var step = session.Drive(1, CancellationToken.None);
+            var step = session.Drive(quota, CancellationToken.None);
             if (step.Kind == HtmlParseStepKind.NeedInput) return;
             if (step.Kind != HtmlParseStepKind.Yielded) throw new InvalidOperationException("Unexpected table parse result.");
         }
         throw new InvalidOperationException("Table parser stalled before more input.");
     }
 
-    private static void DrainToCompletion(HtmlParserSession session)
+    private static void DrainToCompletion(HtmlParserSession session, int quota = 1)
     {
         for (var turn = 0; turn < 100_000; turn++)
         {
-            var step = session.Drive(1, CancellationToken.None);
+            var step = session.Drive(quota, CancellationToken.None);
             if (step.Kind == HtmlParseStepKind.Complete) return;
             if (step.Kind != HtmlParseStepKind.Yielded) throw new InvalidOperationException("Unexpected table parse result.");
         }

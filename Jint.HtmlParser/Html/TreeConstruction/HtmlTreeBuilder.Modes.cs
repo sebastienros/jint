@@ -279,6 +279,11 @@ internal sealed partial class HtmlTreeBuilder
                     }
                     // The other table character branch uses the in-body rules
                     // with foster parenting for this character token.
+                    if (!_tableFosterCharacterErrorReported)
+                    {
+                        Error("unexpected-token-in-table");
+                        _tableFosterCharacterErrorReported = true;
+                    }
                     if (c == '\0') { Error("unexpected-null-character"); _textIndex++; Charge(1); continue; }
                     _fosterParenting = true;
                     AppendCharacterRun(data, whiteOnly: White(c));

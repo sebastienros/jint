@@ -39,6 +39,7 @@ internal sealed partial class HtmlTreeBuilder
     private bool _fosterParenting;
     private bool _delegateToBody;
     private Mode _delegatedFromMode;
+    private bool _tableFosterCharacterErrorReported;
     private Node? _headInsertionOverride;
     private int _temporaryHeadDepth;
     private bool _hasToken;
@@ -88,6 +89,7 @@ internal sealed partial class HtmlTreeBuilder
         _preparedAttributeIndex = 0;
         _fosterParenting = false;
         _delegateToBody = false;
+        _tableFosterCharacterErrorReported = false;
     }
 
     internal HtmlParseStep Process(long quota, CancellationToken cancellationToken)
