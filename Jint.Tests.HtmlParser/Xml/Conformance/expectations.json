@@ -712,5 +712,95 @@
       }
     ],
     "review": "Pinned 006.ent carries a Proper Declaration/PE Nesting validity violation only in the unread external subset. The no-fetch result omits that subset and retains the empty doc element; XML §5.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#valid-sa-082",
+    "outcome": "accept",
+    "skipped": [],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "review": "Pinned external parameter entity %e SYSTEM e.dtd is declared but never referenced; no omission, and original OUTPUT <doc></doc> must compare exactly. XML §§4.2.2, 5.1 https://www.w3.org/TR/xml/#sec-external-ent https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#valid-sa-083",
+    "outcome": "accept",
+    "skipped": [],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "review": "Pinned external parameter entity %e PUBLIC whatever/SYSTEM e.dtd is declared but never referenced; no omission, and original OUTPUT <doc></doc> must compare exactly. XML §§4.2.2, 5.1 https://www.w3.org/TR/xml/#sec-external-ent https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#valid-sa-100",
+    "outcome": "accept",
+    "skipped": [],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "review": "Pinned unused external general entity e has PubidLiteral ;!*#@$_%: the literal percent is allowed and is not parameter-entity expansion; no omission, and original OUTPUT <doc></doc> must compare exactly. XML §§4.2.2, 5.1 https://www.w3.org/TR/xml/#sec-external-ent https://www.w3.org/TR/xml/#sec-conformance."
   }
 ]
