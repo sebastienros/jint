@@ -1,9 +1,1 @@
-[
-  {
-    "key": "xmlconf/xmltest/xmltest.xml#valid-sa-076",
-    "issue": "XML-NOTATION-REPORTING",
-    "reason": "The parsed document does not expose identifiers of n1 and n2, both referred to by a NOTATION attribute declaration.",
-    "signature": "required-notation-contract-gap",
-    "citation": "https://www.w3.org/TR/xml/#Notations"
-  }
-]
+[]

@@ -171,14 +171,21 @@ public class XmlCorpusTests
     {
         var document = MarkupParser.ParseXml("<r b='2' a='&amp;'><![CDATA[x<y]]><!--ignored--><?pi z?></r>");
         const string expected = "<r a=\"&amp;\" b=\"2\">x&lt;y<?pi z?></r>";
-        var actual = XmlEvidence.SecondCanonicalForm(document, Encoding.UTF8.GetBytes(expected));
+        var actual = XmlEvidence.SecondCanonicalForm(document);
         actual.Should().Be(expected);
         actual.Should().NotBe("<r b=\"2\" a=\"&amp;\">x&lt;y<?pi z?></r>");
-        Assert.Throws<XmlOutputObservationGapException>(() =>
-            XmlEvidence.SecondCanonicalForm(document, "<!DOCTYPE r [\n<!NOTATION n SYSTEM 'x'>\n]>\n<r></r>"u8));
+        var notationDocument = MarkupParser.ParseXml("<!DOCTYPE r [<!NOTATION n SYSTEM 'x'>]><r/>");
+        XmlEvidence.SecondCanonicalForm(notationDocument).Should().Be("<!DOCTYPE r [\n<!NOTATION n SYSTEM 'x'>\n]>\n<r></r>");
+        var unsortedNotations = MarkupParser.ParseXml("<!DOCTYPE r [<!NOTATION z SYSTEM 'z'><!NOTATION a SYSTEM 'a'>]><r/>");
+        unsortedNotations.XmlNotations.Select(item => item.Name).Should().Equal("z", "a");
+        XmlEvidence.SecondCanonicalForm(unsortedNotations).Should().Be(
+            "<!DOCTYPE r [\n<!NOTATION a SYSTEM 'a'>\n<!NOTATION z SYSTEM 'z'>\n]>\n<r></r>");
+        var bothIdentifiers = MarkupParser.ParseXml("<!DOCTYPE r [<!NOTATION n PUBLIC 'p' 's'>]><r/>");
+        XmlEvidence.SecondCanonicalForm(bothIdentifiers).Should().Be(
+            "<!DOCTYPE r [\n<!NOTATION n PUBLIC 'p' 's'>\n]>\n<r></r>");
         var scalarNames = MarkupParser.ParseXml("<r a😀='x' a豈='y'/>");
         const string scalarOrder = "<r a豈=\"y\" a😀=\"x\"></r>";
-        XmlEvidence.SecondCanonicalForm(scalarNames, Encoding.UTF8.GetBytes(scalarOrder)).Should().Be(scalarOrder);
+        XmlEvidence.SecondCanonicalForm(scalarNames).Should().Be(scalarOrder);
     }
 
     [Test]
@@ -256,7 +263,72 @@ public class XmlCorpusTests
         unavailable.Detail.Should().Contain("input adapter unavailable");
 
         var notationDependent = XmlCorpus.Case("xmlconf/eduni/errata-2e/errata2e.xml#rmt-e2e-55");
-        XmlConformanceRunner.Run(notationDependent).Signature.Should().Be("optional-notation-evidence-pending");
+        XmlConformanceRunner.Run(notationDependent).Kind.Should().Be(XmlOutcomeKind.OptionalPolicyVerified);
+    }
+
+    [Test]
+    public void NotationMetadataAndOriginalOutputRejectIndependentCorruption()
+    {
+        var row = XmlCorpus.Case("xmlconf/xmltest/xmltest.xml#valid-sa-069");
+        var reviewed = XmlExpectations.Reviewed[row.Key];
+        var notation = reviewed.Notations!.Single();
+        static XmlNotationExpectation Changed(XmlNotationExpectation original, string? name = null,
+            string? publicId = null, string? systemId = null, long? offset = null) => new()
+        {
+            Name = name ?? original.Name,
+            PublicId = publicId ?? original.PublicId,
+            SystemId = systemId ?? original.SystemId,
+            Offset = offset ?? original.Offset
+        };
+        XmlCaseExpectation WithNotations(XmlNotationExpectation[] notations) => new()
+        {
+            Key = row.Key, Outcome = "accept", Skipped = reviewed.Skipped,
+            Projection = reviewed.Projection, Notations = notations, Review = "negative probe"
+        };
+        foreach (var changed in new[]
+                 {
+                     Changed(notation, name: "wrong"),
+                     Changed(notation, publicId: "other"),
+                     Changed(notation, offset: notation.Offset + 1),
+                     new XmlNotationExpectation { Name = notation.Name, PublicId = notation.PublicId,
+                         SystemId = "", Offset = notation.Offset }
+                 })
+        {
+            var result = XmlConformanceRunner.Run(row, WithNotations([changed]));
+            result.Kind.Should().Be(XmlOutcomeKind.ParserFailure);
+            result.Signature.Should().Be("notation-mismatch:0");
+        }
+        XmlConformanceRunner.Run(row, WithNotations([])).Signature.Should().Be("notation-count:1");
+        XmlConformanceRunner.Run(row, WithNotations([notation, notation])).Signature.Should().Be("notation-count:1");
+
+        var ordered = XmlCorpus.Case("xmlconf/xmltest/xmltest.xml#valid-sa-076");
+        var originalOrder = XmlExpectations.Reviewed[ordered.Key];
+        XmlConformanceRunner.Run(ordered, new XmlCaseExpectation
+        {
+            Key = ordered.Key, Outcome = "accept", Skipped = originalOrder.Skipped,
+            Projection = originalOrder.Projection, Notations = originalOrder.Notations!.AsEnumerable().Reverse().ToArray(),
+            Review = "negative order probe"
+        }).Signature.Should().Be("notation-mismatch:0");
+        XmlConformanceRunner.Run(ordered, new XmlCaseExpectation
+        {
+            Key = ordered.Key, Outcome = "accept", Skipped = originalOrder.Skipped,
+            Projection = originalOrder.Projection,
+            Notations = [new XmlNotationExpectation { Name = "n1", SystemId = "http://wrong/", Offset = 87 },
+                originalOrder.Notations![1]], Review = "negative system identifier probe"
+        }).Signature.Should().Be("notation-mismatch:0");
+
+        var pinnedOutput = XmlCorpus.Bytes(row.OutputPath!);
+        foreach (var wrongSource in new[]
+                 {
+                     "<!DOCTYPE doc [<!NOTATION wrong PUBLIC 'whatever'>]><doc/>",
+                     "<!DOCTYPE doc [<!NOTATION n PUBLIC 'other'>]><doc/>",
+                     "<!DOCTYPE doc []><doc/>",
+                     "<!DOCTYPE doc [<!NOTATION n PUBLIC 'whatever'><!NOTATION extra SYSTEM 'x'>]><doc/>"
+                 })
+        {
+            var actual = Encoding.UTF8.GetBytes(XmlEvidence.SecondCanonicalForm(MarkupParser.ParseXml(wrongSource)));
+            actual.AsSpan().SequenceEqual(pinnedOutput).Should().BeFalse();
+        }
     }
 
     [Test]
@@ -274,8 +346,7 @@ public class XmlCorpusTests
                 expectation.Projection.Should().NotBeNull();
             if (expectation.OutputPolicy is not null)
             {
-                expectation.OutputPolicy.Should().BeOneOf("no-fetch-alternative", "original-output-after-omission",
-                    "observation-gap", "required-notation-contract-gap");
+                expectation.OutputPolicy.Should().BeOneOf("no-fetch-alternative", "original-output-after-omission");
                 var output = XmlCorpus.Case(key).OutputPath;
                 output.Should().NotBeNull();
                 var digest = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(XmlCorpus.Bytes(output!)))
@@ -288,20 +359,25 @@ public class XmlCorpusTests
                 }
             }
         }
-        XmlExpectations.OptionalPolicies.Values.Count(item => item.Status == "verified").Should().Be(6);
-        XmlExpectations.OptionalPolicies.Values.Count(item => item.Status == "pending-notation-metadata").Should().Be(1);
+        foreach (var id in new[] { "069", "076", "090", "091" })
+        {
+            var key = "xmlconf/xmltest/xmltest.xml#valid-sa-" + id;
+            XmlExpectations.Reviewed[key].Notations.Should().NotBeNullOrEmpty();
+            XmlCorpus.Case(key).OutputPath.Should().NotBeNull();
+        }
+        XmlExpectations.OptionalPolicies.Values.Count(item => item.Status == "verified").Should().Be(7);
         foreach (var (key, policy) in XmlExpectations.OptionalPolicies)
         {
             var row = XmlCorpus.Case(key);
             row.Category.Should().Be("error");
             row.Disposition.Should().Be("optional-error-review");
             row.OutputPath.Should().BeNull();
-            policy.Status.Should().BeOneOf("verified", "pending-notation-metadata");
+            policy.Status.Should().Be("verified");
             policy.Outcome.Should().Be("accept");
             policy.Skipped.Should().NotBeNull();
             policy.Projection.Should().NotBeNull();
             policy.Review.Should().NotBeNullOrWhiteSpace();
-            if (policy.Status == "pending-notation-metadata")
+            if (key.EndsWith("#rmt-e2e-55", StringComparison.Ordinal))
             {
                 policy.Notations.Should().ContainSingle();
                 policy.Notations![0].Name.Should().Be("gif");

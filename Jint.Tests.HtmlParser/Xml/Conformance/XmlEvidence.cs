@@ -9,13 +9,41 @@ internal static class XmlEvidence
 {
     private static readonly IComparer<string> ScalarOrder = Comparer<string>.Create(CompareUnicodeScalars);
     // W3C XML Test Suite, xmlconf/sun/cxml.html, Second XML Canonical Form.
-    // The public DOM does not expose DTD notation declarations. Reject that
-    // comparison explicitly rather than treating a binary accept as an output pass.
-    internal static string SecondCanonicalForm(Document document, ReadOnlySpan<byte> expected)
+    // Notation declarations come only from the public parse result, never from OUTPUT or input rescanning.
+    internal static string SecondCanonicalForm(Document document)
     {
-        if (expected.StartsWith("<!DOCTYPE "u8))
-            throw new XmlOutputObservationGapException("DTD notation declarations are not exposed by the native DOM");
         var result = new StringBuilder();
+        if (document.XmlNotations.Count > 0)
+        {
+            var doctype = document.ChildNodes.OfType<DocumentType>().SingleOrDefault()
+                ?? throw new XmlOutputObservationGapException("Read notation metadata has no document type node");
+            result.Append("<!DOCTYPE ").Append(doctype.Name).Append(" [\n");
+            foreach (var notation in document.XmlNotations.OrderBy(item => item.Name, ScalarOrder))
+            {
+                result.Append("<!NOTATION ").Append(notation.Name).Append(' ');
+                if (notation.PublicId is not null)
+                {
+                    result.Append("PUBLIC ");
+                    AppendSingleQuoted(result, notation.PublicId);
+                    if (notation.SystemId is not null)
+                    {
+                        result.Append(' ');
+                        AppendSingleQuoted(result, notation.SystemId);
+                    }
+                }
+                else if (notation.SystemId is not null)
+                {
+                    result.Append("SYSTEM ");
+                    AppendSingleQuoted(result, notation.SystemId);
+                }
+                else
+                {
+                    throw new XmlOutputObservationGapException("Read notation has no external identifier");
+                }
+                result.Append(">\n");
+            }
+            result.Append("]>\n");
+        }
         var stack = new Stack<(Node Node, bool Closing)>();
         for (var child = document.LastChild; child is not null; child = child.PreviousSibling)
             stack.Push((child, false));
@@ -60,6 +88,13 @@ internal static class XmlEvidence
             }
         }
         return result.ToString();
+    }
+
+    private static void AppendSingleQuoted(StringBuilder output, string identifier)
+    {
+        if (identifier.Contains('\''))
+            throw new XmlOutputObservationGapException("Second Canonical Form cannot represent a literal apostrophe in a single-quoted identifier");
+        output.Append('\'').Append(identifier).Append('\'');
     }
 
     private static void AppendData(StringBuilder output, string data)

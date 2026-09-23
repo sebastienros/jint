@@ -179,7 +179,7 @@
   },
   {
     "key": "xmlconf/eduni/errata-2e/errata2e.xml#rmt-e2e-55",
-    "status": "pending-notation-metadata",
+    "status": "verified",
     "outcome": "accept",
     "skipped": [],
     "projection": [
@@ -214,7 +214,7 @@
         "Offset": 70
       }
     ],
-    "review": "Pinned unused internal entity value contains &unparsed;, an XML §4.4.9 optional error; notation gif is read and its public DOM metadata must be checked before policy verification. https://www.w3.org/TR/xml/#error."
+    "review": "Pinned unused entity value contains &unparsed;, an XML §4.4.9 optional error. Reviewed policy accepts while checking complete doctype/root projection, no omissions, and actual public notation gif/null/file:///usr/X11R6/bin/xv@70. https://www.w3.org/TR/xml/#error."
   },
   {
     "key": "xmlconf/eduni/errata-2e/errata2e.xml#rmt-e2e-57",

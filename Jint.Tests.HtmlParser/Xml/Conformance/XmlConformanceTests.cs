@@ -128,18 +128,6 @@ internal static class XmlConformanceRunner
 
         if (row.OutputPath is not null)
         {
-            if (reviewed?.OutputPolicy is "observation-gap" or "required-notation-contract-gap")
-            {
-                var original = XmlCorpus.Bytes(row.OutputPath);
-                if (!original.AsSpan().StartsWith("<!DOCTYPE "u8) || reviewed.OriginalOutputSha256 != Digest(original))
-                    return new(XmlOutcomeKind.HarnessFailure, "reviewed-output-pin-mismatch",
-                        "Approved notation case does not name the exact original Second Canonical output");
-                return reviewed.OutputPolicy == "required-notation-contract-gap"
-                    ? new(XmlOutcomeKind.ParserFailure, "required-notation-contract-gap",
-                        "The public parse result cannot report referenced notation identifiers required by XML §4.7")
-                    : new(XmlOutcomeKind.Pending, "approved-notation-observation-gap",
-                        "Unused notation is not observable in the public DOM; original OUTPUT remains pending");
-            }
             if (document.SkippedXmlEntities.Count != 0)
             {
                 if (reviewed?.OutputPolicy == "original-output-after-omission")
@@ -160,7 +148,7 @@ internal static class XmlConformanceRunner
                 var actualSha = Digest(Encoding.UTF8.GetBytes(alternative));
                 if (actualSha != reviewed.ProjectionSha256)
                     return new(XmlOutcomeKind.ParserFailure, $"no-fetch-output-mismatch:{actualSha}", "Reviewed projection digest differs");
-                var canonical = XmlEvidence.SecondCanonicalForm(document, Encoding.UTF8.GetBytes(reviewed.OutputAlternative));
+                var canonical = XmlEvidence.SecondCanonicalForm(document);
                 if (canonical != reviewed.OutputAlternative)
                     return new(XmlOutcomeKind.ParserFailure, "no-fetch-canonical-mismatch", canonical);
             }
@@ -180,11 +168,11 @@ internal static class XmlConformanceRunner
         string actual;
         try
         {
-            actual = XmlEvidence.SecondCanonicalForm(document, expected);
+            actual = XmlEvidence.SecondCanonicalForm(document);
         }
         catch (XmlOutputObservationGapException error)
         {
-            return new(XmlOutcomeKind.Pending, "notation-observation-gap", error.Message);
+            return new(XmlOutcomeKind.HarnessFailure, "canonical-output-unavailable", error.Message);
         }
         var actualBytes = Encoding.UTF8.GetBytes(actual);
         return actualBytes.AsSpan().SequenceEqual(expected)
@@ -204,7 +192,7 @@ internal static class XmlConformanceRunner
         if (policy is null)
             return new(XmlOutcomeKind.OptionalObservedUnreviewed, "optional-error-unreviewed",
                 $"W3C optional-error policy needs exact review; observed={observed}");
-        if (policy.Status is not ("verified" or "pending-notation-metadata") ||
+        if (policy.Status != "verified" ||
             policy.Outcome != "accept" || policy.Projection is null || policy.Skipped is null)
         {
             return new(XmlOutcomeKind.HarnessFailure, "invalid-optional-policy", row.Key);
@@ -216,11 +204,8 @@ internal static class XmlConformanceRunner
             return new(XmlOutcomeKind.HarnessFailure, "no-document-root", "Parser accepted without a document element");
         var evidence = CompareEvidence(document, policy, XmlOutcomeKind.OptionalPolicyMismatch);
         if (evidence is not null) return evidence;
-        if (policy.Status == "pending-notation-metadata")
-            return new(XmlOutcomeKind.OptionalObservedUnreviewed, "optional-notation-evidence-pending",
-                $"Public notation metadata required before policy verification; observed={observed}");
         return new(XmlOutcomeKind.OptionalPolicyVerified, "optional-policy-verified",
-            "Reviewed optional policy matches the complete surviving projection and omission list");
+            "Reviewed optional policy matches the complete surviving projection, omission, and notation lists");
     }
 
     private static XmlCaseOutcome? CompareEvidence(Document document, XmlCaseExpectation reviewed,
@@ -248,6 +233,25 @@ internal static class XmlConformanceRunner
             var actualProjection = XmlEvidence.Projection(document);
             if (actualProjection != JsonSerializer.Serialize(reviewed.Projection))
                 return new(mismatchKind, "projection-mismatch", actualProjection);
+        }
+        if (reviewed.Notations is not null)
+        {
+            var actualNotations = document.XmlNotations;
+            if (actualNotations.Count != reviewed.Notations.Length)
+                return new(mismatchKind, $"notation-count:{actualNotations.Count}",
+                    $"Expected {reviewed.Notations.Length} read notation declarations");
+            for (var index = 0; index < actualNotations.Count; index++)
+            {
+                var found = actualNotations[index];
+                var expected = reviewed.Notations[index];
+                if (found.Name != expected.Name || found.PublicId != expected.PublicId ||
+                    found.SystemId != expected.SystemId || found.Offset != expected.Offset)
+                {
+                    return new(mismatchKind, $"notation-mismatch:{index}",
+                        $"Expected {expected.Name}/{expected.PublicId}/{expected.SystemId}@{expected.Offset}; " +
+                        $"actual {found.Name}/{found.PublicId}/{found.SystemId}@{found.Offset}");
+                }
+            }
         }
         return null;
     }
