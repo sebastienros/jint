@@ -11359,5 +11359,315 @@
     "outputPolicy": "original-output-after-omission",
     "originalOutputSha256": "f886318ed335eabcb17ecbcb0bd49dbc5f0bf5ebf9683ec49a29a2d6daaddfc9",
     "review": "Pinned W3C INPUT 2ecc95b2ee57488e4c0f7890fbc0c13d7fac73fbf13a97ab1e244050fdb8d507, unread external subset ac91679bbdc126bc576c47d4fc24e4c7c2e83bc58400bc18a3ac71296e7dd28a, original OUTPUT f886318ed335eabcb17ecbcb0bd49dbc5f0bf5ebf9683ec49a29a2d6daaddfc9; The unread ibm65v02.dtd contains model/conditional declarations but no attributes, entities, or notations; source comment and root content survive unchanged after omission. Pinned original OUTPUT equals the source-derived canonical root. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_valid.xml#ibm-valid-P68-ibm68v01.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm68v01.dtd",
+        "Offset": 23
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm68v01.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n  pcdata content\n  ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "a",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [
+          {
+            "Name": "attr1",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "xyz"
+          }
+        ],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "* a valid test for P68 VC:Entity Declared *",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "0259a806665026c50fa2dbdc8169f3c01cef0d238866f73af33f0aedf1df1539",
+    "review": "Pinned W3C INPUT 08ff2f4d0808d52ab4decbbc856da1301c4fb33b04cc0b51c5fc43a3ef63fe09, unread ibm68v01.dtd fce92f4cf8dffdbdd575f17aef06c0a543d00e5f57bf3be43dfae32fc818d329, original OUTPUT 0259a806665026c50fa2dbdc8169f3c01cef0d238866f73af33f0aedf1df1539; The unread external declarations supply no source-visible data: explicit a@attr1=xyz overrides any default when a exists, and no a exists in the other rows. Root text and post-root comment survive; original OUTPUT equals the source-derived canonical root. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_valid.xml#ibm-valid-P68-ibm68v02.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "Parameter",
+        "Name": "pe1",
+        "PublicId": null,
+        "SystemId": "ibm68v02.ent",
+        "Offset": 131
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n  pcdata content\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "* a valid test for P68 VC:Entity Declared *",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "b571b1b4631f7413c041b27bd3904d740f5c29f0e4462115a0eacd7723dca445",
+    "review": "Pinned W3C INPUT 3b9b5693c05a2d79a43ff339ff8e74cb041f0ef088caca8c4f3638a3376b4658, unread ibm68v02.ent a1a08a0982f2d50800650367ec088b6987fad7359160a0668cb38853f65c153a, original OUTPUT b571b1b4631f7413c041b27bd3904d740f5c29f0e4462115a0eacd7723dca445; The unread external declarations supply no source-visible data: explicit a@attr1=xyz overrides any default when a exists, and no a exists in the other rows. Root text and post-root comment survive; original OUTPUT equals the source-derived canonical root. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_valid.xml#ibm-valid-P69-ibm69v01.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm69v01.dtd",
+        "Offset": 40
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm69v01.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n  pcdata content\n  ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "a",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [
+          {
+            "Name": "attr1",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "xyz"
+          }
+        ],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "* a valid test for P69 VC:Entity Declared *",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "0259a806665026c50fa2dbdc8169f3c01cef0d238866f73af33f0aedf1df1539",
+    "review": "Pinned W3C INPUT 57ba033cb8f7ca80141e78f581a9264a691d73c008863c8493ba76f630b15005, unread ibm69v01.dtd 8ccff0ab8f8622bb888410a423e20e8d2468af6796cbf88b6364adec32c0faa9, original OUTPUT 0259a806665026c50fa2dbdc8169f3c01cef0d238866f73af33f0aedf1df1539; The unread external declarations supply no source-visible data: explicit a@attr1=xyz overrides any default when a exists, and no a exists in the other rows. Root text and post-root comment survive; original OUTPUT equals the source-derived canonical root. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_valid.xml#ibm-valid-P69-ibm69v02.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "Parameter",
+        "Name": "pe1",
+        "PublicId": null,
+        "SystemId": "ibm69v02.ent",
+        "Offset": 131
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n  pcdata content\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "* a valid test for P69 VC:Entity Declared *",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "b571b1b4631f7413c041b27bd3904d740f5c29f0e4462115a0eacd7723dca445",
+    "review": "Pinned W3C INPUT 8a97c4475aaed2e05de4c0e24866f2a43e060fc89744c60fdafb1b55e088a11f, unread ibm69v02.ent 0b9197a6b6be5f2ae7a982eaa8a8e337af47cc60e2ce708cde8fe7dcba1a1de3, original OUTPUT b571b1b4631f7413c041b27bd3904d740f5c29f0e4462115a0eacd7723dca445; The unread external declarations supply no source-visible data: explicit a@attr1=xyz overrides any default when a exists, and no a exists in the other rows. Root text and post-root comment survive; original OUTPUT equals the source-derived canonical root. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
   }
 ]
