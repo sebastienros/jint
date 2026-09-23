@@ -53,7 +53,8 @@ the earlier repository direction to retain AngleSharp.
 | C5 V0a CSS value primitives | `01a0cf7b-7669-7883-944b-3f3c35fc4585` | Reviewed corrections integrated; archived, worktree removed |
 | C5 V0b1 basic CSS math | `01a0cf9b-ba8a-7a32-b6e4-09de7672e6ed` | Astra review findings being corrected |
 | D7a1 native form association | `01a0cfce-720d-76a2-aff0-6ab0c6c1315a` | In progress; exclusive shared native-file owner |
-| X4a native XPath adapter | `client-new-thread:b9f92a93-911e-44eb-8f90-c701079b8421` | Reviewed design dispatched; actual task identity pending handoff |
+| X4a native XPath adapter | `01a0cfc2-9808-7643-a56f-c29d6ec8005c` | Implementation under independent Astra review |
+| C2d1 native table-column model | `01a0cfd3-4970-7c53-af17-767d5a5cbdaa` | Reviewed design dispatched; independent new-file implementation in progress |
 
 The XML conformance gate inventories all 2,585 pinned W3C rows with explicit profile
 classifications and separate output assertions. Current execution results and remaining debt are below.
@@ -370,3 +371,11 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   pass 1,672/1,672 across net8/net10 with no skips.
   Evidence: `/private/tmp/jint-relational-native-integrated.log`.
 - Browser still uses AngleSharp. Measurements remain pending; no speedup is claimed.
+
+- `61583b638`: independently reviewed column-selector model and matcher dispatch design
+  (source `7a721ef4e`), including the explicitly reviewed col-only mapping and EOF/footer case.
+- `6c2bba12b`: twenty independently reviewed Sun validity expectations (source `56f6dc3b0`).
+  Fresh integrated XML corpus tests on both frameworks: 3,998 total, 3,320 pass, 678 fail, no skips.
+  Each framework now reports 1,629 conformance passes and 318 unresolved required cases; optional
+  and canonical-output counts are unchanged from the previous checkpoint. Evidence:
+  `/private/tmp/jint-xml-sun20-integrated.log`. No shared harness rule or runtime behavior changed.
