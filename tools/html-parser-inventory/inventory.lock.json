@@ -68,8 +68,30 @@
         "using AngleSharp.Html.Dom;",
         "using AngleSharp.Html.Parser;",
         "using AngleSharp.Xml.Parser;",
+        "using AngleHtmlParser = global::AngleSharp.Html.Parser.HtmlParser;",
         "using DomNode = AngleSharp.Dom.INode;",
         "using DomNodeType = AngleSharp.Dom.NodeType;"
+      ]
+    },
+    {
+      "path": "Jint.Benchmark/XmlSvgParserComparisonBenchmark.cs",
+      "category": "benchmark",
+      "owner": "A3:comparison",
+      "references": [
+        "using AngleSharp.Dom;",
+        "using AngleSharp.Xml.Parser;",
+        "using AngleNode = AngleSharp.Dom.INode;",
+        "private static ParserModel.NodeType MapKind(AngleSharp.Dom.NodeType kind) => kind switch",
+        "AngleSharp.Dom.NodeType.Document => ParserModel.NodeType.Document,",
+        "AngleSharp.Dom.NodeType.Element => ParserModel.NodeType.Element,",
+        "AngleSharp.Dom.NodeType.Text => ParserModel.NodeType.Text,",
+        "AngleSharp.Dom.NodeType.CharacterData => ParserModel.NodeType.CDataSection,",
+        "AngleSharp.Dom.NodeType.Comment => ParserModel.NodeType.Comment,",
+        "AngleSharp.Dom.NodeType.ProcessingInstruction => ParserModel.NodeType.ProcessingInstruction,",
+        "AngleSharp.Dom.NodeType.DocumentType => ParserModel.NodeType.DocumentType,",
+        "AngleSharp.Dom.NodeType.DocumentFragment => ParserModel.NodeType.DocumentFragment,",
+        "_ => throw new InvalidDataException($\"Unsupported AngleSharp node kind {kind}\"),",
+        "Fail(name, $\"{path}: default xmlns projection is not the pinned AngleSharp/native pair\");"
       ]
     },
     {
