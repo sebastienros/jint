@@ -1,7 +1,7 @@
 namespace Jint.HtmlParser.Css.Syntax;
 
 // CSS Syntax Level 3, §5.4–5.5: https://drafts.csswg.org/css-syntax/#parser-algorithms
-internal sealed class CssSyntaxParser
+internal sealed partial class CssSyntaxParser
 {
     private readonly List<CssToken> _tokens;
     private readonly string _source;
@@ -164,37 +164,8 @@ internal sealed class CssSyntaxParser
         SkipWhitespace();
         if (Current.Kind != CssTokenKind.None) throw Error("css/trailing-input", Current.Span.Start);
 
-        TrimTrailingWhitespace(values);
-        var important = false;
-        var retokenizeEnd = valueEnd;
-        if (values.Count > 0 && IsIdent(values[^1], "important"))
-        {
-            var bang = values.Count - 2;
-            while (bang >= 0 && IsWhitespace(values[bang]))
-            {
-                PollCancellation();
-                bang--;
-            }
-            if (bang >= 0 && IsDelim(values[bang], '!'))
-            {
-                retokenizeEnd = values[bang].Span.Start;
-                values.RemoveRange(bang, values.Count - bang);
-                TrimTrailingWhitespace(values);
-                important = true;
-            }
-        }
-        if (!first.Text.StartsWith("--", StringComparison.Ordinal) &&
-            HasMixedTopLevelBrace(values))
-        {
+        var result = FinalizeDeclaration(first, values, valueStart, valueEnd, end) ??
             throw Error("css/mixed-brace-declaration-value", first.Span.Start);
-        }
-        if (CssAscii.EqualsIgnoreCase(first.Text, "unicode-range"))
-        {
-            values = RetokenizeUnicodeRangeValue(valueStart, retokenizeEnd);
-            TrimTrailingWhitespace(values);
-        }
-        var result = new CssDeclarationSyntax(first.Text, List(values), important,
-            new CssSourceSpan(first.Span.Start, end - first.Span.Start));
         _cancellationToken.ThrowIfCancellationRequested();
         return result;
     }
