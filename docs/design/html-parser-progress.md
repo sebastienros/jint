@@ -19,11 +19,12 @@ the earlier repository direction to retain AngleSharp.
 | Task | Identity | State |
 | --- | --- | --- |
 | Architecture and migration design | `01a0ceec-94ec-7f63-9bfb-189cac69df5f` | Reviewed design and feature contracts integrated |
-| Comparison corpus and benchmark harness | `01a0ceee-7b09-7513-b507-a5c412eb4518` | Baseline integrated; native XML/SVG comparison rows in progress |
+| Comparison corpus and benchmark harness | `01a0ceee-7b09-7513-b507-a5c412eb4518` | Reviewed XML/SVG comparison integrated; measurements pending |
 | A1 dependency and binding inventory | `01a0cef5-3c12-7d22-926c-e2aeefe58949` | Reviewed and integrated |
 | A2/D1/D2 package and DOM foundation | `01a0cef5-4a7d-72e2-b551-74f03c9da7ec` | Reviewed fixes integrated; 52 combined tests pass |
 | H1–H3 resumable HTML tokenizer | `01a0cf2a-8177-7941-9413-ee60edc59454` | Reviewed and integrated |
-| C1 CSS syntax | `01a0cf2a-8a51-76b1-a12b-ac57c7d2b594` | Constructs integrated; list/block extension in progress |
+| C1 CSS syntax | `01a0cf2a-8a51-76b1-a12b-ac57c7d2b594` | Reviewed constructs and list/block extension integrated |
+| C4a internal CSS syntax editors | `01a0cf89-02d0-79b0-a4d1-5f37f747f728` | In progress |
 | A2 shared limits/diagnostics/errors and API snapshots | `01a0cf2c-ab5e-7023-95ab-1ab3a4fc8d77` | Reviewed and integrated |
 | D3a native cloning and import | `01a0cf34-dc42-75d0-960e-735bef6eb68a` | Reviewed and integrated |
 | XML shared contracts and provenance | `01a0cf2c-ab5e-7023-95ab-1ab3a4fc8d77` | Reviewed and integrated |
@@ -108,6 +109,14 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   passing tests across both frameworks, zero failures/skips. Exact numeric conversion
   includes deterministic cancellation and operand-work scaling guards. Matching and
   public selector APIs remain separate unfinished work.
+- CSS list/block recovery brings the suite to 1,194 passes. The corpus-driven XML
+  version correction brings it to 1,212, and the reviewed native PI factory changes
+  bring it to 1,218, all across both frameworks with zero failures/skips. A separate
+  clone/import test follow-up passes all eight focused PI tests across the two TFMs.
+- Integrated XML/SVG comparison validation passes all four unchanged corpus fixtures
+  and rejects count-preserving corruption. It uses only the reviewed default-xmlns
+  representation projection and documents SVG MIME branding. These are correctness
+  results, not benchmark timing or a speedup claim.
 - The unsigned packed consumer passed fresh local-package runs on net8.0 and
   net10.0, plus a Native AOT publish/run on osx-arm64 in its implementation worktree.
   Package inspection found no production dependencies. Its reviewed probes cover
@@ -214,3 +223,12 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   selector compilation and reviewed grammar, offsets, balanced decimal conversion,
   cancellation and complexity guards (source `d7e9fa6c4`, `de075bbb1`, `6ab888064`,
   `18f6d9dc6`, `175d169bb`, `13643b781`); final Astra rechecks clear.
+- `5ea8680d4`, `a05acf8df`, `061b18b92`: CSS list/block parsing and reviewed recovery
+  and actual closing-token ownership fixes (source `e19bc96f3`, `92dc66729`,
+  `a6d910e7b`); final Astra recheck clear.
+- `fe1575d67`: XML/SVG AngleSharp/native comparison rows and semantic corruption
+  probes (source `00c7b7ec1`); Astra review and integrated untimed validation clear.
+- `9068b8d00`, `079efebc3`: reviewed XML version/PI contract correction and version
+  implementation (source `6b329f0d7`, `1c0fa5cd2`).
+- `37c8a6712`, `2156e4f85`: reviewed native PI Name/trusted construction and clone
+  tests (source `b69f678e1` plus test-only delta to `6eb97386c`).
