@@ -188,10 +188,21 @@ throws `OperationCanceledException` and makes the session terminal; later read/a
 `ArgumentOutOfRangeException` without consuming input. Work exhaustion returns `Yielded`, not a parse
 error; repeated positive-budget calls make progress. The tokenizer needs no thread and no `IDisposable`.
 
-`Read` consumes at most the quota's bounded work plus a small documented constant for completing a
-transition. Charge long scans, character-reference lookahead and token-buffer growth, not only token
-emission. An internal monotonic consumed-input/work counter can support deterministic tests; it is
-not a public browser node budget. No polling sleep or timing assertion proves cancellation.
+`Read` uses a cooperative work quota for explicit scanner, validation and copying loops, including
+character-reference lookahead and attribute-finalization preparation. Check quota/cancellation at a
+bounded cadence in those loops; exhausting the quota suspends at the next safe state boundary. The
+quota is **not** a hard per-call time, allocation or CPU bound. Safe managed APIs cannot yield halfway
+through the final contiguous copy needed by an owned string/array, or a buffer-growth runtime copy.
+Check token/input limits before accepting excess input and before result allocation, and poll
+cancellation immediately before/after these unavoidable runtime materializations. They may exceed the
+remaining quota by their copy length; there is no small-constant-overrun promise. Charge those lengths
+in monotonic work accounting and suspend further explicit work when exhausted (an already finished
+token may be returned). Perform each materialization once, retaining progress across Yielded/NeedInput;
+never restart flattening or repeatedly copy growing prefixes. Preserve amortized-linear accumulation.
+Do not add an unsafe or elaborate resumable flattening pipeline that still ends in a contiguous copy.
+An internal work counter supports deterministic tests; it is not a public node budget. Verify bounded
+explicit-loop progress, cancellation polls and linear copy counts, not stopwatch latency or a universal
+`workDelta <= quota + constant` assertion across runtime allocation/copy operations.
 
 When status is `Token`, `token` is valid. For other statuses it is default and must not be observed.
 EOF is emitted as one `EndOfFile` token after final input and recovery; later reads return `Complete`.
