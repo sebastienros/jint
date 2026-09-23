@@ -1,6 +1,5 @@
 #nullable enable
 using System.Collections;
-using System.Reflection;
 using Jint.HtmlParser;
 
 namespace Jint.Tests.HtmlParser.Parsing;
@@ -105,28 +104,4 @@ public class SharedParseContractsTests
         error.Message.Should().Contain("css/extra-input").And.Contain("11");
     }
 
-    [Test]
-    public void PublicContractIsLimitedToImplementedSharedTypes()
-    {
-        var assembly = typeof(ParseLimits).Assembly;
-        var types = new[] { typeof(ParseLimits), typeof(ParseLimitKind), typeof(ParseLimitException),
-            typeof(ParseDiagnostic), typeof(ParseDiagnosticCollector), typeof(CssParseOptions),
-            typeof(CssParseException) };
-        assembly.GetExportedTypes().Where(type => type.Namespace == "Jint.HtmlParser" &&
-            type.Name.StartsWith("Parse", StringComparison.Ordinal) ||
-            type.Namespace == "Jint.HtmlParser" && type.Name.StartsWith("CssParse", StringComparison.Ordinal))
-            .Should().BeEquivalentTo(types);
-
-        typeof(ParseLimits).GetProperty(nameof(ParseLimits.MaxInputCharacters))!.PropertyType.Should().Be<long>();
-        typeof(ParseLimits).GetProperty(nameof(ParseLimits.MaxTokenCharacters))!.PropertyType.Should().Be<int>();
-        typeof(ParseLimits).GetProperty(nameof(ParseLimits.MaxNestingDepth))!.PropertyType.Should().Be<int>();
-        typeof(ParseDiagnosticCollector).GetProperty(nameof(ParseDiagnosticCollector.Items))!.PropertyType
-            .Should().Be<IReadOnlyList<ParseDiagnostic>>();
-        typeof(CssParseOptions).GetProperty(nameof(CssParseOptions.Diagnostics))!.PropertyType
-            .Should().Be<ParseDiagnosticCollector>();
-        typeof(ParseLimitException).GetConstructors(BindingFlags.Public | BindingFlags.Instance).Should().BeEmpty();
-        typeof(CssParseException).GetConstructors(BindingFlags.Public | BindingFlags.Instance).Should().BeEmpty();
-        typeof(ParseDiagnostic).GetConstructors(BindingFlags.Public | BindingFlags.Instance).Should().BeEmpty();
-        typeof(ParseDiagnosticCollector).GetConstructors().Should().ContainSingle();
-    }
 }

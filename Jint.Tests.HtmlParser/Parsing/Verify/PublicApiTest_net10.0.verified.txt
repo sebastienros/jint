@@ -1,0 +1,174 @@
+﻿namespace Jint.HtmlParser
+{
+    public sealed class Attr
+    {
+        public string LocalName { get; }
+        public string Name { get; }
+        public string? NamespaceUri { get; }
+        public Jint.HtmlParser.Document OwnerDocument { get; }
+        public Jint.HtmlParser.Element? OwnerElement { get; }
+        public string? Prefix { get; }
+        public string Value { get; set; }
+    }
+    public sealed class CDataSection : Jint.HtmlParser.Node
+    {
+        public string Data { get; set; }
+        public override Jint.HtmlParser.NodeType NodeType { get; }
+    }
+    public sealed class Comment : Jint.HtmlParser.Node
+    {
+        public string Data { get; set; }
+        public override Jint.HtmlParser.NodeType NodeType { get; }
+    }
+    public sealed class CssParseException : System.Exception
+    {
+        public string Code { get; }
+        public long Offset { get; }
+    }
+    public sealed class CssParseOptions
+    {
+        public CssParseOptions() { }
+        public Jint.HtmlParser.ParseDiagnosticCollector? Diagnostics { get; init; }
+        public Jint.HtmlParser.ParseLimits Limits { get; init; }
+    }
+    public sealed class Document : Jint.HtmlParser.Node
+    {
+        public Document(Jint.HtmlParser.DocumentKind kind) { }
+        public Jint.HtmlParser.DocumentType? Doctype { get; }
+        public Jint.HtmlParser.Element? DocumentElement { get; }
+        public Jint.HtmlParser.DocumentKind Kind { get; }
+        public override Jint.HtmlParser.NodeType NodeType { get; }
+        public Jint.HtmlParser.Attr CreateAttribute(string name) { }
+        public Jint.HtmlParser.Attr CreateAttributeNS(string? namespaceUri, string qualifiedName) { }
+        public Jint.HtmlParser.CDataSection CreateCDataSection(string data) { }
+        public Jint.HtmlParser.Comment CreateComment(string data) { }
+        public Jint.HtmlParser.DocumentFragment CreateDocumentFragment() { }
+        public Jint.HtmlParser.DocumentType CreateDocumentType(string name, string publicId = "", string systemId = "") { }
+        public Jint.HtmlParser.Element CreateElement(string localName) { }
+        public Jint.HtmlParser.Element CreateElementNS(string? namespaceUri, string qualifiedName) { }
+        public Jint.HtmlParser.ProcessingInstruction CreateProcessingInstruction(string target, string data) { }
+        public Jint.HtmlParser.Text CreateTextNode(string data) { }
+        public static Jint.HtmlParser.Document CreateHtml() { }
+        public static Jint.HtmlParser.Document CreateXml() { }
+    }
+    public sealed class DocumentFragment : Jint.HtmlParser.Node
+    {
+        public override Jint.HtmlParser.NodeType NodeType { get; }
+    }
+    public enum DocumentKind
+    {
+        Html = 0,
+        Xml = 1,
+    }
+    public sealed class DocumentType : Jint.HtmlParser.Node
+    {
+        public string Name { get; }
+        public override Jint.HtmlParser.NodeType NodeType { get; }
+        public string PublicId { get; }
+        public string SystemId { get; }
+    }
+    public sealed class DomException : System.Exception
+    {
+        public DomException(string name, string message) { }
+        public string Name { get; }
+    }
+    public sealed class Element : Jint.HtmlParser.Node
+    {
+        public int AttributeCount { get; }
+        public System.Collections.Generic.IEnumerable<Jint.HtmlParser.Attr> Attributes { get; }
+        public string LocalName { get; }
+        public string? NamespaceUri { get; }
+        public override Jint.HtmlParser.NodeType NodeType { get; }
+        public string? Prefix { get; }
+        public string TagName { get; }
+        public string? GetAttribute(string name) { }
+        public string? GetAttributeNS(string? namespaceUri, string localName) { }
+        public Jint.HtmlParser.Attr? GetAttributeNode(string name) { }
+        public Jint.HtmlParser.Attr? GetAttributeNodeNS(string? namespaceUri, string localName) { }
+        public void RemoveAttribute(string name) { }
+        public void RemoveAttributeNS(string? namespaceUri, string localName) { }
+        public Jint.HtmlParser.Attr RemoveAttributeNode(Jint.HtmlParser.Attr attribute) { }
+        public void SetAttribute(string name, string value) { }
+        public void SetAttributeNS(string? namespaceUri, string qualifiedName, string value) { }
+        public Jint.HtmlParser.Attr? SetAttributeNode(Jint.HtmlParser.Attr attribute) { }
+    }
+    public static class Namespaces
+    {
+        public const string Html = "http://www.w3.org/1999/xhtml";
+        public const string MathMl = "http://www.w3.org/1998/Math/MathML";
+        public const string Svg = "http://www.w3.org/2000/svg";
+        public const string Xml = "http://www.w3.org/XML/1998/namespace";
+        public const string Xmlns = "http://www.w3.org/2000/xmlns/";
+    }
+    public abstract class Node
+    {
+        public int ChildCount { get; }
+        public System.Collections.Generic.IEnumerable<Jint.HtmlParser.Node> ChildNodes { get; }
+        public Jint.HtmlParser.Node? FirstChild { get; }
+        public Jint.HtmlParser.Node? LastChild { get; }
+        public Jint.HtmlParser.Node? NextSibling { get; }
+        public abstract Jint.HtmlParser.NodeType NodeType { get; }
+        public Jint.HtmlParser.Document? OwnerDocument { get; }
+        public Jint.HtmlParser.Node? ParentNode { get; }
+        public Jint.HtmlParser.Node? PreviousSibling { get; }
+        public Jint.HtmlParser.Node AppendChild(Jint.HtmlParser.Node child) { }
+        public Jint.HtmlParser.Node InsertBefore(Jint.HtmlParser.Node child, Jint.HtmlParser.Node? referenceChild) { }
+        public Jint.HtmlParser.Node RemoveChild(Jint.HtmlParser.Node child) { }
+        public Jint.HtmlParser.Node ReplaceChild(Jint.HtmlParser.Node child, Jint.HtmlParser.Node oldChild) { }
+    }
+    public enum NodeType
+    {
+        Element = 1,
+        Text = 3,
+        CDataSection = 4,
+        ProcessingInstruction = 7,
+        Comment = 8,
+        Document = 9,
+        DocumentType = 10,
+        DocumentFragment = 11,
+    }
+    public readonly struct ParseDiagnostic
+    {
+        public string Code { get; }
+        public long Offset { get; }
+    }
+    public sealed class ParseDiagnosticCollector
+    {
+        public ParseDiagnosticCollector(int capacity = 100) { }
+        public int Capacity { get; }
+        public bool IsTruncated { get; }
+        public System.Collections.Generic.IReadOnlyList<Jint.HtmlParser.ParseDiagnostic> Items { get; }
+        public void Clear() { }
+    }
+    public sealed class ParseLimitException : System.Exception
+    {
+        public Jint.HtmlParser.ParseLimitKind Kind { get; }
+        public long Limit { get; }
+        public long Observed { get; }
+    }
+    public enum ParseLimitKind
+    {
+        InputCharacters = 0,
+        TokenCharacters = 1,
+        NestingDepth = 2,
+    }
+    public sealed class ParseLimits
+    {
+        public ParseLimits() { }
+        public long MaxInputCharacters { get; init; }
+        public int MaxNestingDepth { get; init; }
+        public int MaxTokenCharacters { get; init; }
+        public static Jint.HtmlParser.ParseLimits Unbounded { get; }
+    }
+    public sealed class ProcessingInstruction : Jint.HtmlParser.Node
+    {
+        public string Data { get; set; }
+        public override Jint.HtmlParser.NodeType NodeType { get; }
+        public string Target { get; }
+    }
+    public sealed class Text : Jint.HtmlParser.Node
+    {
+        public string Data { get; set; }
+        public override Jint.HtmlParser.NodeType NodeType { get; }
+    }
+}
