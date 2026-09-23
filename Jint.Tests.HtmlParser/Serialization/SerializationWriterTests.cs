@@ -62,11 +62,12 @@ public sealed class SerializationWriterTests
         var materializePolls = 0;
         var materializeWork = new SerializationWork(materializeCancellation.Token, stage =>
         {
-            if (stage == SerializationStage.Materialize && ++materializePolls == 2) materializeCancellation.Cancel();
+            // Entry and post-copy checks alone cannot reach the third checkpoint.
+            if (stage == SerializationStage.Materialize && ++materializePolls == 3) materializeCancellation.Cancel();
         });
         var writer = new SerializationWriter(materializeWork);
         writer.Append(new string('x', 1024));
         Assert.Throws<OperationCanceledException>(() => writer.Materialize());
-        materializePolls.Should().Be(2);
+        materializePolls.Should().Be(3);
     }
 }
