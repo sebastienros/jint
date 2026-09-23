@@ -10,6 +10,10 @@ public sealed class Element : Node
         NamespaceUri = namespaceUri;
         LocalName = localName;
         Prefix = prefix;
+        if (namespaceUri == Namespaces.Html && localName == "template")
+        {
+            TemplateContent = new DocumentFragment(owner.GetTemplateContentsOwnerDocument(), this);
+        }
     }
 
     public override NodeType NodeType => NodeType.Element;
@@ -17,6 +21,7 @@ public sealed class Element : Node
     public string LocalName { get; }
     public string? Prefix { get; }
     public string TagName => Prefix is null ? LocalName : string.Concat(Prefix, ":", LocalName);
+    public DocumentFragment? TemplateContent { get; }
     public int AttributeCount => _attributes?.Count ?? 0;
     public IEnumerable<Attr> Attributes
     {

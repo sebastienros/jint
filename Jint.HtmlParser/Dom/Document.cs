@@ -14,14 +14,24 @@ public sealed class Document : Node
         Array.AsReadOnly(Array.Empty<XmlSkippedEntity>());
 
     private IReadOnlyList<XmlSkippedEntity>? _skippedXmlEntities;
+    private Document? _templateContentsOwnerDocument;
+    private readonly bool _isTemplateContentsOwnerDocument;
 
     public Document(DocumentKind kind) : this(kind, kind == DocumentKind.Html ? "text/html" : "application/xml") { }
 
-    internal Document(DocumentKind kind, string contentType) : base(null)
+    internal Document(DocumentKind kind, string contentType) : this(kind, contentType, false) { }
+
+    private Document(DocumentKind kind, string contentType, bool isTemplateContentsOwnerDocument) : base(null)
     {
         Kind = kind;
         ContentType = contentType;
+        _isTemplateContentsOwnerDocument = isTemplateContentsOwnerDocument;
     }
+
+    internal Document GetTemplateContentsOwnerDocument()
+        => _isTemplateContentsOwnerDocument
+            ? this
+            : _templateContentsOwnerDocument ??= new Document(Kind, "application/xml", true);
 
     public static Document CreateHtml() => new(DocumentKind.Html);
     public static Document CreateXml() => new(DocumentKind.Xml);

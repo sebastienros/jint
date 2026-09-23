@@ -193,7 +193,7 @@ public abstract class Node
 
     private void RejectAncestor(Node candidate)
     {
-        for (Node? ancestor = this; ancestor is not null; ancestor = ancestor.ParentNode)
+        for (Node? ancestor = this; ancestor is not null; ancestor = ancestor.ParentNode ?? (ancestor as DocumentFragment)?.Host)
         {
             if (ReferenceEquals(ancestor, candidate))
             {
@@ -416,24 +416,30 @@ public abstract class Node
 
     private static void Adopt(Node node, Document destination)
     {
+        // Only a changed node document runs template adoption hooks. Explicit
+        // same-document AdoptNode still detaches the node before reaching here.
         if (ReferenceEquals(node._ownerDocument, destination))
         {
             return;
         }
 
-        var pending = new Stack<Node>();
-        pending.Push(node);
+        var pending = new Stack<(Node Node, Document Owner)>();
+        pending.Push((node, destination));
         while (pending.TryPop(out var current))
         {
-            current._ownerDocument = destination;
-            if (current is Element element)
+            current.Node._ownerDocument = current.Owner;
+            if (current.Node is Element element)
             {
-                element.AdoptAttributes(destination);
+                element.AdoptAttributes(current.Owner);
+                if (element.TemplateContent is { } content)
+                {
+                    pending.Push((content, current.Owner.GetTemplateContentsOwnerDocument()));
+                }
             }
 
-            for (var child = current.FirstChild; child is not null; child = child.NextSibling)
+            for (var child = current.Node.FirstChild; child is not null; child = child.NextSibling)
             {
-                pending.Push(child);
+                pending.Push((child, current.Owner));
             }
         }
     }

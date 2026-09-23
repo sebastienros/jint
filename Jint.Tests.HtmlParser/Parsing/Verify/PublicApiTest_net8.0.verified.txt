@@ -89,6 +89,7 @@
         public override Jint.HtmlParser.NodeType NodeType { get; }
         public string? Prefix { get; }
         public string TagName { get; }
+        public Jint.HtmlParser.DocumentFragment? TemplateContent { get; }
         public string? GetAttribute(string name) { }
         public string? GetAttributeNS(string? namespaceUri, string localName) { }
         public Jint.HtmlParser.Attr? GetAttributeNode(string name) { }

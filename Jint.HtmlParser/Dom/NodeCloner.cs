@@ -8,22 +8,31 @@ internal static class NodeCloner
     internal static Node Clone(Node source, Document document, bool deep)
     {
         var root = CopySingle(source, document);
-        if (!deep || source.FirstChild is null)
+        if (!deep)
         {
             return root;
         }
 
-        var owner = root as Document ?? document;
         var pending = new Stack<(Node Source, Node Copy)>();
         pending.Push((source, root));
         while (pending.TryPop(out var pair))
         {
+            var owner = pair.Copy as Document ?? pair.Copy.OwnerDocument!;
             for (var child = pair.Source.FirstChild; child is not null; child = child.NextSibling)
             {
                 var copy = CopySingle(child, owner);
                 pair.Copy.AppendClonedChild(copy);
-                if (child.FirstChild is not null)
+                pending.Push((child, copy));
+            }
+
+            if (pair.Source is Element { TemplateContent: { } sourceContent } &&
+                pair.Copy is Element { TemplateContent: { } copyContent })
+            {
+                var contentOwner = copyContent.OwnerDocument!;
+                for (var child = sourceContent.FirstChild; child is not null; child = child.NextSibling)
                 {
+                    var copy = CopySingle(child, contentOwner);
+                    copyContent.AppendClonedChild(copy);
                     pending.Push((child, copy));
                 }
             }
