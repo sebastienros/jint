@@ -20,8 +20,11 @@ It does not waive existing script-visible behavior, performance, identity, resou
 conformance requirements. Update the affected guidance when the implementation switches ownership;
 this proposal leaves instructions governing the current runtime intact.
 
-The completion criterion is removal of **all four AngleSharp packages from the shipped browser
-dependency graph**, including transitive references through generator/runtime projects. A parser
+Completion requires both the standalone construct APIs in §4 and removal of **all four AngleSharp
+packages from the shipped browser dependency graph**, including transitive references through
+generator/runtime projects. The standalone gates cover creation, document/fragment parsing, CSS
+constructs, selectors, intrinsic element state, mutation tracking and serialization without a Browser.
+A parser
 that reads simple HTML while the browser still needs AngleSharp's CSSOM, node classes or XPath
 navigator is an intermediate artifact, not completion. AngleSharp can remain a pinned test/benchmark
 oracle in development-only projects.
@@ -37,6 +40,7 @@ required gate rather than assuming that no dependency type escaped.
 | Component | Owner | Responsibility |
 | --- | --- | --- |
 | `Jint.HtmlParser/Dom` | New package | Node identity, namespaces, tree/attribute operations, ranges, collections, change tracking |
+| `Dom/Html` | New package | Intrinsic element reflection, form ownership, control values/dirty flags, checkedness, selectedness, disabledness and validity |
 | `Html` | New package | Tokenizer, tree builder, document/fragment/resumable parsing, character references |
 | `Xml` and `Svg` | New package | XML well-formedness, shared-tree construction, SVG document entry and namespace handling |
 | `Css` and `Selectors` | New package | CSS tokens/rules/declarations, selector programs, property grammar, cascade inputs |
@@ -114,20 +118,18 @@ Use these separate concepts:
 | --- | --- |
 | HTML/CSS recovery | One standard algorithm, always the default |
 | Diagnostics | Optional bounded collection of error codes and source positions; does not change the tree |
-| `RejectParseErrors` | Optional standalone validation policy; aborts at a reported HTML/CSS parse error, never selected by Browser/WPT |
 | XML well-formedness | Required; failure is a parse failure, not HTML recovery |
 | HTML quirks mode | Determined by doctype and parsing context, not a user strictness toggle |
 | Missing implementation | Explicit capability/debt entry and failing or excluded test; never silently successful parsing |
 | Headless approximations | Browser policy, independently documented, such as synthetic geometry; not a parser option |
 
-`RejectParseErrors` is not full authoring conformance validation: many authoring violations are not
-tokenizer/tree-builder parse errors. Do not name it `StrictConformance`. Ship diagnostics first; add
-rejection only with a demonstrated validation consumer. A `ParseSvg` call uses XML rules; an inline
+A `ParseSvg` call uses XML rules; an inline
 `<svg>` in HTML uses HTML's foreign-content rules. There is no input sniffing that silently swaps them.
 
-The browser and WPT must use the same parser defaults. A future browser conformance profile may control
-identified approximations, but only through a published list of concrete behavior changes with tests
-under both profiles. This design does not introduce a catch-all lenience mode.
+The browser and WPT use the same parser defaults. There is no strictness option, feature-enable list,
+or planned profile system. Required parse context (such as a fragment's element and HTML scripting
+flag) selects the algorithm the caller is invoking; resource limits bound its work. Neither disables
+otherwise implemented features. Diagnostics observe that algorithm without changing its result.
 
 ### Lightpanda source findings
 
@@ -153,8 +155,10 @@ and independently written tests rather than copying its AGPL-licensed implementa
 
 ## 4. Native API contract
 
-The following is the proposed public shape, not existing compiling code. Start with the smallest
-surface used by standalone parsing consumers. Parser internals and browser integration hooks remain
+The following is the proposed public shape, not existing compiling code. It includes the standalone
+construct entry points required for this campaign, independent of what Browser happens to call.
+Implement and snapshot each surface with its owning feature, rather than freezing a broad speculative
+assembly snapshot or publishing throwing placeholders at project creation. Parser internals and browser integration hooks remain
 internal with a signed friend grant until an external consumer demonstrates that they need promotion.
 
 ```csharp
@@ -183,12 +187,26 @@ public static class MarkupParser
         HtmlParseOptions? options = null, CancellationToken cancellationToken = default);
     public static Document ParseXml(string source, XmlParseOptions? options = null,
         CancellationToken cancellationToken = default);
+    public static DocumentFragment ParseXmlFragment(string source, Element context,
+        XmlParseOptions? options = null, CancellationToken cancellationToken = default);
     public static Document ParseSvg(string source, XmlParseOptions? options = null,
         CancellationToken cancellationToken = default);
     public static CssStyleSheet ParseCss(string source, CssParseOptions? options = null,
         CancellationToken cancellationToken = default);
     public static CssDeclarationBlock ParseCssDeclarations(string source,
         CssParseOptions? options = null, CancellationToken cancellationToken = default);
+    public static CssRuleSyntax ParseCssRule(string source, CssParseOptions? options = null,
+        CancellationToken cancellationToken = default);
+    public static CssDeclarationSyntax ParseCssDeclaration(string source,
+        CssParseOptions? options = null, CancellationToken cancellationToken = default);
+    public static CssComponentValue ParseCssComponentValue(string source,
+        CssParseOptions? options = null, CancellationToken cancellationToken = default);
+    public static CssComponentValueList ParseCssComponentValues(string source,
+        CssParseOptions? options = null, CancellationToken cancellationToken = default);
+    public static CssValueParseResult ParseCssValue(string propertyName, string source,
+        CssParseOptions? options = null, CancellationToken cancellationToken = default);
+    public static SelectorProgram ParseSelector(string source,
+        SelectorParseContext? context = null, CancellationToken cancellationToken = default);
 }
 ```
 
@@ -200,11 +218,76 @@ replacing the context's children. It must handle table/select/script/style/templ
 
 `ParseSvg` parses an XML document and requires an `svg` root in the SVG namespace; `<svg/>` with no
 namespace is not silently repaired. Consumers wanting HTML's inline SVG recovery call `ParseHtml` or
-`ParseHtmlFragment` with an SVG context. XML fragments are a separate subsequent entry point with
-namespace-context requirements, not HTML fragments with another name. CSS document and declaration
-entry points select their grammar explicitly. Single-rule parsing is internal initially for CSSOM.
+`ParseHtmlFragment` with an SVG context. `ParseXmlFragment` is a required entry point: it parses an XML
+fragment with the context's in-scope namespace bindings and owner document, allows multiple roots/text,
+and returns detached children without modifying the context. An empty fragment succeeds; an XML
+declaration, doctype, undeclared prefix or malformed markup fails with `MarkupParseException`. It does
+not infer namespaces from tag names. SVG snippets use this method with an SVG context for XML semantics,
+or `ParseHtmlFragment` for HTML semantics. X1 owns XML document and fragment parsing; X2 owns SVG checks.
 
-Options are small immutable values, snapshotted at session creation. No builder/container chain and
+### CSS and selector construct contracts
+
+All entry points consume the whole input according to the named grammar; no successful single-item
+parse silently leaves a second item unread. Syntax results own their retained data and are usable after
+the source/session is released. `CssRuleSyntax` and `CssDeclarationSyntax` are syntax objects, distinct
+from mutable CSSOM rules and validated declarations. This makes an unknown at-rule or property available
+to a standalone consumer without claiming the browser implements its semantics.
+
+| Entry point | Return and failure contract | Owner |
+| --- | --- | --- |
+| `ParseCss` | Mutable `CssStyleSheet`; standard stylesheet recovery, invalid declarations/rules omitted as required; empty source succeeds | C4 over C1 |
+| `ParseCssDeclarations` | Mutable validated `CssDeclarationBlock`; declaration-list recovery and importance/cascade ordering; empty source succeeds | C4/C5 |
+| `ParseCssRule` | One `CssRuleSyntax`, including opaque unknown at-rule syntax; `CssParseException` if the single-rule grammar returns failure or trailing non-whitespace input remains | C1 |
+| `ParseCssDeclaration` | One `CssDeclarationSyntax` containing property name, component values and importance; `CssParseException` on structural failure; does not assert property support | C1 |
+| `ParseCssComponentValue` | One token, function or simple block; CSS Syntax recovery still applies inside it; `CssParseException` on no value or extra non-whitespace values | C1 |
+| `ParseCssComponentValues` | Immutable sequence, empty allowed; CSS Syntax token/block recovery, optionally diagnosed; no property grammar claim | C1 |
+| `ParseCssValue` | `CssValueParseResult` with `Valid`, `Invalid` or `UnsupportedProperty`; `Value` exists only for `Valid`, with deferred substitution represented explicitly; parses property grammar, does not compute a style | C5 |
+| `ParseSelector` | Immutable `SelectorProgram` for a selector list; `SelectorParseException` for invalid syntax, unresolved namespace prefix or unsupported selector construct; no forgiving fallback outside grammar-defined forgiving lists | C2 |
+
+The standalone single-declaration wrapper permits one terminating semicolon and surrounding whitespace,
+but rejects a second declaration or other trailing content. It wraps CSS Syntax's declaration consumer
+with that whole-input check; callers parsing `style` text use `ParseCssDeclarations`. Tokenization recovery is not a failure policy
+toggle. CSSOM `insertRule` additionally validates supported rule kind and insertion hierarchy, using
+the syntax parser internally. `CSS.supports` consults the same property/condition grammar as the native
+validated path, not success from `ParseCssComponentValues`. Syntactically legal deferred `var()` values
+are not rejected for lacking a computed environment. Unknown ordinary properties report
+`UnsupportedProperty`; custom properties use their own defined grammar and preserve case.
+
+`SelectorParseContext` supplies namespace-prefix bindings and parse limits; an absent context means no
+declared prefixes and ordinary query-selector grammar. `SelectorProgram.Matches(Element)` and
+`QuerySelector`/`QuerySelectorAll` evaluate against the current tree. Intrinsic HTML state is always
+available from native nodes. A browser may additionally supply its environment state internally.
+An absent host means no focus/hover/active target, not disabled selector parsing or false answers for
+`:checked`, `:disabled` and `:valid`. Context is not a feature configuration registry.
+
+### Creation without parsing
+
+`Document.CreateHtml()` and `Document.CreateXml()` create empty documents of the named kind, without
+implied nodes, parser session or host; this differs deliberately from parsing empty HTML. Factories
+below create detached objects owned by that document. Creation never connects a node, loads a resource
+or executes a callback. Names are validated before publication. Invalid names/namespaces use a native
+`DomException` with stable DOM error names, which Browser maps to its existing JS exception type.
+
+| Factory/member | Contract | Owner |
+| --- | --- | --- |
+| `Document.CreateElement(string localName)` | HTML document: ASCII-lowercase HTML-namespace element; XML document: case-preserving null-namespace element | D2 |
+| `Document.CreateElementNS(string? namespaceUri, string qualifiedName)` | Validated namespace/prefix/local-name tuple; no HTML case folding | D2 |
+| `Document.CreateTextNode(string data)`, `CreateComment(string data)` | Owned text/comment; empty data allowed; serialization applies the format's separate restrictions | D2 |
+| `Document.CreateDocumentFragment()` | Empty fragment owned by the document | D1 |
+| `Document.CreateAttribute(string name)`, `CreateAttributeNS(string? namespaceUri, string qualifiedName)` | Detached attribute with empty value and no owner element; same name rules as the corresponding element factory | D2 |
+| `Document.CreateProcessingInstruction(string target, string data)` | Validate target and forbidden PI terminator; detached PI | D2 |
+| `Document.CreateCDataSection(string data)` | XML only; rejects forbidden CDATA terminator; HTML reports `NotSupportedError` | D2 |
+| `Document.CreateDocumentType(string qualifiedName, string publicId = "", string systemId = "")` | Detached doctype with validated name; attachment checks document hierarchy separately | D2 |
+| `Node.AppendChild`, `InsertBefore`, `RemoveChild`, `ReplaceChild` | Validate before structural change, preserve identity, use common mutation algorithms; cross-document insertion adopts where DOM permits | D1/D3 |
+| `Document.AdoptNode(Node)`, `ImportNode(Node, bool deep = false)` | Adoption moves identity/ownership; import creates a new detached copy; unsupported node kinds fail explicitly | D3 |
+
+Null required strings/nodes fail with `ArgumentNullException`. Nullable namespace is intentional.
+Document/node factories and their small API snapshots land with D1/D2/D3; the parser project bootstrap
+does not reserve every future method in a shipped assembly. There is no runtime element-factory plugin
+or per-tag class hierarchy. Named CSS and selector constructors above likewise land with C1/C2/C4/C5.
+
+Options carry required context, resource limits and diagnostics, not feature enablement or alternate
+recovery algorithms. They are small immutable values, snapshotted at session creation. No builder/container chain and
 no per-element factories. `HtmlParseOptions` contains base URL, the HTML scripting flag (default false;
 affects `noscript`, does not execute code), shared `ParseLimits`, and an optional diagnostic collector.
 Declarative-shadow behavior is selected by browser call context through internal creation parameters,
@@ -213,10 +296,11 @@ Base URL metadata is not authorization to fetch anything. Browser URL resolution
 repository's WHATWG URL implementation; the standalone package must not pretend BCL URI resolution
 is automatically browser-equivalent.
 
-Limits cover input characters, created nodes, token/attribute text, open-element depth, CSS nesting,
+Limits cover input characters, cumulative parser work/created nodes, token/attribute text, open-element depth, CSS nesting,
 XML entity expansion, and accumulated inserted input. Zero means unbounded where consistent with the
 repository. Ordinary standalone parsing defaults to no arbitrary document-size ceiling; the browser
-passes its configured bounds. Cancellation is always available. Exhaustion is a distinct
+passes only bounds with equivalent counting semantics (see §5); it must not reinterpret its existing
+`MaxDomNodes` as a cumulative allocation/work limit. Cancellation is always available. Exhaustion is a distinct
 `ParseLimitException` with a stable limit kind and observed count; XML syntax errors are
 `MarkupParseException` with code/position. Cancellation remains `OperationCanceledException`.
 Malformed HTML/CSS recovers by default. Infrastructure exceptions are never relabeled parse errors.
@@ -251,6 +335,25 @@ snapshots are explicitly named. `QuerySelectorAll` returns a new static result; 
 are live views. Collection caches may use mutation versions but must not cache wrappers by live index.
 Adoption preserves node identity and moves owner-document state while creation-realm identity remains
 the browser wrapper's responsibility. Cloning creates new identity.
+
+### Intrinsic HTML state belongs to the native document
+
+`Jint.HtmlParser.Dom.Html` owns HTML reflected attributes and control algorithms: value/defaultValue
+and dirty flags, checked/defaultChecked, selected/defaultSelected, radio groups, option selection,
+form ownership, disabledness including fieldset/legend and optgroup rules, constraints and validity.
+This state exists without Jint or a Browser. Standalone setters and parser attribute initialization
+reach the same algorithms that generated JS bindings call. For example an unchecked checkbox with a
+stale `checked` attribute after its dirty flag is set must match according to current checkedness;
+`:disabled` must include a disabled fieldset's effect, not just the element's own attribute.
+
+Expose native semantic access through a lazily created `HtmlElementState` view on applicable elements,
+with control-specific state only where the element kind requires it; do not allocate a browser service
+or JS wrapper to read a property. Its properties/operations are implemented in D7's finite control
+families, with scoped API snapshots. `Validity` is a pure native read; browser `checkValidity` additionally
+dispatches the required events. Reflected values, selectors, form serialization and bindings all read
+the native owner. Browser supplies environment-dependent focus/hover/activation, user input, navigation,
+script execution and event dispatch. It must not maintain a second authoritative checkedness/validity
+store. Mutations and adoption reset/recompute affected native state under the shared DOM algorithms.
 
 ## 5. Resumability first; transport streaming later
 
@@ -294,6 +397,11 @@ user code runs. Async/defer/module scheduling, stylesheet blocking, import maps 
 transitions belong to a browser script coordinator. They do not belong to a generic syntax parser.
 Tree-effect hooks cover script/style/link/image/frame activation and relevant mutations, including
 `src` set after insertion. Inert parser entry points install no browser activation host.
+R1 exercises this protocol with controlled resource completions and implements classic parser blockers;
+it does not claim stylesheet-blocking integration. R2 adds real stylesheet parse/attachment completion
+and applicable script-blocking conditions after B5's CSS integration, including media/disable changes,
+fetch failures and event ordering. A style fetch completing is not sufficient to unblock a script
+before the associated CSS processing is complete.
 
 ### `document.write` is a synchronous insertion protocol
 
@@ -322,9 +430,19 @@ task passes its WPT cases. XML documents continue rejecting these operations.
 Parser CPU quotas return `Yielded` only at safe states; they let the loop observe close/cancellation
 without allowing unrelated DOM operations halfway through a mutation. The host decides which browser
 tasks may run at a parsing yield. Poll input scans as well as emitted tokens and long tree algorithms,
-so a huge unterminated comment cannot evade cancellation. Limits count parser-created nodes before
-allocation/attachment rather than counting only the finished document. Keep browser wrapper limits
-separate; replacing the existing two-count contract requires a separately reviewed API change.
+so a huge unterminated comment cannot evade cancellation. A separately named cumulative parser-work
+limit can count every created node before allocation, including transient/reparented work. That is
+not the browser's existing `MaxDomNodes`: today its parse leg checks the finished document, while its
+independent wrapper leg counts nodes projected to script. During migration keep that final-document
+check and independent wrapper count. A node that is created then discarded or removed before the
+final check must not unexpectedly spend the existing DOM ceiling. Any live-tree allocation counter
+used internally must likewise not redefine the public cap as a peak or cumulative count.
+
+Do not populate the new work limit from `MaxDomNodes`. Standalone callers may explicitly set the
+parser-work bound; Browser adoption of a new bound requires its own named option/contract change,
+not a silent mapping. Cancellation and cooperative work quotas provide responsiveness independently
+of size limits. Tests must distinguish final/live membership, cumulative creation and wrapper counts,
+including parser recovery that creates transient nodes and scripts that remove nodes during parsing.
 
 ### Byte streaming has a separate acceptance gate
 
@@ -413,7 +531,8 @@ unsupported constructs. Declaration parsing, stylesheet parsing, CSSOM `insertRu
 and `CSS.supports` have different failure contracts and must select them deliberately.
 
 Compile selectors into immutable engine-free programs. A program is reusable across documents; matching
-receives document mode, namespace rules and a host state view for focus/hover/checked/validity/target.
+receives document mode and namespace rules, reads intrinsic control state from native nodes, and uses
+a host view only for environmental state such as focus/hover/active/target.
 It never retains a node or engine in a shared cache. Cover scope, relative selectors, escape processing,
 forgiving lists only where the grammar permits them, pseudo specificity and shadow boundaries.
 Use right-to-left matching and candidate indexes only after correct traversal baselines exist. Complex
@@ -461,8 +580,9 @@ AngleSharp. This can be a temporary build property and separate output path; it 
 configuration matrix. If temporary adapters help leaf conversion, they wrap the new DOM and live in
 Browser, not in the new package as public AngleSharp-compatible contracts. Delete them when unused.
 
-Port form-control state, element reflection, live collections and resource activation explicitly;
-these are currently supplied in part by AngleSharp and do not appear by replacing `INode`. Likewise
+Port form-control state and element reflection into the native package (D7), then make Browser's
+bindings and event/input adapters call that owner (B2). Live collections and resource activation also
+need explicit migration; these are currently supplied in part by AngleSharp and do not appear by replacing `INode`. Likewise
 frame context creation must become Browser-owned. The existing thread-safe `Page` API and snapshot
 boundary remain. Remove `ParserBaton` only when the new coordinator owns all nested scripts, resource
 waits, frames and task budgets; not when one inline script happens to work.
@@ -496,6 +616,12 @@ waits, frames and task budgets; not when one inline script happens to work.
 7. **Shipping.** Release build/test both frameworks, public API snapshots, host-contract verification
    where applicable, generated bindings, native standalone and browser-tool smoke tests, dependency
    graph/packed NuGet checks, and all existing browser consumers. Parsing must not fetch or run script.
+8. **Standalone completion.** A no-friend consumer referencing only the packed `Jint.HtmlParser`
+   package must exercise every §4 construct/factory, inspect/query/mutate/serialize its result, and
+   assert the named failure contracts. It must test intrinsic control selectors without a host,
+   native observer records, XML fragment namespace inheritance, and CSS syntax-versus-property
+   validity. No Browser assembly may enter the dependency graph. Unimplemented entry points,
+   placeholder throws and deferred requested constructs block G1 even if the browser suite is green.
 
 Do not claim full WPT or browser conformance from a selected corpus. Track implementation progress by
 the same case IDs and capabilities across default browser, proposed backend and standalone tests.
@@ -546,14 +672,15 @@ just a branch containing unfinished scaffolding.
 | ID | Deliverable and acceptance boundary | Depends on |
 | --- | --- | --- |
 | A1 | Machine-readable native/binding usage inventory and current API/WPT baseline; every AngleSharp use assigned | None |
-| A2 | Standalone project, public parsing contract snapshots, limits/errors, package/native smoke consumer | A1 |
+| A2 | Standalone project, shared limits/errors and package/native smoke consumer; public snapshots added with each implemented feature | A1 |
 | A3 | Equivalent AngleSharp benchmark fixtures and semantic output comparers; no performance claims yet | A1 |
-| D1 | Node links/identity/namespaces and insert/remove validity; detached trees and document invariants | A2 |
-| D2 | Ordered attributes, `Attr` identity, namespace setters and text/comment/PI/doctype nodes | D1 |
+| D1 | Empty HTML/XML document and fragment creation, node links/identity/namespaces and insert/remove validity | A2 |
+| D2 | Element/attribute/text/comment/PI/CDATA/doctype factories, ordered attributes and namespace setters | D1 |
 | D3 | Adopt/import/clone/replace-all plus fragment/template ownership tests | D1, D2 |
 | D4 | Live collection, static result and traversal primitives; mutation-version correctness | D3 |
 | D5 | Observer registration/filtering/records, transient registrations and pull subscriptions | D3 |
 | D6 | Range and iterator mutation fixups, shadow-root/slot tree primitives | D3, D5 |
+| D7 | Native intrinsic HTML reflection, control state, form ownership and validity; no-host state/query fixtures, split by control family | D3, D4 |
 | H1 | Resumable input cursor, chunk ownership, diagnostics, cancellation and tokenizer corpus runner | A2 |
 | H2 | Data/tag/attribute/comment/doctype tokens and character references; every split boundary | H1 |
 | H3 | RCDATA/rawtext/script-data/plaintext states and EOF transitions; linear text accumulation | H2 |
@@ -562,34 +689,36 @@ just a branch containing unfinished scaffolding.
 | H6 | Formatting reconstruction/adoption agency, select/template/frameset and after-body modes | H4, H5 |
 | H7 | SVG/MathML foreign content, integration points, fragment contexts and quirks cases | H6 |
 | H8 | Host pauses, insertion frames, nested write-then-query, secondary-document incremental writes and pending EOF fixtures | H6, D5 |
-| X1 | XML frontend decision spike, XML corpus, entity/DTD policy and namespace-preserving tree build | D3 |
+| X1 | XML frontend decision spike, XML document and contextual fragment entry points, entity/DTD policy and namespace-preserving trees | D3 |
 | X2 | `ParseSvg`, SVG/HTML distinction, DOMParser error mapping fixtures and SVG native-state inventory | X1, H7 |
 | X3 | HTML/XML serialization and round-trip invariants | H7, X1 |
 | X4 | XPath navigator and node-result conversion tests | X1, D4 |
-| C1 | CSS tokens/component values, rules and declaration recovery; CSS syntax corpus | A2 |
-| C2 | Selector grammar/programs, specificity, namespace/scope and static-state matching | C1, D4 |
-| C3 | Selector dynamic-state adapter and HTML pseudo-class parity | C2, B2 |
-| C4 | CSSOM rules/declarations, mutation/versioning, serialization and insert/delete contracts | C1, D5 |
-| C5 | Property grammar inventory and finite property groups; shorthands/custom values/supports | C4 |
+| C1 | Public CSS single rule/declaration/component-value and component-list syntax APIs, tokenizer/recovery corpus | A2 |
+| C2 | Public selector programs, specificity, namespace/scope and tree-state matching | C1, D4 |
+| C3 | Native control pseudo-class parity and internal browser environment adapter; no-host intrinsic selector tests | C2, D7 |
+| C4 | Public stylesheet/declaration-block CSSOM, mutation/versioning, serialization and insert/delete contracts | C1, D5 |
+| C5 | Public property-value result API, property grammar inventory and finite groups; shorthands/custom values/supports and C4 validation | C4 |
 | C6 | Cascade origins/order/inheritance/variables plus UA sheets and media evaluation | C2, C5 |
 | B1 | New binding manifest/emitter, surface-diff and staleness tests; Node/Element vertical slice | A1, D2 |
-| B2 | Form-control state, reflection and collection adapters, split by controls/table/document families | B1, D4 |
+| B2 | Binding/input adapters over native control state, reflection and collections; no duplicate Browser-owned intrinsic state | B1, D7 |
 | B3 | Event-path/activation, custom-element reaction hooks, mutation microtask and DevTools observers | B1, D5, D6 |
 | B4 | Detached DOMParser/SVG/XMLSerializer/XPath bindings; cross-realm adoption/wrapper preservation | B1, X2, X3, X4 |
 | B5 | CSS bindings/computed style/media/protocol coverage and flat-layout adapter | B1, C3, C6 |
-| R1 | Page-loop parser coordinator for inline/external blockers and styles; cancellation/turn budgets | H8, B3 |
-| R2 | Ordered defer/module/import-map and async scheduling, readiness/resource event traces | R1, B5 |
+| R1 | Page-loop coordinator, classic inline/external blockers and host resource-request protocol with controlled completions; no real stylesheet-blocking claim | H8, B3 |
+| R2 | Real stylesheet-blocking integration, ordered defer/module/import-map and async scheduling, readiness/resource event traces | R1, B5 |
 | R3 | Dynamic script/style/image/frame activation and nested frame document/realm ownership | R2, B2, B4 |
 | R4 | Extraction/accessibility/layout/protocol leaf migration and complete alternate-backend browser suite | B4, B5, R3 |
 | R5 | Displayed-document post-parse open/write/close lifecycle and listener-reset behavior | R3 |
-| G1 | Full existing corpus/framework/client parity, benchmark gate, dependency/package audit; switch default | R4, A3 |
+| G0 | Standalone packed-consumer gate for every §4 requested entry point/factory, intrinsic state, mutations and serialization; no placeholders | H7, X2, X3, C3, C5, D5 |
+| G1 | G0 standalone deliverables plus full browser corpus/framework/client parity, benchmark and dependency/package audit; switch default | G0, R4, A3 |
 | G2 | Remove temporary backend build, AngleSharp production references, old metadata pin and baton; update docs/instructions | G1 |
 | S1 | Bounded byte transport, encoding sniff/decode and chunk backpressure with no repeated script execution | G1, H8 |
 | S2 | Optional public stream overloads after ownership/cancellation API review and streaming comparison | S1 |
 
-`C5`, `B2`, `R3` and `R4` are task families: before assigning them, split their A1 inventory into named,
+`D7`, `C5`, `B2`, `R3` and `R4` are task families: before assigning them, split their A1 inventory into named,
 finite groups with independent regression sets. For example C5 has separate color/display/visibility,
-box lengths/shorthands, font/text, and custom-value groups; R3 separates dynamic scripts, styles,
+box lengths/shorthands, font/text, and custom-value groups; D7 separates input/textarea,
+select/option, button/output and shared form-owner/validation algorithms; R3 separates dynamic scripts, styles,
 images and frames. A task named only “implement CSS” or “replace DOM” is not bounded enough to start.
 
 Phases and exit criteria:
@@ -597,13 +726,15 @@ Phases and exit criteria:
 1. **Inventory and contracts (A).** Prove how completion will be measured before building the replacement.
 2. **Standalone vertical slice (D/H beginnings, X/C in parallel where independent).** Parse/query/serialize
    a real document with native mutation records. Package remains explicitly experimental.
-3. **Native completeness for current browser surface (D/H/X/C).** Standard recovery corpus passes;
-   missing CSS/SVG/DOM capabilities are named rather than silently accepted.
+3. **Standalone requested deliverables and native browser surface (D/H/X/C).** Every §4 construct/factory
+   and failure contract works without Browser; standard recovery corpus passes. Missing requested
+   CSS/SVG/DOM capabilities are named blockers, not deferred to a later browser consumer.
 4. **Binding and runtime integration (B/R).** Keep the shipping backend until the alternate build passes
    its full parity gates. The longest dependencies are CSS semantics, element state and script scheduling,
    not scanning characters.
-5. **Switch and cleanup (G).** Remove all production AngleSharp references and obsolete workarounds only
-   after tests demonstrate their replacement. Preserve benchmark comparators in development tooling.
+5. **Standalone gate, switch and cleanup (G).** G0 passes before the default switch. Remove all production
+   AngleSharp references and obsolete workarounds only after both standalone and browser tests demonstrate
+   their replacement. Preserve benchmark comparators in development tooling.
 6. **Extended conformance and streaming (R5/S if not landed earlier).** Clearly label remaining behavior
    gaps; the dependency replacement can finish while independently tracked conformance work continues.
 
