@@ -21,10 +21,11 @@ the earlier repository direction to retain AngleSharp.
 | Architecture and migration design | `01a0ceec-94ec-7f63-9bfb-189cac69df5f` | Reviewed design and feature contracts integrated |
 | Comparison corpus and benchmark harness | `01a0ceee-7b09-7513-b507-a5c412eb4518` | Reviewed and integrated |
 | A1 dependency and binding inventory | `01a0cef5-3c12-7d22-926c-e2aeefe58949` | Reviewed and integrated |
-| A2/D1/D2 package and DOM foundation | `01a0cef5-4a7d-72e2-b551-74f03c9da7ec` | Astra requested attribute/tree/name-validation fixes to `5f7c3a854`; corrections in progress |
+| A2/D1/D2 package and DOM foundation | `01a0cef5-4a7d-72e2-b551-74f03c9da7ec` | Reviewed fixes integrated; 52 combined tests pass |
 | H1/H2 resumable HTML tokenizer | `01a0cf2a-8177-7941-9413-ee60edc59454` | In progress |
 | C1 CSS syntax | `01a0cf2a-8a51-76b1-a12b-ac57c7d2b594` | In progress |
-| A2 shared limits/diagnostics/errors | `01a0cf2c-ab5e-7023-95ab-1ab3a4fc8d77` | In progress |
+| A2 shared limits/diagnostics/errors and API snapshots | `01a0cf2c-ab5e-7023-95ab-1ab3a4fc8d77` | Reviewed and integrated |
+| D3a native cloning and import | `01a0cf34-dc42-75d0-960e-735bef6eb68a` | In progress |
 
 ## Initial repository evidence
 
@@ -46,11 +47,15 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   `FullyQualifiedName~DocumentLoadTests|FullyQualifiedName~MutationObserverTests|FullyQualifiedName~DomParserTests`.
 - Local restore requires `-p:RestoreSources=https://api.nuget.org/v3/index.json`
   because the user-level additional feed has no source mapping (`NU1507`).
-- No parser implementation or performance claim has been completed yet.
+- Native DOM and shared parser contracts are implemented; parsing algorithms and
+  browser migration remain in progress. No performance claim has been established.
 - Integrated corpus validation: all 12 fixtures pass, plus count-preserving HTML,
   XML and CSS corruption probes. This was correctness validation, not timing.
 - Integrated inventory: 192 source/build consumers, 1,691 named generated members,
   17 WPT suites; lock check and all six Python regression tests pass.
+- Integrated DOM/shared-contract/API-snapshot suite: 52 tests passed on net8.0/net10.0,
+  no failures/skips. Author separately verified signed packing and a Native AOT
+  consumer of the packed package; this establishes only the current native surface.
 
 ## Integrated commits
 
@@ -65,3 +70,8 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   Source commit `26297b86e`. Lock refreshed for the integrated benchmark consumer.
 - `4ebd36845`: exact independent HTML, CSS and shared-contract feature scopes,
   from Astra commit `6d8df1d10`.
+- `6bc4057b3`, `97edc7997`, `b4c61bbe8`: native DOM plus all Astra correctness and
+  document-append performance fixes (source `5f7c3a854`, `61d1fbe20`, `2f97a615c`).
+  Final Astra recheck clear.
+- `a8a3aeb66`, `d1cf75f02`: shared contracts and generated public API snapshots
+  (source `e20551f4a`, `1e0da12b`); both Astra reviews clear.
