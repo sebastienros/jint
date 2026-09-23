@@ -109,9 +109,26 @@ Implement XML 1.0 fifth-edition well-formedness and Namespaces in XML 1.0 third-
 explicit stacks. Parse declarations, exact names, start/end tags, attributes, comments, PI, CDATA and
 text. Enforce document shape, duplicate expanded attribute names, namespace reservations and legal
 characters. Normalize XML line endings and attribute values at their specified stages; preserve case,
-attribute order, CDATA node kind and comments/PI. XML declaration is metadata, not a PI node. Reject
-unsupported XML versions. The nonvalidating parser does not enforce a DTD content model or schema.
+attribute order, CDATA node kind and comments/PI. XML declaration is metadata, not a PI node. Validate
+its version using the fifth-edition rule below. The nonvalidating parser does not enforce a DTD content
+model or schema.
 See [XML](https://www.w3.org/TR/xml/) and [Namespaces](https://www.w3.org/TR/xml-names/).
+
+**Version correction from the full corpus:** [XML §2.8](https://www.w3.org/TR/xml/#sec-prolog-dtd)
+defines `VersionNum` as ASCII `1.` followed by one or more ASCII digits. Accept `1.0`, `1.1`, `1.7`,
+`1.00` and other matching strings, processing all of them with this implementation's XML 1.0 rules.
+Do not parse the suffix as an integer, cap its numeric value, or switch grammar based on it. Scanning
+still observes token limits and cancellation. Reject `1.`, `2.0`, `01.0`, signs, whitespace within the
+value, non-ASCII digits and trailing characters through the existing declaration diagnostic.
+This replaces the earlier blanket instruction to reject unsupported versions.
+
+Accepting a `1.1` declaration does **not** implement XML 1.1. Under this XML 1.0 processor, `&#x1;`
+remains illegal, and literal NEL/U+2028 remain ordinary characters rather than additional normalized
+line endings. Keep declaration ordering, quoting and encoding/standalone checks. Declaration-free
+documents also use XML 1.0. Preserve any retained declaration metadata without inventing a public API.
+Regression coverage includes `eduni/errata-4e/errata4e.xml#x-rmt-008b`, the version boundary strings,
+and the `1.1` character/line-ending distinctions. Do not exclude that valid upstream case or change
+its expectation to accommodate the former `version != "1.0"` implementation.
 
 Build native nodes only. A successful document has one element; document-level XML whitespace is not
 stored as forbidden Text children or moved inside the root. A fragment permits text and multiple roots.
@@ -247,6 +264,55 @@ comes from [HTML XML parsing](https://html.spec.whatwg.org/multipage/xhtml.html#
 The foundation owner supplies namespace-aware factory correctness before XML integration. Do not work
 around rejected legal names by silently changing them or bypassing node invariants. Fifth-edition name
 fixtures must exercise both scanner and DOM creation; the existing `XmlConvert` use needs this audit.
+
+### PI target correction and trusted construction
+
+The full corpus exposed a concrete boundary defect: `ParseProcessingInstruction` accepts fifth-edition
+names, then `CreateProcessingInstruction` reaches `XmlConvert.VerifyName` in `CharacterNodes.cs` and
+rejects legal targets. `NodeCloner` reaches the same validation. The seven
+`ibm-invalid-P89-ibm89n06.xml` through `ibm89n12.xml` cases in the errata catalog exercise U+0EC7,
+U+3006, U+3030, U+3036, U+309C, U+309F and U+30FF; all are fifth-edition `NameStartChar` values.
+The historical filenames do not override the selected catalog's current expected outcome.
+
+The native owner supplies this concrete extension to [trusted construction](html-parser-construction.md):
+
+```csharp
+// Document: target and data already validated by the calling parser.
+internal ProcessingInstruction CreateParsedProcessingInstruction(string target, string data);
+```
+
+It creates a fresh detached PI in the receiver's node document, preserving both owned strings exactly.
+It does not re-run `XmlConvert`, XML name scans or delimiter scans, and invokes no host code. The XML
+caller proves fifth-edition Name syntax, the namespace restriction forbidding a colon in a PI target,
+the reserved case-insensitive `xml` exclusion, legal characters, PI termination and resource bounds
+before the call. The existing parsed append operation performs actual insertion/bookkeeping. Any
+intrinsic PI initialization must share native semantics rather than being bypassed; future unbounded
+initialization needs the established cancellation/work protocol. No generic skip-validation boolean,
+public unchecked factory, target rewriting, or catch-and-relabel of `DomException` is an alternative.
+
+The trusted seam alone is not the complete fix. The native owner also replaces the public PI factory's
+outdated validator with exact scalar-aware fifth-edition Name validation, including supplementary
+characters and rejection of lone surrogates. The [DOM PI initialization rule](https://dom.spec.whatwg.org/#interface-processinginstruction)
+uses **Name**, not QName/NCName: the public factory accepts colon-containing names and the name `xml`;
+those additional XML parsing restrictions stay in the scanner. Empty/invalid names and data containing
+`?>` still fail with the existing DOM exception; null argument behavior stays unchanged. Do not route
+this through the newer, more permissive DOM element/attribute-local-name grammar.
+This public validation correction is **PI-only**. Leave `QualifiedName.Parse`, element/attribute
+factories, namespace reservation checks and doctype validation untouched. A narrowly scoped internal
+XML-Name predicate may supply PI validation; do not redirect other public factories through it or
+refactor the XML scanner as part of the native prerequisite.
+
+Clone/import must retain these legal targets and exact data, including data subsequently edited to
+contain `?>`; cloning existing node state is not a fresh public PI construction. Cover the seven scalar
+regressions through public factory, XML document/fragment parsing and clone/import; also test U+10000
+and U+EFFFF, rejected U+F0000/lone surrogates/invalid first characters, and public-versus-parser colon/
+`xml` differences. Long targets remain cancellable in the XML scanner without a second hidden scan.
+The clone path's proof is existing valid node identity/state, distinct from the parsed factory's
+well-formed-input proof; share private allocation/storage as appropriate without pretending edited
+clone data satisfies the parsed factory's preconditions. Keep ownership and mutation semantics intact.
+Assign native changes first; the XML owner then consumes the seam and reruns the complete pinned corpus.
+
+### Document metadata and integration
 
 The shared DOM owner also supplies document content-type/encoding metadata consumed by Browser and
 case-preserving XHTML element creation. Default standalone XML type is `application/xml`; strict SVG
