@@ -142,6 +142,15 @@ internal static class XmlConformanceRunner
             }
             if (document.SkippedXmlEntities.Count != 0)
             {
+                if (reviewed?.OutputPolicy == "original-output-after-omission")
+                {
+                    var original = XmlCorpus.Bytes(row.OutputPath);
+                    if (reviewed.OriginalOutputSha256 != Digest(original))
+                        return new(XmlOutcomeKind.HarnessFailure, "reviewed-output-pin-mismatch", "Upstream OUTPUT digest changed");
+                    var comparison = CompareOriginalOutput(document, testOutput ?? original);
+                    if (comparison is not null) return comparison;
+                    return new(XmlOutcomeKind.Pass, "accepted", "Reviewed omission and original OUTPUT both match");
+                }
                 if (reviewed?.OutputPolicy != "no-fetch-alternative" || reviewed.ProjectionSha256 is null ||
                     reviewed.OriginalOutputSha256 is null || reviewed.OutputAlternative is null)
                     return new(XmlOutcomeKind.Pending, "no-fetch-output-review", "Upstream OUTPUT includes external material");
@@ -157,26 +166,32 @@ internal static class XmlConformanceRunner
             }
             else
             {
-                var expected = testOutput ?? XmlCorpus.Bytes(row.OutputPath);
-                string actual;
-                try
-                {
-                    actual = XmlEvidence.SecondCanonicalForm(document, expected);
-                }
-                catch (XmlOutputObservationGapException error)
-                {
-                    return new(XmlOutcomeKind.Pending, "notation-observation-gap", error.Message);
-                }
-                var actualBytes = Encoding.UTF8.GetBytes(actual);
-                if (!actualBytes.AsSpan().SequenceEqual(expected))
-                    return new(XmlOutcomeKind.ParserFailure, $"output-mismatch:{Digest(actualBytes)}",
-                        $"Expected SHA-256 {Digest(expected)}; actual {actual}");
+                var comparison = CompareOriginalOutput(document, testOutput ?? XmlCorpus.Bytes(row.OutputPath));
+                if (comparison is not null) return comparison;
             }
         }
         return new(XmlOutcomeKind.Pass, "accepted", "All applicable binary, omission, projection, and OUTPUT checks agree");
     }
 
     private static string Digest(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
+
+    private static XmlCaseOutcome? CompareOriginalOutput(Document document, byte[] expected)
+    {
+        string actual;
+        try
+        {
+            actual = XmlEvidence.SecondCanonicalForm(document, expected);
+        }
+        catch (XmlOutputObservationGapException error)
+        {
+            return new(XmlOutcomeKind.Pending, "notation-observation-gap", error.Message);
+        }
+        var actualBytes = Encoding.UTF8.GetBytes(actual);
+        return actualBytes.AsSpan().SequenceEqual(expected)
+            ? null
+            : new(XmlOutcomeKind.ParserFailure, $"output-mismatch:{Digest(actualBytes)}",
+                $"Expected SHA-256 {Digest(expected)}; actual {actual}");
+    }
 
     private static XmlCaseOutcome EvaluateOptional(XmlCorpusCase row, Document? document, MarkupParseException? syntax,
         XmlCaseExpectation? testPolicy)

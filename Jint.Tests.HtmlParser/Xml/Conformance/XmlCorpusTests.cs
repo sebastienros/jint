@@ -216,6 +216,11 @@ public class XmlCorpusTests
 
         var externalNegative = XmlCorpus.Case("xmlconf/xmltest/xmltest.xml#not-wf-sa-185");
         XmlConformanceRunner.Run(externalNegative).Signature.Should().Be("resource-profile-review");
+
+        var originalAfterOmission = XmlCorpus.Case("xmlconf/xmltest/xmltest.xml#valid-sa-097");
+        XmlConformanceRunner.Run(originalAfterOmission).Kind.Should().Be(XmlOutcomeKind.Pass);
+        XmlConformanceRunner.Run(originalAfterOmission, testOutput: "<wrong></wrong>"u8.ToArray())
+            .Signature.Should().StartWith("output-mismatch:");
     }
 
     [Test]
@@ -269,8 +274,8 @@ public class XmlCorpusTests
                 expectation.Projection.Should().NotBeNull();
             if (expectation.OutputPolicy is not null)
             {
-                expectation.OutputPolicy.Should().BeOneOf("no-fetch-alternative", "observation-gap",
-                    "required-notation-contract-gap");
+                expectation.OutputPolicy.Should().BeOneOf("no-fetch-alternative", "original-output-after-omission",
+                    "observation-gap", "required-notation-contract-gap");
                 var output = XmlCorpus.Case(key).OutputPath;
                 output.Should().NotBeNull();
                 var digest = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(XmlCorpus.Bytes(output!)))
