@@ -7064,5 +7064,552 @@
     "outcome": "reject",
     "skipped": [],
     "review": "PubidLiteral contains tab, which is not PubidChar. Malformed literal in pinned main source begins at character offset 115 (byte 115); these are source evidence, not asserted parser diagnostic positions. XML 1.0 Fifth Edition productions [11] SystemLiteral, [12] PubidLiteral, [13] PubidChar https://www.w3.org/TR/xml/#sec-common-syn."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_valid.xml#ibm-valid-P11-ibm11v01.xml",
+    "outcome": "accept",
+    "skipped": [],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "student",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " testing systemliteral with nothing between the double quotes ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "student",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "My Name is SnowMan. ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "Pinned W3C INPUT 0ff9514d8ca5ffa4e2494f0280a68a197378840b53b17d4968ee56bf4bec84f7 and OUTPUT 1bd38c87f16f322a65fac804ffc91ba3f18e2a67d054542511a4b0a70eaa618a; The only external general entity is declared but unreferenced; no omission occurs. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_valid.xml#ibm-valid-P11-ibm11v02.xml",
+    "outcome": "accept",
+    "skipped": [],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "student",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " testing systemliteral with nothing between the single quotes ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "student",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "My Name is SnowMan. ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "Pinned W3C INPUT fded07b9f2f9e388672d73dfca148196829a1730ab218943a08797eeb40fc317 and OUTPUT 1bd38c87f16f322a65fac804ffc91ba3f18e2a67d054542511a4b0a70eaa618a; The only external general entity is declared but unreferenced; no omission occurs. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_valid.xml#ibm-valid-P11-ibm11v03.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "student.dtd",
+        "Offset": 23
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "student",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "student.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " testing systemliteral with a string with \"'\" ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "student",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "My Name is SnowMan. ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "1bd38c87f16f322a65fac804ffc91ba3f18e2a67d054542511a4b0a70eaa618a",
+    "review": "Pinned W3C INPUT e18a932ae91730ab8393218223941a1d40cd18ba47f14784fa44898e134fa3ec and OUTPUT 1bd38c87f16f322a65fac804ffc91ba3f18e2a67d054542511a4b0a70eaa618a; unread external subset 81189bc878dad0f5b3bb46926a95cf5d02efc3960d557672679ff2ddb328982c; The external subset is unread, but the surviving root text equals original upstream OUTPUT; one ExternalSubset omission occurs at the original doctype offset. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_valid.xml#ibm-valid-P11-ibm11v04.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "student.dtd",
+        "Offset": 23
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "student",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "student.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " testing systemliteral with a string with '\"' ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "student",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "My Name is SnowMan. ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "1bd38c87f16f322a65fac804ffc91ba3f18e2a67d054542511a4b0a70eaa618a",
+    "review": "Pinned W3C INPUT 76e3b857af5f335be8cb504aeef4d9cf5c13881366fae5f4ac48391c32568a17 and OUTPUT 1bd38c87f16f322a65fac804ffc91ba3f18e2a67d054542511a4b0a70eaa618a; unread external subset 81189bc878dad0f5b3bb46926a95cf5d02efc3960d557672679ff2ddb328982c; The external subset is unread, but the surviving root text equals original upstream OUTPUT; one ExternalSubset omission occurs at the original doctype offset. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_valid.xml#ibm-valid-P12-ibm12v01.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": "",
+        "SystemId": "student.dtd",
+        "Offset": 23
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "student",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "student.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " testing Pubid Literal with nothing between the double quote ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "student",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "My Name is SnowMan. ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "1bd38c87f16f322a65fac804ffc91ba3f18e2a67d054542511a4b0a70eaa618a",
+    "review": "Pinned W3C INPUT 60703f6e12a5e91f3e9726b97917fb435a2a01030489ebc3c3c0499ab7c6cee6 and OUTPUT 1bd38c87f16f322a65fac804ffc91ba3f18e2a67d054542511a4b0a70eaa618a; unread external subset 81189bc878dad0f5b3bb46926a95cf5d02efc3960d557672679ff2ddb328982c; The external subset is unread, but the surviving root text equals original upstream OUTPUT; one ExternalSubset omission occurs at the original doctype offset. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_valid.xml#ibm-valid-P12-ibm12v02.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": "",
+        "SystemId": "student.dtd",
+        "Offset": 23
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "student",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "student.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " testing Pubid Literal with nothing between the single quotes ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "student",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "My Name is SnowMan. ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "1bd38c87f16f322a65fac804ffc91ba3f18e2a67d054542511a4b0a70eaa618a",
+    "review": "Pinned W3C INPUT a895f1dd83810d0aa4e6397c48311862ab72bfc64542666db65c11935502c943 and OUTPUT 1bd38c87f16f322a65fac804ffc91ba3f18e2a67d054542511a4b0a70eaa618a; unread external subset 81189bc878dad0f5b3bb46926a95cf5d02efc3960d557672679ff2ddb328982c; The external subset is unread, but the surviving root text equals original upstream OUTPUT; one ExternalSubset omission occurs at the original doctype offset. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_valid.xml#ibm-valid-P12-ibm12v03.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": "The big ' in it",
+        "SystemId": "student.dtd",
+        "Offset": 23
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "student",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "The big ' in it",
+        "SystemId": "student.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " testing Pubid Literal with a string with \"'\" inside ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "student",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "My Name is SnowMan. ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "1bd38c87f16f322a65fac804ffc91ba3f18e2a67d054542511a4b0a70eaa618a",
+    "review": "Pinned W3C INPUT 345e784fec21d252abbb8a50a3a2e3918d118775c5be15ccada643611f0a2ccc and OUTPUT 1bd38c87f16f322a65fac804ffc91ba3f18e2a67d054542511a4b0a70eaa618a; unread external subset 81189bc878dad0f5b3bb46926a95cf5d02efc3960d557672679ff2ddb328982c; The external subset is unread, but the surviving root text equals original upstream OUTPUT; one ExternalSubset omission occurs at the original doctype offset. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_valid.xml#ibm-valid-P12-ibm12v04.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": "The latest version",
+        "SystemId": "student.dtd",
+        "Offset": 23
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "student",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "The latest version",
+        "SystemId": "student.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " testing Pubid Literal with a string without  \"'\" inside ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "student",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "My Name is SnowMan. ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "1bd38c87f16f322a65fac804ffc91ba3f18e2a67d054542511a4b0a70eaa618a",
+    "review": "Pinned W3C INPUT 8523cc4d126705de9b3c70d21edb7c3135c43fa13809757d47ac38acf3bda55a and OUTPUT 1bd38c87f16f322a65fac804ffc91ba3f18e2a67d054542511a4b0a70eaa618a; unread external subset 81189bc878dad0f5b3bb46926a95cf5d02efc3960d557672679ff2ddb328982c; The external subset is unread, but the surviving root text equals original upstream OUTPUT; one ExternalSubset omission occurs at the original doctype offset. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_valid.xml#ibm-valid-P13-ibm13v01.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": "#x20 #xD #xA abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ -'()+,./:=?;!*#@$_%",
+        "SystemId": "student.dtd",
+        "Offset": 23
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "student",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "#x20 #xD #xA abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ -'()+,./:=?;!*#@$_%",
+        "SystemId": "student.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " testing Pubid char with all legal pubidchar in a string ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "student",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "My Name is SnowMan. ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "1bd38c87f16f322a65fac804ffc91ba3f18e2a67d054542511a4b0a70eaa618a",
+    "review": "Pinned W3C INPUT 8ae08a0345c03e6492c881dca5bf2b8983ff246d5ed1f98bb05a06db68ded533 and OUTPUT 1bd38c87f16f322a65fac804ffc91ba3f18e2a67d054542511a4b0a70eaa618a; unread external subset 81189bc878dad0f5b3bb46926a95cf5d02efc3960d557672679ff2ddb328982c; The external subset is unread, but the surviving root text equals original upstream OUTPUT; one ExternalSubset omission occurs at the original doctype offset. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance. The pinned PubidLiteral has a trailing space; XML Infoset normalized public identifier property removes it before the skip and DocumentType observations: https://www.w3.org/TR/xml-infoset/#infoitem.doctype."
   }
 ]
