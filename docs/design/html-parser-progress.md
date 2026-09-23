@@ -38,7 +38,7 @@ the earlier repository direction to retain AngleSharp.
 | D5 native mutation tracking | `01a0cf62-1c76-7411-ae32-d5d6beee5915` | Reviewed corrections integrated; native ownership retained for fixes |
 | XML conformance corpus and harness | `01a0cf6e-aa5f-7631-af1b-03f6136013a1` | Reviewed source inventory integrated; outcome/output harness in progress |
 | Packed public XML and mutation consumer | `01a0cf2c-ab5e-7023-95ab-1ab3a4fc8d77` | Reviewed harness and package README integrated |
-| C5 V0a CSS value primitives | `01a0cf7b-7669-7883-944b-3f3c35fc4585` | Reviewed design integrated; implementation in progress |
+| C5 V0a CSS value primitives | `01a0cf7b-7669-7883-944b-3f3c35fc4585` | Reviewed corrections integrated |
 
 The XML conformance gate inventories all 2,585 pinned W3C rows with explicit profile
 classifications and separate output assertions. No corpus execution result is claimed yet.
@@ -117,6 +117,19 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   regressions covered through parsing/clone/import, the full combined suite passes
   1,240 tests across both frameworks, zero failures/skips. Corpus reruns still owe
   independent confirmation and required notation-reporting/output work remains.
+- Reviewed CSS value primitives bring the pre-corpus suite to 1,372 passing tests
+  across both frameworks. The integrated full corpus harness then runs 5,364 total
+  tests: 4,494 pass and 870 fail, with zero skips. Per framework, all non-corpus
+  tests pass; 434 individual corpus cases and the census gate fail visibly.
+- The current corpus census is 2,585 inventoried rows: 593 outside the XML/namespace
+  profile, 18 reviewed byte-boundary exclusions, 1,947 runnable candidates and 27
+  optional-error decisions. It reports 1,540 passing cases, 433 unresolved cases,
+  one known required notation-reporting defect, and zero harness-error outcomes.
+  Output evidence is 238 comparisons passed out of 386 eligible, with 148 pending.
+  The original eight parser defects are confirmed fixed by this corpus rerun.
+- Twelve separately named UTF-16 surrogate tests pass after constructing code units
+  at runtime. An earlier failure report came from attribute-metadata replacement of
+  invalid surrogate strings, not a scanner defect; no production fix was made.
 - Integrated XML/SVG comparison validation passes all four unchanged corpus fixtures
   and rejects count-preserving corruption. It uses only the reviewed default-xmlns
   representation projection and documents SVG MIME branding. These are correctness
@@ -238,3 +251,10 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   tests (source `b69f678e1` plus test-only delta to `6eb97386c`).
 - `f1a0c5064`: reviewed XML PI callsite and parser-specific name/cancellation
   regressions (source `dc2cd51d9`).
+- `62d507d48`, `10e6e6a02`: reviewed CSS atom primitives and first-offending-component
+  fixes, with meaningful cancellation tests (source `e418197ec`, `a41f4ce4d`).
+- `45cba8797`: reviewed all-read immutable XML notation reporting design
+  (source `0b7ae9a8b`); native and parser implementation remain required.
+- `cac76ef1d`, `eab3aca1c`: reviewed public-parser corpus runner, strict decoding,
+  Second Canonical Form evidence, exact byte/resource classifications and corrected
+  projection/output gates (source `f81da684`, `841569ee`). Remaining debt fails tests.
