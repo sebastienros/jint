@@ -165,4 +165,60 @@ public sealed class MathResourceTests
         Assert.Throws<OperationCanceledException>(() => CssMathParser.ParseMath(component, MathTest.Length, work));
         reached.Should().Be(checkpoints - 2);
     }
+
+    [Test]
+    public void CancellationDuringWideFunctionTypeScanReturnsNoValue()
+    {
+        var source = "min(" + string.Join(", ", Enumerable.Repeat("1px", 8192)) + ")";
+        var component = MarkupParser.ParseCssComponentValues(source)[0];
+        using var cancellation = new CancellationTokenSource();
+        var reachedTypeScan = false;
+        var work = new CssValueWork(cancellation.Token, () =>
+        {
+            if (!CalledFrom("Frame", "Finish")) return;
+            reachedTypeScan = true;
+            cancellation.Cancel();
+        });
+        Assert.Throws<OperationCanceledException>(() => CssMathParser.ParseMath(component, MathTest.Length, work));
+        reachedTypeScan.Should().BeTrue();
+    }
+
+    [Test]
+    public void CancellationDuringWideComparisonReturnsNoValue()
+    {
+        var source = "min(" + string.Join(", ", Enumerable.Repeat("1px", 8192)) + ")";
+        var component = MarkupParser.ParseCssComponentValues(source)[0];
+        using var cancellation = new CancellationTokenSource();
+        var reachedComparison = false;
+        var work = new CssValueWork(cancellation.Token, () =>
+        {
+            if (!CalledFrom("CssMathSimplifier", "TryFoldComparison")) return;
+            reachedComparison = true;
+            cancellation.Cancel();
+        });
+        Assert.Throws<OperationCanceledException>(() => CssMathParser.ParseMath(component, MathTest.Length, work));
+        reachedComparison.Should().BeTrue();
+    }
+
+    [Test]
+    public void WideUnresolvedArenaHasFreezeCheckpoints()
+    {
+        var source = "min(" + string.Join(", ", Enumerable.Repeat("calc(1em / 1px)", 4096)) + ")";
+        var component = MarkupParser.ParseCssComponentValues(source)[0];
+        var checkpoints = 0;
+        var freezeCheckpoints = 0;
+        var work = new CssValueWork(default, () =>
+        {
+            checkpoints++;
+            if (CalledFrom("CssMathSimplifier", "Freeze")) freezeCheckpoints++;
+        });
+        CssMathParser.ParseMath(component, MathTest.Number, work).Status.Should().Be(CssMathParseStatus.Match);
+        checkpoints.Should().BeGreaterThan(0);
+        freezeCheckpoints.Should().BeGreaterThan(20);
+    }
+
+    private static bool CalledFrom(string typeName, string methodName) =>
+        new System.Diagnostics.StackTrace().GetFrames()!.Any(frame =>
+            frame.GetMethod() is { } method && method.Name == methodName &&
+            method.DeclaringType?.Name == typeName);
 }

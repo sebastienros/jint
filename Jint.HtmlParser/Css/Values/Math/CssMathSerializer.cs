@@ -33,7 +33,11 @@ internal static class CssMathSerializer
                 frame.Started = true;
                 if (node.Kind == CssMathNodeKind.Numeric)
                 {
+                    var grouped = frame.GroupNumeric && !double.IsFinite(node.Numeric.Value) &&
+                        node.Numeric.Kind != CssNumericKind.Number;
+                    if (grouped) Append(builder, "(", work);
                     AppendNumeric(builder, node.Numeric, frame.IsTop, work);
+                    if (grouped) Append(builder, ")", work);
                     stack.Pop();
                     continue;
                 }
@@ -65,6 +69,7 @@ internal static class CssMathSerializer
             }
             var childIndex = frame.Children[frame.Position];
             var child = value.GetNode(childIndex);
+            var denominator = node.Kind == CssMathNodeKind.Invert;
             if (frame.Position > 0)
             {
                 if (node.Kind == CssMathNodeKind.Sum)
@@ -90,6 +95,7 @@ internal static class CssMathSerializer
                     {
                         Append(builder, " / ", work);
                         childIndex = value.GetChild(child.ChildStart);
+                        denominator = true;
                     }
                     else Append(builder, " * ", work);
                 }
@@ -99,7 +105,8 @@ internal static class CssMathSerializer
             frame.Position++;
             stack.Push(new Frame(childIndex, false,
                 node.Kind is CssMathNodeKind.Min or CssMathNodeKind.Max or CssMathNodeKind.Clamp &&
-                value.GetNode(childIndex).Kind is CssMathNodeKind.Sum or CssMathNodeKind.Product));
+                value.GetNode(childIndex).Kind is CssMathNodeKind.Sum or CssMathNodeKind.Product,
+                denominator));
         }
         Append(builder, ")", work);
         work.CheckCancellation();
@@ -211,11 +218,12 @@ internal static class CssMathSerializer
         if (grows) work.CheckCancellation();
     }
 
-    private sealed class Frame(int index, bool isTop, bool unwrap = false)
+    private sealed class Frame(int index, bool isTop, bool unwrap = false, bool groupNumeric = false)
     {
         internal int Index { get; } = index;
         internal bool IsTop { get; } = isTop;
         internal bool Unwrap { get; } = unwrap;
+        internal bool GroupNumeric { get; } = groupNumeric;
         internal bool Started { get; set; }
         internal int Position { get; set; }
         internal int[] Children { get; set; } = [];

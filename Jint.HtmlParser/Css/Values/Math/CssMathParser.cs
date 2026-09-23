@@ -21,7 +21,7 @@ internal static class CssMathParser
             var frame = frames.Peek();
             if (frame.Index == frame.Values.Count)
             {
-                if (!frame.Finish(builder, out var root, out var error))
+                if (!frame.Finish(builder, work, out var root, out var error))
                     return Finish(CssMathParseResult.NoMatch(error), work);
                 frames.Pop();
                 if (frames.Count == 0)
@@ -251,7 +251,7 @@ internal static class CssMathParser
             return Kind != CssMathFunction.Clamp || Arguments.Count < 3;
         }
 
-        internal bool Finish(CssMathBuilder builder, out int root, out CssSourceSpan error)
+        internal bool Finish(CssMathBuilder builder, CssValueWork work, out int root, out CssSourceSpan error)
         {
             root = -1;
             error = new CssSourceSpan(Component.Span.Start + Component.Span.Length - (Component.IsClosed ? 1 : 0), 0);
@@ -275,6 +275,7 @@ internal static class CssMathParser
             CssNumericType? type = null;
             foreach (var child in Arguments)
             {
+                work.Charge(1);
                 var node = builder.Node(child);
                 if (node.Kind == CssMathNodeKind.AbsentBound)
                 {

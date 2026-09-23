@@ -49,4 +49,17 @@ public sealed class MathSerializationTests
         text.Should().NotContain("E");
         MathTest.Parse(text, MathTest.Number).Status.Should().Be(CssMathParseStatus.Match);
     }
+
+    [Test]
+    public void NonfiniteDimensionalDenominatorRemainsGrouped()
+    {
+        const string source = "calc(1em / (infinity * 1px))";
+        var parsed = MathTest.Parse(source, MathTest.Number);
+        parsed.Status.Should().Be(CssMathParseStatus.Match);
+        var serialized = CssMathSerializer.SerializeSpecified(parsed.Value, new CssValueWork(default));
+        serialized.Should().Be(source);
+        var reparsed = MathTest.Parse(serialized, MathTest.Number);
+        reparsed.Status.Should().Be(CssMathParseStatus.Match);
+        CssMathSerializer.SerializeSpecified(reparsed.Value, new CssValueWork(default)).Should().Be(serialized);
+    }
 }

@@ -46,7 +46,11 @@ internal static class CssMathSimplifier
                 continue;
             }
             var children = new List<int>(node.ChildCount);
-            foreach (var child in source.Children(i)) children.Add(mapped[child]);
+            foreach (var child in source.Children(i))
+            {
+                work.Charge(1);
+                children.Add(mapped[child]);
+            }
             if (node.Kind == CssMathNodeKind.Negate && target.Node(children[0]).Kind == CssMathNodeKind.Numeric)
             {
                 var original = target.Node(children[0]).Numeric;
@@ -61,7 +65,7 @@ internal static class CssMathSimplifier
                     new CssMathNumeric(1d / original.Value, CssNumericKind.Number, CssUnit.None, node.Span));
             }
             else if (node.Kind is CssMathNodeKind.Min or CssMathNodeKind.Max or CssMathNodeKind.Clamp &&
-                     TryFoldComparison(target, children, node.Kind, context, out var numeric))
+                     TryFoldComparison(target, children, node.Kind, context, work, out var numeric))
             {
                 mapped[i] = target.Add(CssMathNodeKind.Numeric, node.Type, node.Span, numeric);
             }
@@ -103,12 +107,24 @@ internal static class CssMathSimplifier
             if (seen[index]) continue;
             seen[index] = true;
             order.Add(index);
-            foreach (var child in target.Children(index)) stack.Push(child);
+            foreach (var child in target.Children(index))
+            {
+                work.Charge(1);
+                stack.Push(child);
+            }
         }
         var indices = new int[target.Count];
-        for (var i = 0; i < order.Count; i++) indices[order[i]] = i;
+        for (var i = 0; i < order.Count; i++)
+        {
+            work.Charge(1);
+            indices[order[i]] = i;
+        }
         var edges = 0;
-        foreach (var index in order) edges = checked(edges + target.Node(index).ChildCount);
+        foreach (var index in order)
+        {
+            work.Charge(1);
+            edges = checked(edges + target.Node(index).ChildCount);
+        }
         work.CheckCancellation();
         var nodes = new CssMathNode[order.Count];
         var childrenArray = new int[edges];
@@ -119,7 +135,11 @@ internal static class CssMathSimplifier
             work.Charge(1);
             var node = target.Node(order[i]);
             nodes[i] = new CssMathNode(node.Kind, node.Type, node.Span, offset, node.ChildCount, node.Numeric);
-            foreach (var child in target.Children(order[i])) childrenArray[offset++] = indices[child];
+            foreach (var child in target.Children(order[i]))
+            {
+                work.Charge(1);
+                childrenArray[offset++] = indices[child];
+            }
         }
         work.CheckCancellation();
         return new CssMathValue(nodes, childrenArray, 0, context, span);
@@ -174,6 +194,28 @@ internal static class CssMathSimplifier
                         children: [mapped[index]]));
             }
             else leaves.Add(mapped[index]);
+        }
+        if (sourceNode.Kind is CssMathNodeKind.Sum or CssMathNodeKind.Negate)
+        {
+            // A child Product can simplify into a Sum after source-run flattening.
+            // Expand those transformed children once in this maximal Sum run.
+            var flattened = new List<int>(leaves.Count);
+            var pending = new Stack<int>();
+            for (var i = leaves.Count - 1; i >= 0; i--) pending.Push(leaves[i]);
+            while (pending.Count > 0)
+            {
+                work.Charge(1);
+                var candidate = pending.Pop();
+                if (target.Node(candidate).Kind != CssMathNodeKind.Sum)
+                {
+                    flattened.Add(candidate);
+                    continue;
+                }
+                immediate.Clear();
+                foreach (var child in target.Children(candidate)) immediate.Add(child);
+                for (var i = immediate.Count - 1; i >= 0; i--) pending.Push(immediate[i]);
+            }
+            leaves = flattened;
         }
         if (leaves.Count == 1) return leaves[0];
         if (sourceNode.Kind is CssMathNodeKind.Sum or CssMathNodeKind.Negate)
@@ -343,6 +385,8 @@ internal static class CssMathSimplifier
         else
         {
             kind = CssNumericKind.Dimension;
+            if (relative is { } unresolved && !type.Equals(CssNumericType.FromUnit(unresolved.Unit)))
+                return false;
             unit = relative?.Unit ?? type switch
             {
                 { Length: 1 } => CssUnit.Px,
@@ -408,12 +452,13 @@ internal static class CssMathSimplifier
     }
 
     private static bool TryFoldComparison(CssMathBuilder target, List<int> children,
-        CssMathNodeKind kind, CssMathContext context, out CssMathNumeric result)
+        CssMathNodeKind kind, CssMathContext context, CssValueWork work, out CssMathNumeric result)
     {
         result = default;
         var found = false;
         foreach (var child in children)
         {
+            work.Charge(1);
             var node = target.Node(child);
             if (node.Kind == CssMathNodeKind.AbsentBound) continue;
             if (node.Kind != CssMathNodeKind.Numeric ||

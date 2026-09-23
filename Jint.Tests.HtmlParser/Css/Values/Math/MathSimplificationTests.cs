@@ -39,6 +39,8 @@ public sealed class MathSimplificationTests
     [TestCase("calc(1em / 1em)", "calc(1em / 1em)")]
     [TestCase("calc(1em / 1px)", "calc(1em / 1px)")]
     [TestCase("calc(1fr / 1fr)", "calc(1fr / 1fr)")]
+    [TestCase("calc((1em + 1px) * 2 + 1px)", "calc(2em + 3px)")]
+    [TestCase("calc(2 * (1em + 1px) + 3 * (2em + 2px))", "calc(8em + 8px)")]
     [TestCase("clamp(none, 1em, 2px)", "min(1em, 2px)")]
     public void SimplifiesSafeMixedExpressions(string source, string expected)
     {
@@ -46,6 +48,19 @@ public sealed class MathSimplificationTests
             source.Contains(" / 1", StringComparison.Ordinal) ? MathTest.Number : MathTest.Length;
         var value = MathTest.Parse(source, context).Value;
         CssMathSerializer.SerializeSpecified(value, new CssValueWork(default)).Should().Be(expected);
+    }
+
+    [Test]
+    public void RelativeUnitIsNotFoldedIntoAChangedNumericType()
+    {
+        const string source = "calc(1em * 1s / 1px)";
+        var context = new CssMathContext(CssMathProduction.Time, CssMathPercentageMode.Forbidden);
+        var value = MathTest.Parse(source, context);
+        value.Status.Should().Be(CssMathParseStatus.Match);
+        var serialized = CssMathSerializer.SerializeSpecified(value.Value, new CssValueWork(default));
+        var reparsed = MathTest.Parse(serialized, context);
+        reparsed.Status.Should().Be(CssMathParseStatus.Match);
+        CssMathSerializer.SerializeSpecified(reparsed.Value, new CssValueWork(default)).Should().Be(serialized);
     }
 
     [Test]
