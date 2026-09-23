@@ -221,13 +221,30 @@ group membership, checked flags and selector revision must agree when the operat
 
 Owner-reset effects need an explicit audit of D7a1's index optimizations: resetting to the same final
 owner can still pass through the specified null-owner step. A same-value form setter still invokes
-reset-owner. Any pruning of ID-change or insertion/removal resets must be proved equivalent with
-checkedness effects included, not merely with the final FormOwner pointer. Keep a separate fixture
-with checked unowned peers to expose intermediate grouping. If current upstream tests or engines
-require a different interpretation, report that source conflict for independent review before changing
-these steps. Hash-set enumeration must not choose observable reset/exclusion order where the standard
-requires tree order; add deterministic ordering at the owning batch operation without making every
-single fact read sort a group.
+reset-owner. **When any element's ID in a tree changes, reset every listed form-associated control in
+that tree that has a form attribute**, including an empty form attribute. The candidate set is root-wide;
+it is not limited to controls whose form value matches the changed ID's old or new value. D7a1's
+matching-ID `ResetReferences` pruning is insufficient once checkedness effects are implemented.
+The corresponding ID-bearing insertion/removal/moving rules likewise require their complete specified
+reset candidate set, even when the mutated subtree contains no control and no form owner finally changes.
+
+Required exact regression fixture: build a connected tree containing `form#f`, radio `a` with
+`name=g, form=f`, unowned radio `b` with `name=g`, and an unrelated `div#x`. After construction, set
+both radios checked, so a belongs to f's group and b to the null-owner group. Change only the div's ID
+from `x` to `y`. Resetting a's owner through `f → null → f` must uncheck b during the null-owner step;
+a remains checked and its final owner remains f. Neither x nor y equals a's form value. Assert both
+intermediate owner notifications and the final checked flags, and verify b's dirty flag is preserved.
+Repeat with more listed controls carrying form attributes to establish complete candidate coverage.
+
+Maintain an enumerable root-wide candidate index, reusing native form-index ownership where possible,
+so collecting these candidates does not require scanning every unrelated node for each ID write.
+Do not restrict the candidate index to radios: reset remains a form-association obligation for all
+applicable listed controls. Pruning an ID-change or insertion/removal reset is allowed only after proof
+that it preserves every specified intermediate owner transition and checkedness effect, not merely
+the final FormOwner pointer. If current upstream tests or engines require a different interpretation,
+report that source conflict for independent review before changing these steps. Hash-set enumeration
+must not choose observable reset/exclusion order where the standard requires tree order; add
+deterministic ordering at the owning batch operation without making every single fact read sort a group.
 
 ## Index, lifetime and cancellation
 
@@ -252,8 +269,13 @@ exists, appending another parsed input updates it without rebuilding the prefix.
 does not need a radio index. MutationStamp cannot be its universal invalidation key: changing a div's
 class/text or a checkbox's indeterminate must not discard all group membership.
 
-Structure maintenance costs the affected subtree traversal and actual group changes, not the entire
-document. Prefer the already required form traversal, with shared per-invocation work accounting.
+Ordinary radio membership maintenance costs the affected subtree traversal and actual group changes.
+**Root-wide form-owner resets are an additional required cost** when an ID change or the corresponding
+ID-bearing structural operation triggers them: visit all F indexed reset candidates, plus the work of
+their owner resolution and resulting group transitions. Do not promise affected-subtree-only complexity
+for those operations or omit candidates to achieve it. Prefer the already required form traversal and
+root-wide candidate index, with shared per-invocation work accounting; avoid a separate full-document
+scan when the candidate index can provide the complete set.
 Moving an indexed detached root under another tree retires the old root index and clears or transfers
 its member handles; it must not retain a former root as a hidden owner. Removing a subtree unregisters
 all its radios from the old live tree immediately, even if the detached tree never gets queried. Empty
@@ -392,6 +414,10 @@ Native regression matrices must include:
 - Same/different owner, parser-only owner, nonancestor explicit owner, duplicate form IDs, first-ID
   becoming non-form, ID rename/removal, form attr set/remove, required disabled peer, all names including
   empty/missing/space/case/non-ASCII, wrong namespace/local-name applicability and empty fact results.
+- The exact unrelated `div#x → div#y` fixture above: all root-wide form-attribute candidates reset;
+  a's `f → null → f` transition unchecks b despite unchanged final ownership and no matching form value.
+  Probe candidate coverage separately from actual radio transitions; ordinary class/text changes do
+  not trigger this reset batch. Include the required ID-bearing insertion/removal variants.
 - Detached element-root radios with children, fragments, separate roots in one document, template
   contents, open/closed/nested shadow roots, slot changes, host connect/disconnect and adoption. No group
   crosses an ordinary root; connection triggers still reach shadow descendants.
@@ -413,6 +439,8 @@ DOM mutations; moving large subtrees and clearing old indexes. Measure visits, s
 members and allocations only through suitable untimed assertions/instrumentation, without claiming a
 benchmark result. Require one bootstrap per stable root, O(1) hot facts, no all-member scan per normal
 selection, no prefix rebuild per append, and prompt release of empty buckets/old-tree references.
+For ID-triggered work, require complete F-candidate reset coverage and charge its real owner-resolution
+and group-transition work separately; do not apply the unrelated-mutation or subtree-only budget to it.
 Use weak-reference GC tests with setup isolated from assertion frames to prove a retained old document
 does not retain removed radios through its index. Holding a snapshot intentionally retains its members;
 releasing it and any active dispatch record must release that extra ownership.
