@@ -61,7 +61,7 @@
         public static Jint.HtmlParser.Document CreateXml() { }
         public static Jint.HtmlParser.Document CreateXml(string contentType) { }
     }
-    public sealed class DocumentFragment : Jint.HtmlParser.Node
+    public class DocumentFragment : Jint.HtmlParser.Node
     {
         public override Jint.HtmlParser.NodeType NodeType { get; }
     }
