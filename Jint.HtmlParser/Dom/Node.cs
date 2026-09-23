@@ -81,7 +81,7 @@ public abstract class Node
 
         if (ReferenceEquals(child, referenceChild))
         {
-            return child;
+            referenceChild = child.NextSibling;
         }
 
         RejectAncestor(child);
@@ -108,11 +108,6 @@ public abstract class Node
         if (oldChild.ParentNode != this)
         {
             throw DomException.NotFound();
-        }
-
-        if (ReferenceEquals(child, oldChild))
-        {
-            return oldChild;
         }
 
         RejectAncestor(child);
@@ -153,6 +148,39 @@ public abstract class Node
 
         Detach(child);
         return child;
+    }
+
+    /// <summary>Replaces all children with one node or a fragment's children, or clears them.</summary>
+    public void ReplaceChildren(Node? replacement = null)
+    {
+        EnsureContainer();
+        if (replacement is not null)
+        {
+            RejectAncestor(replacement);
+        }
+
+        var incoming = replacement is null ? default : CollectIncoming(replacement);
+        ValidateReplacement(incoming);
+        var destinationDocument = this as Document ?? _ownerDocument!;
+
+        while (FirstChild is { } child)
+        {
+            Detach(child);
+        }
+
+        for (var i = 0; i < incoming.Count; i++)
+        {
+            var node = incoming[i];
+            Detach(node);
+            Adopt(node, destinationDocument);
+            InsertValidated(node, null);
+        }
+    }
+
+    internal void AdoptInto(Document destination)
+    {
+        Detach(this);
+        Adopt(this, destination);
     }
 
     private void EnsureContainer()
@@ -205,18 +233,48 @@ public abstract class Node
                 throw DomException.Hierarchy();
             }
 
-            for (Node? ancestor = this; ancestor is not null; ancestor = ancestor.ParentNode)
-            {
-                if (ReferenceEquals(ancestor, node))
-                {
-                    throw DomException.Hierarchy();
-                }
-            }
         }
 
         if (this is Document)
         {
             ValidateDocumentOrder(incoming, referenceChild, replacedChild);
+        }
+    }
+
+    private void ValidateReplacement(Incoming incoming)
+    {
+        var seenElement = false;
+        var seenDoctype = false;
+        for (var i = 0; i < incoming.Count; i++)
+        {
+            var node = incoming[i];
+            if (node is Document || node is DocumentType && this is not Document ||
+                node is Text or CDataSection && this is Document)
+            {
+                throw DomException.Hierarchy();
+            }
+
+            if (this is Document)
+            {
+                if (node is Element)
+                {
+                    if (seenElement)
+                    {
+                        throw DomException.Hierarchy();
+                    }
+
+                    seenElement = true;
+                }
+                else if (node is DocumentType)
+                {
+                    if (seenDoctype || seenElement)
+                    {
+                        throw DomException.Hierarchy();
+                    }
+
+                    seenDoctype = true;
+                }
+            }
         }
     }
 
@@ -244,6 +302,7 @@ public abstract class Node
         }
 
         var resulting = new List<Node>(ChildCount + incoming.Count);
+        var moved = incoming.Count > 8 ? incoming.ToSet() : null;
         var insertionIndex = 0;
         for (var current = FirstChild; current is not null; current = current.NextSibling)
         {
@@ -252,7 +311,7 @@ public abstract class Node
                 insertionIndex = resulting.Count;
             }
 
-            if (!ReferenceEquals(current, replacedChild) && !incoming.Contains(current))
+            if (!ReferenceEquals(current, replacedChild) && !(moved?.Contains(current) ?? incoming.Contains(current)))
             {
                 resulting.Add(current);
             }
@@ -264,10 +323,7 @@ public abstract class Node
             insertionIndex = resulting.Count;
         }
 
-        for (var i = 0; i < incoming.Count; i++)
-        {
-            resulting.Insert(insertionIndex + i, incoming[i]);
-        }
+        incoming.InsertInto(resulting, insertionIndex);
         var seenElement = false;
         var seenDoctype = false;
         foreach (var node in resulting)
@@ -394,5 +450,17 @@ public abstract class Node
         internal int Count => _many?.Count ?? (_single is null ? 0 : 1);
         internal Node this[int index] => _many is null ? index == 0 ? _single! : throw new ArgumentOutOfRangeException(nameof(index)) : _many[index];
         internal bool Contains(Node node) => _many?.Contains(node) ?? ReferenceEquals(_single, node);
+        internal HashSet<Node> ToSet() => _many is null ? [_single!] : new HashSet<Node>(_many);
+        internal void InsertInto(List<Node> destination, int index)
+        {
+            if (_many is not null)
+            {
+                destination.InsertRange(index, _many);
+            }
+            else if (_single is not null)
+            {
+                destination.Insert(index, _single);
+            }
+        }
     }
 }

@@ -42,6 +42,7 @@
         public Jint.HtmlParser.DocumentKind Kind { get; }
         public override Jint.HtmlParser.NodeType NodeType { get; }
         public System.Collections.Generic.IReadOnlyList<Jint.HtmlParser.XmlSkippedEntity> SkippedXmlEntities { get; }
+        public Jint.HtmlParser.Node AdoptNode(Jint.HtmlParser.Node node) { }
         public Jint.HtmlParser.Attr CreateAttribute(string name) { }
         public Jint.HtmlParser.Attr CreateAttributeNS(string? namespaceUri, string qualifiedName) { }
         public Jint.HtmlParser.CDataSection CreateCDataSection(string data) { }
@@ -135,6 +136,7 @@
         public Jint.HtmlParser.Node InsertBefore(Jint.HtmlParser.Node child, Jint.HtmlParser.Node? referenceChild) { }
         public Jint.HtmlParser.Node RemoveChild(Jint.HtmlParser.Node child) { }
         public Jint.HtmlParser.Node ReplaceChild(Jint.HtmlParser.Node child, Jint.HtmlParser.Node oldChild) { }
+        public void ReplaceChildren(Jint.HtmlParser.Node? replacement = null) { }
     }
     public enum NodeType
     {

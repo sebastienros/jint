@@ -155,6 +155,19 @@ public sealed class Document : Node
         return NodeCloner.Clone(source, this, deep);
     }
 
+    /// <summary>Removes a node from its parent and gives this document its identity and subtree.</summary>
+    public Node AdoptNode(Node node)
+    {
+        ArgumentNullException.ThrowIfNull(node);
+        if (node is Document)
+        {
+            throw DomException.NotSupported();
+        }
+
+        node.AdoptInto(this);
+        return node;
+    }
+
     /// <summary>Creates a detached copy of an attribute owned by this document.</summary>
     public Attr ImportAttribute(Attr source)
     {
