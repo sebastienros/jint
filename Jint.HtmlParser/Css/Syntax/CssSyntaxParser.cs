@@ -196,7 +196,7 @@ internal sealed partial class CssSyntaxParser
                 else _index++;
                 var completed = CssComponentValue.FromContainer(top.Kind,
                     new CssSourceSpan(top.Start, end - top.Start), top.FunctionName,
-                    top.OpeningDelimiter, List(top.Values));
+                    top.OpeningDelimiter, List(top.Values), token.Kind != CssTokenKind.None);
                 stack.RemoveAt(stack.Count - 1);
                 if (stack.Count == 0) return completed;
                 stack[^1].Values.Add(completed);

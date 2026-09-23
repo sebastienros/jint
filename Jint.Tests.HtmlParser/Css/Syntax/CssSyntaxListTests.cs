@@ -78,6 +78,23 @@ public sealed class CssSyntaxListTests
     }
 
     [Test]
+    public void DeclarationListStopsAtTopLevelClosingBrace()
+    {
+        var declarations = new CssSyntaxParser("color:red}width:1px; height:2px", null, default)
+            .ParseDeclarationList();
+        declarations.Select(declaration => declaration.Name).Should().ContainInOrder("color");
+        declarations.Length.Should().Be(1);
+
+        var diagnostics = new ParseDiagnosticCollector();
+        declarations = new CssSyntaxParser("@foo}width:1px", new CssParseOptions
+        {
+            Diagnostics = diagnostics
+        }, default).ParseDeclarationList();
+        declarations.Should().BeEmpty();
+        diagnostics.Items.Any(item => item.Code == "css/unexpected-eof").Should().BeFalse();
+    }
+
+    [Test]
     public void BlockContentsKeepDeclarationRunsAndRulesInOrder()
     {
         const string source = "{ color:red; margin:0; a:hover { x:y } padding:2px; @unknown foo; z:3; @m { x:y } }";
@@ -167,6 +184,52 @@ public sealed class CssSyntaxListTests
         var parser = new CssSyntaxParser(source, new CssParseOptions { Diagnostics = diagnostics }, default);
         var contents = parser.ParseBlockContents(parser.ParseComponentValue());
         contents.Single().Rule.Name.Should().Be("foo");
+        diagnostics.Items.Any(item => item.Code == "css/unexpected-eof").Should().BeFalse();
+    }
+
+    [Test]
+    public void CommentsEndingInBraceDoNotCloseAnOuterBlock()
+    {
+        const string declarationSource = "{unicode-range:U+4??/*}";
+        var diagnostics = new ParseDiagnosticCollector();
+        var parser = new CssSyntaxParser(declarationSource,
+            new CssParseOptions { Diagnostics = diagnostics }, default);
+        var block = parser.ParseComponentValue();
+        block.IsClosed.Should().BeFalse();
+        var declaration = parser.ParseBlockContents(block).Single().Declarations.Single();
+        declaration.Value.Single().Token.Kind.Should().Be(CssTokenKind.UnicodeRange);
+        diagnostics.Items.Any(item => item.Code == "css/unexpected-eof").Should().BeTrue();
+        diagnostics.Items.Where(item => item.Code == "css/unexpected-eof")
+            .All(item => item.Offset == declarationSource.Length).Should().BeTrue();
+
+        const string atRuleSource = "{@foo/*}";
+        diagnostics = new ParseDiagnosticCollector();
+        parser = new CssSyntaxParser(atRuleSource,
+            new CssParseOptions { Diagnostics = diagnostics }, default);
+        block = parser.ParseComponentValue();
+        block.IsClosed.Should().BeFalse();
+        parser.ParseBlockContents(block).Single().Rule.Name.Should().Be("foo");
+        diagnostics.Items.Count(item => item.Code == "css/unexpected-eof" &&
+            item.Offset == atRuleSource.Length).Should().Be(3);
+    }
+
+    [Test]
+    public void ClosedCommentsLeaveTheOuterBlockClosed()
+    {
+        var diagnostics = new ParseDiagnosticCollector();
+        var parser = new CssSyntaxParser("{unicode-range:U+4??/**/}",
+            new CssParseOptions { Diagnostics = diagnostics }, default);
+        var block = parser.ParseComponentValue();
+        block.IsClosed.Should().BeTrue();
+        parser.ParseBlockContents(block).Single().Declarations.Single().Value.Single()
+            .Token.Kind.Should().Be(CssTokenKind.UnicodeRange);
+        diagnostics.Items.Any(item => item.Code == "css/unexpected-eof").Should().BeFalse();
+
+        parser = new CssSyntaxParser("{@foo/**/}",
+            new CssParseOptions { Diagnostics = diagnostics }, default);
+        block = parser.ParseComponentValue();
+        block.IsClosed.Should().BeTrue();
+        parser.ParseBlockContents(block).Single().Rule.Name.Should().Be("foo");
         diagnostics.Items.Any(item => item.Code == "css/unexpected-eof").Should().BeFalse();
     }
 

@@ -93,9 +93,10 @@ public readonly struct CssComponentValue
     private readonly string? _functionName;
     private readonly char _openingDelimiter;
     private readonly CssComponentValueList? _values;
+    private readonly bool _closed;
 
     private CssComponentValue(CssComponentKind kind, CssSourceSpan span, CssToken token,
-        string? functionName, char openingDelimiter, CssComponentValueList? values)
+        string? functionName, char openingDelimiter, CssComponentValueList? values, bool closed)
     {
         Kind = kind;
         Span = span;
@@ -103,14 +104,15 @@ public readonly struct CssComponentValue
         _functionName = functionName;
         _openingDelimiter = openingDelimiter;
         _values = values;
+        _closed = closed;
     }
 
     internal static CssComponentValue FromToken(CssToken token) =>
-        new(CssComponentKind.Token, token.Span, token, null, '\0', null);
+        new(CssComponentKind.Token, token.Span, token, null, '\0', null, false);
 
     internal static CssComponentValue FromContainer(CssComponentKind kind, CssSourceSpan span,
-        string? functionName, char openingDelimiter, CssComponentValueList values) =>
-        new(kind, span, default, functionName, openingDelimiter, values);
+        string? functionName, char openingDelimiter, CssComponentValueList values, bool closed) =>
+        new(kind, span, default, functionName, openingDelimiter, values, closed);
 
     public CssComponentKind Kind { get; }
     public CssSourceSpan Span { get; }
@@ -118,6 +120,7 @@ public readonly struct CssComponentValue
     public string FunctionName => Kind == CssComponentKind.Function ? _functionName! : throw new InvalidOperationException();
     public char OpeningDelimiter => Kind == CssComponentKind.SimpleBlock ? _openingDelimiter : throw new InvalidOperationException();
     public CssComponentValueList Values => Kind is CssComponentKind.Function or CssComponentKind.SimpleBlock ? _values! : throw new InvalidOperationException();
+    internal bool IsClosed => _closed;
 }
 
 public sealed class CssComponentValueList : IReadOnlyList<CssComponentValue>

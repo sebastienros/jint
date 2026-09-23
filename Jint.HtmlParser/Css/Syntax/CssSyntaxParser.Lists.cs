@@ -31,8 +31,16 @@ internal sealed partial class CssSyntaxParser
     // §5.4.5 and §5.5.5: parse the mixed contents first, then project declarations.
     internal CssDeclarationSyntax[] ParseDeclarationList()
     {
-        var values = ConsumeAllComponents();
-        var contents = ConsumeBlockContents(values, _sourceLength, closed: false);
+        _cancellationToken.ThrowIfCancellationRequested();
+        var values = new List<CssComponentValue>();
+        // §5.5.5 returns at the first top-level }, leaving subsequent input untouched.
+        while (Current.Kind is not (CssTokenKind.None or CssTokenKind.CloseCurlyBracket))
+        {
+            values.Add(ConsumeComponent());
+        }
+        var closed = Current.Kind == CssTokenKind.CloseCurlyBracket;
+        var contents = ConsumeBlockContents(values,
+            closed ? Current.Span.Start : _sourceLength, closed);
         var declarations = new List<CssDeclarationSyntax>();
         foreach (var item in contents)
         {
@@ -69,11 +77,7 @@ internal sealed partial class CssSyntaxParser
         _cancellationToken.ThrowIfCancellationRequested();
         var values = block.Values;
         var blockEnd = block.Span.Start + block.Span.Length;
-        // A recovered outer block can end at EOF immediately after an inner block's '}'.
-        // In that case the inner block, not the outer one, owns the final character.
-        var closed = blockEnd > block.Span.Start && blockEnd <= _source.Length &&
-            _source[blockEnd - 1] == '}' &&
-            (values.Count == 0 || values[^1].Span.Start + values[^1].Span.Length < blockEnd);
+        var closed = block.IsClosed;
         return ConsumeBlockContents(values, closed ? blockEnd - 1 : blockEnd, closed);
     }
 
