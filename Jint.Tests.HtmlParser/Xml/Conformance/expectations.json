@@ -326,5 +326,201 @@
     "outcome": "reject",
     "skipped": [],
     "review": "ATTLIST declaration uses #NOTATION where an element Name is required; XML production [52] https://www.w3.org/TR/xml/#attdecls."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#not-wf-not-sa-002",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "Pinned internal %e; expands <?xml version=... encoding=...?> inside the document DTD. xml is excluded as a PI target and a TextDecl cannot occur inside an internal parameter entity; XML §§2.6, 4.3.1 https://www.w3.org/TR/xml/#sec-pi https://www.w3.org/TR/xml/#sec-TextDecl."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#not-wf-not-sa-004",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "004.ent",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "004.ent"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "review": "Pinned 004.ent contains unclosed INCLUDE conditional section only in the unread external subset. The document itself has an empty doc element and the no-fetch result omits exactly that external subset; XML §5.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#not-wf-not-sa-006",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "006.ent",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "006.ent"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "review": "Pinned 006.ent contains INCLUDE conditional section missing [ only in the unread external subset. The document itself has an empty doc element and the no-fetch result omits exactly that external subset; XML §5.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#not-wf-not-sa-007",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "007.ent",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "007.ent"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "review": "Pinned 007.ent contains nested DOCTYPE declaration only in the unread external subset. The document itself has an empty doc element and the no-fetch result omits exactly that external subset; XML §5.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#not-wf-not-sa-008",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "008.ent",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "008.ent"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "review": "Pinned 008.ent contains bare % in an EntityValue only in the unread external subset. The document itself has an empty doc element and the no-fetch result omits exactly that external subset; XML §5.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#not-wf-not-sa-009",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "009.ent",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "009.ent"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "review": "Pinned 009.ent contains split parameter-entity/comment replacement boundary only in the unread external subset. The document itself has an empty doc element and the no-fetch result omits exactly that external subset; XML §5.1 https://www.w3.org/TR/xml/#sec-conformance."
   }
 ]
