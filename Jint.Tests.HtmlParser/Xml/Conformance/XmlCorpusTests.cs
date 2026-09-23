@@ -219,19 +219,39 @@ public class XmlCorpusTests
     }
 
     [Test]
-    public void OptionalErrorsReportParserObservationWithoutAConformancePass()
+    public void OptionalErrorsSeparatePolicyEvidenceFromUnreviewedAndAdapterDebt()
     {
-        var decoded = XmlCorpus.Case("xmlconf/eduni/namespaces/1.0/rmt-ns10.xml#rmt-ns10-004");
-        var observed = XmlConformanceRunner.Run(decoded);
-        observed.Kind.Should().Be(XmlOutcomeKind.Pending);
-        observed.Signature.Should().Be("optional-error-review");
+        var verified = XmlCorpus.Case("xmlconf/eduni/namespaces/1.0/rmt-ns10.xml#rmt-ns10-004");
+        XmlConformanceRunner.Run(verified).Kind.Should().Be(XmlOutcomeKind.OptionalPolicyVerified);
+        var policy = XmlExpectations.OptionalPolicies[verified.Key];
+        var wrongProjection = XmlConformanceRunner.Run(verified, new XmlCaseExpectation
+        {
+            Status = "verified", Outcome = "accept", Skipped = [],
+            Projection = policy.Projection!.Select((entry, index) =>
+                index == 0 ? entry with { Value = "wrong comment" } : entry).ToArray()
+        });
+        wrongProjection.Kind.Should().Be(XmlOutcomeKind.OptionalPolicyMismatch);
+        wrongProjection.Signature.Should().Be("projection-mismatch");
+        var wrongOmission = XmlConformanceRunner.Run(verified, new XmlCaseExpectation
+        {
+            Status = "verified", Outcome = "accept", Projection = policy.Projection,
+            Skipped = [new XmlSkippedExpectation { Kind = "ExternalSubset", SystemId = "not-present" }]
+        });
+        wrongOmission.Kind.Should().Be(XmlOutcomeKind.OptionalPolicyMismatch);
+        wrongOmission.Signature.Should().StartWith("skip-count:");
+
+        var unreviewed = XmlCorpus.Case("xmlconf/sun/sun-error.xml#uri01");
+        var observed = XmlConformanceRunner.Run(unreviewed);
+        observed.Kind.Should().Be(XmlOutcomeKind.OptionalObservedUnreviewed);
         observed.Detail.Should().Contain("observed=");
 
         var unsupportedEncoding = XmlCorpus.Case("xmlconf/japanese/japanese.xml#pr-xml-euc-jp");
         var unavailable = XmlConformanceRunner.Run(unsupportedEncoding);
-        unavailable.Kind.Should().Be(XmlOutcomeKind.Pending);
-        unavailable.Signature.Should().Be("optional-error-review");
+        unavailable.Kind.Should().Be(XmlOutcomeKind.OptionalAdapterDebt);
         unavailable.Detail.Should().Contain("input adapter unavailable");
+
+        var notationDependent = XmlCorpus.Case("xmlconf/eduni/errata-2e/errata2e.xml#rmt-e2e-55");
+        XmlConformanceRunner.Run(notationDependent).Signature.Should().Be("optional-notation-evidence-pending");
     }
 
     [Test]
@@ -263,6 +283,25 @@ public class XmlCorpusTests
                 }
             }
         }
+        XmlExpectations.OptionalPolicies.Values.Count(item => item.Status == "verified").Should().Be(5);
+        XmlExpectations.OptionalPolicies.Values.Count(item => item.Status == "pending-notation-metadata").Should().Be(1);
+        foreach (var (key, policy) in XmlExpectations.OptionalPolicies)
+        {
+            var row = XmlCorpus.Case(key);
+            row.Category.Should().Be("error");
+            row.Disposition.Should().Be("optional-error-review");
+            row.OutputPath.Should().BeNull();
+            policy.Status.Should().BeOneOf("verified", "pending-notation-metadata");
+            policy.Outcome.Should().Be("accept");
+            policy.Skipped.Should().NotBeNull();
+            policy.Projection.Should().NotBeNull();
+            policy.Review.Should().NotBeNullOrWhiteSpace();
+            if (policy.Status == "pending-notation-metadata")
+            {
+                policy.Notations.Should().ContainSingle();
+                policy.Notations![0].Name.Should().Be("gif");
+            }
+        }
         foreach (var (key, deviation) in XmlExpectations.KnownFailures)
         {
             active.Should().Contain(key);
@@ -278,7 +317,8 @@ public class XmlCorpusTests
     {
         var counts = new Dictionary<(string Collection, string Category), (int Inventoried, int Outside, int OutsideInput, int Runnable,
             int Passing, int KnownFailing, int Unresolved, int HarnessFailure, int OutputEligible, int OutputCompared,
-            int OutputPending, int NoFetchAdapted)>();
+            int OutputPending, int NoFetchAdapted, int OptionalObserved, int OptionalAdapter, int OptionalVerified,
+            int OptionalMismatch)>();
         var failures = new List<(XmlOutcomeKind Kind, string Text)>();
         foreach (var row in XmlCorpus.Cases)
         {
@@ -298,6 +338,23 @@ public class XmlCorpusTests
                     if (row.OutputPath is not null) count.OutputCompared++;
                     if (XmlExpectations.Reviewed.TryGetValue(row.Key, out var passingReview) &&
                         passingReview.OutputPolicy == "no-fetch-alternative") count.NoFetchAdapted++;
+                }
+                else if (outcome.Kind == XmlOutcomeKind.OptionalPolicyVerified)
+                    count.OptionalVerified++;
+                else if (outcome.Kind == XmlOutcomeKind.OptionalObservedUnreviewed)
+                {
+                    count.OptionalObserved++;
+                    failures.Add((outcome.Kind, $"optional-unreviewed {row.Key}: {outcome.Signature}: {outcome.Detail}"));
+                }
+                else if (outcome.Kind == XmlOutcomeKind.OptionalAdapterDebt)
+                {
+                    count.OptionalAdapter++;
+                    failures.Add((outcome.Kind, $"optional-adapter {row.Key}: {outcome.Signature}: {outcome.Detail}"));
+                }
+                else if (outcome.Kind == XmlOutcomeKind.OptionalPolicyMismatch)
+                {
+                    count.OptionalMismatch++;
+                    failures.Add((outcome.Kind, $"optional-mismatch {row.Key}: {outcome.Signature}: {outcome.Detail}"));
                 }
                 else if (XmlExpectations.KnownFailures.TryGetValue(row.Key, out var deviation) &&
                          outcome.Signature == deviation.Signature)
@@ -331,6 +388,8 @@ public class XmlCorpusTests
                 $"outsideInput={count.OutsideInput} " +
                 $"runnable={count.Runnable} passing={count.Passing} knownFailing={count.KnownFailing} " +
                 $"unresolved={count.Unresolved} harnessFailures={count.HarnessFailure} " +
+                $"optionalObserved={count.OptionalObserved} optionalAdapter={count.OptionalAdapter} " +
+                $"optionalVerified={count.OptionalVerified} optionalMismatch={count.OptionalMismatch} " +
                 $"outputEligible={count.OutputEligible} outputCompared={count.OutputCompared} " +
                 $"outputPending={count.OutputPending} noFetchAdapted={count.NoFetchAdapted}");
         }
@@ -348,6 +407,10 @@ public class XmlCorpusTests
                 Known = counts.Values.Sum(item => item.KnownFailing),
                 Unresolved = counts.Values.Sum(item => item.Unresolved),
                 Harness = counts.Values.Sum(item => item.HarnessFailure),
+                OptionalObserved = counts.Values.Sum(item => item.OptionalObserved),
+                OptionalAdapter = counts.Values.Sum(item => item.OptionalAdapter),
+                OptionalVerified = counts.Values.Sum(item => item.OptionalVerified),
+                OptionalMismatch = counts.Values.Sum(item => item.OptionalMismatch),
                 OutputEligible = counts.Values.Sum(item => item.OutputEligible),
                 OutputCompared = counts.Values.Sum(item => item.OutputCompared),
                 OutputPending = counts.Values.Sum(item => item.OutputPending),
@@ -356,13 +419,15 @@ public class XmlCorpusTests
             Assert.Fail($"W3C XML profile: inventoried={totals.Inventoried}, outsideProfile={totals.Outside}, " +
                 $"outsideInput={totals.OutsideInput}, runnable={totals.Runnable}, " +
                 $"passing={totals.Passing}, knownFailing={totals.Known}, unresolved={totals.Unresolved}, " +
-                $"harnessFailures={totals.Harness}, outputEligible={totals.OutputEligible}, " +
+                $"harnessFailures={totals.Harness}, optionalObserved={totals.OptionalObserved}, " +
+                $"optionalAdapter={totals.OptionalAdapter}, optionalVerified={totals.OptionalVerified}, " +
+                $"optionalMismatch={totals.OptionalMismatch}, outputEligible={totals.OutputEligible}, " +
                 $"outputCompared={totals.OutputCompared}, outputPending={totals.OutputPending}, " +
                 $"noFetchAdapted={totals.NoFetch}. Failures={failures.Count} ({summary}). " +
                 "First 30 parser/harness failures:\n" +
-                string.Join("\n", failures.Where(item => item.Kind is XmlOutcomeKind.ParserFailure or XmlOutcomeKind.HarnessFailure)
+                string.Join("\n", failures.Where(item => item.Kind is XmlOutcomeKind.ParserFailure or XmlOutcomeKind.HarnessFailure or XmlOutcomeKind.OptionalPolicyMismatch)
                     .Take(30).Select(item => item.Text)) + "\nFirst 15 pending:\n" +
-                string.Join("\n", failures.Where(item => item.Kind == XmlOutcomeKind.Pending)
+                string.Join("\n", failures.Where(item => item.Kind is XmlOutcomeKind.Pending or XmlOutcomeKind.OptionalObservedUnreviewed or XmlOutcomeKind.OptionalAdapterDebt)
                     .Take(15).Select(item => item.Text)));
         }
     }

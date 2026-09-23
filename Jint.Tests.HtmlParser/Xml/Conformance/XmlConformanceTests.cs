@@ -22,12 +22,16 @@ public class XmlConformanceTests
                 $"the reviewed failure for {key} must remain exact, issue {deviation.Issue}");
             Assert.Fail($"Known required-profile parser defect {key}: {deviation.Issue}; {outcome.Detail}");
         }
-        if (outcome.Kind != XmlOutcomeKind.Pass)
+        if (outcome.Kind is not (XmlOutcomeKind.Pass or XmlOutcomeKind.OptionalPolicyVerified))
             Assert.Fail($"{key}: {outcome.Kind}: {outcome.Signature}: {outcome.Detail}");
     }
 }
 
-internal enum XmlOutcomeKind { Pass, Pending, ParserFailure, HarnessFailure }
+internal enum XmlOutcomeKind
+{
+    Pass, Pending, ParserFailure, HarnessFailure,
+    OptionalObservedUnreviewed, OptionalAdapterDebt, OptionalPolicyVerified, OptionalPolicyMismatch
+}
 
 internal sealed record XmlCaseOutcome(XmlOutcomeKind Kind, string Signature, string Detail);
 
@@ -50,7 +54,7 @@ internal static class XmlConformanceRunner
         var optionalError = row.Disposition == "optional-error-review";
         if (source is null)
             return optionalError
-                ? new(XmlOutcomeKind.Pending, "optional-error-review",
+                ? new(XmlOutcomeKind.OptionalAdapterDebt, "optional-error-adapter-debt",
                     $"input adapter unavailable: {row.Decoding.Status}: {row.Decoding.Detail}")
                 : new(XmlOutcomeKind.HarnessFailure, "missing-decoded-source", "Runnable case has no decoded string");
         if (row.Disposition != "runnable" && !optionalError)
@@ -83,13 +87,7 @@ internal static class XmlConformanceRunner
         }
 
         if (optionalError)
-        {
-            if (syntax is null && (document is null || document.DocumentElement is null))
-                return new(XmlOutcomeKind.HarnessFailure, "no-document-root", "Parser accepted without a document element");
-            return new(XmlOutcomeKind.Pending, "optional-error-review",
-                "W3C optional-error policy needs an exact per-case decision; observed=" +
-                (syntax is null ? "accepted" : $"rejected:{syntax.Code}@{syntax.Offset}"));
-        }
+            return EvaluateOptional(row, document, syntax, testExpectation);
 
         if (externalReviewNeeded && !hasReviewedExpectation)
             return new(XmlOutcomeKind.Pending, "resource-profile-review",
@@ -119,29 +117,8 @@ internal static class XmlConformanceRunner
 
         if (reviewed is not null)
         {
-            if (reviewed.Skipped is null)
-                return new(XmlOutcomeKind.HarnessFailure, "review-missing-skipped", "Reviewed resource case must assert the complete skip list");
-            var actual = document.SkippedXmlEntities;
-            if (actual.Count != reviewed.Skipped.Length)
-                return new(XmlOutcomeKind.ParserFailure, $"skip-count:{actual.Count}", $"Expected {reviewed.Skipped.Length} omission records");
-            for (var index = 0; index < actual.Count; index++)
-            {
-                var found = actual[index];
-                var expected = reviewed.Skipped[index];
-                if (found.Kind.ToString() != expected.Kind || found.Name != expected.Name ||
-                    found.PublicId != expected.PublicId || found.SystemId != expected.SystemId || found.Offset != expected.Offset)
-                {
-                    return new(XmlOutcomeKind.ParserFailure, $"skip-mismatch:{index}",
-                        $"Expected {expected.Kind}/{expected.Name}/{expected.PublicId}/{expected.SystemId}@{expected.Offset}; " +
-                        $"actual {found.Kind}/{found.Name}/{found.PublicId}/{found.SystemId}@{found.Offset}");
-                }
-            }
-            if (reviewed.Projection is not null)
-            {
-                var actualProjection = XmlEvidence.Projection(document);
-                if (actualProjection != JsonSerializer.Serialize(reviewed.Projection))
-                    return new(XmlOutcomeKind.ParserFailure, "projection-mismatch", actualProjection);
-            }
+            var evidence = CompareEvidence(document, reviewed, XmlOutcomeKind.ParserFailure);
+            if (evidence is not null) return evidence;
         }
         else if (document.SkippedXmlEntities.Count != 0)
         {
@@ -200,4 +177,63 @@ internal static class XmlConformanceRunner
     }
 
     private static string Digest(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
+
+    private static XmlCaseOutcome EvaluateOptional(XmlCorpusCase row, Document? document, MarkupParseException? syntax,
+        XmlCaseExpectation? testPolicy)
+    {
+        if (syntax is null && (document is null || document.DocumentElement is null))
+            return new(XmlOutcomeKind.HarnessFailure, "no-document-root", "Parser accepted without a document element");
+        var observed = syntax is null ? "accepted" : $"rejected:{syntax.Code}@{syntax.Offset}";
+        XmlExpectations.OptionalPolicies.TryGetValue(row.Key, out var policy);
+        policy = testPolicy ?? policy;
+        if (policy is null)
+            return new(XmlOutcomeKind.OptionalObservedUnreviewed, "optional-error-unreviewed",
+                $"W3C optional-error policy needs exact review; observed={observed}");
+        if (policy.Status is not ("verified" or "pending-notation-metadata") ||
+            policy.Outcome != "accept" || policy.Projection is null || policy.Skipped is null)
+        {
+            return new(XmlOutcomeKind.HarnessFailure, "invalid-optional-policy", row.Key);
+        }
+        if (syntax is not null)
+            return new(XmlOutcomeKind.OptionalPolicyMismatch, $"optional-rejected:{syntax.Code}@{syntax.Offset}",
+                $"Reviewed optional policy expects acceptance: {policy.Review}");
+        if (document is null)
+            return new(XmlOutcomeKind.HarnessFailure, "no-document-root", "Parser accepted without a document element");
+        var evidence = CompareEvidence(document, policy, XmlOutcomeKind.OptionalPolicyMismatch);
+        if (evidence is not null) return evidence;
+        if (policy.Status == "pending-notation-metadata")
+            return new(XmlOutcomeKind.OptionalObservedUnreviewed, "optional-notation-evidence-pending",
+                $"Public notation metadata required before policy verification; observed={observed}");
+        return new(XmlOutcomeKind.OptionalPolicyVerified, "optional-policy-verified",
+            "Reviewed optional policy matches the complete surviving projection and omission list");
+    }
+
+    private static XmlCaseOutcome? CompareEvidence(Document document, XmlCaseExpectation reviewed,
+        XmlOutcomeKind mismatchKind)
+    {
+        if (reviewed.Skipped is null)
+            return new(XmlOutcomeKind.HarnessFailure, "review-missing-skipped", "Reviewed case must assert the complete skip list");
+        var actual = document.SkippedXmlEntities;
+        if (actual.Count != reviewed.Skipped.Length)
+            return new(mismatchKind, $"skip-count:{actual.Count}", $"Expected {reviewed.Skipped.Length} omission records");
+        for (var index = 0; index < actual.Count; index++)
+        {
+            var found = actual[index];
+            var expected = reviewed.Skipped[index];
+            if (found.Kind.ToString() != expected.Kind || found.Name != expected.Name ||
+                found.PublicId != expected.PublicId || found.SystemId != expected.SystemId || found.Offset != expected.Offset)
+            {
+                return new(mismatchKind, $"skip-mismatch:{index}",
+                    $"Expected {expected.Kind}/{expected.Name}/{expected.PublicId}/{expected.SystemId}@{expected.Offset}; " +
+                    $"actual {found.Kind}/{found.Name}/{found.PublicId}/{found.SystemId}@{found.Offset}");
+            }
+        }
+        if (reviewed.Projection is not null)
+        {
+            var actualProjection = XmlEvidence.Projection(document);
+            if (actualProjection != JsonSerializer.Serialize(reviewed.Projection))
+                return new(mismatchKind, "projection-mismatch", actualProjection);
+        }
+        return null;
+    }
 }

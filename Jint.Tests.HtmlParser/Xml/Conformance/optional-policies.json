@@ -1,0 +1,246 @@
+[
+  {
+    "key": "xmlconf/eduni/namespaces/1.0/rmt-ns10.xml#rmt-ns10-004",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " Namespace name test: a relative URI (deprecated) ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "foo",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "foo",
+        "NamespaceUri": "namespaces/zaphod",
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [
+          {
+            "Name": "xmlns",
+            "NamespaceUri": "http://www.w3.org/2000/xmlns/",
+            "Prefix": null,
+            "Value": "namespaces/zaphod"
+          }
+        ],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "review": "Pinned source and Namespaces in XML 1.0 Third Edition §§2.2, 8: relative URI namespace names are deprecated, not a required fatal namespace constraint; https://www.w3.org/TR/xml-names/#iri-use https://www.w3.org/TR/xml-names/#conformance."
+  },
+  {
+    "key": "xmlconf/eduni/namespaces/1.0/rmt-ns10.xml#rmt-ns10-005",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " Namespace name test: a same-document relative URI (deprecated) ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "foo",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "foo",
+        "NamespaceUri": "#beeblebrox",
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [
+          {
+            "Name": "xmlns",
+            "NamespaceUri": "http://www.w3.org/2000/xmlns/",
+            "Prefix": null,
+            "Value": "#beeblebrox"
+          }
+        ],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "review": "Pinned source and Namespaces in XML 1.0 Third Edition §§2.2, 8: same-document relative URI namespace names are deprecated, not a required fatal namespace constraint; https://www.w3.org/TR/xml-names/#iri-use https://www.w3.org/TR/xml-names/#conformance."
+  },
+  {
+    "key": "xmlconf/eduni/namespaces/1.0/rmt-ns10.xml#rmt-ns10-006",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " Namespace name test: an http IRI that is not a URI ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "foo",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "foo",
+        "NamespaceUri": "http://example.org/rosé",
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [
+          {
+            "Name": "xmlns",
+            "NamespaceUri": "http://www.w3.org/2000/xmlns/",
+            "Prefix": null,
+            "Value": "http://example.org/rosé"
+          }
+        ],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "review": "Pinned source and Namespaces in XML 1.0 Third Edition §§2.2, 8: URI-reference validation of namespace names is optional; strict ISO-8859-1 adaptation preserves é; https://www.w3.org/TR/xml-names/#iri-use https://www.w3.org/TR/xml-names/#conformance."
+  },
+  {
+    "key": "xmlconf/eduni/errata-2e/errata2e.xml#rmt-e2e-34",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "foo",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "foo",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "review": "Pinned unused <!ELEMENT bar (foo|foo)> has a nondeterministic content model; XML §3.2.1 calls this a compatibility error, not a fatal well-formedness violation. https://www.w3.org/TR/xml/#sec-element-content."
+  },
+  {
+    "key": "xmlconf/eduni/errata-2e/errata2e.xml#rmt-e2e-55",
+    "status": "pending-notation-metadata",
+    "outcome": "accept",
+    "skipped": [],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "foo",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "foo",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [
+      {
+        "Name": "gif",
+        "PublicId": null,
+        "SystemId": "file:///usr/X11R6/bin/xv",
+        "Offset": 70
+      }
+    ],
+    "review": "Pinned unused internal entity value contains &unparsed;, an XML §4.4.9 optional error; notation gif is read and its public DOM metadata must be checked before policy verification. https://www.w3.org/TR/xml/#error."
+  },
+  {
+    "key": "xmlconf/eduni/errata-2e/errata2e.xml#rmt-e2e-57",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "foo",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [
+          {
+            "Name": "xml:space",
+            "NamespaceUri": "http://www.w3.org/XML/1998/namespace",
+            "Prefix": "xml",
+            "Value": "discard-all-but-the-first-three-spaces"
+          }
+        ],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "review": "Pinned xml:space value is neither default nor preserve; XML §2.10 permits reporting or recovery, including reporting the erroneous value to applications. This policy preserves the literal attribute. https://www.w3.org/TR/xml/#sec-white-space."
+  }
+]
