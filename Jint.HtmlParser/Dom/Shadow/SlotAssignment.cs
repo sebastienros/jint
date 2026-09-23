@@ -149,10 +149,6 @@ internal static class SlotAssignment
             {
                 Reassign(hostRoot);
             }
-            else
-            {
-                node.StoredAssignedSlot = null;
-            }
         }
 
         if (oldShadow is not null && oldParent is Element fallbackSlot && IsSlot(fallbackSlot) &&
@@ -163,8 +159,17 @@ internal static class SlotAssignment
 
         if (oldShadow is { } root && ContainsSlot(node))
         {
-            Rebuild(root);
-            ClearDetachedSlots(node);
+            if (ReferenceEquals(oldParent, root) && node is Element removedSlot && IsSlot(removedSlot) &&
+                removedSlot.FirstChild is null && root.SlotAssignment == SlotAssignmentMode.Named &&
+                root.SlotState is { AssignmentsInitialized: true } indexed)
+            {
+                RemoveDirectSlot(indexed, removedSlot);
+            }
+            else
+            {
+                Rebuild(root);
+                ClearDetachedSlots(node);
+            }
         }
     }
 
@@ -175,11 +180,18 @@ internal static class SlotAssignment
         if (parent is Element { AttachedShadowRoot: { } root } && IsSlottable(node))
         {
             if (root.SlotAssignment == SlotAssignmentMode.Named && referenceChild is null &&
-                root.SlotState is { } state)
+                root.SlotState is { AssignmentsInitialized: true } state)
             {
                 // The common append adds one identity. The owned assigned list is
                 // never copied until a caller asks for a snapshot.
                 var name = SlottableName(node);
+                if (!state.HostByName.TryGetValue(name, out var hostNodes))
+                {
+                    hostNodes = [];
+                    state.HostByName.Add(name, hostNodes);
+                }
+
+                hostNodes.Add(node);
                 if (state.FirstByName.TryGetValue(name, out var slot))
                 {
                     Signal(slot);
@@ -199,7 +211,14 @@ internal static class SlotAssignment
             Signal(fallbackSlot);
         }
 
-        if (shadow is not null && ContainsSlot(node))
+        if (ReferenceEquals(parent, shadow) && referenceChild is null &&
+            node is Element appendedSlot && IsSlot(appendedSlot) && appendedSlot.FirstChild is null &&
+            shadow.SlotAssignment == SlotAssignmentMode.Named &&
+            shadow.SlotState is { AssignmentsInitialized: true } indexed)
+        {
+            AppendDirectSlot(indexed, appendedSlot);
+        }
+        else if (shadow is not null && ContainsSlot(node))
         {
             Rebuild(shadow);
         }
@@ -263,8 +282,7 @@ internal static class SlotAssignment
         {
             if (node is Element element && IsSlot(element))
             {
-                state.Slots.Add(element);
-                state.FirstByName.TryAdd(SlotName(element), element);
+                state.AddSlotAtEnd(element);
             }
 
             for (var child = node.LastChild; child is not null; child = child.PreviousSibling)
@@ -309,9 +327,23 @@ internal static class SlotAssignment
 
         if (root.SlotAssignment == SlotAssignmentMode.Named)
         {
+            state.HostByName.Clear();
             for (var child = root.Host.FirstChild; child is not null; child = child.NextSibling)
             {
-                if (IsSlottable(child) && state.FirstByName.TryGetValue(SlottableName(child), out var slot))
+                if (!IsSlottable(child))
+                {
+                    continue;
+                }
+
+                var name = SlottableName(child);
+                if (!state.HostByName.TryGetValue(name, out var hostNodes))
+                {
+                    hostNodes = [];
+                    state.HostByName.Add(name, hostNodes);
+                }
+
+                hostNodes.Add(child);
+                if (state.FirstByName.TryGetValue(name, out var slot))
                 {
                     next[slot].Add(child);
                 }
@@ -358,6 +390,47 @@ internal static class SlotAssignment
                 node.StoredAssignedSlot = slot;
             }
         }
+
+        state.AssignmentsInitialized = true;
+    }
+
+    private static void AppendDirectSlot(SlotTreeState state, Element slot)
+    {
+        var name = SlotName(slot);
+        var firstForName = !state.FirstByName.ContainsKey(name);
+        state.AddSlotAtEnd(slot);
+        if (!firstForName || !state.HostByName.TryGetValue(name, out var nodes) || nodes.Count == 0)
+        {
+            return;
+        }
+
+        var assigned = (slot.SlotState ??= new SlotElementState()).Assigned;
+        Signal(slot);
+        foreach (var node in nodes)
+        {
+            assigned.Add(node);
+            node.StoredAssignedSlot = slot;
+        }
+    }
+
+    private static void RemoveDirectSlot(SlotTreeState state, Element slot)
+    {
+        var name = SlotName(slot);
+        var wasFirst = ReferenceEquals(state.FirstByName[name], slot);
+        state.RemoveSlot(slot);
+        if (wasFirst && state.FirstByName.TryGetValue(name, out var replacement) &&
+            state.HostByName.TryGetValue(name, out var nodes) && nodes.Count != 0)
+        {
+            var assigned = (replacement.SlotState ??= new SlotElementState()).Assigned;
+            Signal(replacement);
+            foreach (var node in nodes)
+            {
+                assigned.Add(node);
+                node.StoredAssignedSlot = replacement;
+            }
+        }
+
+        ClearAssigned(slot);
     }
 
     private static void ClearAssigned(Element slot)
@@ -592,8 +665,46 @@ internal static class SlotAssignment
 
 internal sealed class SlotTreeState
 {
-    internal List<Element> Slots { get; } = [];
+    internal LinkedList<Element> Slots { get; } = [];
     internal Dictionary<string, Element> FirstByName { get; } = new(StringComparer.Ordinal);
+    internal Dictionary<string, List<Node>> HostByName { get; } = new(StringComparer.Ordinal);
+    internal bool AssignmentsInitialized;
+    private readonly Dictionary<string, LinkedList<Element>> _slotsByName = new(StringComparer.Ordinal);
+    private readonly Dictionary<Element, LinkedListNode<Element>> _treePositions = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<Element, LinkedListNode<Element>> _namePositions = new(ReferenceEqualityComparer.Instance);
+
+    internal void AddSlotAtEnd(Element slot)
+    {
+        _treePositions.Add(slot, Slots.AddLast(slot));
+        var name = slot.GetAttributeNS(null, "name") ?? "";
+        if (!_slotsByName.TryGetValue(name, out var bucket))
+        {
+            bucket = [];
+            _slotsByName.Add(name, bucket);
+            FirstByName.Add(name, slot);
+        }
+
+        _namePositions.Add(slot, bucket.AddLast(slot));
+    }
+
+    internal void RemoveSlot(Element slot)
+    {
+        Slots.Remove(_treePositions[slot]);
+        _treePositions.Remove(slot);
+        var name = slot.GetAttributeNS(null, "name") ?? "";
+        var bucket = _slotsByName[name];
+        bucket.Remove(_namePositions[slot]);
+        _namePositions.Remove(slot);
+        if (bucket.First is { } next)
+        {
+            FirstByName[name] = next.Value;
+        }
+        else
+        {
+            _slotsByName.Remove(name);
+            FirstByName.Remove(name);
+        }
+    }
 }
 
 internal sealed class SlotElementState

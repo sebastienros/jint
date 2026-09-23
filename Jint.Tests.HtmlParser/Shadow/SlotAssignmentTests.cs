@@ -196,4 +196,74 @@ public class SlotAssignmentTests
         SlotAssignment.GetAssignedSlot(child).Should().BeSameAs(slot);
         SlotAssignment.AssignedNodes(slot, false, default).Should().ContainSingle().Which.Should().BeSameAs(child);
     }
+
+    [Test]
+    public void DuplicateSlotAppendsAndRemovalsKeepTheRootIndex()
+    {
+        var document = Document.CreateHtml();
+        var host = document.CreateElement("div");
+        var root = ShadowTree.Attach(host, new ShadowRootInit(ShadowRootMode.Open), default);
+        var first = document.CreateElement("slot");
+        root.AppendChild(first);
+        var index = root.SlotState;
+        index.Should().NotBeNull();
+        var light = document.CreateTextNode("light");
+        host.AppendChild(light);
+
+        for (var i = 0; i < 2048; i++)
+        {
+            root.AppendChild(document.CreateElement("slot"));
+        }
+
+        root.SlotState.Should().BeSameAs(index);
+        SlotAssignment.GetAssignedSlot(light).Should().BeSameAs(first);
+        for (var i = 0; i < 2048; i++)
+        {
+            root.RemoveChild(root.FirstChild!);
+        }
+
+        root.SlotState.Should().BeSameAs(index);
+        SlotAssignment.GetAssignedSlot(light).Should().BeSameAs(root.FirstChild);
+    }
+
+    [Test]
+    public void BulkFragmentOfDuplicateSlotsKeepsTheRootIndex()
+    {
+        var document = Document.CreateHtml();
+        var host = document.CreateElement("div");
+        var root = ShadowTree.Attach(host, new ShadowRootInit(ShadowRootMode.Open), default);
+        root.AppendChild(document.CreateElement("slot"));
+        var index = root.SlotState;
+        var fragment = document.CreateDocumentFragment();
+        for (var i = 0; i < 2048; i++)
+        {
+            fragment.AppendChild(document.CreateElement("slot"));
+        }
+
+        root.AppendChild(fragment);
+        root.SlotState.Should().BeSameAs(index);
+        root.ChildCount.Should().Be(2049);
+        fragment.ChildCount.Should().Be(0);
+    }
+
+    [Test]
+    public void AppendingFirstSlotForAnExistingLightChildUsesTheHostIndex()
+    {
+        var document = Document.CreateHtml();
+        var host = document.CreateElement("div");
+        var root = ShadowTree.Attach(host, new ShadowRootInit(ShadowRootMode.Open), default);
+        root.AppendChild(document.CreateElement("slot"));
+        var index = root.SlotState;
+        var child = document.CreateElement("span");
+        child.SetAttribute("slot", "late");
+        host.AppendChild(child);
+        SlotAssignment.GetAssignedSlot(child).Should().BeNull();
+
+        var late = document.CreateElement("slot");
+        late.SetAttribute("name", "late");
+        root.AppendChild(late);
+        root.SlotState.Should().BeSameAs(index);
+        SlotAssignment.GetAssignedSlot(child).Should().BeSameAs(late);
+        SlotAssignment.AssignedNodes(late, false, default).Should().ContainSingle().Which.Should().BeSameAs(child);
+    }
 }
