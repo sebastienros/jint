@@ -6,15 +6,10 @@ namespace Jint.HtmlParser.Css.Selectors;
 // Selectors Level 4, §3 and §17: https://drafts.csswg.org/selectors/#structure
 internal sealed class CompiledSelector
 {
-    internal CompiledSelector(IReadOnlyList<Complex> branches)
+    internal CompiledSelector(IReadOnlyList<Complex> branches, SelectorSpecificity maximumSpecificity)
     {
         Branches = branches;
-        var maximum = default(SelectorSpecificity);
-        foreach (var branch in branches)
-        {
-            if (branch.Specificity.CompareTo(maximum) > 0) maximum = branch.Specificity;
-        }
-        MaximumSpecificity = maximum;
+        MaximumSpecificity = maximumSpecificity;
     }
 
     internal IReadOnlyList<Complex> Branches { get; }

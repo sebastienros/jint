@@ -53,7 +53,7 @@ internal static class SelectorCompiler
                         continue;
                     }
                     if (!frame.Done) continue;
-                    var result = new CompiledSelector(Freeze(frame.Branches));
+                    var result = new CompiledSelector(Freeze(frame.Branches), frame.MaximumSpecificity);
                     stack.RemoveAt(stack.Count - 1);
                     if (stack.Count == 0)
                     {
@@ -670,10 +670,10 @@ internal static class SelectorCompiler
             return end - 1;
         }
 
-        private static void SkipSpace(CssComponentValueList values, ref int i, int end = int.MaxValue)
+        private void SkipSpace(CssComponentValueList values, ref int i, int end = int.MaxValue)
         {
             end = Math.Min(end, values.Count);
-            while (i < end && IsSpace(values[i])) i++;
+            while (i < end && IsSpace(values[i])) { Poll(); i++; }
         }
 
         private static bool TryCombinator(CssComponentValueList values, int i, out Combinator combinator, out int width)
@@ -695,15 +695,21 @@ internal static class SelectorCompiler
             IsToken(v, CssTokenKind.Delim) && v.Token.Delimiter == delimiter;
         private static bool EqualsAscii(string a, string b) => CssAscii.EqualsIgnoreCase(a, b);
 
-        private static string AsciiLower(string text)
+        private string AsciiLower(string text)
         {
             var firstUpper = -1;
             for (var i = 0; i < text.Length; i++)
+            {
+                Poll();
                 if (text[i] is >= 'A' and <= 'Z') { firstUpper = i; break; }
+            }
             if (firstUpper < 0) return text;
             var chars = text.ToCharArray();
             for (var i = firstUpper; i < chars.Length; i++)
+            {
+                Poll();
                 if (chars[i] is >= 'A' and <= 'Z') chars[i] = (char) (chars[i] + ('a' - 'A'));
+            }
             return new string(chars);
         }
         private static CssSourceSpan Span(int start, int end) => new(start, end - start);
@@ -731,6 +737,7 @@ internal static class SelectorCompiler
             internal CompoundBuilder? Compound;
             internal Pending? Pending;
             internal SelectorSpecificity Specificity;
+            internal SelectorSpecificity MaximumSpecificity;
 
             internal Frame(CssComponentValueList values, bool forgiving, bool relative, bool insideHas,
                 bool allowPseudoElements, int endOffset, bool compoundOnly = false,
@@ -765,6 +772,8 @@ internal static class SelectorCompiler
                     var end = Compounds[^1].Span.Start + Compounds[^1].Span.Length;
                     Branches.Add(new ComplexSelector(Freeze(Compounds), Freeze(Combinators), Leading,
                         Span(start, end), Specificity));
+                    if (Specificity.CompareTo(MaximumSpecificity) > 0)
+                        MaximumSpecificity = Specificity;
                     Reset();
                 }
                 if (eof)
