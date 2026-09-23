@@ -14,6 +14,7 @@ internal sealed partial class HtmlTreeBuilder
             case HtmlTokenKind.ProcessingInstruction: InsertProcessingInstruction(); return false;
             case HtmlTokenKind.Doctype: Error("unexpected-doctype"); return false;
             case HtmlTokenKind.EndOfFile:
+                if (IsParsingTemplateContents) return InTemplate();
                 if (_unexpectedOpenCount != 0) Error("eof-with-open-elements");
                 return false;
             case HtmlTokenKind.StartTag: return BodyStart(name!);
@@ -27,7 +28,7 @@ internal sealed partial class HtmlTreeBuilder
         if (name == "html")
         {
             Error("unexpected-html-start-tag");
-            MergeAttributes(_open[0]);
+            if (!IsParsingTemplateContents) MergeAttributes(_open[0]);
             return false;
         }
         if (name is "base" or "basefont" or "bgsound" or "link" or "meta" or "noframes" or
@@ -39,7 +40,7 @@ internal sealed partial class HtmlTreeBuilder
         if (name == "body")
         {
             Error("unexpected-body-start-tag");
-            if (_open.Count > 1 && _open[1].LocalName == "body")
+            if (!IsParsingTemplateContents && _open.Count > 1 && _open[1].LocalName == "body")
             {
                 _framesetOk = false;
                 MergeAttributes(_open[1]);
@@ -76,9 +77,10 @@ internal sealed partial class HtmlTreeBuilder
         }
         if (name == "form")
         {
-            if (_form is not null) { Error("nested-form"); return false; }
+            if (_form is not null && !IsParsingTemplateContents) { Error("nested-form"); return false; }
             if (InButtonScope("p")) { CloseP(reprocess: true); return true; }
-            _form = InsertTokenElement();
+            var form = InsertTokenElement();
+            if (!IsParsingTemplateContents) _form = form;
             return false;
         }
         if (name == "li")
@@ -265,7 +267,7 @@ internal sealed partial class HtmlTreeBuilder
 
     private bool BodyEnd(string name)
     {
-        if (name == "template") { Missing(HtmlMissingFeature.Templates); return false; }
+        if (name == "template") return !EndTemplate();
         if (name == "table")
         {
             if (!InTableScope("table")) { Error("unexpected-table-end-tag"); return false; }
@@ -289,6 +291,14 @@ internal sealed partial class HtmlTreeBuilder
         }
         if (name == "form")
         {
+            if (IsParsingTemplateContents)
+            {
+                if (!InScope("form")) { Error("unexpected-form-end-tag"); return false; }
+                if (!TryGenerateImpliedEndTags()) return true;
+                if (!IsHtmlElement(Current, "form")) Error("misnested-form-end-tag");
+                SchedulePopTo(Last("form"), reprocess: false);
+                return false;
+            }
             var form = _form;
             if (form is null || !InScope("form")) { _form = null; Error("unexpected-form-end-tag"); return false; }
             if (!TryGenerateImpliedEndTags()) return true;

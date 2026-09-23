@@ -12,7 +12,8 @@ internal sealed partial class HtmlTreeBuilder
     private enum Mode
     {
         Initial, BeforeHtml, BeforeHead, InHead, InHeadNoscript, AfterHead, InBody, Text,
-        InTable, InTableText, InCaption, InColumnGroup, InTableBody, InRow, InCell, AfterBody, AfterAfterBody
+        InTable, InTableText, InCaption, InColumnGroup, InTableBody, InRow, InCell, InTemplate,
+        AfterBody, AfterAfterBody
     }
 
     private readonly Document _document;
@@ -51,6 +52,7 @@ internal sealed partial class HtmlTreeBuilder
     private Mode? _modeAfterPop;
     private bool _clearFormattingAfterPop;
     private bool _resetAfterPop;
+    private bool _popTemplateModeAfterPop;
     private int _pendingShiftIndex = -1;
     private int _inputAttributeIndex;
     private bool _inputTypeFound;
@@ -89,6 +91,8 @@ internal sealed partial class HtmlTreeBuilder
         _preparedAttributes = null;
         _preparedAttributeIndex = 0;
         _preparedAttributeWork = 0;
+        _templateHasFor = false;
+        _templateOrdinaryShadowFallback = false;
         ResetFormattingToken();
         _fosterParenting = false;
         _delegateToBody = false;
@@ -150,6 +154,12 @@ internal sealed partial class HtmlTreeBuilder
                     if (!TryClearFormattingToMarker()) return new HtmlParseStep(HtmlParseStepKind.Yielded);
                     _clearFormattingAfterPop = false;
                 }
+                if (_popTemplateModeAfterPop)
+                {
+                    _templateModes.RemoveAt(_templateModes.Count - 1);
+                    Charge(1);
+                    _popTemplateModeAfterPop = false;
+                }
                 _pendingPopTarget = -1;
                 if (_modeAfterPop is { } nextMode) { _mode = nextMode; _modeAfterPop = null; }
                 if (_resetAfterPop)
@@ -202,6 +212,7 @@ internal sealed partial class HtmlTreeBuilder
         Mode.InTableBody => InTableBody(),
         Mode.InRow => InRow(),
         Mode.InCell => InCell(),
+        Mode.InTemplate => InTemplate(),
         Mode.AfterBody => InAfterBody(),
         Mode.AfterAfterBody => InAfterAfterBody(),
         _ => throw new InvalidOperationException("Unknown HTML insertion mode.")
@@ -265,6 +276,14 @@ internal sealed partial class HtmlTreeBuilder
         {
             var item = attributes[_preparedAttributeIndex];
             _preparedAttributes[_preparedAttributeIndex++] = new ParserAttribute(null, item.Name, null, item.Value);
+            if (_token.Name == "template")
+            {
+                if (item.Name == "for") _templateHasFor = true;
+                if (item.Name == "shadowrootmode" &&
+                    (string.Equals(item.Value, "open", StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(item.Value, "closed", StringComparison.OrdinalIgnoreCase)))
+                    _templateOrdinaryShadowFallback = true;
+            }
             var itemWork = 1L + item.Name.Length + item.Value.Length;
             _preparedAttributeWork = _preparedAttributeWork > long.MaxValue - itemWork ? long.MaxValue : _preparedAttributeWork + itemWork;
             var formattingWork = IsFormatting(_token.Name!) ? PrepareFormattingAttribute(item) : 0;

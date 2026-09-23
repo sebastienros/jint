@@ -9,8 +9,13 @@ the tree, while tokenizer and tree diagnostic tests assert their separate codes.
 The independent H4 algorithm reference is the HTML Standard tree construction
 snapshot updated 2026-09-22.
 
-Executed: 14 of 14 selected historical document cases. Three later families remain
-terminal `MissingFeature` branches: Templates, Framesets, and ForeignContent.
+Executed: 14 of 14 selected historical document cases. Framesets and ForeignContent
+remain terminal `MissingFeature` families. Templates stops only where the current
+`for` content-patching branch applies; ordinary template parsing is covered in
+`HtmlTemplateTreeTests` against the HTML Standard updated 2026-09-22. The document
+parser's default declarative-shadow flag is false, so valid `shadowrootmode` tokens
+follow the Standard's ordinary-template fallback. H6f owns active declarative
+shadow parsing and content patching once their native state is integrated.
 `HtmlTableStructureTests` and `HtmlTableTextTests` cover H5a/H5b
 against the 2026-09-22 HTML Standard; the historical corpus pin above is comparison
 evidence, not the rule for a changed algorithm. Table text tests cover pending runs,

@@ -29,20 +29,21 @@ internal sealed partial class HtmlTreeBuilder
                     throw new InvalidOperationException("HTML template has no contents."), null);
             }
             if (tableIndex < 0)
-                return new InsertionLocation(_open[0], null);
+                return new InsertionLocation(AdjustTemplateTarget(_open[0]), null);
 
             var table = _open[tableIndex];
             if (table.ParentNode is { } parent)
                 return new InsertionLocation(parent, table);
             if (tableIndex > 0)
-                return new InsertionLocation(_open[tableIndex - 1], null);
-            return new InsertionLocation(_open[0], null);
+                return new InsertionLocation(AdjustTemplateTarget(_open[tableIndex - 1]), null);
+            return new InsertionLocation(AdjustTemplateTarget(_open[0]), null);
         }
 
-        if (target is Element { TemplateContent: { } contents })
-            return new InsertionLocation(contents, null);
-        return new InsertionLocation(target, null);
+        return new InsertionLocation(AdjustTemplateTarget(target), null);
     }
+
+    private static Node AdjustTemplateTarget(Node target) =>
+        target is Element { TemplateContent: { } contents } ? contents : target;
 
     private void InsertAt(InsertionLocation location, Node node)
     {

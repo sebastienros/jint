@@ -96,7 +96,7 @@ public partial class HtmlTreeConstructionTests
         ((Element) table.FirstChild!.NextSibling!).LocalName.Should().Be("script");
         foreach (var (source, family) in new[]
         {
-            ("<table><template>", HtmlMissingFeature.Templates),
+            ("<table><template for=target>", HtmlMissingFeature.Templates),
             ("<table><tr><td><svg>", HtmlMissingFeature.ForeignContent)
         })
         {

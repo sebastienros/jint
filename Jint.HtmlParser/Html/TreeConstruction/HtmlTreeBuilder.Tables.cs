@@ -56,8 +56,10 @@ internal sealed partial class HtmlTreeBuilder
                         return false;
                     case "form":
                         Error("form-in-table");
-                        if (_form is not null) return false;
-                        _form = InsertTokenElement(); Pop();
+                        if (_form is not null && !IsParsingTemplateContents) return false;
+                        var tableForm = InsertTokenElement();
+                        if (!IsParsingTemplateContents) _form = tableForm;
+                        Pop();
                         return false;
                 }
                 break;
@@ -295,10 +297,13 @@ internal sealed partial class HtmlTreeBuilder
             case "caption": _mode = Mode.InCaption; break;
             case "colgroup": _mode = Mode.InColumnGroup; break;
             case "table": _mode = Mode.InTable; break;
-            case "template": Missing(HtmlMissingFeature.Templates); break;
+            case "template":
+                _mode = _templateModes.Count > 0 ? _templateModes[^1] :
+                    throw new InvalidOperationException("Template insertion mode stack is empty.");
+                break;
             case "head": _mode = Mode.InHead; break;
             case "body": _mode = Mode.InBody; break;
-            case "html": _mode = Mode.BeforeHead; break;
+            case "html": _mode = _head is null ? Mode.BeforeHead : Mode.AfterHead; break;
             default: throw new InvalidOperationException("Unknown HTML insertion-mode reset element.");
         }
     }

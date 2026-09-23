@@ -94,13 +94,13 @@ internal sealed partial class HtmlTreeBuilder
                 return false;
             }
             if (name == "script") { EnterText(HtmlTextMode.ScriptData, name); return false; }
-            if (name == "template") { Missing(HtmlMissingFeature.Templates); return false; }
+            if (name == "template") { StartTemplate(); return false; }
             if (name == "head") { Error("unexpected-head-start-tag"); return false; }
         }
         if (_token.Kind == HtmlTokenKind.EndTag)
         {
             if (name == "head") { Pop(); _mode = Mode.AfterHead; return false; }
-            if (name == "template") { Missing(HtmlMissingFeature.Templates); return false; }
+            if (name == "template") return !EndTemplate();
             if (name is not ("body" or "html" or "br")) { Error("unexpected-end-tag"); return false; }
         }
         if (Current.LocalName != "head")
@@ -161,7 +161,7 @@ internal sealed partial class HtmlTreeBuilder
         }
         if (_token.Kind == HtmlTokenKind.EndTag)
         {
-            if (name == "template") { Missing(HtmlMissingFeature.Templates); return false; }
+            if (name == "template") return !EndTemplate();
             if (name is not ("body" or "html" or "br")) { Error("unexpected-end-tag"); return false; }
         }
         InsertElement("body");
@@ -264,6 +264,7 @@ internal sealed partial class HtmlTreeBuilder
                 case Mode.InBody:
                 case Mode.InCaption:
                 case Mode.InCell:
+                case Mode.InTemplate:
                     if (c == '\0') { Error("unexpected-null-character"); _textIndex++; Charge(1); continue; }
                     if (!TryReconstructFormatting()) return;
                     AppendCharacterRun(data, whiteOnly: White(c));

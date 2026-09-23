@@ -208,14 +208,14 @@ public partial class HtmlTreeConstructionTests
     [Test]
     public void BufferedTextFlushesBeforeDependentTemplateStop()
     {
-        var parsed = Parse("<table>A<template>", 1);
+        var parsed = Parse("<table>A<template for=target>", 1);
         parsed.Step.Kind.Should().Be(HtmlParseStepKind.MissingFeature);
         parsed.Step.MissingFeature.Should().Be(HtmlMissingFeature.Templates);
         parsed.Step.Offset.Should().Be(8);
         Serialize(parsed.Document).Should().Be("<html><head></head><body>A<table></table></body></html>");
     }
 
-    [TestCase("<table><template>", "Templates")]
+    [TestCase("<table><template for=target>", "Templates")]
     [TestCase("<table><svg>", "ForeignContent")]
     public void FosterDelegationPreservesOtherFamilyStops(string source, string family)
     {
