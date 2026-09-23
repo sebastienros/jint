@@ -4128,5 +4128,1120 @@
     ],
     "notations": [],
     "review": "Pinned main stream has the exact literal doctype/root/child shape; only unread ../valid/dtdtest.dtd supplies the content model making the catalog case invalid. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance. The catalog invalidity is the Element Valid VC under XML §3.1 https://www.w3.org/TR/xml/#sec-starttags."
+  },
+  {
+    "key": "xmlconf/sun/sun-invalid.xml#id01",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "../valid/sa.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "../valid/sa.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " values of type ID must match \"name\" ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n    ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "attributes",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [
+          {
+            "Name": "id",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "42a"
+          }
+        ],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "The external ID declaration alone types id as ID; without fetching it, id=\"42a\" is a well-formed CDATA attribute and the ID-is-a-Name VC is not enforced. Pinned main source and unread external subset reviewed independently; XML §§2.8, 2.9, 3.1, 3.3.3, 5.1 https://www.w3.org/TR/xml/."
+  },
+  {
+    "key": "xmlconf/sun/sun-invalid.xml#id02",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "../valid/sa.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "../valid/sa.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " a name must not appear more than once as a value of type id ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n    ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "attributes",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [
+          {
+            "Name": "id",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "a42"
+          }
+        ],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n    ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "attributes",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [
+          {
+            "Name": "id",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "a42"
+          }
+        ],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "The duplicate ID values violate validity only under the unread external ID declaration; both literal attributes remain well formed CDATA. Pinned main source and unread external subset reviewed independently; XML §§2.8, 2.9, 3.1, 3.3.3, 5.1 https://www.w3.org/TR/xml/."
+  },
+  {
+    "key": "xmlconf/sun/sun-invalid.xml#id03",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "../valid/sa.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "../valid/sa.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " no element type may have more than one ID attribute specified ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "The internal subset declares id2 as ID, while the other ID declaration is in the unread external subset; no fatal well-formedness rule is violated. Pinned main source and unread external subset reviewed independently; XML §§2.8, 2.9, 3.1, 3.3.3, 5.1 https://www.w3.org/TR/xml/."
+  },
+  {
+    "key": "xmlconf/sun/sun-invalid.xml#inv-not-sa01",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "../valid/sa.dtd",
+        "Offset": 40
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "../valid/sa.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n    ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "child",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 2,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n    The whitespace before and after this element keeps\n    this from being standalone.\n    ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "Standalone validity depends on the unread external element-content declaration; literal whitespace and child text survive in no-fetch processing. Pinned main source and unread external subset reviewed independently; XML §§2.8, 2.9, 3.1, 3.3.3, 5.1 https://www.w3.org/TR/xml/."
+  },
+  {
+    "key": "xmlconf/sun/sun-invalid.xml#inv-not-sa02",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "../valid/sa.dtd",
+        "Offset": 40
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "attributes",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "../valid/sa.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " sync with ../valid/not-sa02.xml ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n\tLOTS of normalized/defaulted attributes\n\tkeep this from being standalone\n\n\tXXX not the best of tests!!\n\t... each type of normalization/defaulting\n\tneeds separate testing\n    ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "attributes",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [
+          {
+            "Name": "notation",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": " nonce "
+          },
+          {
+            "Name": "nmtoken",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": " this-gets-normalized "
+          },
+          {
+            "Name": "nmtokens",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": " this\r\n also  gets  normalized "
+          },
+          {
+            "Name": "id",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "  number99 "
+          },
+          {
+            "Name": "idref",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "  number99     "
+          },
+          {
+            "Name": "idrefs",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "  number99   number99     number99"
+          },
+          {
+            "Name": "entity",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": " unparsed-1 "
+          },
+          {
+            "Name": "entities",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "unparsed-1     unparsed-2   "
+          },
+          {
+            "Name": "cdata",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "nothing happens to this one!"
+          }
+        ],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "The internal general entity is declared and expands; all external attribute types are unread, so each specified attribute receives only CDATA-phase normalization. Pinned main source and unread external subset reviewed independently; XML §§2.8, 2.9, 3.1, 3.3.3, 5.1 https://www.w3.org/TR/xml/."
+  },
+  {
+    "key": "xmlconf/sun/sun-invalid.xml#inv-not-sa04",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "../valid/sa.dtd",
+        "Offset": 40
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "attributes",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "../valid/sa.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "attributes",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "ProcessingInstruction",
+        "Name": "pi",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "equals three",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "The external default attribute is unread; the empty attributes element acquires no default, and the trailing processing instruction survives. Pinned main source and unread external subset reviewed independently; XML §§2.8, 2.9, 3.1, 3.3.3, 5.1 https://www.w3.org/TR/xml/."
+  },
+  {
+    "key": "xmlconf/sun/sun-invalid.xml#inv-not-sa05",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "../valid/sa.dtd",
+        "Offset": 40
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "attributes",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "../valid/sa.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "attributes",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [
+          {
+            "Name": "token",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": " c "
+          }
+        ],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "The external attribute type and standalone normalization constraint are unread; preserve only XML CDATA-phase normalization of the specified literal values. Pinned main source and unread external subset reviewed independently; XML §§2.8, 2.9, 3.1, 3.3.3, 5.1 https://www.w3.org/TR/xml/."
+  },
+  {
+    "key": "xmlconf/sun/sun-invalid.xml#inv-not-sa06",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "../valid/sa.dtd",
+        "Offset": 40
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "attributes",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "../valid/sa.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "attributes",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [
+          {
+            "Name": "token",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "b"
+          },
+          {
+            "Name": "notation",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": " nonce "
+          }
+        ],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "The external attribute type and standalone normalization constraint are unread; preserve only XML CDATA-phase normalization of the specified literal values. The notation attribute is enumeration-typed in the unread DTD. Pinned main source and unread external subset reviewed independently; XML §§2.8, 2.9, 3.1, 3.3.3, 5.1 https://www.w3.org/TR/xml/."
+  },
+  {
+    "key": "xmlconf/sun/sun-invalid.xml#inv-not-sa07",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "../valid/sa.dtd",
+        "Offset": 40
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "attributes",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "../valid/sa.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "attributes",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [
+          {
+            "Name": "token",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "b"
+          },
+          {
+            "Name": "nmtoken",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": " this-gets-normalized "
+          }
+        ],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "The external attribute type and standalone normalization constraint are unread; preserve only XML CDATA-phase normalization of the specified literal values. Pinned main source and unread external subset reviewed independently; XML §§2.8, 2.9, 3.1, 3.3.3, 5.1 https://www.w3.org/TR/xml/."
+  },
+  {
+    "key": "xmlconf/sun/sun-invalid.xml#inv-not-sa08",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "../valid/sa.dtd",
+        "Offset": 40
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "attributes",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "../valid/sa.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "attributes",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [
+          {
+            "Name": "token",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "b"
+          },
+          {
+            "Name": "nmtokens",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": " this\r\n also  gets  normalized "
+          }
+        ],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "The external attribute type and standalone normalization constraint are unread; preserve only XML CDATA-phase normalization of the specified literal values. Pinned main source and unread external subset reviewed independently; XML §§2.8, 2.9, 3.1, 3.3.3, 5.1 https://www.w3.org/TR/xml/."
+  },
+  {
+    "key": "xmlconf/sun/sun-invalid.xml#inv-not-sa09",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "../valid/sa.dtd",
+        "Offset": 40
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "attributes",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "../valid/sa.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "attributes",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [
+          {
+            "Name": "token",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "b"
+          },
+          {
+            "Name": "id",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": " cindy "
+          }
+        ],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "The external attribute type and standalone normalization constraint are unread; preserve only XML CDATA-phase normalization of the specified literal values. Pinned main source and unread external subset reviewed independently; XML §§2.8, 2.9, 3.1, 3.3.3, 5.1 https://www.w3.org/TR/xml/."
+  },
+  {
+    "key": "xmlconf/sun/sun-invalid.xml#inv-not-sa10",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "../valid/sa.dtd",
+        "Offset": 40
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "attributes",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "../valid/sa.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "attributes",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [
+          {
+            "Name": "token",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "b"
+          },
+          {
+            "Name": "id",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "id43"
+          },
+          {
+            "Name": "idref",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": " id43     "
+          }
+        ],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "The external attribute type and standalone normalization constraint are unread; preserve only XML CDATA-phase normalization of the specified literal values. Pinned main source and unread external subset reviewed independently; XML §§2.8, 2.9, 3.1, 3.3.3, 5.1 https://www.w3.org/TR/xml/."
+  },
+  {
+    "key": "xmlconf/sun/sun-invalid.xml#inv-not-sa11",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "../valid/sa.dtd",
+        "Offset": 40
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "attributes",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "../valid/sa.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "attributes",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [
+          {
+            "Name": "token",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "b"
+          },
+          {
+            "Name": "id",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "date28"
+          },
+          {
+            "Name": "idrefs",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": " date28   date28     date28 "
+          }
+        ],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "The external attribute type and standalone normalization constraint are unread; preserve only XML CDATA-phase normalization of the specified literal values. Pinned main source and unread external subset reviewed independently; XML §§2.8, 2.9, 3.1, 3.3.3, 5.1 https://www.w3.org/TR/xml/."
+  },
+  {
+    "key": "xmlconf/sun/sun-invalid.xml#inv-not-sa12",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "../valid/sa.dtd",
+        "Offset": 40
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "attributes",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "../valid/sa.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "attributes",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [
+          {
+            "Name": "token",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "b"
+          },
+          {
+            "Name": "entity",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": " unparsed-1 "
+          }
+        ],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "The external attribute type and standalone normalization constraint are unread; preserve only XML CDATA-phase normalization of the specified literal values. Pinned main source and unread external subset reviewed independently; XML §§2.8, 2.9, 3.1, 3.3.3, 5.1 https://www.w3.org/TR/xml/."
+  },
+  {
+    "key": "xmlconf/sun/sun-invalid.xml#inv-not-sa13",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "../valid/sa.dtd",
+        "Offset": 40
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "attributes",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "../valid/sa.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "attributes",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [
+          {
+            "Name": "token",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "b"
+          },
+          {
+            "Name": "entities",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "     unparsed-1          unparsed-2     "
+          }
+        ],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "The external attribute type and standalone normalization constraint are unread; preserve only XML CDATA-phase normalization of the specified literal values. Pinned main source and unread external subset reviewed independently; XML §§2.8, 2.9, 3.1, 3.3.3, 5.1 https://www.w3.org/TR/xml/."
+  },
+  {
+    "key": "xmlconf/sun/sun-invalid.xml#inv-not-sa14",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "../valid/sa.dtd",
+        "Offset": 40
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "../valid/sa.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "CDataSection",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n    ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "child",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 2,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n    The whitespace before and after this element keeps\n    this from being standalone.  (CDATA is just another\n    way to represent text...)\n    ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "CDataSection",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "The unread external content model gives the validity issue; the two literal CDATA sections remain distinct from text. Pinned main source and unread external subset reviewed independently; XML §§2.8, 2.9, 3.1, 3.3.3, 5.1 https://www.w3.org/TR/xml/."
+  },
+  {
+    "key": "xmlconf/sun/sun-invalid.xml#root",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "../valid/sa.dtd",
+        "Offset": 40
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "attributes",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "../valid/sa.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " the name in the dtd must match the element type of the root element ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "The document type name attributes and root element name root differ, which is a validity constraint, not a fatal well-formedness error. Pinned main source and unread external subset reviewed independently; XML §§2.8, 2.9, 3.1, 3.3.3, 5.1 https://www.w3.org/TR/xml/."
   }
 ]
