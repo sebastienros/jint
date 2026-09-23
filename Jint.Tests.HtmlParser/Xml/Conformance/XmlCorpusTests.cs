@@ -169,23 +169,52 @@ public class XmlCorpusTests
     [Test]
     public void SecondCanonicalAdapterHasPositiveAndNegativeEvidence()
     {
+        var inputBase = XmlEvidence.CorpusInputBase("xmlconf/probes/input.xml");
         var document = MarkupParser.ParseXml("<r b='2' a='&amp;'><![CDATA[x<y]]><!--ignored--><?pi z?></r>");
         const string expected = "<r a=\"&amp;\" b=\"2\">x&lt;y<?pi z?></r>";
-        var actual = XmlEvidence.SecondCanonicalForm(document);
+        var actual = XmlEvidence.SecondCanonicalForm(document, inputBase);
         actual.Should().Be(expected);
         actual.Should().NotBe("<r b=\"2\" a=\"&amp;\">x&lt;y<?pi z?></r>");
         var notationDocument = MarkupParser.ParseXml("<!DOCTYPE r [<!NOTATION n SYSTEM 'x'>]><r/>");
-        XmlEvidence.SecondCanonicalForm(notationDocument).Should().Be("<!DOCTYPE r [\n<!NOTATION n SYSTEM 'x'>\n]>\n<r></r>");
+        XmlEvidence.SecondCanonicalForm(notationDocument, inputBase).Should().Be("<!DOCTYPE r [\n<!NOTATION n SYSTEM 'x'>\n]>\n<r></r>");
         var unsortedNotations = MarkupParser.ParseXml("<!DOCTYPE r [<!NOTATION z SYSTEM 'z'><!NOTATION a SYSTEM 'a'>]><r/>");
         unsortedNotations.XmlNotations.Select(item => item.Name).Should().Equal("z", "a");
-        XmlEvidence.SecondCanonicalForm(unsortedNotations).Should().Be(
+        XmlEvidence.SecondCanonicalForm(unsortedNotations, inputBase).Should().Be(
             "<!DOCTYPE r [\n<!NOTATION a SYSTEM 'a'>\n<!NOTATION z SYSTEM 'z'>\n]>\n<r></r>");
         var bothIdentifiers = MarkupParser.ParseXml("<!DOCTYPE r [<!NOTATION n PUBLIC 'p' 's'>]><r/>");
-        XmlEvidence.SecondCanonicalForm(bothIdentifiers).Should().Be(
+        XmlEvidence.SecondCanonicalForm(bothIdentifiers, inputBase).Should().Be(
             "<!DOCTYPE r [\n<!NOTATION n PUBLIC 'p' 's'>\n]>\n<r></r>");
         var scalarNames = MarkupParser.ParseXml("<r a😀='x' a豈='y'/>");
         const string scalarOrder = "<r a豈=\"y\" a😀=\"x\"></r>";
-        XmlEvidence.SecondCanonicalForm(scalarNames).Should().Be(scalarOrder);
+        XmlEvidence.SecondCanonicalForm(scalarNames, inputBase).Should().Be(scalarOrder);
+    }
+
+    [Test]
+    public void SecondCanonicalSystemIdentifiersUseExplicitInputProvenance()
+    {
+        var inputBase = XmlEvidence.CorpusInputBase("xmlconf/probes/input.xml");
+        XmlEvidence.CanonicalSystemId("http://example.org/n#frag", inputBase).Should().Be("http://example.org/n");
+        XmlEvidence.CanonicalSystemId("http://example.org/rosé#frag", inputBase)
+            .Should().Be("http://example.org/ros%C3%A9");
+        XmlEvidence.CanonicalSystemId("./a/../n#frag", inputBase).Should().Be("n");
+        XmlEvidence.CanonicalSystemId("n%23part#frag", inputBase).Should().Be("n%23part");
+        XmlEvidence.CanonicalSystemId("😀.xml#frag", inputBase).Should().Be("%F0%9F%98%80.xml");
+        XmlEvidence.CanonicalSystemId("?q=1", inputBase).Should().Be("?q=1");
+        XmlEvidence.CanonicalSystemId("https://xmlconf.invalid/xmlconf/probes/a/../n", inputBase)
+            .Should().Be("n");
+        var deepBase = XmlEvidence.CorpusInputBase("xmlconf/a/b/c/d/input.xml");
+        XmlEvidence.CanonicalSystemId("https://xmlconf.invalid/x", deepBase).Should().Be("/x");
+        XmlEvidence.CorpusInputBase("xmlconf/probes/in#put?.xml").AbsoluteUri
+            .Should().EndWith("/xmlconf/probes/in%23put%3F.xml");
+        XmlEvidence.CanonicalSystemId("file:/dev/null", inputBase).Should().Be("file:/dev/null");
+        XmlEvidence.CanonicalSystemId("http://www.w3.org/", inputBase).Should().Be("http://www.w3.org/");
+
+        const string raw = "http://example.org/rosé#frag";
+        var document = MarkupParser.ParseXml($"<!DOCTYPE r [<!NOTATION n SYSTEM '{raw}'>]><r/>");
+        document.XmlNotations.Single().SystemId.Should().Be(raw);
+        XmlEvidence.SecondCanonicalForm(document, inputBase).Should().Be(
+            "<!DOCTYPE r [\n<!NOTATION n SYSTEM 'http://example.org/ros%C3%A9'>\n]>\n<r></r>");
+        document.XmlNotations.Single().SystemId.Should().Be(raw);
     }
 
     [Test]
@@ -326,7 +355,8 @@ public class XmlCorpusTests
                      "<!DOCTYPE doc [<!NOTATION n PUBLIC 'whatever'><!NOTATION extra SYSTEM 'x'>]><doc/>"
                  })
         {
-            var actual = Encoding.UTF8.GetBytes(XmlEvidence.SecondCanonicalForm(MarkupParser.ParseXml(wrongSource)));
+            var actual = Encoding.UTF8.GetBytes(XmlEvidence.SecondCanonicalForm(MarkupParser.ParseXml(wrongSource),
+                XmlEvidence.CorpusInputBase(row.InputPath)));
             actual.AsSpan().SequenceEqual(pinnedOutput).Should().BeFalse();
         }
     }

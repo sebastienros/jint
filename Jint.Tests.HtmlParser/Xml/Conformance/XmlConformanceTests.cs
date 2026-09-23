@@ -135,7 +135,7 @@ internal static class XmlConformanceRunner
                     var original = XmlCorpus.Bytes(row.OutputPath);
                     if (reviewed.OriginalOutputSha256 != Digest(original))
                         return new(XmlOutcomeKind.HarnessFailure, "reviewed-output-pin-mismatch", "Upstream OUTPUT digest changed");
-                    var comparison = CompareOriginalOutput(document, testOutput ?? original);
+                    var comparison = CompareOriginalOutput(document, testOutput ?? original, row.InputPath);
                     if (comparison is not null) return comparison;
                     return new(XmlOutcomeKind.Pass, "accepted", "Reviewed omission and original OUTPUT both match");
                 }
@@ -148,13 +148,21 @@ internal static class XmlConformanceRunner
                 var actualSha = Digest(Encoding.UTF8.GetBytes(alternative));
                 if (actualSha != reviewed.ProjectionSha256)
                     return new(XmlOutcomeKind.ParserFailure, $"no-fetch-output-mismatch:{actualSha}", "Reviewed projection digest differs");
-                var canonical = XmlEvidence.SecondCanonicalForm(document);
+                string canonical;
+                try
+                {
+                    canonical = XmlEvidence.SecondCanonicalForm(document, XmlEvidence.CorpusInputBase(row.InputPath));
+                }
+                catch (XmlOutputObservationGapException error)
+                {
+                    return new(XmlOutcomeKind.HarnessFailure, "canonical-output-unavailable", error.Message);
+                }
                 if (canonical != reviewed.OutputAlternative)
                     return new(XmlOutcomeKind.ParserFailure, "no-fetch-canonical-mismatch", canonical);
             }
             else
             {
-                var comparison = CompareOriginalOutput(document, testOutput ?? XmlCorpus.Bytes(row.OutputPath));
+                var comparison = CompareOriginalOutput(document, testOutput ?? XmlCorpus.Bytes(row.OutputPath), row.InputPath);
                 if (comparison is not null) return comparison;
             }
         }
@@ -163,12 +171,12 @@ internal static class XmlConformanceRunner
 
     private static string Digest(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
 
-    private static XmlCaseOutcome? CompareOriginalOutput(Document document, byte[] expected)
+    private static XmlCaseOutcome? CompareOriginalOutput(Document document, byte[] expected, string inputPath)
     {
         string actual;
         try
         {
-            actual = XmlEvidence.SecondCanonicalForm(document);
+            actual = XmlEvidence.SecondCanonicalForm(document, XmlEvidence.CorpusInputBase(inputPath));
         }
         catch (XmlOutputObservationGapException error)
         {

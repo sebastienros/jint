@@ -8,9 +8,18 @@ namespace Jint.Tests.HtmlParser.Xml.Conformance;
 internal static class XmlEvidence
 {
     private static readonly IComparer<string> ScalarOrder = Comparer<string>.Create(CompareUnicodeScalars);
+    private static readonly Uri CorpusOrigin = new("https://xmlconf.invalid/");
+
+    internal static Uri CorpusInputBase(string inputPath)
+    {
+        XmlCorpus.EnsureSafePath(inputPath);
+        var escapedSegments = inputPath.Split('/').Select(Uri.EscapeDataString);
+        return new Uri(CorpusOrigin, string.Join('/', escapedSegments));
+    }
+
     // W3C XML Test Suite, xmlconf/sun/cxml.html, Second XML Canonical Form.
     // Notation declarations come only from the public parse result, never from OUTPUT or input rescanning.
-    internal static string SecondCanonicalForm(Document document)
+    internal static string SecondCanonicalForm(Document document, Uri inputBase)
     {
         var result = new StringBuilder();
         if (document.XmlNotations.Count > 0)
@@ -28,13 +37,13 @@ internal static class XmlEvidence
                     if (notation.SystemId is not null)
                     {
                         result.Append(' ');
-                        AppendSingleQuoted(result, notation.SystemId);
+                        AppendSingleQuoted(result, CanonicalSystemId(notation.SystemId, inputBase));
                     }
                 }
                 else if (notation.SystemId is not null)
                 {
                     result.Append("SYSTEM ");
-                    AppendSingleQuoted(result, notation.SystemId);
+                    AppendSingleQuoted(result, CanonicalSystemId(notation.SystemId, inputBase));
                 }
                 else
                 {
@@ -95,6 +104,79 @@ internal static class XmlEvidence
         if (identifier.Contains('\''))
             throw new XmlOutputObservationGapException("Second Canonical Form cannot represent a literal apostrophe in a single-quoted identifier");
         output.Append('\'').Append(identifier).Append('\'');
+    }
+
+    // Sun's Second Canonical Form: remove fragments, escape non-ASCII as UTF-8,
+    // and use the shortest relative reference when the identifier shares the input base.
+    // The reserved corpus origin is provenance for comparison only; it is never resolved or fetched.
+    internal static string CanonicalSystemId(string systemId, Uri inputBase)
+    {
+        if (!inputBase.IsAbsoluteUri)
+            throw new XmlOutputObservationGapException("Second Canonical Form needs an absolute input base");
+        var fragment = systemId.IndexOf('#');
+        var withoutFragment = fragment < 0 ? systemId : systemId[..fragment];
+        var escaped = EscapeNonAscii(withoutFragment);
+        try
+        {
+            var colon = escaped.IndexOf(':');
+            if (colon > 0 && Uri.CheckSchemeName(escaped[..colon]))
+            {
+                // Uri rejects some legal scheme-specific spellings such as file:/dev/null.
+                // Preserve those absolute identifiers instead of inventing a relative one.
+                return Uri.TryCreate(escaped, UriKind.Absolute, out var absolute) && SameOrigin(inputBase, absolute)
+                    ? ShortestRelativeReference(inputBase, absolute)
+                    : escaped;
+            }
+            var resolved = new Uri(inputBase, escaped);
+            return SameOrigin(inputBase, resolved)
+                ? ShortestRelativeReference(inputBase, resolved)
+                : resolved.AbsoluteUri;
+        }
+        catch (UriFormatException error)
+        {
+            throw new XmlOutputObservationGapException($"Cannot canonicalize system identifier: {error.Message}");
+        }
+    }
+
+    private static bool SameOrigin(Uri left, Uri right) =>
+        left.Scheme.Equals(right.Scheme, StringComparison.OrdinalIgnoreCase) &&
+        left.Authority.Equals(right.Authority, StringComparison.OrdinalIgnoreCase);
+
+    private static string ShortestRelativeReference(Uri inputBase, Uri target)
+    {
+        var shortest = inputBase.MakeRelativeUri(target).OriginalString;
+        var rooted = target.AbsolutePath + target.Query;
+        if (rooted.Length < shortest.Length && new Uri(inputBase, rooted).Equals(target))
+            shortest = rooted;
+        if (inputBase.AbsolutePath == target.AbsolutePath)
+        {
+            var sameFile = target.Query;
+            if (sameFile.Length < shortest.Length && new Uri(inputBase, sameFile).Equals(target))
+                shortest = sameFile;
+        }
+        return shortest;
+    }
+
+    private static string EscapeNonAscii(string value)
+    {
+        var result = new StringBuilder(value.Length);
+        Span<byte> utf8 = stackalloc byte[4];
+        const string hex = "0123456789ABCDEF";
+        foreach (var scalar in value.EnumerateRunes())
+        {
+            if (scalar.Value <= 0x7F)
+            {
+                result.Append((char)scalar.Value);
+                continue;
+            }
+            var count = scalar.EncodeToUtf8(utf8);
+            for (var index = 0; index < count; index++)
+            {
+                var octet = utf8[index];
+                result.Append('%').Append(hex[octet >> 4]).Append(hex[octet & 0xF]);
+            }
+        }
+        return result.ToString();
     }
 
     private static void AppendData(StringBuilder output, string data)
