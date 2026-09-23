@@ -273,12 +273,37 @@ public class BoundaryPrimitivesTests
         observed.Should().BeGreaterThan(1024);
 
         using var deepCancellation = new CancellationTokenSource();
+        var deepCancelCheckpoint = -1;
+        var deepLastCheckpoint = -1;
         Assert.Throws<OperationCanceledException>(() => BoundaryOrder.GetRoot(new DomNodeIdentity(deep),
-            steps => { if (steps >= 512) deepCancellation.Cancel(); }, deepCancellation.Token));
+            steps =>
+            {
+                deepLastCheckpoint = steps;
+                if (steps == 512)
+                {
+                    deepCancelCheckpoint = steps;
+                    deepCancellation.Cancel();
+                }
+            }, deepCancellation.Token));
+        deepCancelCheckpoint.Should().Be(512);
+        deepLastCheckpoint.Should().Be(512);
+
         using var wideCancellation = new CancellationTokenSource();
+        var wideCancelCheckpoint = -1;
+        var wideLastCheckpoint = -1;
         Assert.Throws<OperationCanceledException>(() => BoundaryOrder.Compare(
             new BoundaryPoint(new DomNodeIdentity(right), 0), new BoundaryPoint(new DomNodeIdentity(nearEnd!), 0),
-            steps => { if (steps >= 512) wideCancellation.Cancel(); }, wideCancellation.Token));
+            steps =>
+            {
+                wideLastCheckpoint = steps;
+                if (steps == 512)
+                {
+                    wideCancelCheckpoint = steps;
+                    wideCancellation.Cancel();
+                }
+            }, wideCancellation.Token));
+        wideCancelCheckpoint.Should().Be(512);
+        wideLastCheckpoint.Should().Be(512);
     }
 
     [Test]
