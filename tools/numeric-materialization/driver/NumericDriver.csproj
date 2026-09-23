@@ -1,4 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-<PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><EnableNETAnalyzers>false</EnableNETAnalyzers></PropertyGroup>
-<ItemGroup><PackageReference Include="PuppeteerSharp"/><PackageReference Include="BenchmarkDotNet"/><Compile Include="../../../Jint.Benchmark/MachineStateValidator.cs" Link="MachineStateValidator.cs"/><FrameworkReference Include="Microsoft.AspNetCore.App"/><Compile Include="../../browser-comparison/Workloads.cs" Link="Workloads.cs"/><Using Remove="Acornima"/><Using Remove="Acornima.Ast"/></ItemGroup>
-</Project>

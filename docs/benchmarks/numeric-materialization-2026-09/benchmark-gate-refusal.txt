@@ -1,2 +1,0 @@
-// Validating benchmarks:
-//    * Machine is not idle: 90.8% of one core is busy (limit 40%). Top consumers: Microsoft Edge Helper (Renderer) 41%, Codex (Service) 22%, Codex (Renderer) 17%, ChatGPT 4%. Close them and re-run, or set JINT_BENCH_SKIP_IDLE_CHECK=1 to measure anyway and accept that the numbers are not gate-quality.
