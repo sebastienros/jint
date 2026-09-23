@@ -9580,5 +9580,112 @@
     "originalOutputSha256": "f6462b5d0cb4507185cbdc1ab66756415f0a8107bafddd5fc6fc45cc2ec8dedb",
     "outputAlternative": "<root></root>",
     "review": "Pinned W3C INPUT cfa49549af988eea65149753afb5f1688c641b724750c18efb6318fbc0fea678, unread BOM entity da8d4757ee89738a00ed604539f6eec911cd99ced625178a27eedd207e08d58b, original OUTPUT f6462b5d0cb4507185cbdc1ab66756415f0a8107bafddd5fc6fc45cc2ec8dedb; The sole general entity bombom8 is external (8bombom.xml); without fetch its BOM and following markup cannot enter the document. Fetched upstream OUTPUT contains the decoded f element plus a retained U+FEFF from the second BOM. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/eduni/errata-2e/errata2e.xml#rmt-e2e-18",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "Parameter",
+        "Name": "pe",
+        "PublicId": null,
+        "SystemId": "subdir1/E18-pe",
+        "Offset": 74
+      },
+      {
+        "Kind": "Parameter",
+        "Name": "intpe",
+        "PublicId": null,
+        "SystemId": null,
+        "Offset": 79
+      },
+      {
+        "Kind": "General",
+        "Name": "ent",
+        "PublicId": null,
+        "SystemId": null,
+        "Offset": 95
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "foo",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "foo",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "no-fetch-alternative",
+    "projectionSha256": "75c57da21828050322711171edeb7757a6132530e79cb26b6a2e55b6872875a4",
+    "originalOutputSha256": "6f408fff4e526b0f7ba4571b96a4d2b2249e05106b2e19b7e050db4798179f7a",
+    "outputAlternative": "<foo></foo>",
+    "review": "Pinned W3C INPUT 5968be3ce43799a857ff2cfba9a431b525087a3293230d74a5d7e8b5d2eb169b, original OUTPUT 6f408fff4e526b0f7ba4571b96a4d2b2249e05106b2e19b7e050db4798179f7a, external members 0236d72a7cc8455872d2f5886a4a43cf7ad291a616b52ce7ac82559c8bf4f850, 62eddd46cd27a7726da7a5e84f00e0e5d3e53b26b89276fd8fdfb2c060da1b46, e7a9fdebb7317d1073212319dcbc5b5f8579767eb2b6b4d6b9e6d2494ce11a57; The unread external pe would declare intpe and, through a nested external parameter entity, ent. With no fetch, the subsequent intpe and root ent references remain undeclared and are separately reported as skipped; no root text survives. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/eduni/errata-2e/errata2e.xml#rmt-e2e-19",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "E19.dtd",
+        "Offset": 0
+      },
+      {
+        "Kind": "General",
+        "Name": "ent",
+        "PublicId": null,
+        "SystemId": null,
+        "Offset": 37
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "foo",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "E19.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "foo",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "no-fetch-alternative",
+    "projectionSha256": "c6cd32733067cb2a94c243824e536a88d6f45ba26839cd9f6aad964c87697646",
+    "originalOutputSha256": "563a51d224af406f8b33b9763b530cde193c952fdb7add39d5cd58245f02116e",
+    "outputAlternative": "<foo></foo>",
+    "review": "Pinned W3C INPUT d58782564bf014ea15fdc5583addd1fe2547fd1399bcbbec702b1c726d6d2581, original OUTPUT 563a51d224af406f8b33b9763b530cde193c952fdb7add39d5cd58245f02116e, external members 5bd253befe789cff94fb7b501cc756ceac41bbcf38360968e357162602dfb43b; The unread external subset alone declares ent and its replacement chain. With no fetch, the root reference is undeclared and reported skipped; no root text survives. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
   }
 ]
