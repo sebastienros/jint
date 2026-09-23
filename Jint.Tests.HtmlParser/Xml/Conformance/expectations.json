@@ -10132,5 +10132,1232 @@
     "originalOutputSha256": "faae693cf5249417b762e175540cb1263bd8aadc93016ea56dc259da31eec952",
     "outputAlternative": "<animal>This is a &#10;      <a></a>  &#10;&#10;yellow tiger</animal>",
     "review": "Pinned W3C INPUT 6d41fb6472502f50fdc8198c96f0d5849e820282e43a1deee7f50bd5a5991bc3, unread external subset 9e93c03089b2f38ee45bebfa304c0f5c57274843a8987c3609a0aaa9ea6be410, original OUTPUT faae693cf5249417b762e175540cb1263bd8aadc93016ea56dc259da31eec952; Unread external subset supplies the fetched attribute default or general entity; no fetch preserves only the source content and post-root comment. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_valid.xml#ibm-valid-P61-ibm61v01.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm61v01.dtd",
+        "Offset": 63
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " syntax test for Production 61",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm61v01.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "tiger",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "8f58ed4b1077c97ce26f52a62fb2baa83668956bc6a5aded0c4fe181c2488ad6",
+    "review": "Pinned W3C INPUT d922d085fc0f3d69593a2ae48712791bf5384c93bbcfb93eb88445347d581e58, unread external subset ecb3782ae5234d81d370bed098b4ca4ef387da6a1d3560316ed1ddcd291e2313, original OUTPUT 8f58ed4b1077c97ce26f52a62fb2baa83668956bc6a5aded0c4fe181c2488ad6; The unread ibm61v01.dtd contains model/conditional declarations but no attributes, entities, or notations; source comment and root content survive unchanged after omission. Pinned original OUTPUT equals the source-derived canonical root. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_valid.xml#ibm-valid-P61-ibm61v02.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm61v02.dtd",
+        "Offset": 63
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " syntax test for Production 61",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm61v02.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "ee9e6da1a0950b1e622dd41b3d761ae04f796439029df10862ab200e1c11ce99",
+    "review": "Pinned W3C INPUT 4e5809df8121cd063810cb6f59c7372f94dea89f50c63308cf0762ea6dcdb62d, unread external subset 60f51d7a844381590a13fba04d21951619f1700a8773de25a3cf5ba10d85cf43, original OUTPUT ee9e6da1a0950b1e622dd41b3d761ae04f796439029df10862ab200e1c11ce99; The unread ibm61v02.dtd contains model/conditional declarations but no attributes, entities, or notations; source comment and root content survive unchanged after omission. Pinned original OUTPUT equals the source-derived canonical root. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_valid.xml#ibm-valid-P62-ibm62v01.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm62v01.dtd",
+        "Offset": 63
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " syntax test for Production 62",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm62v01.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "tiger",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\nPositive test. Test includeSect with pattern1 of p62.\nNormal Pattern\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "7d38c37b85c188c03ed6d6187821a92f381fcd0089fdf15411baed077cc1e0be",
+    "review": "Pinned W3C INPUT 934fee2069697757582a6e8eb04483715ac641fd71fca54e0d6ddd430f7043d2, unread external subset 2fe1e74d9845189b66a46c08de2d44f5f7aa6c6f0bd119d15be10c62c350e5e2, original OUTPUT 7d38c37b85c188c03ed6d6187821a92f381fcd0089fdf15411baed077cc1e0be; The unread ibm62v01.dtd contains model/conditional declarations but no attributes, entities, or notations; source comment and root content survive unchanged after omission. Pinned original OUTPUT equals the source-derived canonical root. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_valid.xml#ibm-valid-P62-ibm62v02.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm62v02.dtd",
+        "Offset": 63
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " syntax test for Production 62",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm62v02.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "tiger",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\nPositive test. Test includeSect with pattern2 of p62.\nspace included before INCLUDE\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "1a21ea221f50cae331a7f1d011196f65e667f965f0838cb1cacc1208fe3b1845",
+    "review": "Pinned W3C INPUT 5612013d216e2856133fedf1c3605c0ef6d7f395c7f65aed49788f2273e20a08, unread external subset 7057b8136a67f51b72ecbc21b1ea3f044c9edde851026505d0391762de4eafb4, original OUTPUT 1a21ea221f50cae331a7f1d011196f65e667f965f0838cb1cacc1208fe3b1845; The unread ibm62v02.dtd contains model/conditional declarations but no attributes, entities, or notations; source comment and root content survive unchanged after omission. Pinned original OUTPUT equals the source-derived canonical root. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_valid.xml#ibm-valid-P62-ibm62v03.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm62v03.dtd",
+        "Offset": 63
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " syntax test for Production 62",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm62v03.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "tiger",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\nPositive test. Test includeSect with pattern3 of p62.\nspace included after INCLUDE\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "85524040c4fa6787a34aad0cd39a19e3d8f81f31cc8eb7449524763fa647bdea",
+    "review": "Pinned W3C INPUT e8d0b3586c760534b891a2e294ea28944981667c1a002dee05215275aeb7d859, unread external subset 8632d0452759dd6b777250df5532c302137505b7ea138452b1bf49322b73bbba, original OUTPUT 85524040c4fa6787a34aad0cd39a19e3d8f81f31cc8eb7449524763fa647bdea; The unread ibm62v03.dtd contains model/conditional declarations but no attributes, entities, or notations; source comment and root content survive unchanged after omission. Pinned original OUTPUT equals the source-derived canonical root. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_valid.xml#ibm-valid-P62-ibm62v04.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm62v04.dtd",
+        "Offset": 63
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " syntax test for Production 62",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm62v04.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "tiger",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\nPositive test. Test includeSect with pattern4 of p62.\nspace included before and after INCLUDE\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "4572b35464b247a2de0ce323005ddfd9f8c519bbc1e1d216368d68588bcf8f85",
+    "review": "Pinned W3C INPUT 0278311816b88060e39c2066b199aac5828b2324bc72f6edb893a73d41e1840d, unread external subset ca273a3987e8a3122f36112ff947cf1add4845ad9db6dce69c093081fa596806, original OUTPUT 4572b35464b247a2de0ce323005ddfd9f8c519bbc1e1d216368d68588bcf8f85; The unread ibm62v04.dtd contains model/conditional declarations but no attributes, entities, or notations; source comment and root content survive unchanged after omission. Pinned original OUTPUT equals the source-derived canonical root. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_valid.xml#ibm-valid-P62-ibm62v05.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm62v05.dtd",
+        "Offset": 63
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " syntax test for Production 62",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm62v05.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "tiger",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\nPositive test. Missing external subset declaration.\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "ecbe643d16f32e76345c96fdc03f569cc1ba6f48e81cab8507c4a531ca0493c7",
+    "review": "Pinned W3C INPUT 24717fa047d6f8e2813939bc4119c5e590eb5340df0b6d9d0ab29ba3857ea242, unread external subset 23f669c7de77563b03d0b5d6c17ac38390dffb13edff029c723bfe6ae7bd15bb, original OUTPUT ecbe643d16f32e76345c96fdc03f569cc1ba6f48e81cab8507c4a531ca0493c7; The unread ibm62v05.dtd contains model/conditional declarations but no attributes, entities, or notations; source comment and root content survive unchanged after omission. Pinned original OUTPUT equals the source-derived canonical root. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_valid.xml#ibm-valid-P63-ibm63v01.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm63v01.dtd",
+        "Offset": 63
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " syntax test for Production 63",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm63v01.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [
+          {
+            "Name": "a",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "tiger"
+          }
+        ],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\nPositive test. Test for IGNORE with pattern 1.\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "ae40d540f8da74dd74b2e835befc674cf6c711750a3e928a318b53d290bcf45c",
+    "review": "Pinned W3C INPUT d698afef6a78a65a5eb46d6d0a5e30ff57d4b57f9bd3c9a79e7e01292bc8c5a5, unread external subset 310302051155ecee56025394500150c7a02eabf84ca8182c9539be8e3081b215, original OUTPUT ae40d540f8da74dd74b2e835befc674cf6c711750a3e928a318b53d290bcf45c; The unread ibm63v01.dtd contains model/conditional declarations but no attributes, entities, or notations; source comment and root content survive unchanged after omission. Pinned original OUTPUT equals the source-derived canonical root. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_valid.xml#ibm-valid-P63-ibm63v02.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm63v02.dtd",
+        "Offset": 63
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " syntax test for Production 63",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm63v02.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [
+          {
+            "Name": "a",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "tiger"
+          }
+        ],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\nPositive test. Test for IGNORE with pattern 2.\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "a72a06fc0526885d6872f089bb47a859f138fdb4dc541703d3f7f8c0bf4f1841",
+    "review": "Pinned W3C INPUT cc0b4d32723a1d81779a62f7671c7be79ea234a94c4f5f5626ad8a739ae7d6b3, unread external subset 811cfd004b3a49d9d303cbbcfdf233f92748a232c86f7490798b3126307c99f8, original OUTPUT a72a06fc0526885d6872f089bb47a859f138fdb4dc541703d3f7f8c0bf4f1841; The unread ibm63v02.dtd contains model/conditional declarations but no attributes, entities, or notations; source comment and root content survive unchanged after omission. Pinned original OUTPUT equals the source-derived canonical root. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_valid.xml#ibm-valid-P63-ibm63v03.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm63v03.dtd",
+        "Offset": 63
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " syntax test for Production 63",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm63v03.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [
+          {
+            "Name": "a",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "tiger"
+          }
+        ],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\nPositive test. Test for IGNORE with pattern 3.\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "802009c101ea6fa6efe5d0ccf4301274dd4d1cbbe92573b2ca2e216a121850cf",
+    "review": "Pinned W3C INPUT e3b9d56986c6cfb4628f0039cdce17720efe443356ba82b85d842b00c58588b9, unread external subset fa91222245d2650460a01c5c555ed2aebe0680748daba00299481a961e16f8c3, original OUTPUT 802009c101ea6fa6efe5d0ccf4301274dd4d1cbbe92573b2ca2e216a121850cf; The unread ibm63v03.dtd contains model/conditional declarations but no attributes, entities, or notations; source comment and root content survive unchanged after omission. Pinned original OUTPUT equals the source-derived canonical root. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_valid.xml#ibm-valid-P63-ibm63v04.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm63v04.dtd",
+        "Offset": 63
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " syntax test for Production 63",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm63v04.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [
+          {
+            "Name": "a",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "tiger"
+          }
+        ],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\nPositive test. Test for IGNORE with pattern 4.\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "2475a8b56ca53bcc6e94f5b21e69e3d8b1a48c216e437eb6b5b415e3fb33d824",
+    "review": "Pinned W3C INPUT c714ff574a64100eab61df60d3ff535cc73a87bfb7b5bad172727765c21b4059, unread external subset eb3daa632a9fd7cde7d649f2539aed5a38e273bf8ecdab76ccc6a9f11c8d9ae9, original OUTPUT 2475a8b56ca53bcc6e94f5b21e69e3d8b1a48c216e437eb6b5b415e3fb33d824; The unread ibm63v04.dtd contains model/conditional declarations but no attributes, entities, or notations; source comment and root content survive unchanged after omission. Pinned original OUTPUT equals the source-derived canonical root. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_valid.xml#ibm-valid-P63-ibm63v05.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm63v05.dtd",
+        "Offset": 63
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " syntax test for Production 63",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm63v05.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [
+          {
+            "Name": "a",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "tiger"
+          }
+        ],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\nPositive test. Test for IGNORE with pattern 5.\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "208ecf8d7a46acd096186c0513b7364e16f0cbd6cb686809aa46052ef24561e1",
+    "review": "Pinned W3C INPUT 45afa3becb000fa38cdf508b81cf5b8ad6558126427cc1be9cb30c25cd428466, unread external subset 3cd4982109f3764a093faf6c33c1c243207f3669f7569a20f93684c2d4f4019b, original OUTPUT 208ecf8d7a46acd096186c0513b7364e16f0cbd6cb686809aa46052ef24561e1; The unread ibm63v05.dtd contains model/conditional declarations but no attributes, entities, or notations; source comment and root content survive unchanged after omission. Pinned original OUTPUT equals the source-derived canonical root. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_valid.xml#ibm-valid-P64-ibm64v01.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm64v01.dtd",
+        "Offset": 63
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " syntax test for Production 64",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm64v01.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\nPositive Test. Pattern1\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "a2b53c20927ac7ae47b39c0489b29e7a1cdc91a4697a764008a8f27239d00afb",
+    "review": "Pinned W3C INPUT 99963e91d5f1741627b4abf3d985e6a11309d11dcf07cf12e74ddeacb033982d, unread external subset 7f714f527c023c957d59f6c429e9afe65599335cf0b3a1dca7ebe9df0bfe9fe7, original OUTPUT a2b53c20927ac7ae47b39c0489b29e7a1cdc91a4697a764008a8f27239d00afb; The unread ibm64v01.dtd contains model/conditional declarations but no attributes, entities, or notations; source comment and root content survive unchanged after omission. Pinned original OUTPUT equals the source-derived canonical root. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_valid.xml#ibm-valid-P64-ibm64v02.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm64v02.dtd",
+        "Offset": 63
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " syntax test for Production 64",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm64v02.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\nPositive Test. Pattern2\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "ef8b326a840b6d67340c690e709f28f820811bf0b984981065d39aaaab5b9973",
+    "review": "Pinned W3C INPUT c70f2df930d03053a6407eaee24786d211f9ecf8735bd58a0a95fde09b86e49b, unread external subset c0a10aa69dcbec6346d9f010737990126e896639584a15ae27ad36bdf8f9701a, original OUTPUT ef8b326a840b6d67340c690e709f28f820811bf0b984981065d39aaaab5b9973; The unread ibm64v02.dtd contains model/conditional declarations but no attributes, entities, or notations; source comment and root content survive unchanged after omission. Pinned original OUTPUT equals the source-derived canonical root. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_valid.xml#ibm-valid-P64-ibm64v03.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm64v03.dtd",
+        "Offset": 63
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " syntax test for Production 64",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm64v03.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\nPositive Test. Pattern3\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "7faa2b7a34b6d2e7734f81505d39c342ade57e6ba2a5590b66998c8644fc473f",
+    "review": "Pinned W3C INPUT 2448671bb147f059972be899d8f2ec37528be8b7caf50f398c975d376932e107, unread external subset a7542fa3a432f5872f3a5a30b42a53a435dac633c03344eac184b511931a456f, original OUTPUT 7faa2b7a34b6d2e7734f81505d39c342ade57e6ba2a5590b66998c8644fc473f; The unread ibm64v03.dtd contains model/conditional declarations but no attributes, entities, or notations; source comment and root content survive unchanged after omission. Pinned original OUTPUT equals the source-derived canonical root. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_valid.xml#ibm-valid-P65-ibm65v01.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm65v01.dtd",
+        "Offset": 63
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " syntax test for Production 65",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm65v01.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\nPositive Test. Pattern1. Empty string.\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "f5dbe6b56e0afd00e7aec74abb55eff6f0ba402348f9ec66d14406c78bf0c004",
+    "review": "Pinned W3C INPUT 74f1fb178f9d7aa295600b43013c5ce3ecfd4d62db8367c132fca6115010bbed, unread external subset e17bfef8223ca7a764c4c643078ea17040ea352d45f0213cc9249b84f2ff6d93, original OUTPUT f5dbe6b56e0afd00e7aec74abb55eff6f0ba402348f9ec66d14406c78bf0c004; The unread ibm65v01.dtd contains model/conditional declarations but no attributes, entities, or notations; source comment and root content survive unchanged after omission. Pinned original OUTPUT equals the source-derived canonical root. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_valid.xml#ibm-valid-P65-ibm65v02.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm65v02.dtd",
+        "Offset": 63
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " syntax test for Production 65",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm65v02.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\nPositive Test. Pattern2.\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "f886318ed335eabcb17ecbcb0bd49dbc5f0bf5ebf9683ec49a29a2d6daaddfc9",
+    "review": "Pinned W3C INPUT 2ecc95b2ee57488e4c0f7890fbc0c13d7fac73fbf13a97ab1e244050fdb8d507, unread external subset ac91679bbdc126bc576c47d4fc24e4c7c2e83bc58400bc18a3ac71296e7dd28a, original OUTPUT f886318ed335eabcb17ecbcb0bd49dbc5f0bf5ebf9683ec49a29a2d6daaddfc9; The unread ibm65v02.dtd contains model/conditional declarations but no attributes, entities, or notations; source comment and root content survive unchanged after omission. Pinned original OUTPUT equals the source-derived canonical root. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
   }
 ]
