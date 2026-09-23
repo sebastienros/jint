@@ -140,14 +140,19 @@ public sealed class CssSyntaxEditorTests
     }
 
     [Test]
-    public void RuleProjectionObservesCancellationAfterParsing()
+    public void RuleProjectionObservesCancellationAfterACompletedBatch()
     {
         var parsed = new CssSyntaxParser(string.Concat(Enumerable.Repeat("a{}", 1000)), null, default)
             .ParseStyleSheet();
         using var cancellation = new CancellationTokenSource();
-        cancellation.Cancel();
+        var lastBatch = -1;
         Assert.Throws<OperationCanceledException>(() =>
-            CssSyntaxStyleSheet.FromSyntax(parsed, cancellation.Token));
+            CssSyntaxStyleSheet.FromSyntax(parsed, cancellation.Token, index =>
+            {
+                lastBatch = index;
+                if (index == 256) cancellation.Cancel();
+            }));
+        lastBatch.Should().Be(256);
     }
 
     private static void SetVersion(object target, ulong value) =>

@@ -19,14 +19,19 @@ internal sealed class CssSyntaxStyleSheet
         return FromSyntax(parsed, cancellationToken);
     }
 
-    internal static CssSyntaxStyleSheet FromSyntax(CssRuleSyntax[] parsed, CancellationToken cancellationToken)
+    internal static CssSyntaxStyleSheet FromSyntax(CssRuleSyntax[] parsed, CancellationToken cancellationToken,
+        Action<int>? onProjectionBatch = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var sheet = new CssSyntaxStyleSheet();
         sheet._rules.Capacity = parsed.Length;
         for (var index = 0; index < parsed.Length; index++)
         {
-            if ((index & 255) == 0) cancellationToken.ThrowIfCancellationRequested();
+            if ((index & 255) == 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                onProjectionBatch?.Invoke(index);
+            }
             sheet._rules.Add(new CssSyntaxRule(parsed[index], sheet));
         }
         cancellationToken.ThrowIfCancellationRequested();
