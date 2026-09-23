@@ -47,11 +47,9 @@ public partial class HtmlTreeConstructionTests
     {
         const string source = "<head><noscript><a>literal</noscript></head><body><noscript><i>more</noscript>";
         var disabled = Parse(source);
-        // The head noscript closes on the unexpected start tag. Its following
-        // formatting token is deliberately a MissingFeature, so only the
-        // scripting-enabled parse is complete for this source.
-        disabled.Step.Kind.Should().Be(HtmlParseStepKind.MissingFeature);
-        disabled.Step.MissingFeature.Should().Be(HtmlMissingFeature.Formatting);
+        disabled.Step.Kind.Should().Be(HtmlParseStepKind.Complete);
+        Serialize(disabled.Document).Should().Be(
+            "<html><head><noscript></noscript></head><body><a>literal<noscript><i>more</i></noscript></a></body></html>");
         var enabled = Parse(source, options: new Jint.HtmlParser.HtmlParseOptions { ScriptingEnabled = true });
         enabled.Step.Kind.Should().Be(HtmlParseStepKind.Complete);
         Serialize(enabled.Document).Should().Be(

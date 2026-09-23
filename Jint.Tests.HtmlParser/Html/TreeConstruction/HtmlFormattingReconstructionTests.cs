@@ -325,16 +325,6 @@ public partial class HtmlTreeConstructionTests
         ((Element) body.FirstChild!).ChildCount.Should().Be(1);
     }
 
-    [TestCase("<a>")]
-    [TestCase("<nobr>")]
-    [TestCase("<b></b>")]
-    public void AdoptionBranchesRemainTerminalBeforeMutation(string source)
-    {
-        var parsed = Parse(source, 1);
-        parsed.Step.Kind.Should().Be(HtmlParseStepKind.MissingFeature);
-        parsed.Step.MissingFeature.Should().Be(HtmlMissingFeature.Formatting);
-    }
-
     private static int FormattingCount(HtmlParserSession session)
     {
         var builder = BuilderOf(session);

@@ -267,7 +267,7 @@ internal sealed partial class HtmlTreeBuilder
             _preparedAttributes[_preparedAttributeIndex++] = new ParserAttribute(null, item.Name, null, item.Value);
             var itemWork = 1L + item.Name.Length + item.Value.Length;
             _preparedAttributeWork = _preparedAttributeWork > long.MaxValue - itemWork ? long.MaxValue : _preparedAttributeWork + itemWork;
-            var formattingWork = IsOrdinaryFormatting(_token.Name!) ? PrepareFormattingAttribute(item) : 0;
+            var formattingWork = IsFormatting(_token.Name!) ? PrepareFormattingAttribute(item) : 0;
             Charge(itemWork + formattingWork);
         }
         return _preparedAttributeIndex == attributes.Count;
@@ -474,7 +474,7 @@ internal sealed partial class HtmlTreeBuilder
     private static bool IsSpecial(string name) => name is
         "address" or "applet" or "area" or "article" or "aside" or "base" or "basefont" or "bgsound" or
         "blockquote" or "body" or "br" or "button" or "caption" or "center" or "col" or "colgroup" or
-        "dd" or "details" or "dir" or "div" or "dl" or "dt" or "embed" or "fieldset" or "figcaption" or
+        "dd" or "details" or "dialog" or "dir" or "div" or "dl" or "dt" or "embed" or "fieldset" or "figcaption" or
         "figure" or "footer" or "form" or "frame" or "frameset" or "h1" or "h2" or "h3" or "h4" or
         "h5" or "h6" or "head" or "header" or "hgroup" or "hr" or "html" or "iframe" or "img" or
         "input" or "keygen" or "li" or "link" or "listing" or "main" or "marquee" or "menu" or

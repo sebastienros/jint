@@ -142,7 +142,7 @@ internal sealed partial class HtmlTreeBuilder
         }
         if (IsFormatting(name))
         {
-            if (name is "a" or "nobr") { Missing(HtmlMissingFeature.Formatting); return false; }
+            if (name is "a" or "nobr") return !TrySpecialFormattingStart(name);
             if (_pendingFormattingElement is null)
             {
                 if (!TryReconstructFormatting()) return true;
@@ -321,7 +321,7 @@ internal sealed partial class HtmlTreeBuilder
         }
         if (IsFormatting(name))
         {
-            Missing(HtmlMissingFeature.Formatting); return false;
+            return !TryAdoptionAgency(name);
         }
         if (name is "applet" or "marquee" or "object")
         {
@@ -367,9 +367,6 @@ internal sealed partial class HtmlTreeBuilder
 
     private static bool IsFormatting(string name) => name is "a" or "b" or "big" or "code" or "em" or
         "font" or "i" or "nobr" or "s" or "small" or "strike" or "strong" or "tt" or "u";
-
-    private static bool IsOrdinaryFormatting(string name) => name is "b" or "big" or "code" or "em" or
-        "font" or "i" or "s" or "small" or "strike" or "strong" or "tt" or "u";
 
     private static bool IsBlockStart(string name) => name is "address" or "article" or "aside" or
         "blockquote" or "center" or "details" or "dialog" or "dir" or "div" or "dl" or "fieldset" or

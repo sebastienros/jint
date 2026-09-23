@@ -31,6 +31,7 @@ internal sealed partial class HtmlTreeBuilder
     }
 
     private readonly LinkedList<FormattingEntry> _formatting = [];
+    private readonly Dictionary<Element, FormattingElementEntry> _formattingByElement = new(ReferenceEqualityComparer.Instance);
     // The marker is part of the index: entries in an older scope must not
     // lengthen either lookup or removal in a younger scope.
     private readonly Dictionary<(FormattingMarker? Marker, ulong Key), List<FormattingElementEntry>> _formattingByKey = [];
@@ -149,17 +150,19 @@ internal sealed partial class HtmlTreeBuilder
         }
         if (_remaining <= 0 && advanced) return false;
 
-        var bookkeepingWork = 2L;
+        var bookkeepingWork = 3L;
         if (_pendingFormattingEquivalentCount >= 3 && _pendingFormattingEarliest is { } earliest)
         {
             _formatting.Remove(earliest.Node!);
+            _formattingByElement.Remove(earliest.Element);
             candidates.Remove(earliest);
-            bookkeepingWork += 2;
+            bookkeepingWork += 3;
         }
 
         var entry = new FormattingElementEntry(element, element.LocalName, attributes, attributeCounts,
             _preparedAttributeWork, _preparedFormattingKey, _lastFormattingMarker);
         entry.Node = _formatting.AddLast(entry);
+        _formattingByElement.Add(element, entry);
         candidates.Add(entry);
         ResetFormattingToken();
         Charge(bookkeepingWork);
@@ -168,11 +171,12 @@ internal sealed partial class HtmlTreeBuilder
 
     private void UnindexFormatting(FormattingElementEntry entry)
     {
+        _formattingByElement.Remove(entry.Element);
         var bucketKey = (entry.Marker, entry.Key);
         var bucket = _formattingByKey[bucketKey];
         bucket.Remove(entry);
         if (bucket.Count == 0) _formattingByKey.Remove(bucketKey);
-        Charge(1);
+        Charge(2);
     }
 
     private bool TryReconstructFormatting()
@@ -213,7 +217,10 @@ internal sealed partial class HtmlTreeBuilder
             // Check before creating or linking anything: depth failures must
             // leave this entry and the tree at their previous identities.
             var recreated = InsertElement(entry.Name, entry.Attributes, attributeWork: entry.AttributeWork);
+            _formattingByElement.Remove(entry.Element);
             entry.Element = recreated;
+            _formattingByElement.Add(recreated, entry);
+            Charge(1);
             _reconstructionNode = node.Next;
             advanced = true;
         }

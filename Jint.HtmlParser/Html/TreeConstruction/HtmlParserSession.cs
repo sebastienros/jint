@@ -6,7 +6,7 @@ namespace Jint.HtmlParser.Html;
 internal readonly record struct HtmlDocumentContext(bool IsSrcdoc = false, bool CannotChangeMode = false);
 
 internal enum HtmlParseStepKind { NeedInput, Yielded, Complete, MissingFeature }
-internal enum HtmlMissingFeature { Tables, Formatting, Select, Templates, Framesets, ForeignContent }
+internal enum HtmlMissingFeature { Tables, Select, Templates, Framesets, ForeignContent }
 
 internal readonly struct HtmlParseStep
 {
