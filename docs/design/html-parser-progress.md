@@ -16,7 +16,7 @@ the earlier repository direction to retain AngleSharp.
 - User cleanup rule: archive tasks and remove their worktrees after review, integration and
   successful common-worktree checks. Retain interrupted/failed tasks until unfinished work is
   recovered. Keep task history and Git branches; use managed archive cleanup and verify removal.
-  Twenty-four completed tasks have now been archived; their worktrees are gone.
+  Twenty-five completed tasks have now been archived; their worktrees are gone.
   Patch equivalence, clean local state and stopped-task status were checked before removal.
   Earlier worktrees already removed by Codex remain represented by their integrated commits.
 
@@ -55,7 +55,7 @@ the earlier repository direction to retain AngleSharp.
 | C5 V0b1 basic CSS math | `01a0cf9b-ba8a-7a32-b6e4-09de7672e6ed` | Astra review findings being corrected |
 | D7a1 native form association | `01a0cfce-720d-76a2-aff0-6ab0c6c1315a` | Under Astra review; required work-scaling tests being added; exclusive shared native-file owner |
 | X4a native XPath adapter | `01a0cfc2-9808-7643-a56f-c29d6ec8005c` | Reviewed fixes integrated and tested; archived, worktree removed |
-| C2d1 native table-column model | `01a0cfd3-4970-7c53-af17-767d5a5cbdaa` | Implementation under independent Astra review |
+| C2d1 native table-column model | `01a0cfd3-4970-7c53-af17-767d5a5cbdaa` | Reviewed corrections integrated and tested; archived, worktree removed |
 | D6r1 native boundary/static-range primitives | `01a0cfd7-4a2d-76e3-a72b-4af81516af7f` | Reviewed fixes integrated and tested; archived, worktree removed |
 
 The XML conformance gate inventories all 2,585 pinned W3C rows with explicit profile
@@ -412,3 +412,12 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   fourteen optional observations, six optional adapter debts, seven verified policies, zero mismatches.
   Canonical OUTPUT remains 263/386 compared, 123 pending, sixteen no-fetch alternatives.
   Evidence: `/private/tmp/jint-range-ibm16-integrated.log`. The full conformance gate remains red.
+- `2213565e4`, `f198e8945`: reviewed native table-column model and traversal-frame work
+  correction (sources `a0314a0e5`, `fe6d0eb1d`). Independent review additionally checked 1,000
+  randomized placement fixtures and 15,000 interval/order queries. Conservative forward-query
+  work is O((K+1) log N + K log K) after a lazy O(N log N) index build; no timing claim.
+  Fresh common non-corpus suite passes 1,820/1,820 across both frameworks, no skips.
+  Evidence: `/private/tmp/jint-tablegrid-native-integrated.log`. The task is archived and its
+  clean, patch-equivalent worktree removed. C2d2 matcher integration remains required.
+- `02bbe4cb5`: independently reviewed native serialization design. X3a writer/scalar helpers
+  can proceed independently; full walkers, metadata prerequisites, public and Browser gates remain.
