@@ -1677,5 +1677,785 @@
     "originalOutputSha256": "cb80096267f115dc1bf811dc7a6297fa988cd00e80124eee3afbdf366f8be191",
     "review": "Pinned document has only unread external subset 030.ent; no fetch yields one ExternalSubset omission at 0, empty notation inventory and empty doc root. Original OUTPUT already equals <doc></doc> and must compare byte-for-byte; XML §5.1 https://www.w3.org/TR/xml/#sec-conformance.",
     "notations": []
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p09pass1",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "p09pass1.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "p09pass1.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "review": "Pinned OASIS valid source has only unread external subset p09pass1.dtd; with no fetch, the subset contributes no declarations to this empty document. Require one ExternalSubset omission at 0, an empty notation inventory, and the complete doctype/root projection. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance.",
+    "notations": []
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p28pass4",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "p28pass4.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "p28pass4.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "review": "Pinned OASIS valid source has only unread external subset p28pass4.dtd; with no fetch, the subset contributes no declarations to this empty document. Require one ExternalSubset omission at 0, an empty notation inventory, and the complete doctype/root projection. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance.",
+    "notations": []
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p30pass1",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "p30pass1.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "p30pass1.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "review": "Pinned OASIS valid source has only unread external subset p30pass1.dtd; with no fetch, the subset contributes no declarations to this empty document. Require one ExternalSubset omission at 0, an empty notation inventory, and the complete doctype/root projection. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance.",
+    "notations": []
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p30pass2",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "p30pass2.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "p30pass2.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "review": "Pinned OASIS valid source has only unread external subset p30pass2.dtd; with no fetch, the subset contributes no declarations to this empty document. Require one ExternalSubset omission at 0, an empty notation inventory, and the complete doctype/root projection. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance.",
+    "notations": []
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p31pass2",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "p31pass2.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "p31pass2.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "review": "Pinned OASIS valid source has only unread external subset p31pass2.dtd; with no fetch, the subset contributes no declarations to this empty document. Require one ExternalSubset omission at 0, an empty notation inventory, and the complete doctype/root projection. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance.",
+    "notations": []
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p61pass1",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "p61pass1.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "p61pass1.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "review": "Pinned OASIS valid source has only unread external subset p61pass1.dtd; with no fetch, the subset contributes no declarations to this empty document. Require one ExternalSubset omission at 0, an empty notation inventory, and the complete doctype/root projection. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance.",
+    "notations": []
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p62pass1",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "p62pass1.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "p62pass1.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "review": "Pinned OASIS valid source has only unread external subset p62pass1.dtd; with no fetch, the subset contributes no declarations to this empty document. Require one ExternalSubset omission at 0, an empty notation inventory, and the complete doctype/root projection. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance.",
+    "notations": []
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p63pass1",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "p63pass1.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "p63pass1.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "review": "Pinned OASIS valid source has only unread external subset p63pass1.dtd; with no fetch, the subset contributes no declarations to this empty document. Require one ExternalSubset omission at 0, an empty notation inventory, and the complete doctype/root projection. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance.",
+    "notations": []
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p64pass1",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "p64pass1.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "p64pass1.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "review": "Pinned OASIS valid source has only unread external subset p64pass1.dtd; with no fetch, the subset contributes no declarations to this empty document. Require one ExternalSubset omission at 0, an empty notation inventory, and the complete doctype/root projection. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance.",
+    "notations": []
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p09fail1",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "p09fail1.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "p09fail1.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "review": "Pinned OASIS not-wf source has only unread external subset p09fail1.dtd; with no fetch, the subset contributes no declarations to this empty document. Require one ExternalSubset omission at 0, an empty notation inventory, and the complete doctype/root projection. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance.",
+    "notations": []
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p09fail2",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "p09fail2.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "p09fail2.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "review": "Pinned OASIS not-wf source has only unread external subset p09fail2.dtd; with no fetch, the subset contributes no declarations to this empty document. Require one ExternalSubset omission at 0, an empty notation inventory, and the complete doctype/root projection. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance.",
+    "notations": []
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p30fail1",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "p30fail1.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "p30fail1.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "review": "Pinned OASIS not-wf source has only unread external subset p30fail1.dtd; with no fetch, the subset contributes no declarations to this empty document. Require one ExternalSubset omission at 0, an empty notation inventory, and the complete doctype/root projection. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance.",
+    "notations": []
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p31fail1",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "p31fail1.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "p31fail1.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "review": "Pinned OASIS not-wf source has only unread external subset p31fail1.dtd; with no fetch, the subset contributes no declarations to this empty document. Require one ExternalSubset omission at 0, an empty notation inventory, and the complete doctype/root projection. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance.",
+    "notations": []
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p61fail1",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "p61fail1.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "p61fail1.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "review": "Pinned OASIS not-wf source has only unread external subset p61fail1.dtd; with no fetch, the subset contributes no declarations to this empty document. Require one ExternalSubset omission at 0, an empty notation inventory, and the complete doctype/root projection. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance.",
+    "notations": []
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p62fail1",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "p62fail1.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "p62fail1.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "review": "Pinned OASIS not-wf source has only unread external subset p62fail1.dtd; with no fetch, the subset contributes no declarations to this empty document. Require one ExternalSubset omission at 0, an empty notation inventory, and the complete doctype/root projection. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance.",
+    "notations": []
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p62fail2",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "p62fail2.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "p62fail2.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "review": "Pinned OASIS not-wf source has only unread external subset p62fail2.dtd; with no fetch, the subset contributes no declarations to this empty document. Require one ExternalSubset omission at 0, an empty notation inventory, and the complete doctype/root projection. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance.",
+    "notations": []
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p63fail1",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "p63fail1.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "p63fail1.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "review": "Pinned OASIS not-wf source has only unread external subset p63fail1.dtd; with no fetch, the subset contributes no declarations to this empty document. Require one ExternalSubset omission at 0, an empty notation inventory, and the complete doctype/root projection. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance.",
+    "notations": []
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p63fail2",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "p63fail2.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "p63fail2.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "review": "Pinned OASIS not-wf source has only unread external subset p63fail2.dtd; with no fetch, the subset contributes no declarations to this empty document. Require one ExternalSubset omission at 0, an empty notation inventory, and the complete doctype/root projection. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance.",
+    "notations": []
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p64fail1",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "p64fail1.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "p64fail1.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "review": "Pinned OASIS not-wf source has only unread external subset p64fail1.dtd; with no fetch, the subset contributes no declarations to this empty document. Require one ExternalSubset omission at 0, an empty notation inventory, and the complete doctype/root projection. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance.",
+    "notations": []
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p64fail2",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "p64fail2.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "p64fail2.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "review": "Pinned OASIS not-wf source has only unread external subset p64fail2.dtd; with no fetch, the subset contributes no declarations to this empty document. Require one ExternalSubset omission at 0, an empty notation inventory, and the complete doctype/root projection. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance.",
+    "notations": []
   }
 ]
