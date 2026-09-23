@@ -67,6 +67,7 @@ internal static class MathTest
 {
     internal static readonly CssMathContext Number = new(CssMathProduction.Number, CssMathPercentageMode.Forbidden);
     internal static readonly CssMathContext Length = new(CssMathProduction.Length, CssMathPercentageMode.Forbidden);
+    internal static readonly CssMathContext Angle = new(CssMathProduction.Angle, CssMathPercentageMode.Forbidden);
     internal static readonly CssMathContext LengthPercentage = new(CssMathProduction.LengthPercentage, CssMathPercentageMode.Length);
     internal static readonly CssMathContext RawPercentage = new(CssMathProduction.Percentage, CssMathPercentageMode.Raw);
 

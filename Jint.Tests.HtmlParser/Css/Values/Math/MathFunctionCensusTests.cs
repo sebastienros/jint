@@ -8,16 +8,20 @@ public sealed class MathFunctionCensusTests
     private static readonly string[] First = ["calc", "min", "max", "clamp"];
     private static readonly string[] Second = ["round", "mod", "rem"];
     private static readonly string[] Signs = ["abs", "sign"];
+    private static readonly string[] Trigonometric =
+    [
+        "sin", "cos", "tan", "asin", "acos", "atan", "atan2"
+    ];
     private static readonly string[] Third =
     [
-        "sin", "cos", "tan", "asin", "acos", "atan", "atan2", "pow", "sqrt", "hypot", "log", "exp"
+        "pow", "sqrt", "hypot", "log", "exp"
     ];
 
     [Test]
     public void EveryValuesFourFunctionHasOneNamedStage()
     {
-        (First.Length + Second.Length + Signs.Length + Third.Length).Should().Be(21);
-        var names = First.Concat(Second).Concat(Signs).Concat(Third).ToArray();
+        (First.Length + Second.Length + Signs.Length + Trigonometric.Length + Third.Length).Should().Be(21);
+        var names = First.Concat(Second).Concat(Signs).Concat(Trigonometric).Concat(Third).ToArray();
         names.Distinct(StringComparer.Ordinal).Count().Should().Be(21);
         Enum.GetValues<CssMathFunction>().Length.Should().Be(22);
         foreach (var name in names)
@@ -39,14 +43,14 @@ public sealed class MathFunctionCensusTests
     [Test]
     public void FirstPendingFunctionKeepsItsOriginalSpan()
     {
-        var result = MathTest.Parse("calc(round(1) + sin(2))", MathTest.Number);
+        var result = MathTest.Parse("calc(round(1) + pow(2, 3))", MathTest.Number);
         result.Status.Should().Be(CssMathParseStatus.RequiresLaterGrammar);
-        result.PendingFunction.Should().Be(CssMathFunction.Sin);
+        result.PendingFunction.Should().Be(CssMathFunction.Pow);
         result.Span.Start.Should().Be(16);
     }
 
     [Test]
-    public void NineFunctionsAreImplementedAndTwelveRemainPending()
+    public void SixteenFunctionsAreImplementedAndFiveRemainPending()
     {
         foreach (var name in Second)
         {
@@ -55,6 +59,13 @@ public sealed class MathFunctionCensusTests
         }
         foreach (var name in Signs)
             MathTest.Parse($"{name}(2)", MathTest.Number).Status.Should().Be(CssMathParseStatus.Match);
-        Third.Length.Should().Be(12);
+        foreach (var name in Trigonometric)
+        {
+            var source = name == "atan2" ? "atan2(2, 1)" : $"{name}(0)";
+            var context = name is "atan2" or "asin" or "acos" or "atan" ? MathTest.Angle : MathTest.Number;
+            MathTest.Parse(source, context).Status.Should().Be(CssMathParseStatus.Match);
+        }
+        Trigonometric.Length.Should().Be(7);
+        Third.Length.Should().Be(5);
     }
 }

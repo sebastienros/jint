@@ -114,6 +114,12 @@ internal static class CssMathSimplifier
             {
                 mapped[i] = target.Add(CssMathNodeKind.Numeric, node.Type, node.Span, signed);
             }
+            else if (node.Kind is CssMathNodeKind.Sin or CssMathNodeKind.Cos or CssMathNodeKind.Tan or
+                     CssMathNodeKind.Asin or CssMathNodeKind.Acos or CssMathNodeKind.Atan or CssMathNodeKind.Atan2 &&
+                     TryFoldTrigonometric(target, children, node.Kind, work, out var trigonometric))
+            {
+                mapped[i] = target.Add(CssMathNodeKind.Numeric, node.Type, node.Span, trigonometric);
+            }
             else if (node.Kind == CssMathNodeKind.Clamp &&
                      (target.Node(children[0]).Kind == CssMathNodeKind.AbsentBound ||
                       target.Node(children[2]).Kind == CssMathNodeKind.AbsentBound))
@@ -247,6 +253,43 @@ internal static class CssMathSimplifier
         result = new CssMathNumeric(value,
             kind == CssMathNodeKind.Sign ? CssNumericKind.Number : numeric.Kind,
             kind == CssMathNodeKind.Sign ? CssUnit.None : numeric.Unit, numeric.Span);
+        return true;
+    }
+
+    private static bool TryFoldTrigonometric(CssMathBuilder target, List<int> children,
+        CssMathNodeKind kind, CssValueWork work, out CssMathNumeric result)
+    {
+        result = default;
+        var first = target.Node(children[0]);
+        if (first.Kind != CssMathNodeKind.Numeric || first.Numeric.Kind == CssNumericKind.Percentage ||
+            first.Numeric.Kind == CssNumericKind.Dimension && first.Numeric.Unit != CssUnit.Deg)
+            return false;
+        double value;
+        if (kind == CssMathNodeKind.Atan2)
+        {
+            var second = target.Node(children[1]);
+            if (second.Kind != CssMathNodeKind.Numeric || second.Numeric.Kind != first.Numeric.Kind ||
+                second.Numeric.Unit != first.Numeric.Unit) return false;
+            value = CssMathTrigonometric.Atan2(first.Numeric.Value, second.Numeric.Value, work);
+        }
+        else
+        {
+            var function = kind switch
+            {
+                CssMathNodeKind.Sin => CssMathFunction.Sin,
+                CssMathNodeKind.Cos => CssMathFunction.Cos,
+                CssMathNodeKind.Tan => CssMathFunction.Tan,
+                CssMathNodeKind.Asin => CssMathFunction.Asin,
+                CssMathNodeKind.Acos => CssMathFunction.Acos,
+                _ => CssMathFunction.Atan
+            };
+            value = CssMathTrigonometric.Evaluate(function, first.Numeric.Value,
+                first.Numeric.Kind == CssNumericKind.Dimension, work);
+        }
+        var angle = kind is CssMathNodeKind.Asin or CssMathNodeKind.Acos or CssMathNodeKind.Atan or
+            CssMathNodeKind.Atan2;
+        result = new CssMathNumeric(value, angle ? CssNumericKind.Dimension : CssNumericKind.Number,
+            angle ? CssUnit.Deg : CssUnit.None, first.Numeric.Span);
         return true;
     }
 
