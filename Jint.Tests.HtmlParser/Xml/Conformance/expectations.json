@@ -5519,5 +5519,1328 @@
     "outcome": "reject",
     "skipped": [],
     "review": "NotationType quotes the Name inside its parentheses. Malformed ATTLIST in pinned main source begins at input offset 186; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition production [58] NotationType https://www.w3.org/TR/xml/#sec-attribute-types."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P62-ibm62n01.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm62n01.dtd",
+        "Offset": 63
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " syntax test for Production 62",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm62n01.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "tiger",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\nNegative test. Test includeSect with include(Case sensitive)\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "The malformed conditional section is confined to the unread external DTD. The pinned main document has a well-formed external doctype and no entity reference; no-fetch processing preserves its literal comments, elements, attributes and text.  Pinned main and unread external subset reviewed independently; XML 1.0 Fifth Edition §§3.4, 5.1 https://www.w3.org/TR/xml/#sec-conditional-sect."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P62-ibm62n02.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm62n02.dtd",
+        "Offset": 63
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " syntax test for Production 62",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm62n02.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "tiger",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\nNegative test.  An extra '[' is used.\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "The malformed conditional section is confined to the unread external DTD. The pinned main document has a well-formed external doctype and no entity reference; no-fetch processing preserves its literal comments, elements, attributes and text.  Pinned main and unread external subset reviewed independently; XML 1.0 Fifth Edition §§3.4, 5.1 https://www.w3.org/TR/xml/#sec-conditional-sect."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P62-ibm62n03.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm62n03.dtd",
+        "Offset": 63
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " syntax test for Production 62",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm62n03.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "tiger",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\nNegative test.  Wrong character is used is used.\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "The malformed conditional section is confined to the unread external DTD. The pinned main document has a well-formed external doctype and no entity reference; no-fetch processing preserves its literal comments, elements, attributes and text.  Pinned main and unread external subset reviewed independently; XML 1.0 Fifth Edition §§3.4, 5.1 https://www.w3.org/TR/xml/#sec-conditional-sect."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P62-ibm62n04.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm62n04.dtd",
+        "Offset": 63
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " syntax test for Production 62",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm62n04.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "tiger",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\nNegative test.  Missing the required field INCLUDE.\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "The malformed conditional section is confined to the unread external DTD. The pinned main document has a well-formed external doctype and no entity reference; no-fetch processing preserves its literal comments, elements, attributes and text.  Pinned main and unread external subset reviewed independently; XML 1.0 Fifth Edition §§3.4, 5.1 https://www.w3.org/TR/xml/#sec-conditional-sect."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P62-ibm62n05.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm62n05.dtd",
+        "Offset": 63
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " syntax test for Production 62",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm62n05.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "tiger",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\nNegative test.  Missing the required field '[' after INCLUDE.\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "The malformed conditional section is confined to the unread external DTD. The pinned main document has a well-formed external doctype and no entity reference; no-fetch processing preserves its literal comments, elements, attributes and text.  Pinned main and unread external subset reviewed independently; XML 1.0 Fifth Edition §§3.4, 5.1 https://www.w3.org/TR/xml/#sec-conditional-sect."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P62-ibm62n06.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm62n06.dtd",
+        "Offset": 63
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " syntax test for Production 62",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm62n06.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "tiger",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\nNegative test.  Wrong Ordering. External subset declaration prior to the keyword INCLUDE\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "The malformed conditional section is confined to the unread external DTD. The pinned main document has a well-formed external doctype and no entity reference; no-fetch processing preserves its literal comments, elements, attributes and text.  Pinned main and unread external subset reviewed independently; XML 1.0 Fifth Edition §§3.4, 5.1 https://www.w3.org/TR/xml/#sec-conditional-sect."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P62-ibm62n07.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm62n07.dtd",
+        "Offset": 63
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " syntax test for Production 62",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm62n07.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "tiger",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\nNegative test. Missing closing sequence.\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "The malformed conditional section is confined to the unread external DTD. The pinned main document has a well-formed external doctype and no entity reference; no-fetch processing preserves its literal comments, elements, attributes and text.  Pinned main and unread external subset reviewed independently; XML 1.0 Fifth Edition §§3.4, 5.1 https://www.w3.org/TR/xml/#sec-conditional-sect."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P62-ibm62n08.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm62n08.dtd",
+        "Offset": 63
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " syntax test for Production 62",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm62n08.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "tiger",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\nNegative test. Missing external subset declaration.\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "The malformed conditional section is confined to the unread external DTD. The pinned main document has a well-formed external doctype and no entity reference; no-fetch processing preserves its literal comments, elements, attributes and text.  Pinned main and unread external subset reviewed independently; XML 1.0 Fifth Edition §§3.4, 5.1 https://www.w3.org/TR/xml/#sec-conditional-sect."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P63-ibm63n01.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm63n01.dtd",
+        "Offset": 63
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " syntax test for Production 63",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm63n01.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [
+          {
+            "Name": "a",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "TIGER1"
+          }
+        ],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\nNegative test. Case sensitive(ignore is used instead of IGNORE).\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "The malformed conditional section is confined to the unread external DTD. The pinned main document has a well-formed external doctype and no entity reference; no-fetch processing preserves its literal comments, elements, attributes and text. The internal animal/@a enumeration can produce a validity error for a=\"TIGER1\" but no fatal well-formedness error. Pinned main and unread external subset reviewed independently; XML 1.0 Fifth Edition §§3.4, 5.1 https://www.w3.org/TR/xml/#sec-conditional-sect."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P63-ibm63n02.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm63n02.dtd",
+        "Offset": 63
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " syntax test for Production 63",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm63n02.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [
+          {
+            "Name": "a",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "TIGER1"
+          }
+        ],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\nNegative test. Extra '[' is used before IGNORE.\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "The malformed conditional section is confined to the unread external DTD. The pinned main document has a well-formed external doctype and no entity reference; no-fetch processing preserves its literal comments, elements, attributes and text. The internal ATTLIST applies to attr, not animal; animal/@a is undeclared and uses CDATA normalization. Pinned main and unread external subset reviewed independently; XML 1.0 Fifth Edition §§3.4, 5.1 https://www.w3.org/TR/xml/#sec-conditional-sect."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P63-ibm63n03.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm63n03.dtd",
+        "Offset": 63
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " syntax test for Production 63",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm63n03.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [
+          {
+            "Name": "a",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "TIGER1"
+          }
+        ],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\nNegative test.  Wrong character.\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "The malformed conditional section is confined to the unread external DTD. The pinned main document has a well-formed external doctype and no entity reference; no-fetch processing preserves its literal comments, elements, attributes and text. The internal animal/@a enumeration can produce a validity error for a=\"TIGER1\" but no fatal well-formedness error. Pinned main and unread external subset reviewed independently; XML 1.0 Fifth Edition §§3.4, 5.1 https://www.w3.org/TR/xml/#sec-conditional-sect."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P63-ibm63n04.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm63n04.dtd",
+        "Offset": 63
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " syntax test for Production 63",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm63n04.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [
+          {
+            "Name": "a",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "TIGER1"
+          }
+        ],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\nNegative test.  Missing required field(The keyword IGNORE is missing).\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "The malformed conditional section is confined to the unread external DTD. The pinned main document has a well-formed external doctype and no entity reference; no-fetch processing preserves its literal comments, elements, attributes and text. The internal animal/@a enumeration can produce a validity error for a=\"TIGER1\" but no fatal well-formedness error. Pinned main and unread external subset reviewed independently; XML 1.0 Fifth Edition §§3.4, 5.1 https://www.w3.org/TR/xml/#sec-conditional-sect."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P63-ibm63n05.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm63n05.dtd",
+        "Offset": 63
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " syntax test for Production 63",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm63n05.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [
+          {
+            "Name": "a",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "TIGER1"
+          }
+        ],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\nNegative test.  Missing required field( '[' is missing after IGNORE ).\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "The malformed conditional section is confined to the unread external DTD. The pinned main document has a well-formed external doctype and no entity reference; no-fetch processing preserves its literal comments, elements, attributes and text. The internal animal/@a enumeration can produce a validity error for a=\"TIGER1\" but no fatal well-formedness error. Pinned main and unread external subset reviewed independently; XML 1.0 Fifth Edition §§3.4, 5.1 https://www.w3.org/TR/xml/#sec-conditional-sect."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P63-ibm63n06.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm63n06.dtd",
+        "Offset": 63
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " syntax test for Production 63",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm63n06.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [
+          {
+            "Name": "a",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "TIGER1"
+          }
+        ],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\nNegative test.  Wrong Ordering. Ignore sect contents preceding IGNORE.\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "The malformed conditional section is confined to the unread external DTD. The pinned main document has a well-formed external doctype and no entity reference; no-fetch processing preserves its literal comments, elements, attributes and text. The internal ATTLIST applies to attr, not animal; animal/@a is undeclared and uses CDATA normalization. Pinned main and unread external subset reviewed independently; XML 1.0 Fifth Edition §§3.4, 5.1 https://www.w3.org/TR/xml/#sec-conditional-sect."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P63-ibm63n07.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm63n07.dtd",
+        "Offset": 63
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " syntax test for Production 63",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm63n07.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [
+          {
+            "Name": "a",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "TIGER1"
+          }
+        ],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\nNegative test.  Missing closing sequence.\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "The malformed conditional section is confined to the unread external DTD. The pinned main document has a well-formed external doctype and no entity reference; no-fetch processing preserves its literal comments, elements, attributes and text. The internal animal/@a enumeration can produce a validity error for a=\"TIGER1\" but no fatal well-formedness error. Pinned main and unread external subset reviewed independently; XML 1.0 Fifth Edition §§3.4, 5.1 https://www.w3.org/TR/xml/#sec-conditional-sect."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P64-ibm64n01.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm64n01.dtd",
+        "Offset": 63
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " syntax test for Production 64",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm64n01.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\nNegative Test. Pattern2. Wrong character.\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "The malformed conditional section is confined to the unread external DTD. The pinned main document has a well-formed external doctype and no entity reference; no-fetch processing preserves its literal comments, elements, attributes and text.  Pinned main and unread external subset reviewed independently; XML 1.0 Fifth Edition §§3.4, 5.1 https://www.w3.org/TR/xml/#sec-conditional-sect."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P64-ibm64n02.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm64n02.dtd",
+        "Offset": 63
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " syntax test for Production 64",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm64n02.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\nNegative Test. Pattern3. Missing closing sequence.\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "The malformed conditional section is confined to the unread external DTD. The pinned main document has a well-formed external doctype and no entity reference; no-fetch processing preserves its literal comments, elements, attributes and text.  Pinned main and unread external subset reviewed independently; XML 1.0 Fifth Edition §§3.4, 5.1 https://www.w3.org/TR/xml/#sec-conditional-sect."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P64-ibm64n03.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm64n03.dtd",
+        "Offset": 63
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " syntax test for Production 64",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm64n03.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\nNegative Test. Pattern4. Missing opening sequence.\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "The malformed conditional section is confined to the unread external DTD. The pinned main document has a well-formed external doctype and no entity reference; no-fetch processing preserves its literal comments, elements, attributes and text.  Pinned main and unread external subset reviewed independently; XML 1.0 Fifth Edition §§3.4, 5.1 https://www.w3.org/TR/xml/#sec-conditional-sect."
   }
 ]
