@@ -29,6 +29,9 @@ internal void InitializeParsedAttributes(ReadOnlySpan<ParserAttribute> attribute
     CancellationToken cancellationToken);
 // Node: resolved destination; append one newly created node, never a fragment/subtree.
 internal void AppendParsedChild(Node child);
+// H5b prerequisite: insert one newly created node before a child; null means append.
+internal void InsertParsedBefore(Node child, Node? referenceChild,
+    CancellationToken cancellationToken);
 ```
 
 Names and values are owned immutable strings. Namespace absence is null, never an empty string;
@@ -85,9 +88,10 @@ structural path is constant work; required observer matching or intrinsic algori
 costs. This contract does not promise constant cost for an observed or semantically complex insertion.
 
 Before creation, the tree builder chooses the actual insertion destination (including TemplateContent)
-and derives its node document. Create children/attributes with that owner from the outset. Append does
-not redirect into template contents or silently adopt a wrong-owner child. Existing public methods
-remain necessary for fragment drainage, reparenting, adoption-agency/foster-parent moves, or any child
+and derives its node document. Create children/attributes with that owner from the outset. Neither
+parsed insertion method redirects into template contents or silently adopts a wrong-owner child.
+Fresh insertion before a table uses the H5b extension below. Existing public methods remain necessary
+for fragment drainage, reparenting, adoption-agency/foster-parent moves of existing nodes, or any child
 that was exposed, observed, previously linked or supplied by a host/custom-element constructor. Do
 not infer eligibility merely from ParentNode being null. No global freshness registry is required:
 this is a narrow internal caller proof, backed by operation-specific tests and call-site review.
@@ -112,3 +116,64 @@ intrinsic initialization in that cancellation coverage. Reparenting/fragment tes
 validated public algorithms. Do not add stopwatch thresholds or claim measured speedups;
 Release net8.0/net10.0 functional tests and direct
 complexity review suffice for this prerequisite.
+
+## H5b prerequisite: fresh insertion before a reference child
+
+The native owner implements `InsertParsedBefore` in a separate prerequisite before H5b consumes it.
+This extends the append-only construction lane and refines the instruction in
+[H5b insertion placement](html-parser-tree-construction-followups.md#4-h5b-pending-table-text-and-one-insertion-location-algorithm)
+to use ordinary insertion before a table: that requirement continues to apply to existing or exposed
+nodes, while fresh nodes satisfying this contract use this seam. No public API changes.
+
+Charging the destination depth and then calling public `InsertBefore` is insufficient. That path's
+host-inclusive ancestor validation still executes an authored, uncancellable walk, repeating the
+unchanged ancestor prefix for each fresh fostered node. Charging work does not interrupt that walk or
+remove its quadratic amplification. The parser's proved fresh-node case does not need that validation.
+
+The receiver, child and freshness requirements are those of `AppendParsedChild` above. In addition,
+`referenceChild` is null or its `ParentNode` is exactly the receiver. Resolve both destination and
+reference before creating the child; derive the child's node document from that actual destination.
+The caller proves allowed child kind, document shape, limits and host-inclusive acyclicity. In
+particular, detached links alone do not prove freshness or permit inserting a newly created template
+into its own intrinsic content. Initialized attributes and an empty intrinsic template content remain
+allowed; a fragment, subtree, previously linked/exposed node, wrong-owner node or host-supplied node
+does not become eligible because its current `ParentNode` is null.
+
+Use constant-time guards for directly inspectable receiver/child kinds, self-insertion, child links,
+registrations, owner identity and the reference's parent. Reject failed guards before changing links,
+ownership, stamps or records. Do not scan ancestors or reconstruct document order to repeat the
+trusted proof. Do not collect incoming nodes, detach, adopt, drain a fragment or silently repair a
+wrong destination/reference. No freshness registry or generic validation-suppression flag is needed.
+
+After validation, use the same `InsertValidated(child, referenceChild)` semantic core as ordinary
+insertion, with ordinary record production. It captures the previous sibling before linking, updates
+both neighboring links and first/last/count, advances native invalidation, and queues the correct D5
+addition record. The child is the actual inserted identity; there is no source-removal record because
+it is fresh. Do not call `AppendClonedChild`, link directly around semantic bookkeeping, or add an
+observer-suppression option. Shared intrinsic insertion consumers must run through this core as they
+are implemented. The receiver may already be observed or exposed.
+
+The cancellation token is required, with no default. Check it at entry and immediately before the
+semantic commit. Once linking starts, complete all required bookkeeping and record production before
+checking cancellation again, then check immediately before returning. Cancellation therefore leaves
+either no insertion, or one complete insertion with consistent links, stamps and records; it cannot
+escape between linking and bookkeeping. A completed insertion is not rolled back. This is distinct
+from the discardable, unpublished attribute-initialization batch above.
+
+The unobserved structural path is constant work. H5b charges that work once and retains its own
+resumable, cancellation-aware placement search and text preparation. Required observer matching,
+record queueing and intrinsic semantic work retain the existing atomic-native-mutation cooperative
+overshoot policy: neither this seam nor its caller promises bounded cancellation inside that existing
+semantic core or a hard latency bound. Do not disguise a new validation/traversal loop as semantic
+commit work. Do not expand this prerequisite into a redesign of public moves or observer delivery.
+
+Native tests cover insertion before the first and a middle child, null-reference append, sibling and
+first/last/count links, exact child/owner identity, and all inspectable invalid preconditions leaving
+the tree, stamps and records unchanged. Observe the destination and assert one addition record with
+the correct previous/next siblings and no removal; include an observed template-content destination
+created with its actual owner. Pre-cancelled insertion leaves no changes. A deterministic internal
+per-invocation checkpoint after the semantic commit verifies that cancellation then throws only with
+the complete insertion, stamp and record already visible; no public or retained callback is added.
+Deep repeated fresh insertion before a table must establish by structural/code review and deterministic
+work checks that no ancestor-prefix scan was reintroduced. Existing node moves and fragment insertion
+continue to exercise the ordinary validated mutation paths. No stopwatch assertions or timing claims.
