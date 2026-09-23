@@ -360,4 +360,105 @@ public class SlotAssignmentTests
         finalSteps.Should().Be(4);
         SlotAssignment.AssignedNodes(slot, false, default).Should().HaveCount(4);
     }
+
+    [Test]
+    public void WarmFindSlotPollsDuringSlottableAttributeScan()
+    {
+        var document = Document.CreateHtml();
+        var host = document.CreateElement("div");
+        var root = ShadowTree.Attach(host, new ShadowRootInit(ShadowRootMode.Open), default);
+        root.AppendChild(document.CreateElement("slot"));
+        var child = document.CreateElement("span");
+        child.InitializeParsedAttributes(UnrelatedAttributes(4096), CancellationToken.None);
+        host.AppendChild(child);
+        using var canceled = new CancellationTokenSource();
+        var phase = SlotQueryPhase.Other;
+
+        Assert.Throws<OperationCanceledException>(() => SlotAssignment.FindSlot(child, false,
+            (steps, currentPhase) =>
+            {
+                if (steps == 256)
+                {
+                    phase = currentPhase;
+                    canceled.Cancel();
+                }
+            }, canceled.Token));
+        phase.Should().Be(SlotQueryPhase.Attribute);
+    }
+
+    [Test]
+    public void ColdIndexAndFlattenPollDuringSlotAttributeScan()
+    {
+        var document = Document.CreateHtml();
+        var host = document.CreateElement("div");
+        var root = ShadowTree.Attach(host, new ShadowRootInit(ShadowRootMode.Open), default);
+        var slot = document.CreateElement("slot");
+        slot.InitializeParsedAttributes(UnrelatedAttributes(4096), CancellationToken.None);
+        root.AppendChild(slot);
+        var child = document.CreateTextNode("light");
+        host.AppendChild(child);
+        root.SlotState = null;
+        using var canceledIndex = new CancellationTokenSource();
+        var phase = SlotQueryPhase.Other;
+
+        Assert.Throws<OperationCanceledException>(() => SlotAssignment.FindSlot(child, false,
+            (steps, currentPhase) =>
+            {
+                if (steps == 256)
+                {
+                    phase = currentPhase;
+                    canceledIndex.Cancel();
+                }
+            }, canceledIndex.Token));
+        phase.Should().Be(SlotQueryPhase.Attribute);
+        root.SlotState.Should().BeNull();
+
+        SlotAssignment.FindSlot(child, false, default).Should().BeSameAs(slot);
+        using var canceledFlatten = new CancellationTokenSource();
+        Assert.Throws<OperationCanceledException>(() => SlotAssignment.AssignedNodes(slot, true,
+            steps =>
+            {
+                if (steps == 256) canceledFlatten.Cancel();
+            }, canceledFlatten.Token));
+    }
+
+    [Test]
+    public void ColdWideRootPollsWhilePushingDirectChildren()
+    {
+        var document = Document.CreateHtml();
+        var host = document.CreateElement("div");
+        var root = ShadowTree.Attach(host, new ShadowRootInit(ShadowRootMode.Open), default);
+        for (var i = 0; i < 4096; i++)
+        {
+            root.AppendChild(document.CreateElement("span"));
+        }
+
+        var child = document.CreateTextNode("light");
+        host.AppendChild(child);
+        root.SlotState = null;
+        using var canceled = new CancellationTokenSource();
+        var phase = SlotQueryPhase.Other;
+        Assert.Throws<OperationCanceledException>(() => SlotAssignment.FindSlot(child, false,
+            (steps, currentPhase) =>
+            {
+                if (steps == 256)
+                {
+                    phase = currentPhase;
+                    canceled.Cancel();
+                }
+            }, canceled.Token));
+        phase.Should().Be(SlotQueryPhase.IndexRootChild);
+        root.SlotState.Should().BeNull();
+    }
+
+    private static ParserAttribute[] UnrelatedAttributes(int count)
+    {
+        var attributes = new ParserAttribute[count];
+        for (var i = 0; i < count; i++)
+        {
+            attributes[i] = new ParserAttribute(null, $"data-{i}", null, "x");
+        }
+
+        return attributes;
+    }
 }

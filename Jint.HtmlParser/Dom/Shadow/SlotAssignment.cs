@@ -5,14 +5,22 @@ namespace Jint.HtmlParser;
 internal static class SlotAssignment
 {
     internal static Element? FindSlot(Node slottable, bool openOnly, CancellationToken cancellationToken)
-        => FindSlot(slottable, openOnly, null, cancellationToken);
+        => FindSlot(slottable, openOnly, (Action<int>?) null, cancellationToken);
 
     // Per-query checkpoint is used by deterministic cancellation/work tests.
     internal static Element? FindSlot(Node slottable, bool openOnly, Action<int>? workCheckpoint,
         CancellationToken cancellationToken)
+        => FindSlotCore(slottable, openOnly, workCheckpoint, null, cancellationToken);
+
+    internal static Element? FindSlot(Node slottable, bool openOnly,
+        Action<int, SlotQueryPhase> phaseCheckpoint, CancellationToken cancellationToken)
+        => FindSlotCore(slottable, openOnly, null, phaseCheckpoint, cancellationToken);
+
+    private static Element? FindSlotCore(Node slottable, bool openOnly, Action<int>? workCheckpoint,
+        Action<int, SlotQueryPhase>? phaseCheckpoint, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(slottable);
-        var work = new QueryWork(cancellationToken, workCheckpoint);
+        var work = new QueryWork(cancellationToken, workCheckpoint, phaseCheckpoint);
         if (!IsSlottable(slottable) || slottable.ParentNode is not Element { AttachedShadowRoot: { } root })
         {
             work.Finish();
@@ -296,7 +304,27 @@ internal static class SlotAssignment
     private static string SlottableName(Node node)
         => node is Element element ? element.GetAttributeNS(null, "slot") ?? "" : "";
 
+    private static string SlottableName(Node node, ref QueryWork work)
+        => node is Element element ? AttributeValue(element, "slot", ref work) : "";
+
     private static string SlotName(Element slot) => slot.GetAttributeNS(null, "name") ?? "";
+
+    private static string SlotName(Element slot, ref QueryWork work)
+        => AttributeValue(slot, "name", ref work);
+
+    private static string AttributeValue(Element element, string localName, ref QueryWork work)
+    {
+        foreach (var attribute in element.Attributes)
+        {
+            work.Step(SlotQueryPhase.Attribute);
+            if (attribute.NamespaceUri is null && attribute.LocalName == localName)
+            {
+                return attribute.Value;
+            }
+        }
+
+        return "";
+    }
 
     private static Element? ManualTarget(Node node)
         => node.ManualSlot is { } weak && weak.TryGetTarget(out var slot) ? slot : null;
@@ -318,7 +346,7 @@ internal static class SlotAssignment
 
         var state = EnsureIndex(root, ref work);
         work.Step();
-        return state.FirstByName.TryGetValue(SlottableName(node), out var slot) ? slot : null;
+        return state.FirstByName.TryGetValue(SlottableName(node, ref work), out var slot) ? slot : null;
     }
 
     private static SlotTreeState EnsureIndex(ShadowRoot root)
@@ -339,6 +367,7 @@ internal static class SlotAssignment
         var stack = new Stack<Node>();
         for (var child = root.LastChild; child is not null; child = child.PreviousSibling)
         {
+            work.Step(SlotQueryPhase.IndexRootChild);
             stack.Push(child);
         }
 
@@ -347,12 +376,12 @@ internal static class SlotAssignment
             work.Step();
             if (node is Element element && IsSlot(element))
             {
-                state.AddSlotAtEnd(element);
+                state.AddSlotAtEnd(element, SlotName(element, ref work));
             }
 
             for (var child = node.LastChild; child is not null; child = child.PreviousSibling)
             {
-                work.Step();
+                work.Step(SlotQueryPhase.IndexDescendant);
                 stack.Push(child);
             }
         }
@@ -525,7 +554,7 @@ internal static class SlotAssignment
                 continue;
             }
 
-            var name = SlottableName(child);
+            var name = SlottableName(child, ref work);
             if (!state.HostByName.TryGetValue(name, out var bucket))
             {
                 bucket = [];
@@ -542,7 +571,7 @@ internal static class SlotAssignment
     {
         var name = SlotName(slot);
         var firstForName = !state.FirstByName.ContainsKey(name);
-        state.AddSlotAtEnd(slot);
+        state.AddSlotAtEnd(slot, name);
         if (!firstForName || !state.HostByName.TryGetValue(name, out var nodes) || nodes.Count == 0)
         {
             return;
@@ -714,10 +743,11 @@ internal static class SlotAssignment
                 RefreshHostIndex(root, ref work);
             }
 
+            var slotName = SlotName(slot, ref work);
             if (state.HostIndexInitialized &&
-                state.FirstByName.TryGetValue(SlotName(slot), out var first) &&
+                state.FirstByName.TryGetValue(slotName, out var first) &&
                 ReferenceEquals(first, slot) &&
-                state.HostByName.TryGetValue(SlotName(slot), out var bucket))
+                state.HostByName.TryGetValue(slotName, out var bucket))
             {
                 foreach (var child in bucket)
                 {
@@ -791,20 +821,24 @@ internal static class SlotAssignment
     {
         private readonly CancellationToken _cancellationToken;
         private readonly Action<int>? _workCheckpoint;
+        private readonly Action<int, SlotQueryPhase>? _phaseCheckpoint;
         private int _steps;
 
-        internal QueryWork(CancellationToken cancellationToken, Action<int>? workCheckpoint = null)
+        internal QueryWork(CancellationToken cancellationToken, Action<int>? workCheckpoint = null,
+            Action<int, SlotQueryPhase>? phaseCheckpoint = null)
         {
             _cancellationToken = cancellationToken;
             _workCheckpoint = workCheckpoint;
+            _phaseCheckpoint = phaseCheckpoint;
             _cancellationToken.ThrowIfCancellationRequested();
         }
 
-        internal void Step()
+        internal void Step(SlotQueryPhase phase = SlotQueryPhase.Other)
         {
             if ((++_steps & 255) == 0)
             {
                 _workCheckpoint?.Invoke(_steps);
+                _phaseCheckpoint?.Invoke(_steps, phase);
                 _cancellationToken.ThrowIfCancellationRequested();
             }
         }
@@ -814,11 +848,20 @@ internal static class SlotAssignment
             if ((_steps & 255) != 0)
             {
                 _workCheckpoint?.Invoke(_steps);
+                _phaseCheckpoint?.Invoke(_steps, SlotQueryPhase.Other);
             }
 
             _cancellationToken.ThrowIfCancellationRequested();
         }
     }
+}
+
+internal enum SlotQueryPhase
+{
+    Other,
+    IndexRootChild,
+    IndexDescendant,
+    Attribute
 }
 
 internal sealed class SlotTreeState
@@ -832,10 +875,9 @@ internal sealed class SlotTreeState
     private readonly Dictionary<Element, LinkedListNode<Element>> _treePositions = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<Element, LinkedListNode<Element>> _namePositions = new(ReferenceEqualityComparer.Instance);
 
-    internal void AddSlotAtEnd(Element slot)
+    internal void AddSlotAtEnd(Element slot, string name)
     {
         _treePositions.Add(slot, Slots.AddLast(slot));
-        var name = slot.GetAttributeNS(null, "name") ?? "";
         if (!_slotsByName.TryGetValue(name, out var bucket))
         {
             bucket = [];
