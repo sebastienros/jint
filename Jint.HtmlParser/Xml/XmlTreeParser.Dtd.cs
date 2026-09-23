@@ -23,6 +23,7 @@ internal sealed partial class XmlTreeParser
         "-//WAPFORUM//DTD XHTML Mobile 1.2//EN"
     };
     private readonly Dictionary<string, List<XmlAttributeDeclaration>> _attributeDeclarations = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, HashSet<string>> _declaredAttributeNames = new(StringComparer.Ordinal);
 
     private bool ResumeInput()
     {
@@ -454,13 +455,11 @@ internal sealed partial class XmlTreeParser
         if (!_unreadParameterEntity || _standalone)
         {
             if (!_attributeDeclarations.TryGetValue(elementName, out var existing))
-                _attributeDeclarations.Add(elementName, existing = new List<XmlAttributeDeclaration>());
-            var known = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var declaration in existing)
             {
-                known.Add(declaration.Name);
-                WorkUnit();
+                _attributeDeclarations.Add(elementName, existing = new List<XmlAttributeDeclaration>());
+                _declaredAttributeNames.Add(elementName, new HashSet<string>(StringComparer.Ordinal));
             }
+            var known = _declaredAttributeNames[elementName];
             foreach (var declaration in declarations)
             {
                 if (known.Add(declaration.Name)) existing.Add(declaration);

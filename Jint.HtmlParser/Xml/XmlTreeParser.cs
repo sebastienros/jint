@@ -61,14 +61,17 @@ internal sealed partial class XmlTreeParser
         for (var ancestor = context; ancestor is not null; ancestor = ancestor.ParentNode as Element)
         {
             WorkUnit();
+            if (ancestor.NamespaceUri is not null)
+            {
+                _bindings.TryAdd(ancestor.Prefix ?? string.Empty, ancestor.NamespaceUri);
+            }
             foreach (var attribute in ancestor.Attributes)
             {
                 WorkUnit();
+                if (attribute.NamespaceUri != Namespaces.Xmlns) continue;
                 if (attribute.Name == "xmlns") _bindings.TryAdd(string.Empty, EmptyToNull(attribute.Value));
                 else if (attribute.Prefix == "xmlns") _bindings.TryAdd(attribute.LocalName, EmptyToNull(attribute.Value));
             }
-            if (ancestor.Prefix is null) _bindings.TryAdd(string.Empty, ancestor.NamespaceUri);
-            else _bindings.TryAdd(ancestor.Prefix, ancestor.NamespaceUri);
         }
     }
 

@@ -60,4 +60,36 @@ public class XmlPublicApiTests
         cancellation.Cancel();
         Assert.Throws<OperationCanceledException>(() => MarkupParser.ParseXml("<r/>", cancellationToken: cancellation.Token));
     }
+
+    [Test]
+    public void FragmentContextElementNamespacePrecedesConflictingDeclaration()
+    {
+        var owner = Document.CreateXml();
+        var context = owner.CreateElementNS("urn:own", "p:context");
+        context.SetAttributeNS(Namespaces.Xmlns, "xmlns:p", "urn:other");
+        var child = (Element) MarkupParser.ParseXmlFragment("<p:x/>", context).FirstChild!;
+        child.NamespaceUri.Should().Be("urn:own");
+    }
+
+    [Test]
+    public void NoNamespaceFragmentContextCanInheritAncestorDefault()
+    {
+        var owner = Document.CreateXml();
+        var ancestor = owner.CreateElementNS("urn:outer", "ancestor");
+        ancestor.SetAttributeNS(Namespaces.Xmlns, "xmlns", "urn:outer");
+        var context = owner.CreateElement("context");
+        ancestor.AppendChild(context);
+        var child = (Element) MarkupParser.ParseXmlFragment("<x/>", context).FirstChild!;
+        child.NamespaceUri.Should().Be("urn:outer");
+    }
+
+    [Test]
+    public void OrdinaryAttributeNamedXmlnsIsNotANamespaceDeclaration()
+    {
+        var owner = Document.CreateXml();
+        var context = owner.CreateElement("context");
+        context.SetAttribute("xmlns", "urn:fake");
+        var child = (Element) MarkupParser.ParseXmlFragment("<x/>", context).FirstChild!;
+        child.NamespaceUri.Should().BeNull();
+    }
 }

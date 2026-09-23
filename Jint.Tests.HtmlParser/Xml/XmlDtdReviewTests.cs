@@ -213,7 +213,7 @@ public class XmlDtdReviewTests
     [Test]
     public void ParameterSuppliedEntityDeclarationStillForbidsParameterReference()
     {
-        const string source = "<!DOCTYPE r [<!ENTITY % q 'x'><!ENTITY % p '<!ENTITY e \"&#37;q;\"'>%p;]><r>&e;</r>";
+        const string source = "<!DOCTYPE r [<!ENTITY % q 'x'><!ENTITY % p '<!ENTITY e \"&#37;q;\">'>%p;]><r>&e;</r>";
         var error = Assert.Throws<MarkupParseException>(() => XmlTreeParser.ParseDocument(source, ParseLimits.Unbounded, default));
         error!.Code.Should().Be("xml/invalid-declaration");
     }
