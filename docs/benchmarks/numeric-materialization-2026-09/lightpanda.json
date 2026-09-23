@@ -1,0 +1,9 @@
+{
+  "id": 580396075,
+  "name": "lightpanda-aarch64-macos",
+  "size": 83458616,
+  "created_at": "2026-09-22T02:48:49Z",
+  "updated_at": "2026-09-22T02:48:52Z",
+  "browser_download_url": "https://github.com/lightpanda-io/browser/releases/download/nightly/lightpanda-aarch64-macos",
+  "digest": "sha256:4ea33e19a8e0b76f1cd23d487459182272c89eb1c77c45a412a3fada37865e08"
+}

@@ -1,0 +1,3 @@
+// machine busy (74% of one core: Codex (Service) 29%, Codex (Renderer) 18%, Codex (Renderer) 9%, Microsoft Edge 6%) — waiting up to 45s for it to settle
+// machine check: background CPU 106.9% of one core
+{"Accepted":false,"Errors":["Machine is not idle: 106.9% of one core is busy (limit 40%). Top consumers: Microsoft Edge Helper (Renderer) 46%, Codex (Service) 30%, Codex (Renderer) 19%, codex 6%. Close them and re-run, or set JINT_BENCH_SKIP_IDLE_CHECK=1 to measure anyway and accept that the numbers are not gate-quality."]}

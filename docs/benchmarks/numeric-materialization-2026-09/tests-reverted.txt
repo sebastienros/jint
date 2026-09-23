@@ -1,0 +1,5 @@
+After reverting Jint/Runtime/Interpreter/Expressions/JintBinaryExpression.cs to HEAD:
+Fresh Release dotnet test --project Jint.Tests/Jint.Tests.csproj, filtered to ModuloOperandLaneTests, UnboxedBindingTests, NumberTests, SlotLocationCacheTests and FixedSlotLexicalBindingTests.
+.NET 8 and .NET 10 arm64: 414 passed, 0 failed, 0 skipped; exit code 0.
+Executed under /tmp/jint-browser-improvements.measurement.lock.
+Production trees Jint, Jint.Browser, Jint.DevTools, Jint.Browser.Tool and tools/browser-comparison have no diff against HEAD.

@@ -1,0 +1,14 @@
+Running tests from /Users/sebastienros/.codex/worktrees/7756/jint/artifacts/bin/Jint.Tests.PublicInterface/release_net10.0/Jint.Tests.PublicInterface.dll (net10.0|arm64)
+Running tests from /Users/sebastienros/.codex/worktrees/7756/jint/artifacts/bin/Jint.Tests.PublicInterface/release_net8.0/Jint.Tests.PublicInterface.dll (net8.0|arm64)
+/Users/sebastienros/.codex/worktrees/7756/jint/artifacts/bin/Jint.Tests.PublicInterface/release_net8.0/Jint.Tests.PublicInterface.dll (net8.0|arm64) passed (4s 791ms)
+/Users/sebastienros/.codex/worktrees/7756/jint/artifacts/bin/Jint.Tests.PublicInterface/release_net10.0/Jint.Tests.PublicInterface.dll (net10.0|arm64) passed (4s 877ms)
+
+Test run summary: Passed!
+  /Users/sebastienros/.codex/worktrees/7756/jint/artifacts/bin/Jint.Tests.PublicInterface/release_net8.0/Jint.Tests.PublicInterface.dll (net8.0|arm64) passed (4s 791ms)
+  /Users/sebastienros/.codex/worktrees/7756/jint/artifacts/bin/Jint.Tests.PublicInterface/release_net10.0/Jint.Tests.PublicInterface.dll (net10.0|arm64) passed (4s 877ms)
+
+  total: 62
+  failed: 0
+  succeeded: 62
+  skipped: 0
+  duration: 5s 148ms

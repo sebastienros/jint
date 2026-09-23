@@ -1,0 +1,164 @@
+[
+  {
+    "Mode": "smoke-no-measurements",
+    "Workload": "interpreter-control",
+    "Lane": "cold",
+    "WarmupCount": 5,
+    "Iterations": 1,
+    "FixtureSha256": "1FA5479637D9700E260D912AD0188EBB0EA53AE277EFA1493758ADF73A27AB06",
+    "AutomationSha256": "0A51AD915D28B569964363676AF015CFCFAC43320009C45B4BB2364403F3FA93",
+    "AssertedResult": "4799685",
+    "browsers": [
+      {
+        "Name": "baseline",
+        "BrowserVersion": "Jint/5.0.0-beta-0",
+        "Measurements": null
+      },
+      {
+        "Name": "candidate",
+        "BrowserVersion": "Jint/5.0.0-beta-0",
+        "Measurements": null
+      },
+      {
+        "Name": "lightpanda",
+        "BrowserVersion": "Chrome/124.0.6367.29",
+        "Measurements": null
+      }
+    ]
+  },
+  {
+    "Mode": "smoke-no-measurements",
+    "Workload": "interpreter-control",
+    "Lane": "warm",
+    "WarmupCount": 5,
+    "Iterations": 10,
+    "FixtureSha256": "1FA5479637D9700E260D912AD0188EBB0EA53AE277EFA1493758ADF73A27AB06",
+    "AutomationSha256": "0A51AD915D28B569964363676AF015CFCFAC43320009C45B4BB2364403F3FA93",
+    "AssertedResult": "4799685",
+    "browsers": [
+      {
+        "Name": "baseline",
+        "BrowserVersion": "Jint/5.0.0-beta-0",
+        "Measurements": null
+      },
+      {
+        "Name": "candidate",
+        "BrowserVersion": "Jint/5.0.0-beta-0",
+        "Measurements": null
+      },
+      {
+        "Name": "lightpanda",
+        "BrowserVersion": "Chrome/124.0.6367.29",
+        "Measurements": null
+      }
+    ]
+  },
+  {
+    "Mode": "smoke-no-measurements",
+    "Workload": "event-form",
+    "Lane": "cold",
+    "WarmupCount": 5,
+    "Iterations": 1,
+    "FixtureSha256": "3132B26B6EDB0222706E511D1E68A5D3B518B5737A66BB72439F444B5F2964F7",
+    "AutomationSha256": "73FB41FFDCFD95447BCA62C5D59474021C84BA063D975B5B631F99F8256CD02E",
+    "AssertedResult": "100|query-99|query-99",
+    "browsers": [
+      {
+        "Name": "baseline",
+        "BrowserVersion": "Jint/5.0.0-beta-0",
+        "Measurements": null
+      },
+      {
+        "Name": "candidate",
+        "BrowserVersion": "Jint/5.0.0-beta-0",
+        "Measurements": null
+      },
+      {
+        "Name": "lightpanda",
+        "BrowserVersion": "Chrome/124.0.6367.29",
+        "Measurements": null
+      }
+    ]
+  },
+  {
+    "Mode": "smoke-no-measurements",
+    "Workload": "event-form",
+    "Lane": "warm",
+    "WarmupCount": 5,
+    "Iterations": 10,
+    "FixtureSha256": "3132B26B6EDB0222706E511D1E68A5D3B518B5737A66BB72439F444B5F2964F7",
+    "AutomationSha256": "73FB41FFDCFD95447BCA62C5D59474021C84BA063D975B5B631F99F8256CD02E",
+    "AssertedResult": "100|query-99|query-99",
+    "browsers": [
+      {
+        "Name": "baseline",
+        "BrowserVersion": "Jint/5.0.0-beta-0",
+        "Measurements": null
+      },
+      {
+        "Name": "candidate",
+        "BrowserVersion": "Jint/5.0.0-beta-0",
+        "Measurements": null
+      },
+      {
+        "Name": "lightpanda",
+        "BrowserVersion": "Chrome/124.0.6367.29",
+        "Measurements": null
+      }
+    ]
+  },
+  {
+    "Mode": "smoke-no-measurements",
+    "Workload": "mutate-query",
+    "Lane": "cold",
+    "WarmupCount": 5,
+    "Iterations": 1,
+    "FixtureSha256": "968CC9A32BC8AD554D253C9A4C8E627ED1A04A013D4631A3A5D4C5AF24E4EE69",
+    "AutomationSha256": "2AE04A9575D6F2CA62D3476753B2A4487F401D18F7A8DAA9B5D8ABB524722F27",
+    "AssertedResult": "500|250000|Verified 500",
+    "browsers": [
+      {
+        "Name": "baseline",
+        "BrowserVersion": "Jint/5.0.0-beta-0",
+        "Measurements": null
+      },
+      {
+        "Name": "candidate",
+        "BrowserVersion": "Jint/5.0.0-beta-0",
+        "Measurements": null
+      },
+      {
+        "Name": "lightpanda",
+        "BrowserVersion": "Chrome/124.0.6367.29",
+        "Measurements": null
+      }
+    ]
+  },
+  {
+    "Mode": "smoke-no-measurements",
+    "Workload": "mutate-query",
+    "Lane": "warm",
+    "WarmupCount": 5,
+    "Iterations": 10,
+    "FixtureSha256": "968CC9A32BC8AD554D253C9A4C8E627ED1A04A013D4631A3A5D4C5AF24E4EE69",
+    "AutomationSha256": "2AE04A9575D6F2CA62D3476753B2A4487F401D18F7A8DAA9B5D8ABB524722F27",
+    "AssertedResult": "500|250000|Verified 500",
+    "browsers": [
+      {
+        "Name": "baseline",
+        "BrowserVersion": "Jint/5.0.0-beta-0",
+        "Measurements": null
+      },
+      {
+        "Name": "candidate",
+        "BrowserVersion": "Jint/5.0.0-beta-0",
+        "Measurements": null
+      },
+      {
+        "Name": "lightpanda",
+        "BrowserVersion": "Chrome/124.0.6367.29",
+        "Measurements": null
+      }
+    ]
+  }
+]

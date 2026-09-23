@@ -1,0 +1,4 @@
+JINT_HOST_CONTRACT_VERIFICATION=1 dotnet test --project Jint.Tests/Jint.Tests.csproj -c Release -p:RestoreSources=https://api.nuget.org/v3/index.json --filter "FullyQualifiedName~ModuloOperandLaneTests|FullyQualifiedName~UnboxedBindingTests|FullyQualifiedName~SlotLocationCacheTests" --timeout 30s
+Fresh Release build; .NET 8 and .NET 10 arm64.
+70 passed, 0 failed, 0 skipped; exit code 0.
+Executed under /tmp/jint-browser-improvements.measurement.lock.
