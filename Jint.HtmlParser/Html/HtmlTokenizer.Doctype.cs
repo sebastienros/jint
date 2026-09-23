@@ -92,6 +92,12 @@ internal sealed partial class HtmlTokenizer
         {
             case State.TagOpen:
                 Error("eof-before-tag-name"); Text('<', _tokenStart); _tokenStart = -1; break;
+            case State.PiOpen:
+            case State.PiTarget:
+            case State.PiAfterTarget:
+            case State.PiData:
+            case State.PiQuestionable:
+                Error("eof-in-processing-instruction"); _tokenStart = -1; break;
             case State.EndTagOpen:
                 Error("eof-before-tag-name"); Text("</", _tokenStart); _tokenStart = -1; break;
             case State.TagName:
@@ -146,6 +152,7 @@ internal sealed partial class HtmlTokenizer
             case State.CDataEnd: Text("]]", _input.Offset - 2); break;
             case State.CharacterReference:
             case State.NamedReference:
+            case State.AmbiguousAmpersand:
             case State.NumericReference:
             case State.HexStart:
             case State.DecimalStart:

@@ -9,6 +9,7 @@ internal sealed partial class HtmlTokenizer
         Data, TagOpen, EndTagOpen, TagName, BeforeAttributeName, AttributeName,
         AfterAttributeName, BeforeAttributeValue, DoubleQuotedValue, SingleQuotedValue,
         UnquotedValue, AfterQuotedValue, SelfClosing, MarkupDeclaration,
+        PiOpen, PiTarget, PiAfterTarget, PiData, PiQuestionable,
         BogusComment, CommentStart, CommentStartDash, Comment, CommentLessThan,
         CommentLessThanBang, CommentLessThanBangDash, CommentLessThanBangDashDash,
         CommentEndDash, CommentEnd, CommentEndBang,
@@ -17,7 +18,7 @@ internal sealed partial class HtmlTokenizer
         AfterPublicIdentifier, BetweenPublicAndSystem, AfterSystemKeyword,
         BeforeSystemIdentifier, SystemDouble, SystemSingle, AfterSystemIdentifier,
         BogusDoctype, CData, CDataBracket, CDataEnd,
-        CharacterReference, NamedReference, NumericReference, HexStart, DecimalStart,
+        CharacterReference, NamedReference, AmbiguousAmpersand, NumericReference, HexStart, DecimalStart,
         HexReference, DecimalReference
     }
 
@@ -39,11 +40,7 @@ internal sealed partial class HtmlTokenizer
                 if (c == '!') { Take(); _state = State.MarkupDeclaration; return false; }
                 if (c == '/') { Take(); _state = State.EndTagOpen; return false; }
                 if (AsciiAlpha(c)) { BeginTag(false); _state = State.TagName; return false; }
-                if (c == '?')
-                {
-                    Error("unexpected-question-mark-instead-of-tag-name");
-                    _comment.Clear(); _state = State.BogusComment; return false;
-                }
+                if (c == '?') { Take(); _piTarget.Clear(); _piData.Clear(); _state = State.PiOpen; return false; }
                 Error("invalid-first-character-of-tag-name");
                 Text('<', _tokenStart); _tokenStart = -1; _state = State.Data;
                 return false;
@@ -141,6 +138,44 @@ internal sealed partial class HtmlTokenizer
                 }
                 if (waitDash || waitDoc || waitCData) { _needsInput = true; return false; }
                 Error("incorrectly-opened-comment"); _comment.Clear(); _state = State.BogusComment; return false;
+
+            // HTML Standard §13.2.5.72–76 (processing instruction states).
+            case State.PiOpen:
+                if (AsciiAlpha(c) || c == '_') { _state = State.PiTarget; return false; }
+                Error("invalid-first-character-of-processing-instruction-target");
+                _comment.Clear(); _comment.Append('?'); _state = State.BogusComment; return false;
+            case State.PiTarget:
+                if (AsciiAlpha(c) || AsciiDigit(c) || c is '-' or '_')
+                {
+                    _piTarget.Append(Take()); return false;
+                }
+                if (White(c) || c is '?' or '>')
+                {
+                    var target = _piTarget.ToString();
+                    if (target.Equals("xml", StringComparison.OrdinalIgnoreCase) ||
+                        target.Equals("xml-stylesheet", StringComparison.OrdinalIgnoreCase))
+                    {
+                        Error("disallowed-processing-instruction-target");
+                        _comment.Clear(); _comment.Append('?').Append(target);
+                        _state = State.BogusComment;
+                    }
+                    else _state = State.PiAfterTarget;
+                    return false;
+                }
+                Error("invalid-processing-instruction-target");
+                _comment.Clear(); _comment.Append('?').Append(_piTarget);
+                _state = State.BogusComment;
+                return false;
+            case State.PiAfterTarget:
+                if (White(c)) { Take(); return false; }
+                _state = State.PiData; return false;
+            case State.PiData:
+                if (c == '?') { Take(); _state = State.PiQuestionable; return false; }
+                if (c == '>') { Take(); return EmitProcessingInstruction(out token); }
+                _piData.Append(Take()); return false;
+            case State.PiQuestionable:
+                if (c == '>') { Take(); return EmitProcessingInstruction(out token); }
+                _piData.Append('?'); _state = State.PiData; return false;
 
             case State.BogusComment:
                 if (c == '>') { Take(); return EmitComment(out token); }

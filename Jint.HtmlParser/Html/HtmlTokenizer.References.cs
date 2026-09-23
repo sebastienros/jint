@@ -37,6 +37,20 @@ internal sealed partial class HtmlTokenizer
                 FinishNamedReference(c);
                 return false;
 
+            case State.AmbiguousAmpersand:
+                if (AsciiAlpha(c) || AsciiDigit(c))
+                {
+                    var offset = _input.Offset;
+                    var character = Take();
+                    if (_returnState == State.Data) Text(character, offset);
+                    else _value.Append(character);
+                    return false;
+                }
+                if (c == ';') Error("unknown-named-character-reference", _input.Offset);
+                _referenceStart = -1;
+                _state = _returnState;
+                return false;
+
             case State.NumericReference:
                 if (c is 'x' or 'X')
                 {
@@ -96,7 +110,13 @@ internal sealed partial class HtmlTokenizer
     private void FinishNamedReference(char following)
     {
         var spelling = _reference.ToString();
-        if (_bestEntityValue is null) { FinishLiteralReference(); return; }
+        if (_bestEntityValue is null)
+        {
+            AppendReferenceResult("&" + spelling);
+            _reference.Clear();
+            _state = State.AmbiguousAmpersand;
+            return;
+        }
         var matched = spelling.AsSpan(0, _bestEntityLength);
         var hasSemicolon = matched[^1] == ';';
         var next = _bestEntityLength < spelling.Length ? spelling[_bestEntityLength] : following;
@@ -153,7 +173,7 @@ internal sealed partial class HtmlTokenizer
                 _ => code
             };
             if (replacement != code) { Error("control-character-reference", _referenceStart); code = replacement; }
-            else if (code is <= 0x1F and not (0x09 or 0x0A or 0x0C or 0x0D) || code is >= 0x7F and <= 0x9F)
+            else if (code == 0x0D || code is <= 0x1F and not (0x09 or 0x0A or 0x0C) || code is >= 0x7F and <= 0x9F)
                 Error("control-character-reference", _referenceStart);
             else if (code is >= 0xFDD0 and <= 0xFDEF || (code & 0xFFFE) == 0xFFFE)
                 Error("noncharacter-character-reference", _referenceStart);
@@ -170,6 +190,7 @@ internal sealed partial class HtmlTokenizer
         {
             case State.CharacterReference: FinishLiteralReference(); break;
             case State.NamedReference: FinishNamedReference('\0'); break;
+            case State.AmbiguousAmpersand: _referenceStart = -1; break;
             case State.NumericReference:
             case State.HexStart:
             case State.DecimalStart:

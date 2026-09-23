@@ -20,6 +20,8 @@ internal sealed partial class HtmlTokenizer
     private readonly StringBuilder _name = new();
     private readonly StringBuilder _value = new();
     private readonly StringBuilder _comment = new();
+    private readonly StringBuilder _piTarget = new();
+    private readonly StringBuilder _piData = new();
     private readonly List<HtmlAttribute> _attributes = new();
     private readonly HashSet<string> _attributeNames = new(StringComparer.Ordinal);
     private State _state;
@@ -275,6 +277,17 @@ internal sealed partial class HtmlTokenizer
         var produced = new HtmlToken(HtmlTokenKind.Doctype, name: _doctypeName,
             publicIdentifier: _publicIdentifier, systemIdentifier: _systemIdentifier,
             forceQuirks: _forceQuirks, offset: _tokenStart);
+        _tokenStart = -1;
+        _state = State.Data;
+        return Emit(produced, out token);
+    }
+
+    private bool EmitProcessingInstruction(out HtmlToken token)
+    {
+        var produced = new HtmlToken(HtmlTokenKind.ProcessingInstruction,
+            data: _piData.ToString(), name: _piTarget.ToString(), offset: _tokenStart);
+        _piTarget.Clear();
+        _piData.Clear();
         _tokenStart = -1;
         _state = State.Data;
         return Emit(produced, out token);

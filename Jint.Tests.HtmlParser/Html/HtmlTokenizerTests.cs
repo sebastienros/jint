@@ -73,6 +73,7 @@ public class HtmlTokenizerTests
                     if (token.SelfClosing) output.Append('/');
                     break;
                 case HtmlTokenKind.Comment: output.Append("C:").Append(token.Data); break;
+                case HtmlTokenKind.ProcessingInstruction: output.Append("P:").Append(token.Name).Append(':').Append(token.Data); break;
                 case HtmlTokenKind.Doctype:
                     output.Append("D:").Append(token.Name ?? "(null)").Append(':')
                         .Append(token.PublicIdentifier ?? "(null)").Append(':')
@@ -99,6 +100,16 @@ public class HtmlTokenizerTests
     [TestCase("&amp;&notin;&NotEqualTilde;", "T:&∉≂̸|EOF|")]
     [TestCase("&#x80;&#0;&#xD800;&#x110000;", "T:€���|EOF|")]
     [TestCase("<a x='&ampx' y='&amp;' z=&notin;>", "S:a x=&ampx y=& z=∉|EOF|")]
+    [TestCase("<?Pi data?>", "P:Pi:data|EOF|")]
+    [TestCase("<?TARGET?x?>", "P:TARGET:?x|EOF|")]
+    [TestCase("<?_target  data>", "P:_target:data|EOF|")]
+    [TestCase("<?xml foo?>", "C:?xml foo?|EOF|")]
+    [TestCase("<?Xml-Stylesheet data?>", "C:?Xml-Stylesheet data?|EOF|")]
+    [TestCase("<?bad:target?>", "C:?bad:target?|EOF|")]
+    [TestCase("<?1bad?>", "C:?1bad?|EOF|")]
+    [TestCase("<?", "EOF|")]
+    [TestCase("<?pi?", "EOF|")]
+    [TestCase("&unknown;", "T:&unknown;|EOF|")]
     public void LiteralTokensAndEverySplitMatch(string source, string expected)
     {
         Assert.That(Signature(Scan(source)), Is.EqualTo(expected));
@@ -158,8 +169,8 @@ public class HtmlTokenizerTests
     [TestCase("<a<b>", "S:a<b|EOF|")]
     [TestCase("<h/a='b'>", "S:h a=b|EOF|")]
     [TestCase("</1>", "C:1|EOF|")]
-    [TestCase("<?namespace>", "C:?namespace|EOF|")]
-    [TestCase("<?foo-->", "C:?foo--|EOF|")]
+    // The historical PI-as-comment rows (<?namespace>, <?foo-->) are intentionally
+    // replaced by current HTML Standard §13.2.5.72–76 expectations below.
     [TestCase("foo < bar", "T:foo < bar|EOF|")]
     [TestCase("<!---x", "C:-x|EOF|")]
     [TestCase("a</>bc", "T:abc|EOF|")]
@@ -167,6 +178,18 @@ public class HtmlTokenizerTests
     public void PinnedHtml5libMalformedSubset(string source, string expected)
     {
         Assert.That(Signature(Scan(source)), Is.EqualTo(expected));
+    }
+
+    [TestCase("<?namespace>", "P:namespace:|EOF|")]
+    [TestCase("<?foo-->", "P:foo--:|EOF|")]
+    [TestCase("<?pi data?>", "P:pi:data|EOF|")]
+    [TestCase("<?pi a?b>", "P:pi:a?b|EOF|")]
+    [TestCase("<?xml-stylesheet?>", "C:?xml-stylesheet?|EOF|")]
+    public void CurrentProcessingInstructionRules(string source, string expected)
+    {
+        Assert.That(Signature(Scan(source)), Is.EqualTo(expected));
+        for (var split = 0; split <= source.Length; split++)
+            Assert.That(Signature(Scan(source, 1, split)), Is.EqualTo(expected), $"split {split}");
     }
 
     // Selected test4.test cases, SHA-256
@@ -313,5 +336,9 @@ public class HtmlTokenizerTests
         newSession.AppendInput("a\r\n\0", true);
         Drain(newSession, 10, new List<HtmlToken>(), true);
         Assert.That(collector.Items.Single().Offset, Is.EqualTo(3));
+
+        Scan("&zzzzzz; &#13;", context: new HtmlTokenizerContext(diagnostics: collector));
+        Assert.That(collector.Items.Select(x => x.Code), Does.Contain("html/unknown-named-character-reference"));
+        Assert.That(collector.Items.Select(x => x.Code), Does.Contain("html/control-character-reference"));
     }
 }
