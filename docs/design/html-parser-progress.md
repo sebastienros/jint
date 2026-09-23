@@ -23,16 +23,22 @@ the earlier repository direction to retain AngleSharp.
 | A1 dependency and binding inventory | `01a0cef5-3c12-7d22-926c-e2aeefe58949` | Reviewed and integrated |
 | A2/D1/D2 package and DOM foundation | `01a0cef5-4a7d-72e2-b551-74f03c9da7ec` | Reviewed fixes integrated; 52 combined tests pass |
 | H1–H3 resumable HTML tokenizer | `01a0cf2a-8177-7941-9413-ee60edc59454` | Reviewed and integrated |
-| C1 CSS syntax | `01a0cf2a-8a51-76b1-a12b-ac57c7d2b594` | Reviewed and integrated |
+| C1 CSS syntax | `01a0cf2a-8a51-76b1-a12b-ac57c7d2b594` | Constructs integrated; list/block extension in progress |
 | A2 shared limits/diagnostics/errors and API snapshots | `01a0cf2c-ab5e-7023-95ab-1ab3a4fc8d77` | Reviewed and integrated |
 | D3a native cloning and import | `01a0cf34-dc42-75d0-960e-735bef6eb68a` | Reviewed and integrated |
 | XML shared contracts and provenance | `01a0cf2c-ab5e-7023-95ab-1ab3a4fc8d77` | Reviewed and integrated |
-| X1 native XML/SVG parsing | `01a0cf3f-9380-7513-a351-4078c30d2241` | Reviewed internal core integrated; DTD under review |
+| X1 native XML/SVG parsing | `01a0cf3f-9380-7513-a351-4078c30d2241` | Core integrated; DTD fixes and facade under review |
 | Native metadata, adoption and templates | `01a0cf47-2a27-7163-8f4e-951fbe9999f5` | Reviewed and integrated, including H4 prerequisites |
 | D4a iterative native traversal | `01a0cf51-0a0a-7753-8235-126166e1484c` | Reviewed and integrated, including template boundaries |
-| C2a selector compiler | `01a0cf57-a964-7922-9f56-3c568a0e51f1` | In progress |
-| H4 HTML tree construction | `01a0cf5a-9eed-7913-bcb4-e019fbbb5e8c` | In progress |
-| D5 native mutation tracking | `01a0cf62-1c76-7411-ae32-d5d6beee5915` | In progress; owns native mutation paths |
+| C2a selector compiler | `01a0cf57-a964-7922-9f56-3c568a0e51f1` | Under Astra review |
+| H4 HTML tree construction | `01a0cf5a-9eed-7913-bcb4-e019fbbb5e8c` | Review corrections in progress |
+| D5 native mutation tracking | `01a0cf62-1c76-7411-ae32-d5d6beee5915` | Review corrections; owns native mutation paths |
+| XML conformance corpus and harness | `01a0cf6e-aa5f-7631-af1b-03f6136013a1` | Reviewed full-corpus plan integrated; implementation in progress |
+
+The XML conformance gate inventories all 2,585 pinned W3C rows with explicit profile
+classifications and separate output assertions. No corpus execution result is claimed yet.
+The reviewed CSSOM plan separates internal syntax editing from validated property and
+rule semantics; public CSSOM completion requires the full reviewed registry disposition.
 
 ## Initial repository evidence
 
@@ -157,3 +163,7 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   cancellation and native attachment semantics (source `4f4be0e6`); Astra review clear.
 - `b181d595e`: owned text accumulation, cached reads and atomic append cancellation
   (source `8fc2f247`); Astra review clear.
+- `f63b974ee`: pinned XML conformance design with independent corpus/license review
+  and a corrected final gate requiring zero pending eligible output assertions.
+- `e1ca3d670`, `1c5471849`: reviewed CSSOM, C1 list/block prerequisite and full
+  property/rule grammar handoff (source `3f4cbe893`, `b42bd9d9d`).
