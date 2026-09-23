@@ -520,3 +520,10 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   select parsing, stepped CSS math, input classification and tokenizer context controls. Their tasks
   and worktrees remain until their own review, integration and common checks finish. No benchmark
   timings or speedup claims have been produced; Browser migration and full conformance remain open.
+- `6b01ff1dc`, `740752360`: independently reviewed nine IBM OUTPUT expectations and six PUBLIC
+  provenance cases. Fresh full common run: 6,284 total, 5,888 passed, 396 failed, no skips; every failure
+  is an XML corpus case or its debt census. All 2,284 non-corpus tests pass across net8/net10. Per
+  framework: 1,756 conformance passes, 191 unresolved required cases, six optional adapter debts,
+  21 verified optional policies, zero harness failures/mismatches, OUTPUT 280 compared/106 pending.
+  Evidence: `/private/tmp/jint-output9-provenance-integrated.log`. The XML task stays active with its
+  unfinished work; this full run is not a green conformance gate.
