@@ -1,0 +1,271 @@
+using System.Text;
+using Jint.HtmlParser.Css.Model.Syntax;
+
+namespace Jint.HtmlParser.Css.Serialization;
+
+// CSS Syntax Level 3, §9: https://drafts.csswg.org/css-syntax/#serialization
+internal static class CssSyntaxSerializer
+{
+    internal static string SerializeStyleSheet(IReadOnlyList<CssSyntaxRule> rules)
+    {
+        var builder = new StringBuilder();
+        for (var index = 0; index < rules.Count; index++)
+        {
+            if (index != 0) builder.Append('\n');
+            AppendRule(builder, rules[index].Syntax);
+        }
+        return builder.ToString();
+    }
+
+    internal static string SerializeRule(CssRuleSyntax rule)
+    {
+        var builder = new StringBuilder();
+        AppendRule(builder, rule);
+        return builder.ToString();
+    }
+
+    internal static string SerializeDeclarationList(IReadOnlyList<CssDeclarationSyntax> declarations)
+    {
+        var builder = new StringBuilder();
+        for (var index = 0; index < declarations.Count; index++)
+        {
+            if (index != 0) builder.Append(' ');
+            AppendIdentifier(builder, declarations[index].Name);
+            builder.Append(':');
+            AppendValues(builder, declarations[index].Value);
+            if (declarations[index].IsImportant) builder.Append(" !important");
+            builder.Append(';');
+        }
+        return builder.ToString();
+    }
+
+    private static void AppendRule(StringBuilder builder, CssRuleSyntax rule)
+    {
+        if (rule.Kind == CssRuleKind.AtRule)
+        {
+            builder.Append('@');
+            AppendIdentifier(builder, rule.Name);
+            if (rule.Prelude.Count != 0) builder.Append("/**/");
+        }
+        AppendValues(builder, rule.Prelude);
+        if (rule.Block is { } block)
+        {
+            AppendContainer(builder, block);
+        }
+        else
+        {
+            builder.Append(';');
+        }
+    }
+
+    private static void AppendValues(StringBuilder builder, CssComponentValueList values)
+    {
+        var stack = new List<ValueFrame> { new(values, '\0') };
+        while (stack.Count != 0)
+        {
+            var top = stack[^1];
+            if (top.Index == top.Values.Count)
+            {
+                if (top.Closing != '\0') builder.Append(top.Closing);
+                stack.RemoveAt(stack.Count - 1);
+                continue;
+            }
+
+            if (top.Index != 0) builder.Append("/**/");
+            var value = top.Values[top.Index++];
+            if (value.Kind == CssComponentKind.Token)
+            {
+                AppendToken(builder, value.Token);
+                continue;
+            }
+
+            var closing = AppendContainerOpening(builder, value);
+            stack.Add(new ValueFrame(value.Values, closing));
+        }
+    }
+
+    private static void AppendContainer(StringBuilder builder, CssComponentValue value)
+    {
+        var closing = AppendContainerOpening(builder, value);
+        AppendValues(builder, value.Values);
+        builder.Append(closing);
+    }
+
+    private static char AppendContainerOpening(StringBuilder builder, CssComponentValue value)
+    {
+        if (value.Kind == CssComponentKind.Function)
+        {
+            AppendIdentifier(builder, value.FunctionName);
+            builder.Append('(');
+            return ')';
+        }
+
+        var opening = value.OpeningDelimiter;
+        builder.Append(opening);
+        return opening switch
+        {
+            '(' => ')',
+            '[' => ']',
+            '{' => '}',
+            _ => throw new InvalidOperationException("Unknown CSS block delimiter.")
+        };
+    }
+
+    private static void AppendToken(StringBuilder builder, CssToken token)
+    {
+        switch (token.Kind)
+        {
+            case CssTokenKind.Ident:
+                AppendIdentifier(builder, token.Text);
+                break;
+            case CssTokenKind.AtKeyword:
+                builder.Append('@');
+                AppendIdentifier(builder, token.Text);
+                break;
+            case CssTokenKind.Hash:
+                builder.Append('#');
+                AppendIdentifier(builder, token.Text, allowLeadingDigit: !token.IsIdHash);
+                break;
+            case CssTokenKind.String:
+                AppendString(builder, token.Text);
+                break;
+            case CssTokenKind.BadString:
+                builder.Append('"').Append('\n');
+                break;
+            case CssTokenKind.Url:
+                builder.Append("url(");
+                AppendUrl(builder, token.Text);
+                builder.Append(')');
+                break;
+            case CssTokenKind.BadUrl:
+                builder.Append("url(a b)");
+                break;
+            case CssTokenKind.Number:
+                builder.Append(token.NumberText);
+                break;
+            case CssTokenKind.Percentage:
+                builder.Append(token.NumberText).Append('%');
+                break;
+            case CssTokenKind.Dimension:
+                builder.Append(token.NumberText);
+                AppendIdentifier(builder, token.Unit, escapeFirst: true);
+                break;
+            case CssTokenKind.UnicodeRange:
+                builder.Append(token.Text);
+                break;
+            case CssTokenKind.Whitespace:
+                builder.Append(' ');
+                break;
+            case CssTokenKind.Cdo:
+                builder.Append("<!--");
+                break;
+            case CssTokenKind.Cdc:
+                builder.Append("-->");
+                break;
+            case CssTokenKind.Delim:
+                if (token.Delimiter == '\\') builder.Append("\\\n");
+                else builder.Append(token.Delimiter);
+                break;
+            case CssTokenKind.Colon:
+                builder.Append(':');
+                break;
+            case CssTokenKind.Semicolon:
+                builder.Append(';');
+                break;
+            case CssTokenKind.Comma:
+                builder.Append(',');
+                break;
+            case CssTokenKind.OpenParenthesis:
+                builder.Append('(');
+                break;
+            case CssTokenKind.CloseParenthesis:
+                builder.Append(')');
+                break;
+            case CssTokenKind.OpenSquareBracket:
+                builder.Append('[');
+                break;
+            case CssTokenKind.CloseSquareBracket:
+                builder.Append(']');
+                break;
+            case CssTokenKind.OpenCurlyBracket:
+                builder.Append('{');
+                break;
+            case CssTokenKind.CloseCurlyBracket:
+                builder.Append('}');
+                break;
+            default:
+                throw new InvalidOperationException("Unknown CSS token kind.");
+        }
+    }
+
+    private static void AppendIdentifier(StringBuilder builder, string value, bool escapeFirst = false,
+        bool allowLeadingDigit = false)
+    {
+        for (var index = 0; index < value.Length; index++)
+        {
+            var character = value[index];
+            if (char.IsHighSurrogate(character) && index + 1 < value.Length && char.IsLowSurrogate(value[index + 1]))
+            {
+                builder.Append(character).Append(value[++index]);
+                continue;
+            }
+
+            var mustEscape = escapeFirst && index == 0 || character is '\0' or >= '\u0001' and <= '\u001f' or '\u007f' ||
+                !allowLeadingDigit && index == 0 && character is >= '0' and <= '9' ||
+                !allowLeadingDigit && index == 1 && value[0] == '-' && character is >= '0' and <= '9' ||
+                !allowLeadingDigit && index == 0 && character == '-' && value.Length == 1;
+            if (mustEscape || char.IsSurrogate(character))
+            {
+                AppendHexEscape(builder, char.IsSurrogate(character) ? 0xfffd : character);
+            }
+            else if (character is >= 'a' and <= 'z' or >= 'A' and <= 'Z' or >= '0' and <= '9' or '_' or '-' or >= '\u0080')
+            {
+                builder.Append(character);
+            }
+            else
+            {
+                builder.Append('\\').Append(character);
+            }
+        }
+    }
+
+    private static void AppendString(StringBuilder builder, string value)
+    {
+        builder.Append('"');
+        foreach (var character in value)
+        {
+            if (character is '\0' or '\n' or '\r' or '\f' or >= '\u0001' and <= '\u001f' or '\u007f')
+                AppendHexEscape(builder, character);
+            else if (character is '"' or '\\') builder.Append('\\').Append(character);
+            else builder.Append(character);
+        }
+        builder.Append('"');
+    }
+
+    private static void AppendUrl(StringBuilder builder, string value)
+    {
+        foreach (var character in value)
+        {
+            if (character is '\0' or ' ' or '\t' or '\n' or '\r' or '\f' or >= '\u0001' and <= '\u001f' or '\u007f')
+                AppendHexEscape(builder, character);
+            else if (character is '"' or '\'' or '(' or ')' or '\\') builder.Append('\\').Append(character);
+            else builder.Append(character);
+        }
+    }
+
+    private static void AppendHexEscape(StringBuilder builder, int value) =>
+        builder.Append('\\').Append(value.ToString("x", System.Globalization.CultureInfo.InvariantCulture)).Append(' ');
+
+    private sealed class ValueFrame
+    {
+        internal ValueFrame(CssComponentValueList values, char closing)
+        {
+            Values = values;
+            Closing = closing;
+        }
+
+        internal CssComponentValueList Values { get; }
+        internal char Closing { get; }
+        internal int Index { get; set; }
+    }
+}
