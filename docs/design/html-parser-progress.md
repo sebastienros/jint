@@ -19,7 +19,7 @@ the earlier repository direction to retain AngleSharp.
 | Task | Identity | State |
 | --- | --- | --- |
 | Architecture and migration design | `01a0ceec-94ec-7f63-9bfb-189cac69df5f` | Reviewed design and feature contracts integrated |
-| Comparison corpus and benchmark harness | `01a0ceee-7b09-7513-b507-a5c412eb4518` | Reviewed and integrated |
+| Comparison corpus and benchmark harness | `01a0ceee-7b09-7513-b507-a5c412eb4518` | Baseline integrated; native XML/SVG comparison rows in progress |
 | A1 dependency and binding inventory | `01a0cef5-3c12-7d22-926c-e2aeefe58949` | Reviewed and integrated |
 | A2/D1/D2 package and DOM foundation | `01a0cef5-4a7d-72e2-b551-74f03c9da7ec` | Reviewed fixes integrated; 52 combined tests pass |
 | H1–H3 resumable HTML tokenizer | `01a0cf2a-8177-7941-9413-ee60edc59454` | Reviewed and integrated |
@@ -33,8 +33,9 @@ the earlier repository direction to retain AngleSharp.
 | C2a selector compiler | `01a0cf57-a964-7922-9f56-3c568a0e51f1` | Under Astra review |
 | H4 HTML tree construction | `01a0cf5a-9eed-7913-bcb4-e019fbbb5e8c` | Review corrections in progress |
 | D5 native mutation tracking | `01a0cf62-1c76-7411-ae32-d5d6beee5915` | Reviewed corrections integrated; native ownership retained for fixes |
-| XML conformance corpus and harness | `01a0cf6e-aa5f-7631-af1b-03f6136013a1` | Reviewed full-corpus plan integrated; implementation in progress |
+| XML conformance corpus and harness | `01a0cf6e-aa5f-7631-af1b-03f6136013a1` | Reviewed source inventory integrated; outcome/output harness in progress |
 | Packed public XML and mutation consumer | `01a0cf2c-ab5e-7023-95ab-1ab3a4fc8d77` | Verification in progress |
+| C5 V0a CSS value primitives | `01a0cf7b-7669-7883-944b-3f3c35fc4585` | Reviewed design integrated; implementation in progress |
 
 The XML conformance gate inventories all 2,585 pinned W3C rows with explicit profile
 classifications and separate output assertions. No corpus execution result is claimed yet.
@@ -179,3 +180,10 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
 - `6f2ceb8f7`, `c7a5e212e`: native mutation subscriptions and reviewed sibling,
   replacement, allocation and document-local observer-summary fixes (source
   `49267e53f`, `320af71ba`); final Astra recheck clear.
+- `a09e4ba52`: pinned W3C XML corpus import, licensed source routes and complete
+  inventory (source `7fcd8c112`); Astra independently verified hashes and exact
+  regeneration. Counts are inventory classifications, not parser passes.
+- `576861c28`: reviewed finite CSS atom, math, substitution and color dispatches,
+  with an exact first V0a primitive contract and explicit validated-CSS completion debt.
+- `996243c61`: Astra clarification that CSS recovery preserves only the boundaries
+  specified by CSS Syntax, including top-level stray closing braces.
