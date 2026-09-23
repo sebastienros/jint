@@ -16,7 +16,7 @@ the earlier repository direction to retain AngleSharp.
 - User cleanup rule: archive tasks and remove their worktrees after review, integration and
   successful common-worktree checks. Retain interrupted/failed tasks until unfinished work is
   recovered. Keep task history and Git branches; use managed archive cleanup and verify removal.
-  Thirty-four completed tasks have now been archived; their worktrees are gone.
+  Thirty-nine completed tasks have now been archived; their worktrees are gone.
   Patch equivalence, clean local state and stopped-task status were checked before removal.
   Earlier worktrees already removed by Codex remain represented by their integrated commits.
 
@@ -62,13 +62,13 @@ the earlier repository direction to retain AngleSharp.
 | C2d2 column selector matching | `01a0cfe9-f30f-71e2-84e1-272257d4bc26` | Reviewed corrections integrated and tested; archived, worktree removed |
 | D7a2 disabledness and select ancestry | `01a0cfec-967a-7be0-a9d9-d40f474e52a1` | Reviewed cancellation correction integrated and tested; archived, worktree removed |
 | D7b1a input-type classifier | `01a0cffb-5f42-7ac0-9c50-3dc022442df9` | Reviewed, integrated and tested; archived, worktree removed |
-| X3b XML serialization | `01a0cffb-eb5e-7843-8a64-7bab61470fa1` | Implementation committed; independent Astra review pending |
+| X3b XML serialization | `01a0cffb-eb5e-7843-8a64-7bab61470fa1` | Reviewed fixes integrated and tested; archived, worktree removed |
 | X4b2 XML ID typing | `01a0cff7-3642-7891-b575-1157126eaef5` | Reviewed, integrated and tested; archived, worktree removed |
-| H7 tokenizer context | `01a0cfeb-eb74-7403-9fe5-5876c9699172` | Production review clear; exhaustive split/permission tests requested |
-| D6s2/D6s3 slot assignment and signals | `01a0cff7-448b-73e0-81de-577b76d90bd8` | Two implementation commits under independent review |
-| H6c select parsing | `01a0d000-0601-7721-8396-d767beaf6e04` | Review requires select ordinary-scope boundary correction |
-| V0b2 stepped CSS math | `01a0d000-f77f-7c41-b474-a8e407aa41fe` | Implementation committed; independent Astra review pending |
-| D7b1b pure text algorithms | `01a0d00a-ab70-7510-9978-13e50051aa2e` | Dedicated Sol implementation active |
+| H7 tokenizer context | `01a0cfeb-eb74-7403-9fe5-5876c9699172` | Reviewed exhaustive coverage integrated and tested; archived, worktree removed |
+| D6s2/D6s3 slot assignment and signals | `01a0cff7-448b-73e0-81de-577b76d90bd8` | Six semantic/performance review findings under correction; retained |
+| H6c select parsing | `01a0d000-0601-7721-8396-d767beaf6e04` | Reviewed scope correction integrated and tested; archived, worktree removed |
+| V0b2 stepped CSS math | `01a0d000-f77f-7c41-b474-a8e407aa41fe` | Reviewed, integrated and tested; archived, worktree removed |
+| D7b1b pure text algorithms | `01a0d00a-ab70-7510-9978-13e50051aa2e` | Reviewed, integrated and tested; archived, worktree removed |
 
 The XML conformance gate inventories all 2,585 pinned W3C rows with explicit profile
 classifications and separate output assertions. Current execution results and remaining debt are below.
@@ -561,3 +561,35 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   final counted-work correction `932ca2853` awaits recheck. H6c review requires `select` in the ordinary
   scope boundary to prevent generic recovery from popping across it. Both owners are correcting their
   features before integration. No runtime benchmark measurements or Browser cutover yet.
+- `1afff3e0e`, `1f7a8ad6a`, `1b29605c1`, `3984145b8`: XML serializer plus all four
+  independently cleared corrections integrated. Fresh common non-corpus tests pass 2,422/2,422,
+  no skips, both frameworks. Evidence: `/private/tmp/jint-xml-serializer-integrated.log`.
+  Task archived and clean patch-equivalent worktree removal verified.
+- `d5f7b09d7`, `c41fbd796`: reviewed tokenizer context APIs and exhaustive split/permission
+  regression follow-up. Common non-corpus tests pass 2,444/2,444, no skips, both frameworks.
+  Evidence: `/private/tmp/jint-tokenizer-context-integrated.log`. Task archived, worktree removed.
+- `54376445d`: reviewed round/mod/rem including device-dependent line-width and all numeric seams.
+  Independent extreme-value and 10,000 finite-pair checks clear. Common non-corpus tests pass
+  2,530/2,530, no skips; `/private/tmp/jint-stepped-math-integrated.log`. Task archived, worktree
+  removed. Census is seven implemented math functions and fourteen pending; no timing claim.
+- `3fa3bb878`: reviewed pure text-control algorithms (source `1dcdbd3df`), with independent
+  exhaustive small-string and shared cancellation probes. `d30b99472`, `9b661bd6b` integrate
+  independently approved five-case XML parameter/conditional expectations. Fresh common full run:
+  6,594 total, 6,220 passed, 374 failed, no skips; all 2,594 non-corpus tests pass. Every failure is
+  an XML corpus case or debt census. Per framework 1,767 conformance passes, 180 unresolved required
+  cases, six optional adapter debts, 21 verified optional policies, zero harness failures/mismatches;
+  OUTPUT 291 compared/95 pending and 24 no-fetch alternatives. Evidence:
+  `/private/tmp/jint-text-algorithms-xml5-integrated.log`. Text task archived, worktree removed;
+  unfinished XML task retained. Three further source policies (Clark 026/031, Sun ext02) approved.
+- `883bf5a91`, `81b77f4d8`, `c2aafb652`: reviewed current select parsing and ordinary-scope fix.
+  Common non-corpus tests pass 2,644/2,644, no skips; `/private/tmp/jint-select-parsing-integrated.log`.
+  Task archived and worktree removal verified. H6d ordinary templates dispatched separately.
+- `3c84d802c`: reviewed four built-in form-state selector dispatch contract. Dedicated Sol tasks
+  are dispatched for C3a1, X4b3 navigator completion, V0b3a abs/sign and H6d ordinary templates;
+  task IDs await coordinator retrieval. D7b1c textarea state and D7b2 checkable state still await
+  slot-owner shared-file release. No public promotion or Browser cutover is implied.
+- Slot review on `0a651e79e` requires exact attribute old/new guards and old/new slot signal order,
+  correct insertion/removal targets, preservation of omitted nodes' stored assigned-slot pointers,
+  linear manual transfer and fallback distribution, and polling through cold-index construction and
+  final materialization. Deterministic probes exposed quadratic work and missing query checks;
+  those commits remain unmerged while the owner corrects them.
