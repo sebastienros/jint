@@ -6,63 +6,73 @@ internal static class CssPrimitiveParser
     // whole-list atoms; a surrounding grammar decides property admissibility.
     internal static CssPrimitiveResult<CssWideKeyword> ParseWideKeyword(CssComponentValueList values, CssValueWork work)
     {
-        if (!TrySingle(values, work, out var component, out var failure)) return NoMatch<CssWideKeyword>(failure, work);
+        if (!TryFirst(values, work, out var component, out var trailing)) return NoMatch<CssWideKeyword>(default, work);
         if (component.Kind != CssComponentKind.Token || component.Token.Kind != CssTokenKind.Ident)
             return NoMatch<CssWideKeyword>(component.Span, work);
         var text = component.Token.Text;
         work.Charge(text.Length);
         var keyword = CssWideKeywords.Recognize(text);
-        return keyword == CssWideKeyword.None ? NoMatch<CssWideKeyword>(component.Span, work) : Match(keyword, component.Span, work);
+        if (keyword == CssWideKeyword.None) return NoMatch<CssWideKeyword>(component.Span, work);
+        if (trailing is { } span) return NoMatch<CssWideKeyword>(span, work);
+        return Match(keyword, component.Span, work);
     }
 
     internal static CssPrimitiveResult<CssIdentifierValue> ParseIdentifier(CssComponentValueList values, CssValueWork work)
     {
-        if (!TrySingle(values, work, out var component, out var failure)) return NoMatch<CssIdentifierValue>(failure, work);
+        if (!TryFirst(values, work, out var component, out var trailing)) return NoMatch<CssIdentifierValue>(default, work);
         if (component.Kind != CssComponentKind.Token || component.Token.Kind != CssTokenKind.Ident)
             return NoMatch<CssIdentifierValue>(component.Span, work);
         var text = component.Token.Text;
         work.Charge(text.Length);
+        if (trailing is { } span) return NoMatch<CssIdentifierValue>(span, work);
         return Match(new CssIdentifierValue(text, component.Span), component.Span, work);
     }
 
     internal static CssPrimitiveResult<CssIdentifierValue> ParseCustomIdentifier(
         CssComponentValueList values, ReadOnlySpan<string> excludedKeywords, CssValueWork work)
     {
-        var result = ParseIdentifier(values, work);
-        if (!result.IsMatch) return result;
-        var text = result.Value.Text;
+        if (!TryFirst(values, work, out var component, out var trailing)) return NoMatch<CssIdentifierValue>(default, work);
+        if (component.Kind != CssComponentKind.Token || component.Token.Kind != CssTokenKind.Ident)
+            return NoMatch<CssIdentifierValue>(component.Span, work);
+        var text = component.Token.Text;
+        work.Charge(text.Length);
         if (CssWideKeywords.Recognize(text) != CssWideKeyword.None || AsciiEquals(text, "default", work))
-            return NoMatch<CssIdentifierValue>(result.Span, work);
+            return NoMatch<CssIdentifierValue>(component.Span, work);
         foreach (var excluded in excludedKeywords)
         {
             work.Charge(1);
-            if (AsciiEquals(text, excluded, work)) return NoMatch<CssIdentifierValue>(result.Span, work);
+            if (AsciiEquals(text, excluded, work)) return NoMatch<CssIdentifierValue>(component.Span, work);
         }
-        work.CheckCancellation();
-        return result;
+        if (trailing is { } span) return NoMatch<CssIdentifierValue>(span, work);
+        return Match(new CssIdentifierValue(text, component.Span), component.Span, work);
     }
 
     internal static CssPrimitiveResult<CssIdentifierValue> ParseDashedIdentifier(CssComponentValueList values, CssValueWork work)
     {
-        var result = ParseCustomIdentifier(values, ReadOnlySpan<string>.Empty, work);
-        if (!result.IsMatch) return result;
-        var text = result.Value.Text;
-        return text.StartsWith("--", StringComparison.Ordinal) ? result : NoMatch<CssIdentifierValue>(result.Span, work);
+        if (!TryFirst(values, work, out var component, out var trailing)) return NoMatch<CssIdentifierValue>(default, work);
+        if (component.Kind != CssComponentKind.Token || component.Token.Kind != CssTokenKind.Ident)
+            return NoMatch<CssIdentifierValue>(component.Span, work);
+        var text = component.Token.Text;
+        work.Charge(text.Length);
+        if (!text.StartsWith("--", StringComparison.Ordinal)) return NoMatch<CssIdentifierValue>(component.Span, work);
+        if (trailing is { } span) return NoMatch<CssIdentifierValue>(span, work);
+        return Match(new CssIdentifierValue(text, component.Span), component.Span, work);
     }
 
     internal static CssPrimitiveResult<CssStringValue> ParseString(CssComponentValueList values, CssValueWork work)
     {
-        if (!TrySingle(values, work, out var component, out var failure)) return NoMatch<CssStringValue>(failure, work);
+        if (!TryFirst(values, work, out var component, out var trailing)) return NoMatch<CssStringValue>(default, work);
         if (component.Kind != CssComponentKind.Token || component.Token.Kind != CssTokenKind.String)
             return NoMatch<CssStringValue>(component.Span, work);
         var text = component.Token.Text;
         work.Charge(text.Length);
+        if (trailing is { } span) return NoMatch<CssStringValue>(span, work);
         return Match(new CssStringValue(text, component.Span), component.Span, work);
     }
 
     internal static CssPrimitiveResult<CssNumericAtom> ParseNumericAtom(CssComponentValueList values, CssValueWork work)
     {
-        if (!TrySingle(values, work, out var component, out var failure)) return NoMatch<CssNumericAtom>(failure, work);
+        if (!TryFirst(values, work, out var component, out var trailing)) return NoMatch<CssNumericAtom>(default, work);
         if (component.Kind != CssComponentKind.Token) return NoMatch<CssNumericAtom>(component.Span, work);
         var token = component.Token;
         CssNumericKind kind;
@@ -83,18 +93,19 @@ internal static class CssPrimitiveParser
             default:
                 return NoMatch<CssNumericAtom>(component.Span, work);
         }
+        if (trailing is { } span) return NoMatch<CssNumericAtom>(span, work);
         var number = CssNumber.FromValidatedToken(token.NumberText, work);
         return Match(new CssNumericAtom(kind, number, unit, token.IsInteger, component.Span), component.Span, work);
     }
 
-    private static bool TrySingle(CssComponentValueList values, CssValueWork work,
-        out CssComponentValue component, out CssSourceSpan failure)
+    private static bool TryFirst(CssComponentValueList values, CssValueWork work,
+        out CssComponentValue component, out CssSourceSpan? trailing)
     {
         ArgumentNullException.ThrowIfNull(values);
         ArgumentNullException.ThrowIfNull(work);
         work.CheckCancellation();
         component = default;
-        failure = default;
+        trailing = null;
         var found = false;
         for (var i = 0; i < values.Count; i++)
         {
@@ -103,14 +114,13 @@ internal static class CssPrimitiveParser
             if (current.Kind == CssComponentKind.Token && current.Token.Kind == CssTokenKind.Whitespace) continue;
             if (found)
             {
-                failure = current.Span;
+                trailing = current.Span;
                 work.CheckCancellation();
-                return false;
+                return true;
             }
             component = current;
             found = true;
         }
-        if (!found) failure = default;
         work.CheckCancellation();
         return found;
     }

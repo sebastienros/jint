@@ -40,25 +40,24 @@ public sealed class ValueCancellationTests
         var checks = 0;
         var work = new CssValueWork(cancellation.Token, () =>
         {
-            if (++checks == 2) cancellation.Cancel();
+            // Entry and component-list exit are the first two checks. The third
+            // happens after 4096 decoded characters, before any result exists.
+            if (++checks == 3) cancellation.Cancel();
         });
         Assert.Throws<OperationCanceledException>(() => CssPrimitiveParser.ParseIdentifier(values, work));
-        checks.Should().Be(2);
+        checks.Should().Be(3);
     }
 
     [Test]
     public void ChildOperationsShareOneCadence()
     {
         var values = MarkupParser.ParseCssComponentValues(new string('a', 3000));
-        using var cancellation = new CancellationTokenSource();
         var checks = 0;
-        var work = new CssValueWork(cancellation.Token, () =>
-        {
-            if (++checks == 5) cancellation.Cancel();
-        });
+        var work = new CssValueWork(default, () => checks++);
         CssPrimitiveParser.ParseIdentifier(values, work).IsMatch.Should().BeTrue();
-        Assert.Throws<OperationCanceledException>(() => CssPrimitiveParser.ParseIdentifier(values, work));
-        checks.Should().Be(5);
+        CssPrimitiveParser.ParseIdentifier(values, work).IsMatch.Should().BeTrue();
+        // Six entry/return checks plus one carried-over 4096-unit checkpoint.
+        checks.Should().Be(7);
     }
 
     private static CssNumber Number(string source) =>

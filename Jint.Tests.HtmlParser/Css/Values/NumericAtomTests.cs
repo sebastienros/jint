@@ -75,6 +75,20 @@ public sealed class NumericAtomTests
     [TestCase("1px 2px")]
     public void NumericAtomDoesNotClaimExpressionsOrLists(string source) => Parse(source).IsMatch.Should().BeFalse();
 
+    [Test]
+    public void FirstInvalidNumericComponentWinsOverTrailingNumber()
+    {
+        var wrongKind = Parse("foo 1");
+        var unknownUnit = Parse("1furlong 2px");
+        var trailing = Parse("1px 2px");
+        wrongKind.IsMatch.Should().BeFalse();
+        wrongKind.Span.Start.Should().Be(0);
+        unknownUnit.IsMatch.Should().BeFalse();
+        unknownUnit.Span.Start.Should().Be(0);
+        trailing.IsMatch.Should().BeFalse();
+        trailing.Span.Start.Should().Be(4);
+    }
+
     private static CssPrimitiveResult<CssNumericAtom> Parse(string source) =>
         CssPrimitiveParser.ParseNumericAtom(MarkupParser.ParseCssComponentValues(source), new CssValueWork(default));
 }

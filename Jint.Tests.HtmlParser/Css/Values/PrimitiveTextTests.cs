@@ -71,4 +71,24 @@ public sealed class PrimitiveTextTests
         CssPrimitiveParser.ParseString(values, new CssValueWork(default)).IsMatch.Should().BeFalse();
         CssPrimitiveParser.ParseIdentifier(values, new CssValueWork(default)).IsMatch.Should().BeFalse();
     }
+
+    [Test]
+    public void FirstInvalidTextComponentWinsOverTrailingCandidate()
+    {
+        var work = new CssValueWork(default);
+        var identifier = CssPrimitiveParser.ParseIdentifier(MarkupParser.ParseCssComponentValues("1 name"), work);
+        var reserved = CssPrimitiveParser.ParseCustomIdentifier(MarkupParser.ParseCssComponentValues("default name"),
+            ReadOnlySpan<string>.Empty, work);
+        var excluded = CssPrimitiveParser.ParseCustomIdentifier(MarkupParser.ParseCssComponentValues("blue name"),
+            new[] { "BLUE" }, work);
+        var dashed = CssPrimitiveParser.ParseDashedIdentifier(MarkupParser.ParseCssComponentValues("name --valid"), work);
+        var quoted = CssPrimitiveParser.ParseString(MarkupParser.ParseCssComponentValues("name 'valid'"), work);
+        foreach (var result in new[] { identifier, reserved, excluded, dashed })
+        {
+            result.IsMatch.Should().BeFalse();
+            result.Span.Start.Should().Be(0);
+        }
+        quoted.IsMatch.Should().BeFalse();
+        quoted.Span.Start.Should().Be(0);
+    }
 }

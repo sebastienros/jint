@@ -54,4 +54,12 @@ public sealed class PrimitiveKeywordTests
         Assert.Throws<InvalidOperationException>(() => _ = default(CssPrimitiveResult<CssWideKeyword>).Value);
         Assert.Throws<InvalidOperationException>(() => _ = CssWideKeyword.None.CanonicalSpelling());
     }
+
+    [Test]
+    public void InvalidFirstKeywordWinsOverFollowingValidKeyword()
+    {
+        var result = CssPrimitiveParser.ParseWideKeyword(MarkupParser.ParseCssComponentValues("bogus initial"), new CssValueWork(default));
+        result.IsMatch.Should().BeFalse();
+        result.Span.Start.Should().Be(0);
+    }
 }
