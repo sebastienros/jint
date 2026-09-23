@@ -37,10 +37,11 @@ the earlier repository direction to retain AngleSharp.
 | H4 HTML tree construction | `01a0cf5a-9eed-7913-bcb4-e019fbbb5e8c` | Reviewed corrections integrated |
 | H5a HTML table structure | `01a0cf80-d939-7a72-829a-859771c547f0` | Reviewed fixes integrated |
 | H5b HTML table text and foster insertion | `01a0cf9d-4989-78a3-9ec5-3302a335a8bc` | In progress; exclusive tree-builder owner |
-| H5b native fresh insertion prerequisite | `01a0cfa5-4d54-73d1-9e18-3f263463a87c` | Reviewed contract dispatched; implementation in progress |
+| H5b native fresh insertion prerequisite | `01a0cfa5-4d54-73d1-9e18-3f263463a87c` | Reviewed implementation integrated |
 | D5 native mutation tracking | `01a0cf62-1c76-7411-ae32-d5d6beee5915` | Reviewed corrections integrated; native ownership retained for fixes |
 | XML conformance corpus and harness | `01a0cf6e-aa5f-7631-af1b-03f6136013a1` | Full harness integrated; remaining policy/output debt fails visibly |
-| Native immutable XML notation metadata | `01a0cf91-311c-7283-8de6-5272978c0529` | Reviewed corrections integrated; XML population in progress |
+| Native immutable XML notation metadata | `01a0cf91-311c-7283-8de6-5272978c0529` | Metadata and XML population integrated; corpus OUTPUT adaptation in progress |
+| D6s1 native shadow root ownership | `01a0cfae-7f75-7c72-bc9f-c9f06fccb468` | Independently reviewed contract dispatched; implementation in progress |
 | Packed public XML and mutation consumer | `01a0cf2c-ab5e-7023-95ab-1ab3a4fc8d77` | Reviewed harness and package README integrated |
 | C5 V0a CSS value primitives | `01a0cf7b-7669-7883-944b-3f3c35fc4585` | Reviewed corrections integrated |
 | C5 V0b1 basic CSS math | `01a0cf9b-ba8a-7a32-b6e4-09de7672e6ed` | Reviewed design dispatched; implementation in progress |
@@ -153,6 +154,10 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   UTF-16 membership, sliced delimiter positions, exact tag membership and every row's inputs.
   The 33 throughput/allocation rows remain untimed; external machine activity prevents an
   uncontended measurement window. The reviewed batch plan retains gate jobs and idle checks.
+- Fresh integration checks pass 118 tests across both TFMs for parser insertion, construction,
+  templates, mutations and structural selectors. XML notation parsing, immutable metadata and
+  public API checks pass another 62 tests. These focused runs follow the full-suite counts above;
+  corpus notation OUTPUT comparisons are still being wired to the actual metadata.
 - The unsigned packed consumer passed fresh local-package runs on net8.0 and
   net10.0, plus a Native AOT publish/run on osx-arm64 in its implementation worktree.
   Package inspection found no production dependencies. Its reviewed probes cover
@@ -306,3 +311,13 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   original canonical OUTPUT comparisons. Its author census reports 1,567 conformance passes,
   379 unresolved required cases and one known notation defect; 241 of 386 eligible OUTPUT
   comparisons pass. Integrated full-suite counts above precede these last two expectation packets.
+- `5db884318`: integrated unused-declaration packet identified above.
+- `5c35e0045`: reviewed native fresh parser insertion before a reference child
+  (source `803a9257e`), with shared mutation semantics and coherent cancellation.
+- `4c760074e`: independently reviewed staged native shadow-root and slot contracts,
+  including scoped registry cloning, copied-slot signals and stored assignment semantics.
+- `e140d6e34`, `6b84be947`, `0ab67dfc5`: all-read XML notation parsing and precise
+  normalization/collection cancellation coverage (source `9b558a3cd`, `83081d70c`,
+  `03efd23de`); final Astra re-review clear.
+- `7687ff6a2`: reviewed optional system-identifier fragment policy (source `0ef35c784`),
+  counted separately from conformance passing cases.
