@@ -16,7 +16,7 @@ the earlier repository direction to retain AngleSharp.
 - User cleanup rule: archive tasks and remove their worktrees after review, integration and
   successful common-worktree checks. Retain interrupted/failed tasks until unfinished work is
   recovered. Keep task history and Git branches; use managed archive cleanup and verify removal.
-  Twenty-two completed tasks have now been archived; their worktrees are gone.
+  Twenty-three completed tasks have now been archived; their worktrees are gone.
   Patch equivalence, clean local state and stopped-task status were checked before removal.
   Earlier worktrees already removed by Codex remain represented by their integrated commits.
 
@@ -54,9 +54,9 @@ the earlier repository direction to retain AngleSharp.
 | C5 V0a CSS value primitives | `01a0cf7b-7669-7883-944b-3f3c35fc4585` | Reviewed corrections integrated; archived, worktree removed |
 | C5 V0b1 basic CSS math | `01a0cf9b-ba8a-7a32-b6e4-09de7672e6ed` | Astra review findings being corrected |
 | D7a1 native form association | `01a0cfce-720d-76a2-aff0-6ab0c6c1315a` | Under Astra review; required work-scaling tests being added; exclusive shared native-file owner |
-| X4a native XPath adapter | `01a0cfc2-9808-7643-a56f-c29d6ec8005c` | Implementation under independent Astra review |
-| C2d1 native table-column model | `01a0cfd3-4970-7c53-af17-767d5a5cbdaa` | Reviewed design dispatched; independent new-file implementation in progress |
-| D6r1 native boundary/static-range primitives | `01a0cfd7-4a2d-76e3-a72b-4af81516af7f` | Reviewed independent new-file slice in progress |
+| X4a native XPath adapter | `01a0cfc2-9808-7643-a56f-c29d6ec8005c` | Reviewed fixes integrated and tested; archived, worktree removed |
+| C2d1 native table-column model | `01a0cfd3-4970-7c53-af17-767d5a5cbdaa` | Implementation under independent Astra review |
+| D6r1 native boundary/static-range primitives | `01a0cfd7-4a2d-76e3-a72b-4af81516af7f` | Runtime review clear; cancellation-test correction pending |
 
 The XML conformance gate inventories all 2,585 pinned W3C rows with explicit profile
 classifications and separate output assertions. Current execution results and remaining debt are below.
@@ -390,3 +390,14 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   work corrections (sources `53b2d2b06`, `f8ea5c231`). Fresh combined non-corpus tests pass
   1,728/1,728 across both frameworks with no skips. Evidence:
   `/private/tmp/jint-formatting-native-integrated.log`. H6b adoption agency is dispatched separately.
+
+- `e4c37f985`: seventeen independently reviewed Sun standalone/validity expectations
+  (source `826eafdd2`). Fresh common XML corpus tests across both frameworks: 3,998 total,
+  3,354 passed, 644 failed, no skips. Each framework reports 1,646 conformance passes,
+  301 unresolved required cases, zero known defects/harness failures; optional and canonical-output
+  counts are unchanged. Evidence: `/private/tmp/jint-xml-sa17-integrated.log`.
+- `995927c5d`, `2d7a13c0d`: reviewed internal XPath navigator and namespace/cancellation
+  corrections (sources `e978af316`, `c1635d86e`). Fresh combined non-corpus tests pass
+  1,756/1,756 across net8/net10, no skips. Evidence:
+  `/private/tmp/jint-xpath-native-integrated.log`. Typed IDs, detached attributes and public
+  promotion remain separate required stages. The finalized task is archived and its worktree removed.
