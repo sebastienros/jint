@@ -35,10 +35,30 @@ CDATA text. Count-preserving value mutations in HTML, XML and CSS must fail vali
 pinned counts detect accidental fixture or baseline changes; they are an
 AngleSharp reference, not a standards oracle.
 
-When Jint.HtmlParser has a stable API, add a candidate row to the same benchmark class. Reuse
-`Case.Source`, return a fully materialized result of the same kind, and keep parser construction
-outside the timed method. Validate the candidate's structure and representative values during
-setup before measuring. Compare HTML recovery behavior against the applicable standard when it
-differs from AngleSharp, and record any intentional differences. A tokenizer-only row would not
-be comparable to these document-producing rows. Use the repository's paired benchmark procedure
-for reported timing numbers; no timing results are recorded with this corpus.
+`XmlSvgParserComparisonBenchmark` pairs the four standalone XML/SVG inputs with the public
+`MarkupParser.ParseXml` and `ParseSvg` APIs. Its AngleSharp row is the control. Both rows receive
+the same loaded string, keep parser configuration outside the timed method, and return a fresh,
+complete document. `dotnet run -c Release --project Jint.Benchmark/Jint.Benchmark.csproj --
+--validate-xml-svg-parser-comparison` compares the trees without timing. The comparer checks node
+kinds, element and attribute names, prefixes, namespaces, values and order, text/CDATA, comments,
+processing instructions, doctypes, parent links and owner documents. It also rejects deliberate
+count-preserving changes to content, node kind, attribute order, regular attribute namespace and
+SVG XLink value. A separate untimed XML input exercises an internal entity, PI and doctype because
+the four throughput fixtures do not all carry those constructs.
+
+The XML comparison uses default, unbounded parsing with no external entities in the inputs.
+This is an **equal parse workload with a documented default-`xmlns` representation difference**,
+not a claim of identical DOMs. Pinned AngleSharp.Xml 1.2.0 reports the unprefixed `xmlns`
+declaration with a null/empty namespace; the native DOM reports the XMLNS namespace. Outside
+timing, the comparer requires precisely those two tuples, including the same name, value, position
+and owner. A prefixed `xmlns:m` or `xmlns:xlink` declaration must use XMLNS on both sides; ordinary
+attributes and elements require exact namespace equality. Deliberately wrong declaration tuples,
+missing or reordered declarations, and corrupt descendant bindings are rejected. The rows compare
+parsed trees; SVG document MIME branding differs between the generic AngleSharp XML entry and
+native `ParseSvg`.
+
+HTML and CSS remain AngleSharp-only until the corresponding native document/CSSOM APIs exist. A
+future candidate must return a fully materialized result of the same kind and validate it during
+setup. A tokenizer-only row would not be comparable to document-producing rows. Use the
+repository's paired benchmark procedure for reported timing numbers; no timing results are
+recorded with this corpus.

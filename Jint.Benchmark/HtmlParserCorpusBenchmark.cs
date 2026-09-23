@@ -8,6 +8,7 @@ using AngleSharp.Html.Dom;
 using AngleSharp.Html.Parser;
 using AngleSharp.Xml.Parser;
 using BenchmarkDotNet.Attributes;
+using AngleHtmlParser = global::AngleSharp.Html.Parser.HtmlParser;
 using DomNode = AngleSharp.Dom.INode;
 using DomNodeType = AngleSharp.Dom.NodeType;
 
@@ -22,7 +23,7 @@ namespace Jint.Benchmark;
 [BenchmarkCategory("HtmlParserCorpus")]
 public class HtmlParserCorpusBenchmark
 {
-    private HtmlParser? _html;
+    private AngleHtmlParser? _html;
     private XmlParser? _xml;
     private CssParser? _css;
     private ParserCorpusShape _validatedShape;
@@ -35,7 +36,7 @@ public class HtmlParserCorpusBenchmark
     [GlobalSetup]
     public void Setup()
     {
-        _html = new HtmlParser(new HtmlParserOptions { IsScripting = false });
+        _html = new AngleHtmlParser(new HtmlParserOptions { IsScripting = false });
         _xml = new XmlParser();
         _css = new CssParser();
         _validatedShape = ParserCorpus.Validate(Case, ParseAngleSharp());
@@ -160,7 +161,7 @@ internal static class ParserCorpus
     public static void ValidateCountPreservingMutations()
     {
         AssertRejected("html-small.html", "A &amp; B", "Z &amp; B",
-            source => new HtmlParser(new HtmlParserOptions { IsScripting = false }).ParseDocument(source));
+            source => new AngleHtmlParser(new HtmlParserOptions { IsScripting = false }).ParseDocument(source));
         AssertRejected("xml-small.xml", "<![CDATA[<literal>]]>", "<![CDATA[<Literal>]]>",
             source => new XmlParser().ParseDocument(source));
         AssertRejected("css-rules-small.css", "--brand: #123456", "--brand: #654321",
