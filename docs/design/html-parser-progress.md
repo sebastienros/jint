@@ -16,7 +16,7 @@ the earlier repository direction to retain AngleSharp.
 - User cleanup rule: archive tasks and remove their worktrees after review, integration and
   successful common-worktree checks. Retain interrupted/failed tasks until unfinished work is
   recovered. Keep task history and Git branches; use managed archive cleanup and verify removal.
-  Twenty-six completed tasks have now been archived; their worktrees are gone.
+  Twenty-seven completed tasks have now been archived; their worktrees are gone.
   Patch equivalence, clean local state and stopped-task status were checked before removal.
   Earlier worktrees already removed by Codex remain represented by their integrated commits.
 
@@ -44,7 +44,7 @@ the earlier repository direction to retain AngleSharp.
 | H5a HTML table structure | `01a0cf80-d939-7a72-829a-859771c547f0` | Reviewed fixes integrated; archived, worktree removed |
 | H5b HTML table text and foster insertion | `01a0cf9d-4989-78a3-9ec5-3302a335a8bc` | Reviewed implementation and diagnostic correction integrated; archived, worktree removed |
 | H6a active formatting reconstruction | `01a0cfba-939d-7c52-9867-dc86e37f5b0d` | Reviewed fixes integrated and tested; archived, worktree removed |
-| H6b adoption agency | `01a0cfd9-5ae3-7db1-bb26-d25650617b85` | In progress; exclusive tree-builder owner |
+| H6b adoption agency | `01a0cfd9-5ae3-7db1-bb26-d25650617b85` | Implementation under Astra review; exclusive tree-builder owner |
 | H5b native fresh insertion prerequisite | `01a0cfa5-4d54-73d1-9e18-3f263463a87c` | Reviewed implementation integrated; archived, worktree removed |
 | D5 native mutation tracking | `01a0cf62-1c76-7411-ae32-d5d6beee5915` | Reviewed mutation and PI corrections integrated; archived, worktree removed |
 | XML conformance corpus and harness | `01a0cf6e-aa5f-7631-af1b-03f6136013a1` | Full harness integrated; remaining policy/output debt fails visibly |
@@ -52,7 +52,7 @@ the earlier repository direction to retain AngleSharp.
 | D6s1 native shadow root ownership | `01a0cfae-7f75-7c72-bc9f-c9f06fccb468` | Reviewed roots/ownership and API snapshots integrated; archived, worktree removed |
 | Packed public XML and mutation consumer | `01a0cf2c-ab5e-7023-95ab-1ab3a4fc8d77` | Reviewed harness and package README integrated; archived, worktree removed |
 | C5 V0a CSS value primitives | `01a0cf7b-7669-7883-944b-3f3c35fc4585` | Reviewed corrections integrated; archived, worktree removed |
-| C5 V0b1 basic CSS math | `01a0cf9b-ba8a-7a32-b6e4-09de7672e6ed` | Astra review findings being corrected |
+| C5 V0b1 basic CSS math | `01a0cf9b-ba8a-7a32-b6e4-09de7672e6ed` | Reviewed fixes integrated and tested; archived, worktree removed |
 | D7a1 native form association | `01a0cfce-720d-76a2-aff0-6ab0c6c1315a` | Reviewed corrections integrated and tested; archived, worktree removed |
 | X4a native XPath adapter | `01a0cfc2-9808-7643-a56f-c29d6ec8005c` | Reviewed fixes integrated and tested; archived, worktree removed |
 | C2d1 native table-column model | `01a0cfd3-4970-7c53-af17-767d5a5cbdaa` | Reviewed corrections integrated and tested; archived, worktree removed |
@@ -450,3 +450,15 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   `/Users/sebastienros/.codex/worktrees/2ce4/jint`, D7a2
   `/Users/sebastienros/.codex/worktrees/4ad0/jint`. Task identities are pending worker callbacks;
   do not recreate tasks merely because the sidebar listing omits them.
+- `c9587a6d2`, `af8fefe79`, `694579050`, `c85e869bc`, `ee9eb3693`: reviewed internal
+  basic CSS math and all dimension/grouping, generated-sum/product, sibling ownership and polling
+  corrections (sources `68c7178c5`, `bc6e53b5a`, `cb3e7836d`, `8b9a228e9`, `cf3d07520`).
+  Independent review passed prior repros and 2,000 transformed-expression combinations, with linear
+  counted work on growing deferred sums/products. Fresh common non-corpus suite: 2,098/2,098 passed
+  across net8/net10, no skips. Evidence: `/private/tmp/jint-cssmath-native-integrated.log`.
+  Task archived and clean patch-equivalent worktree removed. Seventeen later math functions and
+  broader value/property/public CSSOM gates remain outstanding; this is not full CSS completion.
+- H6b source `4470e694b` is under independent Astra review. After its integration the next builder
+  stage is H6c select handling, then H6d templates, as already specified in the follow-up contract.
+  D6s2 slot assignment must wait for X4b1's native-file release; it cannot be implemented coherently
+  only in new files. D6s3's real signal sink is a separate sequential commit under that slot owner.
