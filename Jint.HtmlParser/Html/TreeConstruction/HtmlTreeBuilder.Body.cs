@@ -167,6 +167,14 @@ internal sealed partial class HtmlTreeBuilder
         }
         if (name == "input")
         {
+            // HTML Standard §13.2.6.4.7: an input closes an open select
+            // before formatting is reconstructed and the input is inserted.
+            if (InScope("select"))
+            {
+                Error("input-in-select");
+                SchedulePopTo(Last("select"), reprocess: true);
+                return true;
+            }
             var inspected = false;
             while (_inputAttributeIndex < _token.Attributes.Count && !_inputTypeFound)
             {
@@ -192,6 +200,11 @@ internal sealed partial class HtmlTreeBuilder
         if (name == "hr")
         {
             if (InButtonScope("p")) { CloseP(reprocess: true); return true; }
+            if (InScope("select"))
+            {
+                if (!TryGenerateImpliedEndTags()) return true;
+                if (InScope("option") || InScope("optgroup")) Error("hr-in-select-option");
+            }
             InsertTokenElement(); Pop(); _acknowledgedSelfClosing = true; _framesetOk = false;
             return false;
         }
@@ -228,10 +241,7 @@ internal sealed partial class HtmlTreeBuilder
             EnterText(HtmlTextMode.RawText, name);
             return false;
         }
-        if (name is "select" or "option" or "optgroup")
-        {
-            Missing(HtmlMissingFeature.Select); return false;
-        }
+        if (name is "select" or "option" or "optgroup") return SelectStart(name);
         if (name is "rb" or "rtc" or "rp" or "rt")
         {
             if (InScope("ruby"))
@@ -269,7 +279,7 @@ internal sealed partial class HtmlTreeBuilder
             _mode = Mode.AfterBody;
             return name == "html";
         }
-        if (IsBlockEnd(name) || name == "button")
+        if (IsBlockEnd(name) || name is "button" or "select")
         {
             if (!InScope(name)) { Error("unexpected-end-tag"); return false; }
             if (!TryGenerateImpliedEndTags()) return true;
