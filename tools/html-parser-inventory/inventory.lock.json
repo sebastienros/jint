@@ -58,6 +58,21 @@
       ]
     },
     {
+      "path": "Jint.Benchmark/HtmlParserCorpusBenchmark.cs",
+      "category": "benchmark",
+      "owner": "A3:comparison",
+      "references": [
+        "using AngleSharp.Css.Dom;",
+        "using AngleSharp.Css.Parser;",
+        "using AngleSharp.Dom;",
+        "using AngleSharp.Html.Dom;",
+        "using AngleSharp.Html.Parser;",
+        "using AngleSharp.Xml.Parser;",
+        "using DomNode = AngleSharp.Dom.INode;",
+        "using DomNodeType = AngleSharp.Dom.NodeType;"
+      ]
+    },
+    {
       "path": "Jint.Browser/Accessibility/AccessibilityTree.cs",
       "category": "runtime",
       "owner": "R4:accessibility",
