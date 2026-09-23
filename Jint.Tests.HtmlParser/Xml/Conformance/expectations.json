@@ -248,5 +248,83 @@
     "outputPolicy": "required-notation-contract-gap",
     "originalOutputSha256": "4e6d5789a7013d88efe65ba0dc08c28ca2a2959d18df4c44fc3d7790cd5f5b16",
     "review": "NOTATION attribute definition refers to n1/n2, whose identifiers must be available to applications. Current DOM omits them; required contract debt. XML §4.7 https://www.w3.org/TR/xml/#Notations."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#not-wf-sa-054",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "PUBLIC external identifier omits mandatory SystemLiteral in the document internal subset; XML production [75] https://www.w3.org/TR/xml/#sec-external-ent."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#not-wf-sa-061",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "PUBLIC external identifier omits mandatory S between PubidLiteral and SystemLiteral in the document internal subset; XML production [75] https://www.w3.org/TR/xml/#sec-external-ent."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#not-wf-sa-069",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "Unparsed entity declaration omits mandatory S before NDATA in the document internal subset; XML production [76] https://www.w3.org/TR/xml/#sec-external-ent."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#not-wf-sa-081",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "External parsed general entity reference occurs in an explicit attribute value; No External Entity References well-formedness constraint https://www.w3.org/TR/xml/#NoExternalRefs."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#not-wf-sa-082",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "External parsed general entity reference occurs in an attribute default declaration in the internal subset; No External Entity References well-formedness constraint https://www.w3.org/TR/xml/#NoExternalRefs."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#not-wf-sa-083",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "Document content references a declared unparsed NDATA entity; Parsed Entity well-formedness constraint https://www.w3.org/TR/xml/#textent. The undefined notation mentioned upstream is a separate validity issue."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#not-wf-sa-084",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "Attribute default declaration references a declared unparsed NDATA entity; Parsed Entity well-formedness constraint https://www.w3.org/TR/xml/#textent."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#not-wf-sa-085",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "DOCTYPE PUBLIC literal contains [ which PubidChar excludes in the document internal subset; XML productions [12]/[13] https://www.w3.org/TR/xml/#NT-PubidChar."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#not-wf-sa-086",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "ENTITY PUBLIC literal contains [ which PubidChar excludes in the document internal subset; XML productions [12]/[13] https://www.w3.org/TR/xml/#NT-PubidChar."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#not-wf-sa-087",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "NOTATION PUBLIC literal contains [ which PubidChar excludes in the document internal subset; XML productions [12]/[13] https://www.w3.org/TR/xml/#NT-PubidChar."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#not-wf-sa-089",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "Parameter entity declaration has an NDATA suffix, which PEDef does not permit; XML productions [72]/[74] https://www.w3.org/TR/xml/#sec-entity-decl."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#not-wf-sa-091",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "Parameter entity declaration has an NDATA suffix, which PEDef does not permit; XML productions [72]/[74] https://www.w3.org/TR/xml/#sec-entity-decl."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#not-wf-sa-158",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "ATTLIST declaration uses #NOTATION where an element Name is required; XML production [52] https://www.w3.org/TR/xml/#attdecls."
   }
 ]

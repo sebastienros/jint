@@ -214,7 +214,7 @@ public class XmlCorpusTests
         wrongProjection.Kind.Should().Be(XmlOutcomeKind.ParserFailure);
         wrongProjection.Signature.Should().Be("projection-mismatch");
 
-        var externalNegative = XmlCorpus.Case("xmlconf/xmltest/xmltest.xml#not-wf-sa-054");
+        var externalNegative = XmlCorpus.Case("xmlconf/xmltest/xmltest.xml#not-wf-sa-185");
         XmlConformanceRunner.Run(externalNegative).Signature.Should().Be("resource-profile-review");
     }
 
