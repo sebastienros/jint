@@ -113,6 +113,10 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   version correction brings it to 1,212, and the reviewed native PI factory changes
   bring it to 1,218, all across both frameworks with zero failures/skips. A separate
   clone/import test follow-up passes all eight focused PI tests across the two TFMs.
+- With the XML parser using trusted PI construction and all seven corpus-character
+  regressions covered through parsing/clone/import, the full combined suite passes
+  1,240 tests across both frameworks, zero failures/skips. Corpus reruns still owe
+  independent confirmation and required notation-reporting/output work remains.
 - Integrated XML/SVG comparison validation passes all four unchanged corpus fixtures
   and rejects count-preserving corruption. It uses only the reviewed default-xmlns
   representation projection and documents SVG MIME branding. These are correctness
@@ -232,3 +236,5 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   implementation (source `6b329f0d7`, `1c0fa5cd2`).
 - `37c8a6712`, `2156e4f85`: reviewed native PI Name/trusted construction and clone
   tests (source `b69f678e1` plus test-only delta to `6eb97386c`).
+- `f1a0c5064`: reviewed XML PI callsite and parser-specific name/cancellation
+  regressions (source `dc2cd51d9`).
