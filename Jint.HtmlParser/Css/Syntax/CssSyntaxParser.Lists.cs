@@ -28,34 +28,28 @@ internal sealed partial class CssSyntaxParser
         return result;
     }
 
-    // Declaration-list syntax intentionally omits at-rules; its result type contains declarations only.
+    // §5.4.5 and §5.5.5: parse the mixed contents first, then project declarations.
     internal CssDeclarationSyntax[] ParseDeclarationList()
     {
         var values = ConsumeAllComponents();
+        var contents = ConsumeBlockContents(values, _sourceLength, closed: false);
         var declarations = new List<CssDeclarationSyntax>();
-        var index = 0;
-        while (index < values.Count)
+        foreach (var item in contents)
         {
             PollCancellation();
-            if (IsToken(values[index], CssTokenKind.Whitespace) ||
-                IsToken(values[index], CssTokenKind.Semicolon))
+            if (item.Kind == CssBlockItemKind.Rule)
             {
-                index++;
+                if (item.Rule.Kind == CssRuleKind.AtRule)
+                {
+                    Report("css/discarded-at-rule-in-declaration-list", item.Rule.Span.Start);
+                }
                 continue;
             }
-            if (IsToken(values[index], CssTokenKind.AtKeyword))
+            foreach (var declaration in item.Declarations)
             {
-                var offset = values[index].Span.Start;
-                ConsumeAtRule(values, ref index, _sourceLength);
-                Report("css/discarded-at-rule-in-declaration-list", offset);
-                continue;
+                PollCancellation();
+                declarations.Add(declaration);
             }
-            var end = FindSemicolon(values, index);
-            var terminalOffset = end < values.Count ? values[end].Span.Start : _sourceLength;
-            var declaration = TryBuildDeclaration(values, index, end, terminalOffset);
-            if (declaration is null) Report("css/discarded-declaration", values[index].Span.Start);
-            else declarations.Add(declaration);
-            index = end < values.Count ? end + 1 : end;
         }
         var result = Copy(declarations);
         _cancellationToken.ThrowIfCancellationRequested();
@@ -74,12 +68,21 @@ internal sealed partial class CssSyntaxParser
 
         _cancellationToken.ThrowIfCancellationRequested();
         var values = block.Values;
+        var blockEnd = block.Span.Start + block.Span.Length;
+        // A recovered outer block can end at EOF immediately after an inner block's '}'.
+        // In that case the inner block, not the outer one, owns the final character.
+        var closed = blockEnd > block.Span.Start && blockEnd <= _source.Length &&
+            _source[blockEnd - 1] == '}' &&
+            (values.Count == 0 || values[^1].Span.Start + values[^1].Span.Length < blockEnd);
+        return ConsumeBlockContents(values, closed ? blockEnd - 1 : blockEnd, closed);
+    }
+
+    private CssBlockSyntax ConsumeBlockContents(IReadOnlyList<CssComponentValue> values,
+        int terminalOffset, bool closed)
+    {
         var items = new List<CssBlockItemSyntax>();
         var declarationRun = new List<CssDeclarationSyntax>();
         var index = 0;
-        var blockEnd = block.Span.Start + block.Span.Length;
-        var terminalOffset = blockEnd > block.Span.Start && blockEnd <= _source.Length &&
-            _source[blockEnd - 1] == '}' ? blockEnd - 1 : blockEnd;
 
         while (index < values.Count)
         {
@@ -93,7 +96,7 @@ internal sealed partial class CssSyntaxParser
             if (IsToken(values[index], CssTokenKind.AtKeyword))
             {
                 FlushRun();
-                var rule = ConsumeAtRule(values, ref index, terminalOffset);
+                var rule = ConsumeAtRule(values, ref index, terminalOffset, closed);
                 if (rule is not null) items.Add(CssBlockItemSyntax.FromRule(rule));
                 continue;
             }
@@ -136,7 +139,7 @@ internal sealed partial class CssSyntaxParser
     }
 
     private CssRuleSyntax ConsumeAtRule(IReadOnlyList<CssComponentValue> values,
-        ref int index, int terminalOffset)
+        ref int index, int terminalOffset, bool closed = false)
     {
         var first = values[index++].Token;
         var prelude = new List<CssComponentValue>();
@@ -163,7 +166,7 @@ internal sealed partial class CssSyntaxParser
             end = value.Span.Start + value.Span.Length;
             index++;
         }
-        Report("css/unexpected-eof", terminalOffset);
+        if (!closed) Report("css/unexpected-eof", terminalOffset);
         return NewRule(CssRuleKind.AtRule, first.Text, prelude, null,
             first.Span.Start, Math.Max(end, terminalOffset));
     }
@@ -271,17 +274,7 @@ internal sealed partial class CssSyntaxParser
             new CssSourceSpan(name.Span.Start, spanEnd - name.Span.Start));
     }
 
-    private int FindSemicolon(List<CssComponentValue> values, int start)
-    {
-        while (start < values.Count && !IsToken(values[start], CssTokenKind.Semicolon))
-        {
-            PollCancellation();
-            start++;
-        }
-        return start;
-    }
-
-    private bool CouldStartDeclaration(CssComponentValueList values, int start)
+    private bool CouldStartDeclaration(IReadOnlyList<CssComponentValue> values, int start)
     {
         while (start < values.Count && IsToken(values[start], CssTokenKind.Whitespace))
         {
@@ -298,7 +291,7 @@ internal sealed partial class CssSyntaxParser
         return start < values.Count && IsToken(values[start], CssTokenKind.Colon);
     }
 
-    private int FindBlockDeclarationBoundary(CssComponentValueList values, int start)
+    private int FindBlockDeclarationBoundary(IReadOnlyList<CssComponentValue> values, int start)
     {
         var custom = values[start].Token.Text.StartsWith("--", StringComparison.Ordinal);
         var cursor = start + 1;

@@ -58,12 +58,23 @@ public sealed class CssSyntaxListTests
         declarations[3].Value[0].Token.Text.Should().Be("a;b");
         declarations[4].Value[0].Token.Text.Should().Be("x;y");
         declarations[4].Span.Start.Should().Be(source.IndexOf("z:", StringComparison.Ordinal));
-        diagnostics.Items.Select(item => item.Code).Should().Contain("css/discarded-declaration");
+        diagnostics.Items.Select(item => item.Code).Should().Contain("css/discarded-qualified-rule");
         diagnostics.Items.Select(item => item.Code).Should().Contain("css/discarded-at-rule-in-declaration-list");
         var escaped = new CssSyntaxParser("co\\6cor/*c*/:/*c*/url(a;b);", null, default)
             .ParseDeclarationList();
         escaped.Single().Name.Should().Be("color");
         escaped.Single().Value.Single().Token.Text.Should().Be("a;b");
+    }
+
+    [Test]
+    public void DeclarationListKeepsDeclarationsAfterNestedRuleBoundaries()
+    {
+        const string source = ".x{} color:red; width:1px; @unknown { x:y } height:2px;";
+        var declarations = new CssSyntaxParser(source, null, default).ParseDeclarationList();
+        declarations.Select(declaration => declaration.Name).Should().ContainInOrder(
+            "color", "width", "height");
+        declarations[0].Span.Start.Should().Be(source.IndexOf("color", StringComparison.Ordinal));
+        declarations[2].Span.Start.Should().Be(source.IndexOf("height", StringComparison.Ordinal));
     }
 
     [Test]
@@ -130,6 +141,33 @@ public sealed class CssSyntaxListTests
         contents[0].Declarations[0].Name.Should().Be("color");
         diagnostics.Items.Any(item => item.Code == "css/unexpected-eof" && item.Offset == source.Length)
             .Should().BeTrue();
+    }
+
+    [Test]
+    public void BlockContentsDistinguishOuterClosingTokenFromInnerClosingTokenAtEof()
+    {
+        foreach (var source in new[] { "{unicode-range:{}}", "{unicode-range:{}" })
+        {
+            var diagnostics = new ParseDiagnosticCollector();
+            var parser = new CssSyntaxParser(source, new CssParseOptions { Diagnostics = diagnostics }, default);
+            var contents = parser.ParseBlockContents(parser.ParseComponentValue());
+            var value = contents.Single().Declarations.Single().Value.Single();
+            value.Kind.Should().Be(CssComponentKind.SimpleBlock);
+            value.Span.Length.Should().Be(2);
+            var eofCount = diagnostics.Items.Count(item => item.Code == "css/unexpected-eof");
+            eofCount.Should().Be(source.EndsWith("}}", StringComparison.Ordinal) ? 0 : 1);
+        }
+    }
+
+    [Test]
+    public void AtRuleAtOuterClosingTokenDoesNotReportUnexpectedEof()
+    {
+        const string source = "{@foo}";
+        var diagnostics = new ParseDiagnosticCollector();
+        var parser = new CssSyntaxParser(source, new CssParseOptions { Diagnostics = diagnostics }, default);
+        var contents = parser.ParseBlockContents(parser.ParseComponentValue());
+        contents.Single().Rule.Name.Should().Be("foo");
+        diagnostics.Items.Any(item => item.Code == "css/unexpected-eof").Should().BeFalse();
     }
 
     [Test]
