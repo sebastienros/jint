@@ -6,10 +6,14 @@ using System.Threading;
 namespace Jint.HtmlParser.Html;
 
 // HTML Standard §13.2.6.4 (2026-09-22). This partial builder stops at the
-// first operation assigned to H5-H7; no unsupported token enters a generic rule.
+// first unimplemented H5b-H7 operation; no unsupported token enters a generic rule.
 internal sealed partial class HtmlTreeBuilder
 {
-    private enum Mode { Initial, BeforeHtml, BeforeHead, InHead, InHeadNoscript, AfterHead, InBody, Text, AfterBody, AfterAfterBody }
+    private enum Mode
+    {
+        Initial, BeforeHtml, BeforeHead, InHead, InHeadNoscript, AfterHead, InBody, Text,
+        InTable, InCaption, InColumnGroup, InTableBody, InRow, InCell, AfterBody, AfterAfterBody
+    }
 
     private readonly Document _document;
     private readonly HtmlTokenizer _tokenizer;
@@ -22,6 +26,7 @@ internal sealed partial class HtmlTreeBuilder
     private readonly List<int> _specialIndexes = [];
     private readonly List<int> _liStops = [];
     private readonly List<int> _ddDtStops = [];
+    private readonly List<int> _scopeStops = [];
     private int _unexpectedOpenCount;
     private Element? _head;
     private Element? _form;
@@ -38,6 +43,10 @@ internal sealed partial class HtmlTreeBuilder
     private HtmlMissingFeature? _missing;
     private int _pendingPopTarget = -1;
     private bool _reprocessAfterPop;
+    private Mode? _modeAfterPop;
+    private bool _clearFormattingAfterPop;
+    private bool _resetAfterPop;
+    private int _resetIndex = -1;
     private int _pendingShiftIndex = -1;
     private int _inputAttributeIndex;
     private bool _inputTypeFound;
@@ -85,6 +94,8 @@ internal sealed partial class HtmlTreeBuilder
         if (_token.Kind == HtmlTokenKind.Text)
         {
             ProcessCharacters();
+            if (_missing is { } textFamily)
+                return new HtmlParseStep(HtmlParseStepKind.MissingFeature, textFamily, _token.Offset);
             if (_textIndex < _token.Data.Length) return new HtmlParseStep(HtmlParseStepKind.Yielded);
             FinishToken();
             return new HtmlParseStep(HtmlParseStepKind.Yielded);
@@ -99,6 +110,16 @@ internal sealed partial class HtmlTreeBuilder
         // for another token. The chain is bounded by the finite mode inventory.
         for (var pass = 0; pass < 12; pass++)
         {
+            if (_resetIndex >= 0)
+            {
+                if (!ResumeInsertionModeReset()) return new HtmlParseStep(HtmlParseStepKind.Yielded);
+                if (_missing is { } resetFamily)
+                    return new HtmlParseStep(HtmlParseStepKind.MissingFeature, resetFamily, _token.Offset);
+                if (_reprocessAfterPop) { _reprocessAfterPop = false; continue; }
+                var resetEof = _token.Kind == HtmlTokenKind.EndOfFile;
+                FinishToken();
+                return new HtmlParseStep(resetEof ? HtmlParseStepKind.Complete : HtmlParseStepKind.Yielded);
+            }
             if (_pendingShiftIndex >= 0)
             {
                 while (_pendingShiftIndex < _open.Count - 1 && _remaining > 0)
@@ -119,6 +140,9 @@ internal sealed partial class HtmlTreeBuilder
                 while (_open.Count > _pendingPopTarget && _remaining > 0) Pop();
                 if (_open.Count > _pendingPopTarget) return new HtmlParseStep(HtmlParseStepKind.Yielded);
                 _pendingPopTarget = -1;
+                if (_clearFormattingAfterPop) { ClearFormattingToMarker(); _clearFormattingAfterPop = false; }
+                if (_modeAfterPop is { } nextMode) { _mode = nextMode; _modeAfterPop = null; }
+                if (_resetAfterPop) { _resetAfterPop = false; _resetIndex = _open.Count - 1; continue; }
                 if (_reprocessAfterPop)
                 {
                     _reprocessAfterPop = false;
@@ -155,6 +179,12 @@ internal sealed partial class HtmlTreeBuilder
         Mode.AfterHead => InAfterHead(),
         Mode.InBody => InBody(),
         Mode.Text => InText(),
+        Mode.InTable => InTable(),
+        Mode.InCaption => InCaption(),
+        Mode.InColumnGroup => InColumnGroup(),
+        Mode.InTableBody => InTableBody(),
+        Mode.InRow => InRow(),
+        Mode.InCell => InCell(),
         Mode.AfterBody => InAfterBody(),
         Mode.AfterAfterBody => InAfterAfterBody(),
         _ => throw new InvalidOperationException("Unknown HTML insertion mode.")
@@ -242,6 +272,7 @@ internal sealed partial class HtmlTreeBuilder
             _liStops.Add(index);
         if (IsSpecial(element.LocalName) && element.LocalName is not ("address" or "div" or "p" or "dd" or "dt"))
             _ddDtStops.Add(index);
+        if (IsScopeBoundary(element)) _scopeStops.Add(index);
     }
 
     private void RemoveIndexes(Element element, int index)
@@ -255,6 +286,7 @@ internal sealed partial class HtmlTreeBuilder
             if (element.LocalName is not ("address" or "div" or "p" or "li")) RemoveIndex(_liStops, index);
             if (element.LocalName is not ("address" or "div" or "p" or "dd" or "dt")) RemoveIndex(_ddDtStops, index);
         }
+        if (IsScopeBoundary(element)) RemoveIndex(_scopeStops, index);
     }
 
     private void ShiftIndexes(Element element, int oldIndex)
@@ -266,6 +298,7 @@ internal sealed partial class HtmlTreeBuilder
             if (element.LocalName is not ("address" or "div" or "p" or "li")) ShiftIndex(_liStops, oldIndex);
             if (element.LocalName is not ("address" or "div" or "p" or "dd" or "dt")) ShiftIndex(_ddDtStops, oldIndex);
         }
+        if (IsScopeBoundary(element)) ShiftIndex(_scopeStops, oldIndex);
         Charge(1);
     }
 
@@ -300,25 +333,36 @@ internal sealed partial class HtmlTreeBuilder
         if (_specialIndexes.Count > 0 && _specialIndexes[^1] == index) _specialIndexes.RemoveAt(_specialIndexes.Count - 1);
         if (_liStops.Count > 0 && _liStops[^1] == index) _liStops.RemoveAt(_liStops.Count - 1);
         if (_ddDtStops.Count > 0 && _ddDtStops[^1] == index) _ddDtStops.RemoveAt(_ddDtStops.Count - 1);
+        if (_scopeStops.Count > 0 && _scopeStops[^1] == index) _scopeStops.RemoveAt(_scopeStops.Count - 1);
         if (!AllowedOpenAtEof(element.LocalName)) _unexpectedOpenCount--;
         Charge(1);
         return element;
     }
 
-    private void SchedulePopTo(int index, bool reprocess)
+    private void SchedulePopTo(int index, bool reprocess, Mode? nextMode = null,
+        bool clearFormatting = false, bool resetMode = false)
     {
         if (index < 0 || index >= _open.Count) throw new InvalidOperationException("Invalid HTML stack pop target.");
         _pendingPopTarget = index;
         _reprocessAfterPop = reprocess;
+        _modeAfterPop = nextMode;
+        _clearFormattingAfterPop = clearFormatting;
+        _resetAfterPop = resetMode;
     }
 
     private int Last(string name) => _nameIndexes.TryGetValue(name, out var indexes) ? indexes[^1] : -1;
     private int LastSpecial => _specialIndexes.Count == 0 ? -1 : _specialIndexes[^1];
     private int LastLiStop => _liStops.Count == 0 ? -1 : _liStops[^1];
     private int LastDdDtStop => _ddDtStops.Count == 0 ? -1 : _ddDtStops[^1];
-    private bool InScope(string name) => Last(name) > Last("html") || name == "html" && Last("html") >= 0;
-    private bool InButtonScope(string name) => Last(name) >= 0 && Last(name) > Math.Max(Last("html"), name == "button" ? -1 : Last("button"));
-    private bool InListItemScope(string name) => Last(name) >= 0 && Last(name) > Math.Max(Last("html"), Math.Max(Last("ol"), Last("ul")));
+    private int LastScopeStop => _scopeStops.Count == 0 ? -1 : _scopeStops[^1];
+    private bool InScope(string name) => Last(name) >= 0 && Last(name) >= LastScopeStop;
+    private bool InButtonScope(string name) => Last(name) >= 0 && Last(name) >= Math.Max(LastScopeStop, Last("button"));
+    private bool InListItemScope(string name) => Last(name) >= 0 && Last(name) >= Math.Max(LastScopeStop, Math.Max(Last("ol"), Last("ul")));
+    private bool InTableScope(string name) => Last(name) >= 0 && Last(name) >= Math.Max(Last("html"), Math.Max(Last("table"), Last("template")));
+    private static bool IsHtmlElement(Element element, string name) =>
+        element.NamespaceUri == Namespaces.Html && element.LocalName == name;
+    private static bool IsScopeBoundary(Element element) => element.NamespaceUri == Namespaces.Html &&
+        element.LocalName is "applet" or "caption" or "html" or "table" or "td" or "th" or "marquee" or "object" or "template";
 
     private bool TryGenerateImpliedEndTags(string? except = null)
     {

@@ -262,9 +262,21 @@ internal sealed partial class HtmlTreeBuilder
                     InsertElement("body"); _framesetOk = true; _mode = Mode.InBody;
                     continue;
                 case Mode.InBody:
+                case Mode.InCaption:
+                case Mode.InCell:
                     if (c == '\0') { Error("unexpected-null-character"); _textIndex++; Charge(1); continue; }
                     AppendCharacterRun(data, whiteOnly: White(c));
                     if (!White(c)) _framesetOk = false;
+                    continue;
+                case Mode.InTable:
+                case Mode.InTableBody:
+                case Mode.InRow:
+                    Missing(HtmlMissingFeature.Tables); // H5b pending table text.
+                    return;
+                case Mode.InColumnGroup:
+                    if (White(c)) { AppendCharacterRun(data, whiteOnly: true); continue; }
+                    if (!IsHtmlElement(Current, "colgroup")) { Error("unexpected-column-group-character"); _textIndex++; Charge(1); continue; }
+                    Pop(); _mode = Mode.InTable;
                     continue;
                 case Mode.Text:
                     if (c == '\0') Error("unexpected-null-character");

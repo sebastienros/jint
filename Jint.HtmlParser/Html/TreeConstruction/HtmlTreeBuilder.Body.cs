@@ -133,7 +133,12 @@ internal sealed partial class HtmlTreeBuilder
             _framesetOk = false;
             return false;
         }
-        if (name == "table") { Missing(HtmlMissingFeature.Tables); return false; }
+        if (name == "table")
+        {
+            if (_document.Mode != DocumentMode.Quirks && InButtonScope("p")) { CloseP(reprocess: true); return true; }
+            InsertTokenElement(); _framesetOk = false; _mode = Mode.InTable;
+            return false;
+        }
         if (IsFormatting(name) || name is "applet" or "marquee" or "object")
         {
             Missing(HtmlMissingFeature.Formatting); return false;

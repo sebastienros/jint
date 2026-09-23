@@ -52,7 +52,6 @@ public partial class HtmlTreeConstructionTests
         ((ProcessingInstruction) document.DocumentElement.LastChild!.FirstChild!).Target.Should().Be("InBody");
     }
 
-    [TestCase("<table>", "Tables", "<html><head></head><body></body></html>")]
     [TestCase("<b>", "Formatting", "<html><head></head><body></body></html>")]
     [TestCase("<select>", "Select", "<html><head></head><body></body></html>")]
     [TestCase("<template>", "Templates", "<html><head></head></html>")]
