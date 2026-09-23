@@ -155,4 +155,45 @@ public class CreationRealmTests
         b.WrapNode(node.LastChild!).DomRealm.Should().BeSameAs(a);
         b.WrapNode(node).Should().BeSameAs(a.WrapNode(node));
     }
+
+    [Test]
+    public void RepeatedRecordingPreservesAttributesTemplatesAndDetachedCreationRealms()
+    {
+        using var fixture = DomTestFixture.Create("<div id=host data-original=x><template><span title=y>text</span></template></div>");
+        fixture.Execute("""
+            var host = document.getElementById('host');
+            var shadow = host.attachShadow({mode: 'open'});
+            shadow.innerHTML = '<b title=z>shadow</b>';
+            host.saved = { value: 42 };
+            var saved = host.saved;
+            """);
+        var a = DomRealm.Of(fixture.Engine);
+        var second = fixture.Engine._host.CreateRealm();
+        var b = DomRealm.Of(fixture.Engine, second);
+        using var context = BrowsingContext.New();
+        using var document = new HtmlParser(default, context).ParseDocument("");
+        b.AssociateDocument(document);
+        var host = fixture.Document.GetElementById("host")!;
+        var attribute = host.Attributes["data-original"]!;
+        var template = (AngleSharp.Html.Dom.IHtmlTemplateElement) host.FirstElementChild!;
+        var content = template.Content;
+        var shadow = host.ShadowRoot!;
+        a.RecordSubtree(host);
+        document.Adopt(host);
+        b.RecordSubtree(host);
+        b.RecordSubtree(host);
+        b.CreationRealmOf(attribute).Should().BeSameAs(a);
+        b.CreationRealmOf(content).Should().BeSameAs(a);
+        b.CreationRealmOf(content.FirstChild!).Should().BeSameAs(a);
+        b.CreationRealmOf(shadow).Should().BeSameAs(a);
+        b.CreationRealmOf(shadow.FirstChild!).Should().BeSameAs(a);
+        b.WrapNode(host).Should().BeSameAs(a.WrapNode(host));
+        fixture.Bool("host.saved === saved && host.saved.value === 42").Should().BeTrue();
+
+        // A late native attribute belongs to the current document, not its element's creation realm.
+        host.SetAttribute("data-late", "new");
+        a.RecordSubtree(host);
+        a.CreationRealmOf(host.Attributes["data-late"]!).Should().BeSameAs(b);
+        a.CreationRealmOf(attribute).Should().BeSameAs(a);
+    }
 }
