@@ -154,6 +154,10 @@ internal static class HtmlTextControl
     internal static void SetRangeText(Element element, string replacement, CancellationToken cancellationToken);
     internal static void SetRangeText(Element element, string replacement, uint start, uint end,
         HtmlRangeTextMode mode, CancellationToken cancellationToken);
+    internal static HtmlTextSelection? GetEditingSelection(Element element,
+        CancellationToken cancellationToken);
+    internal static bool SetEditingSelection(Element element, uint start, uint end, string? direction,
+        CancellationToken cancellationToken);
     internal static bool ApplyUserValue(Element element, string value, HtmlTextSelection selection,
         CancellationToken cancellationToken);
 }
@@ -181,6 +185,23 @@ selection clamped to the resulting relevant value. It bypasses public selection 
 email's internal editor only. It does not create a number editor; b3 supplies that family operation
 with explicit display/bad-input semantics. No caller may use SetValue then set a user flag afterward,
 because observers/selectors could see an incoherent cause and script cursor movement in between.
+
+GetEditingSelection and SetEditingSelection are the selection-only counterpart for the same six b1
+textual input states and textarea, including email. They read/write the same HtmlTextSelection backing
+component used by ApplyUserValue, Select and applicable public selection APIs; there is no second caret.
+For an input outside this editing family the getter returns null and the setter returns false unchanged;
+the wrong native element kind still throws ArgumentException. B3 supplies number's distinct editor
+integration rather than making these operations pretend number has a b1 textual buffer.
+
+SetEditingSelection clamps and normalizes direction through the common selection-range algorithm,
+returns true for an applicable operation even if unchanged, and never alters value, dirtiness, edit
+origin or user validity. Selection-only movement does not require value mutability: readonly/disabled
+do not make the native setter reject it. Browser separately decides focused/disabled UI eligibility and
+allows selection without treating readonly as permission to edit. A changed extent/direction emits the
+same native change record with SelectionRangeApplied=true; no change emits none. Browser maps these to
+select and selectionchange exactly as for other selection-range operations. Arrow/Shift/Home/End and
+select-all paths must use this seam after any script callback, not email's public null getter or its
+public SetSelectionRange, which continues to throw InvalidStateError.
 
 The UI computes its intended splice and caret; native code owns the actual value and offsets. No JS
 callback runs inside ApplyUserValue. After beforeinput, Browser must reread type, value, selection,
@@ -250,10 +271,15 @@ Script SetValue/setRangeText and default updates are never truncated by maxlengt
 its user-entry truncation policy, but bases it on native applicability and normalized candidate API
 length, not raw CRLF length. D7f computes tooLong/tooShort from dirty state, last edit origin and API
 length (and nonempty value for tooShort); do not confuse those flags with the UI truncation policy.
-Record NonUser for script setter/setRangeText and native default/reset/type changes; a programmatic
-assignment establishes programmatic provenance even if equal while still preserving equal-value
-selection. Clone begins with NonUser provenance. These provenance choices need literal validation
-tests; they must not be inferred from dirty=true or whether an input event happened to be dispatched.
+Record NonUser for successful script setter/setRangeText, including equal programmatic assignment,
+while still preserving the specified equal-value selection behavior. Native default/child/attribute
+hooks preserve current-value origin when dirtiness suppresses the current-value update; changing only
+the default is not a programmatic edit of the current value. Thus a dirty user-edited input or textarea
+with maxlength=1 and current value "ab" retains User origin and its tooLong prerequisite after a
+defaultValue-only change. Hooks that actually update the current value, reset and value-changing type
+transitions establish NonUser; same-state/no-value-change type hooks do not erase origin. Clone begins
+with NonUser provenance. These choices need literal validation tests; origin must not be inferred from
+dirty=true, arbitrary attribute mutation, or whether an input event happened to be dispatched.
 
 ## Selection and replacement operations
 
@@ -280,9 +306,12 @@ validity: only dirtiness has changed. No value edit or selection notification is
 
 Replacement uses the relevant value, not textarea raw offsets. Snapshot original selection, splice
 the relevant string with replacement, then apply the mode: inserted span, start, end or preserve.
-Preserve shifts endpoints strictly after the removed end by the signed delta and snaps endpoints
-strictly inside the removed interval to the appropriate replacement boundary; exact start/end
-equalities need tests. Omitted mode and the one-argument overload both select this same preserve path.
+For Preserve, handle each saved endpoint with the exact ordered branches: if it is greater than the
+removed end, add the signed delta; otherwise, if it is greater than the removed start, map the saved
+selection start to the removed start and the saved selection end to new end. Endpoints equal to the
+removed end therefore snap too; endpoints equal to the removed start remain there. For value "abcdef",
+selection (4,4), replacing [1,4) with "X" yields "aXef" and selection (1,2,None). Omitted mode and the
+one-argument overload both select this same preserve path.
 The final selection-range call has omitted direction, hence None. Do not call the script value setter
 as a shortcut and lose the saved selection or add its cursor-to-end behavior. Apply any type-required
 sanitization/newline projection at the appropriate value-update boundary, then clamp against the final
@@ -298,8 +327,14 @@ For those automatic hooks, add a narrowly scoped native data subscription in the
 slice: `HtmlTextControlChanges.Observe(Document)` returns an internal disposable
 `HtmlTextControlChangeSubscription` with `IReadOnlyList<HtmlTextControlChange> Drain()`.
 Each immutable record holds Element, before/after nullable HtmlTextSelection and a bool
-SelectionRangeApplied. Keep records only for changed selection, preserving operation order (do not
-coalesce distinct select requests). No JS object, callback, realm or event name is stored. Document
+SelectionRangeApplied. Record changed **algorithm steps**, not just a top-level before/after diff:
+SelectionRangeApplied is true only when that selection-range step itself changed extent/direction.
+Automatic relevant-value clamping is a separate false record even when the same operation later calls
+the range algorithm. For example, shrinking text to empty can clamp selection to (0,0) and leave the
+final range step with nothing to change: schedule selectionchange but no select. Keep the ordered
+step records until coherent commit/drain; do not promote all changes to range changes because the
+outer operation called the range helper, merge them into a final diff, or coalesce distinct select
+requests. No JS object, callback, realm or event name is stored. Document
 registers subscriptions weakly; the subscription owns its pending native records; disposal clears
 them and registration. With no subscriber, allocate no records/queue. Browser drains at the coherent
 native-operation boundary, maps SelectionRangeApplied to select and all records to its coalesced
@@ -397,6 +432,16 @@ Native acceptance uses freshly compiled Release net8.0 and net10.0 tests, not st
 - Dirty versus user-origin versus user-validity independence, too-long/short prerequisites, enormous
   semantic limits, wrap Soft/Hard/invalid, exact-width lines and supplementary characters. Literal
   expected strings/offsets, not an AngleSharp differential that normalizes known defects away.
+- Dirty user value "ab" with maxlength=1 retains User/tooLong after input defaultValue or textarea
+  defaultValue/direct-child edits that leave current value unchanged; equal script SetValue and
+  successful setRangeText establish NonUser. Test both saved endpoints exactly at replacement end.
+- Email Arrow/Shift/Home/End/select-all reads and changes the shared native editing selection without
+  changing value/dirty/origin/user validity, while public selection getters stay null and public setters
+  reject it. Cover readonly selection-only movement, no-op versus direction-only notifications and
+  rejection after a reentrant type change to a non-b1 editor family.
+- A replacement that shrinks to empty changes selection in the automatic clamp but not the final
+  selection-range step: drain a false SelectionRangeApplied record, yielding selectionchange without
+  select. Also cover multiple changed algorithm steps and retain their order until coherent drain.
 - Cancellation checkpoints every at most 256 authored work units in normalization, trim/token scans,
   copying, wrap and child-text collection, including parent/child bookkeeping where traversed. Check
   entry and before commit/return and bracket CLR allocations/copies. Prepared cancellation leaves value,
