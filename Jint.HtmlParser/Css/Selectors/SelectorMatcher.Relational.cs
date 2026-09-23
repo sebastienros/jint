@@ -420,6 +420,7 @@ internal static partial class SelectorMatcher
 
     private static bool IsFeaturelessEligible(CompiledSelector program, ref Work work)
     {
+        if (work.TryGetFeaturelessEligibility(program, out var cached)) return cached;
         var stack = new List<FeaturelessFrame> { new(program) };
         var result = false;
         while (stack.Count != 0)
@@ -442,6 +443,7 @@ internal static partial class SelectorMatcher
                 if (frame.BranchIndex == frame.Program.Branches.Count)
                 {
                     result = false;
+                    work.SetFeaturelessEligibility(frame.Program, false);
                     stack.RemoveAt(stack.Count - 1);
                     continue;
                 }
@@ -462,6 +464,7 @@ internal static partial class SelectorMatcher
                 if (!frame.HasHas || frame.HasCompanion)
                 {
                     result = true;
+                    work.SetFeaturelessEligibility(frame.Program, true);
                     stack.RemoveAt(stack.Count - 1);
                     continue;
                 }
@@ -481,8 +484,20 @@ internal static partial class SelectorMatcher
             }
             else if (predicate.Kind is PredicateKind.Is or PredicateKind.Where or PredicateKind.Not)
             {
-                frame.Waiting = true;
-                stack.Add(new FeaturelessFrame(predicate.Arguments!));
+                if (work.TryGetFeaturelessEligibility(predicate.Arguments!, out var childEligible))
+                {
+                    if (childEligible) frame.HasCompanion = true;
+                    else
+                    {
+                        frame.InBranch = false;
+                        frame.BranchIndex++;
+                    }
+                }
+                else
+                {
+                    frame.Waiting = true;
+                    stack.Add(new FeaturelessFrame(predicate.Arguments!));
+                }
             }
             else
             {

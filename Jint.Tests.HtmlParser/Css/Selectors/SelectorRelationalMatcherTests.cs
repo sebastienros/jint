@@ -222,15 +222,26 @@ public sealed class SelectorRelationalMatcherTests
     }
 
     [Test]
-    public void DeepFeaturelessNegationEligibilityUsesFrames()
+    public void DeepFeaturelessNegationEligibilityHasLinearCheckpointGrowth()
     {
         var document = Document.CreateHtml();
         var fragment = document.CreateDocumentFragment();
         var child = document.CreateElement("child");
         fragment.AppendChild(child);
-        var source = ":scope";
-        for (var index = 0; index < 128; index++) source = $":not({source})";
-        SelectorMatcher.QuerySelectorAll(Parse($"{source} > child"), fragment).Should().Equal(child);
+        int Checkpoints(int depth)
+        {
+            var source = ":scope";
+            for (var index = 0; index < depth; index++) source = $":not({source})";
+            var checkpoints = 0;
+            SelectorMatcher.QuerySelectorAll(Parse($"{source} > child"), fragment,
+                () => checkpoints++, default).Should().Equal(child);
+            return checkpoints;
+        }
+
+        var shallow = Checkpoints(128);
+        var deep = Checkpoints(256);
+        shallow.Should().BeGreaterThan(0);
+        deep.Should().BeLessThan(shallow * 3);
     }
 
     [Test]

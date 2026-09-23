@@ -551,6 +551,21 @@ internal static partial class SelectorMatcher
     private struct Work(CancellationToken cancellationToken, Action? checkpoint = null)
     {
         private int _steps;
+        // Shared only by one matching/query call; compiled programs retain no state.
+        private Dictionary<CompiledSelector, bool>? _featurelessEligibility;
+        internal bool TryGetFeaturelessEligibility(CompiledSelector program, out bool eligible)
+        {
+            Step();
+            if (_featurelessEligibility is not null &&
+                _featurelessEligibility.TryGetValue(program, out eligible)) return true;
+            eligible = false;
+            return false;
+        }
+        internal void SetFeaturelessEligibility(CompiledSelector program, bool eligible)
+        {
+            Step();
+            (_featurelessEligibility ??= new Dictionary<CompiledSelector, bool>())[program] = eligible;
+        }
         internal void Check()
         {
             checkpoint?.Invoke();
