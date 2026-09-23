@@ -380,9 +380,10 @@ public sealed class SelectorMatcherTests
             SelectorMatcher.QuerySelectorAll(Parse("*"), root, () =>
             {
                 checkpoints++;
-                if (checkpoints == 4) source.Cancel();
+                // The first checkpoint is traversal; the second is the snapshot copy.
+                if (checkpoints == 2) source.Cancel();
             }, source.Token));
-        checkpoints.Should().Be(4);
+        checkpoints.Should().Be(2);
     }
 
     [Test]
@@ -434,9 +435,7 @@ public sealed class SelectorMatcherTests
         checkpoints.Should().Be(2);
     }
 
-    [TestCase(":is(div)")]
-    [TestCase(":has(div)")]
-    [TestCase(":nth-child(1 of div)")]
+    [TestCase(":lang(en)")]
     [TestCase(":checked")]
     [TestCase("div || col")]
     [TestCase("div, :hover")]

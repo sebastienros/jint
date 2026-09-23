@@ -1,13 +1,12 @@
 using System.Collections.ObjectModel;
 using System.Numerics;
 using static Jint.HtmlParser.Css.Selectors.CompiledSelector;
-using ComplexSelector = Jint.HtmlParser.Css.Selectors.CompiledSelector.Complex;
 
 namespace Jint.HtmlParser.Css.Selectors;
 
 // Selectors §4, §6 and §14: https://drafts.csswg.org/selectors/#match-a-selector-against-an-element
 // Internal staging evaluator. Every accepted predicate must have an evaluator before publication.
-internal static class SelectorMatcher
+internal static partial class SelectorMatcher
 {
     internal static bool Matches(CompiledSelector program, Element element, Node? scopingRoot = null,
         CancellationToken cancellationToken = default)
@@ -21,8 +20,8 @@ internal static class SelectorMatcher
         ArgumentNullException.ThrowIfNull(program);
         ArgumentNullException.ThrowIfNull(element);
         cancellationToken.ThrowIfCancellationRequested();
-        ValidateImplemented(program, cancellationToken, checkpoint);
         var work = new Work(cancellationToken, checkpoint);
+        ValidateImplemented(program, ref work, cancellationToken);
         var matched = TryMatchCore(program, element, ScopeFor(scopingRoot ?? element, ref work), ref work, out _);
         cancellationToken.ThrowIfCancellationRequested();
         return matched;
@@ -34,8 +33,8 @@ internal static class SelectorMatcher
         ArgumentNullException.ThrowIfNull(program);
         ArgumentNullException.ThrowIfNull(element);
         cancellationToken.ThrowIfCancellationRequested();
-        ValidateImplemented(program, cancellationToken);
         var work = new Work(cancellationToken);
+        ValidateImplemented(program, ref work, cancellationToken);
         var scope = ScopeFor(scopingRoot ?? element, ref work);
         var matched = TryMatchCore(program, element, scope, ref work, out specificity);
         cancellationToken.ThrowIfCancellationRequested();
@@ -48,8 +47,8 @@ internal static class SelectorMatcher
         ArgumentNullException.ThrowIfNull(program);
         ArgumentNullException.ThrowIfNull(element);
         cancellationToken.ThrowIfCancellationRequested();
-        ValidateImplemented(program, cancellationToken);
         var work = new Work(cancellationToken);
+        ValidateImplemented(program, ref work, cancellationToken);
         for (Node? current = element; current is not null; current = current.ParentNode)
         {
             work.Step();
@@ -69,8 +68,8 @@ internal static class SelectorMatcher
         ArgumentNullException.ThrowIfNull(program);
         ArgumentNullException.ThrowIfNull(root);
         cancellationToken.ThrowIfCancellationRequested();
-        ValidateImplemented(program, cancellationToken);
         var work = new Work(cancellationToken);
+        ValidateImplemented(program, ref work, cancellationToken);
         var scope = ScopeFor(root, ref work);
         foreach (var candidate in NodeTraversal.DescendantElements(root, cancellationToken))
         {
@@ -95,8 +94,8 @@ internal static class SelectorMatcher
         ArgumentNullException.ThrowIfNull(program);
         ArgumentNullException.ThrowIfNull(root);
         cancellationToken.ThrowIfCancellationRequested();
-        ValidateImplemented(program, cancellationToken, checkpoint);
         var work = new Work(cancellationToken, checkpoint);
+        ValidateImplemented(program, ref work, cancellationToken);
         var scope = ScopeFor(root, ref work);
         var results = new List<Element>();
         foreach (var candidate in NodeTraversal.DescendantElements(root, cancellationToken))
@@ -118,19 +117,19 @@ internal static class SelectorMatcher
 
     // Walk every branch before searching. A mixed selector list cannot quietly return
     // an incomplete answer merely because an earlier supported branch matched.
-    private static void ValidateImplemented(CompiledSelector program, CancellationToken cancellationToken,
-        Action? checkpoint = null)
+    private static void ValidateImplemented(CompiledSelector program, ref Work work,
+        CancellationToken cancellationToken)
     {
-        var pending = new Stack<CompiledSelector>();
-        pending.Push(program);
-        var work = new Work(cancellationToken, checkpoint);
+        var pending = new Stack<(CompiledSelector Program, bool Relative)>();
+        pending.Push((program, false));
         while (pending.Count != 0)
         {
-            var current = pending.Pop();
+            var (current, currentIsRelative) = pending.Pop();
             foreach (var branch in current.Branches)
             {
                 work.Step();
-                if (branch.LeadingCombinator is not null) throw Unsupported("relative selector");
+                if (branch.LeadingCombinator is not null && !currentIsRelative)
+                    throw Unsupported("relative selector");
                 foreach (var combinator in branch.Combinators)
                 {
                     work.Step();
@@ -143,7 +142,8 @@ internal static class SelectorMatcher
                     {
                         work.Step();
                         if (!IsImplemented(predicate)) throw Unsupported(predicate.Kind.ToString());
-                        if (predicate.Arguments is not null) pending.Push(predicate.Arguments);
+                        if (predicate.Arguments is not null)
+                            pending.Push((predicate.Arguments, predicate.Kind == PredicateKind.Has));
                     }
                 }
             }
@@ -159,8 +159,10 @@ internal static class SelectorMatcher
         PredicateKind.Scope or PredicateKind.Root or PredicateKind.Empty or
         PredicateKind.FirstChild or PredicateKind.LastChild or PredicateKind.OnlyChild or
         PredicateKind.FirstOfType or PredicateKind.LastOfType or PredicateKind.OnlyOfType or
-        PredicateKind.NthChild or PredicateKind.NthLastChild or
         PredicateKind.NthOfType or PredicateKind.NthLastOfType => predicate.Arguments is null,
+        PredicateKind.NthChild or PredicateKind.NthLastChild => true,
+        PredicateKind.Is or PredicateKind.Where or PredicateKind.Not or PredicateKind.Has =>
+            predicate.Arguments is not null,
         PredicateKind.Slotted => true,
         _ => false
     };
@@ -182,55 +184,49 @@ internal static class SelectorMatcher
     private static bool TryMatchCore(CompiledSelector program, Element element, Node? scope,
         ref Work work, out SelectorSpecificity specificity)
     {
-        specificity = default;
-        var found = false;
-        foreach (var branch in program.Branches)
+        // A lone compound with ordinary predicates is the common query path.
+        // Keep it allocation-free; relational programs use the explicit VM.
+        if (program.Branches.Count == 1)
         {
-            work.Step();
-            if (!MatchBranch(branch, element, scope, ref work)) continue;
-            if (!found || branch.Specificity.CompareTo(specificity) > 0) specificity = branch.Specificity;
-            found = true;
-        }
-        return found;
-    }
-
-    private static bool MatchBranch(ComplexSelector branch, Element subject, Node? scope, ref Work work)
-    {
-        if (branch.Compounds.Count == 1)
-            return MatchCompound(branch.Compounds[0], subject, scope, ref work);
-
-        // One frame per compound on the current path. Enumerating candidates from
-        // each frame preserves backtracking without recursion or collecting ancestors.
-        var frames = new List<Frame> { new(subject, branch.Compounds.Count - 1) };
-        while (frames.Count != 0)
-        {
-            work.Step();
-            var index = frames.Count - 1;
-            var frame = frames[index];
-            if (!frame.Checked)
+            var branch = program.Branches[0];
+            if (branch.Compounds.Count == 1 && branch.LeadingCombinator is null)
             {
-                frame.Checked = true;
-                if (!MatchCompound(branch.Compounds[frame.Part], frame.Node, scope, ref work))
+                var compound = branch.Compounds[0];
+                var simple = true;
+                foreach (var predicate in compound.Predicates)
                 {
-                    frames.RemoveAt(index);
-                    continue;
+                    work.Step();
+                    if (predicate.Kind is PredicateKind.Is or PredicateKind.Where or PredicateKind.Not or
+                        PredicateKind.Has || predicate.Arguments is not null)
+                    {
+                        simple = false;
+                        break;
+                    }
                 }
-                if (frame.Part == 0) return true;
-                frame.Next = InitialPredecessor(frame.Node, branch.Combinators[frame.Part - 1], ref work);
+                if (simple)
+                {
+                    var matched = NamespaceMatches(compound.NamespaceMode, compound.NamespaceUri,
+                                      element.NamespaceUri) &&
+                                  (compound.TypeName is null || SelectorNameMatches(compound.TypeName,
+                                      element.LocalName, IsHtmlElement(element), ref work));
+                    if (matched)
+                    {
+                        foreach (var predicate in compound.Predicates)
+                        {
+                            work.Step();
+                            if (!MatchPredicate(predicate, element, scope, ref work))
+                            {
+                                matched = false;
+                                break;
+                            }
+                        }
+                    }
+                    specificity = matched ? branch.Specificity : default;
+                    return matched;
+                }
             }
-            var combinator = branch.Combinators[frame.Part - 1];
-            var predecessor = frame.Next;
-            if (predecessor is null)
-            {
-                frames.RemoveAt(index);
-                continue;
-            }
-            frame.Next = NextPredecessor(predecessor, combinator, ref work);
-            frames[index] = frame;
-            if (predecessor is Element || ReferenceEquals(predecessor, scope) && predecessor is DocumentFragment)
-                frames.Add(new Frame(predecessor, frame.Part - 1));
         }
-        return false;
+        return Evaluate(program, element, scope, ref work, out specificity);
     }
 
     private static Node? InitialPredecessor(Node node, Combinator combinator, ref Work work)
@@ -252,32 +248,6 @@ internal static class SelectorMatcher
         var next = combinator == Combinator.Descendant ? current.ParentNode : current.PreviousSibling;
         work.Step();
         return next;
-    }
-
-    private static bool MatchCompound(Compound compound, Node node, Node? scope, ref Work work)
-    {
-        if (node is not Element element)
-        {
-            // A fragment is a featureless scoping root. It can anchor :scope > x,
-            // but has no name, namespace, attributes or other pseudo-classes.
-            if (!ReferenceEquals(node, scope) || node is not DocumentFragment ||
-                compound.HasExplicitType || compound.Predicates.Count == 0) return false;
-            foreach (var predicate in compound.Predicates)
-            {
-                work.Step();
-                if (predicate.Kind != PredicateKind.Scope) return false;
-            }
-            return true;
-        }
-        if (!NamespaceMatches(compound.NamespaceMode, compound.NamespaceUri, element.NamespaceUri) ||
-            compound.TypeName is not null && !SelectorNameMatches(compound.TypeName, element.LocalName,
-                IsHtmlElement(element), ref work)) return false;
-        foreach (var predicate in compound.Predicates)
-        {
-            work.Step();
-            if (!MatchPredicate(predicate, element, scope, ref work)) return false;
-        }
-        return true;
     }
 
     private static bool MatchPredicate(Predicate predicate, Element element, Node? scope, ref Work work)
@@ -577,14 +547,6 @@ internal static class SelectorMatcher
 
     private static char AsciiLower(char character) => character is >= 'A' and <= 'Z'
         ? (char) (character + ('a' - 'A')) : character;
-
-    private sealed class Frame(Node node, int part)
-    {
-        internal Node Node { get; } = node;
-        internal int Part { get; } = part;
-        internal bool Checked { get; set; }
-        internal Node? Next { get; set; }
-    }
 
     private struct Work(CancellationToken cancellationToken, Action? checkpoint = null)
     {
