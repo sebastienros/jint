@@ -405,4 +405,11 @@ internal sealed class CssMathBuilder(CssValueWork work)
         var child = _nodes[parent].FirstChild;
         while (child >= 0) { yield return child; child = _nodes[child].NextSibling; }
     }
+
+    internal void DetachSibling(int index)
+    {
+        var node = _nodes[index];
+        node.NextSibling = -1;
+        _nodes[index] = node;
+    }
 }

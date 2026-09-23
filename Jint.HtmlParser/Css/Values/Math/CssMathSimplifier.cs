@@ -11,6 +11,8 @@ internal static class CssMathSimplifier
         work.CheckCancellation();
         var count = source.Count;
         var parentKind = new CssMathNodeKind[count];
+        var parentIndex = new int[count];
+        Array.Fill(parentIndex, -1);
         var hasParent = new bool[count];
         for (var i = 0; i < count; i++)
         {
@@ -18,8 +20,26 @@ internal static class CssMathSimplifier
             {
                 work.Charge(1);
                 parentKind[child] = source.Node(i).Kind;
+                parentIndex[child] = i;
                 hasParent[child] = true;
             }
+        }
+        // Transparent wrappers can forward a Sum to an outer Sum. Defer its
+        // materialization so every term is visited once at that outer boundary.
+        var underSum = new bool[count];
+        for (var i = count - 1; i >= 0; i--)
+        {
+            work.Charge(1);
+            var parent = parentIndex[i];
+            if (parent < 0) continue;
+            var parentNode = source.Node(parent);
+            underSum[i] = parentNode.Kind == CssMathNodeKind.Sum ||
+                underSum[parent] && (parentNode.Kind == CssMathNodeKind.Negate ||
+                    (parentNode.Kind is CssMathNodeKind.Min or CssMathNodeKind.Max) &&
+                    parentNode.ChildCount == 1 ||
+                    parentNode.Kind == CssMathNodeKind.Clamp &&
+                    source.Node(parentNode.FirstChild).Kind == CssMathNodeKind.AbsentBound &&
+                    source.Node(parentNode.LastChild).Kind == CssMathNodeKind.AbsentBound);
         }
         var target = new CssMathBuilder(work);
         var mapped = new int[count];
@@ -31,13 +51,19 @@ internal static class CssMathSimplifier
             var negatesSum = node.Kind == CssMathNodeKind.Negate &&
                 source.Node(node.FirstChild).Kind == CssMathNodeKind.Sum;
             if (hasParent[i] &&
-                (node.Kind == CssMathNodeKind.Sum && parentKind[i] is CssMathNodeKind.Sum or CssMathNodeKind.Negate ||
+                (node.Kind == CssMathNodeKind.Sum &&
+                 (parentKind[i] is CssMathNodeKind.Sum or CssMathNodeKind.Negate) &&
+                 !underSum[parentIndex[i]] ||
                  node.Kind == CssMathNodeKind.Product && parentKind[i] == CssMathNodeKind.Product ||
-                 negatesSum && parentKind[i] == CssMathNodeKind.Sum))
+                 negatesSum && parentKind[i] == CssMathNodeKind.Sum && !underSum[parentIndex[i]]))
                 continue;
-            if (node.Kind is CssMathNodeKind.Sum or CssMathNodeKind.Product || negatesSum)
+            if (node.Kind is CssMathNodeKind.Sum or CssMathNodeKind.Product ||
+                negatesSum && !underSum[i] ||
+                node.Kind == CssMathNodeKind.Negate && !underSum[i] &&
+                mapped[node.FirstChild] >= 0 &&
+                target.Node(mapped[node.FirstChild]).Kind == CssMathNodeKind.Sum)
             {
-                mapped[i] = SimplifyRun(source, target, mapped, i, work);
+                mapped[i] = SimplifyRun(source, target, mapped, i, underSum[i], work);
                 continue;
             }
             if (node.Kind == CssMathNodeKind.Numeric || node.Kind == CssMathNodeKind.AbsentBound)
@@ -146,9 +172,19 @@ internal static class CssMathSimplifier
     }
 
     private static int SimplifyRun(CssMathBuilder source, CssMathBuilder target, int[] mapped,
-        int root, CssValueWork work)
+        int root, bool underSum, CssValueWork work)
     {
         var sourceNode = source.Node(root);
+        if (sourceNode.Kind == CssMathNodeKind.Sum && underSum)
+        {
+            var deferred = target.Add(CssMathNodeKind.Sum, sourceNode.Type, sourceNode.Span);
+            foreach (var child in source.Children(root))
+            {
+                work.Charge(1);
+                target.AddChild(deferred, mapped[child]);
+            }
+            return deferred;
+        }
         var leaves = new List<int>();
         var stack = new Stack<(int Index, bool Negative)>();
         var immediate = new List<int>();
@@ -174,7 +210,9 @@ internal static class CssMathSimplifier
             }
             else if (sourceNode.Kind is CssMathNodeKind.Sum or CssMathNodeKind.Negate &&
                      node.Kind == CssMathNodeKind.Negate &&
-                     source.Node(node.FirstChild).Kind == CssMathNodeKind.Sum)
+                     (source.Node(node.FirstChild).Kind == CssMathNodeKind.Sum ||
+                      mapped[node.FirstChild] >= 0 &&
+                      target.Node(mapped[node.FirstChild]).Kind == CssMathNodeKind.Sum))
             {
                 stack.Push((node.FirstChild, !negative));
             }
@@ -200,20 +238,55 @@ internal static class CssMathSimplifier
             // A child Product can simplify into a Sum after source-run flattening.
             // Expand those transformed children once in this maximal Sum run.
             var flattened = new List<int>(leaves.Count);
-            var pending = new Stack<int>();
-            for (var i = leaves.Count - 1; i >= 0; i--) pending.Push(leaves[i]);
+            var pending = new Stack<(int Index, bool Negative)>();
+            for (var i = leaves.Count - 1; i >= 0; i--)
+            {
+                work.Charge(1);
+                pending.Push((leaves[i], false));
+            }
             while (pending.Count > 0)
             {
                 work.Charge(1);
-                var candidate = pending.Pop();
-                if (target.Node(candidate).Kind != CssMathNodeKind.Sum)
+                var (candidate, negative) = pending.Pop();
+                var candidateNode = target.Node(candidate);
+                if (candidateNode.Kind == CssMathNodeKind.Negate &&
+                    target.Node(candidateNode.FirstChild).Kind == CssMathNodeKind.Sum)
                 {
-                    flattened.Add(candidate);
+                    pending.Push((candidateNode.FirstChild, !negative));
+                    continue;
+                }
+                if (candidateNode.Kind != CssMathNodeKind.Sum)
+                {
+                    if (!negative) flattened.Add(candidate);
+                    else if (candidateNode.Kind == CssMathNodeKind.Numeric)
+                    {
+                        var numeric = candidateNode.Numeric;
+                        flattened.Add(target.Add(CssMathNodeKind.Numeric, candidateNode.Type, candidateNode.Span,
+                            new CssMathNumeric(-numeric.Value, numeric.Kind, numeric.Unit, numeric.Span)));
+                    }
+                    else if (candidateNode.Kind == CssMathNodeKind.Negate)
+                        flattened.Add(candidateNode.FirstChild);
+                    else
+                    {
+                        // The containing Sum has already been expanded into pending.
+                        // Move the opaque leaf so its former sibling is not adopted too.
+                        target.DetachSibling(candidate);
+                        flattened.Add(target.Add(CssMathNodeKind.Negate, candidateNode.Type, candidateNode.Span,
+                            children: [candidate]));
+                    }
                     continue;
                 }
                 immediate.Clear();
-                foreach (var child in target.Children(candidate)) immediate.Add(child);
-                for (var i = immediate.Count - 1; i >= 0; i--) pending.Push(immediate[i]);
+                foreach (var child in target.Children(candidate))
+                {
+                    work.Charge(1);
+                    immediate.Add(child);
+                }
+                for (var i = immediate.Count - 1; i >= 0; i--)
+                {
+                    work.Charge(1);
+                    pending.Push((immediate[i], negative));
+                }
             }
             leaves = flattened;
         }
@@ -278,6 +351,7 @@ internal static class CssMathSimplifier
                 var merged = new List<int>(leaves.Count - numericCount + 1);
                 foreach (var leafIndex in leaves)
                 {
+                    work.Charge(1);
                     var leaf = target.Node(leafIndex);
                     if (leaf.Kind != CssMathNodeKind.Numeric || leaf.Numeric.Kind != CssNumericKind.Number)
                         merged.Add(leafIndex);

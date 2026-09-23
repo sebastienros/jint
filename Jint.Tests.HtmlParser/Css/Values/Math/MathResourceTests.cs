@@ -1,4 +1,5 @@
 using Jint.HtmlParser;
+using Jint.HtmlParser.Css;
 using Jint.HtmlParser.Css.Values;
 using Jint.HtmlParser.Css.Values.Math;
 
@@ -215,6 +216,48 @@ public sealed class MathResourceTests
         CssMathParser.ParseMath(component, MathTest.Number, work).Status.Should().Be(CssMathParseStatus.Match);
         checkpoints.Should().BeGreaterThan(0);
         freezeCheckpoints.Should().BeGreaterThan(20);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void NestedOmittedClampsMaterializeSumOnce(bool negate)
+    {
+        static (CssMathValue Value, int Checks) Build(int depth, bool negate)
+        {
+            var builder = new CssMathBuilder(new CssValueWork(default));
+            var span = default(CssSourceSpan);
+            var length = CssNumericType.FromUnit(CssUnit.Px);
+            var root = builder.Add(CssMathNodeKind.Numeric, length, span,
+                new CssMathNumeric(1, CssNumericKind.Dimension, CssUnit.Px, span));
+            for (var i = 0; i < depth; i++)
+            {
+                var px = builder.Add(CssMathNodeKind.Numeric, length, span,
+                    new CssMathNumeric(1, CssNumericKind.Dimension, CssUnit.Px, span));
+                var em = builder.Add(CssMathNodeKind.Numeric, length, span,
+                    new CssMathNumeric(1, CssNumericKind.Dimension, CssUnit.Em, span));
+                var minimum = builder.Add(CssMathNodeKind.Min, length, span, children: [px, em]);
+                var lower = builder.Add(CssMathNodeKind.AbsentBound, default, span);
+                var upper = builder.Add(CssMathNodeKind.AbsentBound, default, span);
+                var forwarded = builder.Add(CssMathNodeKind.Clamp, length, span,
+                    children: [lower, root, upper]);
+                if (negate) forwarded = builder.Add(CssMathNodeKind.Negate, length, span,
+                    children: [forwarded]);
+                root = builder.Add(CssMathNodeKind.Sum, length, span, children: [minimum, forwarded]);
+            }
+            var checks = 0;
+            var work = new CssValueWork(default, () => checks++);
+            var value = CssMathSimplifier.Freeze(builder, root, MathTest.Length, span, work);
+            return (value, checks);
+        }
+
+        var small = Build(128, negate);
+        var large = Build(256, negate);
+        large.Value.NodeCount.Should().BeLessThan(small.Value.NodeCount * 3);
+        large.Checks.Should().BeLessThan(small.Checks * 3);
+        var serialized = CssMathSerializer.SerializeSpecified(small.Value, new CssValueWork(default));
+        var reparsed = MathTest.Parse(serialized, MathTest.Length);
+        reparsed.Status.Should().Be(CssMathParseStatus.Match);
+        CssMathSerializer.SerializeSpecified(reparsed.Value, new CssValueWork(default)).Should().Be(serialized);
     }
 
     private static bool CalledFrom(string typeName, string methodName) =>
