@@ -502,13 +502,13 @@ existing readiness/resource event algorithms.
 
 ### XML and SVG
 
-Prototype a `System.Xml.XmlReader` frontend that builds the new nodes directly, retaining one DOM.
-Keep that backend internal so replacement is possible if browser parity tests expose an unbridgeable
-semantic mismatch. Preserve whitespace/comments/CDATA/processing instructions, qualified names,
-namespace declarations, doctype and XML document metadata. XML input is never routed through HTML.
-Use no external resource resolver; never initiate network/file access as a side effect of parsing.
-Internal DTD/entity support and finite expansion limits must be explicitly tested, not equated with
-“DTD disabled”. See the [BCL reader settings](https://learn.microsoft.com/en-us/dotnet/api/system.xml.xmlreadersettings?view=net-10.0).
+The [XML dispatch decision](html-parser-xml.md) evaluates `System.Xml.XmlReader` and selects an owned
+scanner because the source-token, expansion-cancellation and failure contracts require control the
+reader API does not expose. Build native nodes directly, retaining one DOM. Preserve XML node kinds,
+qualified names, namespaces, doctype and document metadata; XML input never goes through HTML.
+Never initiate network/file access. Internal DTD/entity support, a pinned local character-entity
+catalog and finite expansion limits are required and tested, not equated with “DTD disabled”.
+The supplement scopes two internal implementation milestones before the public XML/SVG methods land.
 
 Keep the direct API's syntax failure distinct from Browser's `DOMParser` parsererror document. Test
 all four XML MIME types, including XHTML routing, before deleting AngleSharp.Xml. SVG fragment handling
