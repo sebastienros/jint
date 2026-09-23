@@ -8607,5 +8607,66 @@
     "originalOutputSha256": "1747c87dccd4d05a551b050b640ace87e7779e56aa558453860974b1249c4cbd",
     "outputAlternative": "<doc></doc>",
     "review": "Pinned W3C INPUT 94a14d807210b5884900b2321dab4d70627108aeb855c076b4700843db680aa4, unread external subset 7e06f4ba57ae12fc788ddcde45bbe0d69fe40c73119e09b28b25f175cffbeb36, nested parameter entity ed6b0fb3986c93740daaffb2d8a85bb8dfca17b644869d1823991dbcfaf0384b, original OUTPUT 1747c87dccd4d05a551b050b640ace87e7779e56aa558453860974b1249c4cbd; The unread external subset contains every declaration of e; without fetch, the root reference to e is also unread and contributes no text. The fetched upstream OUTPUT instead expands its parameter entity inside CDATA to literal ATTLIST markup text. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/sun/sun-valid.xml#ext02",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "General",
+        "Name": "utf16b",
+        "PublicId": null,
+        "SystemId": "../invalid/utf16b.xml",
+        "Offset": 167
+      },
+      {
+        "Kind": "General",
+        "Name": "utf16l",
+        "PublicId": null,
+        "SystemId": "../invalid/utf16l.xml",
+        "Offset": 176
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "foo",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "foo",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "   ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "no-fetch-alternative",
+    "projectionSha256": "083d39e4b032e411ba331aeef2c3241345bad66ab2fde31f6618f3cc3fb1afc6",
+    "originalOutputSha256": "dee9b8c45b00ebbe1b86e0af602f4eef768bbf2b7c2bbb5012dc5e4815fcc4c8",
+    "outputAlternative": "<foo>   </foo>",
+    "review": "Pinned W3C INPUT 779ae7ccbb0718ac2a8fa91136152fb4a89eb43c82529ae3e6d608ce2e4ddef2, unread UTF-16 external entities bd40ca00c2ff85b262e83d97a84a4435c23c355fb9ca497e202c1dfa12c3d4e6 and 864ab6ec3989e7093598386111c536b0e2ed8c8b555c7c067950b0ba291cf81c, original OUTPUT dee9b8c45b00ebbe1b86e0af602f4eef768bbf2b7c2bbb5012dc5e4815fcc4c8; Both general entities are declared in the internal subset but point to unread UTF-16 external files. No fetch omits both occurrences while preserving the three literal spaces around and between them as one text node; fetched upstream OUTPUT contains two root elements. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
   }
 ]
