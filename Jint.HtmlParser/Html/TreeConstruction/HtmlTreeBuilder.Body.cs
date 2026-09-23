@@ -287,7 +287,7 @@ internal sealed partial class HtmlTreeBuilder
         {
             var index = -1;
             for (var i = 1; i <= 6; i++) index = Math.Max(index, Last("h" + i));
-            if (index < 0) { Error("unexpected-heading-end-tag"); return false; }
+            if (index < 0 || index < LastScopeStop) { Error("unexpected-heading-end-tag"); return false; }
             if (!TryGenerateImpliedEndTags()) return true;
             if (Current.LocalName != name) Error("misnested-heading-end-tag");
             SchedulePopTo(index, reprocess: false);

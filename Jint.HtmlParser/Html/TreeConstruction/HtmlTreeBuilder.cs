@@ -27,6 +27,7 @@ internal sealed partial class HtmlTreeBuilder
     private readonly List<int> _liStops = [];
     private readonly List<int> _ddDtStops = [];
     private readonly List<int> _scopeStops = [];
+    private readonly List<int> _resetModeIndexes = [];
     private int _unexpectedOpenCount;
     private Element? _head;
     private Element? _form;
@@ -46,7 +47,6 @@ internal sealed partial class HtmlTreeBuilder
     private Mode? _modeAfterPop;
     private bool _clearFormattingAfterPop;
     private bool _resetAfterPop;
-    private int _resetIndex = -1;
     private int _pendingShiftIndex = -1;
     private int _inputAttributeIndex;
     private bool _inputTypeFound;
@@ -110,16 +110,6 @@ internal sealed partial class HtmlTreeBuilder
         // for another token. The chain is bounded by the finite mode inventory.
         for (var pass = 0; pass < 12; pass++)
         {
-            if (_resetIndex >= 0)
-            {
-                if (!ResumeInsertionModeReset()) return new HtmlParseStep(HtmlParseStepKind.Yielded);
-                if (_missing is { } resetFamily)
-                    return new HtmlParseStep(HtmlParseStepKind.MissingFeature, resetFamily, _token.Offset);
-                if (_reprocessAfterPop) { _reprocessAfterPop = false; continue; }
-                var resetEof = _token.Kind == HtmlTokenKind.EndOfFile;
-                FinishToken();
-                return new HtmlParseStep(resetEof ? HtmlParseStepKind.Complete : HtmlParseStepKind.Yielded);
-            }
             if (_pendingShiftIndex >= 0)
             {
                 while (_pendingShiftIndex < _open.Count - 1 && _remaining > 0)
@@ -142,7 +132,13 @@ internal sealed partial class HtmlTreeBuilder
                 _pendingPopTarget = -1;
                 if (_clearFormattingAfterPop) { ClearFormattingToMarker(); _clearFormattingAfterPop = false; }
                 if (_modeAfterPop is { } nextMode) { _mode = nextMode; _modeAfterPop = null; }
-                if (_resetAfterPop) { _resetAfterPop = false; _resetIndex = _open.Count - 1; continue; }
+                if (_resetAfterPop)
+                {
+                    _resetAfterPop = false;
+                    ResetInsertionMode();
+                    if (_missing is { } resetFamily)
+                        return new HtmlParseStep(HtmlParseStepKind.MissingFeature, resetFamily, _token.Offset);
+                }
                 if (_reprocessAfterPop)
                 {
                     _reprocessAfterPop = false;
@@ -273,6 +269,7 @@ internal sealed partial class HtmlTreeBuilder
         if (IsSpecial(element.LocalName) && element.LocalName is not ("address" or "div" or "p" or "dd" or "dt"))
             _ddDtStops.Add(index);
         if (IsScopeBoundary(element)) _scopeStops.Add(index);
+        if (IsResetModeElement(element)) _resetModeIndexes.Add(index);
     }
 
     private void RemoveIndexes(Element element, int index)
@@ -287,6 +284,7 @@ internal sealed partial class HtmlTreeBuilder
             if (element.LocalName is not ("address" or "div" or "p" or "dd" or "dt")) RemoveIndex(_ddDtStops, index);
         }
         if (IsScopeBoundary(element)) RemoveIndex(_scopeStops, index);
+        if (IsResetModeElement(element)) RemoveIndex(_resetModeIndexes, index);
     }
 
     private void ShiftIndexes(Element element, int oldIndex)
@@ -299,6 +297,7 @@ internal sealed partial class HtmlTreeBuilder
             if (element.LocalName is not ("address" or "div" or "p" or "dd" or "dt")) ShiftIndex(_ddDtStops, oldIndex);
         }
         if (IsScopeBoundary(element)) ShiftIndex(_scopeStops, oldIndex);
+        if (IsResetModeElement(element)) ShiftIndex(_resetModeIndexes, oldIndex);
         Charge(1);
     }
 
@@ -334,6 +333,7 @@ internal sealed partial class HtmlTreeBuilder
         if (_liStops.Count > 0 && _liStops[^1] == index) _liStops.RemoveAt(_liStops.Count - 1);
         if (_ddDtStops.Count > 0 && _ddDtStops[^1] == index) _ddDtStops.RemoveAt(_ddDtStops.Count - 1);
         if (_scopeStops.Count > 0 && _scopeStops[^1] == index) _scopeStops.RemoveAt(_scopeStops.Count - 1);
+        if (_resetModeIndexes.Count > 0 && _resetModeIndexes[^1] == index) _resetModeIndexes.RemoveAt(_resetModeIndexes.Count - 1);
         if (!AllowedOpenAtEof(element.LocalName)) _unexpectedOpenCount--;
         Charge(1);
         return element;
@@ -363,6 +363,9 @@ internal sealed partial class HtmlTreeBuilder
         element.NamespaceUri == Namespaces.Html && element.LocalName == name;
     private static bool IsScopeBoundary(Element element) => element.NamespaceUri == Namespaces.Html &&
         element.LocalName is "applet" or "caption" or "html" or "table" or "td" or "th" or "marquee" or "object" or "template";
+    private static bool IsResetModeElement(Element element) => element.NamespaceUri == Namespaces.Html &&
+        element.LocalName is "td" or "th" or "tr" or "tbody" or "thead" or "tfoot" or "caption" or
+            "colgroup" or "table" or "template" or "head" or "body" or "html";
 
     private bool TryGenerateImpliedEndTags(string? except = null)
     {

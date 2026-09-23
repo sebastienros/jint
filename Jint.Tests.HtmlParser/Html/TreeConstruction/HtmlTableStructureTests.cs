@@ -183,6 +183,41 @@ public partial class HtmlTreeConstructionTests
         larger.Session.WorkCount.Should().BeLessThan(smaller.Session.WorkCount * 3);
     }
 
+    [TestCase("<h1><table><tr><td></h1>x",
+        "<html><head></head><body><h1><table><tbody><tr><td>x</td></tr></tbody></table></h1></body></html>")]
+    [TestCase("<h1><table><tr><td></h1><td>x",
+        "<html><head></head><body><h1><table><tbody><tr><td></td><td>x</td></tr></tbody></table></h1></body></html>")]
+    [TestCase("<h1><table><caption></h1>x",
+        "<html><head></head><body><h1><table><caption>x</caption></table></h1></body></html>")]
+    public void HeadingEndCannotCrossTableScope(string source, string expected)
+    {
+        foreach (var quota in new[] { 1, 100_000 })
+        {
+            var parsed = Parse(source, quota);
+            parsed.Step.Kind.Should().Be(HtmlParseStepKind.Complete);
+            Serialize(parsed.Document).Should().Be(expected);
+            parsed.Diagnostics.Items.Should().Contain(item => item.Code == "html/tree-unexpected-heading-end-tag");
+        }
+    }
+
+    [Test]
+    public void RepeatedTableResetDoesNotRescanUnchangedAncestors()
+    {
+        static string Source(int count) => string.Concat(Enumerable.Repeat("<x>", count)) +
+            string.Concat(Enumerable.Repeat("<table></table>", count));
+
+        foreach (var quota in new[] { 1, 100_000 })
+        {
+            var smaller = Parse(Source(100), quota);
+            var larger = Parse(Source(200), quota);
+            var repeated = Parse(Source(200), quota);
+            smaller.Step.Kind.Should().Be(HtmlParseStepKind.Complete);
+            larger.Step.Kind.Should().Be(HtmlParseStepKind.Complete);
+            larger.Session.WorkCount.Should().Be(repeated.Session.WorkCount);
+            larger.Session.WorkCount.Should().BeLessThan(smaller.Session.WorkCount * 3);
+        }
+    }
+
     [TestCase("<table>x", 7)]
     [TestCase("<table><tbody><tr>z", 18)]
     [TestCase("<table><div>", 7)]

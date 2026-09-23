@@ -277,27 +277,27 @@ internal sealed partial class HtmlTreeBuilder
         return index >= Math.Max(Last("html"), Math.Max(Last("table"), Last("template"))) ? index : -1;
     }
 
-    private bool ResumeInsertionModeReset()
+    private void ResetInsertionMode()
     {
-        while (_resetIndex >= 0 && _remaining > 0)
+        if (_resetModeIndexes.Count == 0)
+            throw new InvalidOperationException("HTML insertion-mode reset lost its root.");
+        // The nearest applicable HTML element is maintained with the open stack.
+        // Repeated table closures must not scan the same unchanged ancestors.
+        var element = _open[_resetModeIndexes[^1]];
+        Charge(1);
+        switch (element.LocalName)
         {
-            var element = _open[_resetIndex--];
-            Charge(1);
-            if (element.NamespaceUri != Namespaces.Html) continue;
-            switch (element.LocalName)
-            {
-                case "td" or "th": _mode = Mode.InCell; _resetIndex = -1; return true;
-                case "tr": _mode = Mode.InRow; _resetIndex = -1; return true;
-                case "tbody" or "thead" or "tfoot": _mode = Mode.InTableBody; _resetIndex = -1; return true;
-                case "caption": _mode = Mode.InCaption; _resetIndex = -1; return true;
-                case "colgroup": _mode = Mode.InColumnGroup; _resetIndex = -1; return true;
-                case "table": _mode = Mode.InTable; _resetIndex = -1; return true;
-                case "template": Missing(HtmlMissingFeature.Templates); return true;
-                case "head": _mode = Mode.InHead; _resetIndex = -1; return true;
-                case "body": _mode = Mode.InBody; _resetIndex = -1; return true;
-                case "html": _mode = Mode.BeforeHead; _resetIndex = -1; return true;
-            }
+            case "td" or "th": _mode = Mode.InCell; break;
+            case "tr": _mode = Mode.InRow; break;
+            case "tbody" or "thead" or "tfoot": _mode = Mode.InTableBody; break;
+            case "caption": _mode = Mode.InCaption; break;
+            case "colgroup": _mode = Mode.InColumnGroup; break;
+            case "table": _mode = Mode.InTable; break;
+            case "template": Missing(HtmlMissingFeature.Templates); break;
+            case "head": _mode = Mode.InHead; break;
+            case "body": _mode = Mode.InBody; break;
+            case "html": _mode = Mode.BeforeHead; break;
+            default: throw new InvalidOperationException("Unknown HTML insertion-mode reset element.");
         }
-        return _resetIndex < 0;
     }
 }
