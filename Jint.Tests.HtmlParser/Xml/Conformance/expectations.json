@@ -5423,5 +5423,101 @@
     "outcome": "reject",
     "skipped": [],
     "review": "PublicID puts PUBLIC after its literal instead of before it. Malformed construct in pinned main source begins at input offset 145; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition, production [82] NotationDecl and [83] PublicID https://www.w3.org/TR/xml/#Notations."
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p58fail1",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "NotationType has no required Name between parentheses. Malformed ATTLIST in pinned main source begins at input offset 92; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition production [58] NotationType https://www.w3.org/TR/xml/#sec-attribute-types."
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p58fail2",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "NotationType separates Names with comma instead of required |. Malformed ATTLIST in pinned main source begins at input offset 92; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition production [58] NotationType https://www.w3.org/TR/xml/#sec-attribute-types."
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p58fail3",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "NotationType contains 0b, which is not a Name; the later <!NOTATION 0b> is also malformed. Malformed ATTLIST in pinned main source begins at input offset 128; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition production [58] NotationType https://www.w3.org/TR/xml/#sec-attribute-types."
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p58fail4",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "NotationType keyword notation is lowercase instead of exact NOTATION. Malformed ATTLIST in pinned main source begins at input offset 92; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition production [58] NotationType https://www.w3.org/TR/xml/#sec-attribute-types."
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p58fail5",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "NotationType omits required whitespace after NOTATION. Malformed ATTLIST in pinned main source begins at input offset 92; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition production [58] NotationType https://www.w3.org/TR/xml/#sec-attribute-types."
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p58fail6",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "NotationType omits the required parenthesized Name group. Malformed ATTLIST in pinned main source begins at input offset 66; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition production [58] NotationType https://www.w3.org/TR/xml/#sec-attribute-types."
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p58fail7",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "NotationType uses a quoted literal rather than parenthesized Name. Malformed ATTLIST in pinned main source begins at input offset 66; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition production [58] NotationType https://www.w3.org/TR/xml/#sec-attribute-types."
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p58fail8",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "NotationType quotes the Name inside its parentheses. Malformed ATTLIST in pinned main source begins at input offset 66; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition production [58] NotationType https://www.w3.org/TR/xml/#sec-attribute-types."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P58-ibm58n01.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "NotationType keyword notation is lowercase instead of exact NOTATION. Malformed ATTLIST in pinned main source begins at input offset 163; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition production [58] NotationType https://www.w3.org/TR/xml/#sec-attribute-types."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P58-ibm58n02.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "NotationType omits opening parenthesis. Malformed ATTLIST in pinned main source begins at input offset 163; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition production [58] NotationType https://www.w3.org/TR/xml/#sec-attribute-types."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P58-ibm58n03.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "NotationType has no required Name between parentheses. Malformed ATTLIST in pinned main source begins at input offset 163; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition production [58] NotationType https://www.w3.org/TR/xml/#sec-attribute-types."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P58-ibm58n04.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "NotationType omits closing parenthesis. Malformed ATTLIST in pinned main source begins at input offset 163; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition production [58] NotationType https://www.w3.org/TR/xml/#sec-attribute-types."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P58-ibm58n05.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "NotationType puts the Name group before NOTATION. Malformed ATTLIST in pinned main source begins at input offset 163; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition production [58] NotationType https://www.w3.org/TR/xml/#sec-attribute-types."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P58-ibm58n06.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "NotationType separates Names with comma instead of required |. Malformed ATTLIST in pinned main source begins at input offset 219; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition production [58] NotationType https://www.w3.org/TR/xml/#sec-attribute-types."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P58-ibm58n07.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "NotationType omits required whitespace after NOTATION. Malformed ATTLIST in pinned main source begins at input offset 186; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition production [58] NotationType https://www.w3.org/TR/xml/#sec-attribute-types."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P58-ibm58n08.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "NotationType quotes the Name inside its parentheses. Malformed ATTLIST in pinned main source begins at input offset 186; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition production [58] NotationType https://www.w3.org/TR/xml/#sec-attribute-types."
   }
 ]
