@@ -69,6 +69,10 @@ the earlier repository direction to retain AngleSharp.
 | H6c select parsing | `01a0d000-0601-7721-8396-d767beaf6e04` | Reviewed scope correction integrated and tested; archived, worktree removed |
 | V0b2 stepped CSS math | `01a0d000-f77f-7c41-b474-a8e407aa41fe` | Reviewed, integrated and tested; archived, worktree removed |
 | D7b1b pure text algorithms | `01a0d00a-ab70-7510-9978-13e50051aa2e` | Reviewed, integrated and tested; archived, worktree removed |
+| X4b3 XPath completion | `01a0d011-17de-7c01-92b6-cbb7cfcba6ed` | Dedicated Sol implementation in ff28 |
+| C3a1 form-state selectors | `01a0d016-7f69-7670-b118-27244e5dcfad` | Dedicated Sol implementation in 4c95 |
+| V0b3a CSS abs/sign | `01a0d017-ef27-7d61-84a3-6a628ce82374` | Dedicated Sol implementation in 7a4b |
+| H6d ordinary templates | `01a0d01a-09e1-7312-b099-2afb6efc86b7` | Exclusive tree-builder implementation in 2a63 |
 
 The XML conformance gate inventories all 2,585 pinned W3C rows with explicit profile
 classifications and separate output assertions. Current execution results and remaining debt are below.
@@ -593,3 +597,11 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   linear manual transfer and fallback distribution, and polling through cold-index construction and
   final materialization. Deterministic probes exposed quadratic work and missing query checks;
   those commits remain unmerged while the owner corrects them.
+- `73af97cfe`, `68214f80e`, `80d5cd5c3`: exact independently approved Clark 026/031 and Sun ext02
+  expectations integrated. Common corpus-only run: 4,000 total, 3,632 passed, 368 failed, no skips.
+  Per framework: 1,770 conformance passes, 177 unresolved required cases, six optional adapter debts,
+  OUTPUT 294 compared/92 pending and 27 no-fetch alternatives, zero harness failures/mismatches.
+  Evidence: `/private/tmp/jint-clark-sun-three-integrated.log`. Corpus task remains unfinished.
+- `7b8bf2c91`: independently reviewed atan2 negative-axis source conflict and full special-value
+  matrix recorded for V0b3b; the separate Log interpretation still needs review before V0b3c.
+  D7b3 preparatory numeric/date/time/range/color design source `28675739d` awaits independent review.
