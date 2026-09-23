@@ -52,6 +52,65 @@ public class NodeTraversalTests
     }
 
     [Test]
+    public void DocumentAndElementWalksStayOutOfTemplateContent()
+    {
+        var document = Document.CreateHtml();
+        var outer = document.CreateElement("outer");
+        var before = document.CreateElement("before");
+        var template = document.CreateElement("template");
+        var ordinary = document.CreateElement("ordinary");
+        var ordinaryChild = document.CreateElement("ordinary-child");
+        var after = document.CreateElement("after");
+        document.AppendChild(outer);
+        outer.AppendChild(before);
+        outer.AppendChild(template);
+        outer.AppendChild(after);
+        template.AppendChild(ordinary);
+        ordinary.AppendChild(ordinaryChild);
+
+        var hidden = template.TemplateContent!.OwnerDocument!.CreateElement("hidden");
+        template.TemplateContent.AppendChild(hidden);
+
+        NodeTraversal.DescendantElements(document, default)
+            .Should().Equal(outer, before, template, ordinary, ordinaryChild, after);
+        NodeTraversal.DescendantElements(outer, default)
+            .Should().Equal(before, template, ordinary, ordinaryChild, after);
+        NodeTraversal.DescendantElements(template, default).Should().Equal(ordinary, ordinaryChild);
+    }
+
+    [Test]
+    public void ExplicitTemplateContentRootStaysWithinItsOrdinaryTree()
+    {
+        var document = Document.CreateHtml();
+        var outer = document.CreateElement("outer");
+        var template = document.CreateElement("template");
+        var outside = document.CreateElement("outside");
+        document.AppendChild(outer);
+        outer.AppendChild(template);
+        outer.AppendChild(outside);
+
+        var content = template.TemplateContent!;
+        var inertDocument = content.OwnerDocument!;
+        var first = inertDocument.CreateElement("first");
+        var nestedTemplate = inertDocument.CreateElement("template");
+        var nestedOrdinary = inertDocument.CreateElement("nested-ordinary");
+        var last = inertDocument.CreateElement("last");
+        nestedTemplate.AppendChild(nestedOrdinary);
+        content.AppendChild(first);
+        content.AppendChild(nestedTemplate);
+        content.AppendChild(last);
+
+        var nestedContent = nestedTemplate.TemplateContent!;
+        var deep = nestedContent.OwnerDocument!.CreateElement("deep");
+        nestedContent.AppendChild(deep);
+
+        NodeTraversal.DescendantElements(content, default)
+            .Should().Equal(first, nestedTemplate, nestedOrdinary, last);
+        NodeTraversal.DescendantElements(nestedTemplate, default).Should().Equal(nestedOrdinary);
+        NodeTraversal.DescendantElements(nestedContent, default).Should().Equal(deep);
+    }
+
+    [Test]
     public void SiblingsSkipNonElementsInBothDirections()
     {
         var document = Document.CreateHtml();
