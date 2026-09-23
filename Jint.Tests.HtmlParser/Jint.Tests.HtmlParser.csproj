@@ -5,6 +5,8 @@
     <OutputType>Exe</OutputType>
     <EnableNUnitRunner>true</EnableNUnitRunner>
     <Nullable>enable</Nullable>
+    <AssemblyOriginatorKeyFile>..\Jint\Jint.snk</AssemblyOriginatorKeyFile>
+    <SignAssembly>true</SignAssembly>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Jint.HtmlParser\Jint.HtmlParser.csproj" />
