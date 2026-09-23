@@ -6950,5 +6950,119 @@
     "outcome": "reject",
     "skipped": [],
     "review": "NDataDecl uses -unknot, which is not a Name; later notation declaration repeats that malformed Name. Malformed declaration in pinned main source begins at input offset 138; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition productions [73] EntityDef, [74] PEDef, [75] ExternalID, [76] NDataDecl https://www.w3.org/TR/xml/#sec-external-ent."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P11-ibm11n01.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "SystemLiteral closes at student, leaving .dtd\" as illegal DOCTYPE syntax. Malformed literal in pinned main source begins at character offset 41 (byte 41); these are source evidence, not asserted parser diagnostic positions. XML 1.0 Fifth Edition productions [11] SystemLiteral, [12] PubidLiteral, [13] PubidChar https://www.w3.org/TR/xml/#sec-common-syn."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P11-ibm11n02.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "SystemLiteral closes at student, leaving .dtd' as illegal DOCTYPE syntax. Malformed literal in pinned main source begins at character offset 41 (byte 41); these are source evidence, not asserted parser diagnostic positions. XML 1.0 Fifth Edition productions [11] SystemLiteral, [12] PubidLiteral, [13] PubidChar https://www.w3.org/TR/xml/#sec-common-syn."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P11-ibm11n03.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "SystemLiteral has no closing double quote. Malformed literal in pinned main source begins at character offset 41 (byte 41); these are source evidence, not asserted parser diagnostic positions. XML 1.0 Fifth Edition productions [11] SystemLiteral, [12] PubidLiteral, [13] PubidChar https://www.w3.org/TR/xml/#sec-common-syn."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P11-ibm11n04.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "SystemLiteral has no closing single quote. Malformed literal in pinned main source begins at character offset 41 (byte 41); these are source evidence, not asserted parser diagnostic positions. XML 1.0 Fifth Edition productions [11] SystemLiteral, [12] PubidLiteral, [13] PubidChar https://www.w3.org/TR/xml/#sec-common-syn."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P12-ibm12n01.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "PubidLiteral has no closing double quote; its backslash is also not a PubidChar. Malformed literal in pinned main source begins at character offset 91 (byte 91); these are source evidence, not asserted parser diagnostic positions. XML 1.0 Fifth Edition productions [11] SystemLiteral, [12] PubidLiteral, [13] PubidChar https://www.w3.org/TR/xml/#sec-common-syn."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P12-ibm12n02.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "PubidLiteral closes early, leaving .dtd' as illegal entity declaration syntax; its backslash is also not a PubidChar. Malformed literal in pinned main source begins at character offset 91 (byte 91); these are source evidence, not asserted parser diagnostic positions. XML 1.0 Fifth Edition productions [11] SystemLiteral, [12] PubidLiteral, [13] PubidChar https://www.w3.org/TR/xml/#sec-common-syn."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P12-ibm12n03.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "PubidLiteral has no closing single quote; its backslash is also not a PubidChar. Malformed literal in pinned main source begins at character offset 91 (byte 91); these are source evidence, not asserted parser diagnostic positions. XML 1.0 Fifth Edition productions [11] SystemLiteral, [12] PubidLiteral, [13] PubidChar https://www.w3.org/TR/xml/#sec-common-syn."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P13-ibm13n01.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "PubidLiteral contains braces, which are not PubidChar. Malformed literal in pinned main source begins at character offset 59 (byte 59); these are source evidence, not asserted parser diagnostic positions. XML 1.0 Fifth Edition productions [11] SystemLiteral, [12] PubidLiteral, [13] PubidChar https://www.w3.org/TR/xml/#sec-common-syn."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P13-ibm13n02.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "PubidLiteral contains tilde, which is not PubidChar. Malformed literal in pinned main source begins at character offset 59 (byte 59); these are source evidence, not asserted parser diagnostic positions. XML 1.0 Fifth Edition productions [11] SystemLiteral, [12] PubidLiteral, [13] PubidChar https://www.w3.org/TR/xml/#sec-common-syn."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P13-ibm13n03.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "Actual pinned PubidLiteral contains non-ASCII á, which is not PubidChar; catalog prose instead says double quote. Malformed literal in pinned main source begins at character offset 74 (byte 74); these are source evidence, not asserted parser diagnostic positions. XML 1.0 Fifth Edition productions [11] SystemLiteral, [12] PubidLiteral, [13] PubidChar https://www.w3.org/TR/xml/#sec-common-syn."
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p11fail1",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "SystemLiteral opens with apostrophe but is not closed with an apostrophe. Malformed literal in pinned main source begins at character offset 115 (byte 115); these are source evidence, not asserted parser diagnostic positions. XML 1.0 Fifth Edition productions [11] SystemLiteral, [12] PubidLiteral, [13] PubidChar https://www.w3.org/TR/xml/#sec-common-syn."
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p11fail2",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "SystemLiteral is followed by an unmatched extra double quote. Malformed literal in pinned main source begins at character offset 115 (byte 115); these are source evidence, not asserted parser diagnostic positions. XML 1.0 Fifth Edition productions [11] SystemLiteral, [12] PubidLiteral, [13] PubidChar https://www.w3.org/TR/xml/#sec-common-syn."
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p12fail1",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "PubidLiteral includes a double quote, which is excluded from PubidChar even with apostrophe delimiters. Malformed literal in pinned main source begins at character offset 115 (byte 115); these are source evidence, not asserted parser diagnostic positions. XML 1.0 Fifth Edition productions [11] SystemLiteral, [12] PubidLiteral, [13] PubidChar https://www.w3.org/TR/xml/#sec-common-syn."
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p12fail2",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "PubidLiteral contains backslashes, which are not PubidChar. Malformed literal in pinned main source begins at character offset 115 (byte 115); these are source evidence, not asserted parser diagnostic positions. XML 1.0 Fifth Edition productions [11] SystemLiteral, [12] PubidLiteral, [13] PubidChar https://www.w3.org/TR/xml/#sec-common-syn."
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p12fail3",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "PubidLiteral contains ampersand/entity-reference spelling; PubidLiteral does not expand references. Malformed literal in pinned main source begins at character offset 132 (byte 132); these are source evidence, not asserted parser diagnostic positions. XML 1.0 Fifth Edition productions [11] SystemLiteral, [12] PubidLiteral, [13] PubidChar https://www.w3.org/TR/xml/#sec-common-syn."
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p12fail4",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "PubidLiteral contains >, which is not PubidChar. Malformed literal in pinned main source begins at character offset 115 (byte 115); these are source evidence, not asserted parser diagnostic positions. XML 1.0 Fifth Edition productions [11] SystemLiteral, [12] PubidLiteral, [13] PubidChar https://www.w3.org/TR/xml/#sec-common-syn."
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p12fail5",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "PubidLiteral contains <, which is not PubidChar. Malformed literal in pinned main source begins at character offset 115 (byte 115); these are source evidence, not asserted parser diagnostic positions. XML 1.0 Fifth Edition productions [11] SystemLiteral, [12] PubidLiteral, [13] PubidChar https://www.w3.org/TR/xml/#sec-common-syn."
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p12fail6",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "PubidLiteral contains ampersand/entity-reference spelling; predefined entity refs are not expanded there. Malformed literal in pinned main source begins at character offset 115 (byte 115); these are source evidence, not asserted parser diagnostic positions. XML 1.0 Fifth Edition productions [11] SystemLiteral, [12] PubidLiteral, [13] PubidChar https://www.w3.org/TR/xml/#sec-common-syn."
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p12fail7",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "PubidLiteral contains tab, which is not PubidChar. Malformed literal in pinned main source begins at character offset 115 (byte 115); these are source evidence, not asserted parser diagnostic positions. XML 1.0 Fifth Edition productions [11] SystemLiteral, [12] PubidLiteral, [13] PubidChar https://www.w3.org/TR/xml/#sec-common-syn."
   }
 ]
