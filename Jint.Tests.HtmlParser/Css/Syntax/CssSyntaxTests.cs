@@ -255,7 +255,17 @@ public sealed class CssSyntaxTests
         var exception = Assert.Throws<ParseLimitException>(() => MarkupParser.ParseCssComponentValues("abcd", new CssParseOptions { Limits = limits }));
         exception!.Kind.Should().Be(ParseLimitKind.InputCharacters);
         Assert.Throws<ParseLimitException>(() => MarkupParser.ParseCssComponentValues("abcdefgh", new CssParseOptions { Limits = new ParseLimits { MaxTokenCharacters = 3 } }));
-        Assert.Throws<ParseLimitException>(() => MarkupParser.ParseCssDeclaration("unicode-range: U+00A0-00FF", new CssParseOptions { Limits = new ParseLimits { MaxTokenCharacters = 9 } }));
+        var rangeLimit = Assert.Throws<ParseLimitException>(() => MarkupParser.ParseCssDeclaration(
+            "unicode-range: U+123456-123456", new CssParseOptions
+            {
+                Limits = new ParseLimits { MaxTokenCharacters = 14 }
+            }));
+        rangeLimit!.Kind.Should().Be(ParseLimitKind.TokenCharacters);
+        rangeLimit.Observed.Should().Be(15);
+        MarkupParser.ParseCssDeclaration("unicode-range: U+123456-123456", new CssParseOptions
+        {
+            Limits = new ParseLimits { MaxTokenCharacters = 15 }
+        }).Value.Single().Token.Kind.Should().Be(CssTokenKind.UnicodeRange);
         Assert.Throws<ParseLimitException>(() => MarkupParser.ParseCssComponentValue("((a))", new CssParseOptions { Limits = new ParseLimits { MaxNestingDepth = 1 } }));
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();

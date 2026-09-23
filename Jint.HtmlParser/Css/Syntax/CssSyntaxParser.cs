@@ -55,10 +55,17 @@ internal sealed class CssSyntaxParser
 
     internal CssComponentValueList ParseComponentValues()
     {
+        var result = List(ConsumeAllComponents());
+        _cancellationToken.ThrowIfCancellationRequested();
+        return result;
+    }
+
+    private List<CssComponentValue> ConsumeAllComponents()
+    {
         _cancellationToken.ThrowIfCancellationRequested();
         var values = new List<CssComponentValue>();
         while (Current.Kind != CssTokenKind.None) values.Add(ConsumeComponent());
-        return List(values);
+        return values;
     }
 
     internal CssComponentValue ParseComponentValue()
@@ -69,6 +76,7 @@ internal sealed class CssSyntaxParser
         var value = ConsumeComponent();
         SkipWhitespace();
         if (Current.Kind != CssTokenKind.None) throw Error("css/trailing-input", Current.Span.Start);
+        _cancellationToken.ThrowIfCancellationRequested();
         return value;
     }
 
@@ -116,9 +124,11 @@ internal sealed class CssSyntaxParser
         }
         SkipWhitespace();
         if (Current.Kind != CssTokenKind.None) throw Error("css/trailing-input", Current.Span.Start);
-        return new CssRuleSyntax(isAtRule ? CssRuleKind.AtRule : CssRuleKind.QualifiedRule,
+        var result = new CssRuleSyntax(isAtRule ? CssRuleKind.AtRule : CssRuleKind.QualifiedRule,
             isAtRule ? first.Text : string.Empty, List(prelude), block,
             new CssSourceSpan(first.Span.Start, end - first.Span.Start));
+        _cancellationToken.ThrowIfCancellationRequested();
+        return result;
     }
 
     internal CssDeclarationSyntax ParseDeclaration()
@@ -160,7 +170,11 @@ internal sealed class CssSyntaxParser
         if (values.Count > 0 && IsIdent(values[^1], "important"))
         {
             var bang = values.Count - 2;
-            while (bang >= 0 && IsWhitespace(values[bang])) bang--;
+            while (bang >= 0 && IsWhitespace(values[bang]))
+            {
+                PollCancellation();
+                bang--;
+            }
             if (bang >= 0 && IsDelim(values[bang], '!'))
             {
                 retokenizeEnd = values[bang].Span.Start;
@@ -179,8 +193,10 @@ internal sealed class CssSyntaxParser
             values = RetokenizeUnicodeRangeValue(valueStart, retokenizeEnd);
             TrimTrailingWhitespace(values);
         }
-        return new CssDeclarationSyntax(first.Text, List(values), important,
+        var result = new CssDeclarationSyntax(first.Text, List(values), important,
             new CssSourceSpan(first.Span.Start, end - first.Span.Start));
+        _cancellationToken.ThrowIfCancellationRequested();
+        return result;
     }
 
     private CssComponentValue ConsumeComponent()
@@ -268,12 +284,16 @@ internal sealed class CssSyntaxParser
         }
         var parser = new CssSyntaxParser(tokens, end, _maxTokenCharacters,
             _maxNestingDepth, _diagnostics, _cancellationToken);
-        return parser.ParseComponentValues().ToList();
+        return parser.ConsumeAllComponents();
     }
 
-    private static void TrimTrailingWhitespace(List<CssComponentValue> values)
+    private void TrimTrailingWhitespace(List<CssComponentValue> values)
     {
-        while (values.Count > 0 && IsWhitespace(values[^1])) values.RemoveAt(values.Count - 1);
+        while (values.Count > 0 && IsWhitespace(values[^1]))
+        {
+            PollCancellation();
+            values.RemoveAt(values.Count - 1);
+        }
     }
 
     private static bool IsWhitespace(CssComponentValue value) =>
@@ -286,11 +306,12 @@ internal sealed class CssSyntaxParser
         value.Kind == CssComponentKind.Token && value.Token.Kind == CssTokenKind.Ident &&
         CssAscii.EqualsIgnoreCase(value.Token.Text, text);
 
-    private static bool StartsWithCustomPropertyDeclaration(List<CssComponentValue> prelude)
+    private bool StartsWithCustomPropertyDeclaration(List<CssComponentValue> prelude)
     {
         CssComponentValue? first = null;
         foreach (var value in prelude)
         {
+            PollCancellation();
             if (IsWhitespace(value)) continue;
             if (first is null)
             {
@@ -305,12 +326,13 @@ internal sealed class CssSyntaxParser
         return false;
     }
 
-    private static bool HasMixedTopLevelBrace(List<CssComponentValue> values)
+    private bool HasMixedTopLevelBrace(List<CssComponentValue> values)
     {
         var nonWhitespace = 0;
         var hasBrace = false;
         foreach (var value in values)
         {
+            PollCancellation();
             if (IsWhitespace(value)) continue;
             nonWhitespace++;
             hasBrace |= value.Kind == CssComponentKind.SimpleBlock && value.OpeningDelimiter == '{';
@@ -325,10 +347,20 @@ internal sealed class CssSyntaxParser
     private static bool IsClosing(CssTokenKind kind) => kind is CssTokenKind.CloseParenthesis or
         CssTokenKind.CloseSquareBracket or CssTokenKind.CloseCurlyBracket;
 
-    private static CssComponentValueList List(List<CssComponentValue> values) => new(values.ToArray());
+    private CssComponentValueList List(List<CssComponentValue> values)
+    {
+        var copy = new CssComponentValue[values.Count];
+        for (var index = 0; index < copy.Length; index++)
+        {
+            PollCancellation();
+            copy[index] = values[index];
+        }
+        return new CssComponentValueList(copy);
+    }
 
     private CssParseException Error(string code, int offset)
     {
+        _cancellationToken.ThrowIfCancellationRequested();
         Report(code, offset);
         return new CssParseException(code, offset);
     }
