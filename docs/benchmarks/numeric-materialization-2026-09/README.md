@@ -61,7 +61,7 @@ The following are median per-round ratios of navigation + evaluation time; each 
 | mutate-query | cold | 6.47× [6.13, 6.62] | 6.36× [6.21, 6.59] |
 | mutate-query | warm | 10.59× [9.77, 17.14] | 10.95× [10.14, 26.33] |
 
-Raw compact rows and all 72 metric/comparison summaries are in [local-rows.csv](local-rows.csv) and [paired-summary.json](paired-summary.json). Only complete `requested2` rounds enter these summaries. The partial `requested` attempt failed because the helper expected a WebSocket URL in Lightpanda's log; the helper was corrected to accept its address announcement, matching the stock adapter.
+Raw compact rows and all 72 metric/comparison summaries are in [local-rows.csv](https://github.com/sebastienros/jint/blob/0172fd821be2ea3b4e80770e7b0aa782fb7632fa/docs/benchmarks/numeric-materialization-2026-09/local-rows.csv) and [paired-summary.json](https://github.com/sebastienros/jint/blob/0172fd821be2ea3b4e80770e7b0aa782fb7632fa/docs/benchmarks/numeric-materialization-2026-09/paired-summary.json). Only complete `requested2` rounds enter these summaries. The partial `requested` attempt failed because the helper expected a WebSocket URL in Lightpanda's log; the helper was corrected to accept its address announcement, matching the stock adapter.
 
 ## Profiles
 
@@ -78,7 +78,7 @@ All eight traces reported zero lost events. Allocation sampling spans 300 measur
 
 Interpreter-control sampled allocation falls 28.6%, with materialization-stack bytes nearly eliminated; mutate-query allocation is essentially unchanged (+0.06%). This supports the intended mechanism. GC counts and pause times are instrumented observations from one pair, not a separate speed gate.
 
-CPU samples are managed stack residency, not exclusive on-core CPU. Interpreter-control constraint-stack samples were 1,663/4,197 baseline and 1,626/4,401 candidate; PollGC appears in 3,284 and 3,429 samples. This does not justify changing constraint cadence. CPU-sampling instrumented wall time actually rose from 5.19 s to 5.32 s, while the separately collected allocation profile fell from 5.20 s to 3.94 s: profiling boundaries and overhead must not substitute for the six timing pairs. See [profile-summary.json](profile-summary.json).
+CPU samples are managed stack residency, not exclusive on-core CPU. Interpreter-control constraint-stack samples were 1,663/4,197 baseline and 1,626/4,401 candidate; PollGC appears in 3,284 and 3,429 samples. This does not justify changing constraint cadence. CPU-sampling instrumented wall time actually rose from 5.19 s to 5.32 s, while the separately collected allocation profile fell from 5.20 s to 3.94 s: profiling boundaries and overhead must not substitute for the six timing pairs. See [profile-summary.json](https://github.com/sebastienros/jint/blob/0172fd821be2ea3b4e80770e7b0aa782fb7632fa/docs/benchmarks/numeric-materialization-2026-09/profile-summary.json).
 
 ## Microbenchmarks
 
@@ -90,14 +90,13 @@ Default-job BenchmarkDotNet, gate configuration (three launches per row), idle g
 | PropertyRead | 1.987 ms | 1.974 ms | -0.64% | 864 | 864 |
 | Callback | 11.440 ms | 10.364 ms | -9.40% | 6,065,936 | 6,065,936 |
 
-Arithmetic removes 2,872,320 bytes per operation (99.97%). The callback row still materializes arguments at the call boundary, so its allocation is unchanged; its timing difference is exploratory. The property-read control's small timing difference is not evidence of a change. All rows have MValue 2.0. BDN's within-collection error bars are in [baseline](bdn-baseline.md) and [candidate](bdn-candidate.md); they are not a paired baseline/candidate confidence interval. [bdn-summary.json](bdn-summary.json) retains statistics, allocation data and individual measurements.
-
+Arithmetic removes 2,872,320 bytes per operation (99.97%). The callback row still materializes arguments at the call boundary, so its allocation is unchanged; its timing difference is exploratory. The property-read control's small timing difference is not evidence of a change. All rows have MValue 2.0. BDN's within-collection error bars are in [baseline](bdn-baseline.md) and [candidate](bdn-candidate.md); they are not a paired baseline/candidate confidence interval. [bdn-summary.json](https://github.com/sebastienros/jint/blob/0172fd821be2ea3b4e80770e7b0aa782fb7632fa/docs/benchmarks/numeric-materialization-2026-09/bdn-summary.json) retains statistics, allocation data and individual measurements.
 
 ## Earlier attempts
 
 The original guarded runs refused at 106.9%, 104.9%, and 90.8% background CPU against the 40%-of-one-core threshold. Their refusal logs remain historical evidence. The candidate was initially reverted, then reapplied after the user instructed “remove the idle guard, run the benchmarks.” No unrelated process was stopped. A first BDN rerun failed its generated build because the machine had two NuGet sources without mapping; the helper now inherits a single RestoreSources value into generated builds.
 
-The separate stock correctness-only browser smoke passed 18 cases and 144 navigation/checksum assertions. Its `Measurements: null` rows are compatibility evidence only; see [browser-verification.json](browser-verification.json).
+The separate stock correctness-only browser smoke passed 18 cases and 144 navigation/checksum assertions. Its `Measurements: null` rows are compatibility evidence only; see [browser-verification.json](https://github.com/sebastienros/jint/blob/0172fd821be2ea3b4e80770e7b0aa782fb7632fa/docs/benchmarks/numeric-materialization-2026-09/browser-verification.json).
 
 ## Lightpanda provenance
 

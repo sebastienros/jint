@@ -1,4 +1,4 @@
-```
+```text
 
 BenchmarkDotNet v0.15.8, macOS Sequoia 15.8 (24H23) [Darwin 24.6.0]
 Apple M4 Pro, 1 CPU, 14 logical and 14 physical cores
@@ -9,6 +9,7 @@ Apple M4 Pro, 1 CPU, 14 logical and 14 physical cores
 AnalyzeLaunchVariance=True  Concurrent=False  LaunchCount=3
 
 ```
+
 | Method       | Mean      | Error     | StdDev    | Median    | MValue | Gen0     | Allocated |
 |------------- |----------:|----------:|----------:|----------:|-------:|---------:|----------:|
 | Arithmetic   |  1.991 ms | 0.0083 ms | 0.0158 ms |  1.993 ms |  2.000 |        - |     824 B |
