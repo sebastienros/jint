@@ -1,1 +1,252 @@
-[]
+[
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#not-wf-not-sa-001",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "001.ent",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "001.ent"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "review": "Pinned source and unread 001.ent: malformed conditional close exists only in external subset; XML §5.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#not-wf-not-sa-003",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "003.ent",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "003.ent"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "review": "Pinned source and unread 003.ent: unclosed conditional section exists only in external subset; XML §5.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#not-wf-ext-sa-001",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "General",
+        "Name": "e",
+        "PublicId": null,
+        "SystemId": "001.ent",
+        "Offset": 56
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "review": "Pinned external 001.ent is self-recursive but unread; raw source &e; begins at UTF-16 offset 56; XML §4.4.3 https://www.w3.org/TR/xml/#include-if-valid."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#invalid-not-sa-022",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "022.ent",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "022.ent"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "outputPolicy": "no-fetch-alternative",
+    "projectionSha256": "086d02c486502de3f2940aa7a3420a22822753cf19b133fb8bee70cbe4a77e99",
+    "originalOutputSha256": "47a1224f5d7888088f53628f25cccd6256a573b000e4fa78fd89aea6cbe15078",
+    "outputAlternative": "<doc></doc>",
+    "review": "Pinned 022.ent supplies a1 default only through unread external subset; alternative keeps no a1. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#valid-sa-070",
+    "outcome": "accept",
+    "skipped": [],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "review": "Pinned %e; is internal and expands an ELEMENT declaration; zero external omissions; compare original OUTPUT. XML §5.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#valid-sa-069",
+    "outcome": "accept",
+    "skipped": [],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "outputPolicy": "observation-gap",
+    "originalOutputSha256": "c1226c652433e38594c91e99c5a6106a7ac9891dbf613bad47c8a1c7c59ba007",
+    "review": "Unused internal NOTATION n PUBLIC whatever is not observable through public DOM; original Second Canonical OUTPUT remains pending. XML §4.7 https://www.w3.org/TR/xml/#Notations."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#valid-sa-076",
+    "outcome": "accept",
+    "skipped": [],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "outputPolicy": "required-notation-contract-gap",
+    "originalOutputSha256": "4e6d5789a7013d88efe65ba0dc08c28ca2a2959d18df4c44fc3d7790cd5f5b16",
+    "review": "NOTATION attribute definition refers to n1/n2, whose identifiers must be available to applications. Current DOM omits them; required contract debt. XML §4.7 https://www.w3.org/TR/xml/#Notations."
+  }
+]

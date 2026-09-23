@@ -1,6 +1,7 @@
 #nullable enable
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using Jint.HtmlParser;
 
 namespace Jint.Tests.HtmlParser.Xml.Conformance;
@@ -8,7 +9,7 @@ namespace Jint.Tests.HtmlParser.Xml.Conformance;
 public class XmlConformanceTests
 {
     public static IEnumerable<TestCaseData> Cases => XmlCorpus.Cases
-        .Where(row => row.Disposition != "outside-profile")
+        .Where(row => row.Disposition is not ("outside-profile" or "outside-input-boundary"))
         .Select(row => new TestCaseData(row.Key).SetName($"W3C XML 20130923 {row.Collection} {row.Id}"));
 
     [TestCaseSource(nameof(Cases))]
@@ -101,6 +102,9 @@ internal static class XmlConformanceRunner
             return new(XmlOutcomeKind.ParserFailure, $"rejected:{syntax.Code}@{syntax.Offset}", syntax.Message);
         if (document is null || document.DocumentElement is null)
             return new(XmlOutcomeKind.HarnessFailure, "no-document-root", "Parser accepted without a document element");
+        if (externalReviewNeeded && reviewed?.Projection is null)
+            return new(XmlOutcomeKind.HarnessFailure, "review-missing-projection",
+                "Accepted resource-flagged case needs an independently reviewed surviving DOM projection");
 
         if (reviewed is not null)
         {
@@ -124,7 +128,7 @@ internal static class XmlConformanceRunner
             if (reviewed.Projection is not null)
             {
                 var actualProjection = XmlEvidence.Projection(document);
-                if (actualProjection != reviewed.Projection)
+                if (actualProjection != JsonSerializer.Serialize(reviewed.Projection))
                     return new(XmlOutcomeKind.ParserFailure, "projection-mismatch", actualProjection);
             }
         }
@@ -136,14 +140,32 @@ internal static class XmlConformanceRunner
 
         if (row.OutputPath is not null)
         {
+            if (reviewed?.OutputPolicy is "observation-gap" or "required-notation-contract-gap")
+            {
+                var original = XmlCorpus.Bytes(row.OutputPath);
+                if (!original.AsSpan().StartsWith("<!DOCTYPE "u8) || reviewed.OriginalOutputSha256 != Digest(original))
+                    return new(XmlOutcomeKind.HarnessFailure, "reviewed-output-pin-mismatch",
+                        "Approved notation case does not name the exact original Second Canonical output");
+                return reviewed.OutputPolicy == "required-notation-contract-gap"
+                    ? new(XmlOutcomeKind.ParserFailure, "required-notation-contract-gap",
+                        "The public parse result cannot report referenced notation identifiers required by XML §4.7")
+                    : new(XmlOutcomeKind.Pending, "approved-notation-observation-gap",
+                        "Unused notation is not observable in the public DOM; original OUTPUT remains pending");
+            }
             if (document.SkippedXmlEntities.Count != 0)
             {
-                if (reviewed?.OutputPolicy != "no-fetch-alternative" || reviewed.OutputSha256 is null)
+                if (reviewed?.OutputPolicy != "no-fetch-alternative" || reviewed.ProjectionSha256 is null ||
+                    reviewed.OriginalOutputSha256 is null || reviewed.OutputAlternative is null)
                     return new(XmlOutcomeKind.Pending, "no-fetch-output-review", "Upstream OUTPUT includes external material");
+                if (Digest(XmlCorpus.Bytes(row.OutputPath)) != reviewed.OriginalOutputSha256)
+                    return new(XmlOutcomeKind.HarnessFailure, "reviewed-output-pin-mismatch", "Upstream OUTPUT digest changed");
                 var alternative = XmlEvidence.Projection(document);
                 var actualSha = Digest(Encoding.UTF8.GetBytes(alternative));
-                if (actualSha != reviewed.OutputSha256)
+                if (actualSha != reviewed.ProjectionSha256)
                     return new(XmlOutcomeKind.ParserFailure, $"no-fetch-output-mismatch:{actualSha}", "Reviewed projection digest differs");
+                var canonical = XmlEvidence.SecondCanonicalForm(document, Encoding.UTF8.GetBytes(reviewed.OutputAlternative));
+                if (canonical != reviewed.OutputAlternative)
+                    return new(XmlOutcomeKind.ParserFailure, "no-fetch-canonical-mismatch", canonical);
             }
             else
             {

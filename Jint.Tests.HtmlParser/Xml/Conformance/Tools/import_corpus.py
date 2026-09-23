@@ -188,7 +188,15 @@ def decode_document(data: bytes) -> tuple[str | None, dict[str, str]]:
     elif data.startswith(b"\x3c\x00\x3f\x00") or data.startswith(b"\x3c\x00"):
         encoding, payload, decision = "utf-16-le", data, "utf-16-le-signature"
     else:
-        encoding, payload, decision = "utf-8", data, "utf-8-default"
+        # ISO-8859-1 is an explicit, fully specified adapter for the one
+        # legacy encoding used by selected namespace fixtures. The ASCII
+        # declaration prefix can be inspected before decoding the body.
+        header = re.match(rb"<\?xml\s+[^?]*?\bencoding\s*=\s*(['\"])([^'\"]+)\1", data[:512], re.I)
+        declared_bytes = header.group(2).lower() if header else b""
+        if declared_bytes == b"iso-8859-1":
+            encoding, payload, decision = "iso-8859-1", data, "iso-8859-1-declaration"
+        else:
+            encoding, payload, decision = "utf-8", data, "utf-8-default"
     try:
         source = payload.decode(encoding, errors="strict")
     except UnicodeDecodeError as error:
@@ -201,7 +209,9 @@ def decode_document(data: bytes) -> tuple[str | None, dict[str, str]]:
         if re.fullmatch(r"[A-Za-z][A-Za-z0-9._-]*", declared) is None:
             return source, {"decision": decision, "status": "decoded", "declared": declared}
         normalized = declared.lower().replace("_", "-")
-        supported = ("utf-8", "utf8") if encoding == "utf-8" else ("utf-16", encoding)
+        supported = ("utf-8", "utf8") if encoding == "utf-8" else (
+            ("iso-8859-1",) if encoding == "iso-8859-1" else ("utf-16", encoding)
+        )
         if normalized not in supported and normalized != "ascii":
             return None, {"decision": decision, "status": "declared-encoding-review", "declared": declared}
     return source, {"decision": decision, "status": "decoded", "declared": declared or ""}
@@ -233,6 +243,11 @@ def import_corpus() -> None:
     with zipfile.ZipFile(io.BytesIO(zip_data)) as original:
         zip_files = {"xmlconf/" + name: original.read(name) for name in original.namelist() if not name.endswith("/")}
     rows, metadata_paths = catalog_rows(files)
+    boundary_entries = json.loads((ROOT / "input-boundary.json").read_text())
+    boundary = {item["key"]: item for item in boundary_entries}
+    if len(boundary_entries) != 18 or len(boundary) != 18:
+        raise ValueError("Reviewed byte-boundary table must name exactly 18 distinct cases")
+    used_boundary = set()
     if Counter(row["metadata"]["TYPE"] for row in rows) != Counter({"valid": 812, "invalid": 242, "not-wf": 1498, "error": 33}):
         raise ValueError("Upstream category census drift")
 
@@ -276,6 +291,7 @@ def import_corpus() -> None:
         if key in keys:
             raise ValueError(f"Duplicate (catalog, ID): {key}")
         keys.add(key)
+        stable_key = row["catalog"] + "#" + case_id
         uri = attributes["URI"]
         if uri.startswith("/") or ":" in uri or "\\" in uri or ".." in uri.split("/"):
             raise ValueError(f"Unsafe test URI: {uri}")
@@ -308,11 +324,16 @@ def import_corpus() -> None:
         elif attributes["TYPE"] == "error":
             disposition = "optional-error-review"
         elif decoder["status"] != "decoded":
-            disposition = "input-boundary-review"
+            if stable_key in boundary:
+                disposition = "outside-input-boundary"
+                reason = boundary[stable_key]["reason"]
+                used_boundary.add(stable_key)
+            else:
+                disposition = "input-boundary-review"
         else:
             disposition = "runnable"
         cases.append({
-            "key": row["catalog"] + "#" + case_id,
+            "key": stable_key,
             "catalog": row["catalog"], "collection": row["catalog"].removeprefix("xmlconf/").rsplit("/", 1)[0],
             "id": case_id, "uri": uri, "inputPath": input_path,
             "description": row["description"], "sections": attributes["SECTIONS"],
@@ -322,9 +343,13 @@ def import_corpus() -> None:
             "output": output_uri, "outputPath": output_path,
             "output3": output3_uri, "output3Path": output3_path,
             "decoding": decoder, "disposition": disposition, "reason": reason,
+            "boundaryByteOffset": boundary[stable_key]["byteOffset"] if stable_key in used_boundary else None,
             "resourceProfile": "unreviewed-external-indication" if signals else "no-external-indication",
             "resourceSignals": signals,
         })
+
+    if used_boundary != boundary.keys():
+        raise ValueError(f"Stale or unapplied byte-boundary decisions: {sorted(used_boundary ^ boundary.keys())}")
 
     case_json = json.dumps(cases, ensure_ascii=False, indent=2) + "\n"
     lock = {

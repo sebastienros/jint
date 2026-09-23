@@ -8,9 +8,11 @@ internal sealed class XmlCaseExpectation
     public string Key { get; init; } = "";
     public XmlSkippedExpectation[]? Skipped { get; init; }
     public string? Outcome { get; init; }
-    public string? Projection { get; init; }
+    public XmlProjectionEntry[]? Projection { get; init; }
     public string? OutputPolicy { get; init; }
-    public string? OutputSha256 { get; init; }
+    public string? ProjectionSha256 { get; init; }
+    public string? OriginalOutputSha256 { get; init; }
+    public string? OutputAlternative { get; init; }
     public string? Review { get; init; }
 }
 

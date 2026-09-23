@@ -45,8 +45,19 @@ internal static partial class XmlByteDecoder
         }
         else
         {
-            encoding = Utf8;
-            decision = "utf-8-default";
+            var headerLength = Math.Min(bytes.Length, 512);
+            var header = Encoding.ASCII.GetString(bytes[..headerLength]);
+            var match = EncodingDeclaration().Match(header);
+            if (match.Success && match.Groups[2].Value.Equals("iso-8859-1", StringComparison.OrdinalIgnoreCase))
+            {
+                encoding = Encoding.Latin1;
+                decision = "iso-8859-1-declaration";
+            }
+            else
+            {
+                encoding = Utf8;
+                decision = "utf-8-default";
+            }
         }
 
         string source;
@@ -67,7 +78,9 @@ internal static partial class XmlByteDecoder
             var normalized = declared.ToLowerInvariant().Replace('_', '-');
             var supported = encoding == Utf8
                 ? normalized is "utf-8" or "utf8"
-                : normalized == "utf-16" || normalized == encoding.WebName;
+                : encoding == Encoding.Latin1
+                    ? normalized == "iso-8859-1"
+                    : normalized == "utf-16" || normalized == encoding.WebName;
             if (!supported && normalized != "ascii")
                 return (null, new XmlDecodingDecision { Decision = decision, Status = "declared-encoding-review", Declared = declared });
         }

@@ -30,6 +30,7 @@ internal sealed class XmlCorpusCase
     public XmlDecodingDecision Decoding { get; init; } = new();
     public string Disposition { get; init; } = "";
     public string Reason { get; init; } = "";
+    public int? BoundaryByteOffset { get; init; }
     public string ResourceProfile { get; init; } = "";
     public string[] ResourceSignals { get; init; } = [];
 }

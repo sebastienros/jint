@@ -1,5 +1,6 @@
 #nullable enable
 using System.Text;
+using System.Text.Json;
 using Jint.HtmlParser;
 
 namespace Jint.Tests.HtmlParser.Xml.Conformance;
@@ -37,7 +38,8 @@ public class XmlCorpusTests
         cases.GroupBy(row => row.Category).ToDictionary(group => group.Key, group => group.Count())
             .Should().ContainKey("not-wf").WhoseValue.Should().Be(1498);
         cases.Count(row => row.Disposition == "runnable").Should().Be(1947);
-        cases.Count(row => row.Disposition == "input-boundary-review").Should().Be(18);
+        cases.Count(row => row.Disposition == "outside-input-boundary").Should().Be(18);
+        cases.Count(row => row.Disposition == "input-boundary-review").Should().Be(0);
         cases.Count(row => row.Disposition == "outside-profile").Should().Be(593);
         cases.Count(row => row.Disposition == "optional-error-review").Should().Be(27);
         cases.Count(row => row.Disposition == "runnable" && row.ResourceProfile == "unreviewed-external-indication")
@@ -45,7 +47,8 @@ public class XmlCorpusTests
         cases.Select(row => row.Key).Distinct(StringComparer.Ordinal).Should().HaveCount(2585);
         foreach (var row in cases)
         {
-            row.Disposition.Should().BeOneOf("runnable", "input-boundary-review", "outside-profile", "optional-error-review");
+            row.Disposition.Should().BeOneOf("runnable", "input-boundary-review", "outside-profile",
+                "outside-input-boundary", "optional-error-review");
             row.Recommendation.Should().NotBeNullOrWhiteSpace();
             row.Sections.Should().NotBeNullOrWhiteSpace();
             row.Uri.Should().NotBeNullOrWhiteSpace();
@@ -54,6 +57,62 @@ public class XmlCorpusTests
         var corrected = cases.Where(row => row.Catalog == "xmlconf/eduni/misc/ht-bh.xml").ToArray();
         corrected.Should().HaveCount(9);
         corrected.Should().AllSatisfy(row => row.InputPath.Should().StartWith("xmlconf/eduni/misc/"));
+    }
+
+    [Test]
+    public void ExactReviewedByteBoundariesNeverBecomeParserPasses()
+    {
+        using var table = JsonDocument.Parse(File.ReadAllText(Path.Combine(XmlCorpus.Root, "input-boundary.json")));
+        var entries = table.RootElement.EnumerateArray().ToArray();
+        entries.Should().HaveCount(18);
+        var reviewedKeys = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var entry in entries)
+        {
+            var key = entry.GetProperty("key").GetString()!;
+            reviewedKeys.Add(key).Should().BeTrue();
+            var row = XmlCorpus.Case(key);
+            row.Disposition.Should().Be("outside-input-boundary");
+            row.BoundaryByteOffset.Should().Be(entry.GetProperty("byteOffset").GetInt32());
+            row.Reason.Should().Be(entry.GetProperty("reason").GetString());
+            row.Decoding.Status.Should().NotBe("decoded");
+            entry.GetProperty("stringObligation").GetString().Should().NotBeNullOrWhiteSpace();
+        }
+        XmlCorpus.Cases.Where(row => row.Disposition == "outside-input-boundary")
+            .Select(row => row.Key).Should().BeEquivalentTo(reviewedKeys);
+    }
+
+    [TestCase(0xD800, "text")]
+    [TestCase(0xDC00, "text")]
+    [TestCase(0xD800, "comment")]
+    [TestCase(0xDFFF, "comment")]
+    [TestCase(0xD800, "name-start")]
+    [TestCase(0xD801, "name-start")]
+    [TestCase(0xDAFF, "name-start")]
+    [TestCase(0xDFFF, "name-start")]
+    [TestCase(0xD800, "name-char")]
+    [TestCase(0xD801, "name-char")]
+    [TestCase(0xDAFF, "name-char")]
+    [TestCase(0xDFFF, "name-char")]
+    public void DecodedStringSurrogatesRemainIndependentXmlCharAndNameObligations(int codeUnit, string location)
+    {
+        // XML §2.2 Char and §2.3 Name/NameChar; this is a distinct string API test,
+        // never a pass attributed to a byte-invalid W3C row.
+        var surrogate = new string((char) codeUnit, 1);
+        char.IsSurrogate(surrogate[0]).Should().BeTrue();
+        var source = location switch
+        {
+            "text" => "<r>" + surrogate + "</r>",
+            "comment" => "<!--" + surrogate + "--><r/>",
+            "name-start" => "<" + surrogate + "n/>",
+            _ => "<n" + surrogate + "/>"
+        };
+        Assert.Throws<MarkupParseException>(() => MarkupParser.ParseXml(source));
+    }
+
+    [Test]
+    public void DecodedSupplementaryPairIsAcceptedAsOneXmlScalar()
+    {
+        MarkupParser.ParseXml("<\U00010000/>").DocumentElement!.LocalName.Should().Be("\U00010000");
     }
 
     [Test]
@@ -91,12 +150,20 @@ public class XmlCorpusTests
         var (badText, badDecision) = XmlByteDecoder.Decode(new byte[] { 0x3c, 0x72, 0x3e, 0xff });
         badText.Should().BeNull();
         badDecision.Status.Should().Be("strict-decode-error");
-        var (legacyText, legacyDecision) = XmlByteDecoder.Decode(Encoding.UTF8.GetBytes("<?xml version='1.0' encoding='ISO-8859-1'?><r/>"));
+        var (legacyText, legacyDecision) = XmlByteDecoder.Decode(Encoding.UTF8.GetBytes("<?xml version='1.0' encoding='EUC-JP'?><r/>"));
         legacyText.Should().BeNull();
         legacyDecision.Status.Should().Be("declared-encoding-review");
         var (badNameText, badNameDecision) = XmlByteDecoder.Decode(Encoding.UTF8.GetBytes("<?xml version='1.0' encoding='UTF:8'?><r/>"));
         badNameText.Should().NotBeNull();
         badNameDecision.Status.Should().Be("decoded");
+        var latin1 = Encoding.Latin1.GetBytes("<?xml version='1.0' encoding='iso-8859-1'?><r>é</r>");
+        var (latin1Text, latin1Decision) = XmlByteDecoder.Decode(latin1);
+        latin1Text.Should().EndWith("<r>é</r>");
+        latin1Decision.Decision.Should().Be("iso-8859-1-declaration");
+        var namespaceCase = XmlCorpus.Case("xmlconf/eduni/namespaces/1.0/rmt-ns10.xml#rmt-ns10-006");
+        var (pinnedText, pinnedDecision) = XmlByteDecoder.Decode(XmlCorpus.Bytes(namespaceCase.InputPath));
+        pinnedText.Should().Contain("rosé");
+        pinnedDecision.Decision.Should().Be(namespaceCase.Decoding.Decision);
     }
 
     [Test]
@@ -129,11 +196,23 @@ public class XmlCorpusTests
         var resource = XmlCorpus.Case("xmlconf/xmltest/xmltest.xml#valid-sa-070");
         var wrongSkip = XmlConformanceRunner.Run(resource, new XmlCaseExpectation
         {
-            Key = resource.Key, Outcome = "accept", Review = "negative probe",
+            Key = resource.Key, Outcome = "accept", Review = "negative probe", Projection = [],
             Skipped = [new XmlSkippedExpectation { Kind = "General", Name = "not-the-entity", Offset = -1 }]
         });
         wrongSkip.Kind.Should().Be(XmlOutcomeKind.ParserFailure);
         wrongSkip.Signature.Should().StartWith("skip-");
+        var missingProjection = XmlConformanceRunner.Run(resource, new XmlCaseExpectation
+        {
+            Key = resource.Key, Outcome = "accept", Review = "negative probe", Skipped = []
+        });
+        missingProjection.Kind.Should().Be(XmlOutcomeKind.HarnessFailure);
+        missingProjection.Signature.Should().Be("review-missing-projection");
+        var wrongProjection = XmlConformanceRunner.Run(resource, new XmlCaseExpectation
+        {
+            Key = resource.Key, Outcome = "accept", Review = "negative probe", Skipped = [], Projection = []
+        });
+        wrongProjection.Kind.Should().Be(XmlOutcomeKind.ParserFailure);
+        wrongProjection.Signature.Should().Be("projection-mismatch");
 
         var externalNegative = XmlCorpus.Case("xmlconf/xmltest/xmltest.xml#not-wf-sa-054");
         XmlConformanceRunner.Run(externalNegative).Signature.Should().Be("resource-profile-review");
@@ -142,7 +221,7 @@ public class XmlCorpusTests
     [Test]
     public void ReviewedRecordsAndDeviationsCannotGoStaleSilently()
     {
-        var active = XmlCorpus.Cases.Where(row => row.Disposition != "outside-profile")
+        var active = XmlCorpus.Cases.Where(row => row.Disposition is not ("outside-profile" or "outside-input-boundary"))
             .Select(row => row.Key).ToHashSet(StringComparer.Ordinal);
         foreach (var (key, expectation) in XmlExpectations.Reviewed)
         {
@@ -150,6 +229,23 @@ public class XmlCorpusTests
             expectation.Review.Should().NotBeNullOrWhiteSpace();
             expectation.Skipped.Should().NotBeNull();
             expectation.Outcome.Should().BeOneOf("accept", "reject");
+            if (XmlCorpus.Case(key).ResourceProfile == "unreviewed-external-indication" && expectation.Outcome == "accept")
+                expectation.Projection.Should().NotBeNull();
+            if (expectation.OutputPolicy is not null)
+            {
+                expectation.OutputPolicy.Should().BeOneOf("no-fetch-alternative", "observation-gap",
+                    "required-notation-contract-gap");
+                var output = XmlCorpus.Case(key).OutputPath;
+                output.Should().NotBeNull();
+                var digest = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(XmlCorpus.Bytes(output!)))
+                    .ToLowerInvariant();
+                expectation.OriginalOutputSha256.Should().Be(digest);
+                if (expectation.OutputPolicy == "no-fetch-alternative")
+                {
+                    expectation.ProjectionSha256.Should().NotBeNullOrWhiteSpace();
+                    expectation.OutputAlternative.Should().NotBeNullOrWhiteSpace();
+                }
+            }
         }
         foreach (var (key, deviation) in XmlExpectations.KnownFailures)
         {
@@ -164,7 +260,7 @@ public class XmlCorpusTests
     [Test]
     public void FullProfileCensusReportsDebtByCollectionAndCategory()
     {
-        var counts = new Dictionary<(string Collection, string Category), (int Inventoried, int Outside, int Runnable,
+        var counts = new Dictionary<(string Collection, string Category), (int Inventoried, int Outside, int OutsideInput, int Runnable,
             int Passing, int KnownFailing, int Unresolved, int HarnessFailure, int OutputEligible, int OutputCompared,
             int OutputPending, int NoFetchAdapted)>();
         var failures = new List<(XmlOutcomeKind Kind, string Text)>();
@@ -174,6 +270,7 @@ public class XmlCorpusTests
             counts.TryGetValue(key, out var count);
             count.Inventoried++;
             if (row.Disposition == "outside-profile") count.Outside++;
+            else if (row.Disposition == "outside-input-boundary") count.OutsideInput++;
             else
             {
                 if (row.Disposition == "runnable") count.Runnable++;
@@ -183,6 +280,8 @@ public class XmlCorpusTests
                 {
                     count.Passing++;
                     if (row.OutputPath is not null) count.OutputCompared++;
+                    if (XmlExpectations.Reviewed.TryGetValue(row.Key, out var passingReview) &&
+                        passingReview.OutputPolicy == "no-fetch-alternative") count.NoFetchAdapted++;
                 }
                 else if (XmlExpectations.KnownFailures.TryGetValue(row.Key, out var deviation) &&
                          outcome.Signature == deviation.Signature)
@@ -198,18 +297,22 @@ public class XmlCorpusTests
                 else
                 {
                     count.Unresolved++;
-                    if (row.OutputPath is not null) count.OutputPending++;
                     failures.Add((outcome.Kind, $"unresolved {row.Key}: {outcome.Signature}: {outcome.Detail}"));
                 }
-                if (XmlExpectations.Reviewed.TryGetValue(row.Key, out var review) &&
-                    review.OutputPolicy == "no-fetch-alternative") count.NoFetchAdapted++;
+                if (row.OutputPath is not null && outcome.Kind != XmlOutcomeKind.Pass) count.OutputPending++;
             }
             counts[key] = count;
+        }
+        foreach (var (key, count) in counts)
+        {
+            if (count.OutputEligible != count.OutputCompared + count.OutputPending)
+                Assert.Fail($"Output census lost an eligible assertion for {key.Collection}/{key.Category}");
         }
         foreach (var (key, count) in counts.OrderBy(item => item.Key.Collection, StringComparer.Ordinal)
                      .ThenBy(item => item.Key.Category, StringComparer.Ordinal))
         {
-            TestContext.Progress.WriteLine($"{key.Collection}/{key.Category}: inventoried={count.Inventoried} outside={count.Outside} " +
+            TestContext.Progress.WriteLine($"{key.Collection}/{key.Category}: inventoried={count.Inventoried} outsideProfile={count.Outside} " +
+                $"outsideInput={count.OutsideInput} " +
                 $"runnable={count.Runnable} passing={count.Passing} knownFailing={count.KnownFailing} " +
                 $"unresolved={count.Unresolved} harnessFailures={count.HarnessFailure} " +
                 $"outputEligible={count.OutputEligible} outputCompared={count.OutputCompared} " +
@@ -223,6 +326,7 @@ public class XmlCorpusTests
             {
                 Inventoried = counts.Values.Sum(item => item.Inventoried),
                 Outside = counts.Values.Sum(item => item.Outside),
+                OutsideInput = counts.Values.Sum(item => item.OutsideInput),
                 Runnable = counts.Values.Sum(item => item.Runnable),
                 Passing = counts.Values.Sum(item => item.Passing),
                 Known = counts.Values.Sum(item => item.KnownFailing),
@@ -233,7 +337,8 @@ public class XmlCorpusTests
                 OutputPending = counts.Values.Sum(item => item.OutputPending),
                 NoFetch = counts.Values.Sum(item => item.NoFetchAdapted)
             };
-            Assert.Fail($"W3C XML profile: inventoried={totals.Inventoried}, outside={totals.Outside}, runnable={totals.Runnable}, " +
+            Assert.Fail($"W3C XML profile: inventoried={totals.Inventoried}, outsideProfile={totals.Outside}, " +
+                $"outsideInput={totals.OutsideInput}, runnable={totals.Runnable}, " +
                 $"passing={totals.Passing}, knownFailing={totals.Known}, unresolved={totals.Unresolved}, " +
                 $"harnessFailures={totals.Harness}, outputEligible={totals.OutputEligible}, " +
                 $"outputCompared={totals.OutputCompared}, outputPending={totals.OutputPending}, " +
