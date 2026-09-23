@@ -383,7 +383,7 @@ any missing lexical data with the C1 owner. Do not edit native DOM/parser constr
 `MarkupParser` surface, Browser bindings, property grammars or C2 selector internals. Do not add a
 stylesheet validator interface, property support flags or fake CSSOM methods. Exercise recovery,
 edit atomicity, detached identity, live views, unknown syntax, duplicate declarations, token-boundary
-serialization and saturation. Run `dotnet test -c Release Jint.Tests.HtmlParser/Jint.Tests.HtmlParser.csproj`.
+serialization and saturation. Run `dotnet test -c Release --project Jint.Tests.HtmlParser/Jint.Tests.HtmlParser.csproj`.
 Deliver the bounded implementation and tests as one reviewable change, reporting any C1 prerequisite
 that actually remains missing instead of implementing a second parser. This dispatch can run alongside
 D5; it does not wait for native attribute mutation or claim the public C4/C5 milestone complete.
