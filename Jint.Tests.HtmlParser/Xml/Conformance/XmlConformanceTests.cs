@@ -47,11 +47,13 @@ internal static class XmlConformanceRunner
         }
         if (row.Disposition == "input-boundary-review")
             return new(XmlOutcomeKind.Pending, "input-boundary-review", row.Decoding.Detail ?? row.Decoding.Declared ?? "strict byte boundary pending review");
-        if (row.Disposition == "optional-error-review")
-            return new(XmlOutcomeKind.Pending, "optional-error-review", "W3C optional-error policy needs an exact per-case decision");
+        var optionalError = row.Disposition == "optional-error-review";
         if (source is null)
-            return new(XmlOutcomeKind.HarnessFailure, "missing-decoded-source", "Runnable case has no decoded string");
-        if (row.Disposition != "runnable")
+            return optionalError
+                ? new(XmlOutcomeKind.Pending, "optional-error-review",
+                    $"input adapter unavailable: {row.Decoding.Status}: {row.Decoding.Detail}")
+                : new(XmlOutcomeKind.HarnessFailure, "missing-decoded-source", "Runnable case has no decoded string");
+        if (row.Disposition != "runnable" && !optionalError)
             return new(XmlOutcomeKind.HarnessFailure, "unknown-disposition", row.Disposition);
 
         var hasReviewedExpectation = XmlExpectations.Reviewed.TryGetValue(row.Key, out var reviewed);
@@ -78,6 +80,15 @@ internal static class XmlConformanceRunner
         {
             // A budget/cancellation/crash/programming error is never a syntax pass.
             return new(XmlOutcomeKind.HarnessFailure, $"unexpected:{error.GetType().FullName}", error.Message);
+        }
+
+        if (optionalError)
+        {
+            if (syntax is null && (document is null || document.DocumentElement is null))
+                return new(XmlOutcomeKind.HarnessFailure, "no-document-root", "Parser accepted without a document element");
+            return new(XmlOutcomeKind.Pending, "optional-error-review",
+                "W3C optional-error policy needs an exact per-case decision; observed=" +
+                (syntax is null ? "accepted" : $"rejected:{syntax.Code}@{syntax.Offset}"));
         }
 
         if (externalReviewNeeded && !hasReviewedExpectation)

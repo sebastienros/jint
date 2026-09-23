@@ -219,6 +219,22 @@ public class XmlCorpusTests
     }
 
     [Test]
+    public void OptionalErrorsReportParserObservationWithoutAConformancePass()
+    {
+        var decoded = XmlCorpus.Case("xmlconf/eduni/namespaces/1.0/rmt-ns10.xml#rmt-ns10-004");
+        var observed = XmlConformanceRunner.Run(decoded);
+        observed.Kind.Should().Be(XmlOutcomeKind.Pending);
+        observed.Signature.Should().Be("optional-error-review");
+        observed.Detail.Should().Contain("observed=");
+
+        var unsupportedEncoding = XmlCorpus.Case("xmlconf/japanese/japanese.xml#pr-xml-euc-jp");
+        var unavailable = XmlConformanceRunner.Run(unsupportedEncoding);
+        unavailable.Kind.Should().Be(XmlOutcomeKind.Pending);
+        unavailable.Signature.Should().Be("optional-error-review");
+        unavailable.Detail.Should().Contain("input adapter unavailable");
+    }
+
+    [Test]
     public void ReviewedRecordsAndDeviationsCannotGoStaleSilently()
     {
         var active = XmlCorpus.Cases.Where(row => row.Disposition is not ("outside-profile" or "outside-input-boundary"))
