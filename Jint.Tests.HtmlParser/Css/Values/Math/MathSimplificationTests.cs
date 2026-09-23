@@ -43,6 +43,8 @@ public sealed class MathSimplificationTests
     [TestCase("calc(2 * (1em + 1px) + 3 * (2em + 2px))", "calc(8em + 8px)")]
     [TestCase("calc(1px - ((1em + 1px) * 2))", "calc(-2em - 1px)")]
     [TestCase("calc(1px - clamp(none, 1em + 1px, none))", "calc(-1em + 0px)")]
+    [TestCase("calc(min(2 * max(4px, 2em)) * 2)", "calc(4 * max(4px, 2em))")]
+    [TestCase("calc(clamp(none, 2 * max(4px, 2em), none) * 2)", "calc(4 * max(4px, 2em))")]
     [TestCase("clamp(none, 1em, 2px)", "min(1em, 2px)")]
     public void SimplifiesSafeMixedExpressions(string source, string expected)
     {

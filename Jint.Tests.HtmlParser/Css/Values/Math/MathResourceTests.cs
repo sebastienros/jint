@@ -260,6 +260,54 @@ public sealed class MathResourceTests
         CssMathSerializer.SerializeSpecified(reparsed.Value, new CssValueWork(default)).Should().Be(serialized);
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void ForwardedProductsMaterializeOnce(bool clamp)
+    {
+        static (CssMathValue Value, int Checks) Build(int depth, bool useClamp)
+        {
+            var builder = new CssMathBuilder(new CssValueWork(default));
+            var span = default(CssSourceSpan);
+            var length = CssNumericType.FromUnit(CssUnit.Px);
+            var px = builder.Add(CssMathNodeKind.Numeric, length, span,
+                new CssMathNumeric(4, CssNumericKind.Dimension, CssUnit.Px, span));
+            var em = builder.Add(CssMathNodeKind.Numeric, length, span,
+                new CssMathNumeric(2, CssNumericKind.Dimension, CssUnit.Em, span));
+            var root = builder.Add(CssMathNodeKind.Max, length, span, children: [px, em]);
+            for (var i = 0; i < depth; i++)
+            {
+                int forwarded;
+                if (useClamp)
+                {
+                    var lower = builder.Add(CssMathNodeKind.AbsentBound, default, span);
+                    var upper = builder.Add(CssMathNodeKind.AbsentBound, default, span);
+                    forwarded = builder.Add(CssMathNodeKind.Clamp, length, span,
+                        children: [lower, root, upper]);
+                }
+                else forwarded = builder.Add(CssMathNodeKind.Min, length, span, children: [root]);
+                var scalar = builder.Add(CssMathNodeKind.Numeric, default, span,
+                    new CssMathNumeric(2, CssNumericKind.Number, CssUnit.None, span));
+                root = builder.Add(CssMathNodeKind.Product, length, span, children: [forwarded, scalar]);
+            }
+            var checks = 0;
+            var work = new CssValueWork(default, () => checks++);
+            var value = CssMathSimplifier.Freeze(builder, root, MathTest.Length, span, work);
+            return (value, checks);
+        }
+
+        var small = Build(128, clamp);
+        var large = Build(256, clamp);
+        var deep = Build(1024, clamp);
+        large.Value.NodeCount.Should().BeLessThan(small.Value.NodeCount * 3);
+        large.Checks.Should().BeLessThan(small.Checks * 3);
+        deep.Checks.Should().BeGreaterThan(large.Checks);
+        deep.Checks.Should().BeLessThan(large.Checks * 6);
+        var serialized = CssMathSerializer.SerializeSpecified(Build(32, clamp).Value, new CssValueWork(default));
+        var reparsed = MathTest.Parse(serialized, MathTest.Length);
+        reparsed.Status.Should().Be(CssMathParseStatus.Match);
+        CssMathSerializer.SerializeSpecified(reparsed.Value, new CssValueWork(default)).Should().Be(serialized);
+    }
+
     private static bool CalledFrom(string typeName, string methodName) =>
         new System.Diagnostics.StackTrace().GetFrames()!.Any(frame =>
             frame.GetMethod() is { } method && method.Name == methodName &&
