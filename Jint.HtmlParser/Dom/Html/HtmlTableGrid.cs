@@ -134,24 +134,24 @@ internal sealed partial class HtmlTableGrid
             var built = BuildCellIndex(work);
             index = Interlocked.CompareExchange(ref _cellIndex, built, null) ?? built;
         }
-        // The augmented start-order tree reports intersecting intervals without
-        // scanning all cells for every column. Sort the reported identities by
-        // their model ordinal to preserve the seam's processing-order contract.
+        // The augmented start-order tree visits at most O((K + 1) log N)
+        // nodes for K intersections. Sorting those K identities into model
+        // order adds O(K log K); the lazy index costs O(N log N) once.
         var matches = new ChunkedList<CellEntry>();
-        var stack = new Stack<int>();
-        stack.Push(1);
+        var stack = new Stack<QueryFrame>();
+        stack.Push(new QueryFrame(1, 0, index.LeafCount));
         while (stack.Count != 0)
         {
             work.Step();
-            var node = stack.Pop();
-            if (index.MaxEnds[node] <= start)
+            var frame = stack.Pop();
+            if (index.MaxEnds[frame.Node] <= start)
             {
                 continue;
             }
 
-            if (node >= index.LeafCount)
+            if (frame.Node >= index.LeafCount)
             {
-                var entry = node - index.LeafCount;
+                var entry = frame.FirstIndex;
                 if (entry < index.Sorted.Length && index.Sorted[entry].Range.Start < endExclusive)
                 {
                     matches.Add(index.Sorted[entry]);
@@ -160,14 +160,15 @@ internal sealed partial class HtmlTableGrid
                 continue;
             }
 
-            var firstIndex = FirstLeafIndex(node, index.LeafCount);
-            if (firstIndex >= index.Sorted.Length || index.Sorted[firstIndex].Range.Start >= endExclusive)
+            if (frame.FirstIndex >= index.Sorted.Length ||
+                index.Sorted[frame.FirstIndex].Range.Start >= endExclusive)
             {
                 continue;
             }
 
-            stack.Push(node * 2 + 1);
-            stack.Push(node * 2);
+            var half = frame.Span / 2;
+            stack.Push(new QueryFrame(frame.Node * 2 + 1, frame.FirstIndex + half, half));
+            stack.Push(new QueryFrame(frame.Node * 2, frame.FirstIndex, half));
         }
 
         foreach (var cell in SortByOrdinal(matches, work))
@@ -178,12 +179,6 @@ internal sealed partial class HtmlTableGrid
         }
 
         work.Check();
-    }
-
-    private static int FirstLeafIndex(int node, int leafCount)
-    {
-        while (node < leafCount) node *= 2;
-        return node - leafCount;
     }
 
     private void ValidateRange(long start, long endExclusive)
@@ -200,6 +195,7 @@ internal sealed partial class HtmlTableGrid
     private readonly record struct ColumnEntry(Element Element, ColumnRange Range);
     private readonly record struct CellEntry(Element Element, ColumnRange Range, int Ordinal);
     private sealed record CellIndex(CellEntry[] Sorted, long[] MaxEnds, int LeafCount);
+    private readonly record struct QueryFrame(int Node, int FirstIndex, int Span);
 
     // Appends never copy an accumulated list. Each allocation and subsequent
     // freeze copy is bounded by one 256-element segment between work polls.

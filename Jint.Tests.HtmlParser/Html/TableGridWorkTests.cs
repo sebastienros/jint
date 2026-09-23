@@ -77,6 +77,31 @@ public sealed class TableGridWorkTests
     }
 
     [Test]
+    public void SparseForwardQueryGrowsWithIndexDepth()
+    {
+        static int QueryChecks(int width)
+        {
+            var document = Document.CreateHtml();
+            var table = Add(document, document, "table");
+            var row = Add(table, document, "tr");
+            Element? last = null;
+            for (var i = 0; i < width; i++) last = Add(row, document, "td");
+            var grid = HtmlTableGrid.Build(table, default);
+            // Build the lazy index outside the measured lookup.
+            grid.CellsOverlapping(0, 1, default).Should().ContainSingle();
+            var checks = 0;
+            grid.CellsOverlapping(width - 1, width, () => checks++, default)
+                .Should().ContainSingle().Which.Should().BeSameAs(last);
+            return checks;
+        }
+
+        var first = QueryChecks(256);
+        var second = QueryChecks(512);
+        first.Should().BeGreaterThan(0);
+        second.Should().BeLessThan(first + 8);
+    }
+
+    [Test]
     public void ForwardIndexBuildIsLazyAndCancellationLeavesNoPartialIndex()
     {
         var document = Document.CreateHtml();
