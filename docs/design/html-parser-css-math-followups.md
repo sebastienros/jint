@@ -221,20 +221,71 @@ Also cover a nested atan2 with arithmetic-produced negative-zero Y and X=−1, d
 by four, yielding −45deg rather than +45deg. Pinned references:
 [computed fixtures](https://github.com/web-platform-tests/wpt/blob/2136eb1501a106c42cd8977bb31c81b57b785bc8/css/css-values/acos-asin-atan-atan2-computed.html)
 and [serialization fixtures](https://github.com/web-platform-tests/wpt/blob/2136eb1501a106c42cd8977bb31c81b57b785bc8/css/css-values/acos-asin-atan-atan2-serialize.html).
-The separate Log interpretation below still needs its own pre-dispatch review.
+The Log interpretation below records the independent source review; its project policy remains
+a draft for the coordinating review before V0b3c dispatch.
 
 Pow's integer/odd checks inspect the binary64 value without an Int64 cast; every representable
 integer at magnitude >=2^53 is even. Implement the specified signed-zero/infinity table before
 CLR Math.Pow; NaN dominates even exponent zero. Sqrt retains −0. Hypot uses a scaled sum of
 squares in O(arguments) work without overflow for representable results, and scans all arguments
 for NaN before returning infinity. Do not expand exponentiation into repeated multiplication.
-Exp preserves its specified infinity endpoints. Log defaults to e. Apply the current §10.5.1
-special cases in textual order before the ordinary `log(A)/log(B)` kernel: invalid base (1 or
-negative) and negative A give NaN; A=±0 gives −infinity; A=1 gives +0; A=+infinity gives +infinity.
-NaN remains dominant. B=0 is not explicitly rejected by that draft: ordinary positive finite
-A uses the quotient with log(0)=−infinity. This deliberately records the draft's surprising
-base<1 endpoint behavior rather than silently repairing it mathematically; independently review
-these named source interpretations again before V0b3b/c dispatch. They do not block V0b2.
+Exp preserves its specified infinity endpoints.
+
+### V0b3c Log decision draft: source review, 2026-09-23
+
+The current [Values 4 §10.5.1](https://drafts.csswg.org/css-values-4/#exponent-infinities)
+explicitly allows bases between zero and one, but gives base-independent endpoints for
+A=±0, A=1 and A=+infinity. Those endpoints contradict the mathematical logarithm/change-of-base
+limit for bases below one. Base zero is not explicitly forbidden, although a logarithm to that
+base is mathematically undefined. These are specification ambiguities, not evidence that a CLR
+two-argument Log overload supplies the CSS policy.
+
+**Proposed project policy:** preserve the draft's explicit endpoints, with NaN first, then
+invalid base (B<0 or B=1), then negative A, then the stated A endpoints. Only remaining positive
+finite A uses `Math.Log(A) / Math.Log(B)`. Omitted B means e. Treat -0 as zero, not as B<0.
+The quotient for B=±0 or +infinity is an explicit project completion of underspecified bases;
+do not describe it as an upstream resolution. No behavior flag or Browser override is introduced.
+
+The complete proposed matrix is below. Negative includes -infinity; finite interval columns
+exclude their endpoints. Q is the binary64 quotient above, including ordinary overflow/underflow.
+Both zero signs in either argument occupy the same indicated row/column.
+
+| A / B | NaN | negative | ±0 | 0<B<1 | 1 | finite B>1 | +infinity |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| NaN | NaN | NaN | NaN | NaN | NaN | NaN | NaN |
+| negative | NaN | NaN | NaN | NaN | NaN | NaN | NaN |
+| ±0 | NaN | NaN | -infinity | -infinity | NaN | -infinity | -infinity |
+| finite 0<A<1 | NaN | NaN | +0 | Q (positive) | NaN | Q (negative) | -0 |
+| 1 | NaN | NaN | +0 | +0 | NaN | +0 | +0 |
+| finite A>1 | NaN | NaN | -0 | Q (negative) | NaN | Q (positive) | +0 |
+| +infinity | NaN | NaN | +infinity | +infinity | NaN | +infinity | +infinity |
+
+Source evidence checked at the existing WPT pin:
+[exp-log-compute.html](https://github.com/web-platform-tests/wpt/blob/2136eb1501a106c42cd8977bb31c81b57b785bc8/css/css-values/exp-log-compute.html)
+tests ordinary/default-base calculations;
+[exp-log-serialize.html](https://github.com/web-platform-tests/wpt/blob/2136eb1501a106c42cd8977bb31c81b57b785bc8/css/css-values/exp-log-serialize.html)
+asserts log(0) serializes to negative infinity. Neither resolves the disputed bases/endpoints.
+The corresponding invalid-input file tests grammar/types. The checked shared
+calc-infinity-nan-computed/serialize-number files contain no exponential-function assertions.
+[CSSWG #11012](https://github.com/w3c/csswg-drafts/issues/11012) concerns Log's consistent type,
+not its endpoints; the targeted issue search found no endpoint resolution. This is not a claim
+that no relevant discussion exists elsewhere.
+
+Before dispatch approval, retain this matrix as authored policy fixtures, with bit assertions
+for signed zero and nested reciprocal tests that expose its sign before top-level censorship.
+Include invalid-base precedence at A=0/1/infinity, every NaN position, explicit versus omitted e,
+and representative bases -infinity, -2, -0, +0, 0.5, 1, 2, +infinity. Do not label these missing
+endpoint assertions as imported WPT coverage.
+
+The independent source check found no additional Pow/Sqrt/Hypot/Exp policy blocker. Their
+existing gates must include Pow(±1,±infinity)=NaN, Pow(NaN,±0)=NaN, and the full normative
+signed-zero/infinity table (including noninteger exponents of -infinity, which are not subject
+to the negative-*finite*-base rejection). Sqrt(-0)=-0 and Sqrt(-infinity)=NaN; Hypot of all
+signed zeros is +0 and any NaN dominates any infinity in either argument order; Exp(±0)=1,
+Exp(-infinity)=+0, Exp(+infinity)=+infinity. The pinned
+[hypot-pow-sqrt-computed.html](https://github.com/web-platform-tests/wpt/blob/2136eb1501a106c42cd8977bb31c81b57b785bc8/css/css-values/hypot-pow-sqrt-computed.html)
+supports ordinary/type/unit cases, not that complete special-value matrix. Keep the additional
+cases explicitly authored and retain the existing scaled-Hypot and shared-work gates.
 
 ## 5. Serialization, work and semantic gates
 

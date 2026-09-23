@@ -2,6 +2,10 @@
 
 ## Scope and workflow
 
+**Paused at the user's request on 2026-09-23.** See [the resume checkpoint](html-parser-resume.md)
+for verified common state, retained WIP commits, unfinished reviews and exact next actions.
+No completion or performance claim is implied by this pause.
+
 The requested package replaces AngleSharp in Jint.Browser with a new API for HTML,
 SVG, XML, CSS, DOM mutation tracking, and browser integration. Performance must be
 demonstrated against AngleSharp on equivalent work. The user explicitly supersedes
