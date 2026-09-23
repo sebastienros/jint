@@ -16,7 +16,7 @@ the earlier repository direction to retain AngleSharp.
 - User cleanup rule: archive tasks and remove their worktrees after review, integration and
   successful common-worktree checks. Retain interrupted/failed tasks until unfinished work is
   recovered. Keep task history and Git branches; use managed archive cleanup and verify removal.
-  Twenty-seven completed tasks have now been archived; their worktrees are gone.
+  Twenty-nine completed tasks have now been archived; their worktrees are gone.
   Patch equivalence, clean local state and stopped-task status were checked before removal.
   Earlier worktrees already removed by Codex remain represented by their integrated commits.
 
@@ -57,6 +57,10 @@ the earlier repository direction to retain AngleSharp.
 | X4a native XPath adapter | `01a0cfc2-9808-7643-a56f-c29d6ec8005c` | Reviewed fixes integrated and tested; archived, worktree removed |
 | C2d1 native table-column model | `01a0cfd3-4970-7c53-af17-767d5a5cbdaa` | Reviewed corrections integrated and tested; archived, worktree removed |
 | D6r1 native boundary/static-range primitives | `01a0cfd7-4a2d-76e3-a72b-4af81516af7f` | Reviewed fixes integrated and tested; archived, worktree removed |
+| X4b1 native attribute provenance | `01a0cfeb-6ebe-7261-844c-93d84fb517eb` | Reviewed and integrated; common checks pass; archived, worktree removed |
+| X3a serialization kernels | `01a0cfe9-8708-7943-9168-25178627af9b` | Reviewed correction integrated; common checks pass; archived, worktree removed |
+| C2d2 column selector matching | `01a0cfe9-f30f-71e2-84e1-272257d4bc26` | Implementation finishing; stale unsupported-column test migration authorized |
+| D7a2 disabledness and select ancestry | `01a0cfec-967a-7be0-a9d9-d40f474e52a1` | Attribute-scan cancellation correction pending after review |
 
 The XML conformance gate inventories all 2,585 pinned W3C rows with explicit profile
 classifications and separate output assertions. Current execution results and remaining debt are below.
@@ -462,3 +466,30 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   stage is H6c select handling, then H6d templates, as already specified in the follow-up contract.
   D6s2 slot assignment must wait for X4b1's native-file release; it cannot be implemented coherently
   only in new files. D6s3's real signal sink is a separate sequential commit under that slot owner.
+- `d9f01a690`, `253b2feb1`: independently reviewed conditional18/entity18 XML packets
+  (sources `4acf9f587`, `3f799d7cc`). Fresh corpus run: 3,998 total, 3,518 passed, 480 failed,
+  no skips; 1,728 conformance passes and 219 unresolved required cases per framework.
+  Evidence: `/private/tmp/jint-xml-conditional-entity36-integrated.log`.
+- `60c5636f9`: reviewed native attribute provenance/freshness (source `ba0207803`). Fresh common
+  non-corpus suite passes 2,106/2,106 across both frameworks, no skips. Evidence:
+  `/private/tmp/jint-attribute-provenance-integrated.log`. Task archived and worktree removed.
+  X4b2 parser ID typing and D6s2/D6s3 slot state/signals now have separate Sol worktree dispatches.
+- `9dd853b2a`: nineteen independently reviewed literal rejections (source `77d20660b`). Fresh
+  corpus run: 3,998 total, 3,556 passed, 442 failed, no skips; each framework has 1,747 conformance
+  passes, 200 unresolved required cases, zero known defects/harness failures. Optional/output counts
+  unchanged. Evidence: `/private/tmp/jint-xml-literal19-integrated.log`.
+- Fourteen decoded optional-error policies have independent source approval with all 39 pinned
+  members and exact projections/skips/notations. The XML owner must first implement actual optional
+  OUTPUT comparison and census evidence for eight IBM cases; verified optional policies never become
+  conformance passes. Six input-adapter debts remain separate. OUTPUT9 source review is also approved
+  after correcting five PUBLIC omission identifiers, including empty-versus-null and trailing space.
+- `3ed170764`, `dec41527a`: reviewed native text-control design and origin/selection corrections
+  (sources `72a5c46f4`, `ab41b7a81`). D7b1a's complete input-type classifier is dispatched separately;
+  later value/state/parser/notification/Browser stages and numeric/file dependencies remain required.
+- `b7ba4d16d`, `2569b3efe`: reviewed serialization writer/XML scalar kernels and in-copy
+  cancellation-test correction (sources `4b8ce64db`, `1942e64eb`). Fresh common non-corpus tests
+  pass 2,138/2,138 across both frameworks, no skips. Evidence:
+  `/private/tmp/jint-serialization-kernels-integrated.log`. Task archived and worktree removed.
+  X3b XML namespace-aware walker is dispatched in a separate Sol worktree.
+- H6b's additive performance correction `bde7cb0fb` is under independent re-review. The exact
+  middle-stack and absent-formatting-subject regression shapes are required complexity gates.
