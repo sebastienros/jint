@@ -101,9 +101,12 @@ public class HtmlTokenizerTests
     [TestCase("&#x80;&#0;&#xD800;&#x110000;", "T:€���|EOF|")]
     [TestCase("<a x='&ampx' y='&amp;' z=&notin;>", "S:a x=&ampx y=& z=∉|EOF|")]
     [TestCase("<?Pi data?>", "P:Pi:data|EOF|")]
+    [TestCase("<?Ab x?>", "P:Ab:x|EOF|")]
+    [TestCase("<?a>", "P:a:|EOF|")]
     [TestCase("<?TARGET?x?>", "P:TARGET:?x|EOF|")]
     [TestCase("<?_target  data>", "P:_target:data|EOF|")]
     [TestCase("<?xml foo?>", "C:?xml foo?|EOF|")]
+    [TestCase("<?xml?>", "C:?xml?|EOF|")]
     [TestCase("<?Xml-Stylesheet data?>", "C:?Xml-Stylesheet data?|EOF|")]
     [TestCase("<?bad:target?>", "C:?bad:target?|EOF|")]
     [TestCase("<?1bad?>", "C:?1bad?|EOF|")]
@@ -340,5 +343,28 @@ public class HtmlTokenizerTests
         Scan("&zzzzzz; &#13;", context: new HtmlTokenizerContext(diagnostics: collector));
         Assert.That(collector.Items.Select(x => x.Code), Does.Contain("html/unknown-named-character-reference"));
         Assert.That(collector.Items.Select(x => x.Code), Does.Contain("html/control-character-reference"));
+    }
+
+    [Test]
+    public void ProcessingInstructionLimitsCancellationAndDiagnostics()
+    {
+        var collector = new ParseDiagnosticCollector();
+        Scan("<?xml?><?bad:target?><?pi?", context: new HtmlTokenizerContext(diagnostics: collector));
+        Assert.That(collector.Items.Select(x => x.Code), Does.Contain("html/disallowed-processing-instruction-target"));
+        Assert.That(collector.Items.Select(x => x.Code), Does.Contain("html/invalid-processing-instruction-target"));
+        Assert.That(collector.Items.Select(x => x.Code), Does.Contain("html/eof-in-processing-instruction"));
+
+        var bounded = new HtmlTokenizer(new HtmlTokenizerContext(new ParseLimits { MaxTokenCharacters = 12 }));
+        bounded.AppendInput("<?pi " + new string('x', 100) + "?>", true);
+        Assert.Throws<ParseLimitException>(() => bounded.Read(1000, default, out _));
+        Assert.Throws<InvalidOperationException>(() => bounded.AppendInput("x"));
+
+        var canceled = new HtmlTokenizer(default);
+        canceled.AppendInput("<?pi " + new string('x', 100_000) + "?>", true);
+        Assert.That(canceled.Read(10, default, out _), Is.EqualTo(HtmlReadStatus.Yielded));
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        Assert.Throws<OperationCanceledException>(() => canceled.Read(10, cancellation.Token, out _));
+        Assert.Throws<InvalidOperationException>(() => canceled.Read(10, default, out _));
     }
 }
