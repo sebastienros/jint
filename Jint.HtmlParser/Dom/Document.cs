@@ -20,8 +20,11 @@ public sealed class Document : Node
 {
     private static readonly IReadOnlyList<XmlSkippedEntity> EmptySkippedXmlEntities =
         Array.AsReadOnly(Array.Empty<XmlSkippedEntity>());
+    private static readonly IReadOnlyList<XmlNotationDeclaration> EmptyXmlNotations =
+        Array.AsReadOnly(Array.Empty<XmlNotationDeclaration>());
 
     private IReadOnlyList<XmlSkippedEntity>? _skippedXmlEntities;
+    private IReadOnlyList<XmlNotationDeclaration>? _xmlNotations;
     private Document? _templateContentsOwnerDocument;
     private readonly bool _isTemplateContentsOwnerDocument;
     private ulong _mutationStamp;
@@ -93,6 +96,9 @@ public sealed class Document : Node
     /// <summary>Immutable records of XML entities or external subsets omitted during parsing.</summary>
     public IReadOnlyList<XmlSkippedEntity> SkippedXmlEntities => _skippedXmlEntities ?? EmptySkippedXmlEntities;
 
+    /// <summary>Immutable, ordered XML notation declarations read during parsing.</summary>
+    public IReadOnlyList<XmlNotationDeclaration> XmlNotations => _xmlNotations ?? EmptyXmlNotations;
+
     // Parsing owns the mutable builder. Copying into a read-only view leaves no mutable
     // reference in the document and no source or resolver attached to a record.
     internal void PublishSkippedXmlEntities(List<XmlSkippedEntity> records)
@@ -110,6 +116,42 @@ public sealed class Document : Node
     }
 
     internal void CopySkippedXmlEntitiesFrom(Document source) => _skippedXmlEntities = source._skippedXmlEntities;
+
+    // XML parsing owns the builder. Prepare an independent snapshot, including its
+    // read-only wrapper, before one atomic field assignment exposes the result.
+    internal void PublishXmlNotations(List<XmlNotationDeclaration> records, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(records);
+        if (_xmlNotations is not null)
+        {
+            throw new InvalidOperationException("XML notations have already been published.");
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        IReadOnlyList<XmlNotationDeclaration> snapshot = EmptyXmlNotations;
+        if (records.Count != 0)
+        {
+            var copy = new XmlNotationDeclaration[records.Count];
+            cancellationToken.ThrowIfCancellationRequested();
+            for (var i = 0; i < copy.Length; i++)
+            {
+                if ((i & 255) == 0)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                }
+
+                copy[i] = records[i];
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            snapshot = Array.AsReadOnly(copy);
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        _xmlNotations = snapshot;
+    }
+
+    internal void CopyXmlNotationsFrom(Document source) => _xmlNotations = source._xmlNotations;
 
     public Element? DocumentElement
     {

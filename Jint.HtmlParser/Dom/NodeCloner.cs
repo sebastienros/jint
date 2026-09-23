@@ -52,6 +52,7 @@ internal static class NodeCloner
                 var clonedDocument = new Document(original.Kind, original.ContentType);
                 clonedDocument.SetParserMode(original.Mode);
                 clonedDocument.CopySkippedXmlEntitiesFrom(original);
+                clonedDocument.CopyXmlNotationsFrom(original);
                 return clonedDocument;
             case Element original:
                 var element = new Element(document, original.NamespaceUri, original.LocalName, original.Prefix);

@@ -16,6 +16,7 @@ internal static class Program
             Require(parserAssembly.GetName().Name == "Jint.HtmlParser", "The parser package assembly was not loaded.");
 
             CheckXmlAndSvg();
+            CheckNotationSurface();
             CheckFragmentOwnership();
             CheckMutationSubscriptions();
             Console.WriteLine("ALL PARSER PACKAGE PROBES PASSED");
@@ -25,6 +26,18 @@ internal static class Program
         {
             Console.Error.WriteLine(error);
             return 1;
+        }
+    }
+
+    private static void CheckNotationSurface()
+    {
+        var document = MarkupParser.ParseXml("<root/>");
+        IReadOnlyList<XmlNotationDeclaration> notations = document.XmlNotations;
+        Require(notations.Count == 0, "A notation-free document has notation records.");
+        foreach (var notation in notations)
+        {
+            Require(notation.Name.Length != 0 && (notation.PublicId is not null || notation.SystemId is not null),
+                "A notation declaration lacks its name or external identifier.");
         }
     }
 
