@@ -25,7 +25,8 @@ internal readonly struct ParserAttribute
 }
 
 // Element: one initial batch, before publication; receiver has no attributes.
-internal void InitializeParsedAttributes(ReadOnlySpan<ParserAttribute> attributes);
+internal void InitializeParsedAttributes(ReadOnlySpan<ParserAttribute> attributes,
+    CancellationToken cancellationToken);
 // Node: resolved destination; append one newly created node, never a fragment/subtree.
 internal void AppendParsedChild(Node child);
 ```
@@ -59,6 +60,11 @@ OwnerDocument and OwnerElement, and append in supplied order. No lookup for each
 required native per-attribute initialization/semantic updates in order with old value absent; do not
 leave id/class/control/style state stale merely because no observer can yet exist. Keep the operation
 linear in attributes plus their data/required intrinsic work. Never retain the caller's span/array.
+The cancellation token is required, with no default. Poll at entry, at bounded initialization intervals,
+immediately before successful return and before/after unavoidable storage allocation/copy. Any long
+intrinsic initialization loop uses the same token and bounded polling. Runtime allocation/copy itself
+is not interruptible. Cancellation may leave this fresh unpublished element partially initialized:
+the parser discards it and propagates OperationCanceledException; no rollback transaction is promised.
 
 AppendParsedChild requires a fresh, unpublished, detached node with no ordinary children, previous/
 next siblings or registration, and the same node document as the receiver. Attributes already
@@ -99,6 +105,10 @@ would be quadratic, and confirms those loops are absent here. Test deep fresh co
 attribute batches, links/counts/order, names/namespaces/spelling, both special XML cases above, ownership
 precondition failures before mutation, and input-array reuse after initialization. Once D5/templates
 land, test observable-parent insertion records, native invalidation and template destinations through
-the fast lane too. Reparenting/fragment tests continue through validated public algorithms. Do not add
-stopwatch thresholds or claim measured speedups; Release net8.0/net10.0 functional tests and direct
+the fast lane too. Add deterministic cancellation tests at entry and during a long attribute batch,
+using an internal controlled test seam/work checkpoint instead of a timer: cancellation propagates,
+no element is published/linked, and a partially initialized abandoned element is not reused. Include
+intrinsic initialization in that cancellation coverage. Reparenting/fragment tests continue through
+validated public algorithms. Do not add stopwatch thresholds or claim measured speedups;
+Release net8.0/net10.0 functional tests and direct
 complexity review suffice for this prerequisite.
