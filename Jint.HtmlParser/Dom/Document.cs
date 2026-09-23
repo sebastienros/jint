@@ -189,6 +189,8 @@ public sealed class Document : Node
     }
     internal CDataSection CreateParsedCDataSection(string data) => new(this, data);
     public ProcessingInstruction CreateProcessingInstruction(string target, string data) => new(this, target, data);
+    internal ProcessingInstruction CreateParsedProcessingInstruction(string target, string data)
+        => ProcessingInstruction.FromParsed(this, target, data);
     public DocumentType CreateDocumentType(string name, string publicId = "", string systemId = "") => new(this, name, publicId, systemId);
     public DocumentFragment CreateDocumentFragment() => new(this);
 

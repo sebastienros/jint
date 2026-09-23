@@ -1,5 +1,3 @@
-using System.Xml;
-
 namespace Jint.HtmlParser;
 
 internal enum TextAppendCheckpoint
@@ -152,16 +150,104 @@ public sealed class ProcessingInstruction : Node
 {
     private string _data = string.Empty;
 
-    internal ProcessingInstruction(Document owner, string target, string data, bool clone = false) : base(owner)
+    internal ProcessingInstruction(Document owner, string target, string data)
+        : this(owner, ValidatePublicState(target, data)) { }
+
+    private ProcessingInstruction(Document owner, InitialState state) : base(owner)
+    {
+        Target = state.Target;
+        _data = state.Data;
+    }
+
+    // The XML parser has already proved Name, namespace restrictions, delimiters,
+    // character legality, and bounds. Copying existing state has a distinct proof:
+    // Data can have been edited after creation to contain "?>".
+    internal static ProcessingInstruction FromParsed(Document owner, string target, string data)
     {
         ArgumentNullException.ThrowIfNull(target);
-        // DOM Standard §4.13 uses XML's Name production for PI targets.
-        try { Target = XmlConvert.VerifyName(target); }
-        catch (XmlException) { throw DomException.InvalidCharacter(); }
+        ArgumentNullException.ThrowIfNull(data);
+        return new ProcessingInstruction(owner, new InitialState(target, data));
+    }
+
+    internal static ProcessingInstruction CopyTo(Document owner, ProcessingInstruction source)
+        => new(owner, new InitialState(source.Target, source.Data));
+
+    private static InitialState ValidatePublicState(string target, string data)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        // DOM Standard §4.13 uses XML 1.0 fifth edition Name, not QName/NCName.
+        // https://dom.spec.whatwg.org/#interface-processinginstruction
+        // https://www.w3.org/TR/xml/#NT-Name
+        if (!IsXmlName(target))
+        {
+            throw DomException.InvalidCharacter();
+        }
 
         ArgumentNullException.ThrowIfNull(data);
-        if (!clone && data.Contains("?>", StringComparison.Ordinal)) throw DomException.InvalidCharacter();
-        _data = data;
+        if (data.Contains("?>", StringComparison.Ordinal))
+        {
+            throw DomException.InvalidCharacter();
+        }
+
+        return new InitialState(target, data);
+    }
+
+    private static bool IsXmlName(string value)
+    {
+        if (value.Length == 0)
+        {
+            return false;
+        }
+
+        var index = 0;
+        if (!TryReadScalar(value, ref index, out var scalar) || !IsNameStart(scalar))
+        {
+            return false;
+        }
+
+        while (index < value.Length)
+        {
+            if (!TryReadScalar(value, ref index, out scalar) ||
+                !IsNameStart(scalar) && scalar is not ('-' or '.' or >= '0' and <= '9' or 0xB7 or
+                    >= 0x0300 and <= 0x036F or >= 0x203F and <= 0x2040))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool TryReadScalar(string value, ref int index, out int scalar)
+    {
+        var first = value[index++];
+        if (!char.IsSurrogate(first))
+        {
+            scalar = first;
+            return true;
+        }
+
+        if (!char.IsHighSurrogate(first) || index == value.Length || !char.IsLowSurrogate(value[index]))
+        {
+            scalar = 0;
+            return false;
+        }
+
+        scalar = char.ConvertToUtf32(first, value[index++]);
+        return true;
+    }
+
+    private static bool IsNameStart(int scalar)
+        => scalar is ':' or '_' or >= 'A' and <= 'Z' or >= 'a' and <= 'z' or
+            >= 0xC0 and <= 0xD6 or >= 0xD8 and <= 0xF6 or >= 0xF8 and <= 0x2FF or
+            >= 0x370 and <= 0x37D or >= 0x37F and <= 0x1FFF or >= 0x200C and <= 0x200D or
+            >= 0x2070 and <= 0x218F or >= 0x2C00 and <= 0x2FEF or >= 0x3001 and <= 0xD7FF or
+            >= 0xF900 and <= 0xFDCF or >= 0xFDF0 and <= 0xFFFD or >= 0x10000 and <= 0xEFFFF;
+
+    private readonly struct InitialState(string target, string data)
+    {
+        internal string Target { get; } = target;
+        internal string Data { get; } = data;
     }
 
     public override NodeType NodeType => NodeType.ProcessingInstruction;
