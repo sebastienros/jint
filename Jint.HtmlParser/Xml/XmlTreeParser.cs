@@ -160,7 +160,15 @@ internal sealed partial class XmlTreeParser
         Expect('=', "xml/invalid-declaration", start);
         SkipWhitespace(start);
         var version = ReadQuoted("xml/invalid-declaration", start);
-        if (version != "1.0") Error("xml/invalid-declaration", start);
+        // XML 1.0 Fifth Edition §2.8: every ASCII 1.[0-9]+ version is
+        // processed under XML 1.0 rules, without interpreting its suffix.
+        if (version.Length < 3 || version[0] != '1' || version[1] != '.')
+            Error("xml/invalid-declaration", start);
+        for (var i = 2; i < version.Length; i++)
+        {
+            WorkUnit();
+            if (version[i] is < '0' or > '9') Error("xml/invalid-declaration", start);
+        }
         var lastOrder = 0;
         while (true)
         {

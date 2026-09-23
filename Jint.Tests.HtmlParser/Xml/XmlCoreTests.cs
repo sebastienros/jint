@@ -64,7 +64,7 @@ public class XmlCoreTests
     [TestCase("<a>&missing;</a>", "xml/undeclared-entity")]
     [TestCase("<a>&#0;</a>", "xml/invalid-character")]
     [TestCase("<a><![CDATA[x]]>y]]></a>", "xml/invalid-markup")]
-    [TestCase("<?xml version='1.1'?><a/>", "xml/invalid-declaration")]
+    [TestCase("<?xml version='2.0'?><a/>", "xml/invalid-declaration")]
     public void RejectsMalformedDocument(string source, string code)
     {
         var error = Assert.Throws<MarkupParseException>(() => XmlTreeParser.ParseDocument(source, ParseLimits.Unbounded, default));
@@ -143,6 +143,31 @@ public class XmlCoreTests
         document.DocumentElement.Attributes.Single().LocalName.Should().Be("\U00010000attr");
         XmlTreeParser.ParseDocument("<?xml-stylesheet href='x'?><r/>", ParseLimits.Unbounded, default)
             .FirstChild.Should().BeOfType<ProcessingInstruction>();
+    }
+
+    [TestCase("1.0")]
+    [TestCase("1.1")]
+    [TestCase("1.7")]
+    [TestCase("1.00")]
+    public void AcceptsAsciiOnePointVersionsUsingXml10Rules(string version)
+    {
+        var document = MarkupParser.ParseXml("<?xml version='" + version + "'?><r>\u0085\u2028</r>");
+        ((Text) document.DocumentElement!.FirstChild!).Data.Should().Be("\u0085\u2028");
+        var invalidCharacter = "<?xml version='" + version + "'?><r>&#x1;</r>";
+        var error = Assert.Throws<MarkupParseException>(() => MarkupParser.ParseXml(invalidCharacter));
+        error!.Code.Should().Be("xml/invalid-character");
+    }
+
+    [TestCase("1.")]
+    [TestCase("1.a")]
+    [TestCase("01.0")]
+    [TestCase("2.0")]
+    [TestCase("1.\u0661")]
+    public void RejectsOtherVersionDeclarationForms(string version)
+    {
+        var source = "<?xml version='" + version + "'?><r/>";
+        var error = Assert.Throws<MarkupParseException>(() => MarkupParser.ParseXml(source));
+        error!.Code.Should().Be("xml/invalid-declaration");
     }
 
     [Test]
