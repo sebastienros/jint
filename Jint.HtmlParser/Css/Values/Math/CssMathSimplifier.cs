@@ -117,7 +117,11 @@ internal static class CssMathSimplifier
             else
             {
                 mapped[i] = target.Add(node.Kind, node.Type, node.Span);
-                foreach (var child in children) target.AddChild(mapped[i], child);
+                foreach (var child in children)
+                {
+                    target.DetachSibling(child);
+                    target.AddChild(mapped[i], child);
+                }
             }
         }
         var simplifiedRoot = mapped[root];
@@ -181,6 +185,7 @@ internal static class CssMathSimplifier
             foreach (var child in source.Children(root))
             {
                 work.Charge(1);
+                target.DetachSibling(mapped[child]);
                 target.AddChild(deferred, mapped[child]);
             }
             return deferred;
@@ -228,8 +233,11 @@ internal static class CssMathSimplifier
                 else if (mappedNode.Kind == CssMathNodeKind.Negate)
                     leaves.Add(mappedNode.FirstChild);
                 else
+                {
+                    target.DetachSibling(mapped[index]);
                     leaves.Add(target.Add(CssMathNodeKind.Negate, mappedNode.Type, mappedNode.Span,
                         children: [mapped[index]]));
+                }
             }
             else leaves.Add(mapped[index]);
         }
@@ -290,7 +298,11 @@ internal static class CssMathSimplifier
             }
             leaves = flattened;
         }
-        if (leaves.Count == 1) return leaves[0];
+        if (leaves.Count == 1)
+        {
+            target.DetachSibling(leaves[0]);
+            return leaves[0];
+        }
         if (sourceNode.Kind is CssMathNodeKind.Sum or CssMathNodeKind.Negate)
         {
             const int specialKinds = 2;
@@ -395,10 +407,18 @@ internal static class CssMathSimplifier
                 }
             }
         }
-        if (leaves.Count == 1) return leaves[0];
+        if (leaves.Count == 1)
+        {
+            target.DetachSibling(leaves[0]);
+            return leaves[0];
+        }
         var resultNode = target.Add(sourceNode.Kind == CssMathNodeKind.Negate ? CssMathNodeKind.Sum :
             sourceNode.Kind, sourceNode.Type, sourceNode.Span);
-        foreach (var leaf in leaves) target.AddChild(resultNode, leaf);
+        foreach (var leaf in leaves)
+        {
+            target.DetachSibling(leaf);
+            target.AddChild(resultNode, leaf);
+        }
         return resultNode;
     }
 
@@ -519,9 +539,17 @@ internal static class CssMathSimplifier
                 reduced.Add(target.Add(CssMathNodeKind.Numeric, node.Type, node.Span,
                     new CssMathNumeric(best[bucket], node.Numeric.Kind, node.Numeric.Unit, node.Span)));
         }
-        if (reduced.Count == 1) return reduced[0];
+        if (reduced.Count == 1)
+        {
+            target.DetachSibling(reduced[0]);
+            return reduced[0];
+        }
         var result = target.Add(kind, type, span);
-        foreach (var child in reduced) target.AddChild(result, child);
+        foreach (var child in reduced)
+        {
+            target.DetachSibling(child);
+            target.AddChild(result, child);
+        }
         return result;
     }
 

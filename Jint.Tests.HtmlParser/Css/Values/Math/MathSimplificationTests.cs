@@ -69,6 +69,21 @@ public sealed class MathSimplificationTests
         CssMathSerializer.SerializeSpecified(reparsed.Value, new CssValueWork(default)).Should().Be(serialized);
     }
 
+    [TestCase("calc(1px - (min(1px, 1em) + 1px))")]
+    [TestCase("calc(1px - (min(1px, 1em) - 1px))")]
+    [TestCase("calc(1px - (min(1px, 1em) + min(2px, 2em)))")]
+    [TestCase("calc(1px - (1px + min(1px, 1em)))")]
+    [TestCase("calc(1px + clamp(none, min(1px, 1em) + 1px, none))")]
+    public void MovedOpaqueTermsKeepOnlyTheirOwnChildren(string source)
+    {
+        var parsed = MathTest.Parse(source, MathTest.Length);
+        parsed.Status.Should().Be(CssMathParseStatus.Match);
+        var serialized = CssMathSerializer.SerializeSpecified(parsed.Value, new CssValueWork(default));
+        var reparsed = MathTest.Parse(serialized, MathTest.Length);
+        reparsed.Status.Should().Be(CssMathParseStatus.Match);
+        CssMathSerializer.SerializeSpecified(reparsed.Value, new CssValueWork(default)).Should().Be(serialized);
+    }
+
     [Test]
     public void MinCombinesComparableUnitsWithoutResolvingRelativeOnes()
     {
