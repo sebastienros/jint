@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Numerics;
 using Jint.HtmlParser.Css.Syntax;
 using static Jint.HtmlParser.Css.Selectors.CompiledSelector;
@@ -21,7 +20,7 @@ internal static class SelectorCompiler
         return compiler.Compile(values);
     }
 
-    private sealed class Worker
+    internal sealed class Worker
     {
         private readonly int _sourceLength;
         private readonly string _source;
@@ -64,7 +63,14 @@ internal static class SelectorCompiler
                 }
                 catch (SelectorParseException)
                 {
-                    var forgiving = stack.FindLastIndex(f => f.Forgiving);
+                    var forgiving = -1;
+                    for (var i = stack.Count - 1; i >= 0; i--)
+                    {
+                        Poll();
+                        if (!stack[i].Forgiving) continue;
+                        forgiving = i;
+                        break;
+                    }
                     if (forgiving < 0) throw;
                     stack.RemoveRange(forgiving + 1, stack.Count - forgiving - 1);
                     stack[forgiving].Recover(this);
@@ -96,6 +102,8 @@ internal static class SelectorCompiler
             }
             if (TryCombinator(f.Values, f.Index, out var combinator, out var width))
             {
+                if (f.PseudoElementContext)
+                    throw Error("selector/invalid-syntax", value.Span.Start);
                 if (f.Compound is not null)
                 {
                     if (f.Compound.PseudoElement)
@@ -125,7 +133,7 @@ internal static class SelectorCompiler
             {
                 var compound = new CompoundBuilder(value.Span.Start);
                 f.Compound = compound;
-                if (TryType(f, compound)) return null;
+                if (!f.PseudoElementContext && TryType(f, compound)) return null;
             }
             var current = f.Compound!;
             if (TrySimple(f, current, out var child)) return child;
@@ -157,7 +165,7 @@ internal static class SelectorCompiler
             else if (!IsIdent(first) && !IsDelim(first, '*')) return false;
             if (nameIndex >= values.Count || !(IsIdent(values[nameIndex]) || IsDelim(values[nameIndex], '*')))
             {
-                if (prefix) throw Error("selector/invalid-syntax", nameIndex < values.Count ? values[nameIndex].Span.Start : _sourceLength);
+                if (prefix) throw Error("selector/invalid-syntax", nameIndex < values.Count ? values[nameIndex].Span.Start : f.EndOffset);
                 return false;
             }
             var name = values[nameIndex];
@@ -175,7 +183,7 @@ internal static class SelectorCompiler
             child = null;
             var values = f.Values;
             var value = values[f.Index];
-            if (compound.PseudoElement && !IsToken(value, CssTokenKind.Colon))
+            if ((compound.PseudoElement || f.PseudoElementContext) && !IsToken(value, CssTokenKind.Colon))
                 throw Error("selector/invalid-syntax", value.Span.Start);
             if (value.Kind == CssComponentKind.SimpleBlock && value.OpeningDelimiter == '[')
             {
@@ -195,7 +203,7 @@ internal static class SelectorCompiler
             if (IsDelim(value, '.'))
             {
                 if (f.Index + 1 >= values.Count || !IsIdent(values[f.Index + 1]))
-                    throw Error("selector/invalid-syntax", f.Index + 1 < values.Count ? values[f.Index + 1].Span.Start : _sourceLength);
+                    throw Error("selector/invalid-syntax", f.Index + 1 < values.Count ? values[f.Index + 1].Span.Start : f.EndOffset);
                 var className = values[f.Index + 1];
                 compound.Predicates.Add(new Predicate(PredicateKind.Class,
                     Span(value.Span.Start, className.Span.Start + className.Span.Length), className.Token.Text));
@@ -207,7 +215,7 @@ internal static class SelectorCompiler
             var start = value.Span.Start;
             var pseudoElement = f.Index + 1 < values.Count && IsToken(values[f.Index + 1], CssTokenKind.Colon);
             var nameIndex = f.Index + (pseudoElement ? 2 : 1);
-            if (nameIndex >= values.Count) throw Error("selector/invalid-syntax", _sourceLength);
+            if (nameIndex >= values.Count) throw Error("selector/invalid-syntax", f.EndOffset);
             var nameValue = values[nameIndex];
             var name = nameValue.Kind == CssComponentKind.Function ? nameValue.FunctionName :
                 IsIdent(nameValue) ? nameValue.Token.Text : null;
@@ -216,8 +224,14 @@ internal static class SelectorCompiler
             var kind = Identify(name, pseudoElement, function, nameValue.Span.Start);
             if ((pseudoElement || kind == PredicateKind.PseudoElement) && !f.AllowPseudoElements)
                 throw Error("selector/invalid-syntax", start);
+            if (f.PseudoElementContext &&
+                kind is not (PredicateKind.Is or PredicateKind.Where or PredicateKind.Not or
+                    PredicateKind.Hover or PredicateKind.Active or PredicateKind.Focus or
+                    PredicateKind.FocusWithin or PredicateKind.FocusVisible))
+                throw Error("selector/invalid-syntax", start);
             if (compound.PseudoElement &&
-                kind is not (PredicateKind.Hover or PredicateKind.Active or PredicateKind.Focus or
+                kind is not (PredicateKind.Is or PredicateKind.Where or PredicateKind.Not or
+                    PredicateKind.Hover or PredicateKind.Active or PredicateKind.Focus or
                     PredicateKind.FocusWithin or PredicateKind.FocusVisible) &&
                 !(compound.LastPseudoElement == PredicateKind.Slotted &&
                   kind == PredicateKind.PseudoElement &&
@@ -243,11 +257,14 @@ internal static class SelectorCompiler
                 PredicateKind.Host or PredicateKind.HostContext or PredicateKind.Slotted)
             {
                 f.Pending = new Pending(kind, span);
+                var pseudoElementContext = (kind is PredicateKind.Is or PredicateKind.Where or PredicateKind.Not) &&
+                    (f.PseudoElementContext || compound.PseudoElement);
                 child = new Frame(args, kind is PredicateKind.Is or PredicateKind.Where,
                     kind == PredicateKind.Has, kind != PredicateKind.Has && f.InsideHas,
                     false, argumentEnd,
-                    compoundOnly: kind is PredicateKind.Host or PredicateKind.HostContext or PredicateKind.Slotted,
-                    singleBranch: kind is PredicateKind.Host or PredicateKind.HostContext or PredicateKind.Slotted);
+                    compoundOnly: pseudoElementContext || kind is PredicateKind.Host or PredicateKind.HostContext or PredicateKind.Slotted,
+                    singleBranch: kind is PredicateKind.Host or PredicateKind.HostContext or PredicateKind.Slotted,
+                    pseudoElementContext: pseudoElementContext);
                 // The relative list itself is inside :has for nested-has rejection.
                 if (kind == PredicateKind.Has) child.InsideHas = true;
                 return true;
@@ -394,7 +411,8 @@ internal static class SelectorCompiler
             {
                 a = Number(first.Token.NumberText, first.Span.Start);
                 b = unitB;
-                ParseTrailingB(values, ref i, end, endOffset, ref b, unitNeedsB);
+                if (first.Token.Unit.Length == 1 || unitNeedsB)
+                    ParseTrailingB(values, ref i, end, endOffset, ref b, unitNeedsB);
             }
             else if (IsToken(first, CssTokenKind.Number) && first.Token.IsInteger)
             {
@@ -485,16 +503,29 @@ internal static class SelectorCompiler
             return start == 1 && text[0] == '-' ? -number : number;
         }
 
-        private bool TryUnsigned(ReadOnlySpan<char> digits, out BigInteger number)
+        internal bool TryUnsigned(ReadOnlySpan<char> digits, out BigInteger number)
         {
             number = default;
             if (digits.Length == 0) return false;
+            uint chunk = 0;
+            var chunkLength = 0;
             for (var i = 0; i < digits.Length; i++)
             {
                 Poll();
                 if (digits[i] is < '0' or > '9') return false;
+                chunk = chunk * 10 + (uint) (digits[i] - '0');
+                if (++chunkLength != 9) continue;
+                number = number * 1_000_000_000 + chunk;
+                chunk = 0;
+                chunkLength = 0;
             }
-            return BigInteger.TryParse(digits, NumberStyles.None, CultureInfo.InvariantCulture, out number);
+            if (chunkLength != 0)
+            {
+                uint factor = 1;
+                for (var i = 0; i < chunkLength; i++) factor *= 10;
+                number = number * factor + chunk;
+            }
+            return true;
         }
 
         private IReadOnlyList<string> ParseTextArguments(CssComponentValueList values, int endOffset)
@@ -723,6 +754,7 @@ internal static class SelectorCompiler
             internal readonly bool AllowPseudoElements;
             internal readonly bool CompoundOnly;
             internal readonly bool SingleBranch;
+            internal readonly bool PseudoElementContext;
             internal readonly int EndOffset;
             internal readonly List<ComplexSelector> Branches = new();
             internal readonly List<Compound> Compounds = new();
@@ -741,11 +773,12 @@ internal static class SelectorCompiler
 
             internal Frame(CssComponentValueList values, bool forgiving, bool relative, bool insideHas,
                 bool allowPseudoElements, int endOffset, bool compoundOnly = false,
-                bool singleBranch = false)
+                bool singleBranch = false, bool pseudoElementContext = false)
             {
                 Values = values; Forgiving = forgiving; Relative = relative; InsideHas = insideHas;
                 AllowPseudoElements = allowPseudoElements; EndOffset = endOffset;
                 CompoundOnly = compoundOnly; SingleBranch = singleBranch;
+                PseudoElementContext = pseudoElementContext;
             }
 
             internal void Accept(CompiledSelector child)

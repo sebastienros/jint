@@ -1,5 +1,6 @@
 #nullable enable
 using System.Numerics;
+using System.Runtime.ExceptionServices;
 using Jint.HtmlParser;
 using Jint.HtmlParser.Css;
 using Jint.HtmlParser.Css.Selectors;
@@ -126,6 +127,8 @@ public sealed class SelectorCompilerTests
     [TestCase(":nth-child(2n-)")]
     [TestCase(":nth-child(2.5n)")]
     [TestCase(":nth-child(n + +3)")]
+    [TestCase(":nth-child(2n-1+2)")]
+    [TestCase(":nth-child(2n-1 - 2)")]
     [TestCase(":nth-child(+ -n)")]
     [TestCase(":nth-child(+ n)")]
     [TestCase(":nth-child(- n)")]
@@ -136,6 +139,7 @@ public sealed class SelectorCompilerTests
     [TestCase(":lang(en, )")]
     [TestCase("::picker(div)")]
     [TestCase("::before:root")]
+    [TestCase("::before:not(:root)")]
     [TestCase("::before > .x")]
     [TestCase("::before .x")]
     [TestCase(":not(::-webkit-unknown)")]
@@ -191,6 +195,52 @@ public sealed class SelectorCompilerTests
     }
 
     [Test]
+    public void LogicalPseudoClassesAfterPseudoElementsInheritTheirPosition()
+    {
+        foreach (var selector in new[]
+                 {
+                     "::before:is(:hover)", "::before:where(:hover)",
+                     "::before:not(:hover)", "::before:is(:where(:hover))"
+                 })
+        {
+            Parse(selector).Branches[0].Compounds[0].Predicates.Should().HaveCount(2);
+        }
+        var surviving = Parse("::before:is(.x, :root, :hover)")
+            .Branches[0].Compounds[0].Predicates[1].Arguments!;
+        surviving.Branches.Should().ContainSingle();
+        surviving.Branches[0].Compounds[0].Predicates[0].Kind.Should().Be(PredicateKind.Hover);
+        Parse("::before:where(:root)").Branches[0].Compounds[0].Predicates[1]
+            .Arguments!.Branches.Should().BeEmpty();
+    }
+
+    [TestCase(":not(.)", 6)]
+    [TestCase(":not(p|)", 7)]
+    [TestCase(":not(:)", 6)]
+    [TestCase(":not(.", 6)]
+    [TestCase("\r\n/**/:not(.)", 12)]
+    [TestCase(":not(\\70 |)", 10)]
+    [TestCase(":not(p|/**/)", 11)]
+    public void NestedMissingTokenOffsetsUseClosingDelimiterOrActualEof(string source, int offset)
+    {
+        var failure = NUnit.Framework.Assert.Throws<SelectorParseException>(() => Parse(source));
+        failure!.Code.Should().Be("selector/invalid-syntax");
+        failure.Offset.Should().Be(offset);
+    }
+
+    [Test]
+    public void InvalidNthBranchesFollowForgivingAndStrictBoundaries()
+    {
+        var forgiving = Parse(":is(:nth-child(2n-1+2), .ok)")
+            .Branches[0].Compounds[0].Predicates[0].Arguments!;
+        forgiving.Branches.Should().ContainSingle();
+        forgiving.Branches[0].Compounds[0].Predicates[0].Kind.Should().Be(PredicateKind.Class);
+        NUnit.Framework.Assert.Throws<SelectorParseException>(() =>
+            Parse(":not(:nth-child(2n-1+2))"));
+        NUnit.Framework.Assert.Throws<SelectorParseException>(() =>
+            Parse(":nth-child(2n of .ok, :nth-child(2n-1+2))"));
+    }
+
+    [Test]
     public void SelectorSpecificityIsLexicographicAndValidatesEachCount()
     {
         new SelectorSpecificity(1, 0, 0).CompareTo(new SelectorSpecificity(0, int.MaxValue, int.MaxValue))
@@ -217,6 +267,44 @@ public sealed class SelectorCompilerTests
         using var canceled = new CancellationTokenSource();
         canceled.Cancel();
         NUnit.Framework.Assert.Throws<OperationCanceledException>(() => Parse(source, cancellationToken: canceled.Token));
+    }
+
+    [Test]
+    public void CancellationDuringNumericConversionIsPolled()
+    {
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        var worker = new SelectorCompiler.Worker(string.Empty, new SelectorParseContext(),
+            cancellation.Token);
+        var digits = new string('9', 1024);
+        NUnit.Framework.Assert.Throws<OperationCanceledException>(() =>
+            worker.TryUnsigned(digits.AsSpan(), out _));
+    }
+
+    [Test]
+    public void CancellationAtDeepSyntaxFailureEscapesRecoveryWalk()
+    {
+        const int depth = 1024;
+        var source = string.Concat(Enumerable.Repeat(":not(", depth)) +
+                     ":unknown" + new string(')', depth);
+        using var cancellation = new CancellationTokenSource();
+        var testThread = Environment.CurrentManagedThreadId;
+        void CancelOnFailure(object? sender, FirstChanceExceptionEventArgs args)
+        {
+            if (Environment.CurrentManagedThreadId == testThread &&
+                args.Exception is SelectorParseException { Code: "selector/unsupported-construct" })
+                cancellation.Cancel();
+        }
+        AppDomain.CurrentDomain.FirstChanceException += CancelOnFailure;
+        try
+        {
+            NUnit.Framework.Assert.Throws<OperationCanceledException>(() =>
+                Parse(source, cancellationToken: cancellation.Token));
+        }
+        finally
+        {
+            AppDomain.CurrentDomain.FirstChanceException -= CancelOnFailure;
+        }
     }
 
     [Test]
