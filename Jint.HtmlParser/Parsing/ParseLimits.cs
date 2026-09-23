@@ -6,6 +6,7 @@ public sealed class ParseLimits
     private long _maxInputCharacters;
     private int _maxTokenCharacters;
     private int _maxNestingDepth;
+    private long _maxEntityExpansionCharacters;
 
     /// <summary>Shared all-zero limits.</summary>
     public static ParseLimits Unbounded { get; } = new();
@@ -30,6 +31,13 @@ public sealed class ParseLimits
         get => _maxNestingDepth;
         init => _maxNestingDepth = value >= 0 ? value : throw new ArgumentOutOfRangeException(nameof(value));
     }
+
+    /// <summary>Maximum UTF-16 replacement units consumed by XML general and parameter entities.</summary>
+    public long MaxEntityExpansionCharacters
+    {
+        get => _maxEntityExpansionCharacters;
+        init => _maxEntityExpansionCharacters = value >= 0 ? value : throw new ArgumentOutOfRangeException(nameof(value));
+    }
 }
 
 /// <summary>The resource bound exceeded by a parser.</summary>
@@ -37,7 +45,8 @@ public enum ParseLimitKind
 {
     InputCharacters,
     TokenCharacters,
-    NestingDepth
+    NestingDepth,
+    EntityExpansionCharacters
 }
 
 /// <summary>A parser stopped before accepting an amount beyond a configured inclusive bound.</summary>

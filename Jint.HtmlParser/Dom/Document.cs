@@ -10,6 +10,11 @@ public enum DocumentKind
 /// <summary>The owner and root of a native document tree.</summary>
 public sealed class Document : Node
 {
+    private static readonly IReadOnlyList<XmlSkippedEntity> EmptySkippedXmlEntities =
+        Array.AsReadOnly(Array.Empty<XmlSkippedEntity>());
+
+    private IReadOnlyList<XmlSkippedEntity>? _skippedXmlEntities;
+
     public Document(DocumentKind kind) : base(null) => Kind = kind;
 
     public static Document CreateHtml() => new(DocumentKind.Html);
@@ -17,6 +22,27 @@ public sealed class Document : Node
 
     public override NodeType NodeType => NodeType.Document;
     public DocumentKind Kind { get; }
+
+    /// <summary>Immutable records of XML entities or external subsets omitted during parsing.</summary>
+    public IReadOnlyList<XmlSkippedEntity> SkippedXmlEntities => _skippedXmlEntities ?? EmptySkippedXmlEntities;
+
+    // Parsing owns the mutable builder. Copying into a read-only view leaves no mutable
+    // reference in the document and no source or resolver attached to a record.
+    internal void PublishSkippedXmlEntities(List<XmlSkippedEntity> records)
+    {
+        ArgumentNullException.ThrowIfNull(records);
+        if (_skippedXmlEntities is not null)
+        {
+            throw new InvalidOperationException("Skipped XML entities have already been published.");
+        }
+
+        if (records.Count != 0)
+        {
+            _skippedXmlEntities = Array.AsReadOnly(records.ToArray());
+        }
+    }
+
+    internal void CopySkippedXmlEntitiesFrom(Document source) => _skippedXmlEntities = source._skippedXmlEntities;
 
     public Element? DocumentElement
     {

@@ -40,7 +40,9 @@ internal static class NodeCloner
         switch (source)
         {
             case Document original:
-                return new Document(original.Kind);
+                var clonedDocument = new Document(original.Kind);
+                clonedDocument.CopySkippedXmlEntitiesFrom(original);
+                return clonedDocument;
             case Element original:
                 var element = new Element(document, original.NamespaceUri, original.LocalName, original.Prefix);
                 element.CopyAttributesFrom(original, document);

@@ -39,6 +39,7 @@
         public Jint.HtmlParser.Element? DocumentElement { get; }
         public Jint.HtmlParser.DocumentKind Kind { get; }
         public override Jint.HtmlParser.NodeType NodeType { get; }
+        public System.Collections.Generic.IReadOnlyList<Jint.HtmlParser.XmlSkippedEntity> SkippedXmlEntities { get; }
         public Jint.HtmlParser.Attr CreateAttribute(string name) { }
         public Jint.HtmlParser.Attr CreateAttributeNS(string? namespaceUri, string qualifiedName) { }
         public Jint.HtmlParser.CDataSection CreateCDataSection(string data) { }
@@ -94,6 +95,11 @@
         public void SetAttribute(string name, string value) { }
         public void SetAttributeNS(string? namespaceUri, string qualifiedName, string value) { }
         public Jint.HtmlParser.Attr? SetAttributeNode(Jint.HtmlParser.Attr attribute) { }
+    }
+    public sealed class MarkupParseException : System.Exception
+    {
+        public string Code { get; }
+        public long Offset { get; }
     }
     public static class Namespaces
     {
@@ -155,10 +161,12 @@
         InputCharacters = 0,
         TokenCharacters = 1,
         NestingDepth = 2,
+        EntityExpansionCharacters = 3,
     }
     public sealed class ParseLimits
     {
         public ParseLimits() { }
+        public long MaxEntityExpansionCharacters { get; init; }
         public long MaxInputCharacters { get; init; }
         public int MaxNestingDepth { get; init; }
         public int MaxTokenCharacters { get; init; }
@@ -174,5 +182,24 @@
     {
         public string Data { get; set; }
         public override Jint.HtmlParser.NodeType NodeType { get; }
+    }
+    public sealed class XmlParseOptions
+    {
+        public XmlParseOptions() { }
+        public Jint.HtmlParser.ParseLimits Limits { get; init; }
+    }
+    public readonly struct XmlSkippedEntity
+    {
+        public Jint.HtmlParser.XmlSkippedEntityKind Kind { get; }
+        public string Name { get; }
+        public long Offset { get; }
+        public string? PublicId { get; }
+        public string? SystemId { get; }
+    }
+    public enum XmlSkippedEntityKind
+    {
+        General = 0,
+        Parameter = 1,
+        ExternalSubset = 2,
     }
 }
