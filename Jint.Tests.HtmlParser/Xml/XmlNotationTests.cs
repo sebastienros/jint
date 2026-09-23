@@ -215,8 +215,10 @@ public class XmlNotationTests
         using var cancellation = new CancellationTokenSource();
         var polls = 0;
         // The 3,000-unit literal scan cannot reach the 4,096-unit work poll.
-        // Its second pass crosses that boundary within public-id normalization.
-        var source = "<!DOCTYPE r [<!NOTATION n PUBLIC '" + new string('x', 3_000) + "'>]><r/>";
+        // Its second pass must cancel before reaching the tab at position 2,000;
+        // without that poll, PubidChar validation throws a syntax error instead.
+        var literal = new string('x', 1_999) + "\t" + new string('x', 1_000);
+        var source = "<!DOCTYPE r [<!NOTATION n PUBLIC '" + literal + "'>]><r/>";
         Assert.Throws<OperationCanceledException>(() => XmlTreeParser.ParseDocument(source, ParseLimits.Unbounded,
             () => { polls++; cancellation.Cancel(); }, cancellation.Token));
         polls.Should().Be(1);
