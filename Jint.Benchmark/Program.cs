@@ -14,6 +14,12 @@ if (args.Length > 0 && args[0] == "--profile-memory")
     return MemoryProbe.Run(args);
 }
 
+if (args.Length > 0 && args[0] == "--validate-html-parser-corpus")
+{
+    // Parse and inspect every checked-in input without starting a timing run.
+    return HtmlParserCorpusBenchmark.ValidateAll();
+}
+
 if (args.Length > 0 && args[0] == "--profile-cpu")
 {
     return CpuProfileDriver.Run(args);

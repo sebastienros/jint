@@ -25,6 +25,7 @@
   <ItemGroup>
     <None Include=".\Scripts\*.*" CopyToOutputDirectory="PreserveNewest" />
     <None Include=".\Scripts\template-rendering\**\*.*" CopyToOutputDirectory="PreserveNewest" LinkBase="Scripts\template-rendering" />
+    <None Include=".\ParserCorpus\**\*.*" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\Jint.Tests.CommonScripts\Scripts\**" CopyToOutputDirectory="PreserveNewest" LinkBase="Scripts" />
   </ItemGroup>
   <ItemGroup>
