@@ -16,7 +16,7 @@ the earlier repository direction to retain AngleSharp.
 - User cleanup rule: archive tasks and remove their worktrees after review, integration and
   successful common-worktree checks. Retain interrupted/failed tasks until unfinished work is
   recovered. Keep task history and Git branches; use managed archive cleanup and verify removal.
-  Thirty-three completed tasks have now been archived; their worktrees are gone.
+  Thirty-four completed tasks have now been archived; their worktrees are gone.
   Patch equivalence, clean local state and stopped-task status were checked before removal.
   Earlier worktrees already removed by Codex remain represented by their integrated commits.
 
@@ -63,6 +63,12 @@ the earlier repository direction to retain AngleSharp.
 | D7a2 disabledness and select ancestry | `01a0cfec-967a-7be0-a9d9-d40f474e52a1` | Reviewed cancellation correction integrated and tested; archived, worktree removed |
 | D7b1a input-type classifier | `01a0cffb-5f42-7ac0-9c50-3dc022442df9` | Reviewed, integrated and tested; archived, worktree removed |
 | X3b XML serialization | `01a0cffb-eb5e-7843-8a64-7bab61470fa1` | Implementation committed; independent Astra review pending |
+| X4b2 XML ID typing | `01a0cff7-3642-7891-b575-1157126eaef5` | Reviewed, integrated and tested; archived, worktree removed |
+| H7 tokenizer context | `01a0cfeb-eb74-7403-9fe5-5876c9699172` | Production review clear; exhaustive split/permission tests requested |
+| D6s2/D6s3 slot assignment and signals | `01a0cff7-448b-73e0-81de-577b76d90bd8` | Two implementation commits under independent review |
+| H6c select parsing | `01a0d000-0601-7721-8396-d767beaf6e04` | Review requires select ordinary-scope boundary correction |
+| V0b2 stepped CSS math | `01a0d000-f77f-7c41-b474-a8e407aa41fe` | Implementation committed; independent Astra review pending |
+| D7b1b pure text algorithms | `01a0d00a-ab70-7510-9978-13e50051aa2e` | Dedicated Sol implementation active |
 
 The XML conformance gate inventories all 2,585 pinned W3C rows with explicit profile
 classifications and separate output assertions. Current execution results and remaining debt are below.
@@ -536,3 +542,22 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
 - X3b XML serializer source `2de6914f7` is under independent Astra review. Both Clark XML source
   packets (valid-sa-001–011 and valid-not-sa-001/002/010) are independently approved; the corpus
   owner is implementing their exact expectations in separate commits. Their work remains retained.
+- `3176c388c`, `e9188cd3e`: both Clark packets reviewed and integrated. Common corpus-only run:
+  4,000 total, 3,610 passed, 390 failed, zero skips; per framework 1,759 conformance passes,
+  188 unresolved required cases, six optional adapter debts, zero harness failures. OUTPUT 283
+  compared/103 pending. Evidence: `/private/tmp/jint-clark-output14-integrated.log`.
+- `f7ba5abad`, `4bbad90a2`: independently reviewed checkable-state design and root-wide ID-triggered
+  form-owner reset correction. Shared native implementation waits for slot ownership handoff. The
+  architecture task continues with numeric/date/time/range/color value-family design.
+- `0e256ea0a`: independently reviewed XML DTD ID typing, source `93022b063`. Fresh common non-corpus
+  suite passed 2,376/2,376 across net8/net10, no skips. Evidence:
+  `/private/tmp/jint-xml-id-typing-integrated.log`. Finalized task archived and clean patch-equivalent
+  worktree removal verified. X4b3 navigator completion dispatched from the integrated common branch.
+- `6fcc117b1`: three exact Clark no-fetch alternatives independently source-reviewed and matched
+  against their implementation. Common corpus verification is pending the next approved five-case
+  parameter/conditional packet batch; no passing common result is claimed yet.
+- X3b review identified empty strict Document validation, ordered namespace restoration, ancestor
+  prefix shadowing and quadratic synthetic URI accounting. First three corrections re-reviewed clear;
+  final counted-work correction `932ca2853` awaits recheck. H6c review requires `select` in the ordinary
+  scope boundary to prevent generic recovery from popping across it. Both owners are correcting their
+  features before integration. No runtime benchmark measurements or Browser cutover yet.
