@@ -24,7 +24,7 @@ public class FormIndexWorkTests
     }
 
     [Test]
-    public void DeepControlFreeParserAndCloneAppendsAvoidFormRootWalks()
+    public void DeepControlFreeParserAndCloneAppendsWithIdsAvoidFormRootWalks()
     {
         var parserSmall = CountDeepAppends(128, clone: false);
         var parserLarge = CountDeepAppends(256, clone: false);
@@ -158,10 +158,16 @@ public class FormIndexWorkTests
         var current = document.CreateElement("div");
         document.AppendChild(current);
         var source = document.CreateElement("div");
+        source.SetAttribute("id", "source-id");
         using var probe = new HtmlFormWorkProbe(document);
         for (var i = 0; i < count; i++)
         {
             var child = clone ? NodeCloner.Clone(source, document, deep: false) : document.CreateElement("div");
+            if (!clone)
+            {
+                ((Element)child).SetAttribute("id", $"node-{i}");
+            }
+
             if (clone)
             {
                 current.AppendClonedChild(child);

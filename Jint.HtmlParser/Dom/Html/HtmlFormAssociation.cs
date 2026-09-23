@@ -182,7 +182,9 @@ internal static class HtmlFormAssociation
 
     internal static void Inserted(Node node)
     {
-        if (!MayAffectForms(node))
+        if (!MayContainAssociated(node) &&
+            (node is not Element leaf || leaf.GetAttributeNodeNS(null, "id") is null ||
+             node.OwnerDocument?.HasFormIndex != true))
         {
             return;
         }
