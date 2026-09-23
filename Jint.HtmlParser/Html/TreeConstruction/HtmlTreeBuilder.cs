@@ -6,13 +6,13 @@ using System.Threading;
 namespace Jint.HtmlParser.Html;
 
 // HTML Standard §13.2.6.4 (2026-09-22). This partial builder stops at the
-// first unimplemented H5b-H7 operation; no unsupported token enters a generic rule.
+// first unimplemented later-family operation; no unsupported token enters a generic rule.
 internal sealed partial class HtmlTreeBuilder
 {
     private enum Mode
     {
         Initial, BeforeHtml, BeforeHead, InHead, InHeadNoscript, AfterHead, InBody, Text,
-        InTable, InCaption, InColumnGroup, InTableBody, InRow, InCell, AfterBody, AfterAfterBody
+        InTable, InTableText, InCaption, InColumnGroup, InTableBody, InRow, InCell, AfterBody, AfterAfterBody
     }
 
     private readonly Document _document;
@@ -36,6 +36,9 @@ internal sealed partial class HtmlTreeBuilder
     private bool _framesetOk = true;
     private bool _ignoreNextLf;
     private bool _acknowledgedSelfClosing;
+    private bool _fosterParenting;
+    private bool _delegateToBody;
+    private Mode _delegatedFromMode;
     private Node? _headInsertionOverride;
     private int _temporaryHeadDepth;
     private bool _hasToken;
@@ -83,6 +86,8 @@ internal sealed partial class HtmlTreeBuilder
         _inputTypeHidden = false;
         _preparedAttributes = null;
         _preparedAttributeIndex = 0;
+        _fosterParenting = false;
+        _delegateToBody = false;
     }
 
     internal HtmlParseStep Process(long quota, CancellationToken cancellationToken)
@@ -91,6 +96,12 @@ internal sealed partial class HtmlTreeBuilder
         _cancellationToken = cancellationToken;
         _remaining = quota;
         cancellationToken.ThrowIfCancellationRequested();
+        if (_token.Kind != HtmlTokenKind.Text && _mode == Mode.InTableText)
+        {
+            if (!FlushTableText()) return new HtmlParseStep(HtmlParseStepKind.Yielded);
+            _mode = _tableTextOriginalMode;
+            if (_remaining <= 0) return new HtmlParseStep(HtmlParseStepKind.Yielded);
+        }
         if (_token.Kind == HtmlTokenKind.Text)
         {
             ProcessCharacters();
@@ -106,9 +117,9 @@ internal sealed partial class HtmlTreeBuilder
 
         _ignoreNextLf = false;
 
-        // Reprocessing changes the insertion mode without asking the tokenizer
-        // for another token. The chain is bounded by the finite mode inventory.
-        for (var pass = 0; pass < 12; pass++)
+        // Reprocessing retains this token. Each dispatch consumes shared work
+        // budget, so a long chain yields without an arbitrary pass limit.
+        while (true)
         {
             if (_pendingShiftIndex >= 0)
             {
@@ -150,7 +161,8 @@ internal sealed partial class HtmlTreeBuilder
             }
             if (_remaining <= 0) return new HtmlParseStep(HtmlParseStepKind.Yielded);
             Charge(1);
-            var reprocess = Dispatch(_mode);
+            if (_delegateToBody && _mode != _delegatedFromMode) _delegateToBody = false;
+            var reprocess = Dispatch(_delegateToBody ? Mode.InBody : _mode);
             if (_missing is { } family)
                 return new HtmlParseStep(HtmlParseStepKind.MissingFeature, family, _token.Offset);
             if (_pendingShiftIndex >= 0) continue;
@@ -162,7 +174,6 @@ internal sealed partial class HtmlTreeBuilder
                 return new HtmlParseStep(eof ? HtmlParseStepKind.Complete : HtmlParseStepKind.Yielded);
             }
         }
-        throw new InvalidOperationException("Insertion mode did not settle.");
     }
 
     private bool Dispatch(Mode mode) => mode switch
@@ -176,6 +187,7 @@ internal sealed partial class HtmlTreeBuilder
         Mode.InBody => InBody(),
         Mode.Text => InText(),
         Mode.InTable => InTable(),
+        Mode.InTableText => throw new InvalidOperationException("Table text must flush before dispatch."),
         Mode.InCaption => InCaption(),
         Mode.InColumnGroup => InColumnGroup(),
         Mode.InTableBody => InTableBody(),
@@ -192,6 +204,8 @@ internal sealed partial class HtmlTreeBuilder
             Error("unacknowledged-self-closing-flag");
         _hasToken = false;
         _missing = null;
+        _fosterParenting = false;
+        _delegateToBody = false;
     }
 
     private void Missing(HtmlMissingFeature family) => _missing = family;
@@ -217,11 +231,11 @@ internal sealed partial class HtmlTreeBuilder
     private Element InsertElement(string name, ParserAttribute[]? attributes = null, Node? parentOverride = null)
     {
         CheckDepth();
-        var parent = parentOverride ?? _headInsertionOverride ?? CurrentParent;
-        var owner = parent as Document ?? parent.OwnerDocument!;
+        var location = FindAdjustedInsertionLocation(parentOverride ?? _headInsertionOverride);
+        var owner = location.Parent as Document ?? location.Parent.OwnerDocument!;
         var element = owner.CreateParsedElement(Namespaces.Html, name, null);
         if (attributes is { Length: > 0 }) element.InitializeParsedAttributes(attributes, _cancellationToken);
-        parent.AppendParsedChild(element);
+        InsertAt(location, element);
         Push(element);
         return element;
     }
@@ -391,32 +405,33 @@ internal sealed partial class HtmlTreeBuilder
 
     private void InsertComment(Node? parent = null)
     {
-        parent ??= CurrentParent;
-        var owner = parent as Document ?? parent.OwnerDocument!;
-        parent.AppendParsedChild(owner.CreateComment(_token.Data));
+        var location = FindAdjustedInsertionLocation(parent);
+        var owner = location.Parent as Document ?? location.Parent.OwnerDocument!;
+        InsertAt(location, owner.CreateComment(_token.Data));
         Charge(_token.Data.Length + 1L);
     }
 
     private void InsertProcessingInstruction(Node? parent = null)
     {
-        parent ??= CurrentParent;
-        var owner = parent as Document ?? parent.OwnerDocument!;
-        parent.AppendParsedChild(owner.CreateProcessingInstruction(_token.Name!, _token.Data));
+        var location = FindAdjustedInsertionLocation(parent);
+        var owner = location.Parent as Document ?? location.Parent.OwnerDocument!;
+        InsertAt(location, owner.CreateProcessingInstruction(_token.Name!, _token.Data));
         Charge(_token.Data.Length + (_token.Name?.Length ?? 0) + 1L);
     }
 
     private void InsertText(ReadOnlySpan<char> text)
     {
         if (text.IsEmpty) return;
-        var parent = CurrentParent;
-        if (parent.LastChild is Text previous)
+        var location = FindAdjustedInsertionLocation();
+        var predecessor = location.Before?.PreviousSibling ?? (location.Before is null ? location.Parent.LastChild : null);
+        if (predecessor is Text previous)
             previous.AppendParsedData(text, _cancellationToken);
         else
         {
-            var owner = parent as Document ?? parent.OwnerDocument!;
+            var owner = location.Parent as Document ?? location.Parent.OwnerDocument!;
             var node = owner.CreateTextNode(string.Empty);
             node.AppendParsedData(text, _cancellationToken);
-            parent.AppendParsedChild(node);
+            InsertAt(location, node);
         }
         Charge(text.Length);
     }

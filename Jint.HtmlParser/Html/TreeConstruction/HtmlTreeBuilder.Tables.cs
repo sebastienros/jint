@@ -4,8 +4,7 @@ namespace Jint.HtmlParser.Html;
 
 internal sealed partial class HtmlTreeBuilder
 {
-    // HTML Standard §13.2.6.4.9–15 (2026-09-22). Pending table text and
-    // foster placement remain terminal Tables branches until H5b.
+    // HTML Standard §13.2.6.4.9–15 (2026-09-22).
     private bool InTable()
     {
         var name = _token.Name;
@@ -76,8 +75,11 @@ internal sealed partial class HtmlTreeBuilder
                 }
                 break;
         }
-        Missing(HtmlMissingFeature.Tables); // H5b's foster-parenting branch.
-        return false;
+        Error("unexpected-token-in-table");
+        _fosterParenting = true;
+        _delegateToBody = true;
+        _delegatedFromMode = _mode;
+        return InBody();
     }
 
     private bool InCaption()

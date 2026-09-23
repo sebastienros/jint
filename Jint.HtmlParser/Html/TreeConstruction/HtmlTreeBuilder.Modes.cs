@@ -271,8 +271,22 @@ internal sealed partial class HtmlTreeBuilder
                 case Mode.InTable:
                 case Mode.InTableBody:
                 case Mode.InRow:
-                    Missing(HtmlMissingFeature.Tables); // H5b pending table text.
-                    return;
+                    if (Current.NamespaceUri == Namespaces.Html &&
+                        Current.LocalName is "table" or "tbody" or "template" or "tfoot" or "thead" or "tr")
+                    {
+                        EnterTableText();
+                        continue;
+                    }
+                    // The other table character branch uses the in-body rules
+                    // with foster parenting for this character token.
+                    if (c == '\0') { Error("unexpected-null-character"); _textIndex++; Charge(1); continue; }
+                    _fosterParenting = true;
+                    AppendCharacterRun(data, whiteOnly: White(c));
+                    if (!White(c)) _framesetOk = false;
+                    continue;
+                case Mode.InTableText:
+                    BufferTableText();
+                    continue;
                 case Mode.InColumnGroup:
                     if (White(c)) { AppendCharacterRun(data, whiteOnly: true); continue; }
                     if (!IsHtmlElement(Current, "colgroup")) { Error("unexpected-column-group-character"); _textIndex++; Charge(1); continue; }

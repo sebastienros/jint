@@ -218,17 +218,18 @@ public partial class HtmlTreeConstructionTests
         }
     }
 
-    [TestCase("<table>x", 7)]
-    [TestCase("<table><tbody><tr>z", 18)]
-    [TestCase("<table><div>", 7)]
-    [TestCase("<table><input type=text>", 7)]
-    public void H5bBranchesStopBeforeMutation(string source, long offset)
+    [TestCase("<table>x", "<html><head></head><body>x<table></table></body></html>")]
+    [TestCase("<table><tbody><tr>z", "<html><head></head><body>z<table><tbody><tr></tr></tbody></table></body></html>")]
+    [TestCase("<table><div>x", "<html><head></head><body><div>x</div><table></table></body></html>")]
+    [TestCase("<table><input type=text>", "<html><head></head><body><input></input><table></table></body></html>")]
+    public void FosterBranchesComplete(string source, string expected)
     {
-        var parsed = Parse(source, 1);
-        parsed.Step.Kind.Should().Be(HtmlParseStepKind.MissingFeature);
-        parsed.Step.MissingFeature.Should().Be(HtmlMissingFeature.Tables);
-        parsed.Step.Offset.Should().Be(offset);
-        Assert.Throws<InvalidOperationException>(() => parsed.Session.Drive(1, CancellationToken.None));
+        foreach (var quota in new[] { 1, 3, 100_000 })
+        {
+            var parsed = Parse(source, quota);
+            parsed.Step.Kind.Should().Be(HtmlParseStepKind.Complete);
+            Serialize(parsed.Document).Should().Be(expected);
+        }
     }
 
     [Test]

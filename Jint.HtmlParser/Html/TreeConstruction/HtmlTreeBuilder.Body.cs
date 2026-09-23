@@ -236,6 +236,12 @@ internal sealed partial class HtmlTreeBuilder
     private bool BodyEnd(string name)
     {
         if (name == "template") { Missing(HtmlMissingFeature.Templates); return false; }
+        if (name == "table")
+        {
+            if (!InTableScope("table")) { Error("unexpected-table-end-tag"); return false; }
+            SchedulePopTo(Last("table"), reprocess: false, resetMode: true);
+            return false;
+        }
         if (name is "body" or "html")
         {
             if (!InScope("body")) { Error("unexpected-end-tag"); return false; }
