@@ -40,6 +40,38 @@ internal sealed class NativeXPathNavigator : XPathNavigator
     }
 
     public override XPathNavigator Clone() => new NativeXPathNavigator(this);
+    internal void CheckRead() => _session.Check();
+    internal void ResultWork(int units = 1) => _session.Work(units, XPathWorkStage.ResultMaterialization);
+    internal object EvaluatePrepared(NativeXPathExpression expression)
+    {
+        _session.Check();
+        var prepared = expression.Prepared.Clone();
+        _session.Check();
+        var result = base.Evaluate(prepared, null);
+        _session.Check();
+        return result;
+    }
+
+    private NotSupportedException OpaqueEvaluation()
+    {
+        _session.Check();
+        return new NotSupportedException("Use NativeXPath.Compile/Evaluate/Select for guarded XPath evaluation.");
+    }
+
+    public override XPathExpression Compile(string xpath) => throw OpaqueEvaluation();
+    public override object Evaluate(string xpath) => throw OpaqueEvaluation();
+    public override object Evaluate(string xpath, IXmlNamespaceResolver? resolver) => throw OpaqueEvaluation();
+    public override object Evaluate(XPathExpression expr) => throw OpaqueEvaluation();
+    public override object Evaluate(XPathExpression expr, XPathNodeIterator? context) => throw OpaqueEvaluation();
+    public override XPathNodeIterator Select(string xpath) => throw OpaqueEvaluation();
+    public override XPathNodeIterator Select(string xpath, IXmlNamespaceResolver? resolver) => throw OpaqueEvaluation();
+    public override XPathNodeIterator Select(XPathExpression expr) => throw OpaqueEvaluation();
+    public override XPathNavigator? SelectSingleNode(string xpath) => throw OpaqueEvaluation();
+    public override XPathNavigator? SelectSingleNode(string xpath, IXmlNamespaceResolver? resolver) => throw OpaqueEvaluation();
+    public override XPathNavigator? SelectSingleNode(XPathExpression expression) => throw OpaqueEvaluation();
+    public override bool Matches(string xpath) => throw OpaqueEvaluation();
+    public override bool Matches(XPathExpression expr) => throw OpaqueEvaluation();
+
     public override XmlNameTable NameTable { get { _session.Check(); return _session.NameTable; } }
     public override object UnderlyingObject { get { _session.Check(); return _position; } }
     public override bool CanEdit { get { _session.Check(); return false; } }

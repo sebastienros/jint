@@ -26,16 +26,8 @@ public sealed class NativeXPathIdentifierTests
         nav.MoveToId("").Should().BeFalse();
         Assert.Throws<ArgumentNullException>(() => nav.MoveToId(null!));
 
-        var results = NativeXPath.CreateNavigator(document, default).Select("id('b a b')");
-        results.MoveNext().Should().BeTrue();
-        results.Current!.UnderlyingObject.Should().BeSameAs(first);
-        results.MoveNext().Should().BeTrue();
-        results.Current!.UnderlyingObject.Should().BeSameAs(second);
-        results.MoveNext().Should().BeFalse();
-        var fromNodes = NativeXPath.CreateNavigator(document, default).Select("id(/r/x/@key)");
-        fromNodes.MoveNext().Should().BeTrue();
-        fromNodes.Current!.UnderlyingObject.Should().BeSameAs(first);
-        fromNodes.MoveNext().Should().BeFalse();
+        NativeXPath.Select(document, "id('b a b')", null, default).Should().Equal(first, second);
+        NativeXPath.Select(document, "id(/r/x/@key)", null, default).Should().ContainSingle().Which.Should().BeSameAs(first);
 
         var attribute = NativeXPath.CreateNavigator(first.GetAttributeNode("id")!, default);
         attribute.MoveToId("missing").Should().BeFalse();
@@ -57,10 +49,8 @@ public sealed class NativeXPathIdentifierTests
         var nav = NativeXPath.CreateNavigator(document, default);
         nav.MoveToId("key").Should().BeTrue();
         nav.UnderlyingObject.Should().BeSameAs(root);
-        var idResult = NativeXPath.CreateNavigator(document, default).Select("id('key')");
-        idResult.MoveNext().Should().BeTrue();
-        idResult.Current!.UnderlyingObject.Should().BeSameAs(root);
-        NativeXPath.CreateNavigator(root, default).Select("attribute::*").MoveNext().Should().BeFalse();
+        NativeXPath.Select(document, "id('key')", null, default).Should().ContainSingle().Which.Should().BeSameAs(root);
+        NativeXPath.Select(root, "attribute::*", null, default).Should().BeEmpty();
         Assert.Throws<ArgumentException>(() => NativeXPath.CreateNavigator(declaration, default));
     }
 
@@ -82,7 +72,7 @@ public sealed class NativeXPathIdentifierTests
         nav.MoveToId("a").Should().BeFalse();
         nav.MoveToId("ordinary").Should().BeFalse();
         nav.MoveToId("xml-ordinary").Should().BeFalse();
-        NativeXPath.CreateNavigator(document, default).Select("id('a b')").MoveNext().Should().BeFalse();
+        NativeXPath.Select(document, "id('a b')", null, default).Should().BeEmpty();
     }
 
     [Test]
@@ -144,22 +134,19 @@ public sealed class NativeXPathIdentifierTests
         nav.MoveToId("value").Should().BeFalse();
         nav.MoveToRoot();
         nav.UnderlyingObject.Should().BeSameAs(attribute);
-        var absolute = nav.Select("/");
-        absolute.MoveNext().Should().BeTrue();
-        absolute.Current!.UnderlyingObject.Should().BeSameAs(attribute);
-        absolute.MoveNext().Should().BeFalse();
+        NativeXPath.Select(attribute, "/", null, default).Should().ContainSingle().Which.Should().BeSameAs(attribute);
         nav.Value.Should().Be("value");
         nav.XmlLang.Should().BeEmpty();
         nav.LookupNamespace("p").Should().BeNull();
         nav.NamespaceURI.Should().Be("urn:p");
         nav.LookupNamespace("xml").Should().Be(Namespaces.Xml);
         nav.GetNamespacesInScope(XmlNamespaceScope.All).Should().ContainSingle().Which.Key.Should().Be("xml");
-        nav.Select("self::node()").MoveNext().Should().BeTrue();
-        nav.Select("ancestor::node()").MoveNext().Should().BeFalse();
-        nav.Select("preceding::node()").MoveNext().Should().BeFalse();
+        NativeXPath.Select(attribute, "self::node()", null, default).Should().ContainSingle().Which.Should().BeSameAs(attribute);
+        NativeXPath.Select(attribute, "ancestor::node()", null, default).Should().BeEmpty();
+        NativeXPath.Select(attribute, "preceding::node()", null, default).Should().BeEmpty();
         nav.MoveToFollowing(XPathNodeType.All).Should().BeFalse();
-        nav.Evaluate("string(.)").Should().Be("value");
-        nav.Evaluate("count(../*)").Should().Be(0d);
+        NativeXPath.Evaluate(attribute, "string(.)", null, default).StringValue.Should().Be("value");
+        NativeXPath.Evaluate(attribute, "count(../*)", null, default).NumberValue.Should().Be(0d);
         var other = NativeXPath.CreateNavigator(document.CreateAttributeNS("urn:p", "p:key"), default);
         nav.IsSamePosition(other).Should().BeFalse();
         nav.ComparePosition(other).Should().Be(XmlNodeOrder.Unknown);
@@ -318,28 +305,12 @@ public sealed class NativeXPathIdentifierTests
     }
 
     [Test]
-    public void DetachedFollowingAxisCanBeCanceledWhileBclRetriesItsParent()
+    public void DetachedFollowingAxisCompletesWithoutCancellation()
     {
         var attribute = Document.CreateXml().CreateAttribute("key");
-        using var cancellation = new CancellationTokenSource();
-        var reached = false;
-        var nav = NativeXPath.CreateNavigator(attribute, (stage, _) =>
-        {
-            if (stage != XPathWorkStage.Other || reached) return;
-            reached = true;
-            cancellation.Cancel();
-        }, cancellation.Token);
-        var iterator = nav.Select("following::node()");
-        Assert.Throws<OperationCanceledException>(() => iterator.MoveNext());
-        reached.Should().BeTrue();
-    }
-
-    [Test]
-    [Ignore("The BCL FollowingQuery retries a parentless Attribute forever; requires a reviewed evaluator seam.")]
-    public void DetachedFollowingAxisShouldCompleteWithoutCancellation()
-    {
-        var attribute = Document.CreateXml().CreateAttribute("key");
-        var nav = NativeXPath.CreateNavigator(attribute, default);
-        nav.Select("following::node()").MoveNext().Should().BeFalse();
+        NativeXPath.Select(attribute, "following::node()", null, default).Should().BeEmpty();
+        NativeXPath.Select(attribute, "following::*", null, default).Should().BeEmpty();
+        NativeXPath.Evaluate(attribute, "count(following::node()) + 1", null, default)
+            .NumberValue.Should().Be(1d);
     }
 }

@@ -18,12 +18,9 @@ public sealed class NativeXPathTests
         var navigator = NativeXPath.CreateNavigator(document, default);
         var manager = new XmlNamespaceManager(navigator.NameTable);
         manager.AddNamespace("p", "urn:p");
-        var expression = navigator.Compile("/d:r/p:x | /d:r/@p:a | /d:r/namespace::*");
         manager.AddNamespace("d", "urn:default");
-        expression.SetContext(manager);
-        var iterator = navigator.Select(expression);
-        var results = new List<object>();
-        while (iterator.MoveNext()) results.Add(iterator.Current!.UnderlyingObject!);
+        var expression = NativeXPath.Compile("/d:r/p:x | /d:r/@p:a | /d:r/namespace::*", manager, default);
+        var results = NativeXPath.Select(document, expression, default);
 
         results.Should().Contain(item => ReferenceEquals(item, first));
         results.Should().Contain(item => ReferenceEquals(item, attr));
@@ -53,7 +50,14 @@ public sealed class NativeXPathTests
         bclNs.AddNamespace("p", "urn:p");
         foreach (var expression in new[] { "count(/r/p:x)", "string(/r/p:x[1])", "string(/r/@p:a)", "boolean(/r/p:x[2])", "sum(/r/p:x)", "string(/r)" })
         {
-            var actual = native.Evaluate(expression, nativeNs);
+            var result = NativeXPath.Evaluate(MarkupParser.ParseXml(xml), expression, nativeNs, default);
+            object actual = result.ResultType switch
+            {
+                XPathResultType.Number => result.NumberValue,
+                XPathResultType.String => result.StringValue,
+                XPathResultType.Boolean => result.BooleanValue,
+                _ => throw new InvalidOperationException("Expected a scalar XPath result.")
+            };
             var expected = bcl.Evaluate(expression, bclNs);
             actual.Should().Be(expected, expression);
         }
@@ -198,10 +202,7 @@ public sealed class NativeXPathTests
         nav.MoveToRoot();
         nav.UnderlyingObject.Should().BeSameAs(detached);
         nav.NodeType.Should().Be(XPathNodeType.Element);
-        var absolute = nav.Select("/");
-        absolute.MoveNext().Should().BeTrue();
-        absolute.Current!.UnderlyingObject.Should().BeSameAs(detached);
-        absolute.MoveNext().Should().BeFalse();
+        NativeXPath.Select(detached, "/", null, default).Should().ContainSingle().Which.Should().BeSameAs(detached);
         nav.MoveToId("x").Should().BeFalse();
         NativeXPath.CreateNavigator(document.CreateAttribute("a"), default).NodeType.Should().Be(XPathNodeType.Attribute);
         Assert.Throws<ArgumentException>(() => NativeXPath.CreateNavigator(document.CreateTextNode(""), default));

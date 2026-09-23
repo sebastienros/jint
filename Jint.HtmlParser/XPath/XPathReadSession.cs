@@ -15,7 +15,9 @@ internal enum XPathWorkStage
     NamespaceIndex,
     OrderIndex,
     NameAtomization,
-    IdIndex
+    IdIndex,
+    CompilationScan,
+    ResultMaterialization
 }
 
 internal sealed class XPathReadSession
