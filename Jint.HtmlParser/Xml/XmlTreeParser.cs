@@ -33,6 +33,7 @@ internal sealed partial class XmlTreeParser
     private string? _doctypeName;
     private int _doctypeTokenStart = -1;
     private bool _unreadParameterEntity;
+    private bool _sawParameterReference;
     private int _position;
     private int _work;
     private bool _seenRoot;
@@ -245,7 +246,6 @@ internal sealed partial class XmlTreeParser
         if (_frames.Count == 0)
         {
             if (_context is null && _seenRoot) Error("xml/invalid-document", start);
-            if (_context is null && _doctypeName is not null && name != _doctypeName) Error("xml/invalid-document", start);
             _seenRoot = true;
         }
 
@@ -254,6 +254,7 @@ internal sealed partial class XmlTreeParser
             throw new ParseLimitException(ParseLimitKind.NestingDepth, _limits.MaxNestingDepth, depth);
 
         var attributes = new List<RawAttribute>();
+        var declaredAttributes = GetDeclaredAttributeTypes(name);
         var rawNames = new HashSet<string>(StringComparer.Ordinal);
         var localBindings = new Dictionary<string, string?>(StringComparer.Ordinal);
         bool empty;
@@ -281,6 +282,9 @@ internal sealed partial class XmlTreeParser
             Expect('=', "xml/invalid-markup", start);
             SkipWhitespace(start);
             var value = ReadAttributeValue(start);
+            if (declaredAttributes is not null &&
+                declaredAttributes.TryGetValue(attributeName, out var declaration) && !declaration.CData)
+                value = CollapseSpaces(value);
             CheckToken(start);
             if (!rawNames.Add(attributeName)) Error("xml/duplicate-attribute", attributeOffset);
             attributes.Add(new RawAttribute(attributeName, value, attributeOffset));
@@ -338,6 +342,9 @@ internal sealed partial class XmlTreeParser
         CheckToken(start);
         if (_frames.Count == 0 || _frames.Peek().QualifiedName != name)
             Error("xml/mismatched-end-tag", start);
+        if (_inputFrames.Count != 0 && !_inputFrames.Peek().Parameter &&
+            _frames.Count <= _inputFrames.Peek().ElementDepth)
+            Error("xml/invalid-markup", start);
         var frame = _frames.Pop();
         foreach (var (prefix, previous) in frame.PreviousBindings)
         {
@@ -362,6 +369,7 @@ internal sealed partial class XmlTreeParser
                 if (_frames.Count == 0 && _context is null) Error("xml/invalid-document", _position);
                 var value = ReadReference(-1, inAttribute: false);
                 if (value is null) return;
+                WorkUnits(value.Length);
                 _pendingText.Append(value);
                 continue;
             }
@@ -372,7 +380,10 @@ internal sealed partial class XmlTreeParser
     private void FlushText()
     {
         if (_pendingText is null || _pendingText.Length == 0) return;
+        WorkUnits(_pendingText.Length);
+        _cancellationToken.ThrowIfCancellationRequested();
         var value = _pendingText.ToString();
+        _cancellationToken.ThrowIfCancellationRequested();
         _pendingText.Clear();
         if (_frames.Count == 0 && _context is null)
         {
@@ -397,7 +408,12 @@ internal sealed partial class XmlTreeParser
         {
             if (End) Error("xml/unexpected-eof", _position);
             if (Current == '<') Error("xml/invalid-markup", _position);
-            if (Current == '&') builder.Append(ReadReference(tokenStart, inAttribute: true));
+            if (Current == '&')
+            {
+                var replacement = ReadReference(tokenStart, inAttribute: true);
+                WorkUnits(replacement?.Length ?? 0);
+                builder.Append(replacement);
+            }
             else
             {
                 if (IsWhitespace(Current))
@@ -444,6 +460,7 @@ internal sealed partial class XmlTreeParser
         }
 
         var name = ReadName(start, parentTokenStart);
+        ValidateUnprefixedDtdName(name, start);
         Expect(';', "xml/invalid-markup", start);
         CheckToken(start);
         if (parentTokenStart >= 0) CheckToken(parentTokenStart);
@@ -611,7 +628,7 @@ internal sealed partial class XmlTreeParser
     {
         var scalar = PeekScalar();
         if (!IsXmlChar((uint) scalar)) Error("xml/invalid-character", _position);
-        if (scalar == '\r')
+        if (scalar == '\r' && _inputFrames.Count == 0)
         {
             Consume();
             if (Current == '\n') Consume();
@@ -631,6 +648,12 @@ internal sealed partial class XmlTreeParser
 
     private string NormalizeLines(ReadOnlySpan<char> value)
     {
+        if (_inputFrames.Count != 0)
+        {
+            WorkUnits(value.Length);
+            _cancellationToken.ThrowIfCancellationRequested();
+            return value.ToString();
+        }
         var first = value.IndexOf('\r');
         if (first < 0)
         {
@@ -700,5 +723,6 @@ internal sealed partial class XmlTreeParser
     private sealed record ElementFrame(Element Element, string QualifiedName, Dictionary<string, BindingUndo> PreviousBindings);
     private readonly record struct BindingUndo(bool Exists, string? Value);
     private readonly record struct InputFrame(string Source, int Position, string EntityName, int OriginalOffset, int ElementDepth, bool Parameter);
-    private readonly record struct XmlEntityDeclaration(string? Value, string? PublicId, string? SystemId, bool Unparsed);
+    private readonly record struct XmlEntityDeclaration(string? Value, string? PublicId, string? SystemId,
+        bool Unparsed, bool FromParameterEntity);
 }

@@ -52,20 +52,14 @@ internal sealed partial class XmlTreeParser
         if (!_generalEntities.TryGetValue(name, out var declaration))
         {
             if (_catalogActive && HtmlEntities.Values.TryGetValue(name + ";", out var catalogValue))
-            {
-                var result = new StringBuilder(catalogValue.Length);
-                foreach (var c in catalogValue)
-                {
-                    ChargeExpansionCharacter();
-                    result.Append(inAttribute && IsWhitespace(c) ? ' ' : c);
-                }
-                return result.ToString();
-            }
-            if ((!_hasExternalSubset || _catalogActive) && !_unreadParameterEntity || _standalone || inAttribute)
+                return IncludeCatalogEntity(catalogValue, inAttribute);
+            if (!_hasExternalSubset && !_sawParameterReference || _standalone)
                 Error("xml/undeclared-entity", offset);
             AddSkip(XmlSkippedEntityKind.General, name, null, null, offset);
             return string.Empty;
         }
+        if (_standalone && declaration.FromParameterEntity)
+            Error("xml/undeclared-entity", offset);
         if (declaration.Unparsed) Error("xml/invalid-markup", offset);
         if (declaration.Value is null)
         {
@@ -113,11 +107,6 @@ internal sealed partial class XmlTreeParser
                     if (!IsXmlChar(c)) Error("xml/invalid-character", offset);
                     if (c == '\r')
                     {
-                        if (frame.Position < frame.Value.Length && frame.Value[frame.Position] == '\n')
-                        {
-                            frame.Position++;
-                            ChargeExpansionCharacter();
-                        }
                         result.Append(' ');
                     }
                     else result.Append(IsWhitespace(c) ? ' ' : c);
@@ -140,6 +129,7 @@ internal sealed partial class XmlTreeParser
                     result.Append(DecodeCharacterReference(reference, offset));
                     continue;
                 }
+                ValidateEntityReferenceName(reference, offset);
                 var referenceName = reference.ToString();
                 var predefined = referenceName switch
                 {
@@ -156,6 +146,20 @@ internal sealed partial class XmlTreeParser
                     continue;
                 }
                 if (!_generalEntities.TryGetValue(referenceName, out var nested))
+                {
+                    if (_catalogActive && HtmlEntities.Values.TryGetValue(referenceName + ";", out var catalogValue))
+                    {
+                        var included = IncludeCatalogEntity(catalogValue, inAttribute: true);
+                        WorkUnits(included.Length);
+                        result.Append(included);
+                        continue;
+                    }
+                    if (!_hasExternalSubset && !_sawParameterReference || _standalone)
+                        Error("xml/undeclared-entity", offset);
+                    AddSkip(XmlSkippedEntityKind.General, referenceName, null, null, offset);
+                    continue;
+                }
+                if (_standalone && nested.FromParameterEntity)
                     Error("xml/undeclared-entity", offset);
                 if (nested.Value is null || nested.Unparsed) Error("xml/invalid-markup", offset);
                 if (!_activeGeneralEntities.Add(referenceName)) Error("xml/recursive-entity", offset);
@@ -167,7 +171,41 @@ internal sealed partial class XmlTreeParser
         {
             while (pending.TryPop(out var frame)) _activeGeneralEntities.Remove(frame.Name);
         }
+        WorkUnits(result.Length);
+        _cancellationToken.ThrowIfCancellationRequested();
         return result.ToString();
+    }
+
+    private string IncludeCatalogEntity(string value, bool inAttribute)
+    {
+        StringBuilder? normalized = inAttribute ? new StringBuilder(value.Length) : null;
+        for (var i = 0; i < value.Length; i++)
+        {
+            var c = value[i];
+            var scalar = char.IsHighSurrogate(c) && i + 1 < value.Length && char.IsLowSurrogate(value[i + 1])
+                ? char.ConvertToUtf32(c, value[i + 1]) : c;
+            var digits = 1;
+            for (var remaining = (uint) scalar; remaining >= 16; remaining >>= 4) digits++;
+            for (var work = digits + 4; work > 0; work--) ChargeExpansionCharacter();
+            if (normalized is not null)
+            {
+                normalized.Append(IsWhitespace(c) ? ' ' : c);
+                WorkUnit();
+            }
+            if (scalar > 0xFFFF)
+            {
+                i++;
+                if (normalized is not null)
+                {
+                    normalized.Append(value[i]);
+                    WorkUnit();
+                }
+            }
+        }
+        if (normalized is null) return value;
+        WorkUnits(normalized.Length);
+        _cancellationToken.ThrowIfCancellationRequested();
+        return normalized.ToString();
     }
 
     private string DecodeCharacterReference(ReadOnlySpan<char> reference, int offset)
@@ -216,6 +254,7 @@ internal sealed partial class XmlTreeParser
             ConsumeLiteral("<!DOCTYPE", start);
             RequireDtdSpace();
             var name = ReadName(_position);
+            ValidateQName(name, start);
             _doctypeName = name;
             string? publicId = null;
             var systemId = string.Empty;
@@ -335,12 +374,14 @@ internal sealed partial class XmlTreeParser
             RequireDtdSpace();
         }
         var name = ReadName(_position);
+        ValidateUnprefixedDtdName(name, start);
         RequireDtdSpace();
+        var fromParameterEntity = _inputFrames.Count != 0 && _inputFrames.Peek().Parameter;
         XmlEntityDeclaration declaration;
         if (Current is '\'' or '"')
         {
             var value = ConstructEntityValue(ReadQuoted("xml/invalid-declaration", start), start);
-            declaration = new XmlEntityDeclaration(value, null, null, false);
+            declaration = new XmlEntityDeclaration(value, null, null, false, fromParameterEntity);
         }
         else
         {
@@ -351,10 +392,10 @@ internal sealed partial class XmlTreeParser
                 if (parameter) Error("xml/invalid-declaration", start);
                 ConsumeLiteral("NDATA", start);
                 RequireDtdSpace();
-                ReadName(_position);
+                ValidateUnprefixedDtdName(ReadName(_position), start);
                 unparsed = true;
             }
-            declaration = new XmlEntityDeclaration(null, publicId, systemId, unparsed);
+            declaration = new XmlEntityDeclaration(null, publicId, systemId, unparsed, fromParameterEntity);
         }
         SkipWhitespace(_position);
         Expect('>', "xml/invalid-declaration", start);
@@ -371,6 +412,7 @@ internal sealed partial class XmlTreeParser
         ConsumeLiteral("<!ATTLIST", start);
         RequireDtdSpace();
         var elementName = ReadName(_position);
+        ValidateQName(elementName, start);
         var declarations = new List<XmlAttributeDeclaration>();
         while (true)
         {
@@ -382,6 +424,7 @@ internal sealed partial class XmlTreeParser
             }
             if (!space) Error("xml/invalid-declaration", _position);
             var attributeName = ReadName(_position);
+            ValidateQName(attributeName, _position);
             RequireDtdSpace();
             var type = ReadAttributeType();
             RequireDtdSpace();
@@ -397,7 +440,8 @@ internal sealed partial class XmlTreeParser
                     ConsumeLiteral("#FIXED", start);
                     RequireDtdSpace();
                 }
-                defaultValue = ReadQuoted("xml/invalid-declaration", start);
+                defaultValue = NormalizeDtdDefault(ReadQuoted("xml/invalid-declaration", start), start);
+                if (type != "CDATA") defaultValue = CollapseSpaces(defaultValue);
             }
             declarations.Add(new XmlAttributeDeclaration(attributeName, type == "CDATA", defaultValue, fixedValue));
         }
@@ -405,9 +449,16 @@ internal sealed partial class XmlTreeParser
         {
             if (!_attributeDeclarations.TryGetValue(elementName, out var existing))
                 _attributeDeclarations.Add(elementName, existing = new List<XmlAttributeDeclaration>());
+            var known = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var declaration in existing)
+            {
+                known.Add(declaration.Name);
+                WorkUnit();
+            }
             foreach (var declaration in declarations)
             {
-                if (!existing.Exists(item => item.Name == declaration.Name)) existing.Add(declaration);
+                if (known.Add(declaration.Name)) existing.Add(declaration);
+                WorkUnit();
             }
         }
     }
@@ -434,6 +485,9 @@ internal sealed partial class XmlTreeParser
                 else ChargeExpansionCharacter();
                 if (c is '&' or '%')
                 {
+                    if (c == '%' && _inputFrames.Count == 0)
+                        Error("xml/invalid-declaration", offset);
+                    if (c == '%') _sawParameterReference = true;
                     var start = frame.Position;
                     while (frame.Position < frame.Value.Length && frame.Value[frame.Position] != ';')
                     {
@@ -508,6 +562,8 @@ internal sealed partial class XmlTreeParser
                 if (frame.Name.Length != 0) _activeParameterEntities.Remove(frame.Name);
             }
         }
+        WorkUnits(result.Length);
+        _cancellationToken.ThrowIfCancellationRequested();
         return result.ToString();
     }
 
@@ -524,35 +580,26 @@ internal sealed partial class XmlTreeParser
                 scalar = char.ConvertToUtf32(name[i], name[++i]);
                 WorkUnit();
             }
+            if (scalar == ':') Error("xml/namespace-error", offset);
             if (first ? !IsNameStart(scalar) : !IsNameChar(scalar))
                 Error("xml/invalid-name", offset);
         }
+    }
+
+    private void ValidateUnprefixedDtdName(string name, int offset)
+    {
+        if (name.Contains(':')) Error("xml/namespace-error", offset);
     }
 
     private void ApplyDtdAttributes(string elementName, List<RawAttribute> attributes,
         HashSet<string> rawNames, Dictionary<string, string?> localBindings)
     {
         if (!_attributeDeclarations.TryGetValue(elementName, out var declarations)) return;
-        var byName = new Dictionary<string, XmlAttributeDeclaration>(declarations.Count, StringComparer.Ordinal);
-        foreach (var declaration in declarations)
-        {
-            byName.Add(declaration.Name, declaration);
-            WorkUnit();
-        }
-        for (var i = 0; i < attributes.Count; i++)
-        {
-            var attribute = attributes[i];
-            if (byName.TryGetValue(attribute.Name, out var declaration) && !declaration.CData)
-                attributes[i] = attribute with { Value = CollapseSpaces(attribute.Value) };
-            WorkUnit();
-        }
         foreach (var declaration in declarations)
         {
             WorkUnit();
             if (declaration.DefaultValue is null || !rawNames.Add(declaration.Name)) continue;
-            ValidateQName(declaration.Name, _position);
-            var value = NormalizeDtdDefault(declaration.DefaultValue, _position);
-            if (!declaration.CData) value = CollapseSpaces(value);
+            var value = declaration.DefaultValue;
             attributes.Add(new RawAttribute(declaration.Name, value, _position));
             if (declaration.Name == "xmlns" || declaration.Name.StartsWith("xmlns:", StringComparison.Ordinal))
             {
@@ -561,6 +608,18 @@ internal sealed partial class XmlTreeParser
                 localBindings.Add(prefix, EmptyToNull(value));
             }
         }
+    }
+
+    private Dictionary<string, XmlAttributeDeclaration>? GetDeclaredAttributeTypes(string elementName)
+    {
+        if (!_attributeDeclarations.TryGetValue(elementName, out var declarations)) return null;
+        var result = new Dictionary<string, XmlAttributeDeclaration>(declarations.Count, StringComparer.Ordinal);
+        foreach (var declaration in declarations)
+        {
+            result.Add(declaration.Name, declaration);
+            WorkUnit();
+        }
+        return result;
     }
 
     private string NormalizeDtdDefault(string value, int offset)
@@ -587,6 +646,7 @@ internal sealed partial class XmlTreeParser
                     result.Append(DecodeCharacterReference(reference, offset));
                     continue;
                 }
+                ValidateEntityReferenceName(reference, offset);
                 var name = reference.ToString();
                 var predefined = name switch
                 {
@@ -637,12 +697,12 @@ internal sealed partial class XmlTreeParser
 
     private string ReadAttributeType()
     {
-        if (Current == '(') return ReadDtdEnumeration();
+        if (Current == '(') return ReadDtdEnumeration(namesOnly: false);
         var type = ReadName(_position);
         if (type == "NOTATION")
         {
             RequireDtdSpace();
-            ReadDtdEnumeration();
+            ReadDtdEnumeration(namesOnly: true);
             return type;
         }
         if (type is not ("CDATA" or "ID" or "IDREF" or "IDREFS" or "ENTITY" or "ENTITIES" or "NMTOKEN" or "NMTOKENS"))
@@ -650,7 +710,7 @@ internal sealed partial class XmlTreeParser
         return type;
     }
 
-    private string ReadDtdEnumeration()
+    private string ReadDtdEnumeration(bool namesOnly)
     {
         var start = _position;
         Expect('(', "xml/invalid-declaration", start);
@@ -658,9 +718,13 @@ internal sealed partial class XmlTreeParser
         while (true)
         {
             SkipWhitespace(_position);
-            if (!IsNameChar(PeekScalar())) Error("xml/invalid-declaration", _position);
+            if (namesOnly ? !IsNameStart(PeekScalar()) : !IsNameChar(PeekScalar()))
+                Error("xml/invalid-declaration", _position);
+            var valueStart = _position;
             do ConsumeScalar();
             while (IsNameChar(PeekScalar()));
+            if (namesOnly && _source.AsSpan(valueStart, _position - valueStart).IndexOf(':') >= 0)
+                Error("xml/namespace-error", valueStart);
             any = true;
             SkipWhitespace(_position);
             if (Current == ')')
@@ -677,17 +741,21 @@ internal sealed partial class XmlTreeParser
     private void ReadParameterReference()
     {
         var offset = _position;
+        _sawParameterReference = true;
         Consume();
         var name = ReadName(_position);
+        ValidateUnprefixedDtdName(name, offset);
         Expect(';', "xml/invalid-declaration", offset);
         if (!_parameterEntities.TryGetValue(name, out var declaration))
         {
-            if ((!_hasExternalSubset || _catalogActive) && !_unreadParameterEntity || _standalone)
+            if (!_hasExternalSubset && !_sawParameterReference || _standalone)
                 Error("xml/undeclared-entity", offset);
             AddSkip(XmlSkippedEntityKind.Parameter, name, null, null, offset);
             _unreadParameterEntity = true;
             return;
         }
+        if (_standalone && declaration.FromParameterEntity)
+            Error("xml/undeclared-entity", offset);
         if (declaration.Value is null)
         {
             AddSkip(XmlSkippedEntityKind.Parameter, name, declaration.PublicId, declaration.SystemId, offset);
@@ -695,7 +763,17 @@ internal sealed partial class XmlTreeParser
             return;
         }
         if (!_activeParameterEntities.Add(name)) Error("xml/recursive-entity", offset);
-        PushEntityInput(" " + declaration.Value + " ", name, offset, parameter: true);
+        if (_limits.MaxEntityExpansionCharacters != 0 &&
+            (long) declaration.Value.Length + 2 > _limits.MaxEntityExpansionCharacters - _expansionCharacters)
+            throw new ParseLimitException(ParseLimitKind.EntityExpansionCharacters,
+                _limits.MaxEntityExpansionCharacters, _limits.MaxEntityExpansionCharacters + 1);
+        WorkUnits(declaration.Value.Length);
+        WorkUnit();
+        WorkUnit();
+        _cancellationToken.ThrowIfCancellationRequested();
+        var padded = string.Concat(" ", declaration.Value, " ");
+        _cancellationToken.ThrowIfCancellationRequested();
+        PushEntityInput(padded, name, offset, parameter: true);
     }
 
     private void SkipDtdComment()
@@ -732,7 +810,7 @@ internal sealed partial class XmlTreeParser
         var start = _position;
         ConsumeLiteral("<!ELEMENT", start);
         RequireDtdSpace();
-        ReadName(_position);
+        ValidateQName(ReadName(_position), start);
         RequireDtdSpace();
         if (StartsWith("EMPTY")) ConsumeLiteral("EMPTY", start);
         else if (StartsWith("ANY")) ConsumeLiteral("ANY", start);
@@ -756,12 +834,13 @@ internal sealed partial class XmlTreeParser
             {
                 Consume();
                 SkipWhitespace(_position);
-                ReadName(_position);
+                ValidateQName(ReadName(_position), _position);
                 names++;
                 SkipWhitespace(_position);
             }
             Expect(')', "xml/invalid-declaration", start);
             if (names != 0) Expect('*', "xml/invalid-declaration", start);
+            else if (Current == '*') Consume();
             return;
         }
 
@@ -779,7 +858,7 @@ internal sealed partial class XmlTreeParser
                     groups.Push(new ContentGroup());
                     continue;
                 }
-                ReadName(_position);
+                ValidateQName(ReadName(_position), _position);
                 group.ExpectTerm = false;
                 if (Current is '?' or '*' or '+') Consume();
                 continue;
@@ -808,7 +887,7 @@ internal sealed partial class XmlTreeParser
         var start = _position;
         ConsumeLiteral("<!NOTATION", start);
         RequireDtdSpace();
-        ReadName(_position);
+        ValidateUnprefixedDtdName(ReadName(_position), start);
         RequireDtdSpace();
         if (StartsWith("SYSTEM"))
         {
