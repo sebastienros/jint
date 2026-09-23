@@ -9,17 +9,22 @@ internal sealed class CssTokenizer
     private readonly CancellationToken _cancellationToken;
     private readonly int _maxTokenCharacters;
     private readonly ParseDiagnosticCollector? _diagnostics;
+    private readonly bool _allowUnicodeRanges;
+    private readonly int _baseOffset;
     private int _position;
     private int _scanStart;
     private int _work;
     private bool _inComment;
 
     internal CssTokenizer(string source, int maxTokenCharacters,
-        ParseDiagnosticCollector? diagnostics, CancellationToken cancellationToken)
+        ParseDiagnosticCollector? diagnostics, CancellationToken cancellationToken,
+        bool allowUnicodeRanges = false, int baseOffset = 0)
     {
         _source = source;
         _maxTokenCharacters = maxTokenCharacters;
         _diagnostics = diagnostics;
+        _allowUnicodeRanges = allowUnicodeRanges;
+        _baseOffset = baseOffset;
         _cancellationToken = cancellationToken;
         _cancellationToken.ThrowIfCancellationRequested();
     }
@@ -80,6 +85,12 @@ internal sealed class CssTokenizer
             return Make(CssTokenKind.Cdc, start);
         }
 
+        if (_allowUnicodeRanges && (c is 'u' or 'U') && Peek(1) == '+' &&
+            (IsHexDigit(Peek(2)) || Peek(2) == '?'))
+        {
+            return ConsumeUnicodeRange(start);
+        }
+
         if (WouldStartNumber(0))
         {
             return ConsumeNumeric(start);
@@ -138,6 +149,45 @@ internal sealed class CssTokenizer
             return Make(CssTokenKind.Percentage, start, numberText: number, isInteger: isInteger);
         }
         return Make(CssTokenKind.Number, start, numberText: number, isInteger: isInteger);
+    }
+
+    // CSS Syntax Level 3, §4.3.14. Only the unicode-range descriptor enables this lane.
+    private CssToken ConsumeUnicodeRange(int start)
+    {
+        Consume(); // U
+        Consume(); // +
+        var low = 0;
+        var high = 0;
+        var digits = 0;
+        while (digits < 6 && IsHexDigit(Peek()))
+        {
+            var value = HexValue(Consume());
+            low = (low << 4) | value;
+            high = (high << 4) | value;
+            digits++;
+        }
+        var questions = 0;
+        while (digits + questions < 6 && Peek() == '?')
+        {
+            Consume();
+            low <<= 4;
+            high = (high << 4) | 15;
+            questions++;
+        }
+        if (questions == 0 && Peek() == '-' && IsHexDigit(Peek(1)))
+        {
+            Consume();
+            high = 0;
+            var endDigits = 0;
+            while (endDigits < 6 && IsHexDigit(Peek()))
+            {
+                high = (high << 4) | HexValue(Consume());
+                endDigits++;
+            }
+        }
+        return Make(CssTokenKind.UnicodeRange, start,
+            text: _source.Substring(start, _position - start),
+            unicodeStart: low, unicodeEnd: high);
     }
 
     private CssToken ConsumeIdentLike(int start)
@@ -324,9 +374,10 @@ internal sealed class CssTokenizer
 
     private CssToken Make(CssTokenKind kind, int start, string? text = null,
         string? numberText = null, string? unit = null, char delimiter = '\0',
-        bool isInteger = false, bool isIdHash = false) =>
-        new(kind, new CssSourceSpan(start, _position - start), text, numberText,
-            unit, delimiter, isInteger, isIdHash);
+        bool isInteger = false, bool isIdHash = false, int unicodeStart = 0,
+        int unicodeEnd = 0) =>
+        new(kind, new CssSourceSpan(_baseOffset + start, _position - start), text,
+            numberText, unit, delimiter, isInteger, isIdHash, unicodeStart, unicodeEnd);
 
     private int Peek(int offset = 0)
     {
@@ -398,6 +449,7 @@ internal sealed class CssTokenizer
     private static bool IsQuote(int c) => c is '\'' or '"';
     private static bool IsDigit(int c) => c is >= '0' and <= '9';
     private static bool IsHexDigit(int c) => IsDigit(c) || c is >= 'a' and <= 'f' or >= 'A' and <= 'F';
+    private static int HexValue(int c) => c <= '9' ? c - '0' : (c | 0x20) - 'a' + 10;
     private static bool IsNameStart(int c) => c is >= 'a' and <= 'z' or >= 'A' and <= 'Z' or '_' or >= 0x80;
     private static bool IsName(int c) => IsNameStart(c) || IsDigit(c) || c == '-';
     private static bool IsValidEscape(int first, int second) => first == '\\' && second != '\n';
@@ -408,5 +460,5 @@ internal sealed class CssTokenizer
         else builder.Append(char.ConvertFromUtf32(c));
     }
 
-    private void Report(string code, int offset) => _diagnostics?.Add(code, offset);
+    private void Report(string code, int offset) => _diagnostics?.Add(code, _baseOffset + offset);
 }

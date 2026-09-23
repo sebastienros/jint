@@ -1,23 +1,29 @@
 namespace Jint.HtmlParser.Css.Syntax;
 
-// CSS Syntax Level 3, §5.3–5.4: https://drafts.csswg.org/css-syntax/#parser-algorithms
+// CSS Syntax Level 3, §5.4–5.5: https://drafts.csswg.org/css-syntax/#parser-algorithms
 internal sealed class CssSyntaxParser
 {
-    private readonly List<CssToken> _tokens = new();
+    private readonly List<CssToken> _tokens;
+    private readonly string _source;
     private readonly ParseDiagnosticCollector? _diagnostics;
+    private readonly int _maxTokenCharacters;
     private readonly int _maxNestingDepth;
     private readonly CancellationToken _cancellationToken;
     private readonly int _sourceLength;
     private int _index;
+    private int _work;
 
     internal CssSyntaxParser(string source, CssParseOptions? options, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(source);
+        _source = source;
+        _tokens = new List<CssToken>();
         cancellationToken.ThrowIfCancellationRequested();
         var limits = options?.Limits ?? ParseLimits.Unbounded;
         _diagnostics = options?.Diagnostics;
         _diagnostics?.Clear();
         _maxNestingDepth = limits.MaxNestingDepth;
+        _maxTokenCharacters = limits.MaxTokenCharacters;
         _cancellationToken = cancellationToken;
         _sourceLength = source.Length;
         if (limits.MaxInputCharacters > 0 && source.Length > limits.MaxInputCharacters)
@@ -35,8 +41,21 @@ internal sealed class CssSyntaxParser
         }
     }
 
+    private CssSyntaxParser(List<CssToken> tokens, int sourceLength, int maxTokenCharacters,
+        int maxNestingDepth, ParseDiagnosticCollector? diagnostics, CancellationToken cancellationToken)
+    {
+        _source = string.Empty;
+        _tokens = tokens;
+        _sourceLength = sourceLength;
+        _maxTokenCharacters = maxTokenCharacters;
+        _maxNestingDepth = maxNestingDepth;
+        _diagnostics = diagnostics;
+        _cancellationToken = cancellationToken;
+    }
+
     internal CssComponentValueList ParseComponentValues()
     {
+        _cancellationToken.ThrowIfCancellationRequested();
         var values = new List<CssComponentValue>();
         while (Current.Kind != CssTokenKind.None) values.Add(ConsumeComponent());
         return List(values);
@@ -44,6 +63,7 @@ internal sealed class CssSyntaxParser
 
     internal CssComponentValue ParseComponentValue()
     {
+        _cancellationToken.ThrowIfCancellationRequested();
         SkipWhitespace();
         if (Current.Kind == CssTokenKind.None) throw Error("css/expected-component", _sourceLength);
         var value = ConsumeComponent();
@@ -54,6 +74,7 @@ internal sealed class CssSyntaxParser
 
     internal CssRuleSyntax ParseRule()
     {
+        _cancellationToken.ThrowIfCancellationRequested();
         SkipWhitespace();
         if (Current.Kind == CssTokenKind.None) throw Error("css/expected-rule", _sourceLength);
         var first = Current;
@@ -81,6 +102,10 @@ internal sealed class CssSyntaxParser
             }
             if (token.Kind == CssTokenKind.OpenCurlyBracket)
             {
+                if (!isAtRule && StartsWithCustomPropertyDeclaration(prelude))
+                {
+                    throw Error("css/custom-property-is-not-rule", first.Span.Start);
+                }
                 block = ConsumeComponent();
                 end = block.Value.Span.Start + block.Value.Span.Length;
                 break;
@@ -98,6 +123,7 @@ internal sealed class CssSyntaxParser
 
     internal CssDeclarationSyntax ParseDeclaration()
     {
+        _cancellationToken.ThrowIfCancellationRequested();
         SkipWhitespace();
         var first = Current;
         if (first.Kind != CssTokenKind.Ident)
@@ -113,6 +139,7 @@ internal sealed class CssSyntaxParser
         var colon = Current;
         _index++;
         SkipWhitespace();
+        var valueStart = Current.Kind == CssTokenKind.None ? _sourceLength : Current.Span.Start;
         var values = new List<CssComponentValue>();
         var end = colon.Span.Start + colon.Span.Length;
         while (Current.Kind is not (CssTokenKind.None or CssTokenKind.Semicolon))
@@ -122,22 +149,35 @@ internal sealed class CssSyntaxParser
             values.Add(value);
             if (!IsWhitespace(value)) end = value.Span.Start + value.Span.Length;
         }
+        var valueEnd = Current.Kind == CssTokenKind.None ? _sourceLength : Current.Span.Start;
         if (Current.Kind == CssTokenKind.Semicolon) _index++;
         SkipWhitespace();
         if (Current.Kind != CssTokenKind.None) throw Error("css/trailing-input", Current.Span.Start);
 
         TrimTrailingWhitespace(values);
         var important = false;
+        var retokenizeEnd = valueEnd;
         if (values.Count > 0 && IsIdent(values[^1], "important"))
         {
             var bang = values.Count - 2;
             while (bang >= 0 && IsWhitespace(values[bang])) bang--;
             if (bang >= 0 && IsDelim(values[bang], '!'))
             {
+                retokenizeEnd = values[bang].Span.Start;
                 values.RemoveRange(bang, values.Count - bang);
                 TrimTrailingWhitespace(values);
                 important = true;
             }
+        }
+        if (!first.Text.StartsWith("--", StringComparison.Ordinal) &&
+            HasMixedTopLevelBrace(values))
+        {
+            throw Error("css/mixed-brace-declaration-value", first.Span.Start);
+        }
+        if (CssAscii.EqualsIgnoreCase(first.Text, "unicode-range"))
+        {
+            values = RetokenizeUnicodeRangeValue(valueStart, retokenizeEnd);
+            TrimTrailingWhitespace(values);
         }
         return new CssDeclarationSyntax(first.Text, List(values), important,
             new CssSourceSpan(first.Span.Start, end - first.Span.Start));
@@ -145,6 +185,7 @@ internal sealed class CssSyntaxParser
 
     private CssComponentValue ConsumeComponent()
     {
+        PollCancellation();
         var token = Current;
         if (!OpensContainer(token.Kind))
         {
@@ -158,7 +199,7 @@ internal sealed class CssSyntaxParser
         _index++;
         while (stack.Count > 0)
         {
-            _cancellationToken.ThrowIfCancellationRequested();
+            PollCancellation();
             token = Current;
             var top = stack[^1];
             if (token.Kind == CssTokenKind.None || token.Kind == top.ClosingKind)
@@ -201,7 +242,33 @@ internal sealed class CssSyntaxParser
 
     private void SkipWhitespace()
     {
-        while (Current.Kind == CssTokenKind.Whitespace) _index++;
+        while (Current.Kind == CssTokenKind.Whitespace)
+        {
+            PollCancellation();
+            _index++;
+        }
+    }
+
+    private void PollCancellation()
+    {
+        if ((++_work & 255) == 0) _cancellationToken.ThrowIfCancellationRequested();
+    }
+
+    private List<CssComponentValue> RetokenizeUnicodeRangeValue(int start, int end)
+    {
+        var tokenizer = new CssTokenizer(_source.Substring(start, end - start),
+            _maxTokenCharacters, _diagnostics, _cancellationToken,
+            allowUnicodeRanges: true, baseOffset: start);
+        var tokens = new List<CssToken>();
+        while (true)
+        {
+            var token = tokenizer.Next();
+            if (token.Kind == CssTokenKind.None) break;
+            tokens.Add(token);
+        }
+        var parser = new CssSyntaxParser(tokens, end, _maxTokenCharacters,
+            _maxNestingDepth, _diagnostics, _cancellationToken);
+        return parser.ParseComponentValues().ToList();
     }
 
     private static void TrimTrailingWhitespace(List<CssComponentValue> values)
@@ -219,6 +286,39 @@ internal sealed class CssSyntaxParser
         value.Kind == CssComponentKind.Token && value.Token.Kind == CssTokenKind.Ident &&
         CssAscii.EqualsIgnoreCase(value.Token.Text, text);
 
+    private static bool StartsWithCustomPropertyDeclaration(List<CssComponentValue> prelude)
+    {
+        CssComponentValue? first = null;
+        foreach (var value in prelude)
+        {
+            if (IsWhitespace(value)) continue;
+            if (first is null)
+            {
+                first = value;
+                continue;
+            }
+            return first.Value.Kind == CssComponentKind.Token &&
+                first.Value.Token.Kind == CssTokenKind.Ident &&
+                first.Value.Token.Text.StartsWith("--", StringComparison.Ordinal) &&
+                value.Kind == CssComponentKind.Token && value.Token.Kind == CssTokenKind.Colon;
+        }
+        return false;
+    }
+
+    private static bool HasMixedTopLevelBrace(List<CssComponentValue> values)
+    {
+        var nonWhitespace = 0;
+        var hasBrace = false;
+        foreach (var value in values)
+        {
+            if (IsWhitespace(value)) continue;
+            nonWhitespace++;
+            hasBrace |= value.Kind == CssComponentKind.SimpleBlock && value.OpeningDelimiter == '{';
+            if (hasBrace && nonWhitespace > 1) return true;
+        }
+        return false;
+    }
+
     private static bool OpensContainer(CssTokenKind kind) => kind is CssTokenKind.Function or
         CssTokenKind.OpenParenthesis or CssTokenKind.OpenSquareBracket or CssTokenKind.OpenCurlyBracket;
 
@@ -227,7 +327,11 @@ internal sealed class CssSyntaxParser
 
     private static CssComponentValueList List(List<CssComponentValue> values) => new(values.ToArray());
 
-    private static CssParseException Error(string code, int offset) => new(code, offset);
+    private CssParseException Error(string code, int offset)
+    {
+        Report(code, offset);
+        return new CssParseException(code, offset);
+    }
     private void Report(string code, int offset) => _diagnostics?.Add(code, offset);
 
     private sealed class Frame

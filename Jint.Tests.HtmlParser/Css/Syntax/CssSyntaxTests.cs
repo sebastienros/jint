@@ -132,6 +132,34 @@ public sealed class CssSyntaxTests
     }
 
     [Test]
+    public void UnicodeRangeRetokenizesOnlyItsDeclarationValue()
+    {
+        var declaration = MarkupParser.ParseCssDeclaration("UnIcOdE-rAnGe: U+0025-00FF, U+4??, U+00FF-0025 !important");
+        declaration.IsImportant.Should().BeTrue();
+        var ranges = declaration.Value.Where(value => value.Kind == CssComponentKind.Token &&
+            value.Token.Kind == CssTokenKind.UnicodeRange).Select(value => value.Token).ToArray();
+        ranges.Length.Should().Be(3);
+        ranges[0].UnicodeRangeStart.Should().Be(0x25);
+        ranges[0].UnicodeRangeEnd.Should().Be(0xff);
+        ranges[0].Text.Should().Be("U+0025-00FF");
+        ranges[0].Span.Start.Should().Be("UnIcOdE-rAnGe: ".Length);
+        ranges[1].UnicodeRangeStart.Should().Be(0x400);
+        ranges[1].UnicodeRangeEnd.Should().Be(0x4ff);
+        ranges[2].UnicodeRangeStart.Should().Be(0xff);
+        ranges[2].UnicodeRangeEnd.Should().Be(0x25);
+        ranges[0].NumberText.Should().BeEmpty();
+        MarkupParser.ParseCssDeclaration("unicode-\\72 ange: U+?;").Value.Single().Token.Kind
+            .Should().Be(CssTokenKind.UnicodeRange);
+        MarkupParser.ParseCssDeclaration("x: U+0025").Value.Any(value =>
+            value.Kind == CssComponentKind.Token && value.Token.Kind == CssTokenKind.UnicodeRange).Should().BeFalse();
+        MarkupParser.ParseCssComponentValues("U+0025").Any(value =>
+            value.Kind == CssComponentKind.Token && value.Token.Kind == CssTokenKind.UnicodeRange).Should().BeFalse();
+        default(CssToken).UnicodeRangeStart.Should().Be(0);
+        default(CssToken).UnicodeRangeEnd.Should().Be(0);
+        MarkupParser.ParseCssComponentValue("x").Token.UnicodeRangeEnd.Should().Be(0);
+    }
+
+    [Test]
     public void NestedAndEofRecoveredContainersUseAnExplicitStack()
     {
         var value = MarkupParser.ParseCssComponentValue("f([x])");
@@ -169,6 +197,9 @@ public sealed class CssSyntaxTests
         var trailing = MarkupParser.ParseCssDeclaration("x: a !important");
         trailing.Span.Length.Should().Be("x: a !important".Length);
         trailing.Value.Single().Token.Text.Should().Be("a");
+        MarkupParser.ParseCssDeclaration("--x:red {}").Name.Should().Be("--x");
+        MarkupParser.ParseCssDeclaration("x: {} !important").IsImportant.Should().BeTrue();
+        MarkupParser.ParseCssDeclaration("--x: red {} blue").Name.Should().Be("--x");
     }
 
     [Test]
@@ -181,6 +212,9 @@ public sealed class CssSyntaxTests
         Assert.Throws<CssParseException>(() => MarkupParser.ParseCssRule("a{} b{}"));
         Assert.Throws<CssParseException>(() => MarkupParser.ParseCssDeclaration("a b"));
         Assert.Throws<CssParseException>(() => MarkupParser.ParseCssDeclaration("a:b; c:d"));
+        Assert.Throws<CssParseException>(() => MarkupParser.ParseCssDeclaration("color: red {}"));
+        Assert.Throws<CssParseException>(() => MarkupParser.ParseCssDeclaration("x: {} {}"));
+        Assert.Throws<CssParseException>(() => MarkupParser.ParseCssRule("--x:hover {}"));
         MarkupParser.ParseCssComponentValues(string.Empty).Count.Should().Be(0);
         MarkupParser.ParseCssComponentValue("  ]  ").Token.Kind.Should().Be(CssTokenKind.CloseSquareBracket);
     }
@@ -221,6 +255,7 @@ public sealed class CssSyntaxTests
         var exception = Assert.Throws<ParseLimitException>(() => MarkupParser.ParseCssComponentValues("abcd", new CssParseOptions { Limits = limits }));
         exception!.Kind.Should().Be(ParseLimitKind.InputCharacters);
         Assert.Throws<ParseLimitException>(() => MarkupParser.ParseCssComponentValues("abcdefgh", new CssParseOptions { Limits = new ParseLimits { MaxTokenCharacters = 3 } }));
+        Assert.Throws<ParseLimitException>(() => MarkupParser.ParseCssDeclaration("unicode-range: U+00A0-00FF", new CssParseOptions { Limits = new ParseLimits { MaxTokenCharacters = 9 } }));
         Assert.Throws<ParseLimitException>(() => MarkupParser.ParseCssComponentValue("((a))", new CssParseOptions { Limits = new ParseLimits { MaxNestingDepth = 1 } }));
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
@@ -230,6 +265,10 @@ public sealed class CssSyntaxTests
         diagnostics.Items.Select(item => item.Code).Should().Contain("css/bad-string");
         MarkupParser.ParseCssComponentValues("ok", new CssParseOptions { Diagnostics = diagnostics });
         diagnostics.Items.Should().BeEmpty();
+        using var afterTokenization = new CancellationTokenSource();
+        var parser = new CssSyntaxParser(new string('x', 8192).Replace("x", "x "), null, afterTokenization.Token);
+        afterTokenization.Cancel();
+        Assert.Throws<OperationCanceledException>(() => parser.ParseComponentValues());
     }
 
     [Test]

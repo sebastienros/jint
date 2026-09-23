@@ -29,6 +29,7 @@ public enum CssTokenKind
     Number,
     Percentage,
     Dimension,
+    UnicodeRange,
     Whitespace,
     Cdo,
     Cdc,
@@ -51,10 +52,13 @@ public readonly struct CssToken
     private readonly char _delimiter;
     private readonly bool _isInteger;
     private readonly bool _isIdHash;
+    private readonly int _unicodeStart;
+    private readonly int _unicodeEnd;
 
     internal CssToken(CssTokenKind kind, CssSourceSpan span, string? text = null,
         string? numberText = null, string? unit = null, char delimiter = '\0',
-        bool isInteger = false, bool isIdHash = false)
+        bool isInteger = false, bool isIdHash = false, int unicodeStart = 0,
+        int unicodeEnd = 0)
     {
         Kind = kind;
         Span = span;
@@ -64,16 +68,21 @@ public readonly struct CssToken
         _delimiter = delimiter;
         _isInteger = isInteger;
         _isIdHash = isIdHash;
+        _unicodeStart = unicodeStart;
+        _unicodeEnd = unicodeEnd;
     }
 
     public CssTokenKind Kind { get; }
     public CssSourceSpan Span { get; }
+    // Unicode ranges retain their short source spelling; other text is decoded.
     public string Text => _text ?? string.Empty;
     public string NumberText => _numberText ?? string.Empty;
     public string Unit => _unit ?? string.Empty;
     public char Delimiter => _delimiter;
     public bool IsInteger => _isInteger;
     public bool IsIdHash => _isIdHash;
+    public int UnicodeRangeStart => _unicodeStart;
+    public int UnicodeRangeEnd => _unicodeEnd;
 }
 
 public enum CssComponentKind { None, Token, Function, SimpleBlock }
