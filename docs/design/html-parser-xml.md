@@ -117,6 +117,9 @@ Build native nodes only. A successful document has one element; document-level X
 stored as forbidden Text children or moved inside the root. A fragment permits text and multiple roots.
 Empty document/SVG input is a syntax failure; empty fragment succeeds; `Document.CreateXml()` still
 creates a valid empty DOM container. Do not publish a partial document when parsing fails.
+Use the [trusted construction seam](html-parser-construction.md) for fresh validated nodes/attributes:
+public mutation/factory calls both repeat scans and impose DOM-API restrictions distinct from XML
+parsing. The XML scanner still owns well-formedness, namespace, duplicate, shape and limit checks.
 
 Fragments inherit namespace bindings from the current DOM context, including its element namespace,
 ancestor declarations, shadowing and explicit default-namespace reset. Prefixes are case-sensitive;

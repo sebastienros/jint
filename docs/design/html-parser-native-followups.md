@@ -5,6 +5,9 @@ Dispatch against integration `3ca355b77` (D3a clone/import), 2026-09-23. These a
 shared-owner `Document` edit first; then one native owner stages metadata, adoption/replace-all, and
 template ownership as separate commits. D5 follows those native edits. Each commit updates the real
 public API snapshots and runs Release tests on net8.0 and net10.0 with MTP `--project`.
+The [trusted parser construction seam](html-parser-construction.md) is a separate immediate native
+commit: fresh append and validated bulk attributes avoid repeated ancestor/duplicate scans while
+retaining shared semantic bookkeeping. It also defines parser-only XML name/CDATA creation.
 
 ## Document metadata: immediate XML prerequisite
 
