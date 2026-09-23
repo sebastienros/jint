@@ -197,6 +197,37 @@ public class FormAssociationTests
     }
 
     [Test]
+    public void AdoptedShadowIndexTracksIdsInItsNewDocument()
+    {
+        var source = Document.CreateHtml();
+        var sourceRoot = source.CreateElement("main");
+        source.AppendChild(sourceRoot);
+        var host = source.CreateElement("div");
+        sourceRoot.AppendChild(host);
+        var shadow = ShadowTree.Attach(host, new ShadowRootInit(ShadowRootMode.Open), default);
+        var form = source.CreateElement("form");
+        form.SetAttribute("id", "a");
+        shadow.AppendChild(form);
+        var control = source.CreateElement("input");
+        control.SetAttribute("form", "a");
+        shadow.AppendChild(control);
+        HtmlFormState.GetOwner(control).Should().BeSameAs(form);
+        shadow.FormIndex.Should().NotBeNull();
+
+        var destination = Document.CreateHtml();
+        destination.AdoptNode(host);
+        destination.HasFormIndex.Should().BeTrue();
+        destination.AppendChild(host);
+        form.GetAttributeNode("id")!.Value = "b";
+        HtmlFormState.GetOwner(control).Should().BeNull();
+        control.GetAttributeNode("form")!.Value = "b";
+        HtmlFormState.GetOwner(control).Should().BeSameAs(form);
+        shadow.RemoveChild(form);
+        HtmlFormState.GetOwner(control).Should().BeNull();
+        shadow.FormIndex!.FirstWithId("b").Should().BeNull();
+    }
+
+    [Test]
     public void ParserAssociationSurvivesInsertionAndUnrelatedMutationsUntilReset()
     {
         var document = Document.CreateHtml();

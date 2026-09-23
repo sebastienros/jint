@@ -595,6 +595,13 @@ public abstract partial class Node
                 continue;
             }
 
+            // A shadow or detached ordinary root can retain its form index across
+            // adoption. Its new node document must know that ID edits can reach it.
+            if (current.Node.FormIndex is not null)
+            {
+                current.Owner.HasFormIndex = true;
+            }
+
             if (!sameOwner)
             {
                 var oldDocument = current.Node._ownerDocument;
