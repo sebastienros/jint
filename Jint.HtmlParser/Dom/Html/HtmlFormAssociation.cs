@@ -129,6 +129,7 @@ internal static class HtmlFormAssociation
 
     internal static FormRemoval BeforeRemoval(Node node, Node parent)
     {
+        HtmlDisabledness.DirectChildChanged(node, parent);
         if (!MayAffectForms(node) || node.OwnerDocument?.HasFormIndex != true)
         {
             return new FormRemoval(null, null, node.OwnerDocument?.FormWorkProbe);
@@ -182,6 +183,7 @@ internal static class HtmlFormAssociation
 
     internal static void Inserted(Node node)
     {
+        HtmlDisabledness.DirectChildChanged(node, node.ParentNode);
         if (!MayContainAssociated(node) &&
             (node is not Element leaf || leaf.GetAttributeNodeNS(null, "id") is null ||
              node.OwnerDocument?.HasFormIndex != true))
