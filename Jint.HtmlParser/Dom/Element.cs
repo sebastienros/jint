@@ -1,5 +1,11 @@
 namespace Jint.HtmlParser;
 
+internal enum ParsedAttributeMergeCheckpoint
+{
+    AfterIndex,
+    AfterCommit
+}
+
 /// <summary>A namespace-aware element with attributes kept in insertion order.</summary>
 public sealed class Element : Node
 {
@@ -129,19 +135,19 @@ public sealed class Element : Node
             return attribute;
         }
 
-        _attributes ??= [];
         if (previous is null)
         {
-            _attributes.Add(attribute);
+            AppendNewAttribute(attribute);
         }
         else
         {
+            _attributes ??= [];
             _attributes[_attributes.IndexOf(previous)] = attribute;
             previous.OwnerElement = null;
+            attribute.OwnerElement = this;
+            attribute.OwnerDocument = OwnerDocument!;
         }
 
-        attribute.OwnerElement = this;
-        attribute.OwnerDocument = OwnerDocument!;
         return previous;
     }
 
@@ -246,6 +252,67 @@ public sealed class Element : Node
 
         cancellationToken.ThrowIfCancellationRequested();
         _attributes = result;
+    }
+
+    // HTML's repeated html/body start tags merge into an already published
+    // element. The tokenizer supplies resolved, duplicate-free source attributes.
+    internal void AddMissingParsedAttributes(ReadOnlySpan<ParserAttribute> attributes, CancellationToken cancellationToken)
+        => AddMissingParsedAttributes(attributes, null, cancellationToken);
+
+    internal void AddMissingParsedAttributes(ReadOnlySpan<ParserAttribute> attributes,
+        Action<ParsedAttributeMergeCheckpoint, int>? workCheckpoint, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var count = _attributes?.Count ?? 0;
+        var keys = new HashSet<(string? NamespaceUri, string LocalName)>(count + attributes.Length);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (_attributes is { } existing)
+        {
+            for (var i = 0; i < existing.Count; i++)
+            {
+                if ((i & 63) == 0)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                }
+
+                var attribute = existing[i];
+                keys.Add((attribute.NamespaceUri, attribute.LocalName));
+            }
+        }
+
+        workCheckpoint?.Invoke(ParsedAttributeMergeCheckpoint.AfterIndex, count);
+        cancellationToken.ThrowIfCancellationRequested();
+        var committed = 0;
+        for (var i = 0; i < attributes.Length; i++)
+        {
+            if ((i & 63) == 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+
+            var parsed = attributes[i];
+            if (!keys.Add((parsed.NamespaceUri, parsed.LocalName)))
+            {
+                continue;
+            }
+
+            var attribute = new Attr(OwnerDocument!, parsed.NamespaceUri, parsed.LocalName, parsed.Prefix, parsed.Value);
+            AppendNewAttribute(attribute);
+            committed++;
+            workCheckpoint?.Invoke(ParsedAttributeMergeCheckpoint.AfterCommit, committed);
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+    }
+
+    private void AppendNewAttribute(Attr attribute)
+    {
+        _attributes ??= [];
+        _attributes.Add(attribute);
+        attribute.OwnerElement = this;
+        attribute.OwnerDocument = OwnerDocument!;
+        // Native attribute semantics and mutation delivery share this boundary.
     }
 
     private string NormalizeAttributeName(string name)
