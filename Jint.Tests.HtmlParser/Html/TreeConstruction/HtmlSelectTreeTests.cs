@@ -19,6 +19,12 @@ public partial class HtmlTreeConstructionTests
         "<html><head></head><body><select><option><span>x</span><div>y</div></option></select></body></html>")]
     [TestCase("<select><div><option>x</option></div></select>",
         "<html><head></head><body><select><div><option>x</option></div></select></body></html>")]
+    [TestCase("<p><select><div>x",
+        "<html><head></head><body><p><select><div>x</div></select></p></body></html>")]
+    [TestCase("<div><select></div>x",
+        "<html><head></head><body><div><select>x</select></div></body></html>")]
+    [TestCase("<b><select></b>x</select>y",
+        "<html><head></head><body><b><select>x</select>y</b></body></html>")]
     [TestCase("<select><option>a<select><option>b",
         "<html><head></head><body><select><option>a</option></select><option>b</option></body></html>")]
     [TestCase("<select><option>a<input id=i><option>b",
@@ -79,6 +85,26 @@ public partial class HtmlTreeConstructionTests
     {
         const string source = "<select><optgroup><option>one<b>two</b><option>three</select>tail";
         var expected = Serialize(Parse(source).Document);
+        for (var split = 0; split <= source.Length; split++)
+        {
+            var document = Document.CreateHtml();
+            var session = new HtmlParserSession(document);
+            session.AppendInput(source[..split]);
+            DrainToNeedInput(session, 1);
+            session.AppendInput(source[split..], isFinal: true);
+            DrainToCompletion(session, 1);
+            Serialize(document).Should().Be(expected, $"split {split}");
+        }
+    }
+
+    [TestCase("<p><select><div>x",
+        "<html><head></head><body><p><select><div>x</div></select></p></body></html>")]
+    [TestCase("<div><select></div>x",
+        "<html><head></head><body><div><select>x</select></div></body></html>")]
+    [TestCase("<b><select></b>x</select>y",
+        "<html><head></head><body><b><select>x</select>y</b></body></html>")]
+    public void SelectScopeBoundarySurvivesEveryShortSplit(string source, string expected)
+    {
         for (var split = 0; split <= source.Length; split++)
         {
             var document = Document.CreateHtml();

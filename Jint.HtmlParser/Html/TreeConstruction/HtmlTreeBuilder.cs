@@ -396,7 +396,7 @@ internal sealed partial class HtmlTreeBuilder
     private static bool IsHtmlElement(Element element, string name) =>
         element.NamespaceUri == Namespaces.Html && element.LocalName == name;
     private static bool IsScopeBoundary(Element element) => element.NamespaceUri == Namespaces.Html &&
-        element.LocalName is "applet" or "caption" or "html" or "table" or "td" or "th" or "marquee" or "object" or "template";
+        element.LocalName is "applet" or "caption" or "html" or "table" or "td" or "th" or "marquee" or "object" or "select" or "template";
     private static bool IsResetModeElement(Element element) => element.NamespaceUri == Namespaces.Html &&
         element.LocalName is "td" or "th" or "tr" or "tbody" or "thead" or "tfoot" or "caption" or
             "colgroup" or "table" or "template" or "head" or "body" or "html";
