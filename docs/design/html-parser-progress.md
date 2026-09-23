@@ -623,3 +623,16 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   comment-insensitive spread token adjacency. Separate Sol tasks now implement V0c1 and V0b3b.
   XPath parentless-attribute evaluation requires an owned compilation adapter; slot fixes remain
   under independent re-review. Neither incomplete task is eligible for cleanup.
+- `89ab6fa62`: reviewed XPath evaluator amendment retains an internal truthful cursor and owns
+  guarded compilation plus materialized native results. Implementation owner is addressing it;
+  the previous skipped following-axis gate must become a real passing result before acceptance.
+- `a98630fbb`, `3594f2e81`, `64dbebcde`, `2f57675d9`: sixteen source-reviewed Sun, Edinburgh and IBM
+  expectations exactly match approved packets; all 259 previous entries remain unchanged. Common
+  corpus run: 4,000 total, 3,690 passed, 310 failed, zero skips. Per framework: 1,799 conformance
+  passes, 148 unresolved required cases, six optional adapter debts, 21 verified optional policies,
+  zero harness failures/mismatches; OUTPUT 323 compared/63 pending, 52 no-fetch alternatives.
+  Evidence: `/private/tmp/jint-xml-sixteen-integrated.log`. This is still a failing acceptance gate.
+- Slot source `598de6522` fixes the reviewed semantic and quadratic-work findings, but query
+  attribute scans and initial root-child enumeration still lack bounded polling. Exact-source
+  probes and 1,000 independent mutation sequences isolate those two remaining blockers; owner is
+  correcting them. The task/worktree remain retained and no native shared-file handoff occurred.
