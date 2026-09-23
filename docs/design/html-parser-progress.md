@@ -22,12 +22,13 @@ the earlier repository direction to retain AngleSharp.
 | Comparison corpus and benchmark harness | `01a0ceee-7b09-7513-b507-a5c412eb4518` | Reviewed and integrated |
 | A1 dependency and binding inventory | `01a0cef5-3c12-7d22-926c-e2aeefe58949` | Reviewed and integrated |
 | A2/D1/D2 package and DOM foundation | `01a0cef5-4a7d-72e2-b551-74f03c9da7ec` | Reviewed fixes integrated; 52 combined tests pass |
-| H1/H2 resumable HTML tokenizer | `01a0cf2a-8177-7941-9413-ee60edc59454` | In progress |
+| H1/H2 resumable HTML tokenizer | `01a0cf2a-8177-7941-9413-ee60edc59454` | Reviewed and integrated; H3 text modes in progress |
 | C1 CSS syntax | `01a0cf2a-8a51-76b1-a12b-ac57c7d2b594` | Reviewed and integrated |
 | A2 shared limits/diagnostics/errors and API snapshots | `01a0cf2c-ab5e-7023-95ab-1ab3a4fc8d77` | Reviewed and integrated |
 | D3a native cloning and import | `01a0cf34-dc42-75d0-960e-735bef6eb68a` | Reviewed and integrated |
 | XML shared contracts and provenance | `01a0cf2c-ab5e-7023-95ab-1ab3a4fc8d77` | Reviewed and integrated |
 | X1 native XML/SVG parsing | `01a0cf3f-9380-7513-a351-4078c30d2241` | Internal scanner milestone in progress |
+| Native metadata, adoption and templates | `01a0cf47-2a27-7163-8f4e-951fbe9999f5` | Sequential feature commits in progress |
 
 ## Initial repository evidence
 
@@ -62,8 +63,11 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   with zero failures/skips.
 - After integrating CSS syntax, XML shared contracts and reviewed generated API
   snapshots, the suite passes 102 tests across both frameworks, zero failures/skips.
-  HTML tokenization remains under review; no document parser or browser replacement
+  No document parser or browser replacement
   is claimed by these construct-level and native-DOM milestones.
+- After integrating H1/H2 and its reviewed preprocessing, EOF and cooperative quota
+  fixes, 332 tests pass across both frameworks, zero failures/skips. H3 text modes,
+  tree construction and the full XML implementation remain unfinished.
 
 ## Integrated commits
 
@@ -96,3 +100,11 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   scans (source `370721cd7`, `1a99cca13`, `35d21d71d`); final Astra recheck clear.
 - `552108b99`: XML options, errors, expansion budget and immutable skipped-entity
   provenance (source `e1c210c9e`); Astra review clear.
+- `ccc8e41c9`: honest cooperative work-quota contract around unavoidable runtime
+  allocation/copy operations (source `5b07559e1`); Astra design and review agree.
+- `c0e96e3f8`: reviewed metadata, adoption and template ownership contracts
+  (source `163977719`).
+- `497b6fad6`, `efb6a1ef3`, `8577fe450`, `5137d1587`, `e29b5b838`: H1/H2 tokenizer,
+  current-spec processing instructions, focused boundary coverage, CR preprocessing
+  and EOF diagnostics, and cooperative materialization accounting (source `1c917e00e`,
+  `ad07d7f3e`, `03a72284b`, `69953b997`, `dc805af10`); final Astra rechecks clear.
