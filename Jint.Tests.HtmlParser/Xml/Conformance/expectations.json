@@ -9247,5 +9247,80 @@
     "originalOutputSha256": "0fa1d036f5b1a0aaea2fb2660341b8df798b37df513da26c944366482d2ddef6",
     "outputAlternative": "<doc></doc>",
     "review": "Pinned W3C INPUT a029dbd3f2a6cb0789d4d235352cb2619d628cb47567b55d6e7a154960c75981, unread external entity 32f13a974afa450e890ed58f71607354f33a315c7d10bacb7ae8b7001165c763, original OUTPUT 0fa1d036f5b1a0aaea2fb2660341b8df798b37df513da26c944366482d2ddef6; The source reference &e1; expands through internal e2 to external e3; with no fetch, e3 contributes no replacement text and the omission retains the original outer-reference offset. Fetched e3 contains &e4;, which expands through internal e5 to the upstream OUTPUT (e5). XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/sun/sun-valid.xml#ext01",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "General",
+        "Name": "root",
+        "PublicId": null,
+        "SystemId": "ext01.ent",
+        "Offset": 170
+      },
+      {
+        "Kind": "General",
+        "Name": "root",
+        "PublicId": null,
+        "SystemId": "ext01.ent",
+        "Offset": 177
+      },
+      {
+        "Kind": "General",
+        "Name": "null",
+        "PublicId": null,
+        "SystemId": "null.ent",
+        "Offset": 184
+      },
+      {
+        "Kind": "General",
+        "Name": "null",
+        "PublicId": null,
+        "SystemId": "null.ent",
+        "Offset": 191
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "     ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "no-fetch-alternative",
+    "projectionSha256": "bc534ecebfdf01463da28891dcf5647c5266ff8e70491a0ed84b6585c39ceaff",
+    "originalOutputSha256": "9611317c10c590b076cb09c422f12928ef2226fe767f5d142653bbf16c81e003",
+    "outputAlternative": "<root>     </root>",
+    "review": "Pinned W3C INPUT 95a2d3d59f305510bbfcc97c952f16427ca005b29c6c696a7fe8d08094970193, unread ext01.ent f3c36da625563156489d738502b6ff8797e254436aa57365176f66561cd86158 and null.ent e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, original OUTPUT 9611317c10c590b076cb09c422f12928ef2226fe767f5d142653bbf16c81e003; The internal subset declares four external general-entity occurrences. With no fetch, both root and null replacement texts are omitted, leaving the five literal spaces before, between, and after references as one text node. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
   }
 ]
