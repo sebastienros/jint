@@ -11,7 +11,7 @@ internal sealed class XmlNamespaceScope
         internal LinkedListNode<string> Candidate = candidate;
     }
 
-    private readonly record struct Change(string Prefix, string? PreviousUri,
+    private readonly record struct Change(string Prefix, Binding? Previous,
         LinkedListNode<string>? PreviousNext);
 
     private readonly SerializationWork _work;
@@ -61,7 +61,7 @@ internal sealed class XmlNamespaceScope
         if (!_uris.TryGetValue(uri, out var candidates)) _uris.Add(uri, candidates = new LinkedList<string>());
         var candidate = candidates.AddLast(prefix);
         _prefixes[prefix] = new Binding(prefix, uri, candidate);
-        _changes.Add(new Change(prefix, previous?.Uri, previousNext));
+        _changes.Add(new Change(prefix, previous, previousNext));
         _work.Poll(SerializationStage.Scan);
     }
 
@@ -86,17 +86,23 @@ internal sealed class XmlNamespaceScope
             var change = _changes[index];
             var current = _prefixes[change.Prefix];
             current.Candidate.List!.Remove(current.Candidate);
-            if (change.PreviousUri is null)
+            if (change.Previous is null)
             {
                 _prefixes.Remove(change.Prefix);
                 continue;
             }
 
-            var list = _uris[change.PreviousUri];
-            var restored = change.PreviousNext is { List: not null } next
-                ? list.AddBefore(next, change.Prefix)
-                : list.AddLast(change.Prefix);
-            _prefixes[change.Prefix] = new Binding(change.Prefix, change.PreviousUri, restored);
+            var list = _uris[change.Previous.Uri];
+            if (change.PreviousNext is { List: not null } next)
+            {
+                list.AddBefore(next, change.Previous.Candidate);
+            }
+            else
+            {
+                list.AddLast(change.Previous.Candidate);
+            }
+
+            _prefixes[change.Prefix] = change.Previous;
         }
 
         _changes.RemoveRange(boundary, _changes.Count - boundary);

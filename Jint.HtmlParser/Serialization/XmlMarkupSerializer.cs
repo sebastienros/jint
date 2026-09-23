@@ -167,7 +167,24 @@ internal static class XmlMarkupSerializer
                 case Element element:
                     WriteElement(frame, element);
                     break;
-                case Document or DocumentFragment:
+                case Document document:
+                    if (_wellFormed)
+                    {
+                        var foundElement = false;
+                        for (var child = document.FirstChild; child is not null; child = child.NextSibling)
+                        {
+                            _work.Charge(1, SerializationStage.Scan);
+                            if (child is not Element) continue;
+                            foundElement = true;
+                            break;
+                        }
+
+                        if (!foundElement) Invalid("An XML document has no document element.");
+                    }
+
+                    frame.NextChild = document.FirstChild;
+                    break;
+                case DocumentFragment:
                     frame.NextChild = frame.Node.FirstChild;
                     break;
                 case Text text:

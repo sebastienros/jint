@@ -25,6 +25,20 @@ public sealed class XmlMarkupSerializerTests
     }
 
     [Test]
+    public void WholeDocumentRequiresDocumentElementOnlyInTrueMode()
+    {
+        var document = Document.CreateXml();
+        XmlMarkupSerializer.Serialize(document).Should().BeEmpty();
+        Assert.Throws<DomException>(() => XmlMarkupSerializer.Serialize(document, true))!.Name.Should().Be("InvalidStateError");
+        XmlMarkupSerializer.SerializeChildren(document, true).Should().BeEmpty();
+        XmlMarkupSerializer.Serialize(document.CreateDocumentFragment(), true).Should().BeEmpty();
+        document.AppendChild(document.CreateComment("only"));
+        XmlMarkupSerializer.Serialize(document).Should().Be("<!--only-->");
+        Assert.Throws<DomException>(() => XmlMarkupSerializer.Serialize(document, true))!.Name.Should().Be("InvalidStateError");
+        XmlMarkupSerializer.SerializeChildren(document, true).Should().Be("<!--only-->");
+    }
+
+    [Test]
     public void PrefixDefinitionsAfterUseAreRecordedBeforeAttributeOutput()
     {
         var document = Document.CreateXml();
@@ -107,6 +121,47 @@ public sealed class XmlMarkupSerializerTests
         root.AppendChild(following);
         XmlMarkupSerializer.Serialize(root, true).Should().Be(
             "<root xmlns:p=\"urn:a\" xmlns:q=\"urn:a\"><one xmlns:q=\"urn:b\" p:x=\"1\"/><two q:y=\"2\"/></root>");
+    }
+
+    [Test]
+    public void UndoOfTwoReboundPrefixesRestoresTheirOriginalOrder()
+    {
+        var document = Document.CreateXml();
+        var root = document.CreateElement("root");
+        root.SetAttributeNS(Namespaces.Xmlns, "xmlns:p", "urn:a");
+        root.SetAttributeNS(Namespaces.Xmlns, "xmlns:q", "urn:a");
+        var first = document.CreateElement("first");
+        first.SetAttributeNS(Namespaces.Xmlns, "xmlns:p", "urn:b");
+        first.SetAttributeNS(Namespaces.Xmlns, "xmlns:q", "urn:c");
+        var second = document.CreateElement("second");
+        second.SetAttributeNS("urn:a", "y", "value");
+        root.AppendChild(first);
+        root.AppendChild(second);
+        XmlMarkupSerializer.Serialize(root, true).Should().Be(
+            "<root xmlns:p=\"urn:a\" xmlns:q=\"urn:a\"><first xmlns:p=\"urn:b\" xmlns:q=\"urn:c\"/><second q:y=\"value\"/></root>");
+    }
+
+    [Test]
+    public void NestedUndoRetainsCandidateOrderAtEachAncestor()
+    {
+        var document = Document.CreateXml();
+        var root = document.CreateElement("root");
+        root.SetAttributeNS(Namespaces.Xmlns, "xmlns:p", "urn:a");
+        root.SetAttributeNS(Namespaces.Xmlns, "xmlns:q", "urn:a");
+        var middle = document.CreateElement("middle");
+        middle.SetAttributeNS(Namespaces.Xmlns, "xmlns:p", "urn:b");
+        var inner = document.CreateElement("inner");
+        inner.SetAttributeNS(Namespaces.Xmlns, "xmlns:q", "urn:c");
+        var afterInner = document.CreateElement("afterInner");
+        afterInner.SetAttributeNS("urn:a", "x", "1");
+        middle.AppendChild(inner);
+        middle.AppendChild(afterInner);
+        var afterMiddle = document.CreateElement("afterMiddle");
+        afterMiddle.SetAttributeNS("urn:a", "y", "2");
+        root.AppendChild(middle);
+        root.AppendChild(afterMiddle);
+        XmlMarkupSerializer.Serialize(root, true).Should().Be(
+            "<root xmlns:p=\"urn:a\" xmlns:q=\"urn:a\"><middle xmlns:p=\"urn:b\"><inner xmlns:q=\"urn:c\"/><afterInner q:x=\"1\"/></middle><afterMiddle q:y=\"2\"/></root>");
     }
 
     [Test]
