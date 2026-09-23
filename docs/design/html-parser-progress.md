@@ -439,3 +439,14 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   D7a2 owns HtmlElementState/HtmlFormAssociation plus new HTML helpers; X4b1 owns Attr/ParserAttribute/
   Element/NodeCloner. First-legend invalidation precedes association early returns and triggers only
   for direct HTML legend changes under HTML fieldsets. H6b remains the exclusive tree-builder owner.
+- `e9ad28bd1`: sixteen independently source-reviewed NotationType rejection expectations
+  (source `6eeea2af4`). Fresh common corpus tests: 3,998 total, 3,446 passed, 552 failed, no skips.
+  Each framework reports 1,692 conformance passes, 255 unresolved required cases; optional and
+  output counts unchanged, no known defects/harness failures. Evidence:
+  `/private/tmp/jint-xml-notationtype16-integrated.log`. Full conformance remains incomplete.
+- Verified next-task worktree allocation: X3a `/Users/sebastienros/.codex/worktrees/0f6d/jint`,
+  C2d2 `/Users/sebastienros/.codex/worktrees/08ad/jint`, X4b1
+  `/Users/sebastienros/.codex/worktrees/2a0e/jint`, H7 tokenizer prerequisites
+  `/Users/sebastienros/.codex/worktrees/2ce4/jint`, D7a2
+  `/Users/sebastienros/.codex/worktrees/4ad0/jint`. Task identities are pending worker callbacks;
+  do not recreate tasks merely because the sidebar listing omits them.
