@@ -257,6 +257,20 @@ public class XmlCorpusTests
         XmlConformanceRunner.Run(originalAfterOmission).Kind.Should().Be(XmlOutcomeKind.Pass);
         XmlConformanceRunner.Run(originalAfterOmission, testOutput: "<wrong></wrong>"u8.ToArray())
             .Signature.Should().StartWith("output-mismatch:");
+
+        var reviewedAlternative = XmlCorpus.Case("xmlconf/xmltest/xmltest.xml#valid-not-sa-003");
+        var alternative = XmlExpectations.Reviewed[reviewedAlternative.Key];
+        XmlConformanceRunner.Run(reviewedAlternative, new XmlCaseExpectation
+        {
+            Key = reviewedAlternative.Key, Outcome = "accept", Skipped = alternative.Skipped,
+            Projection = alternative.Projection, Notations = alternative.Notations,
+            OutputPolicy = "no-fetch-alternative", OriginalOutputSha256 = alternative.OriginalOutputSha256,
+            ProjectionSha256 = alternative.ProjectionSha256, OutputAlternative = "<wrong></wrong>",
+            Review = "negative no-fetch output probe"
+        }).Signature.Should().Be("no-fetch-canonical-mismatch");
+        var reviewedOriginal = XmlCorpus.Case("xmlconf/xmltest/xmltest.xml#valid-not-sa-027");
+        XmlConformanceRunner.Run(reviewedOriginal, testOutput: "<wrong></wrong>"u8.ToArray())
+            .Signature.Should().StartWith("output-mismatch:");
     }
 
     [Test]

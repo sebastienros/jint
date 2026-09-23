@@ -950,5 +950,732 @@
       }
     ],
     "review": "Pinned original CRLF source yields the exact read notation record, empty omission list, and complete doctype/root projection; compare original Second Canonical OUTPUT. XML §4.7 https://www.w3.org/TR/xml/#Notations."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#valid-not-sa-003",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "003-1.ent",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "003-1.ent"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "outputPolicy": "no-fetch-alternative",
+    "projectionSha256": "d3e223afa598591939831fab73dfc2a161a4f9d9375438075003eba196272d07",
+    "originalOutputSha256": "47a1224f5d7888088f53628f25cccd6256a573b000e4fa78fd89aea6cbe15078",
+    "outputAlternative": "<doc></doc>",
+    "review": "Pinned document has only unread external subset 003-1.ent; fetched upstream OUTPUT contains a1 default from that subset, while no-fetch yields one ExternalSubset omission at 0, empty notation inventory and empty doc root. Preserve original OUTPUT digest and compare the independently reviewed <doc></doc> alternative; XML §5.1 https://www.w3.org/TR/xml/#sec-conformance.",
+    "notations": []
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#valid-not-sa-004",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "004-1.ent",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "004-1.ent"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "outputPolicy": "no-fetch-alternative",
+    "projectionSha256": "31f8a4fe75a0d6b65b0f06d4c65b42e98cfba01207d03ea1744a27b7f1656f6d",
+    "originalOutputSha256": "e4c4df980d0c17e4d3fcd3179bcc2799e9467aafbf5787c2926582c9420b5a5c",
+    "outputAlternative": "<doc></doc>",
+    "review": "Pinned document has only unread external subset 004-1.ent; fetched upstream OUTPUT contains a1 default from that subset, while no-fetch yields one ExternalSubset omission at 0, empty notation inventory and empty doc root. Preserve original OUTPUT digest and compare the independently reviewed <doc></doc> alternative; XML §5.1 https://www.w3.org/TR/xml/#sec-conformance.",
+    "notations": []
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#valid-not-sa-005",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "005-1.ent",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "005-1.ent"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "outputPolicy": "no-fetch-alternative",
+    "projectionSha256": "75942099f668803a4519a9f8e8af1ca211300947e2b5ec32f61b790666dacdb6",
+    "originalOutputSha256": "47a1224f5d7888088f53628f25cccd6256a573b000e4fa78fd89aea6cbe15078",
+    "outputAlternative": "<doc></doc>",
+    "review": "Pinned document has only unread external subset 005-1.ent; fetched upstream OUTPUT contains a1 default from that subset, while no-fetch yields one ExternalSubset omission at 0, empty notation inventory and empty doc root. Preserve original OUTPUT digest and compare the independently reviewed <doc></doc> alternative; XML §5.1 https://www.w3.org/TR/xml/#sec-conformance.",
+    "notations": []
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#valid-not-sa-007",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "007.ent",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "007.ent"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "outputPolicy": "no-fetch-alternative",
+    "projectionSha256": "eb32d6d60b62b1414cb99d3f249f6834fdca348ffca0b323f14a5eafeb8df183",
+    "originalOutputSha256": "47a1224f5d7888088f53628f25cccd6256a573b000e4fa78fd89aea6cbe15078",
+    "outputAlternative": "<doc></doc>",
+    "review": "Pinned document has only unread external subset 007.ent; fetched upstream OUTPUT contains a1 default from that subset, while no-fetch yields one ExternalSubset omission at 0, empty notation inventory and empty doc root. Preserve original OUTPUT digest and compare the independently reviewed <doc></doc> alternative; XML §5.1 https://www.w3.org/TR/xml/#sec-conformance.",
+    "notations": []
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#valid-not-sa-013",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "013.ent",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "013.ent"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "outputPolicy": "no-fetch-alternative",
+    "projectionSha256": "607b879094d84a6b9b57560c48f98c04f472b9ae2b03e287d9fb11654e7f512c",
+    "originalOutputSha256": "47a1224f5d7888088f53628f25cccd6256a573b000e4fa78fd89aea6cbe15078",
+    "outputAlternative": "<doc></doc>",
+    "review": "Pinned document has only unread external subset 013.ent; fetched upstream OUTPUT contains a1 default from that subset, while no-fetch yields one ExternalSubset omission at 0, empty notation inventory and empty doc root. Preserve original OUTPUT digest and compare the independently reviewed <doc></doc> alternative; XML §5.1 https://www.w3.org/TR/xml/#sec-conformance.",
+    "notations": []
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#valid-not-sa-017",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "017.ent",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "017.ent"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "outputPolicy": "no-fetch-alternative",
+    "projectionSha256": "e8af7406217466f3138863d3797dc4eab8e934e631f85e7fc1491396f36bb780",
+    "originalOutputSha256": "47a1224f5d7888088f53628f25cccd6256a573b000e4fa78fd89aea6cbe15078",
+    "outputAlternative": "<doc></doc>",
+    "review": "Pinned document has only unread external subset 017.ent; fetched upstream OUTPUT contains a1 default from that subset, while no-fetch yields one ExternalSubset omission at 0, empty notation inventory and empty doc root. Preserve original OUTPUT digest and compare the independently reviewed <doc></doc> alternative; XML §5.1 https://www.w3.org/TR/xml/#sec-conformance.",
+    "notations": []
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#valid-not-sa-018",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "018.ent",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "018.ent"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "outputPolicy": "no-fetch-alternative",
+    "projectionSha256": "23cb834b70a94cfb99f385d60c8339246baea2019660c20aaff0b8d1755b4616",
+    "originalOutputSha256": "47a1224f5d7888088f53628f25cccd6256a573b000e4fa78fd89aea6cbe15078",
+    "outputAlternative": "<doc></doc>",
+    "review": "Pinned document has only unread external subset 018.ent; fetched upstream OUTPUT contains a1 default from that subset, while no-fetch yields one ExternalSubset omission at 0, empty notation inventory and empty doc root. Preserve original OUTPUT digest and compare the independently reviewed <doc></doc> alternative; XML §5.1 https://www.w3.org/TR/xml/#sec-conformance.",
+    "notations": []
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#valid-not-sa-019",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "019.ent",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "019.ent"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "outputPolicy": "no-fetch-alternative",
+    "projectionSha256": "e4ea3dc846ec36a0b72725a36bc7f2a34bb0bfb4f09ce6136ed024474e54ff23",
+    "originalOutputSha256": "47a1224f5d7888088f53628f25cccd6256a573b000e4fa78fd89aea6cbe15078",
+    "outputAlternative": "<doc></doc>",
+    "review": "Pinned document has only unread external subset 019.ent; fetched upstream OUTPUT contains a1 default from that subset, while no-fetch yields one ExternalSubset omission at 0, empty notation inventory and empty doc root. Preserve original OUTPUT digest and compare the independently reviewed <doc></doc> alternative; XML §5.1 https://www.w3.org/TR/xml/#sec-conformance.",
+    "notations": []
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#valid-not-sa-020",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "020.ent",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "020.ent"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "outputPolicy": "no-fetch-alternative",
+    "projectionSha256": "b8616cda0521b35c2a074781b734f286e4547f9a2ae10f570caa8f6f2866b7d9",
+    "originalOutputSha256": "47a1224f5d7888088f53628f25cccd6256a573b000e4fa78fd89aea6cbe15078",
+    "outputAlternative": "<doc></doc>",
+    "review": "Pinned document has only unread external subset 020.ent; fetched upstream OUTPUT contains a1 default from that subset, while no-fetch yields one ExternalSubset omission at 0, empty notation inventory and empty doc root. Preserve original OUTPUT digest and compare the independently reviewed <doc></doc> alternative; XML §5.1 https://www.w3.org/TR/xml/#sec-conformance.",
+    "notations": []
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#valid-not-sa-021",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "021.ent",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "021.ent"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "outputPolicy": "no-fetch-alternative",
+    "projectionSha256": "c9ea7b8ff31c86594b3b56109b37276040b85215f7f95f87293b0fa10e15a196",
+    "originalOutputSha256": "47a1224f5d7888088f53628f25cccd6256a573b000e4fa78fd89aea6cbe15078",
+    "outputAlternative": "<doc></doc>",
+    "review": "Pinned document has only unread external subset 021.ent; fetched upstream OUTPUT contains a1 default from that subset, while no-fetch yields one ExternalSubset omission at 0, empty notation inventory and empty doc root. Preserve original OUTPUT digest and compare the independently reviewed <doc></doc> alternative; XML §5.1 https://www.w3.org/TR/xml/#sec-conformance.",
+    "notations": []
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#valid-not-sa-023",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "023.ent",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "023.ent"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "outputPolicy": "no-fetch-alternative",
+    "projectionSha256": "45e9e5cee882b25df54f4f018711356b4191ca4c85d21edd5c66c3519cd1b31f",
+    "originalOutputSha256": "47a1224f5d7888088f53628f25cccd6256a573b000e4fa78fd89aea6cbe15078",
+    "outputAlternative": "<doc></doc>",
+    "review": "Pinned document has only unread external subset 023.ent; fetched upstream OUTPUT contains a1 default from that subset, while no-fetch yields one ExternalSubset omission at 0, empty notation inventory and empty doc root. Preserve original OUTPUT digest and compare the independently reviewed <doc></doc> alternative; XML §5.1 https://www.w3.org/TR/xml/#sec-conformance.",
+    "notations": []
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#valid-not-sa-024",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "024.ent",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "024.ent"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "outputPolicy": "no-fetch-alternative",
+    "projectionSha256": "19c505f0d89011b6a2e25f2878a96d36493f96312b99ca51010afa048cad5af4",
+    "originalOutputSha256": "47a1224f5d7888088f53628f25cccd6256a573b000e4fa78fd89aea6cbe15078",
+    "outputAlternative": "<doc></doc>",
+    "review": "Pinned document has only unread external subset 024.ent; fetched upstream OUTPUT contains a1 default from that subset, while no-fetch yields one ExternalSubset omission at 0, empty notation inventory and empty doc root. Preserve original OUTPUT digest and compare the independently reviewed <doc></doc> alternative; XML §5.1 https://www.w3.org/TR/xml/#sec-conformance.",
+    "notations": []
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#valid-not-sa-025",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "025.ent",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "025.ent"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "outputPolicy": "no-fetch-alternative",
+    "projectionSha256": "921614fe4ad8e136e0b7f7714e087947cfadd88e8188de0af321f5488a9c71df",
+    "originalOutputSha256": "bcc0c3263f12270790e89c79847a3f3d82f98e60fe35042f47f47a46ec88249e",
+    "outputAlternative": "<doc></doc>",
+    "review": "Pinned document has only unread external subset 025.ent; fetched upstream OUTPUT contains a1 default from that subset, while no-fetch yields one ExternalSubset omission at 0, empty notation inventory and empty doc root. Preserve original OUTPUT digest and compare the independently reviewed <doc></doc> alternative; XML §5.1 https://www.w3.org/TR/xml/#sec-conformance.",
+    "notations": []
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#valid-not-sa-027",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "027.ent",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "027.ent"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "cb80096267f115dc1bf811dc7a6297fa988cd00e80124eee3afbdf366f8be191",
+    "review": "Pinned document has only unread external subset 027.ent; no fetch yields one ExternalSubset omission at 0, empty notation inventory and empty doc root. Original OUTPUT already equals <doc></doc> and must compare byte-for-byte; XML §5.1 https://www.w3.org/TR/xml/#sec-conformance.",
+    "notations": []
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#valid-not-sa-028",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "028.ent",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "028.ent"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "outputPolicy": "no-fetch-alternative",
+    "projectionSha256": "3851ca31ec219151c73a92bce912d95be170b51bae2e2263e6a2977297278ff8",
+    "originalOutputSha256": "47a1224f5d7888088f53628f25cccd6256a573b000e4fa78fd89aea6cbe15078",
+    "outputAlternative": "<doc></doc>",
+    "review": "Pinned document has only unread external subset 028.ent; fetched upstream OUTPUT contains a1 default from that subset, while no-fetch yields one ExternalSubset omission at 0, empty notation inventory and empty doc root. Preserve original OUTPUT digest and compare the independently reviewed <doc></doc> alternative; XML §5.1 https://www.w3.org/TR/xml/#sec-conformance.",
+    "notations": []
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#valid-not-sa-029",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "029.ent",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "029.ent"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "outputPolicy": "no-fetch-alternative",
+    "projectionSha256": "28bc2aec604182d68add69f12ce6c184f86e4914233aecf47b5eb6d015264cbd",
+    "originalOutputSha256": "be405d45e07e7a2bcf25358df4463307287c2741950190e92bb2fa7c1c977a94",
+    "outputAlternative": "<doc></doc>",
+    "review": "Pinned document has only unread external subset 029.ent; fetched upstream OUTPUT contains a1 default from that subset, while no-fetch yields one ExternalSubset omission at 0, empty notation inventory and empty doc root. Preserve original OUTPUT digest and compare the independently reviewed <doc></doc> alternative; XML §5.1 https://www.w3.org/TR/xml/#sec-conformance.",
+    "notations": []
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#valid-not-sa-030",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "030.ent",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "030.ent"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "cb80096267f115dc1bf811dc7a6297fa988cd00e80124eee3afbdf366f8be191",
+    "review": "Pinned document has only unread external subset 030.ent; no fetch yields one ExternalSubset omission at 0, empty notation inventory and empty doc root. Original OUTPUT already equals <doc></doc> and must compare byte-for-byte; XML §5.1 https://www.w3.org/TR/xml/#sec-conformance.",
+    "notations": []
   }
 ]
