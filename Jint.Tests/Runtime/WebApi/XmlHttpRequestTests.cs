@@ -849,7 +849,7 @@ public class XmlHttpRequestTests
     [Test]
     public Task ADeadlineComingDueWhileNothingPumpsDoesNotTerminateTheRequest() => DedicatedThread.RunAsync(() =>
     {
-        var handler = new StubHandler { Gate = new TaskCompletionSource() };
+        var handler = new StubHandler { Gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously) };
 
         var engine = XhrEngine(handler);
         engine.Execute($@"
@@ -863,6 +863,12 @@ public class XmlHttpRequestTests
         // Four times the deadline with the loop stopped, which is what a long task looks like from here.
         Thread.Sleep(200);
         handler.Release();
+
+        // Releasing the transport does not mean its continuation has queued the response yet. Keep the
+        // loop stopped until this two-byte response has posted its head, body chunk and completion;
+        // otherwise the pump can promote the overdue timer before the transport gets a pool worker.
+        SpinWait.SpinUntil(() => engine.EventLoop.QueueDepth == 3, TransportSignalCeiling)
+            .Should().BeTrue("the complete response must be queued before the stopped loop resumes");
 
         Pump(engine, () => engine.Evaluate("log.length").AsNumber() >= 2, "the load and loadend events");
         engine.Evaluate("log.join('|')").AsString().Should().Be("load|loadend");
