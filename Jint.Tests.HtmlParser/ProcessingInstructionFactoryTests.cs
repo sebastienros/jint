@@ -87,4 +87,25 @@ public class ProcessingInstructionFactoryTests
         destination.MutationStamp.Should().Be(destinationBefore);
         subscription.TakeRecords().Should().BeEmpty();
     }
+
+    [Test]
+    public void AllSevenCorpusTargetsSurviveCloneAndImportAfterDataEdits()
+    {
+        var source = Document.CreateXml();
+        var destination = Document.CreateXml();
+        int[] targets = [0x0EC7, 0x3006, 0x3030, 0x3036, 0x309C, 0x309F, 0x30FF];
+        foreach (var scalar in targets)
+        {
+            var target = char.ConvertFromUtf32(scalar);
+            var original = source.CreateProcessingInstruction(target, "first");
+            original.Data = "edited?>value";
+            var clone = (ProcessingInstruction) original.CloneNode();
+            var imported = (ProcessingInstruction) destination.ImportNode(original);
+            clone.Target.Should().Be(target);
+            imported.Target.Should().Be(target);
+            clone.Data.Should().Be("edited?>value");
+            imported.Data.Should().Be("edited?>value");
+            imported.OwnerDocument.Should().BeSameAs(destination);
+        }
+    }
 }
