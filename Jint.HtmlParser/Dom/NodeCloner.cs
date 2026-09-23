@@ -63,9 +63,9 @@ internal static class NodeCloner
                 return new Comment(document, original.Data);
             case CDataSection original:
                 // The public setter permits a terminator after construction.
-                return new CDataSection(document, "") { Data = original.Data };
+                return new CDataSection(document, original.Data, clone: true);
             case ProcessingInstruction original:
-                return new ProcessingInstruction(document, original.Target, "") { Data = original.Data };
+                return new ProcessingInstruction(document, original.Target, original.Data, clone: true);
             case DocumentType original:
                 return new DocumentType(document, original.Name, original.PublicId, original.SystemId);
             case DocumentFragment:

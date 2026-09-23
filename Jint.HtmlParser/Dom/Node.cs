@@ -15,7 +15,7 @@ public enum NodeType
 
 /// <summary>A stable-identity node in a mutable document tree.</summary>
 /// <remarks>A document and all its nodes are single-owner mutable objects. A host must serialize access.</remarks>
-public abstract class Node
+public abstract partial class Node
 {
     private Document? _ownerDocument;
 
@@ -89,12 +89,24 @@ public abstract class Node
         var incoming = CollectIncoming(child);
         ValidateInsertion(incoming, referenceChild, null);
         var destinationDocument = this as Document ?? _ownerDocument!;
+        var fragmentPrevious = child is DocumentFragment ? referenceChild?.PreviousSibling ?? LastChild : null;
+        if (child is DocumentFragment && incoming.Count != 0)
+        {
+            MutationTracking.QueueChildList(child, null, incoming.Many, null, null);
+        }
+
         for (var i = 0; i < incoming.Count; i++)
         {
             var node = incoming[i];
-            Detach(node);
+            Detach(node, suppressRecord: child is DocumentFragment);
             Adopt(node, destinationDocument);
-            InsertValidated(node, referenceChild);
+            InsertValidated(node, referenceChild, suppressRecord: child is DocumentFragment);
+        }
+
+        if (child is DocumentFragment && incoming.Count != 0)
+        {
+            MutationTracking.QueueChildList(this, incoming.Many, null, fragmentPrevious,
+                referenceChild);
         }
 
         return child;
@@ -120,19 +132,39 @@ public abstract class Node
             Adopt(child, destinationDocument);
         }
 
+        var previous = oldChild.PreviousSibling;
+        while (previous is not null && incoming.Contains(previous))
+        {
+            previous = previous.PreviousSibling;
+        }
+
         var anchor = oldChild.NextSibling;
         while (anchor is not null && incoming.Contains(anchor))
         {
             anchor = anchor.NextSibling;
         }
 
-        Detach(oldChild);
+        Detach(oldChild, suppressRecord: true);
+        if (child is DocumentFragment && incoming.Count != 0)
+        {
+            MutationTracking.QueueChildList(child, null, incoming.Many, null, null);
+        }
+
         for (var i = 0; i < incoming.Count; i++)
         {
             var node = incoming[i];
-            Detach(node);
+            Detach(node, suppressRecord: child is DocumentFragment);
             Adopt(node, destinationDocument);
-            InsertValidated(node, anchor);
+            InsertValidated(node, anchor, suppressRecord: true);
+        }
+
+        if (child is DocumentFragment)
+        {
+            MutationTracking.QueueChildList(this, incoming.Many, new[] { oldChild }, previous, anchor);
+        }
+        else
+        {
+            MutationTracking.QueueChildList(this, child, oldChild, previous, anchor);
         }
 
         return oldChild;
@@ -162,18 +194,49 @@ public abstract class Node
         var incoming = replacement is null ? default : CollectIncoming(replacement);
         ValidateReplacement(incoming);
         var destinationDocument = this as Document ?? _ownerDocument!;
+        var targetMatches = MutationTracking.Match(this, MutationRecordKind.ChildList);
+        List<Node>? removed = null;
+        if (targetMatches is not null && ChildCount != 0)
+        {
+            removed = new List<Node>(ChildCount);
+            for (var current = FirstChild; current is not null; current = current.NextSibling)
+            {
+                removed.Add(current);
+            }
+        }
 
         while (FirstChild is { } child)
         {
-            Detach(child);
+            Detach(child, suppressRecord: true);
+        }
+
+        if (replacement is DocumentFragment && incoming.Count != 0)
+        {
+            MutationTracking.QueueChildList(replacement, null, incoming.Many, null, null);
         }
 
         for (var i = 0; i < incoming.Count; i++)
         {
             var node = incoming[i];
-            Detach(node);
+            Detach(node, suppressRecord: replacement is DocumentFragment);
             Adopt(node, destinationDocument);
-            InsertValidated(node, null);
+            InsertValidated(node, null, suppressRecord: true);
+        }
+
+        if (targetMatches is not null && (incoming.Count != 0 || removed is { Count: > 0 }))
+        {
+            if (replacement is DocumentFragment)
+            {
+                MutationTracking.QueueChildList(this, incoming.Many, removed, null, null, targetMatches);
+            }
+            else if (incoming.Count != 0)
+            {
+                MutationTracking.QueueChildList(this, new[] { incoming[0] }, removed, null, null, targetMatches);
+            }
+            else
+            {
+                MutationTracking.QueueChildList(this, (IReadOnlyList<Node>?) null, removed, null, null, targetMatches);
+            }
         }
     }
 
@@ -350,13 +413,18 @@ public abstract class Node
         }
     }
 
-    private static void Detach(Node node)
+    private static void Detach(Node node, bool suppressRecord = false)
     {
         var parent = node.ParentNode;
         if (parent is null)
         {
             return;
         }
+
+        var previousSibling = node.PreviousSibling;
+        var nextSibling = node.NextSibling;
+        var matches = suppressRecord ? null : MutationTracking.Match(parent, MutationRecordKind.ChildList);
+        MutationTracking.CaptureTransients(parent, node);
 
         if (node.PreviousSibling is { } previous)
         {
@@ -380,6 +448,11 @@ public abstract class Node
         node.ParentNode = null;
         node.PreviousSibling = null;
         node.NextSibling = null;
+        (parent as Document ?? parent._ownerDocument!).MarkMutation();
+        if (!suppressRecord)
+        {
+            MutationTracking.QueueChildList(parent, null, node, previousSibling, nextSibling, matches);
+        }
     }
 
     private void LinkBefore(Node node, Node? referenceChild)
@@ -408,10 +481,15 @@ public abstract class Node
         ChildCount++;
     }
 
-    private void InsertValidated(Node node, Node? referenceChild)
+    private void InsertValidated(Node node, Node? referenceChild, bool suppressRecord = false)
     {
+        var previousSibling = referenceChild?.PreviousSibling ?? LastChild;
         LinkBefore(node, referenceChild);
-        // Native insertion semantics and mutation delivery share this boundary.
+        (this as Document ?? _ownerDocument!).MarkMutation();
+        if (!suppressRecord)
+        {
+            MutationTracking.QueueChildList(this, node, null, previousSibling, referenceChild);
+        }
     }
 
     private static void Adopt(Node node, Document destination)
@@ -435,7 +513,10 @@ public abstract class Node
                 continue;
             }
 
+            var oldDocument = current.Node._ownerDocument;
             current.Node._ownerDocument = current.Owner;
+            oldDocument?.MarkMutation();
+            current.Owner.MarkMutation();
             if (current.Node is Element element)
             {
                 element.AdoptAttributes(current.Owner);
@@ -464,6 +545,7 @@ public abstract class Node
         internal int Count => _many?.Count ?? (_single is null ? 0 : 1);
         internal Node this[int index] => _many is null ? index == 0 ? _single! : throw new ArgumentOutOfRangeException(nameof(index)) : _many[index];
         internal bool Contains(Node node) => _many?.Contains(node) ?? ReferenceEquals(_single, node);
+        internal IReadOnlyList<Node>? Many => _many;
         internal HashSet<Node> ToSet() => _many is null ? [_single!] : new HashSet<Node>(_many);
         internal void InsertInto(List<Node> destination, int index)
         {

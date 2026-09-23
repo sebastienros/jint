@@ -23,7 +23,20 @@ public sealed class Attr
     public string Value
     {
         get => _value;
-        set => _value = value ?? throw new ArgumentNullException(nameof(value));
+        set
+        {
+            ArgumentNullException.ThrowIfNull(value);
+            var owner = OwnerElement;
+            var oldValue = _value;
+            var matches = owner is null ? null : MutationTracking.Match(owner, MutationRecordKind.Attributes,
+                LocalName, NamespaceUri);
+            _value = value;
+            if (owner is not null)
+            {
+                owner.OwnerDocument!.MarkMutation();
+                MutationTracking.QueueAttribute(owner, LocalName, NamespaceUri, oldValue, matches);
+            }
+        }
     }
 
     /// <summary>Creates a detached copy owned by the same document.</summary>

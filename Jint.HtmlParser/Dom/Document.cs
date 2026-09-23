@@ -24,6 +24,7 @@ public sealed class Document : Node
     private IReadOnlyList<XmlSkippedEntity>? _skippedXmlEntities;
     private Document? _templateContentsOwnerDocument;
     private readonly bool _isTemplateContentsOwnerDocument;
+    private ulong _mutationStamp;
 
     public Document(DocumentKind kind) : this(kind, kind == DocumentKind.Html ? "text/html" : "application/xml") { }
 
@@ -57,7 +58,32 @@ public sealed class Document : Node
     public override NodeType NodeType => NodeType.Document;
     public DocumentKind Kind { get; }
     internal DocumentMode Mode { get; private set; }
-    internal void SetParserMode(DocumentMode mode) => Mode = mode;
+    internal void SetParserMode(DocumentMode mode)
+    {
+        if (Mode != mode)
+        {
+            Mode = mode;
+            MarkMutation();
+        }
+    }
+    internal ulong MutationStamp => _mutationStamp;
+    internal void MarkMutation()
+    {
+        if (_mutationStamp != ulong.MaxValue)
+        {
+            _mutationStamp++;
+        }
+    }
+
+    /// <summary>Observes native mutations on a target, including one from another document.</summary>
+#pragma warning disable CA1822 // The instance method is the document's convenience factory.
+    internal MutationSubscription ObserveMutations(Node target, MutationObserverOptions options)
+    {
+        var subscription = new MutationSubscription();
+        subscription.Observe(target, options);
+        return subscription;
+    }
+#pragma warning restore CA1822
     public string ContentType { get; }
     public string CharacterSet { get; } = "UTF-8";
 

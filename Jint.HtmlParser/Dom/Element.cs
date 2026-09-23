@@ -141,11 +141,16 @@ public sealed class Element : Node
         }
         else
         {
+            var oldValue = previous.Value;
+            var matches = MutationTracking.Match(this, MutationRecordKind.Attributes,
+                attribute.LocalName, attribute.NamespaceUri);
             _attributes ??= [];
             _attributes[_attributes.IndexOf(previous)] = attribute;
             previous.OwnerElement = null;
             attribute.OwnerElement = this;
             attribute.OwnerDocument = OwnerDocument!;
+            OwnerDocument!.MarkMutation();
+            MutationTracking.QueueAttribute(this, attribute.LocalName, attribute.NamespaceUri, oldValue, matches);
         }
 
         return previous;
@@ -179,6 +184,8 @@ public sealed class Element : Node
 
         _attributes!.Remove(attribute);
         attribute.OwnerElement = null;
+        OwnerDocument!.MarkMutation();
+        MutationTracking.QueueAttribute(this, attribute.LocalName, attribute.NamespaceUri, attribute.Value);
         return attribute;
     }
 
@@ -312,7 +319,8 @@ public sealed class Element : Node
         _attributes.Add(attribute);
         attribute.OwnerElement = this;
         attribute.OwnerDocument = OwnerDocument!;
-        // Native attribute semantics and mutation delivery share this boundary.
+        OwnerDocument!.MarkMutation();
+        MutationTracking.QueueAttribute(this, attribute.LocalName, attribute.NamespaceUri, null);
     }
 
     private string NormalizeAttributeName(string name)

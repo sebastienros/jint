@@ -17,17 +17,22 @@ public sealed class Text : Node
     private int _parsedLength;
     private string? _cachedParsedData;
 
-    internal Text(Document owner, string data) : base(owner) => Data = data ?? throw new ArgumentNullException(nameof(data));
+    internal Text(Document owner, string data) : base(owner) => _data = data ?? throw new ArgumentNullException(nameof(data));
     public override NodeType NodeType => NodeType.Text;
     public string Data
     {
         get => _parsedStorage is null ? _data : _cachedParsedData ??= new string(_parsedStorage, 0, _parsedLength);
         set
         {
-            _data = value ?? throw new ArgumentNullException(nameof(value));
+            ArgumentNullException.ThrowIfNull(value);
+            var matches = MutationTracking.Match(this, MutationRecordKind.CharacterData);
+            var oldValue = matches?.NeedsOldValue == true ? Data : null;
+            _data = value;
             _parsedStorage = null;
             _parsedLength = 0;
             _cachedParsedData = null;
+            OwnerDocument!.MarkMutation();
+            MutationTracking.QueueCharacterData(this, oldValue, matches);
         }
     }
 
@@ -78,11 +83,15 @@ public sealed class Text : Node
         workCheckpoint?.Invoke(TextAppendCheckpoint.AfterPreparation);
         cancellationToken.ThrowIfCancellationRequested();
 
+        var matches = MutationTracking.Match(this, MutationRecordKind.CharacterData);
+        var oldValue = matches?.NeedsOldValue == true ? Data : null;
+
         _parsedStorage = storage;
         _parsedLength = newLength;
         _data = string.Empty;
         _cachedParsedData = null;
-        // Native character-data semantics and mutation delivery share this commit.
+        OwnerDocument!.MarkMutation();
+        MutationTracking.QueueCharacterData(this, oldValue, matches);
 
         workCheckpoint?.Invoke(TextAppendCheckpoint.AfterCommit);
         cancellationToken.ThrowIfCancellationRequested();
@@ -94,9 +103,21 @@ public sealed class Comment : Node
 {
     private string _data = string.Empty;
 
-    internal Comment(Document owner, string data) : base(owner) => Data = data ?? throw new ArgumentNullException(nameof(data));
+    internal Comment(Document owner, string data) : base(owner) => _data = data ?? throw new ArgumentNullException(nameof(data));
     public override NodeType NodeType => NodeType.Comment;
-    public string Data { get => _data; set => _data = value ?? throw new ArgumentNullException(nameof(value)); }
+    public string Data
+    {
+        get => _data;
+        set
+        {
+            ArgumentNullException.ThrowIfNull(value);
+            var matches = MutationTracking.Match(this, MutationRecordKind.CharacterData);
+            var oldValue = matches?.NeedsOldValue == true ? _data : null;
+            _data = value;
+            OwnerDocument!.MarkMutation();
+            MutationTracking.QueueCharacterData(this, oldValue, matches);
+        }
+    }
 }
 
 /// <summary>An XML CDATA section.</summary>
@@ -104,14 +125,26 @@ public sealed class CDataSection : Node
 {
     private string _data = string.Empty;
 
-    internal CDataSection(Document owner, string data) : base(owner)
+    internal CDataSection(Document owner, string data, bool clone = false) : base(owner)
     {
         ArgumentNullException.ThrowIfNull(data);
-        if (data.Contains("]]>", StringComparison.Ordinal)) throw DomException.InvalidCharacter();
-        Data = data;
+        if (!clone && data.Contains("]]>", StringComparison.Ordinal)) throw DomException.InvalidCharacter();
+        _data = data;
     }
     public override NodeType NodeType => NodeType.CDataSection;
-    public string Data { get => _data; set => _data = value ?? throw new ArgumentNullException(nameof(value)); }
+    public string Data
+    {
+        get => _data;
+        set
+        {
+            ArgumentNullException.ThrowIfNull(value);
+            var matches = MutationTracking.Match(this, MutationRecordKind.CharacterData);
+            var oldValue = matches?.NeedsOldValue == true ? _data : null;
+            _data = value;
+            OwnerDocument!.MarkMutation();
+            MutationTracking.QueueCharacterData(this, oldValue, matches);
+        }
+    }
 }
 
 /// <summary>An XML processing instruction.</summary>
@@ -119,7 +152,7 @@ public sealed class ProcessingInstruction : Node
 {
     private string _data = string.Empty;
 
-    internal ProcessingInstruction(Document owner, string target, string data) : base(owner)
+    internal ProcessingInstruction(Document owner, string target, string data, bool clone = false) : base(owner)
     {
         ArgumentNullException.ThrowIfNull(target);
         // DOM Standard §4.13 uses XML's Name production for PI targets.
@@ -127,13 +160,25 @@ public sealed class ProcessingInstruction : Node
         catch (XmlException) { throw DomException.InvalidCharacter(); }
 
         ArgumentNullException.ThrowIfNull(data);
-        if (data.Contains("?>", StringComparison.Ordinal)) throw DomException.InvalidCharacter();
-        Data = data;
+        if (!clone && data.Contains("?>", StringComparison.Ordinal)) throw DomException.InvalidCharacter();
+        _data = data;
     }
 
     public override NodeType NodeType => NodeType.ProcessingInstruction;
     public string Target { get; }
-    public string Data { get => _data; set => _data = value ?? throw new ArgumentNullException(nameof(value)); }
+    public string Data
+    {
+        get => _data;
+        set
+        {
+            ArgumentNullException.ThrowIfNull(value);
+            var matches = MutationTracking.Match(this, MutationRecordKind.CharacterData);
+            var oldValue = matches?.NeedsOldValue == true ? _data : null;
+            _data = value;
+            OwnerDocument!.MarkMutation();
+            MutationTracking.QueueCharacterData(this, oldValue, matches);
+        }
+    }
 }
 
 /// <summary>A document type declaration.</summary>
