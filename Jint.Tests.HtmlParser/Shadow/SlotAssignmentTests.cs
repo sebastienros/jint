@@ -63,7 +63,7 @@ public class SlotAssignmentTests
         SlotAssignment.AssignedNodes(s1, true, default).Should().ContainSingle().Which.Should().BeSameAs(fallback);
         SlotAssignment.GetAssignedSlot(n).Should().BeSameAs(s1);
         SlotAssignment.Assign(s1, []);
-        SlotAssignment.GetAssignedSlot(n).Should().BeNull();
+        SlotAssignment.GetAssignedSlot(n).Should().BeSameAs(s1);
         SlotAssignment.AssignedNodes(s1, false, default).Should().BeEmpty();
     }
 
@@ -265,5 +265,99 @@ public class SlotAssignmentTests
         root.SlotState.Should().BeSameAs(index);
         SlotAssignment.GetAssignedSlot(child).Should().BeSameAs(late);
         SlotAssignment.AssignedNodes(late, false, default).Should().ContainSingle().Which.Should().BeSameAs(child);
+    }
+
+    [Test]
+    public void ManualTransfersAndNestedFallbackQueriesHaveBoundedWork()
+    {
+        static int Transfer(int count)
+        {
+            var document = Document.CreateHtml();
+            var first = document.CreateElement("slot");
+            var second = document.CreateElement("slot");
+            var nodes = new Node[count];
+            for (var i = 0; i < count; i++)
+            {
+                nodes[i] = document.CreateTextNode("x");
+            }
+
+            SlotAssignment.Assign(first, nodes);
+            return SlotAssignment.AssignMeasured(second, nodes);
+        }
+
+        static int FlattenWork(int count)
+        {
+            var document = Document.CreateHtml();
+            var host = document.CreateElement("div");
+            var root = ShadowTree.Attach(host, new ShadowRootInit(ShadowRootMode.Open), default);
+            var outer = document.CreateElement("slot");
+            outer.SetAttribute("name", "outer");
+            root.AppendChild(outer);
+            var parent = outer;
+            for (var i = 0; i < count; i++)
+            {
+                var light = document.CreateElement("span");
+                light.SetAttribute("slot", "unmatched");
+                host.AppendChild(light);
+                var nested = document.CreateElement("slot");
+                nested.SetAttribute("name", "nested");
+                parent.AppendChild(nested);
+                parent = nested;
+            }
+
+            var leaf = document.CreateTextNode("fallback");
+            parent.AppendChild(leaf);
+            var work = 0;
+            SlotAssignment.AssignedNodes(outer, true, steps => work = steps, default)
+                .Should().ContainSingle().Which.Should().BeSameAs(leaf);
+            return work;
+        }
+
+        var transfer64 = Transfer(64);
+        var transfer128 = Transfer(128);
+        transfer128.Should().BeLessThan(transfer64 * 3);
+        var flatten64 = FlattenWork(64);
+        var flatten128 = FlattenWork(128);
+        flatten128.Should().BeLessThan(flatten64 * 3);
+    }
+
+    [Test]
+    public void ColdIndexAndSnapshotMaterializationPollCancellation()
+    {
+        var document = Document.CreateHtml();
+        var host = document.CreateElement("div");
+        var root = ShadowTree.Attach(host, new ShadowRootInit(ShadowRootMode.Open), default);
+        var slottable = document.CreateElement("span");
+        host.AppendChild(slottable);
+        for (var i = 0; i < 4096; i++)
+        {
+            root.AppendChild(document.CreateElement("div"));
+        }
+
+        // Invalidate only the empty root-local index to exercise its cold path.
+        root.SlotState = null;
+        using var canceledIndex = new CancellationTokenSource();
+        Assert.Throws<OperationCanceledException>(() => SlotAssignment.FindSlot(slottable, false,
+            steps =>
+            {
+                if (steps == 256) canceledIndex.Cancel();
+            }, canceledIndex.Token));
+        root.SlotState.Should().BeNull();
+
+        var slot = document.CreateElement("slot");
+        root.AppendChild(slot);
+        host.AppendChild(document.CreateTextNode("a"));
+        host.AppendChild(document.CreateTextNode("b"));
+        host.AppendChild(document.CreateTextNode("c"));
+        using var canceledSnapshot = new CancellationTokenSource();
+        var finalSteps = 0;
+        Assert.Throws<OperationCanceledException>(() => SlotAssignment.AssignedNodes(slot, false,
+            steps =>
+            {
+                finalSteps = steps;
+                canceledSnapshot.Cancel();
+            }, canceledSnapshot.Token));
+        finalSteps.Should().Be(4);
+        SlotAssignment.AssignedNodes(slot, false, default).Should().HaveCount(4);
     }
 }

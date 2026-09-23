@@ -183,7 +183,8 @@ public sealed class Element : Node
             OwnerDocument!.MarkMutation();
             HtmlFormAssociation.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
                 oldValue, attribute.Value);
-            SlotAssignment.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName);
+            SlotAssignment.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
+                oldValue, attribute.Value);
             MutationTracking.QueueAttribute(this, attribute.LocalName, attribute.NamespaceUri, oldValue, matches);
         }
 
@@ -221,7 +222,8 @@ public sealed class Element : Node
         OwnerDocument!.MarkMutation();
         HtmlFormAssociation.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
             attribute.Value, null);
-        SlotAssignment.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName);
+        SlotAssignment.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
+            attribute.Value, null);
         MutationTracking.QueueAttribute(this, attribute.LocalName, attribute.NamespaceUri, attribute.Value);
         return attribute;
     }
@@ -362,7 +364,8 @@ public sealed class Element : Node
         OwnerDocument!.MarkMutation();
         HtmlFormAssociation.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
             null, attribute.Value);
-        SlotAssignment.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName);
+        SlotAssignment.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
+            null, attribute.Value);
         MutationTracking.QueueAttribute(this, attribute.LocalName, attribute.NamespaceUri, null);
     }
 

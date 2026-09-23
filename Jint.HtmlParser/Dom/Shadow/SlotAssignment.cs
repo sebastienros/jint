@@ -5,9 +5,14 @@ namespace Jint.HtmlParser;
 internal static class SlotAssignment
 {
     internal static Element? FindSlot(Node slottable, bool openOnly, CancellationToken cancellationToken)
+        => FindSlot(slottable, openOnly, null, cancellationToken);
+
+    // Per-query checkpoint is used by deterministic cancellation/work tests.
+    internal static Element? FindSlot(Node slottable, bool openOnly, Action<int>? workCheckpoint,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(slottable);
-        var work = new QueryWork(cancellationToken);
+        var work = new QueryWork(cancellationToken, workCheckpoint);
         if (!IsSlottable(slottable) || slottable.ParentNode is not Element { AttachedShadowRoot: { } root })
         {
             work.Finish();
@@ -33,29 +38,27 @@ internal static class SlotAssignment
 
     internal static IReadOnlyList<Node> AssignedNodes(Element slot, bool flatten,
         CancellationToken cancellationToken)
+        => AssignedNodes(slot, flatten, null, cancellationToken);
+
+    internal static IReadOnlyList<Node> AssignedNodes(Element slot, bool flatten,
+        Action<int>? workCheckpoint, CancellationToken cancellationToken)
     {
         RequireSlot(slot);
-        var work = new QueryWork(cancellationToken);
-        List<Node> result;
-        if (flatten)
-        {
-            result = Flatten(slot, ref work);
-        }
-        else
-        {
-            var assigned = slot.SlotState?.Assigned;
-            result = assigned is null ? [] : Copy(assigned, ref work);
-        }
-
-        work.Finish();
-        return Array.AsReadOnly(result.ToArray());
+        var work = new QueryWork(cancellationToken, workCheckpoint);
+        IReadOnlyList<Node> result = flatten ? Flatten(slot, ref work) :
+            slot.SlotState?.Assigned ?? (IReadOnlyList<Node>) Array.Empty<Node>();
+        return Snapshot(result, ref work);
     }
 
     internal static IReadOnlyList<Element> AssignedElements(Element slot, bool flatten,
         CancellationToken cancellationToken)
+        => AssignedElements(slot, flatten, null, cancellationToken);
+
+    internal static IReadOnlyList<Element> AssignedElements(Element slot, bool flatten,
+        Action<int>? workCheckpoint, CancellationToken cancellationToken)
     {
         RequireSlot(slot);
-        var work = new QueryWork(cancellationToken);
+        var work = new QueryWork(cancellationToken, workCheckpoint);
         var nodes = flatten ? Flatten(slot, ref work) : slot.SlotState?.Assigned;
         var result = new List<Element>();
         if (nodes is not null)
@@ -70,18 +73,23 @@ internal static class SlotAssignment
             }
         }
 
-        work.Finish();
-        return Array.AsReadOnly(result.ToArray());
+        return Snapshot(result, ref work);
     }
 
     // HTML §4.12.4: assign(...nodes). Validation is complete before changing intent.
-    internal static void Assign(Element slot, ReadOnlySpan<Node> nodes)
+    internal static void Assign(Element slot, ReadOnlySpan<Node> nodes) => AssignCore(slot, nodes);
+
+    internal static int AssignMeasured(Element slot, ReadOnlySpan<Node> nodes) => AssignCore(slot, nodes);
+
+    private static int AssignCore(Element slot, ReadOnlySpan<Node> nodes)
     {
         RequireSlot(slot);
+        var work = 0;
         var unique = new List<Node>(nodes.Length);
         var seen = new HashSet<Node>(ReferenceEqualityComparer.Instance);
         foreach (var node in nodes)
         {
+            work++;
             if (node is null || !IsSlottable(node))
             {
                 throw new ArgumentException("Only Element, Text, and CDATA nodes are slottable.", nameof(nodes));
@@ -96,6 +104,7 @@ internal static class SlotAssignment
         var state = slot.SlotState ??= new SlotElementState();
         foreach (var weak in state.Manual)
         {
+            work++;
             if (weak.TryGetTarget(out var old) && ManualTarget(old) == slot)
             {
                 old.ManualSlot = null;
@@ -103,15 +112,32 @@ internal static class SlotAssignment
         }
 
         var manual = new List<WeakReference<Node>>(unique.Count);
+        Dictionary<Element, HashSet<Node>>? removals = null;
         foreach (var node in unique)
         {
+            work++;
             if (ManualTarget(node) is { } previous && !ReferenceEquals(previous, slot))
             {
-                previous.SlotState?.RemoveManual(node);
+                removals ??= new Dictionary<Element, HashSet<Node>>(ReferenceEqualityComparer.Instance);
+                if (!removals.TryGetValue(previous, out var nodesToRemove))
+                {
+                    nodesToRemove = new HashSet<Node>(ReferenceEqualityComparer.Instance);
+                    removals.Add(previous, nodesToRemove);
+                }
+
+                nodesToRemove.Add(node);
             }
 
             node.ManualSlot = new WeakReference<Element>(slot);
             manual.Add(new WeakReference<Node>(node));
+        }
+
+        if (removals is not null)
+        {
+            foreach (var (previous, nodesToRemove) in removals)
+            {
+                work += previous.SlotState?.RemoveManual(nodesToRemove) ?? 0;
+            }
         }
 
         state.Manual = manual;
@@ -119,19 +145,37 @@ internal static class SlotAssignment
         {
             Reassign(root);
         }
+
+        return work;
     }
 
-    internal static void AttributeChanged(Element element, string? namespaceUri, string localName)
+    internal static void AttributeChanged(Element element, string? namespaceUri, string localName,
+        string? oldValue, string? value)
     {
-        if (namespaceUri is not null)
+        if (namespaceUri is not null || StringComparer.Ordinal.Equals(oldValue ?? "", value ?? ""))
         {
             return;
         }
 
-        if (localName == "slot" && element.ParentNode is Element { AttachedShadowRoot: { } hostRoot } &&
-            hostRoot.SlotAssignment == SlotAssignmentMode.Named)
+        if (localName == "slot")
         {
-            Reassign(hostRoot);
+            // DOM §4.2.2.2 first reassigns the stored old slot, then assigns
+            // the newly found slot. The old slot can be stale in another root.
+            if (element.StoredAssignedSlot is { } oldSlot)
+            {
+                ReassignSlot(oldSlot);
+            }
+
+            if (element.ParentNode is Element { AttachedShadowRoot: { } hostRoot } &&
+                hostRoot.SlotAssignment == SlotAssignmentMode.Named)
+            {
+                RefreshHostIndex(hostRoot);
+            }
+
+            if (FindSlot(element, openOnly: false, CancellationToken.None) is { } found)
+            {
+                ReassignSlot(found);
+            }
         }
         else if (localName == "name" && IsSlot(element) && element.TreeShadowRoot is { } root)
         {
@@ -143,12 +187,15 @@ internal static class SlotAssignment
     {
         var oldShadow = oldParent as ShadowRoot ?? oldParent.TreeShadowRoot;
         SetTreeShadowRoot(node, null);
-        if (oldParent is Element { AttachedShadowRoot: { } hostRoot } && IsSlottable(node))
+        if (IsSlottable(node) && node.StoredAssignedSlot is { } oldSlot)
         {
-            if (hostRoot.SlotState is not null)
-            {
-                Reassign(hostRoot);
-            }
+            ReassignSlot(oldSlot);
+        }
+
+        if (oldParent is Element { AttachedShadowRoot: { SlotAssignment: SlotAssignmentMode.Named } namedRoot } &&
+            IsSlottable(node))
+        {
+            RefreshHostIndex(namedRoot);
         }
 
         if (oldShadow is not null && oldParent is Element fallbackSlot && IsSlot(fallbackSlot) &&
@@ -199,8 +246,9 @@ internal static class SlotAssignment
                     node.StoredAssignedSlot = slot;
                 }
             }
-            else
+            else if (root.SlotAssignment == SlotAssignmentMode.Named)
             {
+                RefreshHostIndex(root);
                 Reassign(root);
             }
         }
@@ -221,6 +269,13 @@ internal static class SlotAssignment
         else if (shadow is not null && ContainsSlot(node))
         {
             Rebuild(shadow);
+        }
+        else if (shadow is { SlotAssignment: SlotAssignmentMode.Manual })
+        {
+            // DOM insert step 6 runs for every insertion into a shadow tree,
+            // including ordinary non-slot nodes in a manual root. Named trees
+            // have unchanged host children and slots on this path.
+            Reassign(shadow);
         }
     }
 
@@ -261,7 +316,7 @@ internal static class SlotAssignment
             return ReferenceEquals(manual.TreeShadowRoot, root) ? manual : null;
         }
 
-        var state = EnsureIndex(root);
+        var state = EnsureIndex(root, ref work);
         work.Step();
         return state.FirstByName.TryGetValue(SlottableName(node), out var slot) ? slot : null;
     }
@@ -269,7 +324,16 @@ internal static class SlotAssignment
     private static SlotTreeState EnsureIndex(ShadowRoot root)
         => root.SlotState ??= BuildIndex(root);
 
+    private static SlotTreeState EnsureIndex(ShadowRoot root, ref QueryWork work)
+        => root.SlotState ??= BuildIndex(root, ref work);
+
     private static SlotTreeState BuildIndex(ShadowRoot root)
+    {
+        var work = new QueryWork(CancellationToken.None);
+        return BuildIndex(root, ref work);
+    }
+
+    private static SlotTreeState BuildIndex(ShadowRoot root, ref QueryWork work)
     {
         var state = new SlotTreeState();
         var stack = new Stack<Node>();
@@ -280,6 +344,7 @@ internal static class SlotAssignment
 
         while (stack.TryPop(out var node))
         {
+            work.Step();
             if (node is Element element && IsSlot(element))
             {
                 state.AddSlotAtEnd(element);
@@ -287,6 +352,7 @@ internal static class SlotAssignment
 
             for (var child = node.LastChild; child is not null; child = child.PreviousSibling)
             {
+                work.Step();
                 stack.Push(child);
             }
         }
@@ -327,25 +393,16 @@ internal static class SlotAssignment
 
         if (root.SlotAssignment == SlotAssignmentMode.Named)
         {
-            state.HostByName.Clear();
-            for (var child = root.Host.FirstChild; child is not null; child = child.NextSibling)
+            if (!state.HostIndexInitialized)
             {
-                if (!IsSlottable(child))
-                {
-                    continue;
-                }
+                RefreshHostIndex(root);
+            }
 
-                var name = SlottableName(child);
-                if (!state.HostByName.TryGetValue(name, out var hostNodes))
+            foreach (var (name, slot) in state.FirstByName)
+            {
+                if (state.HostByName.TryGetValue(name, out var hostNodes))
                 {
-                    hostNodes = [];
-                    state.HostByName.Add(name, hostNodes);
-                }
-
-                hostNodes.Add(child);
-                if (state.FirstByName.TryGetValue(name, out var slot))
-                {
-                    next[slot].Add(child);
+                    next[slot].AddRange(hostNodes);
                 }
             }
         }
@@ -366,25 +423,14 @@ internal static class SlotAssignment
 
         foreach (var slot in state.Slots)
         {
-            var assigned = (slot.SlotState ??= new SlotElementState()).Assigned;
-            foreach (var node in assigned)
-            {
-                if (ReferenceEquals(node.StoredAssignedSlot, slot))
-                {
-                    node.StoredAssignedSlot = null;
-                }
-            }
-        }
-
-        foreach (var slot in state.Slots)
-        {
             var nodes = next[slot];
-            if (!SameIdentityList(slot.SlotState!.Assigned, nodes))
+            var slotState = slot.SlotState ??= new SlotElementState();
+            if (!SameIdentityList(slotState.Assigned, nodes))
             {
                 Signal(slot);
             }
 
-            (slot.SlotState ??= new SlotElementState()).Assigned = nodes;
+            slotState.Assigned = nodes;
             foreach (var node in nodes)
             {
                 node.StoredAssignedSlot = slot;
@@ -392,6 +438,104 @@ internal static class SlotAssignment
         }
 
         state.AssignmentsInitialized = true;
+    }
+
+    // DOM §4.2.2.4 assigns one slot without reconciling unrelated slots in the
+    // same or another root. Old slottable pointers are intentionally untouched.
+    private static void ReassignSlot(Element slot)
+    {
+        var next = new List<Node>();
+        if (slot.TreeShadowRoot is { } root)
+        {
+            if (root.SlotAssignment == SlotAssignmentMode.Manual)
+            {
+                foreach (var weak in slot.SlotState?.Manual ?? [])
+                {
+                    if (weak.TryGetTarget(out var node) && ReferenceEquals(node.ParentNode, root.Host) &&
+                        ReferenceEquals(ManualTarget(node), slot))
+                    {
+                        next.Add(node);
+                    }
+                }
+            }
+            else
+            {
+                var first = EnsureIndex(root).FirstByName;
+                for (var child = root.Host.FirstChild; child is not null; child = child.NextSibling)
+                {
+                    if (IsSlottable(child) && first.TryGetValue(SlottableName(child), out var found) &&
+                        ReferenceEquals(found, slot))
+                    {
+                        next.Add(child);
+                    }
+                }
+            }
+        }
+
+        var state = slot.SlotState ??= new SlotElementState();
+        if (!SameIdentityList(state.Assigned, next))
+        {
+            Signal(slot);
+        }
+
+        state.Assigned = next;
+        foreach (var node in next)
+        {
+            node.StoredAssignedSlot = slot;
+        }
+    }
+
+    private static void RefreshHostIndex(ShadowRoot root)
+    {
+        if (root.SlotState is not { } state)
+        {
+            return;
+        }
+
+        state.HostByName.Clear();
+        for (var child = root.Host.FirstChild; child is not null; child = child.NextSibling)
+        {
+            if (!IsSlottable(child))
+            {
+                continue;
+            }
+
+            var name = SlottableName(child);
+            if (!state.HostByName.TryGetValue(name, out var bucket))
+            {
+                bucket = [];
+                state.HostByName.Add(name, bucket);
+            }
+
+            bucket.Add(child);
+        }
+
+        state.HostIndexInitialized = true;
+    }
+
+    private static void RefreshHostIndex(ShadowRoot root, ref QueryWork work)
+    {
+        var state = EnsureIndex(root, ref work);
+        state.HostByName.Clear();
+        for (var child = root.Host.FirstChild; child is not null; child = child.NextSibling)
+        {
+            work.Step();
+            if (!IsSlottable(child))
+            {
+                continue;
+            }
+
+            var name = SlottableName(child);
+            if (!state.HostByName.TryGetValue(name, out var bucket))
+            {
+                bucket = [];
+                state.HostByName.Add(name, bucket);
+            }
+
+            bucket.Add(child);
+        }
+
+        state.HostIndexInitialized = true;
     }
 
     private static void AppendDirectSlot(SlotTreeState state, Element slot)
@@ -444,14 +588,6 @@ internal static class SlotAssignment
         if (assigned.Count != 0)
         {
             Signal(slot);
-        }
-
-        foreach (var node in assigned)
-        {
-            if (ReferenceEquals(node.StoredAssignedSlot, slot))
-            {
-                node.StoredAssignedSlot = null;
-            }
         }
 
         assigned.Clear();
@@ -570,13 +706,22 @@ internal static class SlotAssignment
         }
         else
         {
-            var first = EnsureIndex(root).FirstByName;
-            for (var child = root.Host.FirstChild; child is not null; child = child.NextSibling)
+            var state = EnsureIndex(root, ref work);
+            if (!state.HostIndexInitialized)
             {
-                work.Step();
-                if (IsSlottable(child) && first.TryGetValue(SlottableName(child), out var found) &&
-                    ReferenceEquals(found, slot))
+                // The first query can precede an assignment pass. Build the
+                // root-local host index once without changing stored lists.
+                RefreshHostIndex(root, ref work);
+            }
+
+            if (state.HostIndexInitialized &&
+                state.FirstByName.TryGetValue(SlotName(slot), out var first) &&
+                ReferenceEquals(first, slot) &&
+                state.HostByName.TryGetValue(SlotName(slot), out var bucket))
+            {
+                foreach (var child in bucket)
                 {
+                    work.Step();
                     result.Add(child);
                 }
             }
@@ -597,16 +742,18 @@ internal static class SlotAssignment
         return result;
     }
 
-    private static List<Node> Copy(List<Node> source, ref QueryWork work)
+    private static System.Collections.ObjectModel.ReadOnlyCollection<T> Snapshot<T>(IReadOnlyList<T> source,
+        ref QueryWork work)
     {
-        var copy = new List<Node>(source.Count);
-        foreach (var node in source)
+        var copy = new T[source.Count];
+        for (var i = 0; i < copy.Length; i++)
         {
             work.Step();
-            copy.Add(node);
+            copy[i] = source[i];
         }
 
-        return copy;
+        work.Finish();
+        return Array.AsReadOnly(copy);
     }
 
     private static void SetTreeShadowRoot(Node node, ShadowRoot? root)
@@ -643,11 +790,13 @@ internal static class SlotAssignment
     private struct QueryWork
     {
         private readonly CancellationToken _cancellationToken;
+        private readonly Action<int>? _workCheckpoint;
         private int _steps;
 
-        internal QueryWork(CancellationToken cancellationToken)
+        internal QueryWork(CancellationToken cancellationToken, Action<int>? workCheckpoint = null)
         {
             _cancellationToken = cancellationToken;
+            _workCheckpoint = workCheckpoint;
             _cancellationToken.ThrowIfCancellationRequested();
         }
 
@@ -655,11 +804,20 @@ internal static class SlotAssignment
         {
             if ((++_steps & 255) == 0)
             {
+                _workCheckpoint?.Invoke(_steps);
                 _cancellationToken.ThrowIfCancellationRequested();
             }
         }
 
-        internal void Finish() => _cancellationToken.ThrowIfCancellationRequested();
+        internal void Finish()
+        {
+            if ((_steps & 255) != 0)
+            {
+                _workCheckpoint?.Invoke(_steps);
+            }
+
+            _cancellationToken.ThrowIfCancellationRequested();
+        }
     }
 }
 
@@ -669,6 +827,7 @@ internal sealed class SlotTreeState
     internal Dictionary<string, Element> FirstByName { get; } = new(StringComparer.Ordinal);
     internal Dictionary<string, List<Node>> HostByName { get; } = new(StringComparer.Ordinal);
     internal bool AssignmentsInitialized;
+    internal bool HostIndexInitialized;
     private readonly Dictionary<string, LinkedList<Element>> _slotsByName = new(StringComparer.Ordinal);
     private readonly Dictionary<Element, LinkedListNode<Element>> _treePositions = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<Element, LinkedListNode<Element>> _namePositions = new(ReferenceEqualityComparer.Instance);
@@ -712,14 +871,19 @@ internal sealed class SlotElementState
     internal List<Node> Assigned = [];
     internal List<WeakReference<Node>> Manual = [];
 
-    internal void RemoveManual(Node node)
+    internal int RemoveManual(HashSet<Node> nodes)
     {
-        for (var i = Manual.Count - 1; i >= 0; i--)
+        var retained = new List<WeakReference<Node>>(Manual.Count);
+        foreach (var weak in Manual)
         {
-            if (!Manual[i].TryGetTarget(out var target) || ReferenceEquals(target, node))
+            if (weak.TryGetTarget(out var target) && !nodes.Contains(target))
             {
-                Manual.RemoveAt(i);
+                retained.Add(weak);
             }
         }
+
+        var work = Manual.Count;
+        Manual = retained;
+        return work;
     }
 }

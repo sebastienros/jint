@@ -95,6 +95,103 @@ public class SlotSignalTests
     }
 
     [Test]
+    public void CrossRootStaleAssignmentOnlyReconcilesAtSpecifiedSteps()
+    {
+        var document = Document.CreateHtml();
+        var h1 = document.CreateElement("div");
+        var h2 = document.CreateElement("div");
+        var r1 = ShadowTree.Attach(h1, new ShadowRootInit(ShadowRootMode.Open,
+            SlotAssignment: SlotAssignmentMode.Manual), default);
+        var r2 = ShadowTree.Attach(h2, new ShadowRootInit(ShadowRootMode.Open,
+            SlotAssignment: SlotAssignmentMode.Manual), default);
+        var s1 = document.CreateElement("slot");
+        var s2 = document.CreateElement("slot");
+        r1.AppendChild(s1);
+        r2.AppendChild(s2);
+        var n = document.CreateElement("span");
+        h1.AppendChild(n);
+        SlotAssignment.Assign(s1, [n]);
+        SlotAssignment.Assign(s2, [n]);
+        var signals = new List<Element>();
+        document.SlotChangeSignal = signals.Add;
+
+        s1.SetAttribute("name", "");
+        s1.GetAttributeNode("name")!.Value = "";
+        s1.RemoveAttribute("name");
+        SlotAssignment.AssignedNodes(s1, false, default).Should().ContainSingle().Which.Should().BeSameAs(n);
+        signals.Should().BeEmpty();
+        n.SetAttribute("slot", "");
+        n.GetAttributeNode("slot")!.Value = "";
+        n.RemoveAttribute("slot");
+        SlotAssignment.AssignedNodes(s1, false, default).Should().ContainSingle().Which.Should().BeSameAs(n);
+        signals.Should().BeEmpty();
+        h1.AppendChild(document.CreateElement("b"));
+        SlotAssignment.AssignedNodes(s1, false, default).Should().ContainSingle().Which.Should().BeSameAs(n);
+        signals.Should().BeEmpty();
+
+        n.SetAttribute("slot", "x");
+        SlotAssignment.AssignedNodes(s1, false, default).Should().BeEmpty();
+        SlotAssignment.GetAssignedSlot(n).Should().BeSameAs(s1);
+        signals.Should().ContainSingle().Which.Should().BeSameAs(s1);
+        signals.Clear();
+
+        SlotAssignment.Assign(s1, [n]);
+        SlotAssignment.Assign(s2, [n]);
+        signals.Clear();
+        r1.AppendChild(document.CreateElement("b"));
+        SlotAssignment.AssignedNodes(s1, false, default).Should().BeEmpty();
+        SlotAssignment.GetAssignedSlot(n).Should().BeSameAs(s1);
+        signals.Should().ContainSingle().Which.Should().BeSameAs(s1);
+    }
+
+    [Test]
+    public void NamedSlotAttributeChangeSignalsOldBeforeNew()
+    {
+        var document = Document.CreateHtml();
+        var host = document.CreateElement("div");
+        var root = ShadowTree.Attach(host, new ShadowRootInit(ShadowRootMode.Open), default);
+        var a = document.CreateElement("slot");
+        a.SetAttribute("name", "a");
+        var b = document.CreateElement("slot");
+        b.SetAttribute("name", "b");
+        root.AppendChild(a);
+        root.AppendChild(b);
+        var child = document.CreateElement("span");
+        child.SetAttribute("slot", "b");
+        host.AppendChild(child);
+        var signals = new List<Element>();
+        document.SlotChangeSignal = signals.Add;
+
+        child.SetAttribute("slot", "a");
+        signals.Should().Equal(b, a);
+        SlotAssignment.GetAssignedSlot(child).Should().BeSameAs(a);
+        SlotAssignment.AssignedNodes(b, false, default).Should().BeEmpty();
+        SlotAssignment.AssignedNodes(a, false, default).Should().ContainSingle().Which.Should().BeSameAs(child);
+    }
+
+    [Test]
+    public void DetachedManualIntentIsComputedOnHostInsertionButNotStored()
+    {
+        var document = Document.CreateHtml();
+        var host = document.CreateElement("div");
+        var root = ShadowTree.Attach(host, new ShadowRootInit(ShadowRootMode.Open,
+            SlotAssignment: SlotAssignmentMode.Manual), default);
+        var slot = document.CreateElement("slot");
+        root.AppendChild(slot);
+        var node = document.CreateTextNode("detached");
+        SlotAssignment.Assign(slot, [node]);
+        var signals = new List<Element>();
+        document.SlotChangeSignal = signals.Add;
+
+        host.AppendChild(node);
+        SlotAssignment.FindSlot(node, false, default).Should().BeSameAs(slot);
+        SlotAssignment.AssignedNodes(slot, true, default).Should().ContainSingle().Which.Should().BeSameAs(node);
+        SlotAssignment.AssignedNodes(slot, false, default).Should().BeEmpty();
+        SlotAssignment.GetAssignedSlot(node).Should().BeNull();
+        signals.Should().BeEmpty();
+    }
+
+    [Test]
     public void CloningSignalsOnlyCopiedSlotsInInsertionOrder()
     {
         var document = Document.CreateHtml();
