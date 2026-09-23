@@ -9204,5 +9204,48 @@
     "originalOutputSha256": "24f034c34107994a916121b5ddbb6ef400564cf4861673f440ef35e992e4f24e",
     "outputAlternative": "<doc></doc>",
     "review": "Pinned W3C INPUT f207ef640e0f7f54063461010925fb9f3a2975fd85b2bbaed2c948258208488c, unread external entity 1d7f05ec53de9d2f12ee64a073b30bf01914b072eee2e53f36df2278c72f19c2, original OUTPUT 24f034c34107994a916121b5ddbb6ef400564cf4861673f440ef35e992e4f24e; The internal subset declares external general entity e, but its 014.ent replacement text is unread. The root has no surviving character data. Pinned fetched OUTPUT includes content from the unread external entity. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#valid-ext-sa-012",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "General",
+        "Name": "e3",
+        "PublicId": null,
+        "SystemId": "012.ent",
+        "Offset": 167
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "no-fetch-alternative",
+    "projectionSha256": "37c68dcd09693f0e8a99ada9f25f33fe0d32605b18847739fbe7e1a9ee0d5cd4",
+    "originalOutputSha256": "0fa1d036f5b1a0aaea2fb2660341b8df798b37df513da26c944366482d2ddef6",
+    "outputAlternative": "<doc></doc>",
+    "review": "Pinned W3C INPUT a029dbd3f2a6cb0789d4d235352cb2619d628cb47567b55d6e7a154960c75981, unread external entity 32f13a974afa450e890ed58f71607354f33a315c7d10bacb7ae8b7001165c763, original OUTPUT 0fa1d036f5b1a0aaea2fb2660341b8df798b37df513da26c944366482d2ddef6; The source reference &e1; expands through internal e2 to external e3; with no fetch, e3 contributes no replacement text and the omission retains the original outer-reference offset. Fetched e3 contains &e4;, which expands through internal e5 to the upstream OUTPUT (e5). XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
   }
 ]
