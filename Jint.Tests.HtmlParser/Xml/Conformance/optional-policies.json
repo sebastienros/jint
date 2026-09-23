@@ -273,5 +273,901 @@
       }
     ],
     "review": "Pinned internal declaration <!ENTITY foo SYSTEM \"foo#bar\"> is never referenced. XML §4.2.2 calls a fragment in a system identifier a nonfatal error; this reviewed optional policy accepts, preserves the empty root, and reports no external omission. https://www.w3.org/TR/xml/#sec-external-ent."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#not-wf-not-sa-005",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "005.ent",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "005.ent"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "The undefined %e; exists only in unread 005.ent. No nested Parameter omission is emitted. Existing nonvalidating no-fetch policy; not an arbitrary accept/reject exemption. https://www.w3.org/TR/xml/#proc-types"
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p11pass1",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "Inability to resolve a notation should not be reported as an error",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [
+      {
+        "Name": "not1",
+        "PublicId": null,
+        "SystemId": "a%a&b&#0<!ELEMENT<!--<?</>?>/\\''",
+        "Offset": 115
+      },
+      {
+        "Name": "not2",
+        "PublicId": null,
+        "SystemId": "a\n\tb\"\"\"",
+        "Offset": 175
+      },
+      {
+        "Name": "not3",
+        "PublicId": null,
+        "SystemId": "",
+        "Offset": 211
+      },
+      {
+        "Name": "not4",
+        "PublicId": null,
+        "SystemId": "",
+        "Offset": 239
+      }
+    ],
+    "review": "Quoted SYSTEM text is literal: %, &, &#0 and markup-like substrings are not references. Preserve TAB; normalize CRLF to LF. Empty SYSTEM is present empty, PUBLIC absent null. All four declared notations are retained by the native metadata contract. Explicit optional-error recovery choice: accept and preserve lexical SYSTEM identifiers; no URI validation/resolution/fetch. https://www.w3.org/TR/xml/#proc-types https://www.w3.org/TR/xml/#NT-SystemLiteral https://www.w3.org/TR/xml/#sec-external-ent https://www.w3.org/TR/xml/#Notations https://www.w3.org/TR/xml/#sec-line-ends"
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_invalid.xml#ibm-invalid-P68-ibm68i01.xml",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm68i01.dtd",
+        "Offset": 23
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm68i01.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n  pcdata content\n  ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "a",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [
+          {
+            "Name": "attr1",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "xyz"
+          }
+        ],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "* a invalid test for P68 VC:Entity Declared *",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "0259a806665026c50fa2dbdc8169f3c01cef0d238866f73af33f0aedf1df1539",
+    "review": "The referenced declaration/default defect is confined to unread external material. Literal main-entity text/attributes survive unchanged after EOL handling; no nested skipped occurrence is invented. Main post-root comment remains in projection but is absent from Second Canonical Form. Existing nonvalidating no-fetch policy; not an arbitrary accept/reject exemption. https://www.w3.org/TR/xml/#proc-types https://www.w3.org/TR/xml/#sec-references https://www.w3.org/TR/xml/#include-if-valid"
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_invalid.xml#ibm-invalid-P68-ibm68i02.xml",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm68i02.dtd",
+        "Offset": 23
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm68i02.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n  pcdata content\n  ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "a",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [
+          {
+            "Name": "attr1",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "xyz"
+          }
+        ],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "* a invalid test for P68 VC:Entity Declared *",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "0259a806665026c50fa2dbdc8169f3c01cef0d238866f73af33f0aedf1df1539",
+    "review": "The referenced declaration/default defect is confined to unread external material. Literal main-entity text/attributes survive unchanged after EOL handling; no nested skipped occurrence is invented. Main post-root comment remains in projection but is absent from Second Canonical Form. Existing nonvalidating no-fetch policy; not an arbitrary accept/reject exemption. https://www.w3.org/TR/xml/#proc-types https://www.w3.org/TR/xml/#sec-references https://www.w3.org/TR/xml/#include-if-valid"
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_invalid.xml#ibm-invalid-P68-ibm68i03.xml",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "Parameter",
+        "Name": "pe1",
+        "PublicId": null,
+        "SystemId": "ibm68i03.ent",
+        "Offset": 131
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n  pcdata content\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "* a invalid test for P68 VC:Entity Declared *",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "b571b1b4631f7413c041b27bd3904d740f5c29f0e4462115a0eacd7723dca445",
+    "review": "The referenced declaration/default defect is confined to unread external material. Literal main-entity text/attributes survive unchanged after EOL handling; no nested skipped occurrence is invented. Main post-root comment remains in projection but is absent from Second Canonical Form. Existing nonvalidating no-fetch policy; not an arbitrary accept/reject exemption. https://www.w3.org/TR/xml/#proc-types https://www.w3.org/TR/xml/#sec-references https://www.w3.org/TR/xml/#include-if-valid"
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_invalid.xml#ibm-invalid-P68-ibm68i04.xml",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "Parameter",
+        "Name": "pe1",
+        "PublicId": null,
+        "SystemId": "ibm68i04.ent",
+        "Offset": 131
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n  pcdata content\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "* a invalid test for P68 VC:Entity Declared *",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "b571b1b4631f7413c041b27bd3904d740f5c29f0e4462115a0eacd7723dca445",
+    "review": "The referenced declaration/default defect is confined to unread external material. Literal main-entity text/attributes survive unchanged after EOL handling; no nested skipped occurrence is invented. Main post-root comment remains in projection but is absent from Second Canonical Form. Existing nonvalidating no-fetch policy; not an arbitrary accept/reject exemption. https://www.w3.org/TR/xml/#proc-types https://www.w3.org/TR/xml/#sec-references https://www.w3.org/TR/xml/#include-if-valid"
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_invalid.xml#ibm-invalid-P69-ibm69i01.xml",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm69i01.dtd",
+        "Offset": 23
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm69i01.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n  pcdata content\n  ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "a",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [
+          {
+            "Name": "attr1",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "xyz"
+          }
+        ],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "* a invalid test for P69 VC:Entity Declared *",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "0259a806665026c50fa2dbdc8169f3c01cef0d238866f73af33f0aedf1df1539",
+    "review": "The referenced declaration/default defect is confined to unread external material. Literal main-entity text/attributes survive unchanged after EOL handling; no nested skipped occurrence is invented. Main post-root comment remains in projection but is absent from Second Canonical Form. Existing nonvalidating no-fetch policy; not an arbitrary accept/reject exemption. https://www.w3.org/TR/xml/#proc-types https://www.w3.org/TR/xml/#sec-references https://www.w3.org/TR/xml/#include-if-valid"
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_invalid.xml#ibm-invalid-P69-ibm69i02.xml",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm69i02.dtd",
+        "Offset": 23
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm69i02.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n  pcdata content\n  ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "a",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [
+          {
+            "Name": "attr1",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "xyz"
+          }
+        ],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "* a invalid test for P69 VC:Entity Declared *",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "0259a806665026c50fa2dbdc8169f3c01cef0d238866f73af33f0aedf1df1539",
+    "review": "The referenced declaration/default defect is confined to unread external material. Literal main-entity text/attributes survive unchanged after EOL handling; no nested skipped occurrence is invented. Main post-root comment remains in projection but is absent from Second Canonical Form. Existing nonvalidating no-fetch policy; not an arbitrary accept/reject exemption. https://www.w3.org/TR/xml/#proc-types https://www.w3.org/TR/xml/#sec-references https://www.w3.org/TR/xml/#include-if-valid"
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_invalid.xml#ibm-invalid-P69-ibm69i03.xml",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "Parameter",
+        "Name": "pe1",
+        "PublicId": null,
+        "SystemId": "ibm69i03.ent",
+        "Offset": 131
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n  pcdata content\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "* a invalid test for P69 VC:Entity Declared *",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "b571b1b4631f7413c041b27bd3904d740f5c29f0e4462115a0eacd7723dca445",
+    "review": "The referenced declaration/default defect is confined to unread external material. Literal main-entity text/attributes survive unchanged after EOL handling; no nested skipped occurrence is invented. Main post-root comment remains in projection but is absent from Second Canonical Form. Existing nonvalidating no-fetch policy; not an arbitrary accept/reject exemption. https://www.w3.org/TR/xml/#proc-types https://www.w3.org/TR/xml/#sec-references https://www.w3.org/TR/xml/#include-if-valid"
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_invalid.xml#ibm-invalid-P69-ibm69i04.xml",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "Parameter",
+        "Name": "pe1",
+        "PublicId": null,
+        "SystemId": "ibm69i04.ent",
+        "Offset": 132
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n  pcdata content\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "* a invalid test for P69 VC:Entity Declared *",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "b571b1b4631f7413c041b27bd3904d740f5c29f0e4462115a0eacd7723dca445",
+    "review": "The referenced declaration/default defect is confined to unread external material. Literal main-entity text/attributes survive unchanged after EOL handling; no nested skipped occurrence is invented. Main post-root comment remains in projection but is absent from Second Canonical Form. Existing nonvalidating no-fetch policy; not an arbitrary accept/reject exemption. https://www.w3.org/TR/xml/#proc-types https://www.w3.org/TR/xml/#sec-references https://www.w3.org/TR/xml/#include-if-valid"
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P69-ibm69n05.xml",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "Parameter",
+        "Name": "paaa",
+        "PublicId": null,
+        "SystemId": null,
+        "Offset": 158
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "Production69 carries Entity Declared as VC, not WFC. The forward PE rule is a validity constraint even here. standalone=yes requires processing later read declarations despite this unread PE; neither unused declaration adds an attribute. DTD-internal comment is not a document child. Explicit nonvalidating recovery: accept unresolved forward PE, omit it once and report null identifiers; do not reinterpret its later declaration retroactively. https://www.w3.org/TR/xml/#proc-types https://www.w3.org/TR/xml/#sec-references https://www.w3.org/TR/xml/#as-PE"
+  },
+  {
+    "key": "xmlconf/eduni/errata-4e/errata4e.xml#invalid-bo-7",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "General",
+        "Name": "bomboom",
+        "PublicId": null,
+        "SystemId": "bomboom_be.xml",
+        "Offset": 68
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "The main string is ASCII and well-formed. The external bytes encode an initial BOM followed by U+FFFE; that illegal character is never decoded/included under no-fetch. Emit one General omission and no text node. These are not main-input adapter debts. Existing nonvalidating no-fetch policy; not an arbitrary accept/reject exemption. https://www.w3.org/TR/xml/#proc-types https://www.w3.org/TR/xml/#include-if-valid https://www.w3.org/TR/xml/#charencoding https://www.w3.org/TR/xml/#NT-Char"
+  },
+  {
+    "key": "xmlconf/eduni/errata-4e/errata4e.xml#invalid-bo-8",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "General",
+        "Name": "bomboom",
+        "PublicId": null,
+        "SystemId": "bomboom_le.xml",
+        "Offset": 68
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "The main string is ASCII and well-formed. The external bytes encode an initial BOM followed by U+FFFE; that illegal character is never decoded/included under no-fetch. Emit one General omission and no text node. These are not main-input adapter debts. Existing nonvalidating no-fetch policy; not an arbitrary accept/reject exemption. https://www.w3.org/TR/xml/#proc-types https://www.w3.org/TR/xml/#include-if-valid https://www.w3.org/TR/xml/#charencoding https://www.w3.org/TR/xml/#NT-Char"
+  },
+  {
+    "key": "xmlconf/eduni/errata-4e/errata4e.xml#invalid-bo-9",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "General",
+        "Name": "bomboom8",
+        "PublicId": null,
+        "SystemId": "8bomboom.xml",
+        "Offset": 67
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "The main string is ASCII and well-formed. The external bytes encode an initial BOM followed by U+FFFE; that illegal character is never decoded/included under no-fetch. Emit one General omission and no text node. These are not main-input adapter debts. Existing nonvalidating no-fetch policy; not an arbitrary accept/reject exemption. https://www.w3.org/TR/xml/#proc-types https://www.w3.org/TR/xml/#include-if-valid https://www.w3.org/TR/xml/#charencoding https://www.w3.org/TR/xml/#NT-Char"
   }
 ]

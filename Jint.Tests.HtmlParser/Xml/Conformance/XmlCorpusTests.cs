@@ -305,10 +305,8 @@ public class XmlCorpusTests
         wrongOmission.Kind.Should().Be(XmlOutcomeKind.OptionalPolicyMismatch);
         wrongOmission.Signature.Should().StartWith("skip-count:");
 
-        var unreviewed = XmlCorpus.Case("xmlconf/oasis/oasis.xml#o-p11pass1");
-        var observed = XmlConformanceRunner.Run(unreviewed);
-        observed.Kind.Should().Be(XmlOutcomeKind.OptionalObservedUnreviewed);
-        observed.Detail.Should().Contain("observed=");
+        var newlyReviewed = XmlCorpus.Case("xmlconf/oasis/oasis.xml#o-p11pass1");
+        XmlConformanceRunner.Run(newlyReviewed).Kind.Should().Be(XmlOutcomeKind.OptionalPolicyVerified);
 
         var unsupportedEncoding = XmlCorpus.Case("xmlconf/japanese/japanese.xml#pr-xml-euc-jp");
         var unavailable = XmlConformanceRunner.Run(unsupportedEncoding);
@@ -467,18 +465,30 @@ public class XmlCorpusTests
             XmlExpectations.Reviewed[key].Notations.Should().NotBeNullOrEmpty();
             XmlCorpus.Case(key).OutputPath.Should().NotBeNull();
         }
-        XmlExpectations.OptionalPolicies.Values.Count(item => item.Status == "verified").Should().Be(7);
+        XmlExpectations.OptionalPolicies.Values.Count(item => item.Status == "verified").Should().Be(21);
         foreach (var (key, policy) in XmlExpectations.OptionalPolicies)
         {
             var row = XmlCorpus.Case(key);
             row.Category.Should().Be("error");
             row.Disposition.Should().Be("optional-error-review");
-            row.OutputPath.Should().BeNull();
             policy.Status.Should().Be("verified");
             policy.Outcome.Should().Be("accept");
             policy.Skipped.Should().NotBeNull();
             policy.Projection.Should().NotBeNull();
             policy.Review.Should().NotBeNullOrWhiteSpace();
+            if (row.OutputPath is not null)
+            {
+                policy.OutputPolicy.Should().Be("original-output-after-omission");
+                policy.Skipped.Should().NotBeEmpty();
+                var digest = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(XmlCorpus.Bytes(row.OutputPath)))
+                    .ToLowerInvariant();
+                policy.OriginalOutputSha256.Should().Be(digest);
+            }
+            else
+            {
+                policy.OutputPolicy.Should().BeNull();
+                policy.OriginalOutputSha256.Should().BeNull();
+            }
             if (key.EndsWith("#rmt-e2e-55", StringComparison.Ordinal))
             {
                 policy.Notations.Should().ContainSingle();
