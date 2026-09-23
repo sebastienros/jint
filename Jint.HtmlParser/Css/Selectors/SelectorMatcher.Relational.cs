@@ -42,6 +42,17 @@ internal static partial class SelectorMatcher
         internal Node? Next;
     }
 
+    private sealed class FeaturelessFrame(CompiledSelector program)
+    {
+        internal CompiledSelector Program = program;
+        internal int BranchIndex;
+        internal int PredicateIndex;
+        internal bool InBranch;
+        internal bool Waiting;
+        internal bool HasCompanion;
+        internal bool HasHas;
+    }
+
     private static bool Evaluate(CompiledSelector program, Element element, Node? scope,
         ref Work work, out SelectorSpecificity specificity)
     {
@@ -229,8 +240,10 @@ internal static partial class SelectorMatcher
                     }
                     if (currentPredicate.Kind is PredicateKind.Is or PredicateKind.Where or PredicateKind.Not)
                     {
-                        // A featureless scope only matches selectors that explicitly reach :scope.
-                        if (frame.Node is DocumentFragment && currentPredicate.Kind == PredicateKind.Not)
+                        // Logical combinations can match a featureless scope only
+                        // when an argument selector is itself eligible for it.
+                        if (frame.Node is DocumentFragment &&
+                            !IsFeaturelessEligible(currentPredicate.Arguments!, ref work))
                         {
                             result = false;
                             stack.RemoveAt(stack.Count - 1);
@@ -305,7 +318,7 @@ internal static partial class SelectorMatcher
                         break;
                     }
                     frame.Waiting = true;
-                    stack.Add(new EvaluationFrame(EvaluationKind.Branch, candidate, frame.Node)
+                    stack.Add(new EvaluationFrame(EvaluationKind.Branch, candidate, frame.Scope)
                     {
                         Branch = relative,
                         Anchor = frame.Node,
@@ -403,6 +416,81 @@ internal static partial class SelectorMatcher
             if (predicate.Kind != PredicateKind.Has) return true;
         }
         return false;
+    }
+
+    private static bool IsFeaturelessEligible(CompiledSelector program, ref Work work)
+    {
+        var stack = new List<FeaturelessFrame> { new(program) };
+        var result = false;
+        while (stack.Count != 0)
+        {
+            work.Step();
+            var frame = stack[^1];
+            if (frame.Waiting)
+            {
+                frame.Waiting = false;
+                if (!result)
+                {
+                    frame.InBranch = false;
+                    frame.BranchIndex++;
+                    continue;
+                }
+                frame.HasCompanion = true;
+            }
+            if (!frame.InBranch)
+            {
+                if (frame.BranchIndex == frame.Program.Branches.Count)
+                {
+                    result = false;
+                    stack.RemoveAt(stack.Count - 1);
+                    continue;
+                }
+                var subject = frame.Program.Branches[frame.BranchIndex].Compounds[^1];
+                if (subject.HasExplicitType || subject.Predicates.Count == 0)
+                {
+                    frame.BranchIndex++;
+                    continue;
+                }
+                frame.InBranch = true;
+                frame.PredicateIndex = 0;
+                frame.HasCompanion = false;
+                frame.HasHas = false;
+            }
+            var predicates = frame.Program.Branches[frame.BranchIndex].Compounds[^1].Predicates;
+            if (frame.PredicateIndex == predicates.Count)
+            {
+                if (!frame.HasHas || frame.HasCompanion)
+                {
+                    result = true;
+                    stack.RemoveAt(stack.Count - 1);
+                    continue;
+                }
+                frame.InBranch = false;
+                frame.BranchIndex++;
+                continue;
+            }
+            var predicate = predicates[frame.PredicateIndex++];
+            work.Step();
+            if (predicate.Kind == PredicateKind.Scope)
+            {
+                frame.HasCompanion = true;
+            }
+            else if (predicate.Kind == PredicateKind.Has)
+            {
+                frame.HasHas = true;
+            }
+            else if (predicate.Kind is PredicateKind.Is or PredicateKind.Where or PredicateKind.Not)
+            {
+                frame.Waiting = true;
+                stack.Add(new FeaturelessFrame(predicate.Arguments!));
+            }
+            else
+            {
+                frame.InBranch = false;
+                frame.BranchIndex++;
+            }
+        }
+        return result;
     }
 
     private static Element? NextRelativeCandidate(EvaluationFrame frame, ComplexSelector branch, ref Work work)

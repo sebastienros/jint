@@ -135,6 +135,28 @@ public sealed class SelectorRelationalMatcherTests
     }
 
     [Test]
+    public void RelativeHasPreservesTheCallersScopeSeparatelyFromItsAnchor()
+    {
+        var document = Document.CreateHtml();
+        var ancestor = document.CreateElement("p");
+        var scope = document.CreateElement("c");
+        document.AppendChild(ancestor);
+        ancestor.AppendChild(scope);
+
+        SelectorMatcher.Matches(Parse(":has(> :scope)"), ancestor, scope).Should().BeTrue();
+        SelectorMatcher.Matches(Parse(":has(> :scope)"), ancestor).Should().BeFalse();
+        SelectorMatcher.Closest(Parse(":has(> :scope)"), scope).Should().BeSameAs(ancestor);
+
+        // WPT css/selectors/has-argument-with-explicit-scope.html tests an
+        // ancestor outside query root matching :has(:scope); BSD 3-Clause.
+        var leaf = document.CreateElement("leaf");
+        scope.AppendChild(leaf);
+        ancestor.SetAttribute("class", "a");
+        leaf.SetAttribute("class", "c");
+        SelectorMatcher.QuerySelectorAll(Parse(".a:has(:scope) .c"), scope).Should().Equal(leaf);
+    }
+
+    [Test]
     public void FilteredNthCountsOnlyMatchingSiblingsAndRequiresSubjectToMatch()
     {
         var document = Document.CreateHtml();
@@ -170,6 +192,11 @@ public sealed class SelectorRelationalMatcherTests
         SelectorMatcher.QuerySelectorAll(Parse(":is(:scope) > child"), fragment).Should().Equal(child);
         SelectorMatcher.QuerySelectorAll(Parse(":where(:scope) > child"), fragment).Should().Equal(child);
         SelectorMatcher.QuerySelectorAll(Parse(":not(.x) > child"), fragment).Should().BeEmpty();
+        SelectorMatcher.QuerySelectorAll(Parse(":not(:not(:scope)) > child"), fragment)
+            .Should().Equal(child);
+        SelectorMatcher.QuerySelectorAll(Parse(":is(:not(:not(:scope))) > child"), fragment)
+            .Should().Equal(child);
+        SelectorMatcher.QuerySelectorAll(Parse(":not(:scope) > child"), fragment).Should().BeEmpty();
         SelectorMatcher.QuerySelectorAll(Parse(":scope:has(> child) > child"), fragment)
             .Should().Equal(child);
         SelectorMatcher.QuerySelectorAll(Parse(":has(> child):scope > child"), fragment)
@@ -192,6 +219,18 @@ public sealed class SelectorRelationalMatcherTests
         SelectorMatcher.Matches(program, target).Should().BeFalse();
         target.SetAttribute("class", "x");
         SelectorMatcher.Matches(program, target).Should().BeTrue();
+    }
+
+    [Test]
+    public void DeepFeaturelessNegationEligibilityUsesFrames()
+    {
+        var document = Document.CreateHtml();
+        var fragment = document.CreateDocumentFragment();
+        var child = document.CreateElement("child");
+        fragment.AppendChild(child);
+        var source = ":scope";
+        for (var index = 0; index < 128; index++) source = $":not({source})";
+        SelectorMatcher.QuerySelectorAll(Parse($"{source} > child"), fragment).Should().Equal(child);
     }
 
     [Test]
