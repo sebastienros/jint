@@ -63,6 +63,8 @@ public class HtmlParserCorpusBenchmark
             Console.WriteLine($"{corpusCase}: {benchmark._validatedShape}");
         }
 
+        ParserCorpus.ValidateCountPreservingMutations();
+        Console.WriteLine("Count-preserving HTML, XML and CSS mutations were rejected.");
         return 0;
     }
 }
@@ -120,8 +122,8 @@ internal static class ParserCorpus
         ("html-recovery-large.html", ParserCorpusKind.Html, new(1930, 1157, 128, 4696, 0, 0)),
         ("svg-small.svg", ParserCorpusKind.Xml, new(10, 8, 13, 13, 0, 0)),
         ("svg-large.svg", ParserCorpusKind.Xml, new(965, 578, 1154, 663, 0, 0)),
-        ("xml-small.xml", ParserCorpusKind.Xml, new(11, 6, 6, 16, 0, 0)),
-        ("xml-large.xml", ParserCorpusKind.Xml, new(1539, 769, 1025, 4865, 0, 0)),
+        ("xml-small.xml", ParserCorpusKind.Xml, new(11, 6, 6, 25, 0, 0)),
+        ("xml-large.xml", ParserCorpusKind.Xml, new(1539, 769, 770, 4865, 0, 0)),
         ("css-rules-small.css", ParserCorpusKind.CssRules, new(0, 0, 0, 0, 9, 10)),
         ("css-rules-large.css", ParserCorpusKind.CssRules, new(0, 0, 0, 0, 194, 1152)),
         ("css-declarations-small.css", ParserCorpusKind.CssDeclarations, new(0, 0, 0, 0, 0, 23)),
@@ -153,6 +155,43 @@ internal static class ParserCorpus
 
         ValidateFeatures(corpusCase, result);
         return actual;
+    }
+
+    public static void ValidateCountPreservingMutations()
+    {
+        AssertRejected("html-small.html", "A &amp; B", "Z &amp; B",
+            source => new HtmlParser(new HtmlParserOptions { IsScripting = false }).ParseDocument(source));
+        AssertRejected("xml-small.xml", "<![CDATA[<literal>]]>", "<![CDATA[<Literal>]]>",
+            source => new XmlParser().ParseDocument(source));
+        AssertRejected("css-rules-small.css", "--brand: #123456", "--brand: #654321",
+            source => new CssParser().ParseStyleSheet(source));
+    }
+
+    private static void AssertRejected(string name, string before, string after, Func<string, object> parse)
+    {
+        var original = Cases.Single(corpusCase => corpusCase.Name == name);
+        var changed = original.Source.Replace(before, after, StringComparison.Ordinal);
+        if (changed == original.Source)
+        {
+            throw new InvalidDataException($"{name}: negative probe replacement was not found");
+        }
+
+        var result = parse(changed);
+        if (ShapeOf(result) != original.ExpectedShape)
+        {
+            throw new InvalidDataException($"{name}: negative probe must preserve the pinned shape");
+        }
+
+        try
+        {
+            Validate(original, result);
+        }
+        catch (InvalidDataException)
+        {
+            return;
+        }
+
+        throw new InvalidDataException($"{name}: a count-preserving value change passed validation");
     }
 
     private static void ValidateFeatures(ParserCorpusCase corpusCase, object result)
@@ -202,6 +241,104 @@ internal static class ParserCorpus
             {
                 throw new InvalidDataException("html-recovery.html: table repair probe failed");
             }
+
+            if (corpusCase.Name == "xml-small.xml")
+            {
+                var first = document.QuerySelector("item[id='a']")!;
+                var secondName = document.QuerySelector("item[id='b'] name")!;
+                if (first.QuerySelector("name")?.TextContent != "A & B"
+                    || first.Attributes.FirstOrDefault(attribute => attribute.Name == "m:rank") is not { NamespaceUri: "urn:meta", Value: "1" }
+                    || secondName.FirstChild?.NodeType != DomNodeType.CharacterData
+                    || secondName.TextContent != "<literal>")
+                {
+                    throw new InvalidDataException("xml-small.xml: entity, namespaced attribute or CDATA probe failed");
+                }
+            }
+
+            if (corpusCase.Name == "xml-large.xml")
+            {
+                var last = document.QuerySelector("item[id='item-255']")!;
+                var name = last.QuerySelector("name")?.TextContent;
+                var value = last.QuerySelector("value")?.TextContent;
+                var rank = last.Attributes.FirstOrDefault(attribute => attribute.Name == "m:rank");
+                if (name != "Entry 255 & Co"
+                    || value != "65025"
+                    || rank is not { NamespaceUri: "urn:meta", Value: "255" })
+                {
+                    throw new InvalidDataException($"xml-large.xml: final item probe failed (name={name}, value={value}, rank={rank?.Name}:{rank?.NamespaceUri}:{rank?.Value})");
+                }
+            }
+
+            if (corpusCase.Name == "svg-small.svg")
+            {
+                var use = document.QuerySelector("use")!;
+                if (document.QuerySelector("title")?.TextContent != "Small & sharp"
+                    || use.Attributes.FirstOrDefault(attribute => attribute.Name == "xlink:href") is not
+                        { NamespaceUri: "http://www.w3.org/1999/xlink", Value: "#g" })
+                {
+                    throw new InvalidDataException("svg-small.svg: entity or XLink namespace probe failed");
+                }
+            }
+
+            if (corpusCase.Name == "svg-large.svg")
+            {
+                var last = document.QuerySelector("#layer-191")!;
+                if (last.GetAttribute("transform") != "translate(15 11)" || last.QuerySelector("text")?.TextContent != "191")
+                {
+                    throw new InvalidDataException("svg-large.svg: final group probe failed");
+                }
+            }
+        }
+
+        if (result is ICssStyleSheet sheet)
+        {
+            if (corpusCase.Name == "css-rules-small.css")
+            {
+                var root = sheet.Rules.OfType<ICssStyleRule>().FirstOrDefault(rule => rule.SelectorText == ":root");
+                var media = sheet.Rules.OfType<ICssMediaRule>().FirstOrDefault();
+                var supports = sheet.Rules.OfType<ICssSupportsRule>().FirstOrDefault();
+                var keyframes = sheet.Rules.OfType<ICssKeyframesRule>().FirstOrDefault();
+                if (root?.Style.GetPropertyValue("--brand") != "#123456"
+                    || root.Style.GetPropertyValue("color") != "var(--brand)"
+                    || media?.Rules.OfType<ICssStyleRule>().FirstOrDefault()?.Style.GetPropertyValue("color") is not { Length: > 0 }
+                    || supports?.Rules.OfType<ICssStyleRule>().FirstOrDefault()?.Style.GetPropertyValue("display") != "grid"
+                    || keyframes?.Rules.OfType<ICssKeyframeRule>().Count() != 2
+                    || keyframes.Rules.OfType<ICssKeyframeRule>().Last().Style.GetPropertyValue("opacity") != "1")
+                {
+                    throw new InvalidDataException("css-rules-small.css: custom property, conditional rule or keyframe probe failed");
+                }
+            }
+
+            if (corpusCase.Name == "css-rules-large.css")
+            {
+                var media = sheet.Rules.OfType<ICssMediaRule>().FirstOrDefault();
+                var last = media?.Rules.OfType<ICssStyleRule>().LastOrDefault();
+                if (media?.Rules.OfType<ICssStyleRule>().Count() != 192
+                    || last?.SelectorText?.Contains("#item-191:hover", StringComparison.Ordinal) != true
+                    || last.Style.GetPropertyValue("--index") != "191")
+                {
+                    throw new InvalidDataException("css-rules-large.css: nested rule or final property probe failed");
+                }
+            }
+        }
+
+        if (result is ICssStyleDeclaration declaration)
+        {
+            if (corpusCase.Name == "css-declarations-small.css"
+                && (declaration.GetPropertyValue("--brand") is not { Length: > 0 }
+                    || declaration.GetPropertyValue("background") is not { Length: > 0 }
+                    || declaration.GetPropertyValue("font") is not { Length: > 0 }))
+            {
+                throw new InvalidDataException("css-declarations-small.css: custom property, URL or shorthand probe failed");
+            }
+
+            if (corpusCase.Name == "css-declarations-large.css"
+                && (declaration.GetPropertyValue("--token-255") != "255px"
+                    || declaration.GetPropertyValue("color") is not { Length: > 0 }
+                    || declaration.GetPropertyValue("margin-left") is not { Length: > 0 }))
+            {
+                throw new InvalidDataException("css-declarations-large.css: final declaration probe failed");
+            }
         }
     }
 
@@ -224,7 +361,7 @@ internal static class ParserCorpus
                     attributes += element.Attributes.Length;
                 }
 
-                if (node.NodeType is DomNodeType.Text or DomNodeType.Comment)
+                if (node.NodeType is DomNodeType.Text or DomNodeType.CharacterData or DomNodeType.Comment)
                 {
                     textChars += node.TextContent?.Length ?? 0;
                 }

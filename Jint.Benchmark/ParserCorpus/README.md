@@ -13,7 +13,7 @@ samples a live site or depends on a random seed. The files are copied to the ben
 | `svg-small.svg` | 374 | XML prolog, namespaces, gradient, text and XLink attribute |
 | `svg-large.svg` | 23,205 | 192 groups with paths, transforms and text |
 | `xml-small.xml` | 235 | Default and prefixed namespaces, entities, CDATA and comment |
-| `xml-large.xml` | 31,074 | 256 namespaced catalog items and attributes |
+| `xml-large.xml` | 26,229 | 256 namespaced catalog items and attributes |
 | `css-rules-small.css` | 277 | Layer, media, supports, selectors, custom property and keyframes |
 | `css-rules-large.css` | 20,347 | 192 nested selector rules and declarations |
 | `css-declarations-small.css` | 120 | Shorthands, custom property, color and URL token |
@@ -29,8 +29,10 @@ allocation per operation.
 Run `dotnet run -c Release --project Jint.Benchmark/Jint.Benchmark.csproj --
 --validate-html-parser-corpus` from the repository root to parse all inputs without timing them.
 It compares the resulting tree/rule counts with pinned AngleSharp shapes and checks HTML entities,
-rawtext, template content, namespaces and table repair. The shape includes a template's content
-fragment. These pinned counts detect accidental fixture or baseline changes; they are an
+rawtext, template content, namespaces, table repair, XML CDATA and values, and CSS property values
+inside conditional rules and keyframes. The shape includes a template's content fragment and XML
+CDATA text. Count-preserving value mutations in HTML, XML and CSS must fail validation. These
+pinned counts detect accidental fixture or baseline changes; they are an
 AngleSharp reference, not a standards oracle.
 
 When Jint.HtmlParser has a stable API, add a candidate row to the same benchmark class. Reuse
