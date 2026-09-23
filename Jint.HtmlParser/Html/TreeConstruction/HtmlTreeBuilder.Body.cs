@@ -87,7 +87,7 @@ internal sealed partial class HtmlTreeBuilder
             var li = Last("li");
             if (li >= LastLiStop && li >= 0)
             {
-                GenerateImpliedEndTags("li");
+                if (!TryGenerateImpliedEndTags("li")) return true;
                 if (Current.LocalName != "li") Error("misnested-li-start-tag");
                 SchedulePopTo(li, reprocess: true);
                 return true;
@@ -104,7 +104,7 @@ internal sealed partial class HtmlTreeBuilder
             var target = Math.Max(dd, dt);
             if (target >= LastDdDtStop && target >= 0)
             {
-                GenerateImpliedEndTags(_open[target].LocalName);
+                if (!TryGenerateImpliedEndTags(_open[target].LocalName)) return true;
                 if (!ReferenceEquals(Current, _open[target])) Error("misnested-description-start-tag");
                 SchedulePopTo(target, reprocess: true);
                 return true;
@@ -124,8 +124,8 @@ internal sealed partial class HtmlTreeBuilder
         {
             if (InScope("button"))
             {
+                if (!TryGenerateImpliedEndTags()) return true;
                 Error("nested-button");
-                GenerateImpliedEndTags();
                 SchedulePopTo(Last("button"), reprocess: true);
                 return true;
             }
@@ -145,11 +145,21 @@ internal sealed partial class HtmlTreeBuilder
         }
         if (name == "input")
         {
+            var inspected = false;
+            while (_inputAttributeIndex < _token.Attributes.Count && !_inputTypeFound)
+            {
+                if (_remaining <= 0 && inspected) break;
+                var attribute = _token.Attributes[_inputAttributeIndex++];
+                Charge(1);
+                inspected = true;
+                if (attribute.Name != "type") continue;
+                _inputTypeFound = true;
+                _inputTypeHidden = string.Equals(attribute.Value, "hidden", StringComparison.OrdinalIgnoreCase);
+            }
+            if (_inputAttributeIndex < _token.Attributes.Count && !_inputTypeFound) return true;
+            if (inspected && _remaining <= 0) return true;
             InsertTokenElement(); Pop(); _acknowledgedSelfClosing = true;
-            var hidden = false;
-            foreach (var attribute in _token.Attributes)
-                if (attribute.Name == "type") { hidden = string.Equals(attribute.Value, "hidden", StringComparison.OrdinalIgnoreCase); break; }
-            if (!hidden) _framesetOk = false;
+            if (!_inputTypeHidden) _framesetOk = false;
             return false;
         }
         if (name is "param" or "source" or "track")
@@ -202,7 +212,7 @@ internal sealed partial class HtmlTreeBuilder
         {
             if (InScope("ruby"))
             {
-                GenerateImpliedEndTags(name is "rp" or "rt" ? "rtc" : null);
+                if (!TryGenerateImpliedEndTags(name is "rp" or "rt" ? "rtc" : null)) return true;
                 if (name is "rb" or "rtc" ? Current.LocalName != "ruby" : Current.LocalName is not ("ruby" or "rtc"))
                     Error("misnested-ruby-start-tag");
             }
@@ -231,7 +241,7 @@ internal sealed partial class HtmlTreeBuilder
         if (IsBlockEnd(name) || name == "button")
         {
             if (!InScope(name)) { Error("unexpected-end-tag"); return false; }
-            GenerateImpliedEndTags();
+            if (!TryGenerateImpliedEndTags()) return true;
             if (Current.LocalName != name) Error("misnested-end-tag");
             SchedulePopTo(Last(name), reprocess: false);
             return false;
@@ -239,9 +249,9 @@ internal sealed partial class HtmlTreeBuilder
         if (name == "form")
         {
             var form = _form;
+            if (form is null || !InScope("form")) { _form = null; Error("unexpected-form-end-tag"); return false; }
+            if (!TryGenerateImpliedEndTags()) return true;
             _form = null;
-            if (form is null || !InScope("form")) { Error("unexpected-form-end-tag"); return false; }
-            GenerateImpliedEndTags();
             if (!ReferenceEquals(Current, form)) Error("misnested-form-end-tag");
             RemoveOpenAt(Last("form"));
             return false;
@@ -249,13 +259,13 @@ internal sealed partial class HtmlTreeBuilder
         if (name == "p")
         {
             if (!InButtonScope("p")) { Error("unexpected-p-end-tag"); InsertElement("p"); }
-            CloseP(reprocess: false);
+            if (!CloseP(reprocess: false)) return true;
             return false;
         }
         if (name == "li")
         {
             if (!InListItemScope("li")) { Error("unexpected-li-end-tag"); return false; }
-            GenerateImpliedEndTags("li");
+            if (!TryGenerateImpliedEndTags("li")) return true;
             if (Current.LocalName != "li") Error("misnested-li-end-tag");
             SchedulePopTo(Last("li"), reprocess: false);
             return false;
@@ -263,7 +273,7 @@ internal sealed partial class HtmlTreeBuilder
         if (name is "dd" or "dt")
         {
             if (!InScope(name)) { Error("unexpected-end-tag"); return false; }
-            GenerateImpliedEndTags(name);
+            if (!TryGenerateImpliedEndTags(name)) return true;
             if (Current.LocalName != name) Error("misnested-end-tag");
             SchedulePopTo(Last(name), reprocess: false);
             return false;
@@ -273,16 +283,20 @@ internal sealed partial class HtmlTreeBuilder
             var index = -1;
             for (var i = 1; i <= 6; i++) index = Math.Max(index, Last("h" + i));
             if (index < 0) { Error("unexpected-heading-end-tag"); return false; }
-            GenerateImpliedEndTags();
+            if (!TryGenerateImpliedEndTags()) return true;
             if (Current.LocalName != name) Error("misnested-heading-end-tag");
             SchedulePopTo(index, reprocess: false);
             return false;
         }
-        if (IsFormatting(name) || name is "applet" or "marquee" or "object")
+        if (IsFormatting(name))
         {
             Missing(HtmlMissingFeature.Formatting); return false;
         }
-        if (name == "select") { Missing(HtmlMissingFeature.Select); return false; }
+        if (name is "applet" or "marquee" or "object")
+        {
+            Error("unexpected-end-tag"); return false;
+        }
+        if (name is "select" or "option" or "optgroup") { Missing(HtmlMissingFeature.Select); return false; }
         if (name == "br")
         {
             Error("unexpected-br-end-tag");
@@ -295,7 +309,7 @@ internal sealed partial class HtmlTreeBuilder
             Error("unexpected-end-tag");
             return false;
         }
-        GenerateImpliedEndTags(name);
+        if (!TryGenerateImpliedEndTags(name)) return true;
         if (Current.LocalName != name) Error("misnested-end-tag");
         SchedulePopTo(target, reprocess: false);
         return false;
@@ -303,23 +317,19 @@ internal sealed partial class HtmlTreeBuilder
 
     private void RemoveOpenAt(int index)
     {
+        if (index == _open.Count - 1)
+        {
+            Pop();
+            return;
+        }
         if (!AllowedOpenAtEof(_open[index].LocalName)) _unexpectedOpenCount--;
         _open.RemoveAt(index);
+        Charge(1);
         _nameIndexes.Clear();
         _specialIndexes.Clear();
         _liStops.Clear();
         _ddDtStops.Clear();
-        for (var i = 0; i < _open.Count; i++)
-        {
-            if ((i & 4095) == 0) _cancellationToken.ThrowIfCancellationRequested();
-            var name = _open[i].LocalName;
-            if (!_nameIndexes.TryGetValue(name, out var indexes)) _nameIndexes[name] = indexes = [];
-            indexes.Add(i);
-            if (IsSpecial(name)) _specialIndexes.Add(i);
-            if (IsSpecial(name) && name is not ("address" or "div" or "p" or "li")) _liStops.Add(i);
-            if (IsSpecial(name) && name is not ("address" or "div" or "p" or "dd" or "dt")) _ddDtStops.Add(i);
-            Charge(1);
-        }
+        _pendingRebuildIndex = 0;
     }
 
     private static bool IsFormatting(string name) => name is "a" or "b" or "big" or "code" or "em" or

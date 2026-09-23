@@ -84,6 +84,26 @@ public class HtmlTreeSessionTests
     }
 
     [Test]
+    public void CharacterReferenceCarriageReturnUsesWhitespaceRulesInEarlyModes()
+    {
+        var initial = Document.CreateHtml();
+        var first = new HtmlParserSession(initial);
+        first.AppendInput("&#13;A", isFinal: true);
+        HtmlParseStep result;
+        do { result = first.Drive(100, CancellationToken.None); } while (result.Kind == HtmlParseStepKind.Yielded);
+        result.Kind.Should().Be(HtmlParseStepKind.Complete);
+        ((Text) initial.DocumentElement!.LastChild!.FirstChild!).Data.Should().Be("A");
+
+        var afterHead = Document.CreateHtml();
+        var second = new HtmlParserSession(afterHead);
+        second.AppendInput("<html><head></head>&#13;<frameset>", isFinal: true);
+        do { result = second.Drive(100, CancellationToken.None); } while (result.Kind == HtmlParseStepKind.Yielded);
+        result.Kind.Should().Be(HtmlParseStepKind.MissingFeature);
+        result.MissingFeature.Should().Be(HtmlMissingFeature.Framesets);
+        ((Text) afterHead.DocumentElement!.LastChild!).Data.Should().Be("\r");
+    }
+
+    [Test]
     public void NewlineIgnoreConsumesOnlyTheFirstFollowingLf()
     {
         foreach (var tag in new[] { "pre", "listing", "textarea" })
@@ -128,6 +148,94 @@ public class HtmlTreeSessionTests
     }
 
     [Test]
+    public void ImpliedEndTagsYieldWithinQuotaOne()
+    {
+        const int depth = 512;
+        var source = "<div>" + string.Concat(Enumerable.Repeat("<rb>", depth)) + "</div>X";
+        var document = Document.CreateHtml();
+        var session = new HtmlParserSession(document);
+        session.AppendInput(source, isFinal: true);
+        HtmlParseStep step;
+        var turns = 0;
+        do
+        {
+            var before = session.WorkCount;
+            step = session.Drive(1, CancellationToken.None);
+            (session.WorkCount - before).Should().BeLessThan(64);
+            if (++turns > source.Length * 20) throw new InvalidOperationException("Implied-end recovery stalled.");
+        } while (step.Kind == HtmlParseStepKind.Yielded);
+        step.Kind.Should().Be(HtmlParseStepKind.Complete);
+        var body = document.DocumentElement!.LastChild!;
+        ((Element) body.FirstChild!).LocalName.Should().Be("div");
+        ((Text) body.LastChild!).Data.Should().Be("X");
+    }
+
+    [Test]
+    public void MiddleFormRemovalRebuildsIndexesAcrossQuotaOneDrives()
+    {
+        const int depth = 512;
+        var source = "<form>" + string.Concat(Enumerable.Repeat("<x>", depth)) + "</form>tail";
+        var document = Document.CreateHtml();
+        var session = new HtmlParserSession(document);
+        session.AppendInput(source, isFinal: true);
+        HtmlParseStep step;
+        var turns = 0;
+        do
+        {
+            var before = session.WorkCount;
+            step = session.Drive(1, CancellationToken.None);
+            (session.WorkCount - before).Should().BeLessThan(64);
+            if (++turns > source.Length * 20) throw new InvalidOperationException("Form-index rebuild stalled.");
+        } while (step.Kind == HtmlParseStepKind.Yielded);
+        step.Kind.Should().Be(HtmlParseStepKind.Complete);
+        var current = document.DocumentElement!.LastChild!.FirstChild!;
+        for (var i = 0; i < depth; i++) current = current.FirstChild!;
+        ((Text) current.FirstChild!).Data.Should().Be("tail");
+    }
+
+    [Test]
+    public void InputTypeScanResumesAndRetainsHiddenFramesetState()
+    {
+        const int attributes = 512;
+        var source = "<input " + string.Concat(Enumerable.Range(0, attributes).Select(i => "a" + i + "=x ")) +
+                     "type=hidden><frameset>";
+        var document = Document.CreateHtml();
+        var session = new HtmlParserSession(document);
+        session.AppendInput(source, isFinal: true);
+        HtmlParseStep step;
+        var turns = 0;
+        do
+        {
+            step = session.Drive(1, CancellationToken.None);
+            if (++turns > source.Length * 20) throw new InvalidOperationException("Input attribute scan stalled.");
+        } while (step.Kind == HtmlParseStepKind.Yielded);
+        step.Kind.Should().Be(HtmlParseStepKind.MissingFeature);
+        step.MissingFeature.Should().Be(HtmlMissingFeature.Framesets);
+        ((Element) document.DocumentElement!.LastChild!.FirstChild!).AttributeCount.Should().Be(attributes + 1);
+    }
+
+    [Test]
+    public void AttributePreparationYieldsBeforePublishingTheElement()
+    {
+        const int count = 512;
+        var attributes = Enumerable.Range(0, count).Select(i => new HtmlAttribute("a" + i, "value")).ToArray();
+        var document = Document.CreateHtml();
+        var builder = new HtmlTreeBuilder(document, new HtmlTokenizer(new HtmlTokenizerContext()),
+            maxDepth: 0, scriptingEnabled: false, diagnostics: null, context: default);
+        builder.SetToken(new HtmlToken(HtmlTokenKind.StartTag, name: "html", attributes: attributes));
+
+        for (var i = 0; i < count; i++)
+        {
+            var before = builder.WorkCount;
+            builder.Process(1, CancellationToken.None).Kind.Should().Be(HtmlParseStepKind.Yielded);
+            document.FirstChild.Should().BeNull();
+            (builder.WorkCount - before).Should().Be(1 + attributes[i].Name.Length + attributes[i].Value.Length);
+        }
+        while (builder.HasToken) builder.Process(1, CancellationToken.None);
+        document.DocumentElement!.AttributeCount.Should().Be(count);
+    }
+
+    [Test]
     public void UnobservedTextWorkGrowsLinearly()
     {
         static long Count(int length)
@@ -145,6 +253,25 @@ public class HtmlTreeSessionTests
         }
         var small = Count(16_384);
         var large = Count(32_768);
+        large.Should().BeLessThan(small * 3);
+    }
+
+    [Test]
+    public void RepeatedTopFormRemovalDoesNotRescanDeepStack()
+    {
+        static long Count(int count)
+        {
+            var source = string.Concat(Enumerable.Repeat("<x>", count)) +
+                         string.Concat(Enumerable.Repeat("<form></form>", count));
+            var session = new HtmlParserSession(Document.CreateHtml());
+            session.AppendInput(source, isFinal: true);
+            HtmlParseStep step;
+            do { step = session.Drive(1000, CancellationToken.None); } while (step.Kind == HtmlParseStepKind.Yielded);
+            step.Kind.Should().Be(HtmlParseStepKind.Complete);
+            return session.WorkCount;
+        }
+        var small = Count(512);
+        var large = Count(1024);
         large.Should().BeLessThan(small * 3);
     }
 

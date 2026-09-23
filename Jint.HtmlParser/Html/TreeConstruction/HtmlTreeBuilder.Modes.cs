@@ -149,7 +149,6 @@ internal sealed partial class HtmlTreeBuilder
             if (name == "frameset") { Missing(HtmlMissingFeature.Framesets); return false; }
             if (name is "base" or "basefont" or "bgsound" or "link" or "meta" or "noframes" or "script" or "style" or "template" or "title")
             {
-                if (name == "template") { Missing(HtmlMissingFeature.Templates); return false; }
                 Error("head-content-after-head");
                 CheckDepth(1); // The temporary head entry counts toward the open-stack bound.
                 _temporaryHeadDepth = 1;

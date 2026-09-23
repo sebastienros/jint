@@ -37,6 +37,12 @@ internal sealed partial class HtmlTreeBuilder
     private HtmlMissingFeature? _missing;
     private int _pendingPopTarget = -1;
     private bool _reprocessAfterPop;
+    private int _pendingRebuildIndex = -1;
+    private int _inputAttributeIndex;
+    private bool _inputTypeFound;
+    private bool _inputTypeHidden;
+    private ParserAttribute[]? _preparedAttributes;
+    private int _preparedAttributeIndex;
     private long _work;
     private CancellationToken _cancellationToken;
     private long _remaining;
@@ -62,6 +68,11 @@ internal sealed partial class HtmlTreeBuilder
         _hasToken = true;
         _textIndex = 0;
         _acknowledgedSelfClosing = false;
+        _inputAttributeIndex = 0;
+        _inputTypeFound = false;
+        _inputTypeHidden = false;
+        _preparedAttributes = null;
+        _preparedAttributeIndex = 0;
     }
 
     internal HtmlParseStep Process(long quota, CancellationToken cancellationToken)
@@ -78,12 +89,28 @@ internal sealed partial class HtmlTreeBuilder
             return new HtmlParseStep(HtmlParseStepKind.Yielded);
         }
 
+        if (_token.Kind == HtmlTokenKind.StartTag && _token.Attributes.Count > 0 && !PrepareTokenAttributes())
+            return new HtmlParseStep(HtmlParseStepKind.Yielded);
+
         _ignoreNextLf = false;
 
         // Reprocessing changes the insertion mode without asking the tokenizer
         // for another token. The chain is bounded by the finite mode inventory.
         for (var pass = 0; pass < 12; pass++)
         {
+            if (_pendingRebuildIndex >= 0)
+            {
+                while (_pendingRebuildIndex < _open.Count && _remaining > 0)
+                {
+                    AddIndexes(_open[_pendingRebuildIndex], _pendingRebuildIndex);
+                    _pendingRebuildIndex++;
+                    Charge(1);
+                }
+                if (_pendingRebuildIndex < _open.Count) return new HtmlParseStep(HtmlParseStepKind.Yielded);
+                _pendingRebuildIndex = -1;
+                FinishToken();
+                return new HtmlParseStep(HtmlParseStepKind.Yielded);
+            }
             if (_pendingPopTarget >= 0)
             {
                 while (_open.Count > _pendingPopTarget && _remaining > 0) Pop();
@@ -103,6 +130,7 @@ internal sealed partial class HtmlTreeBuilder
             var reprocess = Dispatch(_mode);
             if (_missing is { } family)
                 return new HtmlParseStep(HtmlParseStepKind.MissingFeature, family, _token.Offset);
+            if (_pendingRebuildIndex >= 0) continue;
             if (_pendingPopTarget >= 0) continue;
             if (!reprocess)
             {
@@ -157,49 +185,52 @@ internal sealed partial class HtmlTreeBuilder
     private Element Current => _open.Count != 0 ? _open[^1] : throw new InvalidOperationException("No open element.");
     private Node CurrentParent => _open.Count == 0 ? _document : Current;
 
-    private Element InsertElement(string name, IReadOnlyList<HtmlAttribute>? attributes = null, Node? parentOverride = null)
+    private Element InsertElement(string name, ParserAttribute[]? attributes = null, Node? parentOverride = null)
     {
         CheckDepth();
         var parent = parentOverride ?? _headInsertionOverride ?? CurrentParent;
         var owner = parent as Document ?? parent.OwnerDocument!;
         var element = owner.CreateParsedElement(Namespaces.Html, name, null);
-        if (attributes is { Count: > 0 })
-        {
-            var prepared = PrepareAttributes(attributes);
-            element.InitializeParsedAttributes(prepared, _cancellationToken);
-        }
+        if (attributes is { Length: > 0 }) element.InitializeParsedAttributes(attributes, _cancellationToken);
         parent.AppendParsedChild(element);
         Push(element);
         return element;
     }
 
-    private Element InsertTokenElement(Node? parentOverride = null) => InsertElement(_token.Name!, _token.Attributes, parentOverride);
+    private Element InsertTokenElement(Node? parentOverride = null) => InsertElement(_token.Name!, _preparedAttributes, parentOverride);
 
-    private ParserAttribute[] PrepareAttributes(IReadOnlyList<HtmlAttribute> attributes)
+    private bool PrepareTokenAttributes()
     {
-        var result = new ParserAttribute[attributes.Count];
-        for (var i = 0; i < result.Length; i++)
+        var attributes = _token.Attributes;
+        _preparedAttributes ??= new ParserAttribute[attributes.Count];
+        while (_preparedAttributeIndex < attributes.Count && _remaining > 0)
         {
-            if ((i & 4095) == 0) _cancellationToken.ThrowIfCancellationRequested();
-            var item = attributes[i];
-            result[i] = new ParserAttribute(null, item.Name, null, item.Value);
+            var item = attributes[_preparedAttributeIndex];
+            _preparedAttributes[_preparedAttributeIndex++] = new ParserAttribute(null, item.Name, null, item.Value);
             Charge(1L + item.Name.Length + item.Value.Length);
         }
-        return result;
+        return _preparedAttributeIndex == attributes.Count;
     }
 
     private void MergeAttributes(Element target)
     {
         if (_token.Attributes.Count == 0) return;
-        var prepared = PrepareAttributes(_token.Attributes);
-        target.AddMissingParsedAttributes(prepared, _cancellationToken);
-        Charge(prepared.Length);
+        var existing = target.AttributeCount;
+        target.AddMissingParsedAttributes(_preparedAttributes!, _cancellationToken);
+        Charge(existing + _preparedAttributes!.Length);
     }
 
     private void Push(Element element)
     {
         var index = _open.Count;
         _open.Add(element);
+        AddIndexes(element, index);
+        if (!AllowedOpenAtEof(element.LocalName)) _unexpectedOpenCount++;
+        Charge(1);
+    }
+
+    private void AddIndexes(Element element, int index)
+    {
         if (!_nameIndexes.TryGetValue(element.LocalName, out var indexes))
             _nameIndexes[element.LocalName] = indexes = [];
         indexes.Add(index);
@@ -208,8 +239,6 @@ internal sealed partial class HtmlTreeBuilder
             _liStops.Add(index);
         if (IsSpecial(element.LocalName) && element.LocalName is not ("address" or "div" or "p" or "dd" or "dt"))
             _ddDtStops.Add(index);
-        if (!AllowedOpenAtEof(element.LocalName)) _unexpectedOpenCount++;
-        Charge(1);
     }
 
     private Element Pop()
@@ -243,16 +272,26 @@ internal sealed partial class HtmlTreeBuilder
     private bool InButtonScope(string name) => Last(name) >= 0 && Last(name) > Math.Max(Last("html"), name == "button" ? -1 : Last("button"));
     private bool InListItemScope(string name) => Last(name) >= 0 && Last(name) > Math.Max(Last("html"), Math.Max(Last("ol"), Last("ul")));
 
-    private void GenerateImpliedEndTags(string? except = null)
+    private bool TryGenerateImpliedEndTags(string? except = null)
     {
-        while (_open.Count > 0 && Current.LocalName != except && IsImpliedEndTag(Current.LocalName)) Pop();
+        var popped = false;
+        while (_open.Count > 0 && Current.LocalName != except && IsImpliedEndTag(Current.LocalName))
+        {
+            // Dispatch itself costs one unit. Permit one pop when quota is one
+            // so resuming this token always advances the explicit stack cursor.
+            if (_remaining <= 0 && popped) return false;
+            Pop();
+            popped = true;
+        }
+        return true;
     }
 
-    private void CloseP(bool reprocess)
+    private bool CloseP(bool reprocess)
     {
-        GenerateImpliedEndTags("p");
+        if (!TryGenerateImpliedEndTags("p")) return false;
         if (Current.LocalName != "p") Error("misnested-p-end-tag");
         SchedulePopTo(Last("p"), reprocess);
+        return true;
     }
 
     private void InsertComment(Node? parent = null)
@@ -295,7 +334,7 @@ internal sealed partial class HtmlTreeBuilder
         _mode = Mode.Text;
     }
 
-    private static bool White(char c) => c is '\t' or '\n' or '\f' or ' ';
+    private static bool White(char c) => c is '\t' or '\n' or '\f' or '\r' or ' ';
     private static bool IsHeading(string name) => name is "h1" or "h2" or "h3" or "h4" or "h5" or "h6";
     private static bool IsImpliedEndTag(string name) => name is "dd" or "dt" or "li" or "optgroup" or "option" or "p" or "rb" or "rp" or "rt" or "rtc";
     private static bool AllowedOpenAtEof(string name) => name is "dd" or "dt" or "li" or "optgroup" or
