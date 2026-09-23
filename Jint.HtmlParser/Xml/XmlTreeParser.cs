@@ -261,7 +261,7 @@ internal sealed partial class XmlTreeParser
         }
 
         ConsumeLiteral("?>", start);
-        Parent.AppendParsedChild(CurrentDocument.CreateProcessingInstruction(target, data));
+        Parent.AppendParsedChild(CurrentDocument.CreateParsedProcessingInstruction(target, data));
     }
 
     private void ParseStartTag()
