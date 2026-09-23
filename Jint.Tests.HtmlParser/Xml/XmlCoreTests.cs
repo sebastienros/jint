@@ -56,7 +56,11 @@ public class XmlCoreTests
     [TestCase("<a x='1' x='2'/>", "xml/duplicate-attribute")]
     [TestCase("<a xmlns:p='urn:x' xmlns:q='urn:x' p:v='1' q:v='2'/>", "xml/duplicate-attribute")]
     [TestCase("<p:a/>", "xml/namespace-error")]
+    [TestCase("<a xmlns:p='urn:x'><p:1/></a>", "xml/namespace-error")]
+    [TestCase("<a xmlns:p='urn:x' p:\u0301='v'/>", "xml/namespace-error")]
+    [TestCase("<a xmlns:1='urn:x'/>", "xml/namespace-error")]
     [TestCase("<a xmlns:xml='urn:wrong'/>", "xml/namespace-error")]
+    [TestCase("<?p:q?><r/>", "xml/namespace-error")]
     [TestCase("<a>&missing;</a>", "xml/undeclared-entity")]
     [TestCase("<a>&#0;</a>", "xml/invalid-character")]
     [TestCase("<a><![CDATA[x]]>y]]></a>", "xml/invalid-markup")]
@@ -129,5 +133,27 @@ public class XmlCoreTests
         document.DocumentElement.Attributes.Single().LocalName.Should().Be("\U00010000attr");
         XmlTreeParser.ParseDocument("<?xml-stylesheet href='x'?><r/>", ParseLimits.Unbounded, default)
             .FirstChild.Should().BeOfType<ProcessingInstruction>();
+    }
+
+    [Test]
+    public void FragmentCanContainTopLevelCData()
+    {
+        var document = Document.CreateXml();
+        var context = document.CreateElement("context");
+        var fragment = XmlTreeParser.ParseFragment("<![CDATA[x]]><child/>", context, ParseLimits.Unbounded, default);
+        fragment.FirstChild.Should().BeOfType<CDataSection>().Which.Data.Should().Be("x");
+        fragment.LastChild.Should().BeOfType<Element>().Which.LocalName.Should().Be("child");
+    }
+
+    [Test]
+    public void NamespaceShadowingRestoresBindingsForSiblings()
+    {
+        var root = XmlTreeParser.ParseDocument(
+            "<r xmlns='urn:a' xmlns:p='urn:one'><p:first xmlns:p='urn:two'><p:inner/></p:first><p:second/><plain/></r>",
+            ParseLimits.Unbounded, default).DocumentElement!;
+        var first = (Element) root.FirstChild!;
+        ((Element) first.FirstChild!).NamespaceUri.Should().Be("urn:two");
+        ((Element) first.NextSibling!).NamespaceUri.Should().Be("urn:one");
+        ((Element) root.LastChild!).NamespaceUri.Should().Be("urn:a");
     }
 }

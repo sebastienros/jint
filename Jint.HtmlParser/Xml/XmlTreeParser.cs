@@ -14,6 +14,10 @@ internal sealed class XmlTreeParser
     private readonly DocumentFragment? _fragment;
     private readonly Element? _context;
     private readonly Stack<ElementFrame> _frames = new();
+    private readonly Dictionary<string, string?> _bindings = new(StringComparer.Ordinal)
+    {
+        ["xml"] = Namespaces.Xml
+    };
     private int _position;
     private int _work;
     private bool _seenRoot;
@@ -27,6 +31,16 @@ internal sealed class XmlTreeParser
         _context = context;
         _document = context?.OwnerDocument ?? Document.CreateXml();
         _fragment = context is null ? null : _document.CreateDocumentFragment();
+        for (var ancestor = context; ancestor is not null; ancestor = ancestor.ParentNode as Element)
+        {
+            foreach (var attribute in ancestor.Attributes)
+            {
+                if (attribute.Name == "xmlns") _bindings.TryAdd(string.Empty, EmptyToNull(attribute.Value));
+                else if (attribute.Prefix == "xmlns") _bindings.TryAdd(attribute.LocalName, EmptyToNull(attribute.Value));
+            }
+            if (ancestor.Prefix is null) _bindings.TryAdd(string.Empty, ancestor.NamespaceUri);
+            else _bindings.TryAdd(ancestor.Prefix, ancestor.NamespaceUri);
+        }
         cancellationToken.ThrowIfCancellationRequested();
         if (limits.MaxInputCharacters != 0 && source.Length > limits.MaxInputCharacters)
         {
@@ -151,7 +165,7 @@ internal sealed class XmlTreeParser
     private void ParseCData()
     {
         var start = _position;
-        if (_frames.Count == 0) Error("xml/invalid-document", start);
+        if (_frames.Count == 0 && _context is null) Error("xml/invalid-document", start);
         ConsumeLiteral("<![CDATA[", start);
         var contentStart = _position;
         while (true)
@@ -175,6 +189,7 @@ internal sealed class XmlTreeParser
         var start = _position;
         ConsumeLiteral("<?", start);
         var target = ReadName(start);
+        if (target.Contains(':')) Error("xml/namespace-error", start);
         if (target.Equals("xml", StringComparison.OrdinalIgnoreCase)) Error("xml/invalid-declaration", start);
         string data;
         if (StartsWith("?>")) data = string.Empty;
@@ -212,6 +227,7 @@ internal sealed class XmlTreeParser
             throw new ParseLimitException(ParseLimitKind.NestingDepth, _limits.MaxNestingDepth, depth);
 
         var attributes = new List<RawAttribute>();
+        var rawNames = new HashSet<string>(StringComparer.Ordinal);
         var localBindings = new Dictionary<string, string?>(StringComparer.Ordinal);
         bool empty;
         while (true)
@@ -239,10 +255,7 @@ internal sealed class XmlTreeParser
             SkipWhitespace(start);
             var value = ReadAttributeValue(start);
             CheckToken(start);
-            foreach (var previous in attributes)
-            {
-                if (previous.Name == attributeName) Error("xml/duplicate-attribute", attributeOffset);
-            }
+            if (!rawNames.Add(attributeName)) Error("xml/duplicate-attribute", attributeOffset);
             attributes.Add(new RawAttribute(attributeName, value, attributeOffset));
 
             if (attributeName == "xmlns" || attributeName.StartsWith("xmlns:", StringComparison.Ordinal))
@@ -269,7 +282,17 @@ internal sealed class XmlTreeParser
         }
 
         Parent.AppendChild(element);
-        if (!empty) _frames.Push(new ElementFrame(element, name, localBindings));
+        if (!empty)
+        {
+            var previousBindings = new Dictionary<string, BindingUndo>(localBindings.Count, StringComparer.Ordinal);
+            foreach (var (prefix, uri) in localBindings)
+            {
+                previousBindings.Add(prefix, _bindings.TryGetValue(prefix, out var previous)
+                    ? new BindingUndo(true, previous) : new BindingUndo(false, null));
+                _bindings[prefix] = uri;
+            }
+            _frames.Push(new ElementFrame(element, name, previousBindings));
+        }
     }
 
     private void ParseEndTag()
@@ -283,7 +306,12 @@ internal sealed class XmlTreeParser
         CheckToken(start);
         if (_frames.Count == 0 || _frames.Peek().QualifiedName != name)
             Error("xml/mismatched-end-tag", start);
-        _frames.Pop();
+        var frame = _frames.Pop();
+        foreach (var (prefix, previous) in frame.PreviousBindings)
+        {
+            if (previous.Exists) _bindings[prefix] = previous.Value;
+            else _bindings.Remove(prefix);
+        }
     }
 
     private void ParseText()
@@ -306,6 +334,7 @@ internal sealed class XmlTreeParser
         {
             foreach (var character in builder.ToString())
             {
+                WorkUnit();
                 if (!IsWhitespace(character)) Error("xml/invalid-document", start);
             }
         }
@@ -424,6 +453,23 @@ internal sealed class XmlTreeParser
         if (colon < 0) return;
         if (colon == 0 || colon == name.Length - 1 || name.IndexOf(':', colon + 1) >= 0)
             Error("xml/namespace-error", offset);
+        if (!IsNcName(name.AsSpan(0, colon)) || !IsNcName(name.AsSpan(colon + 1)))
+            Error("xml/namespace-error", offset);
+    }
+
+    private static bool IsNcName(ReadOnlySpan<char> value)
+    {
+        if (value.IsEmpty) return false;
+        var first = char.IsHighSurrogate(value[0]) && value.Length > 1 && char.IsLowSurrogate(value[1])
+            ? char.ConvertToUtf32(value[0], value[1]) : value[0];
+        if (first == ':' || !IsNameStart(first)) return false;
+        for (var i = first > 0xFFFF ? 2 : 1; i < value.Length; i++)
+        {
+            var scalar = char.IsHighSurrogate(value[i]) && i + 1 < value.Length && char.IsLowSurrogate(value[i + 1])
+                ? char.ConvertToUtf32(value[i], value[++i]) : value[i];
+            if (scalar == ':' || !IsNameChar(scalar)) return false;
+        }
+        return true;
     }
 
     private static (string? Prefix, string LocalName) SplitName(string name)
@@ -445,25 +491,10 @@ internal sealed class XmlTreeParser
     private string? Resolve(string prefix, Dictionary<string, string?> local)
     {
         if (local.TryGetValue(prefix, out var uri)) return uri;
-        foreach (var frame in _frames)
-        {
-            if (frame.Bindings.TryGetValue(prefix, out uri)) return uri;
-        }
-        for (var ancestor = _context; ancestor is not null; ancestor = ancestor.ParentNode as Element)
-        {
-            foreach (var attribute in ancestor.Attributes)
-            {
-                if (prefix.Length == 0 && attribute.Name == "xmlns" ||
-                    prefix.Length != 0 && attribute.Prefix == "xmlns" && attribute.LocalName == prefix)
-                    return attribute.Value.Length == 0 ? null : attribute.Value;
-            }
-            if (prefix.Length == 0 && ancestor.Prefix is null)
-                return ancestor.NamespaceUri;
-            if (prefix.Length != 0 && ancestor.Prefix == prefix)
-                return ancestor.NamespaceUri;
-        }
-        return prefix == "xml" ? Namespaces.Xml : null;
+        return _bindings.TryGetValue(prefix, out uri) ? uri : null;
     }
+
+    private static string? EmptyToNull(string value) => value.Length == 0 ? null : value;
 
     private Node Parent => _frames.Count == 0 ? (Node?) _fragment ?? _document : _frames.Peek().Element;
     private bool End => _position >= _source.Length;
@@ -541,9 +572,13 @@ internal sealed class XmlTreeParser
         }
         else
         {
-            builder.Append(char.ConvertFromUtf32(scalar));
+            builder.Append(Current);
             Consume();
-            if (scalar > 0xFFFF) Consume();
+            if (scalar > 0xFFFF)
+            {
+                builder.Append(Current);
+                Consume();
+            }
         }
     }
 
@@ -614,5 +649,6 @@ internal sealed class XmlTreeParser
     private static void Error(string code, int offset) => throw new MarkupParseException(code, offset);
 
     private readonly record struct RawAttribute(string Name, string Value, int Offset);
-    private sealed record ElementFrame(Element Element, string QualifiedName, Dictionary<string, string?> Bindings);
+    private sealed record ElementFrame(Element Element, string QualifiedName, Dictionary<string, BindingUndo> PreviousBindings);
+    private readonly record struct BindingUndo(bool Exists, string? Value);
 }
