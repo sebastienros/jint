@@ -24,10 +24,15 @@ internal static class HtmlFormState
     }
 
     internal static IReadOnlyList<Element> SnapshotAssociatedElements(Element form, CancellationToken cancellationToken)
-        => Snapshot(form, listedOnly: false, cancellationToken);
+        => Snapshot(form, listedOnly: false, null, cancellationToken);
+
+    // Per-call checkpoint exercises cancellation during the root ascent in tests.
+    internal static IReadOnlyList<Element> SnapshotAssociatedElements(Element form,
+        Action<int>? rootWorkCheckpoint, CancellationToken cancellationToken)
+        => Snapshot(form, listedOnly: false, rootWorkCheckpoint, cancellationToken);
 
     internal static IReadOnlyList<Element> SnapshotFormControls(Element form, CancellationToken cancellationToken)
-        => Snapshot(form, listedOnly: true, cancellationToken);
+        => Snapshot(form, listedOnly: true, null, cancellationToken);
 
     internal static IReadOnlyList<Element> SnapshotFieldsetControls(Element fieldset, CancellationToken cancellationToken)
     {
@@ -51,10 +56,10 @@ internal static class HtmlFormState
         => HtmlFormAssociation.AssociateFromParser(element, form);
 
     private static System.Collections.ObjectModel.ReadOnlyCollection<Element> Snapshot(Element form, bool listedOnly,
-        CancellationToken cancellationToken)
+        Action<int>? rootWorkCheckpoint, CancellationToken cancellationToken)
     {
         RequireElement(form, "form");
-        var root = HtmlFormAssociation.OrdinaryRoot(form);
+        var root = HtmlFormAssociation.OrdinaryRoot(form, rootWorkCheckpoint, cancellationToken);
         var result = new List<Element>();
         if (root is Element rootElement)
         {

@@ -4,12 +4,34 @@ namespace Jint.HtmlParser;
 internal static class HtmlFormAssociation
 {
     internal static Node OrdinaryRoot(Node node)
+        => OrdinaryRoot(node, null, default);
+
+    internal static Node OrdinaryRoot(Node node, Action<int>? checkpoint,
+        CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(node);
+        cancellationToken.ThrowIfCancellationRequested();
+        var steps = 1;
         while (node.ParentNode is { } parent)
         {
             node = parent;
+            steps++;
+            if ((steps & 255) == 0)
+            {
+                checkpoint?.Invoke(steps);
+                cancellationToken.ThrowIfCancellationRequested();
+            }
         }
 
+        if (node.FormWorkProbe is { } probe)
+        {
+            for (var i = 0; i < steps; i++)
+            {
+                probe.Visit();
+            }
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
         return node;
     }
 
@@ -85,6 +107,11 @@ internal static class HtmlFormAssociation
         }
         else if (localName == "id")
         {
+            if (element.OwnerDocument?.HasFormIndex != true)
+            {
+                return;
+            }
+
             var index = OrdinaryRoot(element).FormIndex;
             if (index is null)
             {
@@ -102,14 +129,20 @@ internal static class HtmlFormAssociation
 
     internal static FormRemoval BeforeRemoval(Node node, Node parent)
     {
-        var index = OrdinaryRoot(parent).FormIndex;
+        if (!MayAffectForms(node) || node.OwnerDocument?.HasFormIndex != true)
+        {
+            return new FormRemoval(null, null, node.OwnerDocument?.FormWorkProbe);
+        }
+
+        var root = OrdinaryRoot(parent);
+        var index = root.FormIndex;
         if (index is null)
         {
-            return default;
+            return new FormRemoval(null, null, root.FormWorkProbe);
         }
 
         List<string>? ids = null;
-        foreach (var element in OrdinaryElements(node))
+        foreach (var element in OrdinaryElements(node, root.FormWorkProbe))
         {
             if (element.GetAttributeNodeNS(null, "id")?.Value is { Length: > 0 } id)
             {
@@ -119,7 +152,7 @@ internal static class HtmlFormAssociation
             index.Remove(element);
         }
 
-        return new FormRemoval(index, ids);
+        return new FormRemoval(index, ids, root.FormWorkProbe);
     }
 
     internal static void Removed(Node node, FormRemoval removal)
@@ -128,7 +161,7 @@ internal static class HtmlFormAssociation
         // when a form and its control leave together in the same ordinary tree.
         if (MayContainAssociated(node))
         {
-            foreach (var element in ShadowIncludingAssociated(node))
+            foreach (var element in ShadowIncludingAssociated(node, removal.Probe))
             {
                 var owner = element.FormAssociationState?.Owner;
                 if (owner is not null && !ReferenceEquals(OrdinaryRoot(element), OrdinaryRoot(owner)))
@@ -149,6 +182,11 @@ internal static class HtmlFormAssociation
 
     internal static void Inserted(Node node)
     {
+        if (!MayAffectForms(node))
+        {
+            return;
+        }
+
         var root = OrdinaryRoot(node);
         if (!ReferenceEquals(root, node))
         {
@@ -161,7 +199,7 @@ internal static class HtmlFormAssociation
         List<string>? ids = null;
         if (index is not null)
         {
-            foreach (var element in OrdinaryElements(node))
+            foreach (var element in OrdinaryElements(node, root.FormWorkProbe))
             {
                 index.Add(element);
                 if (element.GetAttributeNodeNS(null, "id")?.Value is { Length: > 0 } id)
@@ -173,7 +211,7 @@ internal static class HtmlFormAssociation
 
         if (MayContainAssociated(node))
         {
-            foreach (var element in ShadowIncludingAssociated(node))
+            foreach (var element in ShadowIncludingAssociated(node, root.FormWorkProbe))
             {
                 element.WasInserted = true;
                 if (element.FormAssociationState?.ParserInserted != true)
@@ -209,6 +247,10 @@ internal static class HtmlFormAssociation
         => node.FirstChild is not null || node is Element element &&
             (HtmlFormState.IsFormAssociated(element) || element.AttachedShadowRoot is not null);
 
+    private static bool MayAffectForms(Node node)
+        => MayContainAssociated(node) || node is Element element &&
+            element.GetAttributeNodeNS(null, "id") is not null;
+
     private static void ResetReferences(HtmlFormIndex index, string? id)
     {
         if (string.IsNullOrEmpty(id))
@@ -222,25 +264,28 @@ internal static class HtmlFormAssociation
         }
     }
 
-    private static IEnumerable<Element> OrdinaryElements(Node node)
+    private static IEnumerable<Element> OrdinaryElements(Node node, HtmlFormWorkProbe? probe)
     {
         if (node is Element root)
         {
+            probe?.Visit();
             yield return root;
         }
 
         foreach (var element in NodeTraversal.DescendantElements(node, default))
         {
+            probe?.Visit();
             yield return element;
         }
     }
 
-    private static IEnumerable<Element> ShadowIncludingAssociated(Node node)
+    private static IEnumerable<Element> ShadowIncludingAssociated(Node node, HtmlFormWorkProbe? probe)
     {
         var pending = new Stack<Node>();
         pending.Push(node);
         while (pending.TryPop(out var current))
         {
+            probe?.Visit();
             if (current is Element element)
             {
                 if (HtmlFormState.IsFormAssociated(element))
@@ -262,4 +307,5 @@ internal static class HtmlFormAssociation
     }
 }
 
-internal readonly record struct FormRemoval(HtmlFormIndex? Index, List<string>? Ids);
+internal readonly record struct FormRemoval(HtmlFormIndex? Index, List<string>? Ids,
+    HtmlFormWorkProbe? Probe);

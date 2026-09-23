@@ -19,6 +19,7 @@ public abstract partial class Node
 {
     private Document? _ownerDocument;
     internal HtmlFormIndex? FormIndex;
+    internal HtmlFormWorkProbe? FormWorkProbe;
 
     internal Node(Document? ownerDocument) => _ownerDocument = ownerDocument;
 
