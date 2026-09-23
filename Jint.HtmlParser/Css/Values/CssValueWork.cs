@@ -25,7 +25,7 @@ internal sealed class CssValueWork
         while (utf16Units > 0)
         {
             var available = 4096 - _sinceCheck;
-            var charged = Math.Min(available, utf16Units);
+            var charged = System.Math.Min(available, utf16Units);
             _sinceCheck += charged;
             utf16Units -= charged;
             if (_sinceCheck == 4096)

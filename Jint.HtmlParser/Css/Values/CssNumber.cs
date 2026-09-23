@@ -129,7 +129,7 @@ internal readonly struct CssNumber
 
         var left = _firstSignificant;
         var right = other._firstSignificant;
-        var maximum = Math.Max(_significantCount, other._significantCount);
+        var maximum = System.Math.Max(_significantCount, other._significantCount);
         for (var i = 0; i < maximum; i++)
         {
             var a = i < _significantCount ? NextDigit(_spelling, ref left) : '0';
@@ -157,7 +157,7 @@ internal readonly struct CssNumber
             if (other._exponentSign == 0) return _exponentSign * ReadExponentMagnitude(work);
             var left = ReadExponentMagnitude(work);
             var right = other.ReadExponentMagnitude(work);
-            return _exponentSign * Math.Min(ExponentDifferenceLimit, left + right);
+            return _exponentSign * System.Math.Min(ExponentDifferenceLimit, left + right);
         }
         if (_exponentSign == 0) return 0;
 
@@ -186,7 +186,7 @@ internal readonly struct CssNumber
         {
             work.Charge(1);
             var digit = _spelling![_exponentStart + i] - '0';
-            result = Math.Min(ExponentDifferenceLimit, result * 10 + digit);
+            result = System.Math.Min(ExponentDifferenceLimit, result * 10 + digit);
         }
         return result;
     }
@@ -205,8 +205,8 @@ internal readonly struct CssNumber
             var digit = a - b - borrow;
             borrow = digit < 0 ? 1 : 0;
             if (digit < 0) digit += 10;
-            if (digit != 0) difference = Math.Min(ExponentDifferenceLimit, difference + place * digit);
-            place = Math.Min(ExponentDifferenceLimit, place * 10);
+            if (digit != 0) difference = System.Math.Min(ExponentDifferenceLimit, difference + place * digit);
+            place = System.Math.Min(ExponentDifferenceLimit, place * 10);
             work.Charge(2);
         }
         return difference;
