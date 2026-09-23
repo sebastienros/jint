@@ -16,7 +16,7 @@ the earlier repository direction to retain AngleSharp.
 - User cleanup rule: archive tasks and remove their worktrees after review, integration and
   successful common-worktree checks. Retain interrupted/failed tasks until unfinished work is
   recovered. Keep task history and Git branches; use managed archive cleanup and verify removal.
-  Twenty-nine completed tasks have now been archived; their worktrees are gone.
+  Thirty-two completed tasks have now been archived; their worktrees are gone.
   Patch equivalence, clean local state and stopped-task status were checked before removal.
   Earlier worktrees already removed by Codex remain represented by their integrated commits.
 
@@ -44,7 +44,7 @@ the earlier repository direction to retain AngleSharp.
 | H5a HTML table structure | `01a0cf80-d939-7a72-829a-859771c547f0` | Reviewed fixes integrated; archived, worktree removed |
 | H5b HTML table text and foster insertion | `01a0cf9d-4989-78a3-9ec5-3302a335a8bc` | Reviewed implementation and diagnostic correction integrated; archived, worktree removed |
 | H6a active formatting reconstruction | `01a0cfba-939d-7c52-9867-dc86e37f5b0d` | Reviewed fixes integrated and tested; archived, worktree removed |
-| H6b adoption agency | `01a0cfd9-5ae3-7db1-bb26-d25650617b85` | Implementation under Astra review; exclusive tree-builder owner |
+| H6b adoption agency | `01a0cfd9-5ae3-7db1-bb26-d25650617b85` | Reviewed corrections integrated and tested; archived, worktree removed |
 | H5b native fresh insertion prerequisite | `01a0cfa5-4d54-73d1-9e18-3f263463a87c` | Reviewed implementation integrated; archived, worktree removed |
 | D5 native mutation tracking | `01a0cf62-1c76-7411-ae32-d5d6beee5915` | Reviewed mutation and PI corrections integrated; archived, worktree removed |
 | XML conformance corpus and harness | `01a0cf6e-aa5f-7631-af1b-03f6136013a1` | Full harness integrated; remaining policy/output debt fails visibly |
@@ -59,8 +59,9 @@ the earlier repository direction to retain AngleSharp.
 | D6r1 native boundary/static-range primitives | `01a0cfd7-4a2d-76e3-a72b-4af81516af7f` | Reviewed fixes integrated and tested; archived, worktree removed |
 | X4b1 native attribute provenance | `01a0cfeb-6ebe-7261-844c-93d84fb517eb` | Reviewed and integrated; common checks pass; archived, worktree removed |
 | X3a serialization kernels | `01a0cfe9-8708-7943-9168-25178627af9b` | Reviewed correction integrated; common checks pass; archived, worktree removed |
-| C2d2 column selector matching | `01a0cfe9-f30f-71e2-84e1-272257d4bc26` | Implementation finishing; stale unsupported-column test migration authorized |
-| D7a2 disabledness and select ancestry | `01a0cfec-967a-7be0-a9d9-d40f474e52a1` | Attribute-scan cancellation correction pending after review |
+| C2d2 column selector matching | `01a0cfe9-f30f-71e2-84e1-272257d4bc26` | Reviewed corrections integrated and tested; archived, worktree removed |
+| D7a2 disabledness and select ancestry | `01a0cfec-967a-7be0-a9d9-d40f474e52a1` | Reviewed cancellation correction integrated and tested; archived, worktree removed |
+| D7b1a input-type classifier | `01a0cffb-5f42-7ac0-9c50-3dc022442df9` | Implementation committed; independent Astra review pending |
 
 The XML conformance gate inventories all 2,585 pinned W3C rows with explicit profile
 classifications and separate output assertions. Current execution results and remaining debt are below.
@@ -493,3 +494,29 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   X3b XML namespace-aware walker is dispatched in a separate Sol worktree.
 - H6b's additive performance correction `bde7cb0fb` is under independent re-review. The exact
   middle-stack and absent-formatting-subject regression shapes are required complexity gates.
+
+## Current checkpoint
+
+- `83e4fd32b`, `c76e1e0b8`: reviewed adoption agency and additive work correction. Independent
+  checks covered 5,000 malformed cases and quota equivalence; the finalized task was archived and
+  its clean, patch-equivalent worktree removed after common tests.
+- `1c384b1ae`, `266f7da54`: reviewed disabledness/select ancestry and attribute-scan cancellation.
+  Combined common non-corpus suite passed 2,246/2,246 across net8/net10 with no skips. Evidence:
+  `/private/tmp/jint-adoption-disabledness-integrated.log`. Task archived and worktree removed.
+- `8568661cc`, `9801d1f44`: reviewed column combinators, column pseudo-classes and relational
+  matching, with mutation/cancellation coverage. Independent review exercised 40,000 mixed selector
+  chains. Common non-corpus tests passed 2,272/2,272 across both frameworks, no skips; evidence:
+  `/private/tmp/jint-column-selectors-integrated.log`. Task archived and worktree removal verified.
+- `c6bda2615`, `093bbeb98`: actual optional XML OUTPUT comparisons and fourteen exact policies.
+  Common corpus-only run: 4,000 total, 3,586 passed, 414 failed, no skips. Per framework: 1,747
+  conformance passes, 200 unresolved required cases, six optional adapter debts, 21 verified optional
+  policies, zero policy mismatches; OUTPUT 271 compared and 115 pending. These failures remain
+  visible and this is not a full-suite pass. Evidence: `/private/tmp/jint-xml-optional14-integrated.log`.
+- `4519520b0`: reviewed stepped CSS math follow-up contract; separate Sol implementation dispatched.
+- `6dec61a2d`: explicit parsed PUBLIC normalization contract, independently reviewed against XML
+  Infoset; lexical source evidence remains unchanged. OUTPUT9 and separate provenance tests await
+  independent review and common integration.
+- Dedicated Sol worktrees are active for XML ID typing, slot assignment/signals, the XML serializer,
+  select parsing, stepped CSS math, input classification and tokenizer context controls. Their tasks
+  and worktrees remain until their own review, integration and common checks finish. No benchmark
+  timings or speedup claims have been produced; Browser migration and full conformance remain open.
