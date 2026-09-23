@@ -27,13 +27,14 @@ the earlier repository direction to retain AngleSharp.
 | A2 shared limits/diagnostics/errors and API snapshots | `01a0cf2c-ab5e-7023-95ab-1ab3a4fc8d77` | Reviewed and integrated |
 | D3a native cloning and import | `01a0cf34-dc42-75d0-960e-735bef6eb68a` | Reviewed and integrated |
 | XML shared contracts and provenance | `01a0cf2c-ab5e-7023-95ab-1ab3a4fc8d77` | Reviewed and integrated |
-| X1 native XML/SVG parsing | `01a0cf3f-9380-7513-a351-4078c30d2241` | Core integrated; DTD fixes and facade under review |
+| X1 native XML/SVG parsing | `01a0cf3f-9380-7513-a351-4078c30d2241` | Reviewed facade/DTD fixes integrated; full corpus acceptance pending |
 | Native metadata, adoption and templates | `01a0cf47-2a27-7163-8f4e-951fbe9999f5` | Reviewed and integrated, including H4 prerequisites |
 | D4a iterative native traversal | `01a0cf51-0a0a-7753-8235-126166e1484c` | Reviewed and integrated, including template boundaries |
 | C2a selector compiler | `01a0cf57-a964-7922-9f56-3c568a0e51f1` | Under Astra review |
 | H4 HTML tree construction | `01a0cf5a-9eed-7913-bcb4-e019fbbb5e8c` | Review corrections in progress |
-| D5 native mutation tracking | `01a0cf62-1c76-7411-ae32-d5d6beee5915` | Review corrections; owns native mutation paths |
+| D5 native mutation tracking | `01a0cf62-1c76-7411-ae32-d5d6beee5915` | Reviewed corrections integrated; native ownership retained for fixes |
 | XML conformance corpus and harness | `01a0cf6e-aa5f-7631-af1b-03f6136013a1` | Reviewed full-corpus plan integrated; implementation in progress |
+| Packed public XML and mutation consumer | `01a0cf2c-ab5e-7023-95ab-1ab3a4fc8d77` | Verification in progress |
 
 The XML conformance gate inventories all 2,585 pinned W3C rows with explicit profile
 classifications and separate output assertions. No corpus execution result is claimed yet.
@@ -93,6 +94,10 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
 - With owned appendable Text storage and cancellation-atomic parser appends, 672
   tests pass across both frameworks, zero failures/skips. This is functional and
   structural validation, not a measured speedup against AngleSharp.
+- The integrated XML/SVG facade, reviewed DTD and fragment namespace fixes, and
+  native mutation subscriptions pass 844 tests across both frameworks, zero
+  failures/skips. Compiled public API snapshots add exactly the three XML/SVG
+  entry points. Full W3C corpus acceptance and Browser migration remain pending.
 
 ## Integrated commits
 
@@ -167,3 +172,10 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   and a corrected final gate requiring zero pending eligible output assertions.
 - `e1ca3d670`, `1c5471849`: reviewed CSSOM, C1 list/block prerequisite and full
   property/rule grammar handoff (source `3f4cbe893`, `b42bd9d9d`).
+- `0ba9f5cf7`, `08fdc86e8`, `8d6ec41d7`, `225022c11`, `73bec95dc`: XML DTD,
+  public XML/SVG/fragments, template coverage and reviewed entity, namespace,
+  linear binding and cancellation fixes (source `3ce31a8c0`, `ab00fb2c0`,
+  `b96ae83aa`, `4ff50f33c`, `9982abe36`); final Astra scoped rechecks clear.
+- `6f2ceb8f7`, `c7a5e212e`: native mutation subscriptions and reviewed sibling,
+  replacement, allocation and document-local observer-summary fixes (source
+  `49267e53f`, `320af71ba`); final Astra recheck clear.

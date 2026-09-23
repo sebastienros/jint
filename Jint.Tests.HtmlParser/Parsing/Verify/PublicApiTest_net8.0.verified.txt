@@ -113,6 +113,9 @@
         public static Jint.HtmlParser.Css.CssComponentValueList ParseCssComponentValues(string source, Jint.HtmlParser.CssParseOptions? options = null, System.Threading.CancellationToken cancellationToken = default) { }
         public static Jint.HtmlParser.Css.CssDeclarationSyntax ParseCssDeclaration(string source, Jint.HtmlParser.CssParseOptions? options = null, System.Threading.CancellationToken cancellationToken = default) { }
         public static Jint.HtmlParser.Css.CssRuleSyntax ParseCssRule(string source, Jint.HtmlParser.CssParseOptions? options = null, System.Threading.CancellationToken cancellationToken = default) { }
+        public static Jint.HtmlParser.Document ParseSvg(string source, Jint.HtmlParser.XmlParseOptions? options = null, System.Threading.CancellationToken cancellationToken = default) { }
+        public static Jint.HtmlParser.Document ParseXml(string source, Jint.HtmlParser.XmlParseOptions? options = null, System.Threading.CancellationToken cancellationToken = default) { }
+        public static Jint.HtmlParser.DocumentFragment ParseXmlFragment(string source, Jint.HtmlParser.Element context, Jint.HtmlParser.XmlParseOptions? options = null, System.Threading.CancellationToken cancellationToken = default) { }
     }
     public sealed class MutationObserverOptions
     {
