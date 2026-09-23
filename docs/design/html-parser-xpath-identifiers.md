@@ -75,9 +75,11 @@ Matching uses the DTD's lexical qualified names, case-sensitively, before namesp
 namespace URIs reached through different prefixes do not make different DTD names interchangeable.
 The flag records the declaration that applied at parse time. It is not a claim that the current tree
 passes DTD validation, and does not retain the declaration's strings, parser, input or source document.
-Actual XMLNS attributes can retain this provenance if an invalid DTD assigns it, but they never become
-XPath attribute positions or eligible ID candidates. Do not silently turn an xmlns declaration into
-an element identifier.
+An actual XMLNS attribute can validly be declared ID and contributes its typed value to its element's
+identifier. XPath's exclusion of namespace declarations from the attribute axis does not erase that
+element-ID contribution. Preserve the flag and include it in FindId, while retaining the existing
+XMLNS context/attribute-axis rejection. Enumerate native attributes for ID indexing, not the filtered
+XPath attribute-axis cache.
 
 Keep normalization and default insertion in their current parser algorithms. ID is already non-CDATA;
 adding the flag must not perform normalization a second time or change character-reference handling.
@@ -170,7 +172,7 @@ and axis state intact; allocation, cancellation and mutation failure must not pa
 
 Build an ordinal string-to-Element dictionary lazily on the first nonempty lookup. Walk the session's
 ordinary root in preorder, including that root if it is an Element. For each element, enumerate its
-actual attributes once; accept only IsDtdId, non-XMLNS, nonempty stored values. Insert with TryAdd so the
+actual attributes once; accept IsDtdId with a nonempty stored value, including XMLNS attributes. Insert with TryAdd so the
 earliest element retains each key. Build into a local dictionary and publish only after Check succeeds.
 No eager index on parser completion, no DOM-wide registry, and no scan per requested ID token.
 
@@ -193,7 +195,7 @@ id()'s tokenization, node-set conversion, duplicate suppression and result order
 Evaluate as well as calling MoveToId directly. Do not implement another id() function in native code.
 
 For invalid parsed data or arbitrary later DOM writes, keep a deterministic native extension: every
-nonempty stored value of a typed ordinary Attr is an exact candidate, without another Name validator.
+nonempty stored value of a typed Attr is an exact candidate, without another Name validator.
 Two ID-typed attributes on one element can supply two keys. A value containing whitespace can match
 direct MoveToId with that exact string but not a single token produced by id(). Empty values contribute
 nothing. These cases do not establish XML validity; do not add fatal parser checks to make the index
@@ -281,6 +283,10 @@ fixtures; X4b3 runs the whole XPath suite. No --no-build and no timing run. Requ
 
 - Explicit `key ID` beats untyped `id`; CDATA/IDREF/IDREFS do not type; first repeated declaration wins
   in both ID/CDATA orders; prefixed DTD names and same-URI different-prefix controls.
+- Parse `<!DOCTYPE r [<!ELEMENT r EMPTY><!ATTLIST r xmlns:p ID #IMPLIED>]><r xmlns:p="key"/>`:
+  MoveToId("key") and id('key') select the actual r element, while attribute::* excludes xmlns:p and
+  a direct navigator for that XMLNS Attr is rejected. Its relative namespace URI is deprecated, not
+  a validity or namespace-well-formedness failure; see [Namespaces in XML §2.2](https://www.w3.org/TR/xml-names/#iri-use).
 - Defaulted typed Attr identity/value, explicit override, #IMPLIED absence, invalid-but-accepted ID
   default, declaration before/after unread PE, standalone=yes, read internal PE, unknown external subset
   and local-character-catalog negative control. No-fragment-DTD-inheritance and no-fetch assertions.
