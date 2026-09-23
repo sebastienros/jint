@@ -152,6 +152,7 @@ internal static partial class SelectorMatcher
         PredicateKind.PseudoElement or PredicateKind.WebkitUnknownPseudoElement or
         PredicateKind.Picker or
         PredicateKind.Scope or PredicateKind.Root or PredicateKind.Empty or
+        PredicateKind.Enabled or PredicateKind.Disabled or PredicateKind.Required or PredicateKind.Optional or
         PredicateKind.FirstChild or PredicateKind.LastChild or PredicateKind.OnlyChild or
         PredicateKind.FirstOfType or PredicateKind.LastOfType or PredicateKind.OnlyOfType or
         PredicateKind.NthOfType or PredicateKind.NthLastOfType => predicate.Arguments is null,
@@ -265,6 +266,11 @@ internal static partial class SelectorMatcher
                 return ReferenceEquals(element, scope);
             case PredicateKind.Root:
                 return element.ParentNode is Document;
+            case PredicateKind.Enabled:
+            case PredicateKind.Disabled:
+            case PredicateKind.Required:
+            case PredicateKind.Optional:
+                return MatchFormState(predicate.Kind, element, ref work);
             case PredicateKind.Empty:
                 for (var child = element.FirstChild; child is not null; child = child.NextSibling)
                 {
@@ -547,21 +553,40 @@ internal static partial class SelectorMatcher
     private static char AsciiLower(char character) => character is >= 'A' and <= 'Z'
         ? (char) (character + ('a' - 'A')) : character;
 
-    private struct Work(CancellationToken cancellationToken, Action? checkpoint = null)
+    private struct Work
     {
-        private int _steps;
+        private HtmlDisabledWork _nativeWork;
+        private readonly CancellationToken _cancellationToken;
+        private readonly Action? _checkpoint;
+        internal Work(CancellationToken cancellationToken, Action? checkpoint = null)
+        {
+            _cancellationToken = cancellationToken;
+            _checkpoint = checkpoint;
+            _nativeWork = new HtmlDisabledWork(cancellationToken,
+                checkpoint is null ? null : new NativeCheckpoint(checkpoint).Invoke);
+        }
+
+        private sealed class NativeCheckpoint(Action checkpoint)
+        {
+            internal void Invoke(int _) => checkpoint();
+        }
+
         // Shared only by one matching/query call; compiled programs retain no state.
         private Dictionary<CompiledSelector, bool>? _featurelessEligibility;
         private Dictionary<Element, HtmlTableGrid>? _tableGrids;
-        internal CancellationToken Token => cancellationToken;
-        internal Action? Checkpoint => checkpoint;
+        internal CancellationToken Token => _cancellationToken;
+        internal Action? Checkpoint => _checkpoint;
+        internal HtmlDisabledState DisabledState(Element element)
+            => HtmlDisabledness.GetState(element, ref _nativeWork);
+        internal HtmlRequiredState RequiredState(Element element)
+            => HtmlRequiredness.GetState(element, ref _nativeWork);
         internal HtmlTableGrid GridFor(Element table)
         {
             Step();
             _tableGrids ??= new Dictionary<Element, HtmlTableGrid>(ReferenceEqualityComparer.Instance);
             if (!_tableGrids.TryGetValue(table, out var grid))
             {
-                grid = HtmlTableGrid.Build(table, checkpoint, cancellationToken);
+                grid = HtmlTableGrid.Build(table, _checkpoint, _cancellationToken);
                 _tableGrids.Add(table, grid);
             }
             return grid;
@@ -581,12 +606,12 @@ internal static partial class SelectorMatcher
         }
         internal void Check()
         {
-            checkpoint?.Invoke();
-            cancellationToken.ThrowIfCancellationRequested();
+            _checkpoint?.Invoke();
+            _nativeWork.Check();
         }
         internal void Step()
         {
-            if ((++_steps & 255) == 0) Check();
+            _nativeWork.Step();
         }
     }
 }

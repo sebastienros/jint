@@ -47,7 +47,7 @@ internal static class HtmlDisabledness
         }
     }
 
-    private static HtmlDisabledState GetState(Element element, ref HtmlDisabledWork work)
+    internal static HtmlDisabledState GetState(Element element, ref HtmlDisabledWork work)
     {
         if (element.NamespaceUri != Namespaces.Html)
         {
