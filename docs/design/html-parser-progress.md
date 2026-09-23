@@ -31,10 +31,11 @@ the earlier repository direction to retain AngleSharp.
 | Native metadata, adoption and templates | `01a0cf47-2a27-7163-8f4e-951fbe9999f5` | Reviewed and integrated, including H4 prerequisites |
 | D4a iterative native traversal | `01a0cf51-0a0a-7753-8235-126166e1484c` | Reviewed and integrated, including template boundaries |
 | C2a selector compiler | `01a0cf57-a964-7922-9f56-3c568a0e51f1` | Under Astra review |
-| H4 HTML tree construction | `01a0cf5a-9eed-7913-bcb4-e019fbbb5e8c` | Review corrections in progress |
+| H4 HTML tree construction | `01a0cf5a-9eed-7913-bcb4-e019fbbb5e8c` | Reviewed corrections integrated |
+| H5a HTML table structure | `01a0cf80-d939-7a72-829a-859771c547f0` | In progress; exclusive tree-builder owner |
 | D5 native mutation tracking | `01a0cf62-1c76-7411-ae32-d5d6beee5915` | Reviewed corrections integrated; native ownership retained for fixes |
 | XML conformance corpus and harness | `01a0cf6e-aa5f-7631-af1b-03f6136013a1` | Reviewed source inventory integrated; outcome/output harness in progress |
-| Packed public XML and mutation consumer | `01a0cf2c-ab5e-7023-95ab-1ab3a4fc8d77` | Verification in progress |
+| Packed public XML and mutation consumer | `01a0cf2c-ab5e-7023-95ab-1ab3a4fc8d77` | Reviewed harness and package README integrated |
 | C5 V0a CSS value primitives | `01a0cf7b-7669-7883-944b-3f3c35fc4585` | Reviewed design integrated; implementation in progress |
 
 The XML conformance gate inventories all 2,585 pinned W3C rows with explicit profile
@@ -99,6 +100,16 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   native mutation subscriptions pass 844 tests across both frameworks, zero
   failures/skips. Compiled public API snapshots add exactly the three XML/SVG
   entry points. Full W3C corpus acceptance and Browser migration remain pending.
+- Corrected H4 document/head/body/text tree construction brings the combined suite
+  to 1,004 passing tests across both frameworks, zero failures/skips. Table and
+  later families remain explicit internal stops; no public HTML parser is claimed.
+- The unsigned packed consumer passed fresh local-package runs on net8.0 and
+  net10.0, plus a Native AOT publish/run on osx-arm64 in its implementation worktree.
+  Package inspection found no production dependencies. Its reviewed probes cover
+  public XML/SVG/fragments and mutation records; this is not the final full-package gate.
+- The first full XML corpus run reports a valid 1.x declaration rejected and seven
+  current XML Name characters rejected at the native PI factory. These are visible
+  parser defects under correction, alongside unfinished output/profile expectations.
 
 ## Integrated commits
 
@@ -187,3 +198,10 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   with an exact first V0a primitive contract and explicit validated-CSS completion debt.
 - `996243c61`: Astra clarification that CSS recovery preserves only the boundaries
   specified by CSS Syntax, including top-level stray closing braces.
+- `3b39e044c`: independently reviewed H5–H8 table, formatting, foreign, fragment and
+  Browser handoffs (source `8ab522a5d`).
+- `04f165009`, `baa152c97`, `c125dafc2`: H4 tree construction and reviewed CR,
+  resumability, suffix-index work and recovery fixes (source `115caab7e`,
+  `1db66eced`, `43416aaea`); final Astra recheck clear.
+- `544cd394d`, `00aaf428f`: unsigned packed consumer and accurate package capability
+  README (source `cb2311329`, `12106a58fa`); both Astra reviews clear.
