@@ -32,13 +32,14 @@ the earlier repository direction to retain AngleSharp.
 | Native metadata, adoption and templates | `01a0cf47-2a27-7163-8f4e-951fbe9999f5` | Reviewed and integrated, including H4 prerequisites |
 | D4a iterative native traversal | `01a0cf51-0a0a-7753-8235-126166e1484c` | Reviewed and integrated, including template boundaries |
 | C2a selector compiler | `01a0cf57-a964-7922-9f56-3c568a0e51f1` | Reviewed corrections integrated |
-| C2b structural selector evaluator | `01a0cf84-0ef3-70f2-bb95-81bcea063cf7` | Implementation under Astra review |
+| C2b structural selector evaluator | `01a0cf84-0ef3-70f2-bb95-81bcea063cf7` | Reviewed corrections integrated |
 | H4 HTML tree construction | `01a0cf5a-9eed-7913-bcb4-e019fbbb5e8c` | Reviewed corrections integrated |
 | H5a HTML table structure | `01a0cf80-d939-7a72-829a-859771c547f0` | Reviewed fixes integrated |
 | H5b HTML table text and foster insertion | `01a0cf9d-4989-78a3-9ec5-3302a335a8bc` | In progress; exclusive tree-builder owner |
+| H5b native fresh insertion prerequisite | `01a0cfa5-4d54-73d1-9e18-3f263463a87c` | Reviewed contract dispatched; implementation in progress |
 | D5 native mutation tracking | `01a0cf62-1c76-7411-ae32-d5d6beee5915` | Reviewed corrections integrated; native ownership retained for fixes |
 | XML conformance corpus and harness | `01a0cf6e-aa5f-7631-af1b-03f6136013a1` | Full harness integrated; remaining policy/output debt fails visibly |
-| Native immutable XML notation metadata | `01a0cf91-311c-7283-8de6-5272978c0529` | Astra review correction in progress |
+| Native immutable XML notation metadata | `01a0cf91-311c-7283-8de6-5272978c0529` | Reviewed corrections integrated; XML population in progress |
 | Packed public XML and mutation consumer | `01a0cf2c-ab5e-7023-95ab-1ab3a4fc8d77` | Reviewed harness and package README integrated |
 | C5 V0a CSS value primitives | `01a0cf7b-7669-7883-944b-3f3c35fc4585` | Reviewed corrections integrated |
 | C5 V0b1 basic CSS math | `01a0cf9b-ba8a-7a32-b6e4-09de7672e6ed` | Reviewed design dispatched; implementation in progress |
@@ -127,14 +128,19 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
 - After reviewed H5a table structure, C4a syntax editors and thirteen additional exact XML
   expectations, the integrated suite runs 5,436 tests: 4,592 pass and 844 fail, zero skips.
   All failures are the existing corpus obligations: 421 individual cases and the census per TFM.
+- Native notation contracts and the separated optional-error policy gate bring the integrated
+  full suite to 5,446 tests: 4,624 pass, 822 fail, zero skips. Failures remain 410 individual
+  corpus obligations and the census per TFM; all other tests pass. Subsequent structural-selector
+  integration passes all 48 focused tests across both TFMs. Native notation/API checks pass 26.
 - The current corpus census is 2,585 inventoried rows: 593 outside the XML/namespace
   profile, 18 reviewed byte-boundary exclusions, 1,947 runnable candidates and 27
-  optional-error decisions. It reports 1,553 passing cases, 420 unresolved cases,
+  optional-error decisions. It reports 1,559 conformance passing cases, 387 unresolved required cases,
   one known required notation-reporting defect, and zero harness-error outcomes.
   Output evidence is 238 comparisons passed out of 386 eligible, with 148 pending.
   The original eight parser defects are confirmed fixed by this corpus rerun.
-  Decoded optional-error rows now execute and report typed observations without being
-  awarded conformance passes; unsupported byte adapters remain explicit debt.
+  Optional policy results are separate: 16 observed but unreviewed, six unsupported byte
+  adapters, five verified policies and zero policy mismatches. Verified optional outcomes
+  never increment conformance passes; unreviewed and adapter categories still fail the gate.
 - Twelve separately named UTF-16 surrogate tests pass after constructing code units
   at runtime. An earlier failure report came from attribute-metadata replacement of
   invalid surrogate strings, not a scanner defect; no production fix was made.
@@ -142,6 +148,10 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   and rejects count-preserving corruption. It uses only the reviewed default-xmlns
   representation projection and documents SVG MIME branding. These are correctness
   results, not benchmark timing or a speedup claim.
+- Integrated Markdig-inspired primitive correctness checks pass on net10.0: exhaustive
+  UTF-16 membership, sliced delimiter positions, exact tag membership and every row's inputs.
+  The 33 throughput/allocation rows remain untimed; external machine activity prevents an
+  uncontended measurement window. The reviewed batch plan retains gate jobs and idle checks.
 - The unsigned packed consumer passed fresh local-package runs on net8.0 and
   net10.0, plus a Native AOT publish/run on osx-arm64 in its implementation worktree.
   Package inspection found no production dependencies. Its reviewed probes cover
@@ -277,3 +287,12 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
 - `0a2ec01fd`, `14a86667a`, `7a1e1320d`: reviewed internal CSS syntax editors,
   quoted-URL serialization and deterministic projection cancellation fixes
   (source `0514cfa14`, `a91e4c417`, `eb70e3d76`).
+- `6d16ae869`, `0699a0075`: immutable XML notation metadata and meaningful in-copy
+  cancellation coverage (source `2af2f6929`, `f7436629d`); final Astra review clear.
+- `82ccc8c88`: separate reviewed optional XML policy outcomes and exact evidence
+  (source `b5744d46f`); no conformance credit for arbitrary optional outcomes.
+- `9f6a62c04`: six reviewed external-subset/input expectations (source `386cba7dc`).
+- `60e4e5fe8`: independently reviewed fresh-node insertion-before prerequisite contract.
+- `70f449e02`, `7134ce47e`: reviewed structural selector matcher and namespace,
+  document-whitespace, cancellation and quadratic-search corrections
+  (source `ce034565f`, `503a4984a`); final Astra re-review clear.
