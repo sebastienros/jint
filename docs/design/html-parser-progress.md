@@ -21,10 +21,10 @@ the earlier repository direction to retain AngleSharp.
 | Architecture and migration design | `01a0ceec-94ec-7f63-9bfb-189cac69df5f` | Reviewed design and feature contracts integrated |
 | Comparison corpus and benchmark harness | `01a0ceee-7b09-7513-b507-a5c412eb4518` | Reviewed and integrated |
 | A1 dependency and binding inventory | `01a0cef5-3c12-7d22-926c-e2aeefe58949` | Reviewed and integrated |
-| A2/D1/D2 package and DOM foundation | `01a0cef5-4a7d-72e2-b551-74f03c9da7ec` | Commit `5f7c3a854` under Astra review |
+| A2/D1/D2 package and DOM foundation | `01a0cef5-4a7d-72e2-b551-74f03c9da7ec` | Astra requested attribute/tree/name-validation fixes to `5f7c3a854`; corrections in progress |
 | H1/H2 resumable HTML tokenizer | `01a0cf2a-8177-7941-9413-ee60edc59454` | In progress |
 | C1 CSS syntax | `01a0cf2a-8a51-76b1-a12b-ac57c7d2b594` | In progress |
-| A2 shared limits/diagnostics/errors | Pending task setup | Queued |
+| A2 shared limits/diagnostics/errors | `01a0cf2c-ab5e-7023-95ab-1ab3a4fc8d77` | In progress |
 
 ## Initial repository evidence
 
@@ -63,3 +63,5 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   Astra recheck clear. Source commits `a86964ce2`, `2bf2537cd`.
 - `813e51988`: inventory plus coverage/CRLF corrections; Astra recheck clear.
   Source commit `26297b86e`. Lock refreshed for the integrated benchmark consumer.
+- `4ebd36845`: exact independent HTML, CSS and shared-contract feature scopes,
+  from Astra commit `6d8df1d10`.
