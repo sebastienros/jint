@@ -1,9 +1,14 @@
 # Basic CSS math fixture inventory
 
 CSS Values and Units Level 4 Editor's Draft, 20 August 2026, sections 10.8–10.13;
-CSS Typed OM Level 1 numeric types, checked 23 September 2026. First-stage functions:
-`calc`, `min`, `max`, `clamp`. The other 17 Values 4 functions are pending in the
+CSS Typed OM Level 1 numeric types, checked 23 September 2026. Implemented functions:
+`calc`, `min`, `max`, `clamp`, `round`, `mod`, `rem`. The other 14 Values 4 functions are pending in the
 checked `MathFunctionCensusTests`; these tests make no property-validity claim.
+
+`MathSteppedTests` uses authored CSS Values 4 §10.3.1 fixtures for all five rounding
+strategies, the mod/rem sign and special-value tables, and §6 line-width snapping.
+The line-width cases require a supplied device pixel size; they are draft-new
+fixtures and are not claimed as passing cases from the older WPT pin below.
 
 Selected upstream WPT specified-value case family:
 

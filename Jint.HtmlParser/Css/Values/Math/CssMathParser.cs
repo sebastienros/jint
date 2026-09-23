@@ -10,7 +10,7 @@ internal static class CssMathParser
         work.CheckCancellation();
         var classification = Classify(value, context, work);
         if (classification.Status != CssMathParseStatus.None) return classification;
-        if (value.Kind != CssComponentKind.Function || !IsBasic(Recognize(value.FunctionName)))
+        if (value.Kind != CssComponentKind.Function || !IsImplemented(Recognize(value.FunctionName)))
             return Finish(CssMathParseResult.NoMatch(value.Span), work);
         var builder = new CssMathBuilder(work);
         var frames = new Stack<Frame>();
@@ -80,6 +80,7 @@ internal static class CssMathParser
                 if (token.Kind == CssTokenKind.Ident)
                 {
                     var name = token.Text;
+                    if (frame.TryStrategy(name, work)) continue;
                     if (AsciiEquals(name, "none") &&
                         frame.Kind == CssMathFunction.Clamp && frame.Operands.Count == 0 &&
                         frame.Arguments.Count is 0 or 2)
@@ -106,7 +107,7 @@ internal static class CssMathParser
                 frames.Push(new Frame(component, CssMathFunction.None, frame.Depth + 1));
                 continue;
             }
-            if (component.Kind == CssComponentKind.Function && IsBasic(Recognize(component.FunctionName)))
+            if (component.Kind == CssComponentKind.Function && IsImplemented(Recognize(component.FunctionName)))
             {
                 frames.Push(new Frame(component, Recognize(component.FunctionName), frame.Depth + 1));
                 continue;
@@ -133,7 +134,7 @@ internal static class CssMathParser
             if (component.Kind == CssComponentKind.Function)
             {
                 var function = Recognize(component.FunctionName);
-                if (function > CssMathFunction.Clamp && pending == CssMathFunction.None)
+                if (function != CssMathFunction.None && !IsImplemented(function) && pending == CssMathFunction.None)
                 {
                     pending = function;
                     pendingSpan = component.Span;
@@ -157,7 +158,9 @@ internal static class CssMathParser
         return result;
     }
 
-    private static bool IsBasic(CssMathFunction function) => function is >= CssMathFunction.Calc and <= CssMathFunction.Clamp;
+    private static bool IsImplemented(CssMathFunction function) => function is
+        CssMathFunction.Calc or CssMathFunction.Min or CssMathFunction.Max or CssMathFunction.Clamp or
+        CssMathFunction.Round or CssMathFunction.Mod or CssMathFunction.Rem;
 
     private static bool AsciiEquals(string source, string expected)
     {
@@ -219,6 +222,40 @@ internal static class CssMathParser
         internal List<(char Op, CssSourceSpan Span)> Operators { get; } = [];
         internal List<int> Arguments { get; } = [];
         internal CssSourceSpan? FailureSpan { get; private set; }
+        internal CssRoundingStrategy Strategy { get; private set; } = CssRoundingStrategy.Nearest;
+        private bool _hasStrategy;
+        private bool _strategyConsumed;
+
+        internal bool TryStrategy(string name, CssValueWork work)
+        {
+            if (Kind != CssMathFunction.Round || Arguments.Count != 0 || Operands.Count != 0 ||
+                Operators.Count != 0 || _strategyConsumed) return false;
+            var strategy = name.Length switch
+            {
+                2 when AsciiEquals(name, "up") => CssRoundingStrategy.Up,
+                4 when AsciiEquals(name, "down") => CssRoundingStrategy.Down,
+                7 when AsciiEquals(name, "nearest") => CssRoundingStrategy.Nearest,
+                7 when AsciiEquals(name, "to-zero") => CssRoundingStrategy.ToZero,
+                10 when AsciiEquals(name, "line-width") => CssRoundingStrategy.LineWidth,
+                _ => (CssRoundingStrategy) (-1)
+            };
+            if ((int) strategy < 0) return false;
+            work.Charge(name.Length);
+            // A strategy is a whole first comma-delimited argument.
+            var next = Index;
+            while (next < Values.Count && Values[next].Kind == CssComponentKind.Token &&
+                   Values[next].Token.Kind == CssTokenKind.Whitespace)
+            {
+                work.Charge(1);
+                next++;
+            }
+            if (next >= Values.Count || Values[next].Kind != CssComponentKind.Token ||
+                Values[next].Token.Kind != CssTokenKind.Comma) return false;
+            Strategy = strategy;
+            _hasStrategy = true;
+            _strategyConsumed = true;
+            return true;
+        }
 
         internal void AddOperand(int operand)
         {
@@ -244,11 +281,22 @@ internal static class CssMathParser
 
         internal bool OnComma(CssMathBuilder builder, CssSourceSpan span)
         {
-            if (Kind is not (CssMathFunction.Min or CssMathFunction.Max or CssMathFunction.Clamp)) return false;
+            if (Kind == CssMathFunction.Round && _hasStrategy && Arguments.Count == 0 && ExpectingOperand)
+            {
+                _hasStrategy = false;
+                return true;
+            }
+            if (Kind is not (CssMathFunction.Min or CssMathFunction.Max or CssMathFunction.Clamp or
+                CssMathFunction.Round or CssMathFunction.Mod or CssMathFunction.Rem)) return false;
             if (!CompleteArgument(builder, out var root)) return false;
             Arguments.Add(root);
             Operands.Clear(); Operators.Clear(); ExpectingOperand = true; PreviousWhitespace = false;
-            return Kind != CssMathFunction.Clamp || Arguments.Count < 3;
+            return Kind switch
+            {
+                CssMathFunction.Clamp => Arguments.Count < 3,
+                CssMathFunction.Round or CssMathFunction.Mod or CssMathFunction.Rem => Arguments.Count < 2,
+                _ => true
+            };
         }
 
         internal bool Finish(CssMathBuilder builder, CssValueWork work, out int root, out CssSourceSpan error)
@@ -270,6 +318,8 @@ internal static class CssMathParser
             }
             Arguments.Add(argument);
             if (Kind == CssMathFunction.Clamp && Arguments.Count != 3 ||
+                Kind is CssMathFunction.Mod or CssMathFunction.Rem && Arguments.Count != 2 ||
+                Kind == CssMathFunction.Round && Arguments.Count is < 1 or > 2 ||
                 Kind is CssMathFunction.Min or CssMathFunction.Max && Arguments.Count < 1)
                 return false;
             CssNumericType? type = null;
@@ -289,12 +339,30 @@ internal static class CssMathParser
                 else type = sumType;
             }
             if (type is null) return false;
+            if (Kind == CssMathFunction.Round && Arguments.Count == 1 &&
+                (Strategy == CssRoundingStrategy.LineWidth ? type.Value.Length != 1 ||
+                    !type.Value.IsPermissibleScalar : !type.Value.IsScalar))
+            { error = builder.Node(Arguments[0]).Span; return false; }
+            if (Kind == CssMathFunction.Round && Strategy == CssRoundingStrategy.LineWidth &&
+                (builder.Node(Arguments[0]).Type.Length != 1 ||
+                 !builder.Node(Arguments[0]).Type.IsPermissibleScalar))
+            { error = builder.Node(Arguments[0]).Span; return false; }
+            if (Kind == CssMathFunction.Round && Arguments.Count == 2)
+            {
+                var step = builder.Node(Arguments[1]);
+                if (step.Kind == CssMathNodeKind.Numeric && step.Numeric.Kind == CssNumericKind.Number &&
+                    step.Numeric.Value == 1 && builder.Node(Arguments[0]).Type.IsScalar)
+                    Arguments.RemoveAt(1);
+            }
             root = builder.Add(Kind switch
             {
                 CssMathFunction.Min => CssMathNodeKind.Min,
                 CssMathFunction.Max => CssMathNodeKind.Max,
-                _ => CssMathNodeKind.Clamp
-            }, type.Value, Component.Span, children: Arguments);
+                CssMathFunction.Clamp => CssMathNodeKind.Clamp,
+                CssMathFunction.Round => CssMathNodeKind.Round,
+                CssMathFunction.Mod => CssMathNodeKind.Mod,
+                _ => CssMathNodeKind.Rem
+            }, type.Value, Component.Span, children: Arguments, roundingStrategy: Strategy);
             return true;
         }
 
@@ -355,6 +423,7 @@ internal sealed class CssMathBuilder(CssValueWork work)
         internal CssNumericType Type;
         internal CssSourceSpan Span;
         internal CssMathNumeric Numeric;
+        internal CssRoundingStrategy RoundingStrategy;
         internal int FirstChild;
         internal int LastChild;
         internal int NextSibling;
@@ -365,7 +434,8 @@ internal sealed class CssMathBuilder(CssValueWork work)
     internal int Count => _nodes.Count;
     internal NodeData Node(int index) => _nodes[index];
     internal int Add(CssMathNodeKind kind, CssNumericType type, CssSourceSpan span,
-        CssMathNumeric numeric = default, List<int>? children = null)
+        CssMathNumeric numeric = default, List<int>? children = null,
+        CssRoundingStrategy roundingStrategy = CssRoundingStrategy.Nearest)
     {
         work.Charge(1);
         var node = new NodeData
@@ -374,6 +444,7 @@ internal sealed class CssMathBuilder(CssValueWork work)
             Type = type,
             Span = span,
             Numeric = numeric,
+            RoundingStrategy = roundingStrategy,
             FirstChild = -1,
             LastChild = -1,
             NextSibling = -1

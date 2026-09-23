@@ -1,6 +1,8 @@
 namespace Jint.HtmlParser.Css.Values.Math;
 
-internal enum CssMathNodeKind { Numeric, Sum, Product, Negate, Invert, Min, Max, Clamp, AbsentBound }
+internal enum CssMathNodeKind { Numeric, Sum, Product, Negate, Invert, Min, Max, Clamp, AbsentBound, Round, Mod, Rem }
+
+internal enum CssRoundingStrategy { Nearest, Up, Down, ToZero, LineWidth }
 
 internal readonly struct CssMathNumeric
 {
@@ -22,10 +24,11 @@ internal readonly struct CssMathNode
 {
     private readonly CssMathNumeric _numeric;
     internal CssMathNode(CssMathNodeKind kind, CssNumericType type, CssSourceSpan span,
-        int childStart, int childCount, CssMathNumeric numeric = default)
+        int childStart, int childCount, CssMathNumeric numeric = default,
+        CssRoundingStrategy roundingStrategy = CssRoundingStrategy.Nearest)
     {
         Kind = kind; Type = type; Span = span; ChildStart = childStart; ChildCount = childCount;
-        _numeric = numeric;
+        _numeric = numeric; _roundingStrategy = roundingStrategy;
     }
 
     internal CssMathNodeKind Kind { get; }
@@ -35,6 +38,9 @@ internal readonly struct CssMathNode
     internal int ChildCount { get; }
     internal CssMathNumeric Numeric => Kind == CssMathNodeKind.Numeric ? _numeric :
         throw new InvalidOperationException("This node has no numeric payload.");
+    private readonly CssRoundingStrategy _roundingStrategy;
+    internal CssRoundingStrategy RoundingStrategy => Kind == CssMathNodeKind.Round ? _roundingStrategy :
+        throw new InvalidOperationException("This node has no rounding strategy.");
 }
 
 internal sealed class CssMathValue

@@ -26,7 +26,7 @@ public sealed class MathFunctionCensusTests
     [Test]
     public void PendingFunctionsStayExplicitEvenWhenNested()
     {
-        foreach (var name in Second.Concat(Third))
+        foreach (var name in Third)
         {
             var result = MathTest.Parse($"calc(1 + {name}(2))", MathTest.Number);
             result.Status.Should().Be(CssMathParseStatus.RequiresLaterGrammar, name);
@@ -40,7 +40,18 @@ public sealed class MathFunctionCensusTests
     {
         var result = MathTest.Parse("calc(round(1) + sin(2))", MathTest.Number);
         result.Status.Should().Be(CssMathParseStatus.RequiresLaterGrammar);
-        result.PendingFunction.Should().Be(CssMathFunction.Round);
-        result.Span.Start.Should().Be(5);
+        result.PendingFunction.Should().Be(CssMathFunction.Sin);
+        result.Span.Start.Should().Be(16);
+    }
+
+    [Test]
+    public void SevenFunctionsAreImplementedAndFourteenRemainPending()
+    {
+        foreach (var name in Second)
+        {
+            var source = name == "round" ? "round(2)" : $"{name}(2, 1)";
+            MathTest.Parse(source, MathTest.Number).Status.Should().Be(CssMathParseStatus.Match);
+        }
+        Third.Length.Should().Be(14);
     }
 }

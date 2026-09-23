@@ -39,7 +39,7 @@ public sealed class MathResourceTests
     [Test]
     public void PendingSubtreeStillEnforcesOriginalNestingLimit()
     {
-        var component = MarkupParser.ParseCssComponentValues("calc(round((1)))")[0];
+        var component = MarkupParser.ParseCssComponentValues("calc(sin((1)))")[0];
         var context = new CssMathContext(CssMathProduction.Number, CssMathPercentageMode.Forbidden,
             maximumNestingDepth: 2);
         var exception = Assert.Throws<ParseLimitException>(() =>

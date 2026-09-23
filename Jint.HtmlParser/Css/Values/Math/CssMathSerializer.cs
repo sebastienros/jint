@@ -18,6 +18,9 @@ internal static class CssMathSerializer
             CssMathNodeKind.Min => "min(",
             CssMathNodeKind.Max => "max(",
             CssMathNodeKind.Clamp => "clamp(",
+            CssMathNodeKind.Round => "round(",
+            CssMathNodeKind.Mod => "mod(",
+            CssMathNodeKind.Rem => "rem(",
             _ => "calc("
         };
         Append(builder, outerFunction, work);
@@ -51,6 +54,22 @@ internal static class CssMathSerializer
                     case CssMathNodeKind.Min: Append(builder, frame.IsTop ? "" : "min(", work); break;
                     case CssMathNodeKind.Max: Append(builder, frame.IsTop ? "" : "max(", work); break;
                     case CssMathNodeKind.Clamp: Append(builder, frame.IsTop ? "" : "clamp(", work); break;
+                    case CssMathNodeKind.Round:
+                        Append(builder, frame.IsTop ? "" : "round(", work);
+                        if (node.RoundingStrategy != CssRoundingStrategy.Nearest)
+                        {
+                            Append(builder, node.RoundingStrategy switch
+                            {
+                                CssRoundingStrategy.Up => "up, ",
+                                CssRoundingStrategy.Down => "down, ",
+                                CssRoundingStrategy.ToZero => "to-zero, ",
+                                CssRoundingStrategy.LineWidth => "line-width, ",
+                                _ => throw new InvalidOperationException("Unknown rounding strategy.")
+                            }, work);
+                        }
+                        break;
+                    case CssMathNodeKind.Mod: Append(builder, frame.IsTop ? "" : "mod(", work); break;
+                    case CssMathNodeKind.Rem: Append(builder, frame.IsTop ? "" : "rem(", work); break;
                     case CssMathNodeKind.Sum:
                     case CssMathNodeKind.Product:
                         if (!frame.IsTop && !frame.Unwrap) Append(builder, "(", work);
@@ -61,8 +80,10 @@ internal static class CssMathSerializer
             }
             if (frame.Position == frame.Children.Length)
             {
-                if (!frame.IsTop && !frame.Unwrap && node.Kind != CssMathNodeKind.Numeric ||
-                    !frame.IsTop && node.Kind is CssMathNodeKind.Min or CssMathNodeKind.Max or CssMathNodeKind.Clamp)
+                if (!frame.IsTop &&
+                    (!frame.Unwrap && node.Kind != CssMathNodeKind.Numeric ||
+                     node.Kind is CssMathNodeKind.Min or CssMathNodeKind.Max or CssMathNodeKind.Clamp or
+                         CssMathNodeKind.Round or CssMathNodeKind.Mod or CssMathNodeKind.Rem))
                     Append(builder, ")", work);
                 stack.Pop();
                 continue;
@@ -99,12 +120,14 @@ internal static class CssMathSerializer
                     }
                     else Append(builder, " * ", work);
                 }
-                else if (node.Kind is CssMathNodeKind.Min or CssMathNodeKind.Max or CssMathNodeKind.Clamp)
+                else if (node.Kind is CssMathNodeKind.Min or CssMathNodeKind.Max or CssMathNodeKind.Clamp or
+                         CssMathNodeKind.Round or CssMathNodeKind.Mod or CssMathNodeKind.Rem)
                     Append(builder, ", ", work);
             }
             frame.Position++;
             stack.Push(new Frame(childIndex, false,
-                node.Kind is CssMathNodeKind.Min or CssMathNodeKind.Max or CssMathNodeKind.Clamp &&
+                node.Kind is (CssMathNodeKind.Min or CssMathNodeKind.Max or CssMathNodeKind.Clamp or
+                    CssMathNodeKind.Round or CssMathNodeKind.Mod or CssMathNodeKind.Rem) &&
                 value.GetNode(childIndex).Kind is CssMathNodeKind.Sum or CssMathNodeKind.Product,
                 denominator));
         }

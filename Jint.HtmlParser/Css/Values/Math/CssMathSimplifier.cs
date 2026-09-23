@@ -80,6 +80,11 @@ internal static class CssMathSimplifier
                 work.Charge(1);
                 children.Add(mapped[child]);
             }
+            if (node.Kind == CssMathNodeKind.Round && children.Count == 2 && node.Type.IsScalar &&
+                target.Node(children[1]).Kind == CssMathNodeKind.Numeric &&
+                target.Node(children[1]).Numeric.Kind == CssNumericKind.Number &&
+                target.Node(children[1]).Numeric.Value == 1)
+                children.RemoveAt(1);
             if (node.Kind == CssMathNodeKind.Negate && target.Node(children[0]).Kind == CssMathNodeKind.Numeric)
             {
                 var original = target.Node(children[0]).Numeric;
@@ -97,6 +102,12 @@ internal static class CssMathSimplifier
                      TryFoldComparison(target, children, node.Kind, context, work, out var numeric))
             {
                 mapped[i] = target.Add(CssMathNodeKind.Numeric, node.Type, node.Span, numeric);
+            }
+            else if (node.Kind is CssMathNodeKind.Round or CssMathNodeKind.Mod or CssMathNodeKind.Rem &&
+                     TryFoldStepped(target, children, node.Kind, node.RoundingStrategy, context, work,
+                         out var stepped))
+            {
+                mapped[i] = target.Add(CssMathNodeKind.Numeric, node.Type, node.Span, stepped);
             }
             else if (node.Kind == CssMathNodeKind.Clamp &&
                      (target.Node(children[0]).Kind == CssMathNodeKind.AbsentBound ||
@@ -119,7 +130,8 @@ internal static class CssMathSimplifier
             }
             else
             {
-                mapped[i] = target.Add(node.Kind, node.Type, node.Span);
+                mapped[i] = target.Add(node.Kind, node.Type, node.Span,
+                    roundingStrategy: node.RoundingStrategy);
                 foreach (var child in children)
                 {
                     target.DetachSibling(child);
@@ -167,7 +179,8 @@ internal static class CssMathSimplifier
         {
             work.Charge(1);
             var node = target.Node(order[i]);
-            nodes[i] = new CssMathNode(node.Kind, node.Type, node.Span, offset, node.ChildCount, node.Numeric);
+            nodes[i] = new CssMathNode(node.Kind, node.Type, node.Span, offset, node.ChildCount,
+                node.Numeric, node.RoundingStrategy);
             foreach (var child in target.Children(order[i]))
             {
                 work.Charge(1);
@@ -177,6 +190,39 @@ internal static class CssMathSimplifier
         work.CheckCancellation();
         return new CssMathValue(nodes, childrenArray, 0, context, span);
     }
+
+    private static bool TryFoldStepped(CssMathBuilder target, List<int> children, CssMathNodeKind kind,
+        CssRoundingStrategy strategy, CssMathContext context, CssValueWork work, out CssMathNumeric result)
+    {
+        result = default;
+        if (kind == CssMathNodeKind.Round && strategy == CssRoundingStrategy.LineWidth) return false;
+        var first = target.Node(children[0]);
+        if (first.Kind != CssMathNodeKind.Numeric ||
+            first.Numeric.Kind == CssNumericKind.Percentage && context.Percentages != CssMathPercentageMode.Raw ||
+            first.Numeric.Kind == CssNumericKind.Dimension && !IsAbsolute(first.Numeric.Unit)) return false;
+        var value = first.Numeric.Value;
+        var step = 1d;
+        if (children.Count == 2)
+        {
+            var second = target.Node(children[1]);
+            if (second.Kind != CssMathNodeKind.Numeric ||
+                second.Numeric.Kind != first.Numeric.Kind || second.Numeric.Unit != first.Numeric.Unit ||
+                second.Numeric.Kind == CssNumericKind.Percentage && context.Percentages != CssMathPercentageMode.Raw ||
+                second.Numeric.Kind == CssNumericKind.Dimension && !IsAbsolute(second.Numeric.Unit)) return false;
+            step = second.Numeric.Value;
+        }
+        var folded = kind switch
+        {
+            CssMathNodeKind.Round => CssMathStepped.Round(value, step, strategy, work),
+            CssMathNodeKind.Mod => CssMathStepped.Mod(value, step, work),
+            _ => CssMathStepped.Rem(value, step, work)
+        };
+        result = new CssMathNumeric(folded, first.Numeric.Kind, first.Numeric.Unit, first.Numeric.Span);
+        return true;
+    }
+
+    private static bool IsAbsolute(CssUnit unit) => unit is CssUnit.Px or CssUnit.Deg or CssUnit.S or
+        CssUnit.Hz or CssUnit.Dppx;
 
     private static int SimplifyRun(CssMathBuilder source, CssMathBuilder target, int[] mapped,
         int root, bool underSum, bool underProduct, CssValueWork work)
