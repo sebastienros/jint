@@ -2,14 +2,91 @@ using System.Xml;
 
 namespace Jint.HtmlParser;
 
+internal enum TextAppendCheckpoint
+{
+    DuringPreparation,
+    AfterPreparation,
+    AfterCommit
+}
+
 /// <summary>A text node.</summary>
 public sealed class Text : Node
 {
     private string _data = string.Empty;
+    private char[]? _parsedStorage;
+    private int _parsedLength;
+    private string? _cachedParsedData;
 
     internal Text(Document owner, string data) : base(owner) => Data = data ?? throw new ArgumentNullException(nameof(data));
     public override NodeType NodeType => NodeType.Text;
-    public string Data { get => _data; set => _data = value ?? throw new ArgumentNullException(nameof(value)); }
+    public string Data
+    {
+        get => _parsedStorage is null ? _data : _cachedParsedData ??= new string(_parsedStorage, 0, _parsedLength);
+        set
+        {
+            _data = value ?? throw new ArgumentNullException(nameof(value));
+            _parsedStorage = null;
+            _parsedLength = 0;
+            _cachedParsedData = null;
+        }
+    }
+
+    internal void AppendParsedData(ReadOnlySpan<char> data, CancellationToken cancellationToken)
+        => AppendParsedData(data, null, cancellationToken);
+
+    // A parser slice is prepared beyond the published length. Cancellation before
+    // the commit keeps Data unchanged; after it, the whole slice is observable.
+    internal void AppendParsedData(ReadOnlySpan<char> data, Action<TextAppendCheckpoint>? workCheckpoint,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (data.IsEmpty)
+        {
+            return;
+        }
+
+        var oldLength = _parsedStorage is null ? _data.Length : _parsedLength;
+        var newLength = checked(oldLength + data.Length);
+        var storage = _parsedStorage;
+        if (storage is null || storage.Length < newLength)
+        {
+            var currentCapacity = storage?.Length ?? 0;
+            var doubledCapacity = currentCapacity > Array.MaxLength / 2 ? Array.MaxLength : Math.Max(16, currentCapacity * 2);
+            storage = new char[Math.Max(newLength, doubledCapacity)];
+            cancellationToken.ThrowIfCancellationRequested();
+            if (_parsedStorage is { } previous)
+            {
+                previous.AsSpan(0, oldLength).CopyTo(storage);
+            }
+            else
+            {
+                _data.AsSpan().CopyTo(storage);
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+
+        const int CopySlice = 4096;
+        for (var offset = 0; offset < data.Length; offset += CopySlice)
+        {
+            workCheckpoint?.Invoke(TextAppendCheckpoint.DuringPreparation);
+            cancellationToken.ThrowIfCancellationRequested();
+            var count = Math.Min(CopySlice, data.Length - offset);
+            data.Slice(offset, count).CopyTo(storage.AsSpan(oldLength + offset, count));
+        }
+
+        workCheckpoint?.Invoke(TextAppendCheckpoint.AfterPreparation);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        _parsedStorage = storage;
+        _parsedLength = newLength;
+        _data = string.Empty;
+        _cachedParsedData = null;
+        // Native character-data semantics and mutation delivery share this commit.
+
+        workCheckpoint?.Invoke(TextAppendCheckpoint.AfterCommit);
+        cancellationToken.ThrowIfCancellationRequested();
+    }
 }
 
 /// <summary>A comment node.</summary>
