@@ -59,6 +59,13 @@ public class ShadowRootTests
             ShadowTree.Attach(host, new ShadowRootInit(ShadowRootMode.Open), default).Host.Should().BeSameAs(host);
         }
 
+        var html = Document.CreateHtml();
+        foreach (var name in new[] { "x-\ud800", "x-\udc00" })
+        {
+            var host = html.CreateElement(name);
+            ShadowTree.Attach(host, new ShadowRootInit(ShadowRootMode.Open), default).Host.Should().BeSameAs(host);
+        }
+
         foreach (var name in new[] { "a", "select", "font-face", "annotation-xml", "a-B", "a-/", "a- ", "_a-b" })
         {
             var host = document.CreateParsedElement(Namespaces.Html, name, null);

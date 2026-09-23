@@ -194,18 +194,6 @@ internal static class ShadowTree
             {
                 return false;
             }
-
-            if (char.IsHighSurrogate(ch))
-            {
-                if (++i == name.Length || !char.IsLowSurrogate(name[i]))
-                {
-                    return false;
-                }
-            }
-            else if (char.IsLowSurrogate(ch))
-            {
-                return false;
-            }
         }
 
         return true;

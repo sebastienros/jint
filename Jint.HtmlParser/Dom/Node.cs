@@ -572,26 +572,33 @@ public abstract partial class Node
             return;
         }
 
-        var pending = new Stack<(Node Node, Document Owner)>();
-        pending.Push((node, destination));
+        var pending = new Stack<(Node Node, Document Owner, bool TemplateBoundary)>();
+        pending.Push((node, destination, false));
         while (pending.TryPop(out var current))
         {
-            // A hosted fragment is a separate adoption boundary. It can already
-            // belong to the target inert document while nested content was later
-            // adopted elsewhere; in that case DOM's adoption steps stop here.
-            if (ReferenceEquals(current.Node._ownerDocument, current.Owner))
+            // An already-owned template content fragment is a separate inert-owner
+            // boundary. An already-owned shadow root or ordinary descendant is
+            // still visited: the outer host's changed-document adoption walks
+            // every shadow-including descendant, regardless of individual owners.
+            var sameOwner = ReferenceEquals(current.Node._ownerDocument, current.Owner);
+            if (current.TemplateBoundary && sameOwner)
             {
                 continue;
             }
 
-            var oldDocument = current.Node._ownerDocument;
-            current.Node._ownerDocument = current.Owner;
-            if (current.Node.MutationRegistrations is not null)
+            if (!sameOwner)
             {
-                current.Owner.MarkMutationRegistrationsPresent();
+                var oldDocument = current.Node._ownerDocument;
+                current.Node._ownerDocument = current.Owner;
+                if (current.Node.MutationRegistrations is not null)
+                {
+                    current.Owner.MarkMutationRegistrationsPresent();
+                }
+
+                oldDocument?.MarkMutation();
+                current.Owner.MarkMutation();
             }
-            oldDocument?.MarkMutation();
-            current.Owner.MarkMutation();
+
             if (current.Node is Element element)
             {
                 element.AdoptAttributes(current.Owner);
@@ -613,12 +620,12 @@ public abstract partial class Node
 
                 if (element.AttachedShadowRoot is { } shadowRoot)
                 {
-                    pending.Push((shadowRoot, current.Owner));
+                    pending.Push((shadowRoot, current.Owner, false));
                 }
 
                 if (element.TemplateContent is { } content && content is not ShadowRoot)
                 {
-                    pending.Push((content, current.Owner.GetTemplateContentsOwnerDocument()));
+                    pending.Push((content, current.Owner.GetTemplateContentsOwnerDocument(), true));
                 }
             }
             else if (current.Node is ShadowRoot shadow &&
@@ -630,7 +637,7 @@ public abstract partial class Node
 
             for (var child = current.Node.FirstChild; child is not null; child = child.NextSibling)
             {
-                pending.Push((child, current.Owner));
+                pending.Push((child, current.Owner, false));
             }
         }
     }

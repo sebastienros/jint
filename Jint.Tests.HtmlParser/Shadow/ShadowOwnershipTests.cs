@@ -422,4 +422,54 @@ public class ShadowOwnershipTests
         destination.AdoptNode(secondHost);
         globalSourceChild.CustomElementRegistry.Should().BeSameAs(destinationGlobal);
     }
+
+    [Test]
+    public void ChangedDocumentAdoptionVisitsAlreadyOwnedShadowDescendants()
+    {
+        var source = Document.CreateHtml();
+        var destination = Document.CreateHtml();
+        var third = Document.CreateHtml();
+        var host = source.CreateElement("div");
+        var root = ShadowTree.Attach(host, new ShadowRootInit(ShadowRootMode.Open), default);
+        var target = destination.CreateElement("section");
+        var placeholder = destination.CreateElement("span");
+        target.AppendChild(placeholder);
+        target.ReplaceChild(root, placeholder);
+        root.OwnerDocument.Should().BeSameAs(destination);
+        host.OwnerDocument.Should().BeSameAs(source);
+
+        var innerHost = destination.CreateElement("div");
+        root.AppendChild(innerHost);
+        var innerRoot = ShadowTree.Attach(innerHost, new ShadowRootInit(ShadowRootMode.Open), default);
+        var thirdTarget = third.CreateElement("section");
+        var thirdPlaceholder = third.CreateElement("span");
+        thirdTarget.AppendChild(thirdPlaceholder);
+        thirdTarget.ReplaceChild(innerRoot, thirdPlaceholder);
+        var innerChild = third.CreateElement("span");
+        innerRoot.AppendChild(innerChild);
+        innerRoot.OwnerDocument.Should().BeSameAs(third);
+        innerHost.OwnerDocument.Should().BeSameAs(destination);
+
+        var global = new CustomElementRegistryIdentity(false);
+        destination.SetCustomElementRegistry(global);
+        var sourceStamp = source.MutationStamp;
+        var destinationStamp = destination.MutationStamp;
+        var thirdStamp = third.MutationStamp;
+        destination.AdoptNode(host);
+
+        host.OwnerDocument.Should().BeSameAs(destination);
+        root.OwnerDocument.Should().BeSameAs(destination);
+        innerHost.OwnerDocument.Should().BeSameAs(destination);
+        innerRoot.OwnerDocument.Should().BeSameAs(destination);
+        innerChild.OwnerDocument.Should().BeSameAs(destination);
+        root.CustomElementRegistry.Should().BeSameAs(global);
+        innerHost.CustomElementRegistry.Should().BeSameAs(global);
+        innerRoot.CustomElementRegistry.Should().BeSameAs(global);
+        innerChild.CustomElementRegistry.Should().BeSameAs(global);
+        root.Host.Should().BeSameAs(host);
+        innerRoot.Host.Should().BeSameAs(innerHost);
+        source.MutationStamp.Should().BeGreaterThan(sourceStamp);
+        destination.MutationStamp.Should().BeGreaterThan(destinationStamp);
+        third.MutationStamp.Should().BeGreaterThan(thirdStamp);
+    }
 }
