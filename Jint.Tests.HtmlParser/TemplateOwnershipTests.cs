@@ -171,4 +171,36 @@ public class TemplateOwnershipTests
         current.TemplateContent!.OwnerDocument.Should().BeSameAs(destinationInert);
         root.OwnerDocument.Should().BeSameAs(destination);
     }
+
+    [Test]
+    public void AlreadyOwnedTemplateContentStopsAdoptionBeforeNestedHooks()
+    {
+        var source = Document.CreateHtml();
+        var destination = Document.CreateHtml();
+        var third = Document.CreateXml();
+        var outer = source.CreateElement("template");
+        var ordinary = source.CreateTextNode("ordinary");
+        outer.AppendChild(ordinary);
+        var outerContent = outer.TemplateContent!;
+        var inner = outerContent.OwnerDocument!.CreateParsedElement(Namespaces.Html, "template", null);
+        outerContent.AppendParsedChild(inner);
+        var innerContent = inner.TemplateContent!;
+        var leaf = innerContent.OwnerDocument!.CreateTextNode("leaf");
+        innerContent.AppendParsedChild(leaf);
+
+        var destinationInert = destination.CreateElement("template").TemplateContent!.OwnerDocument!;
+        destinationInert.AdoptNode(outerContent);
+        third.AdoptNode(innerContent);
+        outerContent.OwnerDocument.Should().BeSameAs(destinationInert);
+        innerContent.OwnerDocument.Should().BeSameAs(third);
+        leaf.OwnerDocument.Should().BeSameAs(third);
+
+        destination.AdoptNode(outer);
+        outer.OwnerDocument.Should().BeSameAs(destination);
+        ordinary.OwnerDocument.Should().BeSameAs(destination);
+        outerContent.OwnerDocument.Should().BeSameAs(destinationInert);
+        inner.OwnerDocument.Should().BeSameAs(destinationInert);
+        innerContent.OwnerDocument.Should().BeSameAs(third);
+        leaf.OwnerDocument.Should().BeSameAs(third);
+    }
 }

@@ -427,6 +427,14 @@ public abstract class Node
         pending.Push((node, destination));
         while (pending.TryPop(out var current))
         {
+            // A hosted fragment is a separate adoption boundary. It can already
+            // belong to the target inert document while nested content was later
+            // adopted elsewhere; in that case DOM's adoption steps stop here.
+            if (ReferenceEquals(current.Node._ownerDocument, current.Owner))
+            {
+                continue;
+            }
+
             current.Node._ownerDocument = current.Owner;
             if (current.Node is Element element)
             {
