@@ -1,7 +1,7 @@
 namespace Jint.HtmlParser;
 
 /// <summary>Options for a native DOM mutation registration.</summary>
-internal sealed class MutationObserverOptions
+public sealed class MutationObserverOptions
 {
     public bool ChildList { get; init; }
     public bool Subtree { get; init; }

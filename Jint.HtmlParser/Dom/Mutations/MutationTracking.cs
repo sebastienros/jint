@@ -1,19 +1,16 @@
 using System.Collections.ObjectModel;
-using System.Threading;
 
 namespace Jint.HtmlParser;
 
 internal static class MutationTracking
 {
-    private static int _registrationCount;
-
-    internal static void AddRegistration() => Interlocked.Increment(ref _registrationCount);
-    internal static void RemoveRegistration() => Interlocked.Decrement(ref _registrationCount);
-
     internal static MutationMatches? Match(Node target, MutationRecordKind kind,
         string? attributeName = null, string? attributeNamespace = null)
     {
-        if (Volatile.Read(ref _registrationCount) == 0)
+        // DOM Standard §4.3.2: collect interested observers in inclusive-ancestor
+        // order, then deduplicate each subscription and project oldValue per observer.
+        // https://dom.spec.whatwg.org/#queue-a-mutation-record
+        if (!(target as Document ?? target.OwnerDocument!).MayHaveMutationRegistrations)
         {
             return null;
         }
@@ -46,7 +43,10 @@ internal static class MutationTracking
 
     internal static void CaptureTransients(Node parent, Node removed)
     {
-        if (Volatile.Read(ref _registrationCount) == 0)
+        // DOM Standard §4.3.2: removal keeps subtree registrations active until
+        // the observer's next notification boundary.
+        // https://dom.spec.whatwg.org/#concept-node-remove
+        if (!(parent as Document ?? parent.OwnerDocument!).MayHaveMutationRegistrations)
         {
             return;
         }

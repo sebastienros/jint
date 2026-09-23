@@ -3,7 +3,7 @@ using System.Collections.ObjectModel;
 namespace Jint.HtmlParser;
 
 /// <summary>A reusable, explicitly drained native mutation observer.</summary>
-internal sealed class MutationSubscription : IDisposable
+public sealed class MutationSubscription : IDisposable
 {
     private readonly List<MutationRegistration> _registrations = [];
     private List<WeakReference<Node>>? _transientNodes;
@@ -35,7 +35,6 @@ internal sealed class MutationSubscription : IDisposable
         var created = new MutationRegistration(this, target, normalized);
         _registrations.Add(created);
         target.AddMutationRegistration(created, transient: false);
-        MutationTracking.AddRegistration();
     }
 
     public IReadOnlyList<MutationRecord> TakeRecords()
@@ -60,8 +59,6 @@ internal sealed class MutationSubscription : IDisposable
             {
                 target.RemoveMutationRegistration(registration, transient: false);
             }
-
-            MutationTracking.RemoveRegistration();
         }
 
         _registrations.Clear();

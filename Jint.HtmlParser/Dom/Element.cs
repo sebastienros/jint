@@ -229,7 +229,8 @@ public sealed class Element : Node
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (_attributes is not null || ParentNode is not null || ChildCount != 0)
+        if (_attributes is not null || ParentNode is not null || ChildCount != 0 ||
+            MutationRegistrations is not null)
         {
             throw new InvalidOperationException("Parsed attributes require a fresh, empty element.");
         }

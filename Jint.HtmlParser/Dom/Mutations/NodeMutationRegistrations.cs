@@ -18,6 +18,7 @@ public abstract partial class Node
         }
 
         _mutationRegistrations.Add(new NodeMutationRegistration(registration, transient));
+        (this as Document ?? OwnerDocument!).MarkMutationRegistrationsPresent();
         if (transient)
         {
             registration.Subscription.AddTransientNode(this);

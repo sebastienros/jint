@@ -1,7 +1,7 @@
 namespace Jint.HtmlParser;
 
 /// <summary>The kind of a native DOM mutation.</summary>
-internal enum MutationRecordKind
+public enum MutationRecordKind
 {
     ChildList,
     Attributes,
@@ -9,7 +9,7 @@ internal enum MutationRecordKind
 }
 
 /// <summary>An immutable snapshot of one native DOM mutation.</summary>
-internal sealed class MutationRecord
+public sealed class MutationRecord
 {
     internal static readonly IReadOnlyList<Node> EmptyNodes = Array.AsReadOnly(Array.Empty<Node>());
 

@@ -25,6 +25,7 @@ public sealed class Document : Node
     private Document? _templateContentsOwnerDocument;
     private readonly bool _isTemplateContentsOwnerDocument;
     private ulong _mutationStamp;
+    private bool _mayHaveMutationRegistrations;
 
     public Document(DocumentKind kind) : this(kind, kind == DocumentKind.Html ? "text/html" : "application/xml") { }
 
@@ -67,6 +68,8 @@ public sealed class Document : Node
         }
     }
     internal ulong MutationStamp => _mutationStamp;
+    internal bool MayHaveMutationRegistrations => _mayHaveMutationRegistrations;
+    internal void MarkMutationRegistrationsPresent() => _mayHaveMutationRegistrations = true;
     internal void MarkMutation()
     {
         if (_mutationStamp != ulong.MaxValue)
@@ -77,7 +80,7 @@ public sealed class Document : Node
 
     /// <summary>Observes native mutations on a target, including one from another document.</summary>
 #pragma warning disable CA1822 // The instance method is the document's convenience factory.
-    internal MutationSubscription ObserveMutations(Node target, MutationObserverOptions options)
+    public MutationSubscription ObserveMutations(Node target, MutationObserverOptions options)
     {
         var subscription = new MutationSubscription();
         subscription.Observe(target, options);
