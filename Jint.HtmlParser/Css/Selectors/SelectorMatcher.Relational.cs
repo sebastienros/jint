@@ -32,6 +32,9 @@ internal static partial class SelectorMatcher
         internal Node? Cursor;
         internal bool RegionStarted;
         internal int NthIndex;
+        internal List<ForwardState>? Forward;
+        internal HashSet<(int Position, Node Node)>? ForwardVisited;
+        internal bool? RelativeHasColumn;
     }
 
     private sealed class BranchPosition(Node node, int part)
@@ -40,6 +43,16 @@ internal static partial class SelectorMatcher
         internal int Part = part;
         internal bool Checked;
         internal Node? Next;
+        internal IEnumerator<Element>? Columns;
+    }
+
+    private sealed class ForwardState(Node source, int position)
+    {
+        internal Node Source = source;
+        internal int Position = position;
+        internal Node? Cursor;
+        internal bool Started;
+        internal IEnumerator<Element>? Columns;
     }
 
     private sealed class FeaturelessFrame(CompiledSelector program)
@@ -109,6 +122,7 @@ internal static partial class SelectorMatcher
                         var checkedPosition = positions[^1];
                         if (!result)
                         {
+                            checkedPosition.Columns?.Dispose();
                             positions.RemoveAt(positions.Count - 1);
                         }
                         else if (checkedPosition.Part == 0)
@@ -122,12 +136,16 @@ internal static partial class SelectorMatcher
                                 continue;
                             }
                             // Another predecessor may satisfy the anchor relationship.
+                            checkedPosition.Columns?.Dispose();
                             positions.RemoveAt(positions.Count - 1);
                         }
                         else
                         {
-                            checkedPosition.Next = InitialPredecessor(checkedPosition.Node,
-                                frame.Branch!.Combinators[checkedPosition.Part - 1], ref work);
+                            var edge = frame.Branch!.Combinators[checkedPosition.Part - 1];
+                            if (edge == Combinator.Column)
+                                checkedPosition.Columns = ColumnPredecessors(checkedPosition.Node, ref work);
+                            else
+                                checkedPosition.Next = InitialPredecessor(checkedPosition.Node, edge, ref work);
                         }
                     }
                     if (positions.Count == 0)
@@ -149,14 +167,21 @@ internal static partial class SelectorMatcher
                         });
                         break;
                     }
-                    var predecessor = position.Next;
+                    var relation = frame.Branch!.Combinators[position.Part - 1];
+                    Node? predecessor;
+                    if (relation == Combinator.Column)
+                        predecessor = position.Columns is not null && position.Columns.MoveNext()
+                            ? position.Columns.Current : null;
+                    else predecessor = position.Next;
                     if (predecessor is null)
                     {
+                        position.Columns?.Dispose();
                         positions.RemoveAt(positions.Count - 1);
                         break;
                     }
-                    position.Next = NextPredecessor(predecessor,
-                        frame.Branch!.Combinators[position.Part - 1], ref work);
+                    work.Step();
+                    if (relation != Combinator.Column)
+                        position.Next = NextPredecessor(predecessor, relation, ref work);
                     if (predecessor is Element || ReferenceEquals(predecessor, frame.Scope) &&
                         predecessor is DocumentFragment)
                         positions.Add(new BranchPosition(predecessor, position.Part - 1));
@@ -315,6 +340,9 @@ internal static partial class SelectorMatcher
                         frame.RegionRoot = null;
                         frame.Cursor = null;
                         frame.RegionStarted = false;
+                        frame.Forward = null;
+                        frame.ForwardVisited = null;
+                        frame.RelativeHasColumn = null;
                         break;
                     }
                     frame.Waiting = true;
@@ -382,6 +410,8 @@ internal static partial class SelectorMatcher
     {
         switch (combinator)
         {
+            case Combinator.Column:
+                return ColumnLeadingMatches(first, anchor, ref work);
             case Combinator.Child:
                 return ReferenceEquals(first.ParentNode, anchor);
             case Combinator.Descendant:
@@ -510,6 +540,9 @@ internal static partial class SelectorMatcher
 
     private static Element? NextRelativeCandidate(EvaluationFrame frame, ComplexSelector branch, ref Work work)
     {
+        frame.RelativeHasColumn ??= HasColumnEdge(branch, ref work);
+        if (frame.RelativeHasColumn.Value)
+            return NextColumnRelativeCandidate(frame, branch, ref work);
         if (branch.Compounds.Count == 1 && branch.LeadingCombinator == Combinator.NextSibling)
         {
             if (frame.RegionStarted) return null;

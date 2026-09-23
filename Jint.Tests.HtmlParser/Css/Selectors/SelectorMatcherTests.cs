@@ -437,7 +437,6 @@ public sealed class SelectorMatcherTests
 
     [TestCase(":lang(en)")]
     [TestCase(":checked")]
-    [TestCase("div || col")]
     [TestCase("div, :hover")]
     public void UnimplementedFamiliesFailPreflightEvenWhenAnotherBranchMatches(string source)
     {

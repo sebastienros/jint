@@ -130,11 +130,6 @@ internal static partial class SelectorMatcher
                 work.Step();
                 if (branch.LeadingCombinator is not null && !currentIsRelative)
                     throw Unsupported("relative selector");
-                foreach (var combinator in branch.Combinators)
-                {
-                    work.Step();
-                    if (combinator == Combinator.Column) throw Unsupported("column combinator");
-                }
                 foreach (var compound in branch.Compounds)
                 {
                     work.Step();
@@ -161,6 +156,7 @@ internal static partial class SelectorMatcher
         PredicateKind.FirstOfType or PredicateKind.LastOfType or PredicateKind.OnlyOfType or
         PredicateKind.NthOfType or PredicateKind.NthLastOfType => predicate.Arguments is null,
         PredicateKind.NthChild or PredicateKind.NthLastChild => true,
+        PredicateKind.NthCol or PredicateKind.NthLastCol => predicate.Arguments is null,
         PredicateKind.Is or PredicateKind.Where or PredicateKind.Not or PredicateKind.Has =>
             predicate.Arguments is not null,
         PredicateKind.Slotted => true,
@@ -288,6 +284,9 @@ internal static partial class SelectorMatcher
             case PredicateKind.NthOfType:
             case PredicateKind.NthLastOfType:
                 return MatchPosition(predicate, element, ref work);
+            case PredicateKind.NthCol:
+            case PredicateKind.NthLastCol:
+                return MatchColumnPosition(predicate, element, ref work);
             default:
                 throw Unsupported(predicate.Kind.ToString());
         }
@@ -553,6 +552,20 @@ internal static partial class SelectorMatcher
         private int _steps;
         // Shared only by one matching/query call; compiled programs retain no state.
         private Dictionary<CompiledSelector, bool>? _featurelessEligibility;
+        private Dictionary<Element, HtmlTableGrid>? _tableGrids;
+        internal CancellationToken Token => cancellationToken;
+        internal Action? Checkpoint => checkpoint;
+        internal HtmlTableGrid GridFor(Element table)
+        {
+            Step();
+            _tableGrids ??= new Dictionary<Element, HtmlTableGrid>(ReferenceEqualityComparer.Instance);
+            if (!_tableGrids.TryGetValue(table, out var grid))
+            {
+                grid = HtmlTableGrid.Build(table, checkpoint, cancellationToken);
+                _tableGrids.Add(table, grid);
+            }
+            return grid;
+        }
         internal bool TryGetFeaturelessEligibility(CompiledSelector program, out bool eligible)
         {
             Step();
