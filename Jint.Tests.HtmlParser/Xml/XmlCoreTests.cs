@@ -169,4 +169,22 @@ public class XmlCoreTests
         fragment.FirstChild.Should().BeOfType<CDataSection>().Which.Data.Should().Be("x");
         fragment.OwnerDocument.Should().BeSameAs(html);
     }
+
+    [Test]
+    public void CancelsDuringDeepFragmentContextCollection()
+    {
+        var document = Document.CreateXml();
+        var context = document.CreateParsedElement(null, "n", null);
+        for (var i = 0; i < 4_100; i++)
+        {
+            var child = document.CreateParsedElement(null, "n", null);
+            context.AppendParsedChild(child);
+            context = child;
+        }
+        using var cancellation = new CancellationTokenSource();
+        var polls = 0;
+        Assert.Throws<OperationCanceledException>(() => XmlTreeParser.ParseFragment("", context,
+            ParseLimits.Unbounded, () => { polls++; cancellation.Cancel(); }, cancellation.Token));
+        polls.Should().Be(1);
+    }
 }

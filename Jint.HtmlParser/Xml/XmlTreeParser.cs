@@ -29,20 +29,22 @@ internal sealed class XmlTreeParser
         _limits = limits;
         _cancellationToken = cancellationToken;
         _onCancellationPoll = onCancellationPoll;
+        cancellationToken.ThrowIfCancellationRequested();
         _context = context;
         _document = context?.OwnerDocument ?? Document.CreateXml();
         _fragment = context is null ? null : _document.CreateDocumentFragment();
         for (var ancestor = context; ancestor is not null; ancestor = ancestor.ParentNode as Element)
         {
+            WorkUnit();
             foreach (var attribute in ancestor.Attributes)
             {
+                WorkUnit();
                 if (attribute.Name == "xmlns") _bindings.TryAdd(string.Empty, EmptyToNull(attribute.Value));
                 else if (attribute.Prefix == "xmlns") _bindings.TryAdd(attribute.LocalName, EmptyToNull(attribute.Value));
             }
             if (ancestor.Prefix is null) _bindings.TryAdd(string.Empty, ancestor.NamespaceUri);
             else _bindings.TryAdd(ancestor.Prefix, ancestor.NamespaceUri);
         }
-        cancellationToken.ThrowIfCancellationRequested();
         if (limits.MaxInputCharacters != 0 && source.Length > limits.MaxInputCharacters)
         {
             throw new ParseLimitException(ParseLimitKind.InputCharacters, limits.MaxInputCharacters, source.Length);
@@ -63,11 +65,15 @@ internal sealed class XmlTreeParser
     }
 
     internal static DocumentFragment ParseFragment(string source, Element context, ParseLimits limits, CancellationToken cancellationToken)
+        => ParseFragment(source, context, limits, null, cancellationToken);
+
+    internal static DocumentFragment ParseFragment(string source, Element context, ParseLimits limits,
+        Action? onCancellationPoll, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(limits);
-        var parser = new XmlTreeParser(source, limits, context, null, cancellationToken);
+        var parser = new XmlTreeParser(source, limits, context, onCancellationPoll, cancellationToken);
         parser.Parse();
         return parser._fragment!;
     }
@@ -291,6 +297,7 @@ internal sealed class XmlTreeParser
             var previousBindings = new Dictionary<string, BindingUndo>(localBindings.Count, StringComparer.Ordinal);
             foreach (var (prefix, uri) in localBindings)
             {
+                WorkUnit();
                 previousBindings.Add(prefix, _bindings.TryGetValue(prefix, out var previous)
                     ? new BindingUndo(true, previous) : new BindingUndo(false, null));
                 _bindings[prefix] = uri;
@@ -313,6 +320,7 @@ internal sealed class XmlTreeParser
         var frame = _frames.Pop();
         foreach (var (prefix, previous) in frame.PreviousBindings)
         {
+            WorkUnit();
             if (previous.Exists) _bindings[prefix] = previous.Value;
             else _bindings.Remove(prefix);
         }
@@ -457,23 +465,10 @@ internal sealed class XmlTreeParser
         if (colon < 0) return;
         if (colon == 0 || colon == name.Length - 1 || name.IndexOf(':', colon + 1) >= 0)
             Error("xml/namespace-error", offset);
-        if (!IsNcName(name.AsSpan(0, colon)) || !IsNcName(name.AsSpan(colon + 1)))
+        var firstLocal = char.IsSurrogatePair(name, colon + 1)
+            ? char.ConvertToUtf32(name, colon + 1) : name[colon + 1];
+        if (!IsNameStart(firstLocal))
             Error("xml/namespace-error", offset);
-    }
-
-    private static bool IsNcName(ReadOnlySpan<char> value)
-    {
-        if (value.IsEmpty) return false;
-        var first = char.IsHighSurrogate(value[0]) && value.Length > 1 && char.IsLowSurrogate(value[1])
-            ? char.ConvertToUtf32(value[0], value[1]) : value[0];
-        if (first == ':' || !IsNameStart(first)) return false;
-        for (var i = first > 0xFFFF ? 2 : 1; i < value.Length; i++)
-        {
-            var scalar = char.IsHighSurrogate(value[i]) && i + 1 < value.Length && char.IsLowSurrogate(value[i + 1])
-                ? char.ConvertToUtf32(value[i], value[++i]) : value[i];
-            if (scalar == ':' || !IsNameChar(scalar)) return false;
-        }
-        return true;
     }
 
     private static (string? Prefix, string LocalName) SplitName(string name)
