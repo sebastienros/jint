@@ -174,7 +174,7 @@ def catalog_rows(files: dict[str, bytes]) -> tuple[list[dict], list[str]]:
     return rows, sorted(opened)
 
 
-def decode_status(data: bytes) -> dict[str, str]:
+def decode_document(data: bytes) -> tuple[str | None, dict[str, str]]:
     # XML §4.3.3 signatures; strict fallbacks ensure invalid byte input never
     # turns into U+FFFD and a false parser rejection.
     if data.startswith(b"\xef\xbb\xbf"):
@@ -192,15 +192,19 @@ def decode_status(data: bytes) -> dict[str, str]:
     try:
         source = payload.decode(encoding, errors="strict")
     except UnicodeDecodeError as error:
-        return {"decision": decision, "status": "strict-decode-error", "detail": str(error)}
+        return None, {"decision": decision, "status": "strict-decode-error", "detail": str(error)}
     declaration = re.match(r"<\?xml\s+[^?]*?\bencoding\s*=\s*(['\"])([^'\"]+)\1", source, re.I)
     declared = declaration.group(2) if declaration else None
     if declared:
+        # EncName grammar defects are lexical parser tests on the decoded string,
+        # not reasons to suppress the parser invocation.
+        if re.fullmatch(r"[A-Za-z][A-Za-z0-9._-]*", declared) is None:
+            return source, {"decision": decision, "status": "decoded", "declared": declared}
         normalized = declared.lower().replace("_", "-")
         supported = ("utf-8", "utf8") if encoding == "utf-8" else ("utf-16", encoding)
-        if normalized not in supported:
-            return {"decision": decision, "status": "declared-encoding-review", "declared": declared}
-    return {"decision": decision, "status": "decoded", "declared": declared or ""}
+        if normalized not in supported and normalized != "ascii":
+            return None, {"decision": decision, "status": "declared-encoding-review", "declared": declared}
+    return source, {"decision": decision, "status": "decoded", "declared": declared or ""}
 
 
 def in_profile(metadata: dict[str, str]) -> tuple[bool, str]:
@@ -286,8 +290,19 @@ def import_corpus() -> None:
         output_path = posixpath.normpath(posixpath.join(row["base"], output_uri)) if output_uri else None
         if output_path is not None and output_path not in files:
             raise ValueError(f"Missing OUTPUT {key}: {output_path}")
+        output3_uri = attributes.get("OUTPUT3")
+        output3_path = posixpath.normpath(posixpath.join(row["base"], output3_uri)) if output3_uri else None
+        if output3_path is not None and output3_path not in files:
+            raise ValueError(f"Missing OUTPUT3 {key}: {output3_path}")
         profile, reason = in_profile(attributes)
-        decoder = decode_status(files[input_path])
+        source_text, decoder = decode_document(files[input_path])
+        signals = []
+        if attributes.get("ENTITIES", "none") != "none":
+            signals.append("ENTITIES=" + attributes["ENTITIES"])
+        if source_text is not None and "<!DOCTYPE" in source_text and (
+            "SYSTEM" in source_text or "PUBLIC" in source_text
+        ):
+            signals.append("external-identifier-lexical")
         if not profile:
             disposition = "outside-profile"
         elif attributes["TYPE"] == "error":
@@ -300,25 +315,30 @@ def import_corpus() -> None:
             "key": row["catalog"] + "#" + case_id,
             "catalog": row["catalog"], "collection": row["catalog"].removeprefix("xmlconf/").rsplit("/", 1)[0],
             "id": case_id, "uri": uri, "inputPath": input_path,
-            "description": " ".join(row["description"].split()), "sections": attributes["SECTIONS"],
+            "description": row["description"], "sections": attributes["SECTIONS"],
             "category": attributes["TYPE"], "recommendation": attributes.get("RECOMMENDATION", "XML1.0"),
             "version": attributes.get("VERSION"), "edition": attributes.get("EDITION"),
             "namespace": attributes.get("NAMESPACE", "yes"), "entities": attributes.get("ENTITIES", "none"),
-            "output": output_uri, "outputPath": output_path, "output3": attributes.get("OUTPUT3"),
+            "output": output_uri, "outputPath": output_path,
+            "output3": output3_uri, "output3Path": output3_path,
             "decoding": decoder, "disposition": disposition, "reason": reason,
+            "resourceProfile": "unreviewed-external-indication" if signals else "no-external-indication",
+            "resourceSignals": signals,
         })
 
+    case_json = json.dumps(cases, ensure_ascii=False, indent=2) + "\n"
     lock = {
         "suite": "W3C XML Test Suite 20130923", "archiveUrl": ARCHIVE_URL, "archiveSha256": ARCHIVE_SHA,
         "clarkUrl": CLARK_URL, "clarkZipSha256": CLARK_SHA,
         "metadataPaths": metadata_paths, "fileCount": len(files), "rowCount": len(cases),
+        "casesSha256": digest(case_json.encode("utf-8")),
         "categories": dict(sorted(Counter(case["category"] for case in cases).items())),
         "clarkChanged": changed_clark, "clarkAdded": added_clark,
         "clarkOriginalOnly": original_only_clark,
         "files": file_lock,
     }
     (ROOT / "corpus.lock.json").write_text(json.dumps(lock, ensure_ascii=False, indent=2) + "\n")
-    (ROOT / "cases.json").write_text(json.dumps(cases, ensure_ascii=False, indent=2) + "\n")
+    (ROOT / "cases.json").write_text(case_json)
     print("Rows:", len(cases), "files:", len(files))
     print("Dispositions:", dict(Counter(case["disposition"] for case in cases)))
     print("File sources:", dict(Counter(entry["source"] for entry in file_lock)))
