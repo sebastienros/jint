@@ -177,4 +177,20 @@ public class XmlDtdTests
         content.FirstChild!.OwnerDocument.Should().BeSameAs(content.OwnerDocument);
         content.LastChild!.OwnerDocument.Should().BeSameAs(content.OwnerDocument);
     }
+
+    [Test]
+    public void NestedXhtmlTemplateChildrenStayInTheInertDocument()
+    {
+        const string source = "<html xmlns='http://www.w3.org/1999/xhtml'><template><template><span/></template></template></html>";
+        var document = MarkupParser.ParseXml(source);
+        var outer = (Element) document.DocumentElement!.FirstChild!;
+        var inner = (Element) outer.TemplateContent!.FirstChild!;
+        var leaf = (Element) inner.TemplateContent!.FirstChild!;
+
+        outer.ChildCount.Should().Be(0);
+        inner.ChildCount.Should().Be(0);
+        inner.OwnerDocument.Should().BeSameAs(outer.TemplateContent.OwnerDocument);
+        inner.TemplateContent.OwnerDocument.Should().BeSameAs(outer.TemplateContent.OwnerDocument);
+        leaf.OwnerDocument.Should().BeSameAs(outer.TemplateContent.OwnerDocument);
+    }
 }
