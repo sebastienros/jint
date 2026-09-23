@@ -8514,5 +8514,48 @@
     "originalOutputSha256": "47a1224f5d7888088f53628f25cccd6256a573b000e4fa78fd89aea6cbe15078",
     "outputAlternative": "<doc></doc>",
     "review": "Pinned W3C INPUT 4f00a2c7c4f7b6398544494596b00218b17f5b34fe9ab1a228925237a99eb2a8, unread external subset 011c2c06b222683e1ca89b136598fccd2b6fdbf327abd9179533ef2435e03d33, original OUTPUT 47a1224f5d7888088f53628f25cccd6256a573b000e4fa78fd89aea6cbe15078; The fetched external INCLUDE section supplies a1=v1 without optional spaces; no fetch sees no default. XML 1.0 Fifth Edition \u00a73.4 https://www.w3.org/TR/xml/#sec-conditional-sect and \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#valid-not-sa-026",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "Parameter",
+        "Name": "e",
+        "PublicId": null,
+        "SystemId": "026.ent",
+        "Offset": 69
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "no-fetch-alternative",
+    "projectionSha256": "37c68dcd09693f0e8a99ada9f25f33fe0d32605b18847739fbe7e1a9ee0d5cd4",
+    "originalOutputSha256": "9580f260c11c1f7b54381356cf3a56d06129165d249dcbeb43a2318d4b1640c7",
+    "outputAlternative": "<doc></doc>",
+    "review": "Pinned W3C INPUT 5fedfc15e93564892261da353347ed57bc608f029f9a2e0db401ca9260cc7417, unread external parameter entity c8d780d44b86d55f8e82023a00ddea5cbbbc96e9b4c56b45b6ac4a14af5f7a48, original OUTPUT 9580f260c11c1f7b54381356cf3a56d06129165d249dcbeb43a2318d4b1640c7; The unread external parameter entity could supply an earlier a1 declaration. The document has no standalone=yes declaration, so XML 1.0 \u00a75.1 forbids processing later attribute-list declarations; neither later a1=x1 nor a2=x2 is supplied without fetch. Fetched upstream OUTPUT instead has external first a1=w1 and later a2=x2. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
   }
 ]
