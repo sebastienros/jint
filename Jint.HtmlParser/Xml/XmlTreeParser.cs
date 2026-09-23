@@ -5,9 +5,10 @@ namespace Jint.HtmlParser;
 
 // XML 1.0 (fifth edition) §2–§4 and Namespaces in XML 1.0 (third edition) §2–§4.
 // The source cursor remains in original UTF-16 offsets. Each call owns all parse state.
-internal sealed class XmlTreeParser
+internal sealed partial class XmlTreeParser
 {
-    private readonly string _source;
+    private readonly string _originalSource;
+    private string _source;
     private readonly ParseLimits _limits;
     private readonly CancellationToken _cancellationToken;
     private readonly Action? _onCancellationPoll;
@@ -19,17 +20,37 @@ internal sealed class XmlTreeParser
     {
         ["xml"] = Namespaces.Xml
     };
+    private readonly Stack<InputFrame> _inputFrames = new();
+    private readonly HashSet<string> _activeGeneralEntities = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _activeParameterEntities = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, XmlEntityDeclaration> _generalEntities = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, XmlEntityDeclaration> _parameterEntities = new(StringComparer.Ordinal);
+    private List<XmlSkippedEntity>? _skippedEntities;
+    private long _expansionCharacters;
+    private bool _hasExternalSubset;
+    private bool _catalogActive;
+    private bool _standalone;
+    private string? _doctypeName;
+    private int _doctypeTokenStart = -1;
+    private bool _unreadParameterEntity;
     private int _position;
     private int _work;
     private bool _seenRoot;
+    private StringBuilder? _pendingText;
+    private int _pendingTextOffset;
 
     private XmlTreeParser(string source, ParseLimits limits, Element? context, Action? onCancellationPoll, CancellationToken cancellationToken)
     {
+        _originalSource = source;
         _source = source;
         _limits = limits;
         _cancellationToken = cancellationToken;
         _onCancellationPoll = onCancellationPoll;
         cancellationToken.ThrowIfCancellationRequested();
+        if (limits.MaxInputCharacters != 0 && source.Length > limits.MaxInputCharacters)
+        {
+            throw new ParseLimitException(ParseLimitKind.InputCharacters, limits.MaxInputCharacters, source.Length);
+        }
         _context = context;
         _document = context?.OwnerDocument ?? Document.CreateXml();
         _fragment = context is null ? null : _document.CreateDocumentFragment();
@@ -44,10 +65,6 @@ internal sealed class XmlTreeParser
             }
             if (ancestor.Prefix is null) _bindings.TryAdd(string.Empty, ancestor.NamespaceUri);
             else _bindings.TryAdd(ancestor.Prefix, ancestor.NamespaceUri);
-        }
-        if (limits.MaxInputCharacters != 0 && source.Length > limits.MaxInputCharacters)
-        {
-            throw new ParseLimitException(ParseLimitKind.InputCharacters, limits.MaxInputCharacters, source.Length);
         }
     }
 
@@ -84,23 +101,31 @@ internal sealed class XmlTreeParser
         if (_context is null && Current == '\uFEFF') Consume();
         if (_context is null && StartsWith("<?xml") && (IsWhitespace(Peek(5)) || Peek(5) == '?')) ParseDeclaration();
 
-        while (!End)
+        while (true)
         {
+            if (End)
+            {
+                if (!ResumeInput()) break;
+                continue;
+            }
             if (Current == '<')
             {
+                FlushText();
                 if (StartsWith("<!--")) ParseComment();
                 else if (StartsWith("<![CDATA[")) ParseCData();
                 else if (StartsWith("<?")) ParseProcessingInstruction();
                 else if (StartsWith("</")) ParseEndTag();
-                else if (StartsWith("<!DOCTYPE")) ParseUnsupportedDoctype();
+                else if (StartsWith("<!DOCTYPE")) ParseDoctype();
                 else if (StartsWith("<!")) Error("xml/invalid-markup", _position);
                 else ParseStartTag();
             }
             else ParseText();
         }
 
+        FlushText();
         if (_frames.Count != 0) Error("xml/unexpected-eof", _position);
         if (_context is null && !_seenRoot) Error("xml/invalid-document", _position);
+        if (_skippedEntities is not null) _document.PublishSkippedXmlEntities(_skippedEntities);
         _cancellationToken.ThrowIfCancellationRequested();
     }
 
@@ -137,14 +162,8 @@ internal sealed class XmlTreeParser
             var value = ReadQuoted("xml/invalid-declaration", start);
             if (order == 1 && !IsEncodingName(value) || order == 2 && value is not "yes" and not "no")
                 Error("xml/invalid-declaration", start);
+            if (order == 2) _standalone = value == "yes";
         }
-    }
-
-    private void ParseUnsupportedDoctype()
-    {
-        // The core milestone deliberately cannot accept DTD-bearing input. The DTD
-        // implementation replaces this path before the public facade is published.
-        Error(_context is null && !_seenRoot ? "xml/invalid-declaration" : "xml/invalid-markup", _position);
     }
 
     private void ParseComment()
@@ -226,6 +245,7 @@ internal sealed class XmlTreeParser
         if (_frames.Count == 0)
         {
             if (_context is null && _seenRoot) Error("xml/invalid-document", start);
+            if (_context is null && _doctypeName is not null && name != _doctypeName) Error("xml/invalid-document", start);
             _seenRoot = true;
         }
 
@@ -273,6 +293,7 @@ internal sealed class XmlTreeParser
             }
         }
 
+        ApplyDtdAttributes(name, attributes, rawNames, localBindings);
         var split = SplitName(name);
         var namespaceUri = split.Prefix is null ? Resolve(string.Empty, localBindings) : ResolveRequired(split.Prefix, localBindings, start);
         if (namespaceUri == Namespaces.Xmlns || split.Prefix == "xmlns") Error("xml/namespace-error", start);
@@ -328,29 +349,42 @@ internal sealed class XmlTreeParser
 
     private void ParseText()
     {
-        var builder = new StringBuilder();
-        var start = _position;
+        _pendingText ??= new StringBuilder();
+        if (_pendingText.Length == 0)
+        {
+            _pendingTextOffset = _position;
+        }
         while (!End && Current != '<')
         {
             if (StartsWith("]]>")) Error("xml/invalid-markup", _position);
             if (Current == '&')
             {
                 if (_frames.Count == 0 && _context is null) Error("xml/invalid-document", _position);
-                builder.Append(ReadReference(-1));
+                var value = ReadReference(-1, inAttribute: false);
+                if (value is null) return;
+                _pendingText.Append(value);
                 continue;
             }
-            AppendNormalizedScalar(builder);
+            AppendNormalizedScalar(_pendingText);
         }
+    }
 
+    private void FlushText()
+    {
+        if (_pendingText is null || _pendingText.Length == 0) return;
+        var value = _pendingText.ToString();
+        _pendingText.Clear();
         if (_frames.Count == 0 && _context is null)
         {
-            foreach (var character in builder.ToString())
+            foreach (var character in value)
             {
                 WorkUnit();
-                if (!IsWhitespace(character)) Error("xml/invalid-document", start);
+                if (!IsWhitespace(character)) Error("xml/invalid-document", _pendingTextOffset);
             }
+            return;
         }
-        else if (builder.Length != 0) Parent.AppendParsedChild(_document.CreateTextNode(builder.ToString()));
+
+        Parent.AppendParsedChild(_document.CreateTextNode(value));
     }
 
     private string ReadAttributeValue(int tokenStart)
@@ -363,7 +397,7 @@ internal sealed class XmlTreeParser
         {
             if (End) Error("xml/unexpected-eof", _position);
             if (Current == '<') Error("xml/invalid-markup", _position);
-            if (Current == '&') builder.Append(ReadReference(tokenStart));
+            if (Current == '&') builder.Append(ReadReference(tokenStart, inAttribute: true));
             else
             {
                 if (IsWhitespace(Current))
@@ -380,7 +414,7 @@ internal sealed class XmlTreeParser
         return builder.ToString();
     }
 
-    private string ReadReference(int parentTokenStart)
+    private string? ReadReference(int parentTokenStart, bool inAttribute)
     {
         var start = _position;
         Consume();
@@ -413,15 +447,17 @@ internal sealed class XmlTreeParser
         Expect(';', "xml/invalid-markup", start);
         CheckToken(start);
         if (parentTokenStart >= 0) CheckToken(parentTokenStart);
-        return name switch
+        var predefined = name switch
         {
             "amp" => "&",
             "lt" => "<",
             "gt" => ">",
             "apos" => "'",
             "quot" => "\"",
-            _ => throw new MarkupParseException("xml/undeclared-entity", start)
+            _ => null
         };
+        if (predefined is not null) return predefined;
+        return ResolveGeneralEntity(name, start, inAttribute);
     }
 
     private string ReadName(int tokenStart, int parentTokenStart = -1)
@@ -459,7 +495,7 @@ internal sealed class XmlTreeParser
         return value;
     }
 
-    private static void ValidateQName(string name, int offset)
+    private void ValidateQName(string name, int offset)
     {
         var colon = name.IndexOf(':');
         if (colon < 0) return;
@@ -477,7 +513,7 @@ internal sealed class XmlTreeParser
         return colon < 0 ? (null, name) : (name[..colon], name[(colon + 1)..]);
     }
 
-    private static void ValidateBinding(string prefix, string value, int offset)
+    private void ValidateBinding(string prefix, string value, int offset)
     {
         if (prefix == "xmlns" || value == Namespaces.Xmlns || prefix == "xml" && value != Namespaces.Xml ||
             prefix != "xml" && value == Namespaces.Xml || prefix.Length != 0 && value.Length == 0)
@@ -485,7 +521,11 @@ internal sealed class XmlTreeParser
     }
 
     private string ResolveRequired(string prefix, Dictionary<string, string?> local, int offset)
-        => Resolve(prefix, local) ?? throw new MarkupParseException("xml/namespace-error", offset);
+    {
+        var value = Resolve(prefix, local);
+        if (value is null) Error("xml/namespace-error", offset);
+        return value!;
+    }
 
     private string? Resolve(string prefix, Dictionary<string, string?> local)
     {
@@ -503,8 +543,16 @@ internal sealed class XmlTreeParser
 
     private void Consume()
     {
+        if (_inputFrames.Count != 0)
+        {
+            if (_limits.MaxEntityExpansionCharacters != 0 && _expansionCharacters >= _limits.MaxEntityExpansionCharacters)
+                throw new ParseLimitException(ParseLimitKind.EntityExpansionCharacters,
+                    _limits.MaxEntityExpansionCharacters, _limits.MaxEntityExpansionCharacters + 1);
+            _expansionCharacters++;
+        }
         _position++;
         WorkUnit();
+        if (_doctypeTokenStart >= 0 && ReferenceEquals(_source, _originalSource)) CheckToken(_doctypeTokenStart);
     }
 
     private void ConsumeLiteral(string literal, int tokenStart)
@@ -645,9 +693,12 @@ internal sealed class XmlTreeParser
         return true;
     }
 
-    private static void Error(string code, int offset) => throw new MarkupParseException(code, offset);
+    private void Error(string code, int offset)
+        => throw new MarkupParseException(code, _inputFrames.Count == 0 ? offset : _inputFrames.Peek().OriginalOffset);
 
     private readonly record struct RawAttribute(string Name, string Value, int Offset);
     private sealed record ElementFrame(Element Element, string QualifiedName, Dictionary<string, BindingUndo> PreviousBindings);
     private readonly record struct BindingUndo(bool Exists, string? Value);
+    private readonly record struct InputFrame(string Source, int Position, string EntityName, int OriginalOffset, int ElementDepth, bool Parameter);
+    private readonly record struct XmlEntityDeclaration(string? Value, string? PublicId, string? SystemId, bool Unparsed);
 }
