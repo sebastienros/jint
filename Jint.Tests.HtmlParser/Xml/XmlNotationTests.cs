@@ -208,4 +208,32 @@ public class XmlNotationTests
             () => { polls++; cancellation.Cancel(); }, cancellation.Token));
         polls.Should().Be(1);
     }
+
+    [Test]
+    public void CancelsDuringPublicIdNormalizationAfterItsLiteralWasScanned()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var polls = 0;
+        // The 3,000-unit literal scan cannot reach the 4,096-unit work poll.
+        // Its second pass crosses that boundary within public-id normalization.
+        var source = "<!DOCTYPE r [<!NOTATION n PUBLIC '" + new string('x', 3_000) + "'>]><r/>";
+        Assert.Throws<OperationCanceledException>(() => XmlTreeParser.ParseDocument(source, ParseLimits.Unbounded,
+            () => { polls++; cancellation.Cancel(); }, cancellation.Token));
+        polls.Should().Be(1);
+    }
+
+    [Test]
+    public void CancelsWhileCollectingManyCompleteNotations()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var polls = 0;
+        var declarations = string.Concat(Enumerable.Range(0, 32).Select(i =>
+            "<!NOTATION n" + i + " SYSTEM 's'>"));
+        // Fewer than 4,096 scanner work units precede the 32nd declaration.
+        // The per-record checkpoint, before publishing a snapshot, must cancel.
+        var source = "<!DOCTYPE r [" + declarations + "]><r/>";
+        Assert.Throws<OperationCanceledException>(() => XmlTreeParser.ParseDocument(source, ParseLimits.Unbounded,
+            () => { if (++polls == 32) cancellation.Cancel(); }, cancellation.Token));
+        polls.Should().Be(32);
+    }
 }

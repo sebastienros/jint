@@ -907,6 +907,7 @@ internal sealed partial class XmlTreeParser
         else Error("xml/invalid-declaration", _position);
         SkipWhitespace(_position);
         Expect('>', "xml/invalid-declaration", start);
+        _onCancellationPoll?.Invoke();
         _cancellationToken.ThrowIfCancellationRequested();
         (_notations ??= new List<XmlNotationDeclaration>()).Add(new XmlNotationDeclaration(name,
             publicId, systemId, _inputFrames.Count == 0 ? start : _inputFrames.Peek().OriginalOffset));
@@ -916,7 +917,9 @@ internal sealed partial class XmlTreeParser
 
     private string NormalizeNotationPublicId(string value, int offset)
     {
+        _cancellationToken.ThrowIfCancellationRequested();
         var normalized = new StringBuilder(value.Length);
+        _cancellationToken.ThrowIfCancellationRequested();
         var pendingSpace = false;
         foreach (var c in value)
         {
