@@ -178,7 +178,7 @@ public sealed class Element : Node
             _attributes[_attributes.IndexOf(previous)] = attribute;
             previous.OwnerElement = null;
             attribute.OwnerElement = this;
-            attribute.OwnerDocument = OwnerDocument!;
+            attribute.Rehome(OwnerDocument!);
             OwnerDocument!.MarkMutation();
             HtmlFormAssociation.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
                 oldValue, attribute.Value);
@@ -232,7 +232,7 @@ public sealed class Element : Node
 
         foreach (var attribute in _attributes)
         {
-            attribute.OwnerDocument = document;
+            attribute.Rehome(document);
         }
     }
 
@@ -285,7 +285,8 @@ public sealed class Element : Node
             }
 
             var parsed = attributes[i];
-            var attribute = new Attr(OwnerDocument!, parsed.NamespaceUri, parsed.LocalName, parsed.Prefix, parsed.Value)
+            var attribute = new Attr(OwnerDocument!, parsed.NamespaceUri, parsed.LocalName, parsed.Prefix,
+                parsed.Value, parsed.IsDtdId)
             {
                 OwnerElement = this
             };
@@ -338,7 +339,8 @@ public sealed class Element : Node
                 continue;
             }
 
-            var attribute = new Attr(OwnerDocument!, parsed.NamespaceUri, parsed.LocalName, parsed.Prefix, parsed.Value);
+            var attribute = new Attr(OwnerDocument!, parsed.NamespaceUri, parsed.LocalName, parsed.Prefix,
+                parsed.Value, parsed.IsDtdId);
             AppendNewAttribute(attribute);
             committed++;
             workCheckpoint?.Invoke(ParsedAttributeMergeCheckpoint.AfterCommit, committed);
@@ -353,7 +355,7 @@ public sealed class Element : Node
         _attributes ??= [];
         _attributes.Add(attribute);
         attribute.OwnerElement = this;
-        attribute.OwnerDocument = OwnerDocument!;
+        attribute.Rehome(OwnerDocument!);
         OwnerDocument!.MarkMutation();
         HtmlFormAssociation.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
             null, attribute.Value);

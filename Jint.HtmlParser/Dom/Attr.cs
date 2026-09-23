@@ -4,21 +4,38 @@ namespace Jint.HtmlParser;
 public sealed class Attr
 {
     private string _value;
+    private string? _prefix;
 
-    internal Attr(Document ownerDocument, string? namespaceUri, string localName, string? prefix, string value)
+    internal Attr(Document ownerDocument, string? namespaceUri, string localName, string? prefix, string value,
+        bool isDtdId = false)
     {
         OwnerDocument = ownerDocument;
         NamespaceUri = namespaceUri;
         LocalName = localName;
-        Prefix = prefix;
+        _prefix = prefix;
         _value = value ?? throw new ArgumentNullException(nameof(value));
+        IsDtdId = isDtdId;
     }
 
-    public Document OwnerDocument { get; internal set; }
+    public Document OwnerDocument { get; private set; }
     public Element? OwnerElement { get; internal set; }
+    internal bool IsDtdId { get; }
     public string? NamespaceUri { get; }
     public string LocalName { get; }
-    public string? Prefix { get; internal set; }
+    public string? Prefix
+    {
+        get => _prefix;
+        internal set
+        {
+            if (_prefix == value)
+            {
+                return;
+            }
+
+            _prefix = value;
+            OwnerDocument.MarkMutation();
+        }
+    }
     public string Name => Prefix is null ? LocalName : string.Concat(Prefix, ":", LocalName);
     public string Value
     {
@@ -31,13 +48,27 @@ public sealed class Attr
             var matches = owner is null ? null : MutationTracking.Match(owner, MutationRecordKind.Attributes,
                 LocalName, NamespaceUri);
             _value = value;
+            OwnerDocument.MarkMutation();
             if (owner is not null)
             {
-                owner.OwnerDocument!.MarkMutation();
                 HtmlFormAssociation.AttributeChanged(owner, NamespaceUri, LocalName, oldValue, value);
                 MutationTracking.QueueAttribute(owner, LocalName, NamespaceUri, oldValue, matches);
             }
         }
+    }
+
+    internal void Rehome(Document document)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        if (ReferenceEquals(OwnerDocument, document))
+        {
+            return;
+        }
+
+        var previous = OwnerDocument;
+        OwnerDocument = document;
+        previous.MarkMutation();
+        document.MarkMutation();
     }
 
     /// <summary>Creates a detached copy owned by the same document.</summary>

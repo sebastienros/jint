@@ -72,7 +72,7 @@ internal static class NodeCloner
     }
 
     internal static Attr CloneAttribute(Attr source, Document document)
-        => new(document, source.NamespaceUri, source.LocalName, source.Prefix, source.Value);
+        => new(document, source.NamespaceUri, source.LocalName, source.Prefix, source.Value, source.IsDtdId);
 
     private static Node CopySingle(Node source, Document document,
         CustomElementRegistryIdentity? fallbackRegistry)
