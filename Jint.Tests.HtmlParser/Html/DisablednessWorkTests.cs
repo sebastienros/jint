@@ -6,6 +6,115 @@ namespace Jint.Tests.HtmlParser.Html;
 public class DisablednessWorkTests
 {
     [Test]
+    public void OwnDisabledAttributeSearchChargesEveryInspectedAttribute()
+    {
+        foreach (var name in new[] { "input", "fieldset", "optgroup", "option" })
+        {
+            foreach (var scenario in new[] { "absent", "late", "namespaced" })
+            {
+                var document = Document.CreateHtml();
+                var element = document.CreateElement(name);
+                if (scenario == "namespaced")
+                {
+                    element.SetAttributeNS("urn:test", "x:disabled", "");
+                }
+
+                AddUnrelatedAttributes(element);
+                if (scenario == "late")
+                {
+                    element.SetAttribute("disabled", "false");
+                }
+
+                using var cancellation = new CancellationTokenSource();
+                var checkpoints = 0;
+                Assert.Throws<OperationCanceledException>(() => HtmlDisabledness.GetState(element,
+                    _ =>
+                    {
+                        checkpoints++;
+                        cancellation.Cancel();
+                    }, cancellation.Token), $"{name}, {scenario}");
+                checkpoints.Should().Be(1);
+                State(element).Should().Be(scenario == "late"
+                    ? HtmlDisabledState.Disabled : HtmlDisabledState.Enabled);
+            }
+        }
+    }
+
+    [Test]
+    public void AncestorFieldsetAndOptgroupAttributeSearchUseTheSameWorkCadence()
+    {
+        var document = Document.CreateHtml();
+        var fieldset = document.CreateElement("fieldset");
+        AddUnrelatedAttributes(fieldset);
+        fieldset.SetAttribute("disabled", "");
+        document.AppendChild(fieldset);
+        var input = document.CreateElement("input");
+        fieldset.AppendChild(input);
+        using var fieldsetCancellation = new CancellationTokenSource();
+        var fieldsetCheckpoints = 0;
+        Assert.Throws<OperationCanceledException>(() => HtmlDisabledness.GetState(input,
+            _ =>
+            {
+                fieldsetCheckpoints++;
+                fieldsetCancellation.Cancel();
+            }, fieldsetCancellation.Token));
+        fieldsetCheckpoints.Should().Be(1);
+        State(input).Should().Be(HtmlDisabledState.Disabled);
+
+        var group = document.CreateElement("optgroup");
+        AddUnrelatedAttributes(group);
+        group.SetAttribute("disabled", "");
+        var option = document.CreateElement("option");
+        group.AppendChild(option);
+        using var optionCancellation = new CancellationTokenSource();
+        var optionCheckpoints = 0;
+        Assert.Throws<OperationCanceledException>(() => HtmlDisabledness.IsOptionDisabled(option,
+            _ =>
+            {
+                optionCheckpoints++;
+                optionCancellation.Cancel();
+            }, optionCancellation.Token));
+        optionCheckpoints.Should().Be(1);
+        HtmlDisabledness.IsOptionDisabled(option, default).Should().BeTrue();
+
+        using var selectorCancellation = new CancellationTokenSource();
+        var selectorCheckpoints = 0;
+        Assert.Throws<OperationCanceledException>(() => HtmlDisabledness.GetState(option,
+            _ =>
+            {
+                selectorCheckpoints++;
+                selectorCancellation.Cancel();
+            }, selectorCancellation.Token));
+        selectorCheckpoints.Should().Be(1);
+        State(option).Should().Be(HtmlDisabledState.Disabled);
+    }
+
+    [Test]
+    public void OptionAndOptgroupAttributeScansShareOneInvocationCounter()
+    {
+        var document = Document.CreateHtml();
+        var group = document.CreateElement("optgroup");
+        var option = document.CreateElement("option");
+        group.AppendChild(option);
+        for (var i = 0; i < 200; i++)
+        {
+            option.SetAttribute($"data-option-{i}", "x");
+            group.SetAttribute($"data-group-{i}", "x");
+        }
+
+        using var cancellation = new CancellationTokenSource();
+        var checkpoints = 0;
+        Assert.Throws<OperationCanceledException>(() => HtmlDisabledness.IsOptionDisabled(option,
+            _ =>
+            {
+                checkpoints++;
+                cancellation.Cancel();
+            }, cancellation.Token));
+        checkpoints.Should().Be(1);
+        HtmlDisabledness.IsOptionDisabled(option, default).Should().BeFalse();
+    }
+
+    [Test]
     public void WideFieldsetScansFirstLegendOnceAcrossUnrelatedChanges()
     {
         var document = Document.CreateHtml();
@@ -124,4 +233,12 @@ public class DisablednessWorkTests
     }
 
     private static HtmlDisabledState State(Element element) => HtmlDisabledness.GetState(element, default);
+
+    private static void AddUnrelatedAttributes(Element element)
+    {
+        for (var i = 0; i < 320; i++)
+        {
+            element.SetAttribute($"data-{i}", "x");
+        }
+    }
 }

@@ -61,7 +61,7 @@ internal static class HtmlDisabledness
                 disabled = IsDisabledControl(element, ref work);
                 break;
             case "optgroup":
-                disabled = HasDisabledAttribute(element) || IsNearestSelectDisabled(element, ref work);
+                disabled = HasDisabledAttribute(element, ref work) || IsNearestSelectDisabled(element, ref work);
                 break;
             case "option":
                 disabled = IsOptionDisabled(element, ref work) || IsNearestSelectDisabled(element, ref work);
@@ -75,7 +75,7 @@ internal static class HtmlDisabledness
 
     private static bool IsDisabledControl(Element element, ref HtmlDisabledWork work)
     {
-        if (HasDisabledAttribute(element))
+        if (HasDisabledAttribute(element, ref work))
         {
             return true;
         }
@@ -85,7 +85,7 @@ internal static class HtmlDisabledness
         {
             work.Step();
             if (ancestor is Element { NamespaceUri: Namespaces.Html, LocalName: "fieldset" } fieldset &&
-                HasDisabledAttribute(fieldset) &&
+                HasDisabledAttribute(fieldset, ref work) &&
                 !ReferenceEquals(child, fieldset.GetHtmlState()!.FirstLegend(ref work)))
             {
                 return true;
@@ -101,7 +101,7 @@ internal static class HtmlDisabledness
 
     private static bool IsOptionDisabled(Element option, ref HtmlDisabledWork work)
     {
-        if (HasDisabledAttribute(option))
+        if (HasDisabledAttribute(option, ref work))
         {
             return true;
         }
@@ -119,15 +119,31 @@ internal static class HtmlDisabledness
                 case "select" or "hr" or "datalist" or "option":
                     return false;
                 case "optgroup":
-                    return HasDisabledAttribute(html);
+                    return HasDisabledAttribute(html, ref work);
             }
         }
 
         return false;
     }
 
-    private static bool HasDisabledAttribute(Element element)
-        => element.GetAttributeNodeNS(null, "disabled") is not null;
+    private static bool HasDisabledAttribute(Element element, ref HtmlDisabledWork work)
+    {
+        if (element.AttributeCount == 0)
+        {
+            return false;
+        }
+
+        foreach (var attribute in element.Attributes)
+        {
+            work.Step();
+            if (attribute.NamespaceUri is null && attribute.LocalName == "disabled")
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     private static bool IsHtml(Element element, string localName)
         => element.NamespaceUri == Namespaces.Html && element.LocalName == localName;
