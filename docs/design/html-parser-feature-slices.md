@@ -103,7 +103,7 @@ Counting rules are shared and tested:
   the complete string; HTML counts all appended chunks with checked/saturating arithmetic. Reconsuming
   characters does not charge this bound twice. Exceeding a limit fails before accepting the excess.
 - `MaxTokenCharacters` counts raw source units in an atomic lexical token, including delimiters.
-  In H2 it bounds tags, comments, doctypes and character-reference scans; it does not count an
+  In H2 it bounds tags, comments, doctypes, processing instructions and character-reference scans; it does not count an
   arbitrarily grouped run of ordinary text. In CSS it bounds lexical tokens (including whitespace
   runs), not an entire nested rule/component subtree. Thus chunking/grouping does not change the limit.
 - `MaxNestingDepth` bounds open CSS functions/simple blocks, with the first at depth 1; check before
@@ -134,7 +134,8 @@ adjustment is sent back to the coordinator so there remains one source of truth.
 
 The first bounded deliverable is a resumable UTF-16 input cursor and a complete HTML **Data-mode**
 tokenizer: data, tag open/end-tag/name, all attribute states, self-closing markers, character references,
-markup declarations, all comment/bogus-comment states and doctype states. This is useful, tested input
+markup declarations, all comment/bogus-comment states, doctype states and the five processing-instruction
+states in the current HTML algorithm. This is useful, tested input
 infrastructure. It is not a complete HTML document parser and must not expose `ParseHtml` yet.
 
 H3 subsequently adds RCDATA, RAWTEXT, ScriptData and its escaped/double-escaped states, PLAINTEXT and
@@ -148,7 +149,7 @@ Namespace `Jint.HtmlParser.Html`; no public types in this slice.
 
 ```csharp
 internal enum HtmlReadStatus { Token, NeedInput, Yielded, Complete }
-internal enum HtmlTokenKind { Text, StartTag, EndTag, Comment, Doctype, EndOfFile }
+internal enum HtmlTokenKind { Text, StartTag, EndTag, Comment, Doctype, ProcessingInstruction, EndOfFile }
 
 internal sealed class HtmlTokenizer
 {
@@ -204,6 +205,7 @@ Token data contract, independent of the eventual compact storage layout:
 | Text | Owned `string Data` in source order after HTML preprocessing and state-specific reference handling |
 | StartTag/EndTag | ASCII-lowercased `string Name`, ordered attributes, `bool SelfClosing`; preserve end-tag parse-error metadata when needed |
 | Comment | Owned `string Data` |
+| ProcessingInstruction | Owned case-preserved `string Name` for the target and `string Data`; neither is tag-name-normalized |
 | Doctype | `string? Name`, `string? PublicIdentifier`, `string? SystemIdentifier`, `bool ForceQuirks`; missing differs from empty |
 | EndOfFile | No payload |
 
@@ -232,6 +234,15 @@ CDATA handling is selected by parsing context: HTML bogus-comment behavior by de
 when allowed. It may be implemented in H2 with the immutable context flag; do not infer it from seeing
 `<svg>` because namespace/tree context is not the tokenizer's job.
 
+The [current tag-open algorithm](https://html.spec.whatwg.org/multipage/parsing.html#tag-open-state)
+routes `<?` through the five PI states: processing instruction open, processing instruction target,
+after processing instruction target, processing instruction data, and processing instruction questionable.
+They belong to H1/H2, including malformed-target conversion to a bogus comment, disallowed targets and
+EOF recovery. Use the [PI state algorithms](https://html.spec.whatwg.org/multipage/parsing.html#processing-instruction-open-state);
+do not reuse XML PI parsing or the obsolete blanket `<?`-becomes-comment rule. PI Name preserves case;
+the separate tag-name rule still lowercases tag tokens. Cover `>` and `?>`, embedded question marks,
+target/data boundaries, split input and EOF in all five states.
+
 H3 adds, only when implemented:
 
 ```csharp
@@ -258,6 +269,11 @@ new state. Do not add this method in H2 as an unsupported-mode stub.
   session handling; records with diagnostics disabled allocate no diagnostics collection.
 - Growing token/text fixtures validate operation counts or allocation behavior for linear accumulation;
   no benchmark speed claim from a unit-test stopwatch.
+
+Old pinned html5lib fixtures can predate HTML PI tokens. Annotate only the exact conflicting cases with
+their fixture identity, the current-spec reason and a corresponding replacement test; preserve the
+upstream payload. Do not discard a whole file, suppress unrelated diagnostics or claim those old
+expectations now pass. Keep the executed/excluded/replacement census reviewable.
 
 Port a bounded, pinned tokenizer fixture subset appropriate to these states; do not alter existing WPT
 vendor data or claim the tree-construction corpus passes. Run new tests in Release on both frameworks.
@@ -296,7 +312,7 @@ instead of a heap object per punctuation token. The exact initial public getter 
 | --- | --- |
 | `readonly struct CssSourceSpan` | `int Start`, `int Length` in original UTF-16 input |
 | `readonly struct CssComponentValue` | `CssComponentKind Kind`, `CssSourceSpan Span`, `CssToken Token`, `string FunctionName`, `char OpeningDelimiter`, `CssComponentValueList Values` |
-| `readonly struct CssToken` | `CssTokenKind Kind`, `CssSourceSpan Span`, `string Text`, `string NumberText`, `string Unit`, `char Delimiter`, `bool IsInteger`, `bool IsIdHash` |
+| `readonly struct CssToken` | `CssTokenKind Kind`, `CssSourceSpan Span`, `string Text`, `string NumberText`, `string Unit`, `char Delimiter`, `bool IsInteger`, `bool IsIdHash`, `int UnicodeRangeStart`, `int UnicodeRangeEnd` |
 | `sealed class CssComponentValueList : IReadOnlyList<CssComponentValue>` | `int Count`, `CssComponentValue this[int index]`, enumeration in input order; empty valid |
 | `sealed class CssRuleSyntax` | `CssRuleKind Kind`, `string Name`, `CssComponentValueList Prelude`, `CssComponentValue? Block`, `CssSourceSpan Span` |
 | `sealed class CssDeclarationSyntax` | `string Name`, `CssComponentValueList Value`, `bool IsImportant`, `CssSourceSpan Span` |
@@ -309,7 +325,7 @@ readable on a default value. `CssRuleKind` has `AtRule` and `QualifiedRule`; `Na
 rule. Rule `Block`, when present, is a brace SimpleBlock. An at-rule ending with a semicolon has no block.
 
 `CssTokenKind.None` represents a default token. Token fields not applicable to its kind return empty
-strings, `'\0'` or false. `Text` is the decoded identifier/name/string/url/hash or whitespace content;
+strings, `'\0'`, false or zero. `Text` is the decoded identifier/name/string/url/hash or whitespace content;
 numeric spelling is `NumberText`, with `Unit` only for dimensions. Punctuation uses `Delimiter` for
 the character; multi-character CDO/CDC have their own kind. `IsInteger` is the tokenizer's number type,
 not a later integrality calculation. `IsIdHash` is meaningful only for hash tokens. A source span
@@ -317,12 +333,29 @@ covers the actual token/component/rule including its delimiters where present; r
 imaginary source units. Declaration span excludes surrounding whitespace and its optional terminator.
 
 Token kinds cover CSS Syntax's ident/function/at-keyword/hash/string/bad-string/url/bad-url/delim,
-number/percentage/dimension, unicode-range where required by the pinned algorithm, whitespace,
+number/percentage/dimension, `UnicodeRange` in its specified declaration context, whitespace,
 CDO/CDC, colon/semicolon/comma and all bracket types. Internal EOF is not returned as a component value.
 Decoded text and numeric spelling are separate: C1 need not round a CSS number to `double` or validate
 units. The union access and token defaults above distinguish the absence of a payload from empty text.
 Keep raw token spelling only where required for correct preservation/serialization, without pinning
 an unrelated large source string through a tiny independently returned syntax object.
+
+`UnicodeRangeStart` and `UnicodeRangeEnd` expose the integer endpoints from
+[CSS Syntax §4.3.14](https://drafts.csswg.org/css-syntax-3/#consume-unicode-range-token), returning zero
+for other kinds and default tokens. Do not clamp to Unicode's maximum or reorder reversed endpoints:
+C1 reports syntax, and descriptor validity is later work. For this kind only, `Text` owns the exact
+short raw token spelling (case, zeros and wildcard spelling included); `Span` uses original source
+offsets. Other kinds retain their decoded Text contract; this adds no universal raw-token copy.
+
+When a declaration's **decoded** name matches `unicode-range` ASCII-insensitively,
+[§5.5.6](https://drafts.csswg.org/css-syntax-3/#consume-declaration) and
+[§5.5.11](https://drafts.csswg.org/css-syntax-3/#consume-a-unicode-range-value) require retokenizing its
+original value text with unicode ranges allowed. Retain source positions through that operation;
+never reconstruct input by concatenating generic tokens/components. Ordinary component entry points,
+other declarations and `--unicode-range` do not enable that mode. Preserve declaration importance
+handling and comment/escape boundaries. Tests cover escaped/mixed-case declaration names, wildcard
+and explicit endpoints, reversed/out-of-range endpoints, exact Text/Span, and the same input through
+the ordinary component API producing ordinary tokens.
 
 Rule/declaration names preserve spelling for custom syntax; grammar matching uses ASCII-insensitive
 comparison only where specified. Unknown at-rules and property names remain inspectable syntax.
