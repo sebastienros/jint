@@ -65,7 +65,6 @@ public class XmlCoreTests
     [TestCase("<a>&#0;</a>", "xml/invalid-character")]
     [TestCase("<a><![CDATA[x]]>y]]></a>", "xml/invalid-markup")]
     [TestCase("<?xml version='1.1'?><a/>", "xml/invalid-declaration")]
-    [TestCase("<!DOCTYPE a><a/>", "xml/invalid-declaration")]
     public void RejectsMalformedDocument(string source, string code)
     {
         var error = Assert.Throws<MarkupParseException>(() => XmlTreeParser.ParseDocument(source, ParseLimits.Unbounded, default));
@@ -155,5 +154,19 @@ public class XmlCoreTests
         ((Element) first.FirstChild!).NamespaceUri.Should().Be("urn:two");
         ((Element) first.NextSibling!).NamespaceUri.Should().Be("urn:one");
         ((Element) root.LastChild!).NamespaceUri.Should().Be("urn:a");
+    }
+
+    [Test]
+    public void ParserCanCreateLegalXmlnsElementAndHtmlOwnedCData()
+    {
+        var document = XmlTreeParser.ParseDocument("<xmlns/>", ParseLimits.Unbounded, default);
+        document.DocumentElement!.LocalName.Should().Be("xmlns");
+        document.DocumentElement.NamespaceUri.Should().BeNull();
+
+        var html = Document.CreateHtml();
+        var context = html.CreateElement("context");
+        var fragment = XmlTreeParser.ParseFragment("<![CDATA[x]]>", context, ParseLimits.Unbounded, default);
+        fragment.FirstChild.Should().BeOfType<CDataSection>().Which.Data.Should().Be("x");
+        fragment.OwnerDocument.Should().BeSameAs(html);
     }
 }

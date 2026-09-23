@@ -1,4 +1,5 @@
 using System.Text;
+using System.Runtime.InteropServices;
 
 namespace Jint.HtmlParser;
 
@@ -152,7 +153,7 @@ internal sealed class XmlTreeParser
             {
                 var data = NormalizeLines(_source.AsSpan(contentStart, _position - contentStart));
                 ConsumeLiteral("-->", start);
-                Parent.AppendChild(_document.CreateComment(data));
+                Parent.AppendParsedChild(_document.CreateComment(data));
                 return;
             }
 
@@ -175,7 +176,7 @@ internal sealed class XmlTreeParser
             {
                 var data = NormalizeLines(_source.AsSpan(contentStart, _position - contentStart));
                 ConsumeLiteral("]]>", start);
-                Parent.AppendChild(_document.CreateCDataSection(data));
+                Parent.AppendParsedChild(_document.CreateParsedCDataSection(data));
                 return;
             }
 
@@ -207,7 +208,7 @@ internal sealed class XmlTreeParser
         }
 
         ConsumeLiteral("?>", start);
-        Parent.AppendChild(_document.CreateProcessingInstruction(target, data));
+        Parent.AppendParsedChild(_document.CreateProcessingInstruction(target, data));
     }
 
     private void ParseStartTag()
@@ -269,8 +270,9 @@ internal sealed class XmlTreeParser
         var split = SplitName(name);
         var namespaceUri = split.Prefix is null ? Resolve(string.Empty, localBindings) : ResolveRequired(split.Prefix, localBindings, start);
         if (namespaceUri == Namespaces.Xmlns || split.Prefix == "xmlns") Error("xml/namespace-error", start);
-        var element = _document.CreateElementNS(namespaceUri, name);
+        var element = _document.CreateParsedElement(namespaceUri, split.LocalName, split.Prefix);
         var expanded = new HashSet<(string?, string)>();
+        var parsedAttributes = new List<ParserAttribute>(attributes.Count);
         foreach (var attribute in attributes)
         {
             var attrSplit = SplitName(attribute.Name);
@@ -278,10 +280,12 @@ internal sealed class XmlTreeParser
                 ? Namespaces.Xmlns
                 : attrSplit.Prefix is null ? null : ResolveRequired(attrSplit.Prefix, localBindings, attribute.Offset);
             if (!expanded.Add((attrNamespace, attrSplit.LocalName))) Error("xml/duplicate-attribute", attribute.Offset);
-            element.SetAttributeNS(attrNamespace, attribute.Name, attribute.Value);
+            parsedAttributes.Add(new ParserAttribute(attrNamespace, attrSplit.LocalName, attrSplit.Prefix, attribute.Value));
+            WorkUnit();
         }
 
-        Parent.AppendChild(element);
+        element.InitializeParsedAttributes(CollectionsMarshal.AsSpan(parsedAttributes), _cancellationToken);
+        Parent.AppendParsedChild(element);
         if (!empty)
         {
             var previousBindings = new Dictionary<string, BindingUndo>(localBindings.Count, StringComparer.Ordinal);
@@ -338,7 +342,7 @@ internal sealed class XmlTreeParser
                 if (!IsWhitespace(character)) Error("xml/invalid-document", start);
             }
         }
-        else if (builder.Length != 0) Parent.AppendChild(_document.CreateTextNode(builder.ToString()));
+        else if (builder.Length != 0) Parent.AppendParsedChild(_document.CreateTextNode(builder.ToString()));
     }
 
     private string ReadAttributeValue(int tokenStart)
