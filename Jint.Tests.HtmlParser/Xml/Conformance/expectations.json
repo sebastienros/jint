@@ -9322,5 +9322,263 @@
     "originalOutputSha256": "9611317c10c590b076cb09c422f12928ef2226fe767f5d142653bbf16c81e003",
     "outputAlternative": "<root>     </root>",
     "review": "Pinned W3C INPUT 95a2d3d59f305510bbfcc97c952f16427ca005b29c6c696a7fe8d08094970193, unread ext01.ent f3c36da625563156489d738502b6ff8797e254436aa57365176f66561cd86158 and null.ent e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, original OUTPUT 9611317c10c590b076cb09c422f12928ef2226fe767f5d142653bbf16c81e003; The internal subset declares four external general-entity occurrences. With no fetch, both root and null replacement texts are omitted, leaving the five literal spaces before, between, and after references as one text node. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/eduni/errata-4e/errata4e.xml#invalid-bo-1",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "General",
+        "Name": "bom",
+        "PublicId": null,
+        "SystemId": "bom_be.xml",
+        "Offset": 60
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "no-fetch-alternative",
+    "projectionSha256": "624de9bf9ad73895d9e41258487fa22e02e2fa95f2840bfdcddbfc0671c9942d",
+    "originalOutputSha256": "0fa5fa4ac5ee9bce3c9cfb796848b091c09a3967a24d1e0db0111e1b2086b970",
+    "outputAlternative": "<root></root>",
+    "review": "Pinned W3C INPUT 38b46b2e6d7acd59259e8b368ccb5588437bbf5c2848d2fc202eaa29ccc32945, unread BOM entity 60f92b6a69e061ea7d29edcd9ad69519ceeefafc3f1f0584bc2be13c24d2fe18, original OUTPUT 0fa5fa4ac5ee9bce3c9cfb796848b091c09a3967a24d1e0db0111e1b2086b970; The sole general entity bom is external (bom_be.xml); without fetch its BOM and following markup cannot enter the document. Fetched upstream OUTPUT contains the decoded f element. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/eduni/errata-4e/errata4e.xml#invalid-bo-2",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "General",
+        "Name": "bom",
+        "PublicId": null,
+        "SystemId": "bom_le.xml",
+        "Offset": 60
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "no-fetch-alternative",
+    "projectionSha256": "624de9bf9ad73895d9e41258487fa22e02e2fa95f2840bfdcddbfc0671c9942d",
+    "originalOutputSha256": "0fa5fa4ac5ee9bce3c9cfb796848b091c09a3967a24d1e0db0111e1b2086b970",
+    "outputAlternative": "<root></root>",
+    "review": "Pinned W3C INPUT 80621e0104caceedab6578509d0f405ee5de1d15a9a235bbc8c4e68ca9e8aa01, unread BOM entity 0730ba06a2666c94f0898609470ef876661bbbd561781e196057fb34049f0396, original OUTPUT 0fa5fa4ac5ee9bce3c9cfb796848b091c09a3967a24d1e0db0111e1b2086b970; The sole general entity bom is external (bom_le.xml); without fetch its BOM and following markup cannot enter the document. Fetched upstream OUTPUT contains the decoded f element. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/eduni/errata-4e/errata4e.xml#invalid-bo-3",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "General",
+        "Name": "bom8",
+        "PublicId": null,
+        "SystemId": "8bom.xml",
+        "Offset": 59
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "no-fetch-alternative",
+    "projectionSha256": "624de9bf9ad73895d9e41258487fa22e02e2fa95f2840bfdcddbfc0671c9942d",
+    "originalOutputSha256": "0fa5fa4ac5ee9bce3c9cfb796848b091c09a3967a24d1e0db0111e1b2086b970",
+    "outputAlternative": "<root></root>",
+    "review": "Pinned W3C INPUT 72699e3c0429e974d84cc21c19045b82166944b31d1df15c01efa4f84c4265c5, unread BOM entity 20925dd0f4149936111110de4fa4e7dc5c21027cf98bd4ffd8573c641a15fb75, original OUTPUT 0fa5fa4ac5ee9bce3c9cfb796848b091c09a3967a24d1e0db0111e1b2086b970; The sole general entity bom8 is external (8bom.xml); without fetch its BOM and following markup cannot enter the document. Fetched upstream OUTPUT contains the decoded f element. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/eduni/errata-4e/errata4e.xml#invalid-bo-4",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "General",
+        "Name": "bombom",
+        "PublicId": null,
+        "SystemId": "bombom_be.xml",
+        "Offset": 66
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "no-fetch-alternative",
+    "projectionSha256": "624de9bf9ad73895d9e41258487fa22e02e2fa95f2840bfdcddbfc0671c9942d",
+    "originalOutputSha256": "f6462b5d0cb4507185cbdc1ab66756415f0a8107bafddd5fc6fc45cc2ec8dedb",
+    "outputAlternative": "<root></root>",
+    "review": "Pinned W3C INPUT 1b1258436f73f581747f36debca113433968df482a393e76d8dbf382f47c834e, unread BOM entity 3322af6489c8fe4b1b67c11914e40a4d4da3baeee41b8240626331f6755776d5, original OUTPUT f6462b5d0cb4507185cbdc1ab66756415f0a8107bafddd5fc6fc45cc2ec8dedb; The sole general entity bombom is external (bombom_be.xml); without fetch its BOM and following markup cannot enter the document. Fetched upstream OUTPUT contains the decoded f element plus a retained U+FEFF from the second BOM. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/eduni/errata-4e/errata4e.xml#invalid-bo-5",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "General",
+        "Name": "bombom",
+        "PublicId": null,
+        "SystemId": "bombom_le.xml",
+        "Offset": 66
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "no-fetch-alternative",
+    "projectionSha256": "624de9bf9ad73895d9e41258487fa22e02e2fa95f2840bfdcddbfc0671c9942d",
+    "originalOutputSha256": "f6462b5d0cb4507185cbdc1ab66756415f0a8107bafddd5fc6fc45cc2ec8dedb",
+    "outputAlternative": "<root></root>",
+    "review": "Pinned W3C INPUT e4ff0493ec8d6be672695b419788e1b10e1b6d90d4b7e174ce6536fd7536c1d4, unread BOM entity 6c1466425f90848b0fd90ae2f26d7bdc14ef6ae8e2bad1dbd070241dc891e059, original OUTPUT f6462b5d0cb4507185cbdc1ab66756415f0a8107bafddd5fc6fc45cc2ec8dedb; The sole general entity bombom is external (bombom_le.xml); without fetch its BOM and following markup cannot enter the document. Fetched upstream OUTPUT contains the decoded f element plus a retained U+FEFF from the second BOM. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/eduni/errata-4e/errata4e.xml#invalid-bo-6",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "General",
+        "Name": "bombom8",
+        "PublicId": null,
+        "SystemId": "8bombom.xml",
+        "Offset": 65
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "no-fetch-alternative",
+    "projectionSha256": "624de9bf9ad73895d9e41258487fa22e02e2fa95f2840bfdcddbfc0671c9942d",
+    "originalOutputSha256": "f6462b5d0cb4507185cbdc1ab66756415f0a8107bafddd5fc6fc45cc2ec8dedb",
+    "outputAlternative": "<root></root>",
+    "review": "Pinned W3C INPUT cfa49549af988eea65149753afb5f1688c641b724750c18efb6318fbc0fea678, unread BOM entity da8d4757ee89738a00ed604539f6eec911cd99ced625178a27eedd207e08d58b, original OUTPUT f6462b5d0cb4507185cbdc1ab66756415f0a8107bafddd5fc6fc45cc2ec8dedb; The sole general entity bombom8 is external (8bombom.xml); without fetch its BOM and following markup cannot enter the document. Fetched upstream OUTPUT contains the decoded f element plus a retained U+FEFF from the second BOM. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
   }
 ]
