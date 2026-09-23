@@ -321,9 +321,14 @@ valueAsNumber getter returns NaN for inapplicability/conversion error. Its sette
 with TypeError before the applicability check; other values on a wrong type raise InvalidStateError.
 NaN takes the empty-value branch, with range's subsequent state behavior settled by b3p. valueAsDate
 getter returns null on inapplicability/parse failure; Browser creates a fresh actual Date object for a
-date result. Its setter checks applicability first, then rejects non-null non-Date objects with
-TypeError; null and an invalid Date take the empty-value branch. Do not call user valueOf/getTime
-methods to extract a Date's internal time. Wrong-kind native elements remain argument errors.
+date result. Its setter first performs WebIDL object? conversion: undefined/null become null, and
+other primitives raise TypeError even for an inapplicable input type. The HTML setter then checks
+applicability before rejecting a non-null non-Date object with TypeError. Null and an invalid Date
+take the empty-value branch. Required cases: text+1 gives TypeError; text+{} gives InvalidStateError;
+date+{} gives TypeError; date+undefined takes the empty branch. See WebIDL's
+[object conversion](https://webidl.spec.whatwg.org/#js-object) and
+[nullable conversion](https://webidl.spec.whatwg.org/#js-nullable-type). Do not call user
+valueOf/getTime methods to extract a Date's internal time. Wrong-kind native elements remain argument errors.
 
 Script setters and steps generate no input/change events and never claim User origin. Their exact
 dirty behavior belongs to the b3p reviewed state table. Attribute sanitization preserves dirty flags.
