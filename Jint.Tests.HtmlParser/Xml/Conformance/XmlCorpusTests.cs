@@ -320,6 +320,54 @@ public class XmlCorpusTests
     }
 
     [Test]
+    public void OptionalOutputNeedsPinnedOriginalBytesBeforeVerification()
+    {
+        var row = XmlCorpus.Case("xmlconf/ibm/ibm_oasis_invalid.xml#ibm-invalid-P68-ibm68i01.xml");
+        var projection = new[]
+        {
+            new XmlProjectionEntry(0, "DocumentType", "root", null, null, null, null, "", "ibm68i01.dtd"),
+            new XmlProjectionEntry(0, "Element", "root", null, null, null, [], null, null),
+            new XmlProjectionEntry(1, "Text", null, null, null, "\n  pcdata content\n  ", null, null, null),
+            new XmlProjectionEntry(1, "Element", "a", null, null, null,
+                [new XmlProjectionAttribute("attr1", null, null, "xyz")], null, null),
+            new XmlProjectionEntry(1, "Text", null, null, null, "\n", null, null, null),
+            new XmlProjectionEntry(0, "Comment", null, null, null,
+                "* a invalid test for P68 VC:Entity Declared *", null, null, null)
+        };
+        const string digest = "0259a806665026c50fa2dbdc8169f3c01cef0d238866f73af33f0aedf1df1539";
+        XmlCaseExpectation Policy(string? outputPolicy, string? outputDigest) => new()
+        {
+            Key = row.Key, Status = "verified", Outcome = "accept", Review = "pinned source output probe",
+            Skipped = [new XmlSkippedExpectation
+            {
+                Kind = "ExternalSubset", Name = "", SystemId = "ibm68i01.dtd", Offset = 23
+            }],
+            Projection = projection, Notations = [], OutputPolicy = outputPolicy,
+            OriginalOutputSha256 = outputDigest
+        };
+
+        var reviewed = Policy("original-output-after-omission", digest);
+        XmlConformanceRunner.Run(row, reviewed).Kind.Should().Be(XmlOutcomeKind.OptionalPolicyVerified);
+        var corrupted = XmlConformanceRunner.Run(row, reviewed, "<wrong></wrong>"u8.ToArray());
+        corrupted.Kind.Should().Be(XmlOutcomeKind.OptionalPolicyMismatch);
+        corrupted.Signature.Should().StartWith("output-mismatch:");
+        XmlConformanceRunner.Run(row, Policy(null, digest)).Signature
+            .Should().Be("optional-output-review-missing");
+        var wrongDigest = XmlConformanceRunner.Run(row, Policy("original-output-after-omission", new string('0', 64)));
+        wrongDigest.Kind.Should().Be(XmlOutcomeKind.HarnessFailure);
+        wrongDigest.Signature.Should().Be("reviewed-output-pin-mismatch");
+
+        var withoutOutput = XmlCorpus.Case("xmlconf/eduni/namespaces/1.0/rmt-ns10.xml#rmt-ns10-004");
+        var existing = XmlExpectations.OptionalPolicies[withoutOutput.Key];
+        XmlConformanceRunner.Run(withoutOutput, new XmlCaseExpectation
+        {
+            Key = withoutOutput.Key, Status = "verified", Outcome = "accept", Review = "stale output probe",
+            Skipped = existing.Skipped, Projection = existing.Projection, Notations = existing.Notations,
+            OutputPolicy = "original-output-after-omission", OriginalOutputSha256 = digest
+        }).Signature.Should().Be("optional-output-without-output");
+    }
+
+    [Test]
     public void NotationMetadataAndOriginalOutputRejectIndependentCorruption()
     {
         var row = XmlCorpus.Case("xmlconf/xmltest/xmltest.xml#valid-sa-069");
@@ -475,7 +523,10 @@ public class XmlCorpusTests
                         passingReview.OutputPolicy == "no-fetch-alternative") count.NoFetchAdapted++;
                 }
                 else if (outcome.Kind == XmlOutcomeKind.OptionalPolicyVerified)
+                {
                     count.OptionalVerified++;
+                    if (row.OutputPath is not null) count.OutputCompared++;
+                }
                 else if (outcome.Kind == XmlOutcomeKind.OptionalObservedUnreviewed)
                 {
                     count.OptionalObserved++;
@@ -507,7 +558,8 @@ public class XmlCorpusTests
                     count.Unresolved++;
                     failures.Add((outcome.Kind, $"unresolved {row.Key}: {outcome.Signature}: {outcome.Detail}"));
                 }
-                if (row.OutputPath is not null && outcome.Kind != XmlOutcomeKind.Pass) count.OutputPending++;
+                if (row.OutputPath is not null && outcome.Kind is not (XmlOutcomeKind.Pass or XmlOutcomeKind.OptionalPolicyVerified))
+                    count.OutputPending++;
             }
             counts[key] = count;
         }

@@ -87,7 +87,7 @@ internal static class XmlConformanceRunner
         }
 
         if (optionalError)
-            return EvaluateOptional(row, document, syntax, testExpectation);
+            return EvaluateOptional(row, document, syntax, testExpectation, testOutput);
 
         if (externalReviewNeeded && !hasReviewedExpectation)
             return new(XmlOutcomeKind.Pending, "resource-profile-review",
@@ -171,7 +171,8 @@ internal static class XmlConformanceRunner
 
     private static string Digest(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
 
-    private static XmlCaseOutcome? CompareOriginalOutput(Document document, byte[] expected, string inputPath)
+    private static XmlCaseOutcome? CompareOriginalOutput(Document document, byte[] expected, string inputPath,
+        XmlOutcomeKind mismatchKind = XmlOutcomeKind.ParserFailure)
     {
         string actual;
         try
@@ -185,12 +186,12 @@ internal static class XmlConformanceRunner
         var actualBytes = Encoding.UTF8.GetBytes(actual);
         return actualBytes.AsSpan().SequenceEqual(expected)
             ? null
-            : new(XmlOutcomeKind.ParserFailure, $"output-mismatch:{Digest(actualBytes)}",
+            : new(mismatchKind, $"output-mismatch:{Digest(actualBytes)}",
                 $"Expected SHA-256 {Digest(expected)}; actual {actual}");
     }
 
     private static XmlCaseOutcome EvaluateOptional(XmlCorpusCase row, Document? document, MarkupParseException? syntax,
-        XmlCaseExpectation? testPolicy)
+        XmlCaseExpectation? testPolicy, byte[]? testOutput)
     {
         if (syntax is null && (document is null || document.DocumentElement is null))
             return new(XmlOutcomeKind.HarnessFailure, "no-document-root", "Parser accepted without a document element");
@@ -212,8 +213,25 @@ internal static class XmlConformanceRunner
             return new(XmlOutcomeKind.HarnessFailure, "no-document-root", "Parser accepted without a document element");
         var evidence = CompareEvidence(document, policy, XmlOutcomeKind.OptionalPolicyMismatch);
         if (evidence is not null) return evidence;
+        if (row.OutputPath is not null)
+        {
+            if (policy.OutputPolicy != "original-output-after-omission" ||
+                policy.OriginalOutputSha256 is null || policy.Skipped.Length == 0)
+                return new(XmlOutcomeKind.HarnessFailure, "optional-output-review-missing",
+                    "Reviewed optional OUTPUT needs an exact original-output-after-omission policy");
+            var original = XmlCorpus.Bytes(row.OutputPath);
+            if (policy.OriginalOutputSha256 != Digest(original))
+                return new(XmlOutcomeKind.HarnessFailure, "reviewed-output-pin-mismatch", "Upstream OUTPUT digest changed");
+            var comparison = CompareOriginalOutput(document, testOutput ?? original, row.InputPath,
+                XmlOutcomeKind.OptionalPolicyMismatch);
+            if (comparison is not null) return comparison;
+        }
+        else if (policy.OutputPolicy is not null || policy.OriginalOutputSha256 is not null ||
+                 policy.ProjectionSha256 is not null || policy.OutputAlternative is not null)
+            return new(XmlOutcomeKind.HarnessFailure, "optional-output-without-output",
+                "Reviewed optional output policy has no pinned OUTPUT");
         return new(XmlOutcomeKind.OptionalPolicyVerified, "optional-policy-verified",
-            "Reviewed optional policy matches the complete surviving projection, omission, and notation lists");
+            "Reviewed optional policy matches the complete surviving projection, omission, notation, and applicable OUTPUT evidence");
     }
 
     private static XmlCaseOutcome? CompareEvidence(Document document, XmlCaseExpectation reviewed,
