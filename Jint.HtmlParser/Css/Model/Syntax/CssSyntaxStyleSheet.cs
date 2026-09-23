@@ -16,8 +16,19 @@ internal sealed class CssSyntaxStyleSheet
         CancellationToken cancellationToken = default)
     {
         var parsed = new CssSyntaxParser(source, options, cancellationToken).ParseStyleSheet();
+        return FromSyntax(parsed, cancellationToken);
+    }
+
+    internal static CssSyntaxStyleSheet FromSyntax(CssRuleSyntax[] parsed, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
         var sheet = new CssSyntaxStyleSheet();
-        foreach (var syntax in parsed) sheet._rules.Add(new CssSyntaxRule(syntax, sheet));
+        sheet._rules.Capacity = parsed.Length;
+        for (var index = 0; index < parsed.Length; index++)
+        {
+            if ((index & 255) == 0) cancellationToken.ThrowIfCancellationRequested();
+            sheet._rules.Add(new CssSyntaxRule(parsed[index], sheet));
+        }
         cancellationToken.ThrowIfCancellationRequested();
         return sheet;
     }

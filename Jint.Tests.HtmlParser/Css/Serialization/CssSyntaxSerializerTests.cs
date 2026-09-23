@@ -40,6 +40,18 @@ public sealed class CssSyntaxSerializerTests
     }
 
     [Test]
+    public void QuotedUrlWithLeadingAndTrailingWhitespaceRemainsAFunction()
+    {
+        var original = new CssSyntaxParser("x:url( \"quoted\" ); y:url(   \"more\")", null, default)
+            .ParseDeclarationList();
+        original[0].Value[0].Kind.Should().Be(CssComponentKind.Function);
+        var text = CssSyntaxSerializer.SerializeDeclarationList(original);
+        var reparsed = new CssSyntaxParser(text, null, default).ParseDeclarationList();
+        for (var index = 0; index < original.Length; index++)
+            AssertValuesEqual(original[index].Value, reparsed[index].Value);
+    }
+
+    [Test]
     public void RecoveredEofAndUnknownRulesHaveCanonicalSerialization()
     {
         var sheet = CssSyntaxStyleSheet.Parse("@unknown x { f(1");

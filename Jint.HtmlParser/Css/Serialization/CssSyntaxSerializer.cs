@@ -71,7 +71,10 @@ internal static class CssSyntaxSerializer
                 continue;
             }
 
-            if (top.Index != 0) builder.Append("/**/");
+            // A whitespace token already separates its neighbors. In particular, url( "x")
+            // must keep the quote as the next non-whitespace character after url(.
+            if (top.Index != 0 && !IsWhitespace(top.Values[top.Index - 1]) &&
+                !IsWhitespace(top.Values[top.Index])) builder.Append("/**/");
             var value = top.Values[top.Index++];
             if (value.Kind == CssComponentKind.Token)
             {
@@ -90,6 +93,9 @@ internal static class CssSyntaxSerializer
         AppendValues(builder, value.Values);
         builder.Append(closing);
     }
+
+    private static bool IsWhitespace(CssComponentValue value) =>
+        value.Kind == CssComponentKind.Token && value.Token.Kind == CssTokenKind.Whitespace;
 
     private static char AppendContainerOpening(StringBuilder builder, CssComponentValue value)
     {

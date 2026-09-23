@@ -2,6 +2,7 @@
 using System.Reflection;
 using Jint.HtmlParser;
 using Jint.HtmlParser.Css.Model.Syntax;
+using Jint.HtmlParser.Css.Syntax;
 
 namespace Jint.Tests.HtmlParser.Css.Model;
 
@@ -136,6 +137,17 @@ public sealed class CssSyntaxEditorTests
         sheet.Stamp.Value.Should().Be(ulong.MaxValue);
         block.Stamp.Value.Should().Be(ulong.MaxValue);
         before.Value.Should().Be(ulong.MaxValue - 1);
+    }
+
+    [Test]
+    public void RuleProjectionObservesCancellationAfterParsing()
+    {
+        var parsed = new CssSyntaxParser(string.Concat(Enumerable.Repeat("a{}", 1000)), null, default)
+            .ParseStyleSheet();
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        Assert.Throws<OperationCanceledException>(() =>
+            CssSyntaxStyleSheet.FromSyntax(parsed, cancellation.Token));
     }
 
     private static void SetVersion(object target, ulong value) =>
