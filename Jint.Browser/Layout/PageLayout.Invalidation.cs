@@ -23,6 +23,17 @@ internal sealed partial class PageLayout
     internal ulong Version { get; private set; }
 
     /// <summary>
+    /// A collection count may be retained only while Browser owns every writer and no mutation or
+    /// parser callback is in progress. Collection membership does not depend on the CSS cascade.
+    /// </summary>
+    internal bool TryGetCollectionVersion(out ulong version)
+    {
+        version = Version;
+        return !_reuseDisabled && _mutationDepth == 0 && _runtime.ReadyState == "complete"
+            && _runtime.Options.EngineConfiguration.Count == 0;
+    }
+
+    /// <summary>
     /// https://drafts.csswg.org/cssom-view/#dom-element-getboundingclientrect requires current boxes.
     /// Suspend retention throughout native writes: conversions, reactions and callbacks can reenter
     /// geometry before the write returns, and a failed operation can already have changed the DOM.
