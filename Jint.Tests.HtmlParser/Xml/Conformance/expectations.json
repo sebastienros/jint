@@ -5339,5 +5339,89 @@
     "outcome": "reject",
     "skipped": [],
     "review": "NDataDecl places the notation Name before NDATA. Pinned main-entity defect at original-input offset 208; XML 1.0 Fifth Edition, productions [75] ExternalID and [76] NDataDecl https://www.w3.org/TR/xml/#sec-external-ent."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P82-ibm82n01.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "NOTATION keyword lacks the required following whitespace and Name separation. Malformed construct in pinned main source begins at input offset 153; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition, production [82] NotationDecl and [83] PublicID https://www.w3.org/TR/xml/#Notations."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P82-ibm82n02.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "NotationDecl omits its required Name before PUBLIC. Malformed construct in pinned main source begins at input offset 147; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition, production [82] NotationDecl and [83] PublicID https://www.w3.org/TR/xml/#Notations."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P82-ibm82n03.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "NotationDecl has neither ExternalID nor PublicID after its Name. Malformed construct in pinned main source begins at input offset 165; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition, production [82] NotationDecl and [83] PublicID https://www.w3.org/TR/xml/#Notations."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P82-ibm82n04.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "NotationDecl puts SYSTEM and its literal before the required Name. Malformed construct in pinned main source begins at input offset 149; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition, production [82] NotationDecl and [83] PublicID https://www.w3.org/TR/xml/#Notations."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P82-ibm82n05.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "NotationDecl keyword is lowercase; XML markup declaration keywords are case sensitive. Malformed construct in pinned main source begins at input offset 158; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition, production [82] NotationDecl and [83] PublicID https://www.w3.org/TR/xml/#Notations."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P82-ibm82n06.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "NotationDecl omits its required > before the following entity declaration. Malformed construct in pinned main source begins at input offset 158; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition, production [82] NotationDecl and [83] PublicID https://www.w3.org/TR/xml/#Notations."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P82-ibm82n07.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "NotationDecl opening sequence omits !. Malformed construct in pinned main source begins at input offset 159; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition, production [82] NotationDecl and [83] PublicID https://www.w3.org/TR/xml/#Notations."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P82-ibm82n08.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "NotationDecl has an extra ! before its closing >. Malformed construct in pinned main source begins at input offset 157; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition, production [82] NotationDecl and [83] PublicID https://www.w3.org/TR/xml/#Notations."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P83-ibm83n01.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "PublicID keyword is lowercase rather than exact PUBLIC. Malformed construct in pinned main source begins at input offset 144; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition, production [82] NotationDecl and [83] PublicID https://www.w3.org/TR/xml/#Notations."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P83-ibm83n02.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "PublicID keyword is mixed case rather than exact PUBLIC; the source also has a leading r before its XML declaration. Malformed construct in pinned main source begins at input offset 154; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition, production [82] NotationDecl and [83] PublicID https://www.w3.org/TR/xml/#Notations."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P83-ibm83n03.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "NotationDecl has a public literal without the required PUBLIC keyword. Malformed construct in pinned main source begins at input offset 146; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition, production [82] NotationDecl and [83] PublicID https://www.w3.org/TR/xml/#Notations."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P83-ibm83n04.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "PublicID omits required whitespace after PUBLIC. Malformed construct in pinned main source begins at input offset 150; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition, production [82] NotationDecl and [83] PublicID https://www.w3.org/TR/xml/#Notations."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P83-ibm83n05.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "PublicID omits its mandatory PubidLiteral. Malformed construct in pinned main source begins at input offset 151; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition, production [82] NotationDecl and [83] PublicID https://www.w3.org/TR/xml/#Notations."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P83-ibm83n06.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "PublicID puts PUBLIC after its literal instead of before it. Malformed construct in pinned main source begins at input offset 145; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition, production [82] NotationDecl and [83] PublicID https://www.w3.org/TR/xml/#Notations."
   }
 ]
