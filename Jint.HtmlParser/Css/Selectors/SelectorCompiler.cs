@@ -516,6 +516,7 @@ internal static class SelectorCompiler
                 if (!IsToken(values[i], CssTokenKind.Comma))
                     throw Error("selector/invalid-syntax", values[i].Span.Start);
                 i++;
+                SkipSpace(values, ref i);
                 if (i >= values.Count) throw Error("selector/invalid-syntax", endOffset);
             }
             if (strings.Count == 0) throw Error("selector/invalid-syntax", endOffset);

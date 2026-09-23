@@ -133,6 +133,7 @@ public sealed class SelectorCompilerTests
     [TestCase(":nth-of-type(2n of .x)")]
     [TestCase(":nth-child(2n of)")]
     [TestCase(":dir('ltr')")]
+    [TestCase(":lang(en, )")]
     [TestCase("::picker(div)")]
     [TestCase("::before:root")]
     [TestCase("::before > .x")]
