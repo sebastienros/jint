@@ -33,6 +33,7 @@ the earlier repository direction to retain AngleSharp.
 | D4a iterative native traversal | `01a0cf51-0a0a-7753-8235-126166e1484c` | Reviewed and integrated, including template boundaries |
 | C2a selector compiler | `01a0cf57-a964-7922-9f56-3c568a0e51f1` | Reviewed corrections integrated |
 | C2b structural selector evaluator | `01a0cf84-0ef3-70f2-bb95-81bcea063cf7` | Reviewed corrections integrated |
+| C2c relational selector evaluator | `01a0cfa9-3193-73c1-a9cf-f5e2d915cca7` | Reviewed contract dispatched; implementation in progress |
 | H4 HTML tree construction | `01a0cf5a-9eed-7913-bcb4-e019fbbb5e8c` | Reviewed corrections integrated |
 | H5a HTML table structure | `01a0cf80-d939-7a72-829a-859771c547f0` | Reviewed fixes integrated |
 | H5b HTML table text and foster insertion | `01a0cf9d-4989-78a3-9ec5-3302a335a8bc` | In progress; exclusive tree-builder owner |
@@ -296,3 +297,12 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
 - `70f449e02`, `7134ce47e`: reviewed structural selector matcher and namespace,
   document-whitespace, cancellation and quadratic-search corrections
   (source `ce034565f`, `503a4984a`); final Astra re-review clear.
+- `817a7e2cd`: actual in-scan selector cancellation regression (source `8e23ddac3`).
+- `3d402598e`: six behavior-preserving System.Math qualifications required by the new
+  CSS math namespace (source `946ebfb4b`); narrow Astra review and both framework builds clear.
+- `1325bef6a`: five exact reviewed XML omission expectations (source `827440291`),
+  including original CRLF offsets of 82 for the external general entity references.
+- The reviewed unused-external-declaration packet (source `5b11c30ea`) retains three
+  original canonical OUTPUT comparisons. Its author census reports 1,567 conformance passes,
+  379 unresolved required cases and one known notation defect; 241 of 386 eligible OUTPUT
+  comparisons pass. Integrated full-suite counts above precede these last two expectation packets.
