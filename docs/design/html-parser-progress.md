@@ -28,10 +28,11 @@ the earlier repository direction to retain AngleSharp.
 | D3a native cloning and import | `01a0cf34-dc42-75d0-960e-735bef6eb68a` | Reviewed and integrated |
 | XML shared contracts and provenance | `01a0cf2c-ab5e-7023-95ab-1ab3a4fc8d77` | Reviewed and integrated |
 | X1 native XML/SVG parsing | `01a0cf3f-9380-7513-a351-4078c30d2241` | Reviewed internal core integrated; DTD under review |
-| Native metadata, adoption and templates | `01a0cf47-2a27-7163-8f4e-951fbe9999f5` | Reviewed and integrated; H4 native prerequisites in progress |
+| Native metadata, adoption and templates | `01a0cf47-2a27-7163-8f4e-951fbe9999f5` | Reviewed and integrated, including H4 prerequisites |
 | D4a iterative native traversal | `01a0cf51-0a0a-7753-8235-126166e1484c` | Reviewed and integrated, including template boundaries |
 | C2a selector compiler | `01a0cf57-a964-7922-9f56-3c568a0e51f1` | In progress |
 | H4 HTML tree construction | `01a0cf5a-9eed-7913-bcb4-e019fbbb5e8c` | In progress |
+| D5 native mutation tracking | `01a0cf62-1c76-7411-ae32-d5d6beee5915` | In progress; owns native mutation paths |
 
 ## Initial repository evidence
 
@@ -83,6 +84,9 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   the integrated suite to 646 passing tests across both frameworks, zero failures/skips.
 - With the reviewed parsed-attribute merge, 658 tests pass across both frameworks,
   zero failures/skips.
+- With owned appendable Text storage and cancellation-atomic parser appends, 672
+  tests pass across both frameworks, zero failures/skips. This is functional and
+  structural validation, not a measured speedup against AngleSharp.
 
 ## Integrated commits
 
@@ -151,3 +155,5 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   all three Astra reviews clear.
 - `650046e3a`: linear missing-attribute merge for published parser elements, with
   cancellation and native attachment semantics (source `4f4be0e6`); Astra review clear.
+- `b181d595e`: owned text accumulation, cached reads and atomic append cancellation
+  (source `8fc2f247`); Astra review clear.
