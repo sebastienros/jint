@@ -91,6 +91,7 @@ internal sealed partial class HtmlTreeBuilder
             _fosterParenting = _tableTextHasNonwhite;
             try
             {
+                if (_tableTextHasNonwhite && !TryReconstructFormatting()) return false;
                 InsertText(segment.Data.AsSpan(segment.Start + _tableTextFlushCharacter, length));
             }
             finally

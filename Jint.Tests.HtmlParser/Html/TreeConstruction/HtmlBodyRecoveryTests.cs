@@ -45,7 +45,7 @@ public partial class HtmlTreeConstructionTests
     [Test]
     public void ScriptingModeChangesNoscriptGrammarButDoesNotExecuteScripts()
     {
-        const string source = "<head><noscript><b>literal</noscript></head><body><noscript><i>more</noscript>";
+        const string source = "<head><noscript><a>literal</noscript></head><body><noscript><i>more</noscript>";
         var disabled = Parse(source);
         // The head noscript closes on the unexpected start tag. Its following
         // formatting token is deliberately a MissingFeature, so only the
@@ -55,7 +55,7 @@ public partial class HtmlTreeConstructionTests
         var enabled = Parse(source, options: new Jint.HtmlParser.HtmlParseOptions { ScriptingEnabled = true });
         enabled.Step.Kind.Should().Be(HtmlParseStepKind.Complete);
         Serialize(enabled.Document).Should().Be(
-            "<html><head><noscript><b>literal</noscript></head><body><noscript><i>more</noscript></body></html>");
+            "<html><head><noscript><a>literal</noscript></head><body><noscript><i>more</noscript></body></html>");
     }
 
     [Test]

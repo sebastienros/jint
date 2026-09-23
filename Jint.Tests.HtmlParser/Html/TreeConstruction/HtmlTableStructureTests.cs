@@ -97,7 +97,7 @@ public partial class HtmlTreeConstructionTests
         foreach (var (source, family) in new[]
         {
             ("<table><template>", HtmlMissingFeature.Templates),
-            ("<table><tr><td><b>", HtmlMissingFeature.Formatting),
+            ("<table><tr><td><a>", HtmlMissingFeature.Formatting),
             ("<table><tr><td><select>", HtmlMissingFeature.Select),
             ("<table><tr><td><svg>", HtmlMissingFeature.ForeignContent)
         })

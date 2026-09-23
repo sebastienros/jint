@@ -142,8 +142,12 @@ internal sealed partial class HtmlTreeBuilder
             {
                 while (_open.Count > _pendingPopTarget && _remaining > 0) Pop();
                 if (_open.Count > _pendingPopTarget) return new HtmlParseStep(HtmlParseStepKind.Yielded);
+                if (_clearFormattingAfterPop)
+                {
+                    if (!TryClearFormattingToMarker()) return new HtmlParseStep(HtmlParseStepKind.Yielded);
+                    _clearFormattingAfterPop = false;
+                }
                 _pendingPopTarget = -1;
-                if (_clearFormattingAfterPop) { ClearFormattingToMarker(); _clearFormattingAfterPop = false; }
                 if (_modeAfterPop is { } nextMode) { _mode = nextMode; _modeAfterPop = null; }
                 if (_resetAfterPop)
                 {
@@ -269,6 +273,7 @@ internal sealed partial class HtmlTreeBuilder
     {
         var index = _open.Count;
         _open.Add(element);
+        _openIdentity.Add(element);
         AddIndexes(element, index);
         if (!AllowedOpenAtEof(element.LocalName)) _unexpectedOpenCount++;
         Charge(1);
@@ -342,6 +347,7 @@ internal sealed partial class HtmlTreeBuilder
         var index = _open.Count - 1;
         var element = _open[index];
         _open.RemoveAt(index);
+        _openIdentity.Remove(element);
         var indexes = _nameIndexes[element.LocalName];
         indexes.RemoveAt(indexes.Count - 1);
         if (indexes.Count == 0) _nameIndexes.Remove(element.LocalName);

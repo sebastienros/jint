@@ -129,6 +129,7 @@ internal sealed partial class HtmlTreeBuilder
                 SchedulePopTo(Last("button"), reprocess: true);
                 return true;
             }
+            if (!TryReconstructFormatting()) return true;
             InsertTokenElement();
             _framesetOk = false;
             return false;
@@ -139,12 +140,25 @@ internal sealed partial class HtmlTreeBuilder
             InsertTokenElement(); _framesetOk = false; _mode = Mode.InTable;
             return false;
         }
-        if (IsFormatting(name) || name is "applet" or "marquee" or "object")
+        if (IsFormatting(name))
         {
-            Missing(HtmlMissingFeature.Formatting); return false;
+            if (name is "a" or "nobr") { Missing(HtmlMissingFeature.Formatting); return false; }
+            if (!TryReconstructFormatting()) return true;
+            var element = InsertTokenElement();
+            AddFormattingElement(element);
+            return false;
+        }
+        if (name is "applet" or "marquee" or "object")
+        {
+            if (!TryReconstructFormatting()) return true;
+            InsertTokenElement();
+            PushFormattingMarker();
+            _framesetOk = false;
+            return false;
         }
         if (name is "area" or "br" or "embed" or "img" or "keygen" or "wbr")
         {
+            if (!TryReconstructFormatting()) return true;
             InsertTokenElement(); Pop(); _acknowledgedSelfClosing = true; _framesetOk = false;
             return false;
         }
@@ -163,6 +177,7 @@ internal sealed partial class HtmlTreeBuilder
             }
             if (_inputAttributeIndex < _token.Attributes.Count && !_inputTypeFound) return true;
             if (inspected && _remaining <= 0) return true;
+            if (!TryReconstructFormatting()) return true;
             InsertTokenElement(); Pop(); _acknowledgedSelfClosing = true;
             if (!_inputTypeHidden) _framesetOk = false;
             return false;
@@ -194,6 +209,7 @@ internal sealed partial class HtmlTreeBuilder
         if (name == "xmp")
         {
             if (InButtonScope("p")) { CloseP(reprocess: true); return true; }
+            if (!TryReconstructFormatting()) return true;
             _framesetOk = false;
             EnterText(HtmlTextMode.RawText, name);
             return false;
@@ -229,6 +245,7 @@ internal sealed partial class HtmlTreeBuilder
         {
             Error("unexpected-start-tag"); return false;
         }
+        if (!TryReconstructFormatting()) return true;
         InsertTokenElement();
         return false;
     }
@@ -305,10 +322,15 @@ internal sealed partial class HtmlTreeBuilder
         }
         if (name is "applet" or "marquee" or "object")
         {
-            Error("unexpected-end-tag"); return false;
+            if (!InScope(name)) { Error("unexpected-end-tag"); return false; }
+            if (!TryGenerateImpliedEndTags()) return true;
+            if (Current.LocalName != name) Error("misnested-end-tag");
+            SchedulePopTo(Last(name), reprocess: false, clearFormatting: true);
+            return false;
         }
         if (name == "br")
         {
+            if (!TryReconstructFormatting()) return true;
             Error("unexpected-br-end-tag");
             InsertElement("br"); Pop(); _framesetOk = false;
             return false;
@@ -333,6 +355,7 @@ internal sealed partial class HtmlTreeBuilder
             return;
         }
         var removed = _open[index];
+        _openIdentity.Remove(removed);
         if (!AllowedOpenAtEof(removed.LocalName)) _unexpectedOpenCount--;
         RemoveIndexes(removed, index);
         Charge(1);

@@ -265,6 +265,7 @@ internal sealed partial class HtmlTreeBuilder
                 case Mode.InCaption:
                 case Mode.InCell:
                     if (c == '\0') { Error("unexpected-null-character"); _textIndex++; Charge(1); continue; }
+                    if (!TryReconstructFormatting()) return;
                     AppendCharacterRun(data, whiteOnly: White(c));
                     if (!White(c)) _framesetOk = false;
                     continue;
@@ -286,6 +287,7 @@ internal sealed partial class HtmlTreeBuilder
                     }
                     if (c == '\0') { Error("unexpected-null-character"); _textIndex++; Charge(1); continue; }
                     _fosterParenting = true;
+                    if (!TryReconstructFormatting()) return;
                     AppendCharacterRun(data, whiteOnly: White(c));
                     if (!White(c)) _framesetOk = false;
                     continue;
@@ -303,7 +305,12 @@ internal sealed partial class HtmlTreeBuilder
                     continue;
                 case Mode.AfterBody:
                 case Mode.AfterAfterBody:
-                    if (White(c)) { AppendCharacterRun(data, whiteOnly: true); continue; }
+                    if (White(c))
+                    {
+                        if (!TryReconstructFormatting()) return;
+                        AppendCharacterRun(data, whiteOnly: true);
+                        continue;
+                    }
                     Error("unexpected-token-after-body"); _mode = Mode.InBody;
                     continue;
                 default:
