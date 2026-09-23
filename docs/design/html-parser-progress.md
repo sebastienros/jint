@@ -16,7 +16,7 @@ the earlier repository direction to retain AngleSharp.
 - User cleanup rule: archive tasks and remove their worktrees after review, integration and
   successful common-worktree checks. Retain interrupted/failed tasks until unfinished work is
   recovered. Keep task history and Git branches; use managed archive cleanup and verify removal.
-  Thirty-two completed tasks have now been archived; their worktrees are gone.
+  Thirty-three completed tasks have now been archived; their worktrees are gone.
   Patch equivalence, clean local state and stopped-task status were checked before removal.
   Earlier worktrees already removed by Codex remain represented by their integrated commits.
 
@@ -61,7 +61,8 @@ the earlier repository direction to retain AngleSharp.
 | X3a serialization kernels | `01a0cfe9-8708-7943-9168-25178627af9b` | Reviewed correction integrated; common checks pass; archived, worktree removed |
 | C2d2 column selector matching | `01a0cfe9-f30f-71e2-84e1-272257d4bc26` | Reviewed corrections integrated and tested; archived, worktree removed |
 | D7a2 disabledness and select ancestry | `01a0cfec-967a-7be0-a9d9-d40f474e52a1` | Reviewed cancellation correction integrated and tested; archived, worktree removed |
-| D7b1a input-type classifier | `01a0cffb-5f42-7ac0-9c50-3dc022442df9` | Implementation committed; independent Astra review pending |
+| D7b1a input-type classifier | `01a0cffb-5f42-7ac0-9c50-3dc022442df9` | Reviewed, integrated and tested; archived, worktree removed |
+| X3b XML serialization | `01a0cffb-eb5e-7843-8a64-7bab61470fa1` | Implementation committed; independent Astra review pending |
 
 The XML conformance gate inventories all 2,585 pinned W3C rows with explicit profile
 classifications and separate output assertions. Current execution results and remaining debt are below.
@@ -527,3 +528,11 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   21 verified optional policies, zero harness failures/mismatches, OUTPUT 280 compared/106 pending.
   Evidence: `/private/tmp/jint-output9-provenance-integrated.log`. The XML task stays active with its
   unfinished work; this full run is not a green conformance gate.
+- `b74916679`: independently reviewed complete input-type classifier (source `e4bd4b692`). Fresh
+  common non-corpus tests pass 2,358/2,358 across net8/net10, no skips; evidence:
+  `/private/tmp/jint-input-type-integrated.log`. Clean patch-equivalent worktree removed after
+  verified task completion and archive. D7b1b pure text algorithms dispatched in a new Sol worktree;
+  cancellable consumers must poll attribute scans before calling Parse, not use tokenless Get.
+- X3b XML serializer source `2de6914f7` is under independent Astra review. Both Clark XML source
+  packets (valid-sa-001–011 and valid-not-sa-001/002/010) are independently approved; the corpus
+  owner is implementing their exact expectations in separate commits. Their work remains retained.
