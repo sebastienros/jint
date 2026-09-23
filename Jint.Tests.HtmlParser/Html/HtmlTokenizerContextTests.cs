@@ -52,6 +52,19 @@ public class HtmlTokenizerContextTests
         return Signature(tokens);
     }
 
+    private static string ScanTwoPart(string source, int split, int quota, HtmlTextMode? fragmentMode = null,
+        Action<HtmlTokenizer, HtmlToken>? afterToken = null, HtmlTokenizerContext context = default)
+    {
+        var tokenizer = new HtmlTokenizer(context);
+        var tokens = new List<HtmlToken>();
+        tokenizer.AppendInput(source[..split]);
+        if (fragmentMode is { } mode) tokenizer.InitializeFragmentTextMode(mode);
+        Drain(tokenizer, quota, tokens, afterToken, HtmlReadStatus.NeedInput);
+        tokenizer.AppendInput(source[split..], true);
+        Drain(tokenizer, quota, tokens, afterToken, HtmlReadStatus.Complete);
+        return Signature(tokens);
+    }
+
     private static void Drain(HtmlTokenizer tokenizer, int quota, List<HtmlToken> tokens,
         Action<HtmlTokenizer, HtmlToken>? afterToken, HtmlReadStatus terminal)
     {
@@ -76,20 +89,35 @@ public class HtmlTokenizerContextTests
     {
         const string source = "<![CDATA[h]]><svg><![CDATA[x\r\ny]]></svg><![CDATA[z]]>";
         const string expected = "C:[CDATA[h]]|S:svg|T:x\ny|E:svg|C:[CDATA[z]]|EOF|";
+        static void UpdateContext(HtmlTokenizer tokenizer, HtmlToken token)
+        {
+            if (token.Kind == HtmlTokenKind.StartTag && token.Name == "svg") tokenizer.SetAllowCData(true);
+            if (token.Kind == HtmlTokenKind.EndTag && token.Name == "svg") tokenizer.SetAllowCData(false);
+        }
         foreach (var chunkSize in new[] { 1, 2, 3, source.Length })
             foreach (var quota in new[] { 1, 3, 1_000 })
             {
                 var diagnostics = new ParseDiagnosticCollector();
-                var actual = Scan(source, chunkSize, quota, afterToken: (tokenizer, token) =>
-                {
-                    if (token.Kind == HtmlTokenKind.StartTag && token.Name == "svg") tokenizer.SetAllowCData(true);
-                    if (token.Kind == HtmlTokenKind.EndTag && token.Name == "svg") tokenizer.SetAllowCData(false);
-                }, context: new HtmlTokenizerContext(diagnostics: diagnostics));
+                var actual = Scan(source, chunkSize, quota, afterToken: UpdateContext,
+                    context: new HtmlTokenizerContext(diagnostics: diagnostics));
                 Assert.That(actual, Is.EqualTo(expected), $"chunk={chunkSize}, quota={quota}");
                 Assert.That(diagnostics.Items.Select(x => x.Code), Is.EqualTo(new[]
                 {
                     "html/cdata-in-html-content", "html/cdata-in-html-content"
                 }), $"chunk={chunkSize}, quota={quota}");
+            }
+
+        for (var split = 0; split <= source.Length; split++)
+            foreach (var quota in new[] { 1, 3, 1_000 })
+            {
+                var diagnostics = new ParseDiagnosticCollector();
+                var actual = ScanTwoPart(source, split, quota, afterToken: UpdateContext,
+                    context: new HtmlTokenizerContext(diagnostics: diagnostics));
+                Assert.That(actual, Is.EqualTo(expected), $"split={split}, quota={quota}");
+                Assert.That(diagnostics.Items.Select(x => x.Code), Is.EqualTo(new[]
+                {
+                    "html/cdata-in-html-content", "html/cdata-in-html-content"
+                }), $"split={split}, quota={quota}");
             }
     }
 
@@ -187,6 +215,36 @@ public class HtmlTokenizerContextTests
             foreach (var quota in new[] { 1, 3, 1_000 })
                 Assert.That(Scan(source, chunkSize, quota, fragmentMode: mode), Is.EqualTo(expected),
                     $"mode={mode}, chunk={chunkSize}, quota={quota}");
+        for (var split = 0; split <= source.Length; split++)
+            foreach (var quota in new[] { 1, 3, 1_000 })
+                Assert.That(ScanTwoPart(source, split, quota, fragmentMode: mode), Is.EqualTo(expected),
+                    $"mode={mode}, split={split}, quota={quota}");
+    }
+
+    [Test]
+    public void CDataContextUpdatePreservesOrdinaryTextModePermissionInBothOrders()
+    {
+        foreach (var cdataFirst in new[] { false, true })
+        {
+            var tokenizer = new HtmlTokenizer(default);
+            tokenizer.AppendInput("<textarea>&amp;</textarea><![CDATA[x]]>", true);
+            Assert.That(tokenizer.Read(1_000, default, out var start), Is.EqualTo(HtmlReadStatus.Token));
+            Assert.That(start.Name, Is.EqualTo("textarea"));
+
+            if (cdataFirst) tokenizer.SetAllowCData(true);
+            tokenizer.SetTextMode(HtmlTextMode.RcData, "textarea");
+            if (!cdataFirst) tokenizer.SetAllowCData(true);
+            Assert.Throws<InvalidOperationException>(() => tokenizer.SetTextMode(HtmlTextMode.Data, null));
+
+            Assert.That(tokenizer.Read(1_000, default, out var text), Is.EqualTo(HtmlReadStatus.Token));
+            Assert.That(text.Data, Is.EqualTo("&"));
+            Assert.Throws<InvalidOperationException>(() => tokenizer.SetAllowCData(false));
+
+            var tokens = new List<HtmlToken> { start, text };
+            Drain(tokenizer, 1_000, tokens, null, HtmlReadStatus.Complete);
+            Assert.That(Signature(tokens), Is.EqualTo("S:textarea|T:&|E:textarea|T:x|EOF|"),
+                $"cdataFirst={cdataFirst}");
+        }
     }
 
     [Test]
