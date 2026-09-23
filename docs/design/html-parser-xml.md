@@ -75,8 +75,9 @@ public sealed class MarkupParseException : Exception
 ```
 
 Options have a public parameterless constructor and reject null `Limits`. No strictness flag, resolver,
-DTD switch, MIME selector, diagnostic collector or public backend selection is needed. XML has fatal
-syntax errors; a recoverable-diagnostic channel adds no capability here. `Code` is a stable `xml/…`
+DTD switch, MIME selector, diagnostic collector or public backend selection is needed. Syntax failures
+and the explicit external-entity support restriction below fail the call; there is no successful
+result with silently skipped referenced content. `Code` is a stable `xml/…`
 identifier and `Offset` is an original-input UTF-16 position, EOF at input length. For an error within
 replacement text, use the outermost invoking reference's source position; do not pretend it is an
 exact position inside the original string. Messages describe the error without including the input.
@@ -84,7 +85,9 @@ exact position inside the original string. Messages describe the error without i
 Required initial codes: `xml/unexpected-eof`, `xml/invalid-character`, `xml/invalid-name`,
 `xml/invalid-declaration`, `xml/invalid-markup`, `xml/mismatched-end-tag`, `xml/duplicate-attribute`,
 `xml/namespace-error`, `xml/undeclared-entity`, `xml/recursive-entity`, `xml/invalid-document`, and
-`xml/svg-root-required`. Additional DTD-specific codes may be added with fixtures. No English message
+`xml/svg-root-required`, `xml/external-entity-unavailable`, and
+`xml/external-declaration-unavailable`. The last two report a supported-input restriction, not a
+well-formedness verdict. Additional DTD-specific codes may be added with fixtures. No English message
 matching and no catch-all conversion. Null arguments are argument failures; cancellation remains
 `OperationCanceledException`; shared budget failures remain `ParseLimitException`.
 
@@ -148,9 +151,41 @@ DTD handling is necessary X1 work. Preserve doctype name/public/system identifie
 subset's general/parameter entities, attribute declarations/defaults/normalization and declaration
 syntax under the nonvalidating rules. Keep source-order specified attributes before supplied defaults.
 Never resolve arbitrary file/network entities. The known public identifiers in the HTML XML section
-use a pinned local named-entity catalog; unknown external subsets/entities are not fetched. Their
-skip/undeclared-reference outcomes must follow XML's nonvalidating rules, with fixtures for standalone
-and external-subset cases. Do not substitute a blanket `DtdProcessing.Prohibit` policy.
+use a pinned local named-entity catalog. Do not substitute a blanket `DtdProcessing.Prohibit` policy.
+
+### Fixed policy for unavailable external entities
+
+[XML §4.4.3](https://www.w3.org/TR/xml/#include-if-valid) permits a nonvalidating processor to omit
+external parsed entity content but requires notifying its application; §4.4.8 applies the inclusion
+rule to parameter entities. The previous skip-without-result-metadata contract was insufficient.
+Choose explicit rejection, with no optional diagnostic switch or incomplete-success document:
+
+- A declaration of an external general or parameter entity is allowed. At an actual reference that
+  would require unavailable external replacement text, throw `MarkupParseException` with
+  `xml/external-entity-unavailable`; its offset identifies the reference (or outermost source reference
+  for nested expansion). Do not substitute empty text and do not continue to return the partial tree.
+- An unknown external doctype subset alone is allowed and retained in the doctype's identifiers,
+  without retrieval. This does not claim declarations from that subset were processed. If an entity
+  reference has no known declaration and a declaration could reside in the unread subset, reject with
+  `xml/external-declaration-unavailable`. Otherwise use `xml/undeclared-entity`. XML's actual fatal
+  well-formedness restrictions still apply, including external references in attribute values;
+  an unavailable-resource code must not replace an already-established syntax error.
+- Resolve the pinned recognized catalog locally where applicable. Ordinary external-doctype XML/SVG
+  without unavailable references remains accepted; no network/file resolver is introduced. An external
+  parameter-entity reference requiring unavailable content fails immediately, so no subsequent
+  declarations are incorrectly processed past an unread parameter entity.
+
+For example, `<!DOCTYPE r [<!ENTITY ext SYSTEM 'missing.xml'>]><r>&ext;</r>` fails at `&ext;`, while
+the same declaration with `<r/>` succeeds. `<!DOCTYPE r SYSTEM 'missing.dtd'><r/>` succeeds;
+adding `&unknown;` fails with the external-declaration code. Cover the corresponding parameter-entity
+case, nested references, standalone declarations, attribute-value restrictions and local catalog in tests.
+
+This is a deliberate supported-input limitation: some well-formed XML is rejected, rather than returned
+with unread referenced content. [WHATWG's XML retrieval rules](https://html.spec.whatwg.org/multipage/xhtml.html#parsing-xhtml-documents)
+support the local-catalog/no-arbitrary-retrieval choice; they do **not** require this rejection policy.
+Browser exposes these two failures as a visible parsererror document and records the behavior as a
+compatibility deviation with a fixture. Do not claim unrestricted XML conformance or browser parity
+for unavailable external references. Future support must add an observable result contract first.
 
 The catalog contains only declared character entities, not a validating XHTML DTD. Pin the upstream
 entity data and license, generate deterministically, and share authoritative data with H2 when practical;
@@ -177,7 +212,8 @@ completion, not development of the scanner. Browser still owns reactions, wrappe
 
 Browser catches only `MarkupParseException` when constructing its established parsererror document,
 with the requested content type and inert UTF-8 metadata. Error text is assigned as text, never parsed
-as markup. It must not convert cancellation, `ParseLimitException`, programming exceptions or allocation
+as markup. The two external-unavailable codes use explicit unsupported-input wording, not a false
+claim of malformed XML. It must not convert cancellation, `ParseLimitException`, programming exceptions or allocation
 failures into successful parsererror documents. XML fragment bindings translate syntax errors to their
 required DOM exception, without changing the standalone exception contract.
 
@@ -199,7 +235,7 @@ DOM-foundation, HTML-tokenizer, CSS or Browser production edits in this assignme
    fragment ownership. This is a reviewable internal milestone, not completed X1; no public facade
    or claim of full XML support yet.
 2. **X1 DTD commit:** internal subset/declaration processing, expansion stack/cycle and work accounting,
-   defaults, pinned external catalog and nonvalidating external-reference behavior. Remove the
+   defaults, pinned external catalog and the fixed external-reference rejection policy. Remove the
    temporary DTD rejection. Merge the shared options/error/expansion-budget and native metadata seams.
    Add the three real public methods, including the small strict SVG check. No placeholder APIs.
 3. **Integration handoff:** report fixtures, remaining native-template/SVG-state dependencies, and exact
@@ -215,7 +251,7 @@ input/token/depth/expansion limits at boundary and one past it. Include determin
 checks within a long lexical token and expansion work, using an internal test seam instead of a
 wall-clock speed assertion. Assert no context mutation on fragment failure and no file/network access.
 
-Run `dotnet test Jint.Tests.HtmlParser/Jint.Tests.HtmlParser.csproj -c Release -f net8.0` and the same
+Run `dotnet test --project Jint.Tests.HtmlParser/Jint.Tests.HtmlParser.csproj -c Release -f net8.0` and the same
 command for `net10.0`, always rebuilding. Use the coordinator's actual test-project name if changed.
 No benchmarks during parallel builds, and no performance claim from these functional tests. Before
 package sign-off, add licensed upstream XML/namespace conformance fixtures and browser comparisons
