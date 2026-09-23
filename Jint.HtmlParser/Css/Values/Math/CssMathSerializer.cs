@@ -21,6 +21,8 @@ internal static class CssMathSerializer
             CssMathNodeKind.Round => "round(",
             CssMathNodeKind.Mod => "mod(",
             CssMathNodeKind.Rem => "rem(",
+            CssMathNodeKind.Abs => "abs(",
+            CssMathNodeKind.Sign => "sign(",
             _ => "calc("
         };
         Append(builder, outerFunction, work);
@@ -70,6 +72,8 @@ internal static class CssMathSerializer
                         break;
                     case CssMathNodeKind.Mod: Append(builder, frame.IsTop ? "" : "mod(", work); break;
                     case CssMathNodeKind.Rem: Append(builder, frame.IsTop ? "" : "rem(", work); break;
+                    case CssMathNodeKind.Abs: Append(builder, frame.IsTop ? "" : "abs(", work); break;
+                    case CssMathNodeKind.Sign: Append(builder, frame.IsTop ? "" : "sign(", work); break;
                     case CssMathNodeKind.Sum:
                     case CssMathNodeKind.Product:
                         if (!frame.IsTop && !frame.Unwrap) Append(builder, "(", work);
@@ -83,7 +87,8 @@ internal static class CssMathSerializer
                 if (!frame.IsTop &&
                     (!frame.Unwrap && node.Kind != CssMathNodeKind.Numeric ||
                      node.Kind is CssMathNodeKind.Min or CssMathNodeKind.Max or CssMathNodeKind.Clamp or
-                         CssMathNodeKind.Round or CssMathNodeKind.Mod or CssMathNodeKind.Rem))
+                         CssMathNodeKind.Round or CssMathNodeKind.Mod or CssMathNodeKind.Rem or
+                         CssMathNodeKind.Abs or CssMathNodeKind.Sign))
                     Append(builder, ")", work);
                 stack.Pop();
                 continue;
@@ -121,13 +126,15 @@ internal static class CssMathSerializer
                     else Append(builder, " * ", work);
                 }
                 else if (node.Kind is CssMathNodeKind.Min or CssMathNodeKind.Max or CssMathNodeKind.Clamp or
-                         CssMathNodeKind.Round or CssMathNodeKind.Mod or CssMathNodeKind.Rem)
+                         CssMathNodeKind.Round or CssMathNodeKind.Mod or CssMathNodeKind.Rem or
+                         CssMathNodeKind.Abs or CssMathNodeKind.Sign)
                     Append(builder, ", ", work);
             }
             frame.Position++;
             stack.Push(new Frame(childIndex, false,
                 node.Kind is (CssMathNodeKind.Min or CssMathNodeKind.Max or CssMathNodeKind.Clamp or
-                    CssMathNodeKind.Round or CssMathNodeKind.Mod or CssMathNodeKind.Rem) &&
+                    CssMathNodeKind.Round or CssMathNodeKind.Mod or CssMathNodeKind.Rem or
+                    CssMathNodeKind.Abs or CssMathNodeKind.Sign) &&
                 value.GetNode(childIndex).Kind is CssMathNodeKind.Sum or CssMathNodeKind.Product,
                 denominator));
         }

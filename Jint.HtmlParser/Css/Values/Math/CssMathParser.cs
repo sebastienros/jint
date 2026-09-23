@@ -92,7 +92,7 @@ internal static class CssMathParser
                         AsciiEquals(name, "pi") ? System.Math.PI :
                         AsciiEquals(name, "infinity") ? double.PositiveInfinity :
                         AsciiEquals(name, "-infinity") ? double.NegativeInfinity :
-                        AsciiEquals(name, "NaN") ? double.NaN : null;
+                        AsciiEquals(name, "nan") ? double.NaN : null;
                     if (constant is null) return Finish(CssMathParseResult.NoMatch(component.Span), work);
                     frame.AddOperand(builder.Add(CssMathNodeKind.Numeric, default, component.Span,
                         new CssMathNumeric(constant.Value, CssNumericKind.Number, CssUnit.None, component.Span)));
@@ -160,7 +160,8 @@ internal static class CssMathParser
 
     private static bool IsImplemented(CssMathFunction function) => function is
         CssMathFunction.Calc or CssMathFunction.Min or CssMathFunction.Max or CssMathFunction.Clamp or
-        CssMathFunction.Round or CssMathFunction.Mod or CssMathFunction.Rem;
+        CssMathFunction.Round or CssMathFunction.Mod or CssMathFunction.Rem or
+        CssMathFunction.Abs or CssMathFunction.Sign;
 
     private static bool AsciiEquals(string source, string expected)
     {
@@ -320,6 +321,7 @@ internal static class CssMathParser
             if (Kind == CssMathFunction.Clamp && Arguments.Count != 3 ||
                 Kind is CssMathFunction.Mod or CssMathFunction.Rem && Arguments.Count != 2 ||
                 Kind == CssMathFunction.Round && Arguments.Count is < 1 or > 2 ||
+                Kind is CssMathFunction.Abs or CssMathFunction.Sign && Arguments.Count != 1 ||
                 Kind is CssMathFunction.Min or CssMathFunction.Max && Arguments.Count < 1)
                 return false;
             CssNumericType? type = null;
@@ -339,6 +341,12 @@ internal static class CssMathParser
                 else type = sumType;
             }
             if (type is null) return false;
+            if (Kind == CssMathFunction.Sign)
+            {
+                if (!default(CssNumericType).TryMakeConsistent(type.Value, out var signType))
+                { error = builder.Node(Arguments[0]).Span; return false; }
+                type = signType;
+            }
             if (Kind == CssMathFunction.Round && Arguments.Count == 1 &&
                 (Strategy == CssRoundingStrategy.LineWidth ? type.Value.Length != 1 ||
                     !type.Value.IsPermissibleScalar : !type.Value.IsScalar))
@@ -361,6 +369,8 @@ internal static class CssMathParser
                 CssMathFunction.Clamp => CssMathNodeKind.Clamp,
                 CssMathFunction.Round => CssMathNodeKind.Round,
                 CssMathFunction.Mod => CssMathNodeKind.Mod,
+                CssMathFunction.Abs => CssMathNodeKind.Abs,
+                CssMathFunction.Sign => CssMathNodeKind.Sign,
                 _ => CssMathNodeKind.Rem
             }, type.Value, Component.Span, children: Arguments, roundingStrategy: Strategy);
             return true;

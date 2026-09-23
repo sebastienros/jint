@@ -7,16 +7,17 @@ public sealed class MathFunctionCensusTests
 {
     private static readonly string[] First = ["calc", "min", "max", "clamp"];
     private static readonly string[] Second = ["round", "mod", "rem"];
+    private static readonly string[] Signs = ["abs", "sign"];
     private static readonly string[] Third =
     [
-        "sin", "cos", "tan", "asin", "acos", "atan", "atan2", "pow", "sqrt", "hypot", "log", "exp", "abs", "sign"
+        "sin", "cos", "tan", "asin", "acos", "atan", "atan2", "pow", "sqrt", "hypot", "log", "exp"
     ];
 
     [Test]
     public void EveryValuesFourFunctionHasOneNamedStage()
     {
-        (First.Length + Second.Length + Third.Length).Should().Be(21);
-        var names = First.Concat(Second).Concat(Third).ToArray();
+        (First.Length + Second.Length + Signs.Length + Third.Length).Should().Be(21);
+        var names = First.Concat(Second).Concat(Signs).Concat(Third).ToArray();
         names.Distinct(StringComparer.Ordinal).Count().Should().Be(21);
         Enum.GetValues<CssMathFunction>().Length.Should().Be(22);
         foreach (var name in names)
@@ -45,13 +46,15 @@ public sealed class MathFunctionCensusTests
     }
 
     [Test]
-    public void SevenFunctionsAreImplementedAndFourteenRemainPending()
+    public void NineFunctionsAreImplementedAndTwelveRemainPending()
     {
         foreach (var name in Second)
         {
             var source = name == "round" ? "round(2)" : $"{name}(2, 1)";
             MathTest.Parse(source, MathTest.Number).Status.Should().Be(CssMathParseStatus.Match);
         }
-        Third.Length.Should().Be(14);
+        foreach (var name in Signs)
+            MathTest.Parse($"{name}(2)", MathTest.Number).Status.Should().Be(CssMathParseStatus.Match);
+        Third.Length.Should().Be(12);
     }
 }

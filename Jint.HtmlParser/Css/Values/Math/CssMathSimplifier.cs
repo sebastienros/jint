@@ -109,6 +109,11 @@ internal static class CssMathSimplifier
             {
                 mapped[i] = target.Add(CssMathNodeKind.Numeric, node.Type, node.Span, stepped);
             }
+            else if (node.Kind is CssMathNodeKind.Abs or CssMathNodeKind.Sign &&
+                     TryFoldSign(target, children[0], node.Kind, work, out var signed))
+            {
+                mapped[i] = target.Add(CssMathNodeKind.Numeric, node.Type, node.Span, signed);
+            }
             else if (node.Kind == CssMathNodeKind.Clamp &&
                      (target.Node(children[0]).Kind == CssMathNodeKind.AbsentBound ||
                       target.Node(children[2]).Kind == CssMathNodeKind.AbsentBound))
@@ -220,6 +225,33 @@ internal static class CssMathSimplifier
         result = new CssMathNumeric(folded, first.Numeric.Kind, first.Numeric.Unit, first.Numeric.Span);
         return true;
     }
+
+    private static bool TryFoldSign(CssMathBuilder target, int child, CssMathNodeKind kind,
+        CssValueWork work, out CssMathNumeric result)
+    {
+        result = default;
+        var node = target.Node(child);
+        if (node.Kind != CssMathNodeKind.Numeric) return false;
+        var numeric = node.Numeric;
+        // A percentage's basis can be negative or zero. Its coefficient is not
+        // enough to determine even the sign of the resolved value.
+        if (numeric.Kind == CssNumericKind.Percentage) return false;
+        if (numeric.Kind == CssNumericKind.Dimension && !IsAbsolute(numeric.Unit))
+        {
+            // Font sizes and viewport/container extents are nonnegative, but
+            // their actual values (including zero) remain environmental data.
+            if (kind != CssMathNodeKind.Abs || !HasNonnegativeBasis(numeric.Unit)) return false;
+        }
+        var value = kind == CssMathNodeKind.Abs ? CssMathSign.Abs(numeric.Value, work) :
+            CssMathSign.Sign(numeric.Value, work);
+        result = new CssMathNumeric(value,
+            kind == CssMathNodeKind.Sign ? CssNumericKind.Number : numeric.Kind,
+            kind == CssMathNodeKind.Sign ? CssUnit.None : numeric.Unit, numeric.Span);
+        return true;
+    }
+
+    private static bool HasNonnegativeBasis(CssUnit unit) => unit is CssUnit.Em or CssUnit.Rem or
+        >= CssUnit.Vw and <= CssUnit.Cqmax;
 
     private static bool IsAbsolute(CssUnit unit) => unit is CssUnit.Px or CssUnit.Deg or CssUnit.S or
         CssUnit.Hz or CssUnit.Dppx;

@@ -60,6 +60,18 @@ internal readonly struct CssNumericType : IEquatable<CssNumericType>
         return true;
     }
 
+    // CSS Values 4 §10.9: make a result type consistent with its input type.
+    // Unlike addition, the input's dimensions do not become result dimensions.
+    internal bool TryMakeConsistent(CssNumericType input, out CssNumericType result)
+    {
+        result = default;
+        if (Hint != CssPercentHint.None && input.Hint != CssPercentHint.None && Hint != input.Hint)
+            return false;
+        result = new CssNumericType(Length, Angle, Time, Frequency, Resolution, Flex, Percent,
+            Hint == CssPercentHint.None ? input.Hint : Hint);
+        return true;
+    }
+
     internal bool TryMultiply(CssNumericType other, out CssNumericType result)
     {
         result = default;

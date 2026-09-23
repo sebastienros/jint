@@ -2,8 +2,12 @@
 
 CSS Values and Units Level 4 Editor's Draft, 20 August 2026, sections 10.8–10.13;
 CSS Typed OM Level 1 numeric types, checked 23 September 2026. Implemented functions:
-`calc`, `min`, `max`, `clamp`, `round`, `mod`, `rem`. The other 14 Values 4 functions are pending in the
+`calc`, `min`, `max`, `clamp`, `round`, `mod`, `rem`, `abs`, `sign`. The other 12 Values 4 functions are pending in the
 checked `MathFunctionCensusTests`; these tests make no property-validity claim.
+
+`MathSignTests` uses authored CSS Values 4 §10.6 fixtures for grammar, result typing,
+percentage and relative-unit dependencies, IEEE signed zero, infinities and NaN.
+No computed percentage basis is supplied by this specified-value stage.
 
 `MathSteppedTests` uses authored CSS Values 4 §10.3.1 fixtures for all five rounding
 strategies, the mod/rem sign and special-value tables, and §6 line-width snapping.

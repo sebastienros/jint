@@ -1,6 +1,6 @@
 namespace Jint.HtmlParser.Css.Values.Math;
 
-internal enum CssMathNodeKind { Numeric, Sum, Product, Negate, Invert, Min, Max, Clamp, AbsentBound, Round, Mod, Rem }
+internal enum CssMathNodeKind { Numeric, Sum, Product, Negate, Invert, Min, Max, Clamp, AbsentBound, Round, Mod, Rem, Abs, Sign }
 
 internal enum CssRoundingStrategy { Nearest, Up, Down, ToZero, LineWidth }
 
