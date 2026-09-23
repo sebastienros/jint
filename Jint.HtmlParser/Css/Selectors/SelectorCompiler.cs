@@ -503,30 +503,78 @@ internal static class SelectorCompiler
             return start == 1 && text[0] == '-' ? -number : number;
         }
 
-        internal bool TryUnsigned(ReadOnlySpan<char> digits, out BigInteger number)
+        internal bool TryUnsigned(ReadOnlySpan<char> digits, out BigInteger number,
+            Action? afterFirstConvertedChunk = null)
         {
             number = default;
             if (digits.Length == 0) return false;
-            uint chunk = 0;
-            var chunkLength = 0;
             for (var i = 0; i < digits.Length; i++)
             {
                 Poll();
                 if (digits[i] is < '0' or > '9') return false;
-                chunk = chunk * 10 + (uint) (digits[i] - '0');
-                if (++chunkLength != 9) continue;
-                number = number * 1_000_000_000 + chunk;
-                chunk = 0;
-                chunkLength = 0;
             }
-            if (chunkLength != 0)
+
+            // Combine base-10^9 chunks as a balanced binary tree. A left fold would
+            // rebuild the entire growing BigInteger for every nine input digits.
+            var groups = new List<DigitGroup>();
+            var powers = new List<BigInteger> { new(1_000_000_000) };
+            var firstLength = digits.Length % 9;
+            if (firstLength == 0) firstLength = 9;
+            for (var offset = 0; offset < digits.Length;)
             {
-                uint factor = 1;
-                for (var i = 0; i < chunkLength; i++) factor *= 10;
-                number = number * factor + chunk;
+                var length = offset == 0 ? firstLength : 9;
+                uint chunk = 0;
+                for (var i = 0; i < length; i++)
+                {
+                    Poll();
+                    chunk = chunk * 10 + (uint) (digits[offset + i] - '0');
+                }
+                var group = new DigitGroup(new BigInteger(chunk), 0);
+                if (offset == 0)
+                {
+                    afterFirstConvertedChunk?.Invoke();
+                    _cancellation.ThrowIfCancellationRequested();
+                }
+                while (groups.Count > 0 && groups[^1].Level == group.Level)
+                {
+                    Poll();
+                    _cancellation.ThrowIfCancellationRequested();
+                    var left = groups[^1];
+                    groups.RemoveAt(groups.Count - 1);
+                    group = new DigitGroup(left.Value * PowerForLevel(group.Level, powers) +
+                        group.Value, group.Level + 1);
+                    _cancellation.ThrowIfCancellationRequested();
+                }
+                groups.Add(group);
+                offset += length;
+            }
+
+            number = groups[0].Value;
+            for (var i = 1; i < groups.Count; i++)
+            {
+                Poll();
+                _cancellation.ThrowIfCancellationRequested();
+                var right = groups[i];
+                number = number * PowerForLevel(right.Level, powers) + right.Value;
+                _cancellation.ThrowIfCancellationRequested();
             }
             return true;
         }
+
+        private BigInteger PowerForLevel(int level, List<BigInteger> powers)
+        {
+            while (powers.Count <= level)
+            {
+                Poll();
+                _cancellation.ThrowIfCancellationRequested();
+                var previous = powers[^1];
+                powers.Add(previous * previous);
+                _cancellation.ThrowIfCancellationRequested();
+            }
+            return powers[level];
+        }
+
+        private readonly record struct DigitGroup(BigInteger Value, int Level);
 
         private IReadOnlyList<string> ParseTextArguments(CssComponentValueList values, int endOffset)
         {

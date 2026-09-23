@@ -123,6 +123,15 @@ public sealed class SelectorCompilerTests
         predicate.B.Should().Be(-BigInteger.Parse(operand));
     }
 
+    [Test]
+    public void BalancedDecimalConversionPreservesLongNonPowerOfTwoChunkCount()
+    {
+        var digits = "000" + string.Concat(Enumerable.Repeat("1234567890", 100));
+        var predicate = Parse(":nth-child(" + digits + ")")
+            .Branches[0].Compounds[0].Predicates[0];
+        predicate.B.Should().Be(BigInteger.Parse(digits));
+    }
+
     [TestCase(":nth-child(n-)")]
     [TestCase(":nth-child(2n-)")]
     [TestCase(":nth-child(2.5n)")]
@@ -273,12 +282,19 @@ public sealed class SelectorCompilerTests
     public void CancellationDuringNumericConversionIsPolled()
     {
         using var cancellation = new CancellationTokenSource();
-        cancellation.Cancel();
         var worker = new SelectorCompiler.Worker(string.Empty, new SelectorParseContext(),
             cancellation.Token);
         var digits = new string('9', 1024);
+        var checkpointCount = 0;
+        worker.TryUnsigned("123x".AsSpan(), out _, () => checkpointCount++).Should().BeFalse();
+        checkpointCount.Should().Be(0);
         NUnit.Framework.Assert.Throws<OperationCanceledException>(() =>
-            worker.TryUnsigned(digits.AsSpan(), out _));
+            worker.TryUnsigned(digits.AsSpan(), out _, () =>
+            {
+                checkpointCount++;
+                cancellation.Cancel();
+            }));
+        checkpointCount.Should().Be(1);
     }
 
     [Test]
