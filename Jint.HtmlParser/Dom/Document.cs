@@ -182,7 +182,7 @@ public sealed class Document : Node
         }
 
         return contentType is "text/xml" or "application/xml" ||
-            contentType.AsSpan(slash + 1).EndsWith("+xml", StringComparison.Ordinal) && slash + 5 < contentType.Length;
+            contentType.AsSpan(slash + 1).EndsWith("+xml", StringComparison.Ordinal);
     }
 }
 
