@@ -36,7 +36,8 @@ the earlier repository direction to retain AngleSharp.
 | C2c relational selector evaluator | `01a0cfa9-3193-73c1-a9cf-f5e2d915cca7` | Reviewed contract dispatched; implementation in progress |
 | H4 HTML tree construction | `01a0cf5a-9eed-7913-bcb4-e019fbbb5e8c` | Reviewed corrections integrated |
 | H5a HTML table structure | `01a0cf80-d939-7a72-829a-859771c547f0` | Reviewed fixes integrated |
-| H5b HTML table text and foster insertion | `01a0cf9d-4989-78a3-9ec5-3302a335a8bc` | In progress; exclusive tree-builder owner |
+| H5b HTML table text and foster insertion | `01a0cf9d-4989-78a3-9ec5-3302a335a8bc` | Reviewed implementation and diagnostic correction integrated |
+| H6a active formatting reconstruction | `01a0cfba-939d-7c52-9867-dc86e37f5b0d` | In progress; exclusive tree-builder owner |
 | H5b native fresh insertion prerequisite | `01a0cfa5-4d54-73d1-9e18-3f263463a87c` | Reviewed implementation integrated |
 | D5 native mutation tracking | `01a0cf62-1c76-7411-ae32-d5d6beee5915` | Reviewed corrections integrated; native ownership retained for fixes |
 | XML conformance corpus and harness | `01a0cf6e-aa5f-7631-af1b-03f6136013a1` | Full harness integrated; remaining policy/output debt fails visibly |
@@ -158,6 +159,14 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   templates, mutations and structural selectors. XML notation parsing, immutable metadata and
   public API checks pass another 62 tests. These focused runs follow the full-suite counts above;
   corpus notation OUTPUT comparisons are still being wired to the actual metadata.
+- With reviewed H5b pending table text and foster insertion, the full integrated suite runs
+  5,598 tests: 4,796 pass, 802 fail, zero skips. Every failure is an XML corpus case or its
+  census gate; no other test fails. This precedes the notation SCF handoff, which remains under
+  review for canonical system-identifier handling. Independent H5b probes also verified 15,000
+  malformed-input trees at quotas 1/3/100000; that bounded probe is not a full HTML conformance claim.
+- The dependency inventory now matches 193 AngleSharp-bearing source/build files and 1,691
+  generated members; all six inventory regression tests pass. The new reference belongs only
+  to the reviewed XML/SVG comparison benchmark, not production Browser code.
 - The unsigned packed consumer passed fresh local-package runs on net8.0 and
   net10.0, plus a Native AOT publish/run on osx-arm64 in its implementation worktree.
   Package inspection found no production dependencies. Its reviewed probes cover
@@ -321,3 +330,10 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   `03efd23de`); final Astra re-review clear.
 - `7687ff6a2`: reviewed optional system-identifier fragment policy (source `0ef35c784`),
   counted separately from conformance passing cases.
+- `7792a9152`: exact original OUTPUT after a reviewed parameter-entity omission
+  (source `843bfa0da`, originally `96636f70a`), with negative output evidence.
+- `f43f9eb18`: reviewed benchmark-only dependency inventory refresh.
+- `836c4b63a`: independently reviewed native form-association/disabledness dispatch design;
+  implementation awaits the shared native files currently owned by D6s1.
+- `7776b504e`, `1ea70953e`: reviewed H5b pending table text/foster insertion and
+  resumable diagnostic correction (source `659c22ab5`, `56b2c300a`).
