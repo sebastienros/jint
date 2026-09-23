@@ -11,12 +11,16 @@ public partial class HtmlTreeConstructionTests
         "<html><head></head><body><title>T</title><p>B</p></body></html>")]
     [TestCase("<body><p>x</div>y",
         "<html><head></head><body><p>xy</p></body></html>")]
+    [TestCase("<body></option></optgroup></select><p>x",
+        "<html><head></head><body><p>x</p></body></html>")]
     [TestCase("<body><foo><div></foo>x",
         "<html><head></head><body><foo><div>x</div></foo></body></html>")]
     [TestCase("<body><foo><span></foo>x",
         "<html><head></head><body><foo><span></span></foo>x</body></html>")]
     [TestCase("<body><form><span>x</form>y",
         "<html><head></head><body><form><span>xy</span></form></body></html>")]
+    [TestCase("<body><form><section></form></section><p>x",
+        "<html><head></head><body><form><section></section></form><p>x</p></body></html>")]
     [TestCase("<body><button><p>x<button>y",
         "<html><head></head><body><button><p>x</p></button><button>y</button></body></html>")]
     [TestCase("<body><dl><dt>a<dd>b",

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Numerics;
 using System.Threading;
 
 namespace Jint.HtmlParser.Html;
@@ -37,7 +38,7 @@ internal sealed partial class HtmlTreeBuilder
     private HtmlMissingFeature? _missing;
     private int _pendingPopTarget = -1;
     private bool _reprocessAfterPop;
-    private int _pendingRebuildIndex = -1;
+    private int _pendingShiftIndex = -1;
     private int _inputAttributeIndex;
     private bool _inputTypeFound;
     private bool _inputTypeHidden;
@@ -98,16 +99,18 @@ internal sealed partial class HtmlTreeBuilder
         // for another token. The chain is bounded by the finite mode inventory.
         for (var pass = 0; pass < 12; pass++)
         {
-            if (_pendingRebuildIndex >= 0)
+            if (_pendingShiftIndex >= 0)
             {
-                while (_pendingRebuildIndex < _open.Count && _remaining > 0)
+                while (_pendingShiftIndex < _open.Count - 1 && _remaining > 0)
                 {
-                    AddIndexes(_open[_pendingRebuildIndex], _pendingRebuildIndex);
-                    _pendingRebuildIndex++;
-                    Charge(1);
+                    var moved = _open[_pendingShiftIndex + 1];
+                    _open[_pendingShiftIndex] = moved;
+                    ShiftIndexes(moved, _pendingShiftIndex + 1);
+                    _pendingShiftIndex++;
                 }
-                if (_pendingRebuildIndex < _open.Count) return new HtmlParseStep(HtmlParseStepKind.Yielded);
-                _pendingRebuildIndex = -1;
+                if (_pendingShiftIndex < _open.Count - 1) return new HtmlParseStep(HtmlParseStepKind.Yielded);
+                _open.RemoveAt(_open.Count - 1);
+                _pendingShiftIndex = -1;
                 FinishToken();
                 return new HtmlParseStep(HtmlParseStepKind.Yielded);
             }
@@ -130,7 +133,7 @@ internal sealed partial class HtmlTreeBuilder
             var reprocess = Dispatch(_mode);
             if (_missing is { } family)
                 return new HtmlParseStep(HtmlParseStepKind.MissingFeature, family, _token.Offset);
-            if (_pendingRebuildIndex >= 0) continue;
+            if (_pendingShiftIndex >= 0) continue;
             if (_pendingPopTarget >= 0) continue;
             if (!reprocess)
             {
@@ -240,6 +243,51 @@ internal sealed partial class HtmlTreeBuilder
         if (IsSpecial(element.LocalName) && element.LocalName is not ("address" or "div" or "p" or "dd" or "dt"))
             _ddDtStops.Add(index);
     }
+
+    private void RemoveIndexes(Element element, int index)
+    {
+        var names = _nameIndexes[element.LocalName];
+        RemoveIndex(names, index);
+        if (names.Count == 0) _nameIndexes.Remove(element.LocalName);
+        if (IsSpecial(element.LocalName))
+        {
+            RemoveIndex(_specialIndexes, index);
+            if (element.LocalName is not ("address" or "div" or "p" or "li")) RemoveIndex(_liStops, index);
+            if (element.LocalName is not ("address" or "div" or "p" or "dd" or "dt")) RemoveIndex(_ddDtStops, index);
+        }
+    }
+
+    private void ShiftIndexes(Element element, int oldIndex)
+    {
+        ShiftIndex(_nameIndexes[element.LocalName], oldIndex);
+        if (IsSpecial(element.LocalName))
+        {
+            ShiftIndex(_specialIndexes, oldIndex);
+            if (element.LocalName is not ("address" or "div" or "p" or "li")) ShiftIndex(_liStops, oldIndex);
+            if (element.LocalName is not ("address" or "div" or "p" or "dd" or "dt")) ShiftIndex(_ddDtStops, oldIndex);
+        }
+        Charge(1);
+    }
+
+    private void RemoveIndex(List<int> indexes, int index)
+    {
+        var position = indexes.BinarySearch(index);
+        if (position < 0) throw new InvalidOperationException("HTML stack index was not found.");
+        var shifted = indexes.Count - position - 1;
+        var search = SearchCost(indexes.Count);
+        indexes.RemoveAt(position);
+        Charge(search + (long) shifted);
+    }
+
+    private void ShiftIndex(List<int> indexes, int oldIndex)
+    {
+        var position = indexes.BinarySearch(oldIndex);
+        if (position < 0) throw new InvalidOperationException("HTML stack index was not found.");
+        indexes[position] = oldIndex - 1;
+        Charge(SearchCost(indexes.Count));
+    }
+
+    private static int SearchCost(int count) => count > 0 ? BitOperations.Log2((uint) count) + 1 : 0;
 
     private Element Pop()
     {

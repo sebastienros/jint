@@ -171,7 +171,7 @@ public class HtmlTreeSessionTests
     }
 
     [Test]
-    public void MiddleFormRemovalRebuildsIndexesAcrossQuotaOneDrives()
+    public void MiddleFormRemovalShiftsIndexesAcrossQuotaOneDrives()
     {
         const int depth = 512;
         var source = "<form>" + string.Concat(Enumerable.Repeat("<x>", depth)) + "</form>tail";
@@ -191,6 +191,25 @@ public class HtmlTreeSessionTests
         var current = document.DocumentElement!.LastChild!.FirstChild!;
         for (var i = 0; i < depth; i++) current = current.FirstChild!;
         ((Text) current.FirstChild!).Data.Should().Be("tail");
+    }
+
+    [Test]
+    public void RepeatedMiddleFormRemovalOnlyUpdatesShiftedSuffix()
+    {
+        static long Count(int count)
+        {
+            var source = string.Concat(Enumerable.Repeat("<x>", count)) +
+                         string.Concat(Enumerable.Repeat("<form><x></form>", count));
+            var session = new HtmlParserSession(Document.CreateHtml());
+            session.AppendInput(source, isFinal: true);
+            HtmlParseStep step;
+            do { step = session.Drive(1000, CancellationToken.None); } while (step.Kind == HtmlParseStepKind.Yielded);
+            step.Kind.Should().Be(HtmlParseStepKind.Complete);
+            return session.WorkCount;
+        }
+        var small = Count(100);
+        var large = Count(800);
+        large.Should().BeLessThan(small * 12);
     }
 
     [Test]

@@ -296,7 +296,6 @@ internal sealed partial class HtmlTreeBuilder
         {
             Error("unexpected-end-tag"); return false;
         }
-        if (name is "select" or "option" or "optgroup") { Missing(HtmlMissingFeature.Select); return false; }
         if (name == "br")
         {
             Error("unexpected-br-end-tag");
@@ -322,14 +321,11 @@ internal sealed partial class HtmlTreeBuilder
             Pop();
             return;
         }
-        if (!AllowedOpenAtEof(_open[index].LocalName)) _unexpectedOpenCount--;
-        _open.RemoveAt(index);
+        var removed = _open[index];
+        if (!AllowedOpenAtEof(removed.LocalName)) _unexpectedOpenCount--;
+        RemoveIndexes(removed, index);
         Charge(1);
-        _nameIndexes.Clear();
-        _specialIndexes.Clear();
-        _liStops.Clear();
-        _ddDtStops.Clear();
-        _pendingRebuildIndex = 0;
+        _pendingShiftIndex = index;
     }
 
     private static bool IsFormatting(string name) => name is "a" or "b" or "big" or "code" or "em" or
