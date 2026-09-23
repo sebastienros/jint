@@ -12,7 +12,7 @@ internal sealed partial class HtmlTokenizer
 {
     private readonly HtmlInput _input = new();
     private readonly ParseDiagnosticCollector? _diagnostics;
-    private readonly bool _allowCData;
+    private bool _allowCData;
     private readonly long _maxInput;
     private readonly int _maxToken;
     private readonly StringBuilder _text = new();
@@ -32,6 +32,9 @@ internal sealed partial class HtmlTokenizer
     private bool _hasPending;
     private bool _needsInput;
     private bool _canSetTextMode = true;
+    private bool _canSetCDataContext = true;
+    private bool _hasAcceptedRead;
+    private bool _fragmentTextModeInitialized;
     private HtmlTextMode _textMode;
     private string? _appropriateEndTagName;
     private int _scriptWordLength;
@@ -97,12 +100,14 @@ internal sealed partial class HtmlTokenizer
             _terminal = true;
             cancellationToken.ThrowIfCancellationRequested();
         }
+        _hasAcceptedRead = true;
         _canSetTextMode = false;
+        _canSetCDataContext = false;
         if (_hasPending)
         {
             _hasPending = false;
             token = _pending;
-            _canSetTextMode = CanSetModeAfterToken();
+            _canSetCDataContext = _canSetTextMode = CanSetModeAfterToken();
             return HtmlReadStatus.Token;
         }
         if (_ended) return HtmlReadStatus.Complete;
@@ -184,7 +189,7 @@ internal sealed partial class HtmlTokenizer
     {
         token = new HtmlToken(HtmlTokenKind.Text, data: Materialize(_text), offset: _textStart);
         _text.Clear();
-        _canSetTextMode = CanSetModeAfterToken();
+        _canSetCDataContext = _canSetTextMode = CanSetModeAfterToken();
         return HtmlReadStatus.Token;
     }
 
@@ -198,7 +203,7 @@ internal sealed partial class HtmlTokenizer
             return true;
         }
         token = produced;
-        _canSetTextMode = CanSetModeAfterToken();
+        _canSetCDataContext = _canSetTextMode = CanSetModeAfterToken();
         return true;
     }
 
