@@ -81,6 +81,8 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   browser replacement and comparative performance acceptance remain unfinished.
 - H4 shared options, native document mode and explicit template traversal tests bring
   the integrated suite to 646 passing tests across both frameworks, zero failures/skips.
+- With the reviewed parsed-attribute merge, 658 tests pass across both frameworks,
+  zero failures/skips.
 
 ## Integrated commits
 
@@ -147,3 +149,5 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
 - `26777525d`, `c889b18c6`, `83d055e61`: internal HTML options, document mode and
   template traversal coverage (source `f2e23bfb3`, `5003d0bed`, `4f42454ea`);
   all three Astra reviews clear.
+- `650046e3a`: linear missing-attribute merge for published parser elements, with
+  cancellation and native attachment semantics (source `4f4be0e6`); Astra review clear.
