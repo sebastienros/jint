@@ -207,6 +207,16 @@ public IReadOnlyList<XmlSkippedEntity> SkippedXmlEntities { get; }
 
 `Name` omits `&`, `%` and `;`; it is empty for the external subset. Identifiers retain parsed declaration
 values without URI resolution; null means unavailable/absent, distinct from a declared empty string.
+For parsed PUBLIC identifiers, "parsed declaration values" means the normalized public identifier:
+validate PubidChar, trim permitted surrounding whitespace and collapse internal SPACE/CR/LF runs to
+one ASCII space. This is the native metadata choice aligned with [XML Infoset document type and
+unexpanded entity information](https://www.w3.org/TR/xml-infoset/#infoitem.doctype), also used by
+the notation contract; it is not a claim that every DOM API must normalize identifiers. DocumentType
+and skipped-entity metadata use the same parsed value, and local-catalog matching uses that normalized
+identifier. SYSTEM identifiers retain parsed literal values without whitespace collapse or URI
+resolution. Factories and clone/import preserve supplied/stored identifiers without reparsing them;
+DocumentType keeps its existing empty-string default for an absent public identifier. Source evidence
+keeps original bytes independently: its lexical whitespace is not the public metadata value.
 A reference with no available declaration has both identifiers null. `Offset` is the original-input
 UTF-16 position of `&`/`%`, or the doctype's `<` for its external subset. Nested replacement references
 use the outermost source invocation position, as syntax errors do. Default struct values are safe:
