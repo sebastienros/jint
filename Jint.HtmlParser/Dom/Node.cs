@@ -199,12 +199,24 @@ public abstract class Node
     private void ValidateDocumentOrder(Incoming incoming, Node? referenceChild, Node? replacedChild)
     {
         // Appending comments and processing instructions is common while parsing a
-        // document. They cannot affect its one-element/doctype order, so avoid a
-        // whole-document copy for each such append.
-        if (referenceChild is null && replacedChild is null && incoming.Count == 1 &&
-            incoming[0] is Comment or ProcessingInstruction)
+        // document, including in fragments. They cannot affect its one-element/doctype
+        // order, so avoid a whole-document copy for every such append.
+        if (referenceChild is null && replacedChild is null)
         {
-            return;
+            var ancillaryOnly = true;
+            for (var i = 0; i < incoming.Count; i++)
+            {
+                if (incoming[i] is not Comment and not ProcessingInstruction)
+                {
+                    ancillaryOnly = false;
+                    break;
+                }
+            }
+
+            if (ancillaryOnly)
+            {
+                return;
+            }
         }
 
         var resulting = new List<Node>(ChildCount + incoming.Count);

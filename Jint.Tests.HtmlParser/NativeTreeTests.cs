@@ -81,6 +81,23 @@ public class NativeTreeTests
     }
 
     [Test]
+    public void DocumentAppendsAncillaryOnlyFragmentsInOrder()
+    {
+        var document = Document.CreateXml();
+        var root = document.CreateElement("root");
+        document.AppendChild(root);
+        var fragment = document.CreateDocumentFragment();
+        var comment = document.CreateComment("after");
+        var instruction = document.CreateProcessingInstruction("style", "x");
+        fragment.AppendChild(comment);
+        fragment.AppendChild(instruction);
+
+        document.AppendChild(fragment);
+        document.ChildNodes.Should().Equal(root, comment, instruction);
+        fragment.ChildCount.Should().Be(0);
+    }
+
+    [Test]
     public void ReplacementAndFragmentInsertionPreserveIdentityAndEmptyFragment()
     {
         var document = Document.CreateHtml();
