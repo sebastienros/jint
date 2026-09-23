@@ -92,6 +92,25 @@ public sealed class Document : Node
     public ProcessingInstruction CreateProcessingInstruction(string target, string data) => new(this, target, data);
     public DocumentType CreateDocumentType(string name, string publicId = "", string systemId = "") => new(this, name, publicId, systemId);
     public DocumentFragment CreateDocumentFragment() => new(this);
+
+    /// <summary>Creates a detached copy of a node owned by this document.</summary>
+    public Node ImportNode(Node source, bool deep = false)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        if (source is Document)
+        {
+            throw DomException.NotSupported();
+        }
+
+        return NodeCloner.Clone(source, this, deep);
+    }
+
+    /// <summary>Creates a detached copy of an attribute owned by this document.</summary>
+    public Attr ImportAttribute(Attr source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        return NodeCloner.CloneAttribute(source, this);
+    }
 }
 
 /// <summary>Common namespace names used by markup documents.</summary>

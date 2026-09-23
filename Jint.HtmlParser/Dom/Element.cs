@@ -184,6 +184,22 @@ public sealed class Element : Node
         }
     }
 
+    internal void CopyAttributesFrom(Element source, Document document)
+    {
+        if (source._attributes is null)
+        {
+            return;
+        }
+
+        _attributes = new List<Attr>(source._attributes.Count);
+        foreach (var attribute in source._attributes)
+        {
+            var copy = NodeCloner.CloneAttribute(attribute, document);
+            copy.OwnerElement = this;
+            _attributes.Add(copy);
+        }
+    }
+
     private string NormalizeAttributeName(string name)
         => OwnerDocument!.Kind == DocumentKind.Html && NamespaceUri == Namespaces.Html
             ? QualifiedName.AsciiLower(name)

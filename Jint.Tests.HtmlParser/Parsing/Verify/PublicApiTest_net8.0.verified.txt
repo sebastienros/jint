@@ -9,6 +9,7 @@
         public Jint.HtmlParser.Element? OwnerElement { get; }
         public string? Prefix { get; }
         public string Value { get; set; }
+        public Jint.HtmlParser.Attr Clone() { }
     }
     public sealed class CDataSection : Jint.HtmlParser.Node
     {
@@ -48,6 +49,8 @@
         public Jint.HtmlParser.Element CreateElementNS(string? namespaceUri, string qualifiedName) { }
         public Jint.HtmlParser.ProcessingInstruction CreateProcessingInstruction(string target, string data) { }
         public Jint.HtmlParser.Text CreateTextNode(string data) { }
+        public Jint.HtmlParser.Attr ImportAttribute(Jint.HtmlParser.Attr source) { }
+        public Jint.HtmlParser.Node ImportNode(Jint.HtmlParser.Node source, bool deep = false) { }
         public static Jint.HtmlParser.Document CreateHtml() { }
         public static Jint.HtmlParser.Document CreateXml() { }
     }
@@ -112,6 +115,7 @@
         public Jint.HtmlParser.Node? ParentNode { get; }
         public Jint.HtmlParser.Node? PreviousSibling { get; }
         public Jint.HtmlParser.Node AppendChild(Jint.HtmlParser.Node child) { }
+        public Jint.HtmlParser.Node CloneNode(bool deep = false) { }
         public Jint.HtmlParser.Node InsertBefore(Jint.HtmlParser.Node child, Jint.HtmlParser.Node? referenceChild) { }
         public Jint.HtmlParser.Node RemoveChild(Jint.HtmlParser.Node child) { }
         public Jint.HtmlParser.Node ReplaceChild(Jint.HtmlParser.Node child, Jint.HtmlParser.Node oldChild) { }

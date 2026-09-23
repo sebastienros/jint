@@ -25,4 +25,7 @@ public sealed class Attr
         get => _value;
         set => _value = value ?? throw new ArgumentNullException(nameof(value));
     }
+
+    /// <summary>Creates a detached copy owned by the same document.</summary>
+    public Attr Clone() => NodeCloner.CloneAttribute(this, OwnerDocument);
 }

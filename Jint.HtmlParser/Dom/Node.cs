@@ -42,6 +42,13 @@ public abstract class Node
         }
     }
 
+    /// <summary>Creates a detached copy of this node, optionally including descendants.</summary>
+    public Node CloneNode(bool deep = false) => NodeCloner.Clone(this, this as Document ?? _ownerDocument!, deep);
+
+    // A clone is already validated by its source tree. Link it directly so copying a
+    // deep chain does not repeat the ancestor walk performed by public insertion.
+    internal void AppendClonedChild(Node child) => LinkBefore(child, null);
+
     // DOM Standard §4.2.3: pre-insert, replace and remove algorithms. Validation
     // precedes link changes so a failed insertion leaves both trees intact.
     public Node AppendChild(Node child) => InsertBefore(child, null);
