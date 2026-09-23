@@ -8385,5 +8385,134 @@
     "originalOutputSha256": "47a1224f5d7888088f53628f25cccd6256a573b000e4fa78fd89aea6cbe15078",
     "outputAlternative": "<doc></doc>",
     "review": "Pinned W3C INPUT 7104fa08b69373231ce435a1ea4391e5b206fa33c7990a8fa951930c653e48d3, unread external parameter entity 7e9a31cea07dba3d72ef55de486006bfc4707bd2aa3f691c7f21bd5e5b8b431d, original OUTPUT 47a1224f5d7888088f53628f25cccd6256a573b000e4fa78fd89aea6cbe15078; The unread external parameter entity begins with a text declaration and alone declares default a1=v1; no fetch leaves an empty root. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#valid-not-sa-014",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "014.ent",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "014.ent"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "no-fetch-alternative",
+    "projectionSha256": "3ddcd5f57886fb1cf4b6e1708b37d08f5e2f4d7f40fc16734f7ccfcb5d8805db",
+    "originalOutputSha256": "47a1224f5d7888088f53628f25cccd6256a573b000e4fa78fd89aea6cbe15078",
+    "outputAlternative": "<doc></doc>",
+    "review": "Pinned W3C INPUT f952de508d3f7f0c31680828b5d9573d9360b2b24eb7929895970ae3ef536638, unread external subset 64a71d75804caf6205d2f1a0bdfc514714d9ed3e07a5621799d0974085a3a91c, original OUTPUT 47a1224f5d7888088f53628f25cccd6256a573b000e4fa78fd89aea6cbe15078; The fetched external INCLUDE section supplies a1=v1; with the external subset unread, its condition and default contribute nothing. XML 1.0 Fifth Edition \u00a73.4 https://www.w3.org/TR/xml/#sec-conditional-sect and \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#valid-not-sa-015",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "015.ent",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "015.ent"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "no-fetch-alternative",
+    "projectionSha256": "82186564a5be5cc4324e304367b3f019c4f49447b6ea6e03aa80b282888733f7",
+    "originalOutputSha256": "906d3182bd2292d030eda28fa8fb94549275252b4c30db4ce3e626df1e13436e",
+    "outputAlternative": "<doc></doc>",
+    "review": "Pinned W3C INPUT 8b08e3f1cc4084cd5c72f66db64e19698f06d22b9560e23be28a1a2325e49eb4, unread external subset 581efa0da2ee6ab812e92b2905c3084418db207033a987682dbe58e19f600f4c, original OUTPUT 906d3182bd2292d030eda28fa8fb94549275252b4c30db4ce3e626df1e13436e; The fetched external IGNORE section omits a1 and the external declaration supplies a2=v2; no fetch sees neither default. XML 1.0 Fifth Edition \u00a73.4 https://www.w3.org/TR/xml/#sec-conditional-sect and \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#valid-not-sa-016",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "016.ent",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "016.ent"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "no-fetch-alternative",
+    "projectionSha256": "629016aa604af37d52a35c5bdf96f986bcd80d42c4b718a59dc434563aa0540d",
+    "originalOutputSha256": "47a1224f5d7888088f53628f25cccd6256a573b000e4fa78fd89aea6cbe15078",
+    "outputAlternative": "<doc></doc>",
+    "review": "Pinned W3C INPUT 4f00a2c7c4f7b6398544494596b00218b17f5b34fe9ab1a228925237a99eb2a8, unread external subset 011c2c06b222683e1ca89b136598fccd2b6fdbf327abd9179533ef2435e03d33, original OUTPUT 47a1224f5d7888088f53628f25cccd6256a573b000e4fa78fd89aea6cbe15078; The fetched external INCLUDE section supplies a1=v1 without optional spaces; no fetch sees no default. XML 1.0 Fifth Edition \u00a73.4 https://www.w3.org/TR/xml/#sec-conditional-sect and \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
   }
 ]
