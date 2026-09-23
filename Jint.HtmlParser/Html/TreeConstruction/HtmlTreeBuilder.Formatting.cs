@@ -14,24 +14,54 @@ internal sealed partial class HtmlTreeBuilder
         internal FormattingMarker? Previous { get; } = previous;
     }
 
+    private readonly record struct FormattingAttribute(string? NamespaceUri, string LocalName, string Value);
+
     private sealed class FormattingElementEntry(Element element, string name, ParserAttribute[] attributes,
-        ulong key, FormattingMarker? marker) : FormattingEntry
+        Dictionary<FormattingAttribute, int> attributeCounts, long attributeWork, ulong key,
+        FormattingMarker? marker) : FormattingEntry
     {
         internal Element Element = element;
         internal LinkedListNode<FormattingEntry>? Node;
         internal readonly string Name = name;
         internal readonly ParserAttribute[] Attributes = attributes;
+        internal readonly Dictionary<FormattingAttribute, int> AttributeCounts = attributeCounts;
+        internal readonly long AttributeWork = attributeWork;
         internal readonly ulong Key = key;
         internal readonly FormattingMarker? Marker = marker;
     }
 
     private readonly LinkedList<FormattingEntry> _formatting = [];
-    private readonly Dictionary<ulong, List<FormattingElementEntry>> _formattingByKey = [];
+    // The marker is part of the index: entries in an older scope must not
+    // lengthen either lookup or removal in a younger scope.
+    private readonly Dictionary<(FormattingMarker? Marker, ulong Key), List<FormattingElementEntry>> _formattingByKey = [];
     private readonly HashSet<Element> _openIdentity = new(ReferenceEqualityComparer.Instance);
     private FormattingMarker? _lastFormattingMarker;
     // Null is idle; otherwise this is the next entry examined or recreated.
     private LinkedListNode<FormattingEntry>? _reconstructionNode;
     private bool _reconstructionForward;
+    private Dictionary<FormattingAttribute, int>? _preparedFormattingAttributeCounts;
+    private ulong _preparedFormattingKey;
+    private bool _preparedFormattingKeyInitialized;
+    private Element? _pendingFormattingElement;
+    private List<FormattingElementEntry>? _pendingFormattingCandidates;
+    private int _pendingFormattingCandidateIndex;
+    private int _pendingFormattingEquivalentCount;
+    private FormattingElementEntry? _pendingFormattingEarliest;
+    private Dictionary<FormattingAttribute, int>.Enumerator _pendingFormattingCompareCursor;
+    private bool _pendingFormattingComparing;
+
+    private void ResetFormattingToken()
+    {
+        _preparedFormattingAttributeCounts = null;
+        _preparedFormattingKey = 0;
+        _preparedFormattingKeyInitialized = false;
+        _pendingFormattingElement = null;
+        _pendingFormattingCandidates = null;
+        _pendingFormattingCandidateIndex = 0;
+        _pendingFormattingEquivalentCount = 0;
+        _pendingFormattingEarliest = null;
+        _pendingFormattingComparing = false;
+    }
 
     private void PushFormattingMarker()
     {
@@ -59,43 +89,89 @@ internal sealed partial class HtmlTreeBuilder
         throw new InvalidOperationException("HTML formatting marker was not found.");
     }
 
-    private void AddFormattingElement(Element element)
+    private bool TryAddFormattingElement()
     {
+        var element = _pendingFormattingElement ?? throw new InvalidOperationException("No formatting start is pending.");
+        InitializeFormattingKey();
         var attributes = _preparedAttributes ?? Array.Empty<ParserAttribute>();
-        var key = FormattingKey(element.NamespaceUri, element.LocalName, attributes);
-        if (!_formattingByKey.TryGetValue(key, out var candidates))
-            _formattingByKey[key] = candidates = [];
+        var attributeCounts = _preparedFormattingAttributeCounts ??= [];
+        var bucketKey = (_lastFormattingMarker, _preparedFormattingKey);
+        if (_pendingFormattingCandidates is null)
+        {
+            if (!_formattingByKey.TryGetValue(bucketKey, out var bucket))
+                _formattingByKey[bucketKey] = bucket = [];
+            _pendingFormattingCandidates = bucket;
+        }
+        var candidates = _pendingFormattingCandidates;
 
         // The bucket is only an index. A hash collision never establishes
         // equivalence, and the earliest of three equivalent entries is removed.
-        var equivalent = 0;
-        FormattingElementEntry? earliest = null;
-        foreach (var candidate in candidates)
+        var advanced = false;
+        while (_pendingFormattingCandidateIndex < candidates.Count)
         {
-            Charge(1);
-            if (!ReferenceEquals(candidate.Marker, _lastFormattingMarker) ||
-                !EquivalentFormatting(candidate, element.NamespaceUri, element.LocalName, attributes)) continue;
-            earliest ??= candidate;
-            equivalent++;
+            if (_remaining <= 0 && advanced) return false;
+            var candidate = candidates[_pendingFormattingCandidateIndex];
+            if (!_pendingFormattingComparing)
+            {
+                Charge(1);
+                advanced = true;
+                if (candidate.Element.NamespaceUri != element.NamespaceUri || candidate.Name != element.LocalName ||
+                    candidate.Attributes.Length != attributes.Length)
+                {
+                    _pendingFormattingCandidateIndex++;
+                    continue;
+                }
+                _pendingFormattingCompareCursor = attributeCounts.GetEnumerator();
+                _pendingFormattingComparing = true;
+            }
+
+            while (_pendingFormattingComparing)
+            {
+                if (_remaining <= 0 && advanced) return false;
+                if (!_pendingFormattingCompareCursor.MoveNext())
+                {
+                    _pendingFormattingEarliest ??= candidate;
+                    _pendingFormattingEquivalentCount++;
+                    _pendingFormattingCandidateIndex++;
+                    _pendingFormattingComparing = false;
+                    Charge(1);
+                    advanced = true;
+                    break;
+                }
+                var pair = _pendingFormattingCompareCursor.Current;
+                var equal = candidate.AttributeCounts.TryGetValue(pair.Key, out var count) && count == pair.Value;
+                Charge(1L + (pair.Key.NamespaceUri?.Length ?? 0) + pair.Key.LocalName.Length + pair.Key.Value.Length);
+                advanced = true;
+                if (equal) continue;
+                _pendingFormattingCandidateIndex++;
+                _pendingFormattingComparing = false;
+            }
         }
-        if (equivalent >= 3 && earliest is not null)
+        if (_remaining <= 0 && advanced) return false;
+
+        var bookkeepingWork = 2L;
+        if (_pendingFormattingEquivalentCount >= 3 && _pendingFormattingEarliest is { } earliest)
         {
             _formatting.Remove(earliest.Node!);
             candidates.Remove(earliest);
-            Charge(2);
+            bookkeepingWork += 2;
         }
 
-        var entry = new FormattingElementEntry(element, element.LocalName, attributes, key, _lastFormattingMarker);
+        var entry = new FormattingElementEntry(element, element.LocalName, attributes, attributeCounts,
+            _preparedAttributeWork, _preparedFormattingKey, _lastFormattingMarker);
         entry.Node = _formatting.AddLast(entry);
         candidates.Add(entry);
-        Charge(2);
+        ResetFormattingToken();
+        Charge(bookkeepingWork);
+        return true;
     }
 
     private void UnindexFormatting(FormattingElementEntry entry)
     {
-        var bucket = _formattingByKey[entry.Key];
+        var bucketKey = (entry.Marker, entry.Key);
+        var bucket = _formattingByKey[bucketKey];
         bucket.Remove(entry);
-        if (bucket.Count == 0) _formattingByKey.Remove(entry.Key);
+        if (bucket.Count == 0) _formattingByKey.Remove(bucketKey);
         Charge(1);
     }
 
@@ -136,55 +212,44 @@ internal sealed partial class HtmlTreeBuilder
             var entry = (FormattingElementEntry) node.Value;
             // Check before creating or linking anything: depth failures must
             // leave this entry and the tree at their previous identities.
-            var recreated = InsertElement(entry.Name, entry.Attributes);
+            var recreated = InsertElement(entry.Name, entry.Attributes, attributeWork: entry.AttributeWork);
             entry.Element = recreated;
             _reconstructionNode = node.Next;
             advanced = true;
         }
         _reconstructionNode = null;
         _reconstructionForward = false;
-        return true;
+        return _remaining > 0 || !advanced;
     }
 
-    private ulong FormattingKey(string? namespaceUri, string name, ParserAttribute[] attributes)
+    private void InitializeFormattingKey()
     {
-        // Commutative attribute folding makes order irrelevant to the index.
-        // Exact collision-checked comparison below is authoritative.
+        if (_preparedFormattingKeyInitialized) return;
         var comparer = StringComparer.Ordinal;
-        ulong key = (uint) comparer.GetHashCode(namespaceUri ?? string.Empty);
+        var name = _token.Name!;
+        ulong key = (uint) comparer.GetHashCode(Namespaces.Html);
         key = key * 1099511628211UL ^ (uint) comparer.GetHashCode(name);
-        key ^= (ulong) attributes.Length * 0x9e3779b97f4a7c15UL;
-        foreach (var attribute in attributes)
-        {
-            ulong part = (uint) comparer.GetHashCode(attribute.NamespaceUri ?? string.Empty);
-            part = (part * 1099511628211UL) ^ (uint) comparer.GetHashCode(attribute.LocalName);
-            part = (part * 1099511628211UL) ^ (uint) comparer.GetHashCode(attribute.Value);
-            key += (part ^ (part >> 29)) * 0x9e3779b97f4a7c15UL;
-            Charge(1L + (attribute.NamespaceUri?.Length ?? 0) + attribute.LocalName.Length + attribute.Value.Length);
-        }
-        return key;
+        key ^= (ulong) _token.Attributes.Count * 0x9e3779b97f4a7c15UL;
+        _preparedFormattingKey = key;
+        _preparedFormattingKeyInitialized = true;
+        Charge(1L + name.Length);
     }
 
-    private bool EquivalentFormatting(FormattingElementEntry entry, string? namespaceUri, string name,
-        ParserAttribute[] attributes)
+    private long PrepareFormattingAttribute(HtmlAttribute attribute)
     {
-        if (entry.Element.NamespaceUri != namespaceUri || entry.Name != name ||
-            entry.Attributes.Length != attributes.Length) return false;
-        var counts = new Dictionary<(string? NamespaceUri, string LocalName, string Value), int>(entry.Attributes.Length);
-        foreach (var left in entry.Attributes)
-        {
-            var key = (left.NamespaceUri, left.LocalName, left.Value);
-            counts.TryGetValue(key, out var count);
-            counts[key] = count + 1;
-            Charge(1L + (left.NamespaceUri?.Length ?? 0) + left.LocalName.Length + left.Value.Length);
-        }
-        foreach (var right in attributes)
-        {
-            var key = (right.NamespaceUri, right.LocalName, right.Value);
-            if (!counts.TryGetValue(key, out var count) || count == 0) return false;
-            counts[key] = count - 1;
-            Charge(1L + (right.NamespaceUri?.Length ?? 0) + right.LocalName.Length + right.Value.Length);
-        }
-        return true;
+        InitializeFormattingKey();
+        var key = new FormattingAttribute(null, attribute.Name, attribute.Value);
+        var counts = _preparedFormattingAttributeCounts ??= [];
+        counts.TryGetValue(key, out var count);
+        counts[key] = count + 1;
+
+        // Commutative folding ignores source attribute order. Exact multiset
+        // comparison still runs for every candidate in this marker's bucket.
+        var comparer = StringComparer.Ordinal;
+        ulong part = (uint) comparer.GetHashCode(string.Empty);
+        part = (part * 1099511628211UL) ^ (uint) comparer.GetHashCode(attribute.Name);
+        part = (part * 1099511628211UL) ^ (uint) comparer.GetHashCode(attribute.Value);
+        _preparedFormattingKey += (part ^ (part >> 29)) * 0x9e3779b97f4a7c15UL;
+        return 1L + attribute.Name.Length + attribute.Value.Length;
     }
 }

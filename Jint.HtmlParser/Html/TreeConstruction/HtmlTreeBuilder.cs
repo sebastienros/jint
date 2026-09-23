@@ -57,6 +57,7 @@ internal sealed partial class HtmlTreeBuilder
     private bool _inputTypeHidden;
     private ParserAttribute[]? _preparedAttributes;
     private int _preparedAttributeIndex;
+    private long _preparedAttributeWork;
     private long _work;
     private CancellationToken _cancellationToken;
     private long _remaining;
@@ -87,6 +88,8 @@ internal sealed partial class HtmlTreeBuilder
         _inputTypeHidden = false;
         _preparedAttributes = null;
         _preparedAttributeIndex = 0;
+        _preparedAttributeWork = 0;
+        ResetFormattingToken();
         _fosterParenting = false;
         _delegateToBody = false;
         _tableFosterCharacterErrorReported = false;
@@ -234,19 +237,25 @@ internal sealed partial class HtmlTreeBuilder
     private Element Current => _open.Count != 0 ? _open[^1] : throw new InvalidOperationException("No open element.");
     private Node CurrentParent => _open.Count == 0 ? _document : Current;
 
-    private Element InsertElement(string name, ParserAttribute[]? attributes = null, Node? parentOverride = null)
+    private Element InsertElement(string name, ParserAttribute[]? attributes = null, Node? parentOverride = null,
+        long attributeWork = 0)
     {
         CheckDepth();
         var location = FindAdjustedInsertionLocation(parentOverride ?? _headInsertionOverride);
         var owner = location.Parent as Document ?? location.Parent.OwnerDocument!;
         var element = owner.CreateParsedElement(Namespaces.Html, name, null);
-        if (attributes is { Length: > 0 }) element.InitializeParsedAttributes(attributes, _cancellationToken);
+        if (attributes is { Length: > 0 })
+        {
+            element.InitializeParsedAttributes(attributes, _cancellationToken);
+            Charge(attributeWork);
+        }
         InsertAt(location, element);
         Push(element);
         return element;
     }
 
-    private Element InsertTokenElement(Node? parentOverride = null) => InsertElement(_token.Name!, _preparedAttributes, parentOverride);
+    private Element InsertTokenElement(Node? parentOverride = null) =>
+        InsertElement(_token.Name!, _preparedAttributes, parentOverride, _preparedAttributeWork);
 
     private bool PrepareTokenAttributes()
     {
@@ -256,7 +265,10 @@ internal sealed partial class HtmlTreeBuilder
         {
             var item = attributes[_preparedAttributeIndex];
             _preparedAttributes[_preparedAttributeIndex++] = new ParserAttribute(null, item.Name, null, item.Value);
-            Charge(1L + item.Name.Length + item.Value.Length);
+            var itemWork = 1L + item.Name.Length + item.Value.Length;
+            _preparedAttributeWork = _preparedAttributeWork > long.MaxValue - itemWork ? long.MaxValue : _preparedAttributeWork + itemWork;
+            var formattingWork = IsOrdinaryFormatting(_token.Name!) ? PrepareFormattingAttribute(item) : 0;
+            Charge(itemWork + formattingWork);
         }
         return _preparedAttributeIndex == attributes.Count;
     }

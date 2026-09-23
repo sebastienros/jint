@@ -179,6 +179,152 @@ public partial class HtmlTreeConstructionTests
         Work(128).Should().BeLessThan(shortWork * 3);
     }
 
+    [Test]
+    public void EquivalentFamiliesInNestedMarkersHaveLinearCountedWork()
+    {
+        static (long Work, long LargestTurn) Count(int depth)
+        {
+            var document = Document.CreateHtml();
+            var session = new HtmlParserSession(document);
+            session.AppendInput("<body>" + string.Concat(Enumerable.Repeat("<object><b>", depth)), isFinal: true);
+            long largestTurn = 0;
+            for (var turn = 0; turn < depth * 100 + 1_000; turn++)
+            {
+                var before = session.WorkCount;
+                var step = session.Drive(1, CancellationToken.None);
+                largestTurn = Math.Max(largestTurn, session.WorkCount - before);
+                if (step.Kind == HtmlParseStepKind.Complete) return (session.WorkCount, largestTurn);
+                step.Kind.Should().Be(HtmlParseStepKind.Yielded);
+            }
+            throw new InvalidOperationException("Nested formatting markers did not finish.");
+        }
+
+        var smaller = Count(128);
+        var larger = Count(256);
+        larger.Work.Should().BeLessThan(smaller.Work * 3);
+        larger.LargestTurn.Should().BeLessThan(32);
+    }
+
+    [Test]
+    public void WideEquivalentAttributesCompareAcrossQuotaOneDrivesWithoutReinserting()
+    {
+        var forward = string.Join(" ", Enumerable.Range(0, 256).Select(i => $"a{i}=v{i}"));
+        var reversed = string.Join(" ", Enumerable.Range(0, 256).Reverse().Select(i => $"a{i}=v{i}"));
+        var source = $"<body><b {forward}><b {reversed}><b {forward}><b {reversed}>x";
+        var expected = Serialize(Parse(source, 100_000).Document);
+        var document = Document.CreateHtml();
+        var session = new HtmlParserSession(document);
+        session.AppendInput(source, isFinal: true);
+        var pendingField = typeof(HtmlTreeBuilder).GetField("_pendingFormattingElement",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        var builder = BuilderOf(session);
+        var comparisonTurns = 0;
+        for (var turn = 0; turn < 100_000; turn++)
+        {
+            var comparing = pendingField.GetValue(builder) is not null;
+            var before = session.WorkCount;
+            var step = session.Drive(1, CancellationToken.None);
+            if (comparing)
+            {
+                comparisonTurns++;
+                (session.WorkCount - before).Should().BeLessThan(64);
+            }
+            if (step.Kind == HtmlParseStepKind.Complete) break;
+            step.Kind.Should().Be(HtmlParseStepKind.Yielded);
+            if (turn == 99_999) throw new InvalidOperationException("Wide formatting comparison stalled.");
+        }
+        comparisonTurns.Should().BeGreaterThan(256);
+        Serialize(document).Should().Be(expected);
+        FormattingCount(session).Should().Be(3);
+    }
+
+    [Test]
+    public void WideReconstructionChargesNativeAttributeBatchAndYieldsBeforeText()
+    {
+        var attributes = string.Join(" ", Enumerable.Range(0, 1_000).Select(i => $"a{i}=v{i}"));
+        var document = Document.CreateHtml();
+        var session = new HtmlParserSession(document);
+        session.AppendInput($"<p><b {attributes}>x</p>");
+        DrainToNeedInput(session);
+        session.AppendInput("y", isFinal: true);
+        var body = (Element) document.DocumentElement!.LastChild!;
+        long largestTurn = 0;
+        var observedReplacement = false;
+        for (var turn = 0; turn < 100_000; turn++)
+        {
+            var before = session.WorkCount;
+            var step = session.Drive(1, CancellationToken.None);
+            largestTurn = Math.Max(largestTurn, session.WorkCount - before);
+            if (!observedReplacement && body.ChildCount == 2)
+            {
+                observedReplacement = true;
+                var recreated = (Element) body.LastChild!;
+                recreated.AttributeCount.Should().Be(1_000);
+                recreated.FirstChild.Should().BeNull();
+            }
+            if (step.Kind == HtmlParseStepKind.Complete) break;
+            step.Kind.Should().Be(HtmlParseStepKind.Yielded);
+            if (turn == 99_999) throw new InvalidOperationException("Wide formatting reconstruction stalled.");
+        }
+        observedReplacement.Should().BeTrue();
+        largestTurn.Should().BeGreaterThan(1_000);
+        ((Text) body.LastChild!.FirstChild!).Data.Should().Be("y");
+    }
+
+    [Test]
+    public void FormattingEntryOwnsAttributesFromAMutableTokenCollection()
+    {
+        var document = Document.CreateHtml();
+        var session = new HtmlParserSession(document);
+        session.AppendInput("<p>");
+        DrainToNeedInput(session);
+        var builder = (HtmlTreeBuilder) BuilderOf(session);
+        static void Feed(HtmlTreeBuilder target, HtmlToken token)
+        {
+            target.SetToken(token);
+            for (var turn = 0; target.HasToken && turn < 10_000; turn++)
+                target.Process(1, CancellationToken.None);
+            target.HasToken.Should().BeFalse();
+        }
+
+        var attributes = new[] { new HtmlAttribute("id", "original") };
+        Feed(builder, new HtmlToken(HtmlTokenKind.StartTag, name: "b", attributes: attributes));
+        attributes[0] = new HtmlAttribute("id", "changed");
+        Feed(builder, new HtmlToken(HtmlTokenKind.Text, data: "x"));
+        Feed(builder, new HtmlToken(HtmlTokenKind.EndTag, name: "p"));
+        Feed(builder, new HtmlToken(HtmlTokenKind.Text, data: "y"));
+
+        var body = (Element) document.DocumentElement!.LastChild!;
+        ((Element) body.FirstChild!.FirstChild!).GetAttribute("id").Should().Be("original");
+        ((Element) body.LastChild!).GetAttribute("id").Should().Be("original");
+    }
+
+    [Test]
+    public void CancellationDuringWideCandidateComparisonKeepsOneCommittedElement()
+    {
+        var attributes = string.Join(" ", Enumerable.Range(0, 256).Select(i => $"a{i}=v{i}"));
+        var document = Document.CreateHtml();
+        var session = new HtmlParserSession(document);
+        session.AppendInput($"<b {attributes}><b {attributes}>", isFinal: true);
+        var builder = BuilderOf(session);
+        var comparingField = typeof(HtmlTreeBuilder).GetField("_pendingFormattingComparing",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        for (var turn = 0; turn < 100_000; turn++)
+        {
+            session.Drive(1, CancellationToken.None);
+            if ((bool) comparingField.GetValue(builder)!) break;
+            if (turn == 99_999) throw new InvalidOperationException("Formatting comparison did not start.");
+        }
+        var committed = Serialize(document);
+        using var cancelled = new CancellationTokenSource();
+        cancelled.Cancel();
+        Assert.Throws<OperationCanceledException>(() => session.Drive(1, cancelled.Token));
+        Serialize(document).Should().Be(committed);
+        var body = (Element) document.DocumentElement!.LastChild!;
+        body.ChildCount.Should().Be(1);
+        ((Element) body.FirstChild!).ChildCount.Should().Be(1);
+    }
+
     [TestCase("<a>")]
     [TestCase("<nobr>")]
     [TestCase("<b></b>")]
