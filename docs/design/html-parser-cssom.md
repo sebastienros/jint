@@ -92,8 +92,12 @@ bodies remain opaque component values until a known grammar specifically request
 This is the [CSS Syntax list and block parser](https://drafts.csswg.org/css-syntax/#parser-algorithms),
 including recovery around malformed declarations and nested qualified rules. It is not line splitting:
 semicolons and braces inside strings, URLs, functions and blocks are not list boundaries. A component
-block's recovered EOF is distinct from an absent qualified-rule block. Invalid fragments must not
-consume the next valid sibling. Diagnostics describe discarded syntax as well as recovered EOFs.
+block's recovered EOF is distinct from an absent qualified-rule block. Recovery preserves subsequent
+siblings at the specification's recovery boundaries; it must not invent boundaries to salvage text
+consumed into an invalid rule. At top level, `} a{}` retains one syntax rule with prelude `} a` and
+a parse diagnostic; validated CSSOM later rejects that selector. `} a{} b{}` retains two syntax
+rules, of which only `b{}` survives selector validation. In nested parsing, `}` ends the enclosing
+block instead. Diagnostics describe discarded syntax as well as recovered EOFs.
 
 Clear the diagnostic collector **once** per top-level operation. Keep the original UTF-16 source span
 through nested consumers. Carry the existing cancellation token, work cadence and depth/input/token
