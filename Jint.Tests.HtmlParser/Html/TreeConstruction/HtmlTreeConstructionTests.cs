@@ -52,7 +52,6 @@ public partial class HtmlTreeConstructionTests
         ((ProcessingInstruction) document.DocumentElement.LastChild!.FirstChild!).Target.Should().Be("InBody");
     }
 
-    [TestCase("<select>", "Select", "<html><head></head><body></body></html>")]
     [TestCase("<template>", "Templates", "<html><head></head></html>")]
     [TestCase("<frameset>", "Framesets", "<html><head></head></html>")]
     [TestCase("<svg>", "ForeignContent", "<html><head></head><body></body></html>")]

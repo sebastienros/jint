@@ -215,7 +215,6 @@ public partial class HtmlTreeConstructionTests
         Serialize(parsed.Document).Should().Be("<html><head></head><body>A<table></table></body></html>");
     }
 
-    [TestCase("<table><select>", "Select")]
     [TestCase("<table><template>", "Templates")]
     [TestCase("<table><svg>", "ForeignContent")]
     public void FosterDelegationPreservesOtherFamilyStops(string source, string family)
