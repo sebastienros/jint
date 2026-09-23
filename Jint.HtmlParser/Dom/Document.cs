@@ -120,6 +120,12 @@ public sealed class Document : Node
     // XML parsing owns the builder. Prepare an independent snapshot, including its
     // read-only wrapper, before one atomic field assignment exposes the result.
     internal void PublishXmlNotations(List<XmlNotationDeclaration> records, CancellationToken cancellationToken)
+        => PublishXmlNotations(records, null, cancellationToken);
+
+    // Per-invocation checkpoint permits deterministic cancellation during copying in tests.
+    // Production parsing passes none; the callback is never retained by the document.
+    internal void PublishXmlNotations(List<XmlNotationDeclaration> records, Action<int>? copyCheckpoint,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(records);
         if (_xmlNotations is not null)
@@ -135,12 +141,12 @@ public sealed class Document : Node
             cancellationToken.ThrowIfCancellationRequested();
             for (var i = 0; i < copy.Length; i++)
             {
-                if ((i & 255) == 0)
+                copy[i] = records[i];
+                if ((i & 255) == 255)
                 {
+                    copyCheckpoint?.Invoke(i + 1);
                     cancellationToken.ThrowIfCancellationRequested();
                 }
-
-                copy[i] = records[i];
             }
 
             cancellationToken.ThrowIfCancellationRequested();

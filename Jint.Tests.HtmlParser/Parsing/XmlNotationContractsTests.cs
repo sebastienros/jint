@@ -79,6 +79,37 @@ public class XmlNotationContractsTests
     }
 
     [Test]
+    public void CancellationDuringSnapshotCopyStopsEarlyAndAllowsRetry()
+    {
+        var document = Document.CreateXml();
+        var records = new List<XmlNotationDeclaration>();
+        for (var i = 0; i < 1024; i++)
+        {
+            records.Add(new XmlNotationDeclaration("n", null, "s", i));
+        }
+
+        using var cancellation = new CancellationTokenSource();
+        var empty = document.XmlNotations;
+        var stamp = document.MutationStamp;
+        var copiedAtCheckpoint = 0;
+        Assert.Throws<OperationCanceledException>(() => document.PublishXmlNotations(records,
+            copied =>
+            {
+                copiedAtCheckpoint = copied;
+                cancellation.Cancel();
+            }, cancellation.Token));
+
+        copiedAtCheckpoint.Should().Be(256);
+        document.XmlNotations.Should().BeSameAs(empty);
+        document.MutationStamp.Should().Be(stamp);
+        records.Should().HaveCount(1024);
+        document.PublishXmlNotations(records, CancellationToken.None);
+        document.XmlNotations.Should().HaveCount(1024);
+        document.XmlNotations[1023].Offset.Should().Be(1023);
+        document.MutationStamp.Should().Be(stamp);
+    }
+
+    [Test]
     public void CloningPreservesProvenanceButNodeTransferAndDoctypeRemovalDoNotChangeIt()
     {
         var source = Document.CreateXml();
