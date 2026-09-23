@@ -22,12 +22,12 @@ internal sealed partial class HtmlTreeBuilder
     private readonly int _maxDepth;
     private readonly bool _scriptingEnabled;
     private readonly List<Element> _open = [];
-    private readonly Dictionary<string, List<int>> _nameIndexes = new(StringComparer.Ordinal);
-    private readonly List<int> _specialIndexes = [];
-    private readonly List<int> _liStops = [];
-    private readonly List<int> _ddDtStops = [];
-    private readonly List<int> _scopeStops = [];
-    private readonly List<int> _resetModeIndexes = [];
+    private Dictionary<string, List<int>> _nameIndexes = new(StringComparer.Ordinal);
+    private List<int> _specialIndexes = [];
+    private List<int> _liStops = [];
+    private List<int> _ddDtStops = [];
+    private List<int> _scopeStops = [];
+    private List<int> _resetModeIndexes = [];
     private int _unexpectedOpenCount;
     private Element? _head;
     private Element? _form;
@@ -296,10 +296,10 @@ internal sealed partial class HtmlTreeBuilder
         if (!_nameIndexes.TryGetValue(element.LocalName, out var indexes))
             _nameIndexes[element.LocalName] = indexes = [];
         indexes.Add(index);
-        if (IsSpecial(element.LocalName)) _specialIndexes.Add(index);
-        if (IsSpecial(element.LocalName) && element.LocalName is not ("address" or "div" or "p" or "li"))
+        if (IsSpecialElement(element)) _specialIndexes.Add(index);
+        if (IsSpecialElement(element) && element.LocalName is not ("address" or "div" or "p" or "li"))
             _liStops.Add(index);
-        if (IsSpecial(element.LocalName) && element.LocalName is not ("address" or "div" or "p" or "dd" or "dt"))
+        if (IsSpecialElement(element) && element.LocalName is not ("address" or "div" or "p" or "dd" or "dt"))
             _ddDtStops.Add(index);
         if (IsScopeBoundary(element)) _scopeStops.Add(index);
         if (IsResetModeElement(element)) _resetModeIndexes.Add(index);
@@ -310,7 +310,7 @@ internal sealed partial class HtmlTreeBuilder
         var names = _nameIndexes[element.LocalName];
         RemoveIndex(names, index);
         if (names.Count == 0) _nameIndexes.Remove(element.LocalName);
-        if (IsSpecial(element.LocalName))
+        if (IsSpecialElement(element))
         {
             RemoveIndex(_specialIndexes, index);
             if (element.LocalName is not ("address" or "div" or "p" or "li")) RemoveIndex(_liStops, index);
@@ -323,7 +323,7 @@ internal sealed partial class HtmlTreeBuilder
     private void ShiftIndexes(Element element, int oldIndex)
     {
         ShiftIndex(_nameIndexes[element.LocalName], oldIndex);
-        if (IsSpecial(element.LocalName))
+        if (IsSpecialElement(element))
         {
             ShiftIndex(_specialIndexes, oldIndex);
             if (element.LocalName is not ("address" or "div" or "p" or "li")) ShiftIndex(_liStops, oldIndex);

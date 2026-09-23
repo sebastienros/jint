@@ -21,6 +21,7 @@ public partial class HtmlTreeConstructionTests
     [TestCase("<nobr><p>x<nobr>y</nobr>", "<html><head></head><body><nobr></nobr><p><nobr>x</nobr><nobr>y</nobr></p></body></html>")]
     [TestCase("<b><b><b><b>x</b></b></b></b>y", "<html><head></head><body><b><b><b><b>x</b></b></b></b>y</body></html>")]
     [TestCase("<b><b><b><b>x</b></b></b><span>y</b>z", "<html><head></head><body><b><b><b><b>x</b></b></b><span>y</span></b>z</body></html>")]
+    [TestCase("<a><object><a>x</a></object>y", "<html><head></head><body><a><object><a>x</a></object>y</a></body></html>")]
     public void AdoptionProducesSpecifiedTreesAtEveryQuota(string source, string expected)
     {
         foreach (var quota in new[] { 1, 3, 100_000 })
@@ -254,5 +255,99 @@ public partial class HtmlTreeConstructionTests
         replacement.GetAttribute("a0").Should().Be("v0");
         replacement.GetAttribute("a255").Should().Be("v255");
         (session.WorkCount - before).Should().BeGreaterThan(256);
+    }
+
+    [Test]
+    public void InnerRemovalsDoNotReshiftAnUnchangedSuffixForEveryNode()
+    {
+        static long Work(int count)
+        {
+            var source = "<b>" + string.Concat(Enumerable.Repeat("<span>", count)) +
+                "<p>" + string.Concat(Enumerable.Repeat("<span>", count)) + "</b>";
+            var parsed = Parse(source, 1);
+            parsed.Step.Kind.Should().Be(HtmlParseStepKind.Complete);
+            return parsed.Session.WorkCount;
+        }
+
+        var small = Work(48);
+        var medium = Work(96);
+        var large = Work(192);
+        var veryLarge = Work(384);
+        medium.Should().BeLessThan(small * 3);
+        large.Should().BeLessThan(medium * 3);
+        veryLarge.Should().BeLessThan(large * 3);
+    }
+
+    [Test]
+    public void AbsentFormattingSubjectsDoNotRescanUnchangedLists()
+    {
+        static long Work(int count)
+        {
+            var source = string.Concat(Enumerable.Range(0, count).Select(index => $"<i x={index}>")) +
+                string.Concat(Enumerable.Repeat("</b>", count));
+            var parsed = Parse(source, 1);
+            parsed.Step.Kind.Should().Be(HtmlParseStepKind.Complete);
+            return parsed.Session.WorkCount;
+        }
+
+        var small = Work(48);
+        var medium = Work(96);
+        var large = Work(192);
+        var veryLarge = Work(384);
+        medium.Should().BeLessThan(small * 3);
+        large.Should().BeLessThan(medium * 3);
+        veryLarge.Should().BeLessThan(large * 3);
+    }
+
+    [Test]
+    public void CancellationDuringCompactionLeavesTheUnmovedTreeIntact()
+    {
+        var document = Document.CreateHtml();
+        var session = new HtmlParserSession(document);
+        session.AppendInput("<b>" + string.Concat(Enumerable.Repeat("<span>", 24)) +
+            "<p>" + string.Concat(Enumerable.Repeat("<span>", 24)));
+        DrainToNeedInput(session);
+        var before = Serialize(document);
+        session.AppendInput("</b>", isFinal: true);
+        var builder = BuilderOf(session);
+        var stageField = typeof(HtmlTreeBuilder).GetField("_adoptionStage",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        var cursorField = typeof(HtmlTreeBuilder).GetField("_adoptionCompactRead",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        for (var turn = 0; turn < 100_000; turn++)
+        {
+            session.Drive(1, CancellationToken.None);
+            if (stageField.GetValue(builder)!.ToString() == "CompactOpen" && (int) cursorField.GetValue(builder)! > 0)
+                break;
+            if (turn == 99_999) throw new InvalidOperationException("Adoption did not enter stack compaction.");
+        }
+        Serialize(document).Should().Be(before);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        Assert.Throws<OperationCanceledException>(() => session.Drive(1, cancellation.Token));
+        Serialize(document).Should().Be(before);
+        Assert.Throws<InvalidOperationException>(() => session.Drive(1, CancellationToken.None));
+    }
+
+    [Test]
+    public void CompactedInnerLoopResumesAcrossShortInputAndWorkSplits()
+    {
+        var source = "<b>" + string.Concat(Enumerable.Repeat("<span>", 12)) +
+            "<p>" + string.Concat(Enumerable.Repeat("<span>", 12)) + "x</b>";
+        var expected = Serialize(Parse(source, 100_000).Document);
+        foreach (var quota in new[] { 1, 3, 100_000 })
+        foreach (var split in new[] { 0, 3, source.IndexOf("<p>", StringComparison.Ordinal), source.Length - 4, source.Length })
+        {
+            var document = Document.CreateHtml();
+            var session = new HtmlParserSession(document);
+            session.AppendInput(source[..split]);
+            DrainToNeedInput(session, quota);
+            session.AppendInput(source[split..], isFinal: true);
+            DrainToCompletion(session, quota);
+            Serialize(document).Should().Be(expected, $"quota {quota}, split {split}");
+            var body = (Element) document.DocumentElement!.LastChild!;
+            body.ChildCount.Should().Be(2);
+            ((Element) body.LastChild!).LocalName.Should().Be("p");
+        }
     }
 }

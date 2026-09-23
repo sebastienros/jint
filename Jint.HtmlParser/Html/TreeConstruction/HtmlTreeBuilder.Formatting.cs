@@ -22,6 +22,7 @@ internal sealed partial class HtmlTreeBuilder
     {
         internal Element Element = element;
         internal LinkedListNode<FormattingEntry>? Node;
+        internal LinkedListNode<FormattingElementEntry>? NameNode;
         internal readonly string Name = name;
         internal readonly ParserAttribute[] Attributes = attributes;
         internal readonly Dictionary<FormattingAttribute, int> AttributeCounts = attributeCounts;
@@ -32,6 +33,7 @@ internal sealed partial class HtmlTreeBuilder
 
     private readonly LinkedList<FormattingEntry> _formatting = [];
     private readonly Dictionary<Element, FormattingElementEntry> _formattingByElement = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<(FormattingMarker? Marker, string? NamespaceUri, string Name), LinkedList<FormattingElementEntry>> _formattingByName = [];
     // The marker is part of the index: entries in an older scope must not
     // lengthen either lookup or removal in a younger scope.
     private readonly Dictionary<(FormattingMarker? Marker, ulong Key), List<FormattingElementEntry>> _formattingByKey = [];
@@ -155,14 +157,16 @@ internal sealed partial class HtmlTreeBuilder
         {
             _formatting.Remove(earliest.Node!);
             _formattingByElement.Remove(earliest.Element);
+            UnindexFormattingName(earliest);
             candidates.Remove(earliest);
-            bookkeepingWork += 3;
+            bookkeepingWork += 4;
         }
 
         var entry = new FormattingElementEntry(element, element.LocalName, attributes, attributeCounts,
             _preparedAttributeWork, _preparedFormattingKey, _lastFormattingMarker);
         entry.Node = _formatting.AddLast(entry);
         _formattingByElement.Add(element, entry);
+        IndexFormattingName(entry);
         candidates.Add(entry);
         ResetFormattingToken();
         Charge(bookkeepingWork);
@@ -172,11 +176,29 @@ internal sealed partial class HtmlTreeBuilder
     private void UnindexFormatting(FormattingElementEntry entry)
     {
         _formattingByElement.Remove(entry.Element);
+        UnindexFormattingName(entry);
         var bucketKey = (entry.Marker, entry.Key);
         var bucket = _formattingByKey[bucketKey];
         bucket.Remove(entry);
         if (bucket.Count == 0) _formattingByKey.Remove(bucketKey);
-        Charge(2);
+        Charge(3);
+    }
+
+    private void IndexFormattingName(FormattingElementEntry entry)
+    {
+        var key = (entry.Marker, entry.Element.NamespaceUri, entry.Name);
+        if (!_formattingByName.TryGetValue(key, out var bucket))
+            _formattingByName[key] = bucket = [];
+        entry.NameNode = bucket.AddLast(entry);
+    }
+
+    private void UnindexFormattingName(FormattingElementEntry entry)
+    {
+        var key = (entry.Marker, entry.Element.NamespaceUri, entry.Name);
+        var bucket = _formattingByName[key];
+        bucket.Remove(entry.NameNode!);
+        entry.NameNode = null;
+        if (bucket.Count == 0) _formattingByName.Remove(key);
     }
 
     private bool TryReconstructFormatting()
