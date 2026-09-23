@@ -29,7 +29,7 @@ the earlier repository direction to retain AngleSharp.
 | XML shared contracts and provenance | `01a0cf2c-ab5e-7023-95ab-1ab3a4fc8d77` | Reviewed and integrated |
 | X1 native XML/SVG parsing | `01a0cf3f-9380-7513-a351-4078c30d2241` | Reviewed internal core integrated; DTD under review |
 | Native metadata, adoption and templates | `01a0cf47-2a27-7163-8f4e-951fbe9999f5` | Reviewed and integrated; H4 native prerequisites in progress |
-| D4a iterative native traversal | `01a0cf51-0a0a-7753-8235-126166e1484c` | Reviewed and integrated; template-boundary tests in progress |
+| D4a iterative native traversal | `01a0cf51-0a0a-7753-8235-126166e1484c` | Reviewed and integrated, including template boundaries |
 | C2a selector compiler | `01a0cf57-a964-7922-9f56-3c568a0e51f1` | In progress |
 | H4 HTML tree construction | `01a0cf5a-9eed-7913-bcb4-e019fbbb5e8c` | In progress |
 
@@ -79,6 +79,8 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   the internal selector exception and corrected template ownership brings the suite
   to 630 tests across both frameworks, zero failures/skips. Full XML/HTML facades,
   browser replacement and comparative performance acceptance remain unfinished.
+- H4 shared options, native document mode and explicit template traversal tests bring
+  the integrated suite to 646 passing tests across both frameworks, zero failures/skips.
 
 ## Integrated commits
 
@@ -142,3 +144,6 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
 - `2de85c47c`, `902774bb7`: native templates and same-document adoption-boundary
   correction (source `1bf760697`, `e8ebfb4b`); final Astra recheck clear.
 - `fc5083c41`: reviewed H4 tree-construction dispatch and native/shared prerequisites.
+- `26777525d`, `c889b18c6`, `83d055e61`: internal HTML options, document mode and
+  template traversal coverage (source `f2e23bfb3`, `5003d0bed`, `4f42454ea`);
+  all three Astra reviews clear.
