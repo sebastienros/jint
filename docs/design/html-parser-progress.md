@@ -16,7 +16,7 @@ the earlier repository direction to retain AngleSharp.
 - User cleanup rule: archive tasks and remove their worktrees after review, integration and
   successful common-worktree checks. Retain interrupted/failed tasks until unfinished work is
   recovered. Keep task history and Git branches; use managed archive cleanup and verify removal.
-  Twenty-five completed tasks have now been archived; their worktrees are gone.
+  Twenty-six completed tasks have now been archived; their worktrees are gone.
   Patch equivalence, clean local state and stopped-task status were checked before removal.
   Earlier worktrees already removed by Codex remain represented by their integrated commits.
 
@@ -53,7 +53,7 @@ the earlier repository direction to retain AngleSharp.
 | Packed public XML and mutation consumer | `01a0cf2c-ab5e-7023-95ab-1ab3a4fc8d77` | Reviewed harness and package README integrated; archived, worktree removed |
 | C5 V0a CSS value primitives | `01a0cf7b-7669-7883-944b-3f3c35fc4585` | Reviewed corrections integrated; archived, worktree removed |
 | C5 V0b1 basic CSS math | `01a0cf9b-ba8a-7a32-b6e4-09de7672e6ed` | Astra review findings being corrected |
-| D7a1 native form association | `01a0cfce-720d-76a2-aff0-6ab0c6c1315a` | Under Astra review; required work-scaling tests being added; exclusive shared native-file owner |
+| D7a1 native form association | `01a0cfce-720d-76a2-aff0-6ab0c6c1315a` | Reviewed corrections integrated and tested; archived, worktree removed |
 | X4a native XPath adapter | `01a0cfc2-9808-7643-a56f-c29d6ec8005c` | Reviewed fixes integrated and tested; archived, worktree removed |
 | C2d1 native table-column model | `01a0cfd3-4970-7c53-af17-767d5a5cbdaa` | Reviewed corrections integrated and tested; archived, worktree removed |
 | D6r1 native boundary/static-range primitives | `01a0cfd7-4a2d-76e3-a72b-4af81516af7f` | Reviewed fixes integrated and tested; archived, worktree removed |
@@ -421,3 +421,21 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   clean, patch-equivalent worktree removed. C2d2 matcher integration remains required.
 - `02bbe4cb5`: independently reviewed native serialization design. X3a writer/scalar helpers
   can proceed independently; full walkers, metadata prerequisites, public and Browser gates remain.
+- `57068b63b`, `95003f61b`, `dd332becd`, `f8cfd2065`: reviewed native form association
+  and index/adoption/cancellation corrections (sources `1b6b690da`, `a9b6c3e7e`, `d52703d121`,
+  `064c5574da`). ID-bearing control-free parser/clone appends have zero form tree/index visits;
+  duplicate-heavy control and reorder probes have the reviewed additive work growth. Independent
+  shadow, detached-root and template-content adoption probes pass. Task archived and worktree removed.
+- `c127efe6a`, `ac999bdf9`: independently reviewed XPath ID provenance/detached-attribute design,
+  including ID contributions from actually DTD-typed namespace declarations. X4b1 owns only its
+  native prerequisite files; X4b2 parser typing and X4b3 navigator completion remain separate.
+- `9153be8f8`: fourteen independently reviewed IBM notation syntax rejection expectations.
+  Fresh common suite after form/notation integration: 5,850 total, 5,266 passed, 584 failed, no skips.
+  All 1,852 non-corpus tests pass; every failure is XML corpus debt/census. Each framework reports
+  1,676 conformance passes, 271 unresolved required cases, zero known defects/harness failures;
+  optional/output counts unchanged. Evidence: `/private/tmp/jint-form-notation14-integrated.log`.
+- New dedicated Sol High worktree tasks are dispatched for X3a serialization kernels, C2d2 column
+  matching, X4b1 attribute prerequisites, H7 tokenizer-only context controls, and D7a2 disabledness.
+  D7a2 owns HtmlElementState/HtmlFormAssociation plus new HTML helpers; X4b1 owns Attr/ParserAttribute/
+  Element/NodeCloner. First-legend invalidation precedes association early returns and triggers only
+  for direct HTML legend changes under HTML fieldsets. H6b remains the exclusive tree-builder owner.
