@@ -5243,5 +5243,101 @@
     ],
     "notations": [],
     "review": "The document type name attributes and root element name root differ, which is a validity constraint, not a fatal well-formedness error. Pinned main source and unread external subset reviewed independently; XML §§2.8, 2.9, 3.1, 3.3.3, 5.1 https://www.w3.org/TR/xml/."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P75-ibm75n04.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "DOCTYPE places PUBLIC after the literals; ExternalID must begin with PUBLIC or SYSTEM. Pinned main-entity defect at original-input offset 68; XML 1.0 Fifth Edition, productions [75] ExternalID and [76] NDataDecl https://www.w3.org/TR/xml/#sec-external-ent."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P75-ibm75n05.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "Entity ExternalID omits required whitespace after SYSTEM. Pinned main-entity defect at original-input offset 125; XML 1.0 Fifth Edition, productions [75] ExternalID and [76] NDataDecl https://www.w3.org/TR/xml/#sec-external-ent."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P75-ibm75n06.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "Entity ExternalID has no required SystemLiteral after SYSTEM. Pinned main-entity defect at original-input offset 134; XML 1.0 Fifth Edition, productions [75] ExternalID and [76] NDataDecl https://www.w3.org/TR/xml/#sec-external-ent."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P75-ibm75n07.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "DOCTYPE PublicLiteral and SystemLiteral lack required separating whitespace. Pinned main-entity defect at original-input offset 71; XML 1.0 Fifth Edition, productions [75] ExternalID and [76] NDataDecl https://www.w3.org/TR/xml/#sec-external-ent."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P75-ibm75n08.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "DOCTYPE has two literals without the required PUBLIC keyword. Pinned main-entity defect at original-input offset 81; XML 1.0 Fifth Edition, productions [75] ExternalID and [76] NDataDecl https://www.w3.org/TR/xml/#sec-external-ent."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P75-ibm75n09.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "DOCTYPE omits required whitespace after PUBLIC. Pinned main-entity defect at original-input offset 71; XML 1.0 Fifth Edition, productions [75] ExternalID and [76] NDataDecl https://www.w3.org/TR/xml/#sec-external-ent."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P75-ibm75n10.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "DOCTYPE PUBLIC has one literal only; it contains a backslash illegal in PubidLiteral and has no SystemLiteral. Pinned main-entity defect at original-input offset 78; XML 1.0 Fifth Edition, productions [75] ExternalID and [76] NDataDecl https://www.w3.org/TR/xml/#sec-external-ent."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P75-ibm75n12.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "Entity declaration puts SYSTEM after a literal and supplies no SystemLiteral. Pinned main-entity defect at original-input offset 123; XML 1.0 Fifth Edition, productions [75] ExternalID and [76] NDataDecl https://www.w3.org/TR/xml/#sec-external-ent."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P75-ibm75n13.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "DOCTYPE puts PUBLIC between two literals instead of before them. Pinned main-entity defect at original-input offset 68; XML 1.0 Fifth Edition, productions [75] ExternalID and [76] NDataDecl https://www.w3.org/TR/xml/#sec-external-ent."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P76-ibm76n01.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "General-entity NDataDecl uses lowercase ndata instead of exact NDATA keyword. Pinned main-entity defect at original-input offset 217; XML 1.0 Fifth Edition, productions [75] ExternalID and [76] NDataDecl https://www.w3.org/TR/xml/#sec-external-ent."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P76-ibm76n02.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "General-entity NDataDecl uses mixed-case NData instead of exact NDATA keyword. Pinned main-entity defect at original-input offset 217; XML 1.0 Fifth Edition, productions [75] ExternalID and [76] NDataDecl https://www.w3.org/TR/xml/#sec-external-ent."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P76-ibm76n03.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "NDataDecl omits required leading whitespace after SystemLiteral. Pinned main-entity defect at original-input offset 210; XML 1.0 Fifth Edition, productions [75] ExternalID and [76] NDataDecl https://www.w3.org/TR/xml/#sec-external-ent."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P76-ibm76n04.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "General-entity declaration names a notation without the NDATA keyword. Pinned main-entity defect at original-input offset 220; XML 1.0 Fifth Edition, productions [75] ExternalID and [76] NDataDecl https://www.w3.org/TR/xml/#sec-external-ent."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P76-ibm76n05.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "NDataDecl omits the required Name after NDATA. Pinned main-entity defect at original-input offset 215; XML 1.0 Fifth Edition, productions [75] ExternalID and [76] NDataDecl https://www.w3.org/TR/xml/#sec-external-ent."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P76-ibm76n06.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "NDataDecl concatenates NDATA and the Name, omitting required whitespace. Pinned main-entity defect at original-input offset 210; XML 1.0 Fifth Edition, productions [75] ExternalID and [76] NDataDecl https://www.w3.org/TR/xml/#sec-external-ent."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_not-wf.xml#ibm-not-wf-P76-ibm76n07.xml",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "NDataDecl places the notation Name before NDATA. Pinned main-entity defect at original-input offset 208; XML 1.0 Fifth Edition, productions [75] ExternalID and [76] NDataDecl https://www.w3.org/TR/xml/#sec-external-ent."
   }
 ]
