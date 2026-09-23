@@ -265,4 +265,32 @@ public sealed class ColumnSelectorTests
         secondRow.AppendChild(clone);
         SelectorMatcher.QuerySelectorAll(program, second).Should().Equal(cell, clone);
     }
+
+    [Test]
+    public void AttributeValueAndColumnReorderChangeAReusedProgramsAnswer()
+    {
+        var document = Document.CreateHtml();
+        var table = Add(document, document, "table");
+        var group = Add(document, table, "colgroup");
+        var spacer = Add(document, group, "col");
+        spacer.SetAttribute("span", "1");
+        var selected = Add(document, group, "col");
+        selected.SetAttribute("class", "selected");
+        var row = Add(document, table, "tr");
+        var firstCell = Add(document, row, "td");
+        var target = Add(document, row, "td");
+        var program = Parse("col.selected || td");
+
+        var original = SelectorMatcher.QuerySelectorAll(program, table);
+        original.Should().Equal(target);
+        spacer.GetAttributeNode("span")!.Value = "2";
+        SelectorMatcher.QuerySelectorAll(program, table).Should().BeEmpty();
+        spacer.GetAttributeNode("span")!.Value = "1";
+        SelectorMatcher.QuerySelectorAll(program, table).Should().Equal(target);
+        group.InsertBefore(selected, spacer);
+        SelectorMatcher.QuerySelectorAll(program, table).Should().Equal(firstCell);
+        group.AppendChild(selected);
+        SelectorMatcher.QuerySelectorAll(program, table).Should().Equal(target);
+        original.Should().Equal(target);
+    }
 }

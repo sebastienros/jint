@@ -119,4 +119,30 @@ public sealed class ColumnSelectorWorkTests
         NUnit.Framework.Assert.Throws<OperationCanceledException>(() =>
             SelectorMatcher.Matches(Parse("col:has(|| td.missing)"), column, null, cancelled.Token));
     }
+
+    [Test]
+    public void UnsuccessfulColumnRelativeDiscoveryChecksCancellationAfterIndexBuild()
+    {
+        var (document, table, group) = NewTable();
+        var row = document.CreateElement("tr");
+        table.AppendChild(row);
+        for (var index = 0; index < 1024; index++)
+        {
+            group.AppendChild(document.CreateElement("col"));
+            row.AppendChild(document.CreateElement("td"));
+        }
+
+        var preparationSteps = 0;
+        var grid = HtmlTableGrid.Build(table, () => preparationSteps++, default);
+        foreach (var _ in grid.CellsOverlapping(0, 1, () => preparationSteps++, default)) { }
+        using var source = new CancellationTokenSource();
+        var checkpoints = 0;
+        NUnit.Framework.Assert.Throws<OperationCanceledException>(() =>
+            SelectorMatcher.Matches(Parse("table:has(> colgroup > col || td.missing)"), table,
+                null, () =>
+                {
+                    if (++checkpoints == preparationSteps + 1000) source.Cancel();
+                }, source.Token));
+        checkpoints.Should().BeGreaterThan(preparationSteps);
+    }
 }
