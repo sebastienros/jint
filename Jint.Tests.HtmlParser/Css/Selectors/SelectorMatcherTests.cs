@@ -166,6 +166,9 @@ public sealed class SelectorMatcherTests
         SelectorMatcher.Matches(Parse("[data-text*='']"), element).Should().BeFalse();
         SelectorMatcher.Matches(Parse("[type=button]"), element).Should().BeTrue();
         SelectorMatcher.Matches(Parse("[type=button s]"), element).Should().BeFalse();
+        element.SetAttribute("data-overlap", "ababacaba");
+        SelectorMatcher.Matches(Parse("[data-overlap*=abac]"), element).Should().BeTrue();
+        SelectorMatcher.Matches(Parse("[data-overlap*=ABAC i]"), element).Should().BeTrue();
         element.SetAttribute("data-text", "changed");
         SelectorMatcher.Matches(Parse("[data-text*=Middle]"), element).Should().BeFalse();
     }
@@ -191,6 +194,34 @@ public sealed class SelectorMatcherTests
     }
 
     [Test]
+    public void IdAndClassSelectorsIgnoreNamespacedAttributesRegardlessOfInsertionOrder()
+    {
+        var document = Document.CreateHtml();
+        var first = document.CreateElement("div");
+        first.SetAttributeNS("urn:test", "id", "wrong");
+        first.SetAttributeNS("urn:test", "class", "wrong");
+        SelectorMatcher.Matches(Parse("#wrong, .wrong"), first).Should().BeFalse();
+        // setAttribute looks up qualified names across namespaces by DOM design;
+        // attach distinct null-namespace attributes explicitly for this ordering.
+        var id = document.CreateAttributeNS(null, "id");
+        id.Value = "right";
+        first.SetAttributeNode(id);
+        var className = document.CreateAttributeNS(null, "class");
+        className.Value = "right";
+        first.SetAttributeNode(className);
+        SelectorMatcher.Matches(Parse("#right.right"), first).Should().BeTrue();
+        SelectorMatcher.Matches(Parse("#wrong, .wrong"), first).Should().BeFalse();
+
+        var second = document.CreateElement("div");
+        second.SetAttribute("id", "right");
+        second.SetAttribute("class", "right");
+        second.SetAttributeNS("urn:test", "id", "wrong");
+        second.SetAttributeNS("urn:test", "class", "wrong");
+        SelectorMatcher.Matches(Parse("#right.right"), second).Should().BeTrue();
+        SelectorMatcher.Matches(Parse("#wrong, .wrong"), second).Should().BeFalse();
+    }
+
+    [Test]
     public void StructuralPredicatesAndExactNthArithmeticHandleMutations()
     {
         var document = Document.CreateHtml();
@@ -212,6 +243,8 @@ public sealed class SelectorMatcherTests
         var text = document.CreateTextNode(" \n\t");
         second.AppendChild(text);
         SelectorMatcher.Matches(Parse(":empty"), second).Should().BeTrue();
+        text.Data = "\f";
+        SelectorMatcher.Matches(Parse(":empty"), second).Should().BeFalse();
         text.Data = "\u00a0";
         SelectorMatcher.Matches(Parse(":empty"), second).Should().BeFalse();
         root.RemoveChild(first);
@@ -296,6 +329,102 @@ public sealed class SelectorMatcherTests
         var checkpoints = 0;
         NUnit.Framework.Assert.Throws<OperationCanceledException>(() =>
             SelectorMatcher.Matches(Parse("[data-long*=missing]"), element, null, () =>
+            {
+                checkpoints++;
+                if (checkpoints == 2) source.Cancel();
+            }, source.Token));
+        checkpoints.Should().Be(2);
+    }
+
+    [Test]
+    public void LargeSelectorListPreflightChecksCancellation()
+    {
+        var document = Document.CreateHtml();
+        var element = document.CreateElement("div");
+        var program = Parse(string.Join(",", Enumerable.Repeat("*", 1024)));
+        using var source = new CancellationTokenSource();
+        var checkpoints = 0;
+        NUnit.Framework.Assert.Throws<OperationCanceledException>(() =>
+            SelectorMatcher.Matches(program, element, null, () =>
+            {
+                checkpoints++;
+                source.Cancel();
+            }, source.Token));
+        checkpoints.Should().Be(1);
+    }
+
+    [Test]
+    public void DocumentScopeScanChecksCancellation()
+    {
+        var document = Document.CreateHtml();
+        for (var index = 0; index < 300; index++) document.AppendChild(document.CreateComment("leading"));
+        var element = document.CreateElement("div");
+        document.AppendChild(element);
+        using var source = new CancellationTokenSource();
+        NUnit.Framework.Assert.Throws<OperationCanceledException>(() =>
+            SelectorMatcher.Matches(Parse(":scope"), element, document, source.Cancel, source.Token));
+    }
+
+    [Test]
+    public void QuerySnapshotCopyChecksCancellationBeforePublication()
+    {
+        var document = Document.CreateHtml();
+        var root = document.CreateElement("root");
+        document.AppendChild(root);
+        for (var index = 0; index < 300; index++) root.AppendChild(document.CreateElement("item"));
+        using var source = new CancellationTokenSource();
+        var checkpoints = 0;
+        NUnit.Framework.Assert.Throws<OperationCanceledException>(() =>
+            SelectorMatcher.QuerySelectorAll(Parse("*"), root, () =>
+            {
+                checkpoints++;
+                if (checkpoints == 4) source.Cancel();
+            }, source.Token));
+        checkpoints.Should().Be(4);
+    }
+
+    [Test]
+    public void ExistencePredicatesStopAtFirstRelevantSibling()
+    {
+        var document = Document.CreateHtml();
+        var root = document.CreateElement("root");
+        document.AppendChild(root);
+        var first = document.CreateElement("item");
+        root.AppendChild(first);
+        for (var index = 0; index < 4096; index++) root.AppendChild(document.CreateElement("item"));
+        var last = document.CreateElement("item");
+        root.AppendChild(last);
+        var checkpoints = 0;
+        Action checkpoint = () => checkpoints++;
+        SelectorMatcher.Matches(Parse(":first-child"), last, null, checkpoint, default).Should().BeFalse();
+        SelectorMatcher.Matches(Parse(":last-child"), first, null, checkpoint, default).Should().BeFalse();
+        SelectorMatcher.Matches(Parse(":only-child"), first, null, checkpoint, default).Should().BeFalse();
+        checkpoints.Should().Be(0);
+    }
+
+    [Test]
+    public void SubstringMatcherHasLinearWorkOnRepeatedPrefixes()
+    {
+        var document = Document.CreateHtml();
+        var element = document.CreateElement("div");
+        element.SetAttribute("data-long", new string('a', 8192));
+        var needle = new string('a', 4096) + "b";
+        var checkpoints = 0;
+        SelectorMatcher.Matches(Parse($"[data-long*='{needle}']"), element, null,
+            () => checkpoints++, default).Should().BeFalse();
+        checkpoints.Should().BeLessThan(100);
+    }
+
+    [Test]
+    public void NthArithmeticChecksCancellationBetweenBigIntegerOperations()
+    {
+        var document = Document.CreateHtml();
+        var element = document.CreateElement("div");
+        var number = new string('9', 4096);
+        using var source = new CancellationTokenSource();
+        var checkpoints = 0;
+        NUnit.Framework.Assert.Throws<OperationCanceledException>(() =>
+            SelectorMatcher.Matches(Parse($":nth-child({number}n+{number})"), element, null, () =>
             {
                 checkpoints++;
                 if (checkpoints == 2) source.Cancel();

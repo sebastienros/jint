@@ -21,9 +21,9 @@ internal static class SelectorMatcher
         ArgumentNullException.ThrowIfNull(program);
         ArgumentNullException.ThrowIfNull(element);
         cancellationToken.ThrowIfCancellationRequested();
-        ValidateImplemented(program, cancellationToken);
+        ValidateImplemented(program, cancellationToken, checkpoint);
         var work = new Work(cancellationToken, checkpoint);
-        var matched = TryMatchCore(program, element, ScopeFor(scopingRoot ?? element), ref work, out _);
+        var matched = TryMatchCore(program, element, ScopeFor(scopingRoot ?? element, ref work), ref work, out _);
         cancellationToken.ThrowIfCancellationRequested();
         return matched;
     }
@@ -35,8 +35,8 @@ internal static class SelectorMatcher
         ArgumentNullException.ThrowIfNull(element);
         cancellationToken.ThrowIfCancellationRequested();
         ValidateImplemented(program, cancellationToken);
-        var scope = ScopeFor(scopingRoot ?? element);
         var work = new Work(cancellationToken);
+        var scope = ScopeFor(scopingRoot ?? element, ref work);
         var matched = TryMatchCore(program, element, scope, ref work, out specificity);
         cancellationToken.ThrowIfCancellationRequested();
         return matched;
@@ -70,8 +70,8 @@ internal static class SelectorMatcher
         ArgumentNullException.ThrowIfNull(root);
         cancellationToken.ThrowIfCancellationRequested();
         ValidateImplemented(program, cancellationToken);
-        var scope = ScopeFor(root);
         var work = new Work(cancellationToken);
+        var scope = ScopeFor(root, ref work);
         foreach (var candidate in NodeTraversal.DescendantElements(root, cancellationToken))
         {
             work.Step();
@@ -87,13 +87,17 @@ internal static class SelectorMatcher
 
     internal static IReadOnlyList<Element> QuerySelectorAll(CompiledSelector program, Node root,
         CancellationToken cancellationToken = default)
+        => QuerySelectorAll(program, root, null, cancellationToken);
+
+    internal static IReadOnlyList<Element> QuerySelectorAll(CompiledSelector program, Node root,
+        Action? checkpoint, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(program);
         ArgumentNullException.ThrowIfNull(root);
         cancellationToken.ThrowIfCancellationRequested();
-        ValidateImplemented(program, cancellationToken);
-        var scope = ScopeFor(root);
-        var work = new Work(cancellationToken);
+        ValidateImplemented(program, cancellationToken, checkpoint);
+        var work = new Work(cancellationToken, checkpoint);
+        var scope = ScopeFor(root, ref work);
         var results = new List<Element>();
         foreach (var candidate in NodeTraversal.DescendantElements(root, cancellationToken))
         {
@@ -101,21 +105,31 @@ internal static class SelectorMatcher
             if (TryMatchCore(program, candidate, scope, ref work, out _)) results.Add(candidate);
         }
         cancellationToken.ThrowIfCancellationRequested();
-        return new ReadOnlyCollection<Element>(results.ToArray());
+        work.Check();
+        var snapshot = new Element[results.Count];
+        for (var index = 0; index < results.Count; index++)
+        {
+            work.Step();
+            snapshot[index] = results[index];
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        return new ReadOnlyCollection<Element>(snapshot);
     }
 
     // Walk every branch before searching. A mixed selector list cannot quietly return
     // an incomplete answer merely because an earlier supported branch matched.
-    private static void ValidateImplemented(CompiledSelector program, CancellationToken cancellationToken)
+    private static void ValidateImplemented(CompiledSelector program, CancellationToken cancellationToken,
+        Action? checkpoint = null)
     {
         var pending = new Stack<CompiledSelector>();
         pending.Push(program);
-        var work = new Work(cancellationToken);
+        var work = new Work(cancellationToken, checkpoint);
         while (pending.Count != 0)
         {
             var current = pending.Pop();
             foreach (var branch in current.Branches)
             {
+                work.Step();
                 if (branch.LeadingCombinator is not null) throw Unsupported("relative selector");
                 foreach (var combinator in branch.Combinators)
                 {
@@ -124,6 +138,7 @@ internal static class SelectorMatcher
                 }
                 foreach (var compound in branch.Compounds)
                 {
+                    work.Step();
                     foreach (var predicate in compound.Predicates)
                     {
                         work.Step();
@@ -153,7 +168,16 @@ internal static class SelectorMatcher
     private static InvalidOperationException Unsupported(string kind)
         => new($"Selector predicate '{kind}' has no matching evaluator yet.");
 
-    private static Node? ScopeFor(Node root) => root is Document document ? document.DocumentElement : root;
+    private static Node? ScopeFor(Node root, ref Work work)
+    {
+        if (root is not Document document) return root;
+        for (var child = document.FirstChild; child is not null; child = child.NextSibling)
+        {
+            work.Step();
+            if (child is Element) return child;
+        }
+        return null;
+    }
 
     private static bool TryMatchCore(CompiledSelector program, Element element, Node? scope,
         ref Work work, out SelectorSpecificity specificity)
@@ -274,7 +298,7 @@ internal static class SelectorMatcher
             case PredicateKind.Scope:
                 return ReferenceEquals(element, scope);
             case PredicateKind.Root:
-                return ReferenceEquals(element, element.OwnerDocument?.DocumentElement);
+                return element.ParentNode is Document;
             case PredicateKind.Empty:
                 for (var child = element.FirstChild; child is not null; child = child.NextSibling)
                 {
@@ -302,7 +326,14 @@ internal static class SelectorMatcher
     private static bool MatchIdOrClass(Element element, string attributeName, string expected, bool split,
         ref Work work)
     {
-        var value = element.GetAttribute(attributeName);
+        string? value = null;
+        foreach (var attribute in element.Attributes)
+        {
+            work.Step();
+            if (attribute.NamespaceUri is not null || attribute.LocalName != attributeName) continue;
+            value = attribute.Value;
+            break;
+        }
         if (value is null) return false;
         var ignoreCase = element.OwnerDocument?.Kind == DocumentKind.Html &&
                          element.OwnerDocument.Mode == DocumentMode.Quirks;
@@ -347,11 +378,17 @@ internal static class SelectorMatcher
     private static bool MatchPosition(Predicate predicate, Element element, ref Work work)
     {
         var kind = predicate.Kind;
-        var fromEnd = kind is PredicateKind.LastChild or PredicateKind.OnlyChild or
-            PredicateKind.LastOfType or PredicateKind.OnlyOfType or
-            PredicateKind.NthLastChild or PredicateKind.NthLastOfType;
         var ofType = kind is PredicateKind.FirstOfType or PredicateKind.LastOfType or
             PredicateKind.OnlyOfType or PredicateKind.NthOfType or PredicateKind.NthLastOfType;
+        if (kind is PredicateKind.FirstChild or PredicateKind.FirstOfType)
+            return !HasMatchingSibling(element, previous: true, ofType, ref work);
+        if (kind is PredicateKind.LastChild or PredicateKind.LastOfType)
+            return !HasMatchingSibling(element, previous: false, ofType, ref work);
+        if (kind is PredicateKind.OnlyChild or PredicateKind.OnlyOfType)
+            return !HasMatchingSibling(element, previous: true, ofType, ref work) &&
+                   !HasMatchingSibling(element, previous: false, ofType, ref work);
+
+        var fromEnd = kind is PredicateKind.NthLastChild or PredicateKind.NthLastOfType;
         var index = 1;
         for (var node = fromEnd ? element.NextSibling : element.PreviousSibling;
              node is not null; node = fromEnd ? node.NextSibling : node.PreviousSibling)
@@ -359,25 +396,35 @@ internal static class SelectorMatcher
             work.Step();
             if (node is Element sibling && (!ofType || SameType(element, sibling))) index++;
         }
-        if (kind is PredicateKind.OnlyChild or PredicateKind.OnlyOfType)
-        {
-            if (index != 1) return false;
-            for (var node = element.PreviousSibling; node is not null; node = node.PreviousSibling)
-            {
-                work.Step();
-                if (node is Element sibling && (!ofType || SameType(element, sibling))) return false;
-            }
-            return true;
-        }
-        if (kind is PredicateKind.FirstChild or PredicateKind.LastChild or
-            PredicateKind.FirstOfType or PredicateKind.LastOfType) return index == 1;
-        return MatchAnPlusB(index, predicate.A, predicate.B);
+        return MatchAnPlusB(index, predicate.A, predicate.B, ref work);
     }
 
-    private static bool MatchAnPlusB(int index, BigInteger a, BigInteger b)
+    private static bool HasMatchingSibling(Element element, bool previous, bool ofType, ref Work work)
     {
+        for (var node = previous ? element.PreviousSibling : element.NextSibling;
+             node is not null; node = previous ? node.PreviousSibling : node.NextSibling)
+        {
+            work.Step();
+            if (node is Element sibling && (!ofType || SameType(element, sibling))) return true;
+        }
+        return false;
+    }
+
+    private static bool MatchAnPlusB(int index, BigInteger a, BigInteger b, ref Work work)
+    {
+        work.Check();
+        if (a.IsZero)
+        {
+            var equal = b == index;
+            work.Check();
+            return equal;
+        }
         var difference = (BigInteger) index - b;
-        return a.IsZero ? difference.IsZero : difference % a == 0 && difference / a >= 0;
+        work.Check();
+        if (!difference.IsZero && difference.Sign != a.Sign) return false;
+        var quotient = BigInteger.DivRem(difference, a, out var remainder);
+        work.Check();
+        return remainder.IsZero && quotient.Sign >= 0;
     }
 
     private static bool SameType(Element left, Element right) =>
@@ -445,13 +492,42 @@ internal static class SelectorMatcher
 
     private static bool ContainsText(string value, string text, bool ignoreCase, ref Work work)
     {
-        for (var index = 0; index <= value.Length - text.Length; index++)
+        if (text.Length > value.Length) return false;
+        // KMP bounds unsuccessful matching to O(value + text), including a
+        // repeated-prefix needle such as aaaa...b against aaaa...aaaa.
+        work.Check();
+        Span<int> failure = text.Length <= 128 ? stackalloc int[text.Length] : new int[text.Length];
+        work.Check();
+        failure[0] = 0;
+        var prefix = 0;
+        for (var index = 1; index < text.Length; index++)
         {
             work.Step();
-            if (TextEquals(value.AsSpan(index, text.Length), text.AsSpan(), ignoreCase, ref work)) return true;
+            while (prefix != 0 && !CharacterEquals(text[index], text[prefix], ignoreCase))
+            {
+                work.Step();
+                prefix = failure[prefix - 1];
+            }
+            if (CharacterEquals(text[index], text[prefix], ignoreCase)) prefix++;
+            failure[index] = prefix;
+        }
+        var matched = 0;
+        foreach (var character in value)
+        {
+            work.Step();
+            while (matched != 0 && !CharacterEquals(character, text[matched], ignoreCase))
+            {
+                work.Step();
+                matched = failure[matched - 1];
+            }
+            if (CharacterEquals(character, text[matched], ignoreCase)) matched++;
+            if (matched == text.Length) return true;
         }
         return false;
     }
+
+    private static bool CharacterEquals(char left, char right, bool ignoreCase) =>
+        ignoreCase ? AsciiLower(left) == AsciiLower(right) : left == right;
 
     private static bool ContainsWord(string value, string word, bool ignoreCase, ref Work work)
     {
@@ -490,12 +566,14 @@ internal static class SelectorMatcher
         foreach (var character in value)
         {
             work.Step();
-            if (!IsAsciiWhitespace(character)) return true;
+            if (!IsDocumentWhitespace(character)) return true;
         }
         return false;
     }
 
     private static bool IsAsciiWhitespace(char character) => character is '\t' or '\n' or '\f' or '\r' or ' ';
+
+    private static bool IsDocumentWhitespace(char character) => character is '\t' or '\n' or '\r' or ' ';
 
     private static char AsciiLower(char character) => character is >= 'A' and <= 'Z'
         ? (char) (character + ('a' - 'A')) : character;
@@ -511,13 +589,14 @@ internal static class SelectorMatcher
     private struct Work(CancellationToken cancellationToken, Action? checkpoint = null)
     {
         private int _steps;
+        internal void Check()
+        {
+            checkpoint?.Invoke();
+            cancellationToken.ThrowIfCancellationRequested();
+        }
         internal void Step()
         {
-            if ((++_steps & 255) == 0)
-            {
-                checkpoint?.Invoke();
-                cancellationToken.ThrowIfCancellationRequested();
-            }
+            if ((++_steps & 255) == 0) Check();
         }
     }
 }
