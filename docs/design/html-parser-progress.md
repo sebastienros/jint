@@ -16,7 +16,7 @@ the earlier repository direction to retain AngleSharp.
 - User cleanup rule: archive tasks and remove their worktrees after review, integration and
   successful common-worktree checks. Retain interrupted/failed tasks until unfinished work is
   recovered. Keep task history and Git branches; use managed archive cleanup and verify removal.
-  Thirty-nine completed tasks have now been archived; their worktrees are gone.
+  Forty-one completed tasks have now been archived; their worktrees are gone.
   Patch equivalence, clean local state and stopped-task status were checked before removal.
   Earlier worktrees already removed by Codex remain represented by their integrated commits.
 
@@ -70,9 +70,11 @@ the earlier repository direction to retain AngleSharp.
 | V0b2 stepped CSS math | `01a0d000-f77f-7c41-b474-a8e407aa41fe` | Reviewed, integrated and tested; archived, worktree removed |
 | D7b1b pure text algorithms | `01a0d00a-ab70-7510-9978-13e50051aa2e` | Reviewed, integrated and tested; archived, worktree removed |
 | X4b3 XPath completion | `01a0d011-17de-7c01-92b6-cbb7cfcba6ed` | Dedicated Sol implementation in ff28 |
-| C3a1 form-state selectors | `01a0d016-7f69-7670-b118-27244e5dcfad` | Dedicated Sol implementation in 4c95 |
-| V0b3a CSS abs/sign | `01a0d017-ef27-7d61-84a3-6a628ce82374` | Dedicated Sol implementation in 7a4b |
+| C3a1 form-state selectors | `01a0d016-7f69-7670-b118-27244e5dcfad` | Reviewed, integrated and tested; archived, worktree removed |
+| V0b3a CSS abs/sign | `01a0d017-ef27-7d61-84a3-6a628ce82374` | Reviewed, integrated and tested; archived, worktree removed |
 | H6d ordinary templates | `01a0d01a-09e1-7312-b099-2afb6efc86b7` | Exclusive tree-builder implementation in 2a63 |
+| V0b3b CSS trigonometry | `01a0d029-93fb-7352-bf0c-ff2c92aec72d` | Dedicated Sol implementation in ba36 |
+| V0c1 CSS substitution analysis | `01a0d029-9c47-7600-8b5b-e10aeb7b3b9e` | Dedicated Sol implementation in 4983 |
 
 The XML conformance gate inventories all 2,585 pinned W3C rows with explicit profile
 classifications and separate output assertions. Current execution results and remaining debt are below.
@@ -604,4 +606,20 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   Evidence: `/private/tmp/jint-clark-sun-three-integrated.log`. Corpus task remains unfinished.
 - `7b8bf2c91`: independently reviewed atan2 negative-axis source conflict and full special-value
   matrix recorded for V0b3b; the separate Log interpretation still needs review before V0b3c.
-  D7b3 preparatory numeric/date/time/range/color design source `28675739d` awaits independent review.
+  D7b3 preparatory numeric/date/time/range/color design and corrected WebIDL conversion ordering are
+  integrated as `3336e5571` and `38beb27d3`; remaining numeric policy decisions stay with the design task.
+- `546d1719d`, `cd8921f49`: independently reviewed built-in form-state selectors and CSS abs/sign.
+  Fresh common non-corpus tests pass 2,730/2,730 across both frameworks, no failures/skips:
+  `/private/tmp/jint-form-states-sign-integrated.log`. Both tasks were idle and clean, exact source
+  patch equivalence was verified, then tasks archived and worktrees removed. Math census is nine
+  implemented functions and twelve pending; no measurements or Browser completion implied.
+- `090281296`, `f888b246a`: thirteen exact independently source-reviewed Clark expectations.
+  All 246 existing entries are unchanged. Common corpus run: 4,000 total, 3,658 passed, 342 failed,
+  zero skips. Per framework: 1,783 conformance passes, 164 unresolved required cases, six optional
+  adapter debts, 21 verified optional policies, zero harness failures/mismatches; OUTPUT 307
+  compared/79 pending and 39 no-fetch alternatives. Evidence:
+  `/private/tmp/jint-clark-thirteen-integrated.log`. Corpus task remains unfinished and retained.
+- `c303091aa`: independently reviewed source-preserving var/env analysis design, including corrected
+  comment-insensitive spread token adjacency. Separate Sol tasks now implement V0c1 and V0b3b.
+  XPath parentless-attribute evaluation requires an owned compilation adapter; slot fixes remain
+  under independent re-review. Neither incomplete task is eligible for cleanup.

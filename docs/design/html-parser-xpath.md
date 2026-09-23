@@ -4,8 +4,9 @@ Independently reviewed design, 2026-09-23. Supplements [the architecture](html-p
 (X1 and D4 dependencies), and the B4/R4 migration assignments in
 [A1](../../tools/html-parser-inventory/README.md). No runtime implementation or performance claim.
 Integration inspected at `7792a9152`; XML, ordinary traversal, template ownership and mutation stamps
-already exist. Keep the BCL XPath 1.0 engine and replace only its tree adapter. Do not serialize/reparse
-into XmlDocument, copy the tree, or introduce an XPath interpreter.
+already exist. Keep the BCL XPath 1.0 engine, replace its tree adapter, and apply the bounded owned
+compilation amendment below. Do not serialize/reparse into XmlDocument, copy the tree, or introduce
+an XPath interpreter.
 
 ## Evidence and exact boundary
 
@@ -63,13 +64,13 @@ The two factories allocate one read session, position a cursor, and return it. C
 state and shares that session. NamespaceBinding instances are immutable session-owned descriptors.
 There is no generic native result registry or callback interface.
 
-At X4 completion, promote only NativeXPath plus its two factories, and XPathNamespaceBinding plus its
-three getters. Public factories receive `CancellationToken cancellationToken = default`. Add a third
-factory `CreateNavigator(XPathNamespaceBinding context, CancellationToken cancellationToken = default)`
-at promotion: it creates a fresh session and locates that owner/prefix only if the captured URI still
-matches; otherwise throw InvalidOperationException. Do not expose the navigator implementation,
-read-session caches, or Browser namespace-erasure mode. This public proposal is gated by the completion
-prerequisites below, public snapshots, XML documentation and an unsigned packed consumer.
+The evaluator amendment below supersedes the original proposal to promote CreateNavigator. Keep
+these cursor factories internal, including the X4c namespace-context factory. That factory creates
+a fresh session and locates the captured owner/prefix only if its URI still matches; otherwise throw
+InvalidOperationException. Promote the owned compile/evaluate/select surface below and
+XPathNamespaceBinding's three getters instead. Do not expose read-session caches or Browser namespace
+erasure. Completion prerequisites, public snapshots, XML documentation and an unsigned packed consumer
+still gate promotion.
 
 `UnderlyingObject` returns the actual Node, actual Attr, or shared XPathNamespaceBinding for its
 position. Repeated visits and clones in the same session return the same object. It never returns
@@ -77,9 +78,180 @@ the attribute owner in place of an attribute, nor an xmlns Attr for a namespace 
 sessions namespace descriptors need not be reference-identical; logical equality is owner identity,
 prefix and bound URI. Ordinary nodes/attributes retain their global native identities across sessions.
 
-No convenience Evaluate/Select result hierarchy is required: consumers retain BCL expression/result
-types. X4 tests perform the exact node-set conversion used by future Browser callers through
-UnderlyingObject, including all three alternatives, without requiring Jint.Browser.
+Internal cursor tests still exercise UnderlyingObject, including all three alternatives, without
+requiring Jint.Browser. Public consumers receive materialized native results through the amendment
+below; BCL expressions, navigators and iterators do not cross that boundary.
+
+## X4b3 evaluator amendment: parentless attributes and owned compilation
+
+This amendment also governs X4b's detached-Attr evaluation and packed-consumer requirements in
+[the identifiers design](html-parser-xpath-identifiers.md). It preserves that document's actual Attr
+root, Attribute NodeType, false/unchanged failed movement and fail-on-mutation cursor semantics.
+It changes the not-yet-public evaluator surface, not those cursor facts. Implementation remains a
+finite XPath-owner task; no native DOM, XML scanner or Browser runtime edits belong in X4b3.
+
+The current BCL [FollowingQuery.Advance](https://github.com/dotnet/runtime/blob/main/src/libraries/System.Private.Xml/src/System/Xml/XPath/Internal/FollowingQuery.cs)
+ignores a failed MoveToParent for an Attribute/Namespace input and repeatedly selects descendants
+from the unchanged position. It does not call MoveToFollowing. Read-only probes reproduced this on
+.NET 8.0.18 and 10.0.10, including `count(following::node()) + 1`; deterministic cancellation ended
+the retry loop, but cancellation is not a successful answer. The truthful parentless cursor cannot
+fix this through movement overrides. Never invent a parent, change NodeType after failed movement,
+report successful movement without moving, or omit following expressions from acceptance.
+
+### Exact surface and result ownership
+
+Implement the following internally first, then promote these members with default cancellation
+tokens only after all X4 completion gates. All constructors remain internal. NativeXPathNavigator,
+XPathReadSession and CreateNavigator remain internal permanently under this proposal.
+
+```csharp
+internal sealed class NativeXPathExpression
+{
+    internal string Source { get; }                 // exact caller source, never rewritten text
+    internal XPathResultType ReturnType { get; }    // BCL's static expression result type
+}
+
+internal sealed class NativeXPathResult
+{
+    internal XPathResultType ResultType { get; }    // Number, String, Boolean or NodeSet only
+    internal double NumberValue { get; }
+    internal string StringValue { get; }
+    internal bool BooleanValue { get; }
+    internal IReadOnlyList<object> Nodes { get; }
+    internal string FirstNodeStringValue { get; }
+}
+
+// Add these to NativeXPath; retain its cursor factories only for internal use.
+internal static NativeXPathExpression Compile(string source,
+    IXmlNamespaceResolver? resolver, CancellationToken cancellationToken);
+internal static NativeXPathResult Evaluate(Node context, NativeXPathExpression expression,
+    CancellationToken cancellationToken);
+internal static NativeXPathResult Evaluate(Attr context, NativeXPathExpression expression,
+    CancellationToken cancellationToken);
+internal static IReadOnlyList<object> Select(Node context, NativeXPathExpression expression,
+    CancellationToken cancellationToken);
+internal static IReadOnlyList<object> Select(Attr context, NativeXPathExpression expression,
+    CancellationToken cancellationToken);
+```
+
+For both Evaluate and Select, add string-source overloads for each context kind with parameters
+`(context, string source, IXmlNamespaceResolver? resolver, CancellationToken cancellationToken)`.
+They compile/bind before constructing a read session, then use the same owned-expression path.
+At public promotion, resolver parameters default to null and tokens to default. X4c adds the four
+corresponding XPathNamespaceBinding-context overloads, using the existing captured-binding freshness
+rule. Do not add an unimplemented namespace-context overload in X4b3.
+
+The expression privately owns its prepared BCL expression. Its configuration is fixed after Compile;
+there is no public SetContext, Clone, AddSort, BCL-expression getter or accepting-BCL-expression
+overload. Supply a resolver when compiling a different namespace context. Each evaluation clones
+private BCL query state, so the same prepared handle can be reused against fresh sessions without
+binding it to a document. Caller-provided resolvers/extension contexts retain their normal BCL
+semantics and any caller-owned affinity; this is not a promise that such callbacks are thread-safe.
+Custom sort configuration is not part of XPath 1.0 or either Browser consumer. If added separately,
+its sort expressions must use this same owned compilation boundary.
+
+ResultType describes the actual evaluated result; do not return Any, Error or a Navigator result.
+Each scalar getter succeeds only for its exact kind. Nodes and FirstNodeStringValue succeed only for
+NodeSet. A wrong-kind getter throws InvalidOperationException; getters do not perform conversions.
+Nodes is an immutable, materialized, ordered snapshot whose only member types are actual Node,
+actual Attr and immutable XPathNamespaceBinding. No nulls, wrapper elements or cursor objects appear.
+The object union is restricted to this result boundary; it adds no object-typed native tree API.
+Select requires a node-set, otherwise throws XPathException, and returns the same identity/order
+projection without calculating node string values. Evaluate captures the complete first node's
+XPath string-value for FirstNodeStringValue, or empty for an empty set, while its session is valid.
+This is needed for Browser node-set scalar conversion: a coalesced Text/CDATA run's value cannot be
+reconstructed from its representative's TextContent. Do not eagerly calculate every selected node's
+string-value. Identity-only consumers should use Select to avoid that extra first-value traversal.
+
+After successful publication, scalar values, captured first string-value and collection membership
+remain stable across DOM edits. Contained native references remain the real editable objects, as in
+existing materialized Browser results. The result stores no live read session or mutation callback.
+Null context/source/expression throws ArgumentNullException; the existing unsupported-context and
+XMLNS-Attr rules remain unchanged. Preserve BCL syntax/type errors as XPathException/ArgumentException,
+cancellation as OperationCanceledException, and session invalidation as InvalidOperationException.
+An unsupported BCL extension result type throws XPathException; do not coerce it to a string or an
+empty node-set. The supported result domain is XPath 1.0's four standard kinds.
+
+### Compilation rule and opaque BCL fence
+
+Validate the original source with BCL XPathExpression.Compile before transforming it, so a rewrite
+cannot make invalid syntax acceptable. The validation compile need not bind a resolver. A single
+token-aware pass then prefixes every actual `following::` axis step with
+`self::node()[parent::node()]/`, preserving its original node test and predicates. Recognize XPath 1.0
+quoted literals, name/token boundaries and legal XML whitespace between the axis name and `::`;
+do not replace text inside strings, a QName, `following-sibling`, or an ordinary element/function
+name. Retain original source for diagnostics and Source. Reuse the original compiled expression
+when no guard is required; otherwise compile the guarded source. Bind the supplied resolver only
+to the expression retained for evaluation, avoiding duplicate resolver callbacks from validation.
+
+The guard retains the same context node when it has a parent. Every parentless context has an empty
+following axis, so discarding that context before evaluating the following step preserves its result.
+This applies inside functions, predicates, unions and qualified-name tests; it is not an expression
+whitelist or a detached-context special-case answer. Query evaluation, namespace resolution, values,
+ordering and functions remain BCL-owned. Use a bounded scanner/builder, not a second XPath parser or
+interpreter, regex replacement, reflection into the private BCL query tree or dynamic code generation.
+
+An arbitrary already-compiled BCL expression cannot be recompiled safely from Expression: its bound
+namespace/XsltContext and added sort expressions are opaque. XPathExpression's constructor is also
+internal, so the owned handle cannot subclass it. Do not trust a source-text marker, global registry
+or object identity cache to certify mutable BCL expressions across Clone/AddSort.
+
+Fence the internal cursor too. Override Compile and every public Evaluate/Select/SelectSingleNode/
+Matches overload (string, string-plus-resolver, compiled expression and expression-plus-context where
+present) to check cancellation/freshness and throw NotSupportedException directing the caller to
+NativeXPath.Compile/Evaluate/Select. Include `Evaluate(XPathExpression, XPathNodeIterator?)` and
+`Matches(XPathExpression)`; inherited string helpers must not compile an opaque query before reaching
+a later refusal. None may execute an opaque query or hang. These are internal unsupported evaluator
+entry points, not partially supported public XPath expressions. A narrowly internal EvaluatePrepared
+entry alone calls the two-argument `base.Evaluate(privateExpression.Clone(), null)`; the one-argument
+base overload would dispatch back through the fenced virtual overload. It must not accept an arbitrary
+caller-supplied BCL expression.
+No public method returns a BCL cursor/iterator that would expose a bypass.
+The supported-runtime surface was verified on .NET 8.0.18 and 10.0.10: all 13 listed entry points
+(one Compile, four Evaluate, three Select, three SelectSingleNode, two Matches) are virtual and
+non-final. Override them directly; no compilation-before-refusal fallback is necessary.
+
+### Work, freshness and migration gates
+
+Poll the compilation scan and authored output-building loops at the existing bounded work cadence;
+build the guarded source linearly with bounded expansion per axis token, without flattening a growing
+prefix. Bracket BCL compilation/binding/query evaluation and unavoidable final allocation/copy with
+cancellation checks. BCL's non-preemptible intervals remain exactly the practical limitation described
+below; do not claim that this adapter supplies a hard query timeout. No hidden expression-length cap.
+Create the DOM read session after compile/bind callbacks; check it around evaluation and each iterator
+advance, all authored result-copy loops, first-node string-value calculation and final publication.
+Use per-invocation deterministic checkpoints. Cancellation/mutation discards the entire pending result;
+no partial collection escapes. A fresh evaluation with the same compiled handle can then succeed.
+
+Browser migration remains X4c/B4/R4-owned. In `Dom/Views/JsXPath.cs`, replace the BCL CompiledExpression
+alias with NativeXPathExpression, compile with the current NamespaceResolver, retain that handle in
+JsXPathExpression, and remove the external Clone/SetContext sequence. Run uses the internal Browser
+compatibility projection with the owned evaluation path. Coerce switches on NativeXPathResult kinds;
+node-set scalar conversion uses captured FirstNodeStringValue, never representative.TextContent.
+Requested node-only result kinds can use Select; preserve existing type-error translation for scalars.
+`DevTools/DomDomain.Events.cs:XPathMatches` uses owned Select and explicitly maps all three native
+identity kinds. Namespace erasure, Attr/namespace wrappers and DevTools backend IDs remain their
+existing independent compatibility gates. Neither caller may retain AngleSharp merely to evaluate
+detached attributes, nor silently drop a result kind. Generated bindings need no incidental change.
+
+Acceptance adds literal expected tests for detached Attr `/`, self, all empty axes and `id()`, including
+`following::node()`, `following::*`, `count(following::node()) + 1`, nested function/predicate/union
+uses, and guarded expressions combined with position()/last(). Check ordinary documents, attached
+Attrs, namespace positions, detached elements/fragments and actual native reference identity. Test
+resolver binding and prepared-handle reuse across different trees; unknown prefixes/errors must not
+vanish merely because a guarded context is empty. Strings containing `following::`, whitespace around
+`::`, QName lookalikes, following-sibling and invalid source must prove token/source fidelity. Cover
+all fenced overloads, wrong-kind getters and Select-on-scalar. Counter-based tests cover long source,
+many guards, materialization cancellation and a mutation between evaluation and final publication.
+Every valid following query must finish with its correct answer without requiring cancellation.
+
+Update the unsigned local-only packed consumer and API snapshots to this owned surface, superseding
+the identifiers document's proposed public MoveToId/UnderlyingObject cursor probe. Parse ID-declared
+XML, evaluate id(), inspect actual result references, edit/import the typed Attr and evaluate afresh;
+preserve internal direct MoveToId/session-invalidation tests. Exercise every typed result, detached
+following expressions, resolver reuse and stable published snapshots through the packed package on
+both TFMs without friend access or ProjectReference. A separate Native AOT pack/run remains required
+before claiming AOT support. The existing full parser and Browser migration gates remain mandatory.
 
 ## Cursor and logical-tree contract
 
@@ -246,14 +418,15 @@ must not gain network access merely to populate it.
 `CreateBrowserCompatibilityNavigator` factory after pinned AngleSharp.XPath 2.0.6 differential fixtures
 have established its name/prefix/namespace-axis behavior. Its namespace erasure preserves `//div`
 matching and resolved `svg:circle` not matching, including XML documents as today's Browser does.
-The standard public factories never call it. Do not add a public ignoreNamespaces switch. Remaining
+The standard public Evaluate/Select paths never call it. Do not add a public ignoreNamespaces switch. Remaining
 legacy axis quirks must be recorded as explicit Browser compatibility decisions, not copied silently
 into the standard navigator. No changes to generated bindings are needed merely to replace the
 hand-written evaluator calls; A1 hashes/dependency removal still require the migration owner.
 
-Browser node-set extraction must switch on UnderlyingObject, wrap actual Attr identities, and provide
+Native result materialization switches on UnderlyingObject; Browser extraction switches on those
+materialized identities, wraps actual Attr identities, and provides
 a namespace-result wrapper or explicit independently reviewed DOM limitation. It must not silently
-drop either kind. Scalar coercion of a node-set uses its first navigator's complete Value, never
+drop either kind. Scalar coercion of a node-set uses captured FirstNodeStringValue, never
 representative.TextContent for a coalesced text run or owner text for an attribute/namespace. Preserve
 native identity and ordered/first-node results. Capture a materialized result completely before script
 resumes; retain today's iterator-across-mutation behavior until a separately reviewed invalidation fix.
