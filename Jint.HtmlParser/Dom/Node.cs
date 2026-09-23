@@ -49,6 +49,23 @@ public abstract class Node
     // deep chain does not repeat the ancestor walk performed by public insertion.
     internal void AppendClonedChild(Node child) => LinkBefore(child, null);
 
+    // Trusted fresh-node parser insertion. The caller has established the full
+    // document shape and host-inclusive cycle conditions before this O(1) link.
+    internal void AppendParsedChild(Node child)
+    {
+        ArgumentNullException.ThrowIfNull(child);
+        EnsureContainer();
+        if (child is Document or DocumentFragment || child.ParentNode is not null ||
+            child.FirstChild is not null || child.LastChild is not null || child.ChildCount != 0 ||
+            child.PreviousSibling is not null || child.NextSibling is not null ||
+            !ReferenceEquals(child.OwnerDocument, this as Document ?? _ownerDocument))
+        {
+            throw new InvalidOperationException("Parsed insertion requires a fresh detached node with this owner.");
+        }
+
+        InsertValidated(child, null);
+    }
+
     // DOM Standard §4.2.3: pre-insert, replace and remove algorithms. Validation
     // precedes link changes so a failed insertion leaves both trees intact.
     public Node AppendChild(Node child) => InsertBefore(child, null);
@@ -77,7 +94,7 @@ public abstract class Node
             var node = incoming[i];
             Detach(node);
             Adopt(node, destinationDocument);
-            LinkBefore(node, referenceChild);
+            InsertValidated(node, referenceChild);
         }
 
         return child;
@@ -120,7 +137,7 @@ public abstract class Node
             var node = incoming[i];
             Detach(node);
             Adopt(node, destinationDocument);
-            LinkBefore(node, anchor);
+            InsertValidated(node, anchor);
         }
 
         return oldChild;
@@ -333,6 +350,12 @@ public abstract class Node
         }
 
         ChildCount++;
+    }
+
+    private void InsertValidated(Node node, Node? referenceChild)
+    {
+        LinkBefore(node, referenceChild);
+        // Native insertion semantics and mutation delivery share this boundary.
     }
 
     private static void Adopt(Node node, Document destination)

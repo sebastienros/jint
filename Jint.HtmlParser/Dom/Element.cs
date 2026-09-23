@@ -200,6 +200,42 @@ public sealed class Element : Node
         }
     }
 
+    // The parser supplies one duplicate-free, validated initial batch before the
+    // element can be observed. Attach in source order without repeated lookups.
+    internal void InitializeParsedAttributes(ReadOnlySpan<ParserAttribute> attributes, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (_attributes is not null || ParentNode is not null || ChildCount != 0)
+        {
+            throw new InvalidOperationException("Parsed attributes require a fresh, empty element.");
+        }
+
+        if (attributes.IsEmpty)
+        {
+            return;
+        }
+
+        var result = new List<Attr>(attributes.Length);
+        cancellationToken.ThrowIfCancellationRequested();
+        for (var i = 0; i < attributes.Length; i++)
+        {
+            if ((i & 63) == 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+
+            var parsed = attributes[i];
+            var attribute = new Attr(OwnerDocument!, parsed.NamespaceUri, parsed.LocalName, parsed.Prefix, parsed.Value)
+            {
+                OwnerElement = this
+            };
+            result.Add(attribute);
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        _attributes = result;
+    }
+
     private string NormalizeAttributeName(string name)
         => OwnerDocument!.Kind == DocumentKind.Html && NamespaceUri == Namespaces.Html
             ? QualifiedName.AsciiLower(name)

@@ -108,6 +108,11 @@ public sealed class Document : Node
         return new Element(this, name.NamespaceUri, name.LocalName, name.Prefix);
     }
 
+    // The parser has already validated and resolved all three name components.
+    // In particular, legal XML <xmlns/> must not pass through CreateElementNS.
+    internal Element CreateParsedElement(string? namespaceUri, string localName, string? prefix)
+        => new(this, namespaceUri, localName, prefix);
+
     public Attr CreateAttribute(string name)
     {
         ArgumentNullException.ThrowIfNull(name);
@@ -133,6 +138,7 @@ public sealed class Document : Node
 
         return new CDataSection(this, data);
     }
+    internal CDataSection CreateParsedCDataSection(string data) => new(this, data);
     public ProcessingInstruction CreateProcessingInstruction(string target, string data) => new(this, target, data);
     public DocumentType CreateDocumentType(string name, string publicId = "", string systemId = "") => new(this, name, publicId, systemId);
     public DocumentFragment CreateDocumentFragment() => new(this);
