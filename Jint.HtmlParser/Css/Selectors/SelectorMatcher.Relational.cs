@@ -102,10 +102,16 @@ internal static partial class SelectorMatcher
                         }
                         else if (checkedPosition.Part == 0)
                         {
-                            result = frame.Anchor is null || LeadingMatches(checkedPosition.Node,
-                                frame.Anchor, frame.Branch!.LeadingCombinator ?? Combinator.Descendant, ref work);
-                            stack.RemoveAt(stack.Count - 1);
-                            continue;
+                            if (frame.Anchor is null || LeadingMatches(checkedPosition.Node,
+                                    frame.Anchor, frame.Branch!.LeadingCombinator ?? Combinator.Descendant,
+                                    ref work))
+                            {
+                                result = true;
+                                stack.RemoveAt(stack.Count - 1);
+                                continue;
+                            }
+                            // Another predecessor may satisfy the anchor relationship.
+                            positions.RemoveAt(positions.Count - 1);
                         }
                         else
                         {
@@ -188,6 +194,13 @@ internal static partial class SelectorMatcher
                     }
                     var predicate = frame.Compound.Predicates[frame.Index++];
                     work.Step();
+                    if (frame.Node is DocumentFragment && predicate.Kind == PredicateKind.Has &&
+                        !HasFeaturelessCompanion(frame.Compound, ref work))
+                    {
+                        result = false;
+                        stack.RemoveAt(stack.Count - 1);
+                        break;
+                    }
                     if (predicate.Kind is not (PredicateKind.Is or PredicateKind.Where or
                             PredicateKind.Not or PredicateKind.Has) &&
                         !(predicate.Kind is PredicateKind.NthChild or PredicateKind.NthLastChild &&
@@ -233,7 +246,7 @@ internal static partial class SelectorMatcher
                     }
                     if (currentPredicate.Kind == PredicateKind.Has)
                     {
-                        if (frame.Node is not Element)
+                        if (frame.Node is not Element && frame.Node is not DocumentFragment)
                         {
                             result = false;
                             stack.RemoveAt(stack.Count - 1);
@@ -380,6 +393,18 @@ internal static partial class SelectorMatcher
         }
     }
 
+    // Selectors §3.2.1 permits :has() on a featureless subject only when its
+    // compound also contains another simple selector allowed to match it.
+    private static bool HasFeaturelessCompanion(Compound compound, ref Work work)
+    {
+        foreach (var predicate in compound.Predicates)
+        {
+            work.Step();
+            if (predicate.Kind != PredicateKind.Has) return true;
+        }
+        return false;
+    }
+
     private static Element? NextRelativeCandidate(EvaluationFrame frame, ComplexSelector branch, ref Work work)
     {
         if (branch.Compounds.Count == 1 && branch.LeadingCombinator == Combinator.NextSibling)
@@ -427,7 +452,9 @@ internal static partial class SelectorMatcher
             }
             if (next is null)
             {
-                if (!siblingMode || branch.LeadingCombinator == Combinator.NextSibling) return null;
+                // A leading + constrains the first compound, not the subject.
+                // A later sibling can be the subject of a complex relative selector.
+                if (!siblingMode) return null;
                 frame.RegionRoot = NextElementSibling(frame.RegionRoot, ref work);
                 frame.Cursor = null;
                 continue;

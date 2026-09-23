@@ -99,6 +99,42 @@ public sealed class SelectorRelationalMatcherTests
     }
 
     [Test]
+    public void RelativeHasBacktracksAfterALeftmostCompoundFailsItsAnchor()
+    {
+        var document = Document.CreateHtml();
+        var anchor = document.CreateElement("anchor");
+        var outer = document.CreateElement("a");
+        var inner = document.CreateElement("a");
+        var subject = document.CreateElement("b");
+        document.AppendChild(anchor);
+        anchor.AppendChild(outer);
+        outer.AppendChild(inner);
+        inner.AppendChild(subject);
+
+        SelectorMatcher.Matches(Parse(":has(> a b)"), anchor).Should().BeTrue();
+        SelectorMatcher.Matches(Parse(":has(> a > b)"), anchor).Should().BeFalse();
+    }
+
+    [Test]
+    public void LeadingAdjacentHasCanMatchALaterSiblingSubject()
+    {
+        var document = Document.CreateHtml();
+        var root = document.CreateElement("root");
+        var anchor = document.CreateElement("anchor");
+        var aside = document.CreateElement("aside");
+        var footer = document.CreateElement("footer");
+        document.AppendChild(root);
+        root.AppendChild(anchor);
+        root.AppendChild(aside);
+        root.AppendChild(footer);
+
+        SelectorMatcher.Matches(Parse(":has(+ aside + footer)"), anchor).Should().BeTrue();
+        SelectorMatcher.Matches(Parse(":has(+ aside ~ footer)"), anchor).Should().BeTrue();
+        SelectorMatcher.Matches(Parse(":has(~ aside + footer)"), anchor).Should().BeTrue();
+        SelectorMatcher.Matches(Parse(":has(+ footer)"), anchor).Should().BeFalse();
+    }
+
+    [Test]
     public void FilteredNthCountsOnlyMatchingSiblingsAndRequiresSubjectToMatch()
     {
         var document = Document.CreateHtml();
@@ -134,6 +170,15 @@ public sealed class SelectorRelationalMatcherTests
         SelectorMatcher.QuerySelectorAll(Parse(":is(:scope) > child"), fragment).Should().Equal(child);
         SelectorMatcher.QuerySelectorAll(Parse(":where(:scope) > child"), fragment).Should().Equal(child);
         SelectorMatcher.QuerySelectorAll(Parse(":not(.x) > child"), fragment).Should().BeEmpty();
+        SelectorMatcher.QuerySelectorAll(Parse(":scope:has(> child) > child"), fragment)
+            .Should().Equal(child);
+        SelectorMatcher.QuerySelectorAll(Parse(":has(> child):scope > child"), fragment)
+            .Should().Equal(child);
+        SelectorMatcher.QuerySelectorAll(Parse(":is(:scope:has(> child)) > child"), fragment)
+            .Should().Equal(child);
+        SelectorMatcher.QuerySelectorAll(Parse(":has(> child) > child"), fragment).Should().BeEmpty();
+        SelectorMatcher.QuerySelectorAll(Parse(":has(> child):has(> child) > child"), fragment)
+            .Should().BeEmpty();
     }
 
     [Test]
@@ -227,5 +272,29 @@ public sealed class SelectorRelationalMatcherTests
                 if (++checkpoints == 2) source.Cancel();
             }, source.Token));
         checkpoints.Should().Be(2);
+    }
+
+    [Test]
+    public void UnsuccessfulRelativeBacktrackingChecksCancellation()
+    {
+        var document = Document.CreateHtml();
+        var anchor = document.CreateElement("anchor");
+        document.AppendChild(anchor);
+        var current = anchor;
+        for (var index = 0; index < 24; index++)
+        {
+            var child = document.CreateElement("a");
+            current.AppendChild(child);
+            current = child;
+        }
+        current.AppendChild(document.CreateElement("b"));
+        using var source = new CancellationTokenSource();
+        var checkpoints = 0;
+        NUnit.Framework.Assert.Throws<OperationCanceledException>(() =>
+            SelectorMatcher.Matches(Parse(":has(> x a a b)"), anchor, null, () =>
+            {
+                if (++checkpoints == 1) source.Cancel();
+            }, source.Token));
+        checkpoints.Should().Be(1);
     }
 }
