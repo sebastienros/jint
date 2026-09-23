@@ -30,7 +30,8 @@ the earlier repository direction to retain AngleSharp.
 | X1 native XML/SVG parsing | `01a0cf3f-9380-7513-a351-4078c30d2241` | Reviewed facade/DTD fixes integrated; full corpus acceptance pending |
 | Native metadata, adoption and templates | `01a0cf47-2a27-7163-8f4e-951fbe9999f5` | Reviewed and integrated, including H4 prerequisites |
 | D4a iterative native traversal | `01a0cf51-0a0a-7753-8235-126166e1484c` | Reviewed and integrated, including template boundaries |
-| C2a selector compiler | `01a0cf57-a964-7922-9f56-3c568a0e51f1` | Under Astra review |
+| C2a selector compiler | `01a0cf57-a964-7922-9f56-3c568a0e51f1` | Reviewed corrections integrated |
+| C2b structural selector evaluator | `01a0cf84-0ef3-70f2-bb95-81bcea063cf7` | In progress |
 | H4 HTML tree construction | `01a0cf5a-9eed-7913-bcb4-e019fbbb5e8c` | Reviewed corrections integrated |
 | H5a HTML table structure | `01a0cf80-d939-7a72-829a-859771c547f0` | In progress; exclusive tree-builder owner |
 | D5 native mutation tracking | `01a0cf62-1c76-7411-ae32-d5d6beee5915` | Reviewed corrections integrated; native ownership retained for fixes |
@@ -103,6 +104,10 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
 - Corrected H4 document/head/body/text tree construction brings the combined suite
   to 1,004 passing tests across both frameworks, zero failures/skips. Table and
   later families remain explicit internal stops; no public HTML parser is claimed.
+- The corrected internal selector compiler brings the combined suite to 1,162
+  passing tests across both frameworks, zero failures/skips. Exact numeric conversion
+  includes deterministic cancellation and operand-work scaling guards. Matching and
+  public selector APIs remain separate unfinished work.
 - The unsigned packed consumer passed fresh local-package runs on net8.0 and
   net10.0, plus a Native AOT publish/run on osx-arm64 in its implementation worktree.
   Package inspection found no production dependencies. Its reviewed probes cover
@@ -205,3 +210,7 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   `1db66eced`, `43416aaea`); final Astra recheck clear.
 - `544cd394d`, `00aaf428f`: unsigned packed consumer and accurate package capability
   README (source `cb2311329`, `12106a58fa`); both Astra reviews clear.
+- `b50d2c20a`, `0ebf91c58`, `a9dfec5e3`, `8b12667f1`, `4cc1c9ada`, `f83bda131`:
+  selector compilation and reviewed grammar, offsets, balanced decimal conversion,
+  cancellation and complexity guards (source `d7e9fa6c4`, `de075bbb1`, `6ab888064`,
+  `18f6d9dc6`, `175d169bb`, `13643b781`); final Astra rechecks clear.
