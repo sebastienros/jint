@@ -201,6 +201,28 @@ yield NaN. atan(±infinity) yields ±90deg. For atan2 prefer the detailed §10.4
 the negative X-axis over the preceding prose's open lower bound: its −180deg special cases
 remain −180deg. Pin that interpretation and all signed-zero/infinity combinations in tests.
 
+Independent pre-dispatch review on 2026-09-23 reconfirmed this source conflict and the
+table-first decision. The exact pinned WPT computed/serialization fixtures below cover
+ordinary quadrants and several infinity/NaN cases, but not the disputed −180 boundary.
+These missing cases are authored spec fixtures, not upstream conformance credit. Require
+the following numeric matrix (finite representatives ±1, results in degrees), NaN in
+either argument, and direct zero-sign bit assertions:
+
+| Y / X | −infinity | −1 | −0 | +0 | +1 | +infinity |
+| --- | --- | --- | --- | --- | --- | --- |
+| −infinity | −135 | −90 | −90 | −90 | −90 | −45 |
+| −1 | −180 | −135 | −90 | −90 | −45 | −0 |
+| −0 | −180 | −180 | −180 | −0 | −0 | −0 |
+| +0 | 180 | 180 | 180 | +0 | +0 | +0 |
+| +1 | 180 | 135 | 90 | 90 | 45 | +0 |
+| +infinity | 135 | 90 | 90 | 90 | 90 | 45 |
+
+Also cover a nested atan2 with arithmetic-produced negative-zero Y and X=−1, divided
+by four, yielding −45deg rather than +45deg. Pinned references:
+[computed fixtures](https://github.com/web-platform-tests/wpt/blob/2136eb1501a106c42cd8977bb31c81b57b785bc8/css/css-values/acos-asin-atan-atan2-computed.html)
+and [serialization fixtures](https://github.com/web-platform-tests/wpt/blob/2136eb1501a106c42cd8977bb31c81b57b785bc8/css/css-values/acos-asin-atan-atan2-serialize.html).
+The separate Log interpretation below still needs its own pre-dispatch review.
+
 Pow's integer/odd checks inspect the binary64 value without an Int64 cast; every representable
 integer at magnitude >=2^53 is even. Implement the specified signed-zero/infinity table before
 CLR Math.Pow; NaN dominates even exponent zero. Sqrt retains −0. Hypot uses a scaled sum of
