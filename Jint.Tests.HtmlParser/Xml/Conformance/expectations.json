@@ -7611,5 +7611,420 @@
     "outputPolicy": "original-output-after-omission",
     "originalOutputSha256": "1bd38c87f16f322a65fac804ffc91ba3f18e2a67d054542511a4b0a70eaa618a",
     "review": "Pinned W3C INPUT 8ae08a0345c03e6492c881dca5bf2b8983ff246d5ed1f98bb05a06db68ded533 and OUTPUT 1bd38c87f16f322a65fac804ffc91ba3f18e2a67d054542511a4b0a70eaa618a; unread external subset 81189bc878dad0f5b3bb46926a95cf5d02efc3960d557672679ff2ddb328982c; The external subset is unread, but the surviving root text equals original upstream OUTPUT; one ExternalSubset omission occurs at the original doctype offset. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance. The pinned PubidLiteral has a trailing space; XML Infoset normalized public identifier property removes it before the skip and DocumentType observations: https://www.w3.org/TR/xml-infoset/#infoitem.doctype."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#valid-sa-001",
+    "outcome": "accept",
+    "skipped": [],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "Pinned W3C INPUT de65b0aef0514bd49ec2b2a415b0cc77c5af509ae0292111bb539f008a71fa0b and original OUTPUT cb80096267f115dc1bf811dc7a6297fa988cd00e80124eee3afbdf366f8be191; Plain start and end tags. XML 1.0 Fifth Edition \u00a72.8/\u00a73.1/\u00a74.1 https://www.w3.org/TR/xml/."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#valid-sa-002",
+    "outcome": "accept",
+    "skipped": [],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "Pinned W3C INPUT 9c8cd4004b4e99d7e0349198eff6b5788898d518a72e945690efa3aabb57e3c6 and original OUTPUT cb80096267f115dc1bf811dc7a6297fa988cd00e80124eee3afbdf366f8be191; Whitespace before the start-tag close is syntax only. XML 1.0 Fifth Edition \u00a72.8/\u00a73.1/\u00a74.1 https://www.w3.org/TR/xml/."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#valid-sa-003",
+    "outcome": "accept",
+    "skipped": [],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "Pinned W3C INPUT 3aee4bc3cda28b648b590c705ce19b4291ddcd4382d3249d420b98e9fb95dc8b and original OUTPUT cb80096267f115dc1bf811dc7a6297fa988cd00e80124eee3afbdf366f8be191; Whitespace before the end-tag close is syntax only. XML 1.0 Fifth Edition \u00a72.8/\u00a73.1/\u00a74.1 https://www.w3.org/TR/xml/."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#valid-sa-004",
+    "outcome": "accept",
+    "skipped": [],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [
+          {
+            "Name": "a1",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "v1"
+          }
+        ],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "Pinned W3C INPUT 57b2bc145c55e8774a08f7182456d140edc93f5126c9b0707a352afdf2dac3e0 and original OUTPUT 47a1224f5d7888088f53628f25cccd6256a573b000e4fa78fd89aea6cbe15078; Explicit double-quoted CDATA attribute. XML 1.0 Fifth Edition \u00a72.8/\u00a73.1/\u00a74.1 https://www.w3.org/TR/xml/."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#valid-sa-005",
+    "outcome": "accept",
+    "skipped": [],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [
+          {
+            "Name": "a1",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "v1"
+          }
+        ],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "Pinned W3C INPUT 8a50abecf1bd203df4bf3f8d54db5be292570280447eb2e38e496e80a56ecd6d and original OUTPUT 47a1224f5d7888088f53628f25cccd6256a573b000e4fa78fd89aea6cbe15078; Whitespace around the attribute equals sign is syntax only. XML 1.0 Fifth Edition \u00a72.8/\u00a73.1/\u00a74.1 https://www.w3.org/TR/xml/."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#valid-sa-006",
+    "outcome": "accept",
+    "skipped": [],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [
+          {
+            "Name": "a1",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "v1"
+          }
+        ],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "Pinned W3C INPUT d146d572ed53098a54497dc1bfd3600ccaf8a0471e35638f2328a938897d38aa and original OUTPUT 47a1224f5d7888088f53628f25cccd6256a573b000e4fa78fd89aea6cbe15078; Single-quoted attribute is canonically double-quoted in OUTPUT. XML 1.0 Fifth Edition \u00a72.8/\u00a73.1/\u00a74.1 https://www.w3.org/TR/xml/."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#valid-sa-007",
+    "outcome": "accept",
+    "skipped": [],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "Pinned W3C INPUT 7c6096f8ca3c6c9772343a0d10f6881f8fd77d4a00370444966521edc09875b6 and original OUTPUT 76ec65192d76a7450f77d8df7dbd40326ad553b6c030a5e9e1b9fbaeb71f1898; Decimal character reference yields one SPACE text node. XML 1.0 Fifth Edition \u00a72.8/\u00a73.1/\u00a74.1 https://www.w3.org/TR/xml/."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#valid-sa-008",
+    "outcome": "accept",
+    "skipped": [],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "&<>\"'",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "Pinned W3C INPUT 5c62d26d2c0988e8a91c127b189cbbf520144a94d3f41061c3480891d7f163c4 and original OUTPUT 95576943682f6fadbc254f6884dc4b8f01d2842c081c7478f96f0d2b46da5cfa; Five predefined references yield one text node; original OUTPUT escapes four characters. XML 1.0 Fifth Edition \u00a72.8/\u00a73.1/\u00a74.1 https://www.w3.org/TR/xml/."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#valid-sa-009",
+    "outcome": "accept",
+    "skipped": [],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "Pinned W3C INPUT e5047696f71ca9174f7d18118d915f4fa86adf5685d7cc13d51e218e2fc1b9c6 and original OUTPUT 76ec65192d76a7450f77d8df7dbd40326ad553b6c030a5e9e1b9fbaeb71f1898; Hexadecimal character reference yields one SPACE text node. XML 1.0 Fifth Edition \u00a72.8/\u00a73.1/\u00a74.1 https://www.w3.org/TR/xml/."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#valid-sa-010",
+    "outcome": "accept",
+    "skipped": [],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [
+          {
+            "Name": "a1",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "v1"
+          }
+        ],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "Pinned W3C INPUT e652841c04130c91b891128f80357f485ff84a352a6c460c16d6a6a833b1e5b5 and original OUTPUT 47a1224f5d7888088f53628f25cccd6256a573b000e4fa78fd89aea6cbe15078; Whitespace before the start-tag close follows an explicit attribute. XML 1.0 Fifth Edition \u00a72.8/\u00a73.1/\u00a74.1 https://www.w3.org/TR/xml/."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#valid-sa-011",
+    "outcome": "accept",
+    "skipped": [],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [
+          {
+            "Name": "a1",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "v1"
+          },
+          {
+            "Name": "a2",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "v2"
+          }
+        ],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "review": "Pinned W3C INPUT a95c220cf496c17bba8d575c052a7d12a87930a01b9e2c503b74bf71eed3667c and original OUTPUT 00a30838cbec6898163f140c7d97705096dc47acbf585f7d68e6832889378f39; Two explicit CDATA attributes retain source order. XML 1.0 Fifth Edition \u00a72.8/\u00a73.1/\u00a74.1 https://www.w3.org/TR/xml/."
   }
 ]
