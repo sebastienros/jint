@@ -6842,5 +6842,113 @@
     ],
     "notations": [],
     "review": "The malformed conditional section is confined to the unread external DTD. The pinned main document has a well-formed external doctype and no entity reference; no-fetch processing preserves its literal comments, elements, attributes and text.  Pinned main and unread external subset reviewed independently; XML 1.0 Fifth Edition §§3.4, 5.1 https://www.w3.org/TR/xml/#sec-conditional-sect."
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p73fail1",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "EntityDef has illegal CDATA token before its EntityValue. Malformed declaration in pinned main source begins at input offset 81; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition productions [73] EntityDef, [74] PEDef, [75] ExternalID, [76] NDataDecl https://www.w3.org/TR/xml/#sec-external-ent."
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p73fail2",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "EntityDef supplies two EntityValue literals. Malformed declaration in pinned main source begins at input offset 81; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition productions [73] EntityDef, [74] PEDef, [75] ExternalID, [76] NDataDecl https://www.w3.org/TR/xml/#sec-external-ent."
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p73fail3",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "NDataDecl is forbidden after an internal EntityValue. Malformed declaration in pinned main source begins at input offset 81; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition productions [73] EntityDef, [74] PEDef, [75] ExternalID, [76] NDataDecl https://www.w3.org/TR/xml/#sec-external-ent."
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p73fail4",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "EntityDef supplies no EntityValue or ExternalID. Malformed declaration in pinned main source begins at input offset 81; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition productions [73] EntityDef, [74] PEDef, [75] ExternalID, [76] NDataDecl https://www.w3.org/TR/xml/#sec-external-ent."
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p73fail5",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "EntityDef has NDATA without a preceding ExternalID. Malformed declaration in pinned main source begins at input offset 81; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition productions [73] EntityDef, [74] PEDef, [75] ExternalID, [76] NDataDecl https://www.w3.org/TR/xml/#sec-external-ent."
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p74fail1",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "Parameter entity PEDef cannot carry NDataDecl. Malformed declaration in pinned main source begins at input offset 55; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition productions [73] EntityDef, [74] PEDef, [75] ExternalID, [76] NDataDecl https://www.w3.org/TR/xml/#sec-external-ent."
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p74fail2",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "Parameter entity declaration omits required S before PEDef and supplies no EntityValue or ExternalID. Malformed declaration in pinned main source begins at input offset 55; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition productions [73] EntityDef, [74] PEDef, [75] ExternalID, [76] NDataDecl https://www.w3.org/TR/xml/#sec-external-ent."
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p74fail3",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "Parameter entity PEDef supplies both EntityValue and ExternalID. Malformed declaration in pinned main source begins at input offset 18; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition productions [73] EntityDef, [74] PEDef, [75] ExternalID, [76] NDataDecl https://www.w3.org/TR/xml/#sec-external-ent."
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p75fail1",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "ExternalID omits required whitespace after PUBLIC. Malformed declaration in pinned main source begins at input offset 18; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition productions [73] EntityDef, [74] PEDef, [75] ExternalID, [76] NDataDecl https://www.w3.org/TR/xml/#sec-external-ent."
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p75fail2",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "ExternalID omits required whitespace after SYSTEM. Malformed declaration in pinned main source begins at input offset 18; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition productions [73] EntityDef, [74] PEDef, [75] ExternalID, [76] NDataDecl https://www.w3.org/TR/xml/#sec-external-ent."
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p75fail3",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "ExternalID omits required whitespace between PublicLiteral and SystemLiteral. Malformed declaration in pinned main source begins at input offset 18; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition productions [73] EntityDef, [74] PEDef, [75] ExternalID, [76] NDataDecl https://www.w3.org/TR/xml/#sec-external-ent."
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p75fail4",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "SYSTEM ExternalID supplies two literals instead of one. Malformed declaration in pinned main source begins at input offset 18; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition productions [73] EntityDef, [74] PEDef, [75] ExternalID, [76] NDataDecl https://www.w3.org/TR/xml/#sec-external-ent."
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p75fail5",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "PUBLIC ExternalID inserts SYSTEM keyword before SystemLiteral. Malformed declaration in pinned main source begins at input offset 18; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition productions [73] EntityDef, [74] PEDef, [75] ExternalID, [76] NDataDecl https://www.w3.org/TR/xml/#sec-external-ent."
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p75fail6",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "PUBLIC ExternalID omits mandatory SystemLiteral. Malformed declaration in pinned main source begins at input offset 18; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition productions [73] EntityDef, [74] PEDef, [75] ExternalID, [76] NDataDecl https://www.w3.org/TR/xml/#sec-external-ent."
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p76fail1",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "NDataDecl omits required whitespace before NDATA. Malformed declaration in pinned main source begins at input offset 81; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition productions [73] EntityDef, [74] PEDef, [75] ExternalID, [76] NDataDecl https://www.w3.org/TR/xml/#sec-external-ent."
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p76fail2",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "NDataDecl uses lowercase ndata instead of exact NDATA. Malformed declaration in pinned main source begins at input offset 81; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition productions [73] EntityDef, [74] PEDef, [75] ExternalID, [76] NDataDecl https://www.w3.org/TR/xml/#sec-external-ent."
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p76fail3",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "NDataDecl omits required S and notation Name after NDATA. Malformed declaration in pinned main source begins at input offset 81; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition productions [73] EntityDef, [74] PEDef, [75] ExternalID, [76] NDataDecl https://www.w3.org/TR/xml/#sec-external-ent."
+  },
+  {
+    "key": "xmlconf/oasis/oasis.xml#o-p76fail4",
+    "outcome": "reject",
+    "skipped": [],
+    "review": "NDataDecl uses -unknot, which is not a Name; later notation declaration repeats that malformed Name. Malformed declaration in pinned main source begins at input offset 138; this is source evidence, not an asserted parser diagnostic position. XML 1.0 Fifth Edition productions [73] EntityDef, [74] PEDef, [75] ExternalID, [76] NDataDecl https://www.w3.org/TR/xml/#sec-external-ent."
   }
 ]
