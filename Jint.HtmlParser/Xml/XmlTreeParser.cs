@@ -342,7 +342,10 @@ internal sealed partial class XmlTreeParser
                 ? Namespaces.Xmlns
                 : attrSplit.Prefix is null ? null : ResolveRequired(attrSplit.Prefix, localBindings, attribute.Offset);
             if (!expanded.Add((attrNamespace, attrSplit.LocalName))) Error("xml/duplicate-attribute", attribute.Offset);
-            parsedAttributes.Add(new ParserAttribute(attrNamespace, attrSplit.LocalName, attrSplit.Prefix, attribute.Value));
+            var isDtdId = declaredAttributes is not null &&
+                          declaredAttributes.TryGetValue(attribute.Name, out var declaration) && declaration.IsId;
+            parsedAttributes.Add(new ParserAttribute(attrNamespace, attrSplit.LocalName, attrSplit.Prefix,
+                attribute.Value, isDtdId));
             WorkUnit();
         }
 

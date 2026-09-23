@@ -450,7 +450,8 @@ internal sealed partial class XmlTreeParser
                     replacementSource);
                 if (type != "CDATA") defaultValue = CollapseSpaces(defaultValue);
             }
-            declarations.Add(new XmlAttributeDeclaration(attributeName, type == "CDATA", defaultValue, fixedValue));
+            declarations.Add(new XmlAttributeDeclaration(attributeName, type == "CDATA", type == "ID",
+                defaultValue, fixedValue));
         }
         if (!_unreadParameterEntity || _standalone)
         {
@@ -953,7 +954,8 @@ internal sealed partial class XmlTreeParser
             or '-' or '\'' or '(' or ')' or '+' or ',' or '.' or '/' or ':' or '=' or '?' or ';' or '!'
             or '*' or '#' or '@' or '$' or '_' or '%';
 
-    private readonly record struct XmlAttributeDeclaration(string Name, bool CData, string? DefaultValue, bool Fixed);
+    private readonly record struct XmlAttributeDeclaration(string Name, bool CData, bool IsId, string? DefaultValue,
+        bool Fixed);
     private sealed class AttributeEntityFrame(string name, string value)
     {
         internal string Name { get; } = name;
