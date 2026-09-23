@@ -75,9 +75,9 @@ public sealed class MarkupParseException : Exception
 ```
 
 Options have a public parameterless constructor and reject null `Limits`. No strictness flag, resolver,
-DTD switch, MIME selector, diagnostic collector or public backend selection is needed. Syntax failures
-and the explicit external-entity support restriction below fail the call; there is no successful
-result with silently skipped referenced content. `Code` is a stable `xml/…`
+DTD switch, MIME selector, diagnostic collector or public backend selection is needed. Skipped entities
+are always reported in immutable document metadata below; they are not optional diagnostics or syntax
+failures. `Code` is a stable `xml/…`
 identifier and `Offset` is an original-input UTF-16 position, EOF at input length. For an error within
 replacement text, use the outermost invoking reference's source position; do not pretend it is an
 exact position inside the original string. Messages describe the error without including the input.
@@ -85,9 +85,7 @@ exact position inside the original string. Messages describe the error without i
 Required initial codes: `xml/unexpected-eof`, `xml/invalid-character`, `xml/invalid-name`,
 `xml/invalid-declaration`, `xml/invalid-markup`, `xml/mismatched-end-tag`, `xml/duplicate-attribute`,
 `xml/namespace-error`, `xml/undeclared-entity`, `xml/recursive-entity`, `xml/invalid-document`, and
-`xml/svg-root-required`, `xml/external-entity-unavailable`, and
-`xml/external-declaration-unavailable`. The last two report a supported-input restriction, not a
-well-formedness verdict. Additional DTD-specific codes may be added with fixtures. No English message
+`xml/svg-root-required`. Additional DTD-specific codes may be added with fixtures. No English message
 matching and no catch-all conversion. Null arguments are argument failures; cancellation remains
 `OperationCanceledException`; shared budget failures remain `ParseLimitException`.
 
@@ -153,39 +151,88 @@ syntax under the nonvalidating rules. Keep source-order specified attributes bef
 Never resolve arbitrary file/network entities. The known public identifiers in the HTML XML section
 use a pinned local named-entity catalog. Do not substitute a blanket `DtdProcessing.Prohibit` policy.
 
-### Fixed policy for unavailable external entities
+### Observable no-fetch entity handling
 
-[XML §4.4.3](https://www.w3.org/TR/xml/#include-if-valid) permits a nonvalidating processor to omit
-external parsed entity content but requires notifying its application; §4.4.8 applies the inclusion
-rule to parameter entities. The previous skip-without-result-metadata contract was insufficient.
-Choose explicit rejection, with no optional diagnostic switch or incomplete-success document:
+[XML §4.4.3](https://www.w3.org/TR/xml/#include-if-valid) requires notification when an external parsed
+entity is recognized but not read; §4.4.8 covers parameter-entity inclusion. Preserve nonvalidating
+no-fetch parsing and report omissions on the returned document. Do not turn skipped content into a
+syntax error. [WHATWG XML parsing](https://html.spec.whatwg.org/multipage/xhtml.html#parsing-xhtml-documents)
+provides the recognized local-catalog policy; other external content is not retrieved.
 
-- A declaration of an external general or parameter entity is allowed. At an actual reference that
-  would require unavailable external replacement text, throw `MarkupParseException` with
-  `xml/external-entity-unavailable`; its offset identifies the reference (or outermost source reference
-  for nested expansion). Do not substitute empty text and do not continue to return the partial tree.
-- An unknown external doctype subset alone is allowed and retained in the doctype's identifiers,
-  without retrieval. This does not claim declarations from that subset were processed. If an entity
-  reference has no known declaration and a declaration could reside in the unread subset, reject with
-  `xml/external-declaration-unavailable`. Otherwise use `xml/undeclared-entity`. XML's actual fatal
-  well-formedness restrictions still apply, including external references in attribute values;
-  an unavailable-resource code must not replace an already-established syntax error.
-- Resolve the pinned recognized catalog locally where applicable. Ordinary external-doctype XML/SVG
-  without unavailable references remains accepted; no network/file resolver is introduced. An external
-  parameter-entity reference requiring unavailable content fails immediately, so no subsequent
-  declarations are incorrectly processed past an unread parameter entity.
+The shared/native owner adds this exact public result surface in namespace `Jint.HtmlParser`, alongside
+the XML options/errors follow-up. The enum/struct belong in `Parsing/XmlSkippedEntity.cs`; the property
+and internal publication seam belong to the existing `Dom/Document.cs`. XML implementation owns neither
+file and must coordinate this prerequisite rather than add a second result wrapper:
 
-For example, `<!DOCTYPE r [<!ENTITY ext SYSTEM 'missing.xml'>]><r>&ext;</r>` fails at `&ext;`, while
-the same declaration with `<r/>` succeeds. `<!DOCTYPE r SYSTEM 'missing.dtd'><r/>` succeeds;
-adding `&unknown;` fails with the external-declaration code. Cover the corresponding parameter-entity
-case, nested references, standalone declarations, attribute-value restrictions and local catalog in tests.
+```csharp
+public enum XmlSkippedEntityKind { General, Parameter, ExternalSubset }
 
-This is a deliberate supported-input limitation: some well-formed XML is rejected, rather than returned
-with unread referenced content. [WHATWG's XML retrieval rules](https://html.spec.whatwg.org/multipage/xhtml.html#parsing-xhtml-documents)
-support the local-catalog/no-arbitrary-retrieval choice; they do **not** require this rejection policy.
-Browser exposes these two failures as a visible parsererror document and records the behavior as a
-compatibility deviation with a fixture. Do not claim unrestricted XML conformance or browser parity
-for unavailable external references. Future support must add an observable result contract first.
+public readonly struct XmlSkippedEntity
+{
+    public XmlSkippedEntityKind Kind { get; }
+    public string Name { get; }
+    public string? PublicId { get; }
+    public string? SystemId { get; }
+    public long Offset { get; }
+    internal XmlSkippedEntity(XmlSkippedEntityKind kind, string name,
+        string? publicId, string? systemId, long offset);
+}
+
+// Addition to Document; no setter and never null.
+public IReadOnlyList<XmlSkippedEntity> SkippedXmlEntities { get; }
+```
+
+`Name` omits `&`, `%` and `;`; it is empty for the external subset. Identifiers retain parsed declaration
+values without URI resolution; null means unavailable/absent, distinct from a declared empty string.
+A reference with no available declaration has both identifiers null. `Offset` is the original-input
+UTF-16 position of `&`/`%`, or the doctype's `<` for its external subset. Nested replacement references
+use the outermost source invocation position, as syntax errors do. Default struct values are safe:
+General, empty Name, null identifiers, offset zero. Returned records are notifications, not tree nodes.
+
+Record every skipped occurrence in processing order, including repeated references; do not silently
+truncate or deduplicate. Record an unread external subset once when its processing is skipped. Merely
+declaring an unused external entity adds no record. Read the recognized catalog locally and add no
+skip record for it. An unresolved declaration is not claimed to be an external declaration: its null
+identifiers explicitly indicate what the parser does not know.
+
+The normal path has a null backing field and returns a shared immutable empty list. Allocate a builder
+only at the first omission, reuse declaration strings, and freeze it once before returning the document.
+Expose a genuinely read-only view, not a mutable array through `IReadOnlyList`; retain no builder,
+source string, reader, resolver, callback or host object. No notification data is attached per node
+or allocated for ordinary tokens.
+There is no notification option or event. Limits/cancellation still cover processing repeated references.
+
+This is immutable parse provenance: later DOM mutations do not rewrite it. Fresh/HTML documents are
+empty; cloning a Document preserves the immutable snapshot (sharing is allowed), while importing or
+adopting individual nodes does not transfer it. Fragment parsing cannot introduce a DTD and never
+changes the owner's snapshot. Failure exposes no partial document. Browser keeps this native metadata
+without adding a JavaScript property, Page.Errors entry, host callback or parsererror for an omission.
+
+Behavioral rules:
+
+- A recognized external parsed general/parameter reference without local content contributes no
+  replacement characters and appends its record. Continue parsing. Known external references in
+  attribute values remain a fatal XML error, including indirect references; omission is no recovery
+  from well-formedness failures.
+- An unread external subset is retained in doctype identifiers and recorded. Missing entity declarations
+  are handled under XML's Entity Declared constraint: throw where it is a well-formedness requirement;
+  where it is only a validity requirement, omit with a General/Parameter record and null identifiers.
+  Do not invent declarations from the unread subset. Cover `standalone='yes'` separately.
+- After an unread parameter entity, keep checking internal-subset well-formedness but stop processing
+  subsequent entity/attribute-list declarations unless `standalone='yes'`, as XML §5.1 requires. This
+  changes default attributes and normalization, so it needs explicit fixtures, not just entity text tests.
+
+For `<!DOCTYPE r [<!ENTITY ext SYSTEM 'missing.xml'>]><r>a&ext;b</r>`, return text `ab` and one General
+record named `ext` with SystemId `missing.xml` at `&ext;`. Removing the reference yields no record.
+`<!DOCTYPE r SYSTEM 'missing.dtd'><r/>` returns one ExternalSubset record. Without a standalone-yes
+constraint, adding `&unknown;` also records a General occurrence with null identifiers. The corresponding
+undeclared reference without a DTD is fatal. Neither no-fetch example becomes a parsererror.
+
+Tests must assert record order, repeated/nested references and offsets, parameter-entity declaration
+processing, defaults before/after a skip, standalone conditions, namespace/attribute restrictions,
+local catalog, immutable exposure, empty fast path and clone/import/adoption provenance. B4 adds
+old/new Browser fixtures for these cases before deleting AngleSharp.Xml; any discovered discrepancy
+is reviewed explicitly rather than silently narrowing accepted input. No performance claim is implied.
 
 The catalog contains only declared character entities, not a validating XHTML DTD. Pin the upstream
 entity data and license, generate deterministically, and share authoritative data with H2 when practical;
@@ -212,8 +259,8 @@ completion, not development of the scanner. Browser still owns reactions, wrappe
 
 Browser catches only `MarkupParseException` when constructing its established parsererror document,
 with the requested content type and inert UTF-8 metadata. Error text is assigned as text, never parsed
-as markup. The two external-unavailable codes use explicit unsupported-input wording, not a false
-claim of malformed XML. It must not convert cancellation, `ParseLimitException`, programming exceptions or allocation
+as markup. Skipped-entity metadata is not a syntax failure. It must not convert cancellation,
+`ParseLimitException`, programming exceptions or allocation
 failures into successful parsererror documents. XML fragment bindings translate syntax errors to their
 required DOM exception, without changing the standalone exception contract.
 
@@ -235,7 +282,7 @@ DOM-foundation, HTML-tokenizer, CSS or Browser production edits in this assignme
    fragment ownership. This is a reviewable internal milestone, not completed X1; no public facade
    or claim of full XML support yet.
 2. **X1 DTD commit:** internal subset/declaration processing, expansion stack/cycle and work accounting,
-   defaults, pinned external catalog and the fixed external-reference rejection policy. Remove the
+   defaults, pinned external catalog and immutable skipped-entity notifications. Remove the
    temporary DTD rejection. Merge the shared options/error/expansion-budget and native metadata seams.
    Add the three real public methods, including the small strict SVG check. No placeholder APIs.
 3. **Integration handoff:** report fixtures, remaining native-template/SVG-state dependencies, and exact
