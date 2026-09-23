@@ -9687,5 +9687,450 @@
     "originalOutputSha256": "563a51d224af406f8b33b9763b530cde193c952fdb7add39d5cd58245f02116e",
     "outputAlternative": "<foo></foo>",
     "review": "Pinned W3C INPUT d58782564bf014ea15fdc5583addd1fe2547fd1399bcbbec702b1c726d6d2581, original OUTPUT 563a51d224af406f8b33b9763b530cde193c952fdb7add39d5cd58245f02116e, external members 5bd253befe789cff94fb7b501cc756ceac41bbcf38360968e357162602dfb43b; The unread external subset alone declares ent and its replacement chain. With no fetch, the root reference is undeclared and reported skipped; no root text survives. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_valid.xml#ibm-valid-P30-ibm30v01.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm30v01.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm30v01.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " tests extSubset with extSubsetDecl only in the dtd file ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "ee9e6da1a0950b1e622dd41b3d761ae04f796439029df10862ab200e1c11ce99",
+    "review": "Pinned W3C INPUT ace3c09d10a6a92f56325e061a0da2cb68cb98923b5b4697481234ffed2e16f5, unread external subset fe34d07374dd5e75c049a9bbd2a88ec05e14dbfcdecfbb2d1a6f27803f7a0749, original OUTPUT ee9e6da1a0950b1e622dd41b3d761ae04f796439029df10862ab200e1c11ce99; Unread external subset contains only declarations that do not change surviving content; original OUTPUT remains equal after omission. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_valid.xml#ibm-valid-P30-ibm30v02.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm30v02.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm30v02.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " tests extSubset with TextDecl and extSubsetDecl in the dtd file ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "ee9e6da1a0950b1e622dd41b3d761ae04f796439029df10862ab200e1c11ce99",
+    "review": "Pinned W3C INPUT 29a291a8419c59c6c9a1dd7718ec8432021c4566ef9425381a5c6b5aa234473c, unread external subset 7645697b8e023e19c7a4bd1276a6e87eb483706ab16dc86bccaa6628bd3edf04, original OUTPUT ee9e6da1a0950b1e622dd41b3d761ae04f796439029df10862ab200e1c11ce99; Unread external subset contains only declarations that do not change surviving content; original OUTPUT remains equal after omission. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_valid.xml#ibm-valid-P31-ibm31v01.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm31v01.dtd",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm31v01.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n   ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "tiger",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "\n",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " tests extSubsetDecl with combinations of markupdecls, conditionalSects, PEReferences and white spaces ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "1bdf5aaeaafee59281fc92138dc7499e703736c39a93d1d2fc238e5cfd3ac399",
+    "review": "Pinned W3C INPUT 240b01ef6088e5c88830f87aac47b842871e5d0c10d14ceb8c737319d6ac2f2d, unread external subset 7f206226ac397e3e04de2a60bc1f15a9c9919cecce56568887d895829848aea6, original OUTPUT 1bdf5aaeaafee59281fc92138dc7499e703736c39a93d1d2fc238e5cfd3ac399; Unread external subset contains only declarations that do not change surviving content; original OUTPUT remains equal after omission. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_valid.xml#ibm-valid-P32-ibm32v01.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm32v01.dtd",
+        "Offset": 40
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm32v01.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " Tests VC: Standalone Document Declaration with absent attribute that has default value and standalone is no ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "no-fetch-alternative",
+    "projectionSha256": "4cd38b107f6e95ee2881eebf374a65bb748276a5f0ca0b44a7bb1e026a5e690c",
+    "originalOutputSha256": "b7efc11ba32e31cd5fab75082ef92415bb1d2ea0391ddcd333c3f2b5808e5342",
+    "outputAlternative": "<animal></animal>",
+    "review": "Pinned W3C INPUT 104eb871d9eebf78d25cb7832006955e99df9487556fdbc6e00b866c5afdc764, unread external subset 40d0c898a768a5b7a7d7caadc77c26be93b046a49ef0d3457a974277b3a30707, original OUTPUT b7efc11ba32e31cd5fab75082ef92415bb1d2ea0391ddcd333c3f2b5808e5342; Unread external subset supplies the fetched attribute default or general entity; no fetch preserves only the source content and post-root comment. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_valid.xml#ibm-valid-P32-ibm32v02.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm32v02.dtd",
+        "Offset": 40
+      },
+      {
+        "Kind": "General",
+        "Name": "animal_content",
+        "PublicId": null,
+        "SystemId": null,
+        "Offset": 89
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm32v02.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " Tests VC: Standalone Document Declaration with external enitity reference and standalone is no ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "no-fetch-alternative",
+    "projectionSha256": "f4cd3f50befe0383f2939ea1e40dc780b2f0ae88202cb5ec4063a616a7a55faa",
+    "originalOutputSha256": "5d9bff4a58565aff14e8c86e3359bf53dd1743e68e7af18197cdec8fca0000e8",
+    "outputAlternative": "<animal></animal>",
+    "review": "Pinned W3C INPUT 69e53f0f624f91b591606620f184139c8500a7633b24c7e65132364d87d25843, unread external subset 191b66bf823775b8119787bdfc087b9a66b5e97221eeeed4379d4bd4f1da8c6f, original OUTPUT 5d9bff4a58565aff14e8c86e3359bf53dd1743e68e7af18197cdec8fca0000e8; Unread external subset supplies the fetched attribute default or general entity; no fetch preserves only the source content and post-root comment. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_valid.xml#ibm-valid-P32-ibm32v03.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm32v03.dtd",
+        "Offset": 40
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm32v03.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " Tests VC: Standalone Document Declaration with attribute values that need to be normalized and standalone is no ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "no-fetch-alternative",
+    "projectionSha256": "e62db8af686b75338903a675aa7b550b129a3bd74c54be16e174caf572e42c26",
+    "originalOutputSha256": "0be18d93b7714b8eb45e6c328d42633c667e5c761328057cdecd6f13ae0cb5f6",
+    "outputAlternative": "<animal></animal>",
+    "review": "Pinned W3C INPUT f0b3359428bdd34b08dc8fd533d8516ea0b209e3283df0c11cb97b9e0e1d033c, unread external subset 7312c71ade6781fb0f9275af6dd2bd167340404402d8bd5adf933b914173a425, original OUTPUT 0be18d93b7714b8eb45e6c328d42633c667e5c761328057cdecd6f13ae0cb5f6; Unread external subset supplies the fetched attribute default or general entity; no fetch preserves only the source content and post-root comment. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/ibm/ibm_oasis_valid.xml#ibm-valid-P32-ibm32v04.xml",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "ibm32v04.dtd",
+        "Offset": 40
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "ibm32v04.dtd"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "animal",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "This is a \n      ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Element",
+        "Name": "a",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 1,
+        "Kind": "Text",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": "  \n\nyellow tiger",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      },
+      {
+        "Depth": 0,
+        "Kind": "Comment",
+        "Name": null,
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": " Tests VC: Standalone Document Declaration with whitespace in mixed content ",
+        "Attributes": null,
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "no-fetch-alternative",
+    "projectionSha256": "7a1560493875134f3428a7b7d3fb9b72ad058d57a3447f63409c75c7e184b784",
+    "originalOutputSha256": "faae693cf5249417b762e175540cb1263bd8aadc93016ea56dc259da31eec952",
+    "outputAlternative": "<animal>This is a &#10;      <a></a>  &#10;&#10;yellow tiger</animal>",
+    "review": "Pinned W3C INPUT 6d41fb6472502f50fdc8198c96f0d5849e820282e43a1deee7f50bd5a5991bc3, unread external subset 9e93c03089b2f38ee45bebfa304c0f5c57274843a8987c3609a0aaa9ea6be410, original OUTPUT faae693cf5249417b762e175540cb1263bd8aadc93016ea56dc259da31eec952; Unread external subset supplies the fetched attribute default or general entity; no fetch preserves only the source content and post-root comment. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
   }
 ]
