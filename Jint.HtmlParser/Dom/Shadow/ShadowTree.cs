@@ -23,6 +23,7 @@ internal readonly record struct ShadowAttachmentContext(
 
 internal sealed class ShadowRoot : DocumentFragment
 {
+    internal SlotTreeState? SlotState;
     internal ShadowRoot(Element host, ShadowRootInit init, ShadowAttachmentContext context)
         : base(host.OwnerDocument!, host)
     {

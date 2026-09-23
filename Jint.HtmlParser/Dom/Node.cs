@@ -20,6 +20,11 @@ public abstract partial class Node
     private Document? _ownerDocument;
     internal HtmlFormIndex? FormIndex;
     internal HtmlFormWorkProbe? FormWorkProbe;
+    // Stored distribution and manual intent are separate DOM concepts. A manual
+    // link is weak so a detached slottable does not retain an otherwise dead slot.
+    internal Element? StoredAssignedSlot;
+    internal WeakReference<Element>? ManualSlot;
+    internal ShadowRoot? TreeShadowRoot;
 
     internal Node(Document? ownerDocument) => _ownerDocument = ownerDocument;
 
@@ -47,12 +52,12 @@ public abstract partial class Node
     /// <summary>Creates a detached copy of this node, optionally including descendants.</summary>
     public Node CloneNode(bool deep = false) => NodeCloner.Clone(this, this as Document ?? _ownerDocument!, deep);
 
-    // A clone is already valid by its source tree. D6s2/D6s3 must add the
-    // insertion's assignment and slot-signal steps here, including for copied
-    // fallback children, without repeating public ancestor validation.
+    // A clone is already valid by its source tree. Preserve the insertion's
+    // assignment steps without repeating public ancestor validation.
     internal void AppendClonedChild(Node child)
     {
         LinkBefore(child, null);
+        SlotAssignment.AfterInsertion(this, child, null);
         HtmlFormAssociation.Inserted(child);
     }
 
@@ -527,6 +532,7 @@ public abstract partial class Node
         node.PreviousSibling = null;
         node.NextSibling = null;
         (parent as Document ?? parent._ownerDocument!).MarkMutation();
+        SlotAssignment.AfterRemoval(parent, node);
         HtmlFormAssociation.Removed(node, formRemoval);
         if (!suppressRecord)
         {
@@ -565,6 +571,7 @@ public abstract partial class Node
         var previousSibling = referenceChild is null ? LastChild : referenceChild.PreviousSibling;
         LinkBefore(node, referenceChild);
         (this as Document ?? _ownerDocument!).MarkMutation();
+        SlotAssignment.AfterInsertion(this, node, referenceChild);
         HtmlFormAssociation.Inserted(node);
         if (!suppressRecord)
         {

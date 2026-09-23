@@ -12,6 +12,7 @@ public sealed class Element : Node
     private List<Attr>? _attributes;
     private HtmlElementState? _htmlState;
     internal HtmlFormAssociationState? FormAssociationState;
+    internal SlotElementState? SlotState;
     internal bool WasInserted { get; set; }
 
     internal HtmlElementState? GetHtmlState()
@@ -182,6 +183,7 @@ public sealed class Element : Node
             OwnerDocument!.MarkMutation();
             HtmlFormAssociation.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
                 oldValue, attribute.Value);
+            SlotAssignment.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName);
             MutationTracking.QueueAttribute(this, attribute.LocalName, attribute.NamespaceUri, oldValue, matches);
         }
 
@@ -219,6 +221,7 @@ public sealed class Element : Node
         OwnerDocument!.MarkMutation();
         HtmlFormAssociation.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
             attribute.Value, null);
+        SlotAssignment.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName);
         MutationTracking.QueueAttribute(this, attribute.LocalName, attribute.NamespaceUri, attribute.Value);
         return attribute;
     }
@@ -359,6 +362,7 @@ public sealed class Element : Node
         OwnerDocument!.MarkMutation();
         HtmlFormAssociation.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
             null, attribute.Value);
+        SlotAssignment.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName);
         MutationTracking.QueueAttribute(this, attribute.LocalName, attribute.NamespaceUri, null);
     }
 
