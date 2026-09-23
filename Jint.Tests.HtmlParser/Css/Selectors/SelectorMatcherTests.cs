@@ -331,9 +331,11 @@ public sealed class SelectorMatcherTests
             SelectorMatcher.Matches(Parse("[data-long*=missing]"), element, null, () =>
             {
                 checkpoints++;
-                if (checkpoints == 2) source.Cancel();
+                // The first two checkpoints bracket KMP setup; the fifth is
+                // reached while scanning the long, unsuccessful attribute value.
+                if (checkpoints == 5) source.Cancel();
             }, source.Token));
-        checkpoints.Should().Be(2);
+        checkpoints.Should().Be(5);
     }
 
     [Test]
