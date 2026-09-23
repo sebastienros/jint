@@ -140,20 +140,35 @@ internal static class XmlEvidence
 
     private static bool SameOrigin(Uri left, Uri right) =>
         left.Scheme.Equals(right.Scheme, StringComparison.OrdinalIgnoreCase) &&
-        left.Authority.Equals(right.Authority, StringComparison.OrdinalIgnoreCase);
+        left.IdnHost.Equals(right.IdnHost, StringComparison.OrdinalIgnoreCase) &&
+        left.Port == right.Port &&
+        left.UserInfo.Equals(right.UserInfo, StringComparison.Ordinal);
+
+    private static bool ResolvesTo(Uri inputBase, string reference, Uri target)
+    {
+        var resolved = new Uri(inputBase, reference);
+        return SameOrigin(resolved, target) &&
+               resolved.AbsolutePath.Equals(target.AbsolutePath, StringComparison.Ordinal) &&
+               resolved.Query.Equals(target.Query, StringComparison.Ordinal) &&
+               resolved.Fragment.Equals(target.Fragment, StringComparison.Ordinal);
+    }
 
     private static string ShortestRelativeReference(Uri inputBase, Uri target)
     {
         var shortest = inputBase.MakeRelativeUri(target).OriginalString;
-        var rooted = target.AbsolutePath + target.Query;
-        if (rooted.Length < shortest.Length && new Uri(inputBase, rooted).Equals(target))
-            shortest = rooted;
-        if (inputBase.AbsolutePath == target.AbsolutePath)
+        if (!ResolvesTo(inputBase, shortest, target))
+            throw new XmlOutputObservationGapException("Relative system identifier does not resolve to its target");
+        void Consider(string candidate)
         {
-            var sameFile = target.Query;
-            if (sameFile.Length < shortest.Length && new Uri(inputBase, sameFile).Equals(target))
-                shortest = sameFile;
+            if (candidate.Length < shortest.Length && ResolvesTo(inputBase, candidate, target))
+                shortest = candidate;
         }
+        var rooted = target.AbsolutePath + target.Query;
+        Consider(rooted);
+        if (inputBase.AbsolutePath == target.AbsolutePath)
+            Consider(target.Query);
+        if (shortest.EndsWith('/'))
+            Consider(shortest[..^1]);
         return shortest;
     }
 

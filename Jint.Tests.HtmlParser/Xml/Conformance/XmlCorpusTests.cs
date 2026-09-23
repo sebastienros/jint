@@ -202,6 +202,12 @@ public class XmlCorpusTests
         XmlEvidence.CanonicalSystemId("?q=1", inputBase).Should().Be("?q=1");
         XmlEvidence.CanonicalSystemId("https://xmlconf.invalid/xmlconf/probes/a/../n", inputBase)
             .Should().Be("n");
+        XmlEvidence.CanonicalSystemId("https://xmlconf.invalid/xmlconf/probes/", inputBase)
+            .Should().Be(".");
+        XmlEvidence.CanonicalSystemId("https://xmlconf.invalid/xmlconf/", inputBase)
+            .Should().Be("..");
+        XmlEvidence.CanonicalSystemId("https://user@xmlconf.invalid/xmlconf/probes/n", inputBase)
+            .Should().Be("https://user@xmlconf.invalid/xmlconf/probes/n");
         var deepBase = XmlEvidence.CorpusInputBase("xmlconf/a/b/c/d/input.xml");
         XmlEvidence.CanonicalSystemId("https://xmlconf.invalid/x", deepBase).Should().Be("/x");
         XmlEvidence.CorpusInputBase("xmlconf/probes/in#put?.xml").AbsoluteUri
