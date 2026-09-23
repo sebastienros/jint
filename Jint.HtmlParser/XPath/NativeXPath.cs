@@ -38,12 +38,9 @@ internal static class NativeXPath
             throw new ArgumentException("An XMLNS declaration has no XPath attribute position.", nameof(context));
         }
 
-        if (context.OwnerElement is not { } owner)
-        {
-            throw new NotSupportedException("Detached attribute XPath contexts require a mutation contract.");
-        }
-
-        var session = new XPathReadSession(owner, checkpoint, cancellationToken);
+        var session = context.OwnerElement is { } owner
+            ? new XPathReadSession(owner, checkpoint, cancellationToken)
+            : new XPathReadSession(context, checkpoint, cancellationToken);
         return new NativeXPathNavigator(session, context);
     }
 }

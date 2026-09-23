@@ -14,7 +14,8 @@ internal enum XPathWorkStage
     NamespaceScan,
     NamespaceIndex,
     OrderIndex,
-    NameAtomization
+    NameAtomization,
+    IdIndex
 }
 
 internal sealed class XPathReadSession
@@ -32,6 +33,7 @@ internal sealed class XPathReadSession
     private readonly Dictionary<(Element, string), int> _namespaceOrder = new();
     private readonly Dictionary<Node, string> _textValues = new();
     private Dictionary<Node, int>? _order;
+    private Dictionary<string, Element>? _ids;
 
     internal XPathReadSession(Node context, Action<XPathWorkStage, int>? checkpoint, CancellationToken token)
     {
@@ -45,12 +47,32 @@ internal sealed class XPathReadSession
         }
 
         _token.ThrowIfCancellationRequested();
-        Root = Top(context);
+        TreeRoot = Top(context);
+        RootIdentity = TreeRoot;
         NameTable = new NameTable();
         Check();
     }
 
-    internal Node Root { get; }
+    internal XPathReadSession(Attr context, Action<XPathWorkStage, int>? checkpoint, CancellationToken token)
+    {
+        _token = token;
+        _checkpoint = checkpoint;
+        _document = context.OwnerDocument;
+        _stamp = _document.MutationStamp;
+        if (_stamp == ulong.MaxValue)
+        {
+            throw new InvalidOperationException("A saturated mutation stamp cannot prove XPath view freshness.");
+        }
+
+        DetachedAttributeRoot = context;
+        RootIdentity = context;
+        NameTable = new NameTable();
+        Check();
+    }
+
+    internal Node? TreeRoot { get; }
+    internal Attr? DetachedAttributeRoot { get; }
+    internal object RootIdentity { get; }
     internal XmlNameTable NameTable { get; }
 
     private Node Top(Node node)
@@ -83,7 +105,10 @@ internal sealed class XPathReadSession
     {
         _token.ThrowIfCancellationRequested();
         if (_document.MutationStamp != _stamp || _stamp == ulong.MaxValue ||
-            !ReferenceEquals(Root as Document ?? Root.OwnerDocument, _document) || Root.ParentNode is not null)
+            (TreeRoot is { } root &&
+             (!ReferenceEquals(root as Document ?? root.OwnerDocument, _document) || root.ParentNode is not null)) ||
+            (DetachedAttributeRoot is { } attribute &&
+             (!ReferenceEquals(attribute.OwnerDocument, _document) || attribute.OwnerElement is not null)))
         {
             throw new InvalidOperationException("The native XPath view was invalidated by mutation.");
         }
@@ -422,6 +447,64 @@ internal sealed class XPathReadSession
         return _bindings.TryGetValue((owner, prefix), out var binding) && binding.NamespaceUri == uri ? binding : null;
     }
 
+    // XPath 1.0 §4.1: ID lookup uses DTD-typed attributes in ordinary tree order.
+    internal Element? FindId(string id)
+    {
+        Check();
+        if (id.Length == 0 || TreeRoot is null) return null;
+        Work(id.Length, XPathWorkStage.IdIndex);
+        Check();
+        if (_ids is null)
+        {
+            Check();
+            var index = new Dictionary<string, Element>(StringComparer.Ordinal);
+            Check();
+            var current = TreeRoot;
+            while (current is not null)
+            {
+                Work(1, XPathWorkStage.IdIndex);
+                if (current is Element element)
+                {
+                    foreach (var attribute in element.Attributes)
+                    {
+                        // Count every native attribute, including untyped and XMLNS attributes.
+                        Work(1 + attribute.LocalName.Length, XPathWorkStage.IdIndex);
+                        var value = attribute.Value;
+                        Work(value.Length, XPathWorkStage.IdIndex);
+                        if (attribute.IsDtdId && value.Length != 0)
+                        {
+                            Check();
+                            index.TryAdd(value, element);
+                            Check();
+                        }
+                    }
+                }
+
+                if (current.FirstChild is { } child)
+                {
+                    current = child;
+                    continue;
+                }
+
+                while (!ReferenceEquals(current, TreeRoot) && current.NextSibling is null)
+                {
+                    Work(1, XPathWorkStage.IdIndex);
+                    current = current.ParentNode!;
+                }
+
+                current = ReferenceEquals(current, TreeRoot) ? null : current.NextSibling;
+            }
+
+            Check();
+            _ids = index;
+        }
+
+        Check();
+        var found = _ids.TryGetValue(id, out var result) ? result : null;
+        Check();
+        return found;
+    }
+
     internal int OrderOf(Node node)
     {
         Check();
@@ -429,7 +512,7 @@ internal sealed class XPathReadSession
         {
             var index = new Dictionary<Node, int>();
             var stack = new Stack<Node>();
-            stack.Push(Root);
+            stack.Push(TreeRoot!);
             while (stack.TryPop(out var current))
             {
                 Work(1, XPathWorkStage.OrderIndex);

@@ -226,6 +226,26 @@ internal sealed class NativeXPathNavigator : XPathNavigator
         return true;
     }
 
+    public override bool MoveToFollowing(XPathNodeType type, XPathNavigator? end)
+    {
+        _session.Check();
+        if (end is NativeXPathNavigator native) native._session.Check();
+        if (_session.DetachedAttributeRoot is not null) return false;
+        var found = base.MoveToFollowing(type, end);
+        _session.Check();
+        return found;
+    }
+
+    public override bool MoveToFollowing(string localName, string namespaceURI, XPathNavigator? end)
+    {
+        _session.Check();
+        if (end is NativeXPathNavigator native) native._session.Check();
+        if (_session.DetachedAttributeRoot is not null) return false;
+        var found = base.MoveToFollowing(localName, namespaceURI, end);
+        _session.Check();
+        return found;
+    }
+
     public override bool MoveToPrevious()
     {
         _session.Check();
@@ -246,7 +266,12 @@ internal sealed class NativeXPathNavigator : XPathNavigator
             Node node => node.ParentNode,
             _ => null
         };
-        if (parent is null) return false;
+        if (parent is null)
+        {
+            _session.Work();
+            _session.Check();
+            return false;
+        }
         Set(parent);
         return true;
     }
@@ -254,7 +279,7 @@ internal sealed class NativeXPathNavigator : XPathNavigator
     public override void MoveToRoot()
     {
         _session.Check();
-        Set(_session.Root);
+        Set(_session.RootIdentity);
     }
 
     public override bool MoveToFirstAttribute()
@@ -325,7 +350,16 @@ internal sealed class NativeXPathNavigator : XPathNavigator
     public override bool MoveToId(string id)
     {
         _session.Check();
-        throw new NotSupportedException("DTD-typed ID metadata is not yet represented by the native tree.");
+        ArgumentNullException.ThrowIfNull(id);
+        var found = _session.FindId(id);
+        if (found is null)
+        {
+            _session.Check();
+            return false;
+        }
+
+        Set(found);
+        return true;
     }
 
     public override bool MoveTo(XPathNavigator other)
@@ -333,7 +367,7 @@ internal sealed class NativeXPathNavigator : XPathNavigator
         _session.Check();
         if (other is not NativeXPathNavigator native) return false;
         native._session.Check();
-        if (!ReferenceEquals(_session.Root, native._session.Root)) return false;
+        if (!ReferenceEquals(_session.RootIdentity, native._session.RootIdentity)) return false;
         if (native._position is XPathNamespaceBinding binding)
         {
             var rebound = _session.BindingFor(binding.OwnerElement, binding.Prefix, binding.NamespaceUri);
@@ -362,7 +396,7 @@ internal sealed class NativeXPathNavigator : XPathNavigator
         _session.Check();
         if (other is not NativeXPathNavigator native) return false;
         native._session.Check();
-        if (!ReferenceEquals(_session.Root, native._session.Root)) return false;
+        if (!ReferenceEquals(_session.RootIdentity, native._session.RootIdentity)) return false;
         if (_position is XPathNamespaceBinding a && native._position is XPathNamespaceBinding b)
         {
             return ReferenceEquals(a.OwnerElement, b.OwnerElement) && a.Prefix == b.Prefix && a.NamespaceUri == b.NamespaceUri;
@@ -376,7 +410,7 @@ internal sealed class NativeXPathNavigator : XPathNavigator
         _session.Check();
         if (other is not NativeXPathNavigator native) return XmlNodeOrder.Unknown;
         native._session.Check();
-        if (!ReferenceEquals(_session.Root, native._session.Root)) return XmlNodeOrder.Unknown;
+        if (!ReferenceEquals(_session.RootIdentity, native._session.RootIdentity)) return XmlNodeOrder.Unknown;
         if (IsSamePosition(other)) return XmlNodeOrder.Same;
         var left = Key(_position);
         var right = Key(native._position);

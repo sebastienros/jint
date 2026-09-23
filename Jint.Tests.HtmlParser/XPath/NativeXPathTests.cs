@@ -188,7 +188,7 @@ public sealed class NativeXPathTests
     }
 
     [Test]
-    public void DetachedBoundariesAndUnsupportedIdAreExplicit()
+    public void DetachedBoundariesAndIdMissAreExplicit()
     {
         var document = Document.CreateXml();
         var detached = document.CreateElement("outer");
@@ -202,8 +202,8 @@ public sealed class NativeXPathTests
         absolute.MoveNext().Should().BeTrue();
         absolute.Current!.UnderlyingObject.Should().BeSameAs(detached);
         absolute.MoveNext().Should().BeFalse();
-        Assert.Throws<NotSupportedException>(() => nav.MoveToId("x"));
-        Assert.Throws<NotSupportedException>(() => NativeXPath.CreateNavigator(document.CreateAttribute("a"), default));
+        nav.MoveToId("x").Should().BeFalse();
+        NativeXPath.CreateNavigator(document.CreateAttribute("a"), default).NodeType.Should().Be(XPathNodeType.Attribute);
         Assert.Throws<ArgumentException>(() => NativeXPath.CreateNavigator(document.CreateTextNode(""), default));
         Assert.Throws<ArgumentException>(() => NativeXPath.CreateNavigator(document.CreateDocumentType("r"), default));
         var fragment = document.CreateDocumentFragment();
