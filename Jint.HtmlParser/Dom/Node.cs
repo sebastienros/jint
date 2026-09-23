@@ -95,6 +95,12 @@ public abstract class Node
 
         var incoming = CollectIncoming(child);
         ValidateInsertion(incoming, oldChild, oldChild);
+        var destinationDocument = this as Document ?? _ownerDocument!;
+        if (child is DocumentFragment)
+        {
+            Adopt(child, destinationDocument);
+        }
+
         var anchor = oldChild.NextSibling;
         while (anchor is not null && incoming.Contains(anchor))
         {
@@ -102,7 +108,6 @@ public abstract class Node
         }
 
         Detach(oldChild);
-        var destinationDocument = this as Document ?? _ownerDocument!;
         for (var i = 0; i < incoming.Count; i++)
         {
             var node = incoming[i];
@@ -171,7 +176,7 @@ public abstract class Node
                 throw DomException.Hierarchy();
             }
 
-            if (node is Text && this is Document)
+            if (node is Text or CDataSection && this is Document)
             {
                 throw DomException.Hierarchy();
             }
@@ -193,6 +198,15 @@ public abstract class Node
 
     private void ValidateDocumentOrder(Incoming incoming, Node? referenceChild, Node? replacedChild)
     {
+        // Appending comments and processing instructions is common while parsing a
+        // document. They cannot affect its one-element/doctype order, so avoid a
+        // whole-document copy for each such append.
+        if (referenceChild is null && replacedChild is null && incoming.Count == 1 &&
+            incoming[0] is Comment or ProcessingInstruction)
+        {
+            return;
+        }
+
         var resulting = new List<Node>(ChildCount + incoming.Count);
         var insertionIndex = 0;
         for (var current = FirstChild; current is not null; current = current.NextSibling)
@@ -309,15 +323,20 @@ public abstract class Node
             return;
         }
 
-        node._ownerDocument = destination;
-        if (node is Element element)
+        var pending = new Stack<Node>();
+        pending.Push(node);
+        while (pending.TryPop(out var current))
         {
-            element.AdoptAttributes(destination);
-        }
+            current._ownerDocument = destination;
+            if (current is Element element)
+            {
+                element.AdoptAttributes(destination);
+            }
 
-        for (var child = node.FirstChild; child is not null; child = child.NextSibling)
-        {
-            Adopt(child, destination);
+            for (var child = current.FirstChild; child is not null; child = child.NextSibling)
+            {
+                pending.Push(child);
+            }
         }
     }
 

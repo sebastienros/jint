@@ -6,7 +6,7 @@ namespace Jint.Tests.HtmlParser;
 public class AttributeTests
 {
     [Test]
-    public void OrderedAttributesKeepIdentityAcrossValueAndPrefixChanges()
+    public void OrderedAttributesKeepIdentityAcrossValueUpdates()
     {
         var document = Document.CreateHtml();
         var element = document.CreateElement("DIV");
@@ -20,10 +20,51 @@ public class AttributeTests
         element.SetAttributeNS("urn:test", "b:mode", "two");
         element.GetAttributeNode("ID").Should().BeSameAs(id);
         element.GetAttributeNodeNS("urn:test", "mode").Should().BeSameAs(mode);
-        element.Attributes.Select(attribute => attribute.Name).Should().Equal("id", "b:mode", "class");
+        element.Attributes.Select(attribute => attribute.Name).Should().Equal("id", "a:mode", "class");
         element.GetAttribute("ID").Should().Be("second");
         element.GetAttributeNS("urn:test", "mode").Should().Be("two");
         element.AttributeCount.Should().Be(3);
+    }
+
+    [Test]
+    public void QualifiedNameOperationsFindNamespacedAttributes()
+    {
+        var element = Document.CreateXml().CreateElement("item");
+        element.SetAttributeNS(Namespaces.Xml, "xml:lang", "en");
+        var attribute = element.GetAttributeNodeNS(Namespaces.Xml, "lang")!;
+
+        element.GetAttribute("xml:lang").Should().Be("en");
+        element.GetAttributeNode("xml:lang").Should().BeSameAs(attribute);
+        element.SetAttribute("xml:lang", "fr");
+        element.GetAttributeNodeNS(Namespaces.Xml, "lang").Should().BeSameAs(attribute);
+        attribute.Value.Should().Be("fr");
+        element.RemoveAttribute("xml:lang");
+        attribute.OwnerElement.Should().BeNull();
+        element.AttributeCount.Should().Be(0);
+    }
+
+    [Test]
+    public void SvgAttributesPreserveCaseInHtmlDocuments()
+    {
+        var document = Document.CreateHtml();
+        var svg = document.CreateElementNS(Namespaces.Svg, "svg");
+        svg.SetAttribute("viewBox", "0 0 1 1");
+        svg.GetAttribute("viewBox").Should().Be("0 0 1 1");
+        svg.GetAttribute("VIEWBOX").Should().BeNull();
+        svg.Attributes.Single().Name.Should().Be("viewBox");
+
+        var html = document.CreateElement("div");
+        html.SetAttribute("DATA-X", "v");
+        html.Attributes.Single().Name.Should().Be("data-x");
+    }
+
+    [Test]
+    public void AttributesEnumeratorDoesNotExposeMutableStore()
+    {
+        var element = Document.CreateHtml().CreateElement("div");
+        element.SetAttribute("id", "x");
+        Assert.That(element.Attributes is ICollection<Attr>, Is.False);
+        element.Attributes.Single().OwnerElement.Should().BeSameAs(element);
     }
 
     [Test]
@@ -87,5 +128,28 @@ public class AttributeTests
         document.CreateDocumentType("").Name.Should().BeEmpty();
         Assert.That(Assert.Throws<DomException>(() => document.CreateDocumentType("a>b"))!.Name, Is.EqualTo("InvalidCharacterError"));
         document.CreateElement("x:y").LocalName.Should().Be("x:y");
+        document.CreateElement("a@b").LocalName.Should().Be("a@b");
+        document.CreateElementNS("urn:test", "p:a@b").LocalName.Should().Be("a@b");
+        document.CreateAttribute("1").LocalName.Should().Be("1");
+        document.CreateAttributeNS("urn:test", "p:1").LocalName.Should().Be("1");
+        Assert.That(Assert.Throws<DomException>(() => document.CreateElementNS(null, ":x"))!.Name, Is.EqualTo("InvalidCharacterError"));
+        Assert.That(Assert.Throws<DomException>(() => document.CreateAttributeNS(null, ":x"))!.Name, Is.EqualTo("InvalidCharacterError"));
+        Assert.That(Assert.Throws<DomException>(() => document.CreateElement("_a?"))!.Name, Is.EqualTo("InvalidCharacterError"));
+    }
+
+    [Test]
+    public void PublicDataSettersRejectNull()
+    {
+        var document = Document.CreateXml();
+        var text = document.CreateTextNode("x");
+        var comment = document.CreateComment("x");
+        var cdata = document.CreateCDataSection("x");
+        var pi = document.CreateProcessingInstruction("target", "x");
+        var attribute = document.CreateAttribute("id");
+        Assert.Throws<ArgumentNullException>(() => text.Data = null!);
+        Assert.Throws<ArgumentNullException>(() => comment.Data = null!);
+        Assert.Throws<ArgumentNullException>(() => cdata.Data = null!);
+        Assert.Throws<ArgumentNullException>(() => pi.Data = null!);
+        Assert.Throws<ArgumentNullException>(() => attribute.Value = null!);
     }
 }

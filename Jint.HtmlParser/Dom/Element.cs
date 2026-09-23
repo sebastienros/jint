@@ -18,7 +18,19 @@ public sealed class Element : Node
     public string? Prefix { get; }
     public string TagName => Prefix is null ? LocalName : string.Concat(Prefix, ":", LocalName);
     public int AttributeCount => _attributes?.Count ?? 0;
-    public IEnumerable<Attr> Attributes => _attributes ?? [];
+    public IEnumerable<Attr> Attributes
+    {
+        get
+        {
+            if (_attributes is not null)
+            {
+                foreach (var attribute in _attributes)
+                {
+                    yield return attribute;
+                }
+            }
+        }
+    }
 
     public string? GetAttribute(string name) => GetAttributeNode(name)?.Value;
 
@@ -33,7 +45,7 @@ public sealed class Element : Node
 
         foreach (var attribute in _attributes)
         {
-            if (attribute.NamespaceUri is null && attribute.LocalName == name)
+            if (attribute.Name == name)
             {
                 return attribute;
             }
@@ -68,6 +80,7 @@ public sealed class Element : Node
     {
         ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(value);
+        QualifiedName.ValidateAttributeLocalName(name);
         name = NormalizeAttributeName(name);
         var attribute = GetAttributeNode(name);
         if (attribute is not null)
@@ -76,19 +89,17 @@ public sealed class Element : Node
             return;
         }
 
-        attribute = OwnerDocument!.CreateAttribute(name);
-        attribute.Value = value;
+        attribute = new Attr(OwnerDocument!, null, name, null, value);
         SetAttributeNode(attribute);
     }
 
     public void SetAttributeNS(string? namespaceUri, string qualifiedName, string value)
     {
         ArgumentNullException.ThrowIfNull(value);
-        var name = QualifiedName.Parse(namespaceUri, qualifiedName);
+        var name = QualifiedName.Parse(namespaceUri, qualifiedName, attribute: true);
         var attribute = GetAttributeNodeNS(name.NamespaceUri, name.LocalName);
         if (attribute is not null)
         {
-            attribute.Prefix = name.Prefix;
             attribute.Value = value;
             return;
         }

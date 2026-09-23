@@ -166,12 +166,54 @@ public class NativeTreeTests
     }
 
     [Test]
-    public void XmlDocumentCanHoldCDataOutsideItsElementAsDomTreeState()
+    public void ReplacingWithForeignEmptyFragmentAdoptsTheFragment()
+    {
+        var source = Document.CreateXml();
+        var destination = Document.CreateXml();
+        var fragment = source.CreateDocumentFragment();
+        var root = destination.CreateElement("root");
+        destination.AppendChild(root);
+
+        destination.ReplaceChild(fragment, root).Should().BeSameAs(root);
+        destination.DocumentElement.Should().BeNull();
+        fragment.OwnerDocument.Should().BeSameAs(destination);
+        fragment.ChildCount.Should().Be(0);
+    }
+
+    [Test]
+    public void DeepSubtreeAdoptionUsesBoundedNativeStack()
+    {
+        var source = Document.CreateXml();
+        var destination = Document.CreateXml();
+        var root = source.CreateElement("root");
+        var current = root;
+        for (var i = 0; i < 20_000; i++)
+        {
+            var child = source.CreateElement("n");
+            current.AppendChild(child);
+            current = child;
+        }
+
+        destination.AppendChild(root);
+        current.OwnerDocument.Should().BeSameAs(destination);
+        root.OwnerDocument.Should().BeSameAs(destination);
+    }
+
+    [Test]
+    public void XmlDocumentRejectsCDataOutsideItsElement()
     {
         var document = Document.CreateXml();
         var cdata = document.CreateCDataSection("loose");
-        document.AppendChild(cdata);
-        document.AppendChild(document.CreateElement("root"));
-        document.FirstChild.Should().BeSameAs(cdata);
+        Assert.That(Assert.Throws<DomException>(() => document.AppendChild(cdata))!.Name, Is.EqualTo("HierarchyRequestError"));
+        cdata.ParentNode.Should().BeNull();
+
+        var root = document.CreateElement("root");
+        document.AppendChild(root);
+        var fragment = document.CreateDocumentFragment();
+        fragment.AppendChild(cdata);
+        Assert.That(Assert.Throws<DomException>(() => document.InsertBefore(fragment, root))!.Name, Is.EqualTo("HierarchyRequestError"));
+        Assert.That(Assert.Throws<DomException>(() => document.ReplaceChild(fragment, root))!.Name, Is.EqualTo("HierarchyRequestError"));
+        document.DocumentElement.Should().BeSameAs(root);
+        cdata.ParentNode.Should().BeSameAs(fragment);
     }
 }

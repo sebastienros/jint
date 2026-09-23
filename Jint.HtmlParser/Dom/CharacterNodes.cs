@@ -5,22 +5,28 @@ namespace Jint.HtmlParser;
 /// <summary>A text node.</summary>
 public sealed class Text : Node
 {
+    private string _data = string.Empty;
+
     internal Text(Document owner, string data) : base(owner) => Data = data ?? throw new ArgumentNullException(nameof(data));
     public override NodeType NodeType => NodeType.Text;
-    public string Data { get; set; }
+    public string Data { get => _data; set => _data = value ?? throw new ArgumentNullException(nameof(value)); }
 }
 
 /// <summary>A comment node.</summary>
 public sealed class Comment : Node
 {
+    private string _data = string.Empty;
+
     internal Comment(Document owner, string data) : base(owner) => Data = data ?? throw new ArgumentNullException(nameof(data));
     public override NodeType NodeType => NodeType.Comment;
-    public string Data { get; set; }
+    public string Data { get => _data; set => _data = value ?? throw new ArgumentNullException(nameof(value)); }
 }
 
 /// <summary>An XML CDATA section.</summary>
 public sealed class CDataSection : Node
 {
+    private string _data = string.Empty;
+
     internal CDataSection(Document owner, string data) : base(owner)
     {
         ArgumentNullException.ThrowIfNull(data);
@@ -28,12 +34,14 @@ public sealed class CDataSection : Node
         Data = data;
     }
     public override NodeType NodeType => NodeType.CDataSection;
-    public string Data { get; set; }
+    public string Data { get => _data; set => _data = value ?? throw new ArgumentNullException(nameof(value)); }
 }
 
 /// <summary>An XML processing instruction.</summary>
 public sealed class ProcessingInstruction : Node
 {
+    private string _data = string.Empty;
+
     internal ProcessingInstruction(Document owner, string target, string data) : base(owner)
     {
         ArgumentNullException.ThrowIfNull(target);
@@ -48,7 +56,7 @@ public sealed class ProcessingInstruction : Node
 
     public override NodeType NodeType => NodeType.ProcessingInstruction;
     public string Target { get; }
-    public string Data { get; set; }
+    public string Data { get => _data; set => _data = value ?? throw new ArgumentNullException(nameof(value)); }
 }
 
 /// <summary>A document type declaration.</summary>

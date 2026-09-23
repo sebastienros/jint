@@ -54,13 +54,13 @@ public sealed class Document : Node
     {
         ArgumentNullException.ThrowIfNull(localName);
         var normalized = Kind == DocumentKind.Html ? QualifiedName.AsciiLower(localName) : localName;
-        QualifiedName.ValidateUnqualified(normalized);
+        QualifiedName.ValidateElementLocalName(normalized);
         return new Element(this, Kind == DocumentKind.Html ? Namespaces.Html : null, normalized, null);
     }
 
     public Element CreateElementNS(string? namespaceUri, string qualifiedName)
     {
-        var name = QualifiedName.Parse(namespaceUri, qualifiedName);
+        var name = QualifiedName.Parse(namespaceUri, qualifiedName, attribute: false);
         return new Element(this, name.NamespaceUri, name.LocalName, name.Prefix);
     }
 
@@ -68,13 +68,13 @@ public sealed class Document : Node
     {
         ArgumentNullException.ThrowIfNull(name);
         var normalized = Kind == DocumentKind.Html ? QualifiedName.AsciiLower(name) : name;
-        QualifiedName.ValidateUnqualified(normalized);
+        QualifiedName.ValidateAttributeLocalName(normalized);
         return new Attr(this, null, normalized, null, "");
     }
 
     public Attr CreateAttributeNS(string? namespaceUri, string qualifiedName)
     {
-        var name = QualifiedName.Parse(namespaceUri, qualifiedName);
+        var name = QualifiedName.Parse(namespaceUri, qualifiedName, attribute: true);
         return new Attr(this, name.NamespaceUri, name.LocalName, name.Prefix, "");
     }
 
