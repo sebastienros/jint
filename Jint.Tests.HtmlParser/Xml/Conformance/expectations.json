@@ -8557,5 +8557,55 @@
     "originalOutputSha256": "9580f260c11c1f7b54381356cf3a56d06129165d249dcbeb43a2318d4b1640c7",
     "outputAlternative": "<doc></doc>",
     "review": "Pinned W3C INPUT 5fedfc15e93564892261da353347ed57bc608f029f9a2e0db401ca9260cc7417, unread external parameter entity c8d780d44b86d55f8e82023a00ddea5cbbbc96e9b4c56b45b6ac4a14af5f7a48, original OUTPUT 9580f260c11c1f7b54381356cf3a56d06129165d249dcbeb43a2318d4b1640c7; The unread external parameter entity could supply an earlier a1 declaration. The document has no standalone=yes declaration, so XML 1.0 \u00a75.1 forbids processing later attribute-list declarations; neither later a1=x1 nor a2=x2 is supplied without fetch. Fetched upstream OUTPUT instead has external first a1=w1 and later a2=x2. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#valid-not-sa-031",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "031-1.ent",
+        "Offset": 0
+      },
+      {
+        "Kind": "General",
+        "Name": "e",
+        "PublicId": null,
+        "SystemId": null,
+        "Offset": 40
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "031-1.ent"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "no-fetch-alternative",
+    "projectionSha256": "ce5806c253214da4025dd208ec9ed74077dc6008d0b518b45b131bcdd984e828",
+    "originalOutputSha256": "1747c87dccd4d05a551b050b640ace87e7779e56aa558453860974b1249c4cbd",
+    "outputAlternative": "<doc></doc>",
+    "review": "Pinned W3C INPUT 94a14d807210b5884900b2321dab4d70627108aeb855c076b4700843db680aa4, unread external subset 7e06f4ba57ae12fc788ddcde45bbe0d69fe40c73119e09b28b25f175cffbeb36, nested parameter entity ed6b0fb3986c93740daaffb2d8a85bb8dfca17b644869d1823991dbcfaf0384b, original OUTPUT 1747c87dccd4d05a551b050b640ace87e7779e56aa558453860974b1249c4cbd; The unread external subset contains every declaration of e; without fetch, the root reference to e is also unread and contributes no text. The fetched upstream OUTPUT instead expands its parameter entity inside CDATA to literal ATTLIST markup text. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
   }
 ]
