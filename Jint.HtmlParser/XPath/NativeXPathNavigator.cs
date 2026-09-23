@@ -274,7 +274,7 @@ internal sealed class NativeXPathNavigator : XPathNavigator
         if (_position is not Attr attribute || attribute.OwnerElement is not { } owner) return false;
         var attributes = _session.Attributes(owner);
         var index = _attributeIndex >= 0 && _attributeIndex < attributes.Length && ReferenceEquals(attributes[_attributeIndex], attribute)
-            ? _attributeIndex : Array.IndexOf(attributes, attribute);
+            ? _attributeIndex : _session.AttributeOrder(attribute);
         if (index < 0 || index + 1 == attributes.Length) return false;
         Set(attributes[index + 1]);
         _attributeIndex = index + 1;
@@ -302,7 +302,15 @@ internal sealed class NativeXPathNavigator : XPathNavigator
         if (bindings is null || _namespaceScope != scope)
         {
             bindings = _session.Namespaces(binding.OwnerElement, scope);
-            _namespaceIndex = Array.FindIndex(bindings, item => item.Prefix == binding.Prefix);
+            var index = -1;
+            for (var i = 0; i < bindings.Length; i++)
+            {
+                _session.Work(1 + bindings[i].Prefix.Length, XPathWorkStage.NamespaceScan);
+                if (bindings[i].Prefix == binding.Prefix) { index = i; break; }
+            }
+
+            _session.Check();
+            _namespaceIndex = index;
             _namespaceAxis = bindings;
             _namespaceScope = scope;
         }
@@ -328,8 +336,7 @@ internal sealed class NativeXPathNavigator : XPathNavigator
         if (!ReferenceEquals(_session.Root, native._session.Root)) return false;
         if (native._position is XPathNamespaceBinding binding)
         {
-            var rebound = _session.Namespaces(binding.OwnerElement, XPathNamespaceScope.All)
-                .FirstOrDefault(item => item.Prefix == binding.Prefix && item.NamespaceUri == binding.NamespaceUri);
+            var rebound = _session.BindingFor(binding.OwnerElement, binding.Prefix, binding.NamespaceUri);
             if (rebound is null) return false;
             Set(rebound);
         }
@@ -397,19 +404,46 @@ internal sealed class NativeXPathNavigator : XPathNavigator
     {
         _session.Check();
         var owner = ContextElement();
-        if (owner is null) return prefix == "xml" ? Namespaces.Xml : null;
-        return _session.ScopeOf(owner).Map.TryGetValue(prefix, out var uri) && uri.Length != 0 ? uri : null;
+        if (owner is null)
+        {
+            return prefix switch
+            {
+                "xml" => _session.Atom(Namespaces.Xml),
+                "xmlns" => _session.Atom(Namespaces.Xmlns),
+                "" => _session.Atom(""),
+                _ => null
+            };
+        }
+
+        if (prefix == "xmlns") return _session.Atom(Namespaces.Xmlns);
+        if (_session.ScopeOf(owner).Map.TryGetValue(prefix, out var uri) && uri.Length != 0)
+        {
+            return _session.Atom(uri);
+        }
+
+        return prefix.Length == 0 ? _session.Atom("") : null;
     }
 
     public override string? LookupPrefix(string namespaceURI)
     {
         _session.Check();
+        if (namespaceURI == Namespaces.Xmlns) return _session.Atom("xmlns");
         var owner = ContextElement();
-        if (owner is null) return namespaceURI == Namespaces.Xml ? "xml" : null;
+        if (namespaceURI.Length == 0)
+        {
+            if (owner is null || !_session.ScopeOf(owner).Map.TryGetValue("", out var defaultUri) || defaultUri.Length == 0)
+            {
+                return _session.Atom("");
+            }
+
+            return null;
+        }
+
+        if (owner is null) return namespaceURI == Namespaces.Xml ? _session.Atom("xml") : null;
         foreach (var binding in _session.Namespaces(owner, XPathNamespaceScope.All))
         {
             _session.Work(binding.Prefix.Length + binding.NamespaceUri.Length + 1);
-            if (binding.NamespaceUri == namespaceURI) { _session.Check(); return binding.Prefix; }
+            if (binding.NamespaceUri == namespaceURI) return _session.Atom(binding.Prefix);
         }
 
         _session.Check();
@@ -427,12 +461,12 @@ internal sealed class NativeXPathNavigator : XPathNavigator
                          scope == XmlNamespaceScope.ExcludeXml ? XPathNamespaceScope.ExcludeXml : XPathNamespaceScope.All))
             {
                 _session.Work(binding.Prefix.Length + binding.NamespaceUri.Length + 1);
-                result.Add(binding.Prefix, binding.NamespaceUri);
+                result.Add(_session.Atom(binding.Prefix), _session.Atom(binding.NamespaceUri));
             }
         }
         else if (scope == XmlNamespaceScope.All)
         {
-            result.Add("xml", Namespaces.Xml);
+            result.Add(_session.Atom("xml"), _session.Atom(Namespaces.Xml));
         }
 
         _session.Check();

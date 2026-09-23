@@ -12,7 +12,7 @@ internal static class NativeXPath
         => CreateNavigator(context, null, cancellationToken);
 
     // A per-invocation checkpoint is used by adversarial tests; it is never retained on the DOM.
-    internal static XPathNavigator CreateNavigator(Node context, Action<int>? checkpoint, CancellationToken cancellationToken)
+    internal static XPathNavigator CreateNavigator(Node context, Action<XPathWorkStage, int>? checkpoint, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
         if (context is DocumentType || context.NodeType is not (NodeType.Document or NodeType.DocumentFragment or
@@ -30,7 +30,7 @@ internal static class NativeXPath
         return new NativeXPathNavigator(session, session.Representative(context));
     }
 
-    internal static XPathNavigator CreateNavigator(Attr context, Action<int>? checkpoint, CancellationToken cancellationToken)
+    internal static XPathNavigator CreateNavigator(Attr context, Action<XPathWorkStage, int>? checkpoint, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
         if (context.NamespaceUri == Namespaces.Xmlns)

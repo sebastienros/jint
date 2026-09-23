@@ -1,6 +1,7 @@
 #nullable enable
 using System.Xml;
 using System.Xml.XPath;
+using System.Reflection;
 
 namespace Jint.HtmlParser.Tests.XPath;
 
@@ -59,6 +60,41 @@ public sealed class NativeXPathTests
     }
 
     [Test]
+    public void BclNamespaceResolverFallbacksMatchWithoutExposingReservedAxisPositions()
+    {
+        foreach (var xml in new[] { "<r/>", "<r xmlns='urn:d' xmlns:p='urn:p'/>", "<r xmlns=''/>" })
+        {
+            var native = NativeXPath.CreateNavigator(MarkupParser.ParseXml(xml).DocumentElement!, default);
+            var reference = new XmlDocument { XmlResolver = null };
+            reference.LoadXml(xml);
+            var bcl = reference.DocumentElement!.CreateNavigator()!;
+            foreach (var prefix in new[] { "", "xml", "xmlns", "p", "missing" })
+            {
+                native.LookupNamespace(prefix).Should().Be(bcl.LookupNamespace(prefix), xml + " prefix " + prefix);
+                if (native.LookupNamespace(prefix) is { } uri)
+                {
+                    ReferenceEquals(uri, native.NameTable.Get(uri)).Should().BeTrue();
+                }
+            }
+
+            foreach (var uri in new[] { "", Namespaces.Xml, Namespaces.Xmlns, "urn:d", "urn:p", "urn:missing" })
+            {
+                native.LookupPrefix(uri).Should().Be(bcl.LookupPrefix(uri), xml + " URI " + uri);
+            }
+
+            var axis = native.Clone();
+            if (axis.MoveToFirstNamespace(XPathNamespaceScope.All))
+            {
+                do
+                {
+                    axis.LocalName.Should().NotBe("xmlns");
+                    axis.Value.Should().NotBeEmpty();
+                } while (axis.MoveToNextNamespace(XPathNamespaceScope.All));
+            }
+        }
+    }
+
+    [Test]
     public void CursorOrderCloneAndCrossSessionMoveFollowLogicalTree()
     {
         var document = MarkupParser.ParseXml("<r xmlns:p='urn:p' b='2' a='1'><x/>hello<![CDATA[ world]]><y/></r>");
@@ -105,6 +141,14 @@ public sealed class NativeXPathTests
         nav.LookupNamespace("p").Should().Be("urn:r");
         nav.LookupNamespace("q").Should().BeNull();
         nav.LookupNamespace("").Should().Be("urn:d");
+        nav.LookupNamespace("missing").Should().BeNull();
+        nav.LookupNamespace("xmlns").Should().Be(Namespaces.Xmlns);
+        nav.LookupPrefix(Namespaces.Xmlns).Should().Be("xmlns");
+        nav.LookupPrefix("").Should().BeNull();
+        ReferenceEquals(nav.LookupNamespace("p"), nav.NameTable.Get("urn:r")).Should().BeTrue();
+        ReferenceEquals(nav.LookupNamespace("xml"), nav.NameTable.Get(Namespaces.Xml)).Should().BeTrue();
+        ReferenceEquals(nav.LookupNamespace("xmlns"), nav.NameTable.Get(Namespaces.Xmlns)).Should().BeTrue();
+        ReferenceEquals(nav.LookupPrefix(Namespaces.Xmlns), nav.NameTable.Get("xmlns")).Should().BeTrue();
         var local = nav.GetNamespacesInScope(XmlNamespaceScope.Local);
         local.Should().ContainKey("p").WhoseValue.Should().Be("urn:r");
         local.Should().ContainKey("xml").WhoseValue.Should().Be(Namespaces.Xml);
@@ -132,7 +176,9 @@ public sealed class NativeXPathTests
         root.AppendChild(empty);
         empty.SetAttributeNS(Namespaces.Xmlns, "xmlns", "");
         var emptyNav = NativeXPath.CreateNavigator(empty, default);
-        emptyNav.LookupNamespace("").Should().BeNull();
+        emptyNav.LookupNamespace("").Should().BeEmpty();
+        emptyNav.LookupNamespace("missing").Should().BeNull();
+        ReferenceEquals(emptyNav.LookupNamespace(""), emptyNav.NameTable.Get("")).Should().BeTrue();
         Assert.Throws<ArgumentException>(() => NativeXPath.CreateNavigator(empty.GetAttributeNodeNS(Namespaces.Xmlns, "xmlns")!, default));
 
         var ordinary = document.CreateAttribute("xmlns");
@@ -162,6 +208,12 @@ public sealed class NativeXPathTests
         Assert.Throws<ArgumentException>(() => NativeXPath.CreateNavigator(document.CreateDocumentType("r"), default));
         var fragment = document.CreateDocumentFragment();
         NativeXPath.CreateNavigator(fragment, default).NodeType.Should().Be(XPathNodeType.Root);
+        var fragmentNav = NativeXPath.CreateNavigator(fragment, default);
+        fragmentNav.LookupNamespace("").Should().BeEmpty();
+        fragmentNav.LookupNamespace("missing").Should().BeNull();
+        fragmentNav.LookupNamespace("xmlns").Should().Be(Namespaces.Xmlns);
+        fragmentNav.LookupPrefix("").Should().BeEmpty();
+        fragmentNav.LookupPrefix(Namespaces.Xmlns).Should().Be("xmlns");
     }
 
     [Test]
@@ -200,7 +252,12 @@ public sealed class NativeXPathTests
 
         using var cancellation = new CancellationTokenSource();
         var checkpoints = 0;
-        var traversal = NativeXPath.CreateNavigator(root, _ => { checkpoints++; cancellation.Cancel(); }, cancellation.Token);
+        var traversal = NativeXPath.CreateNavigator(root, (stage, _) =>
+        {
+            if (stage != XPathWorkStage.DescendantScan) return;
+            checkpoints++;
+            cancellation.Cancel();
+        }, cancellation.Token);
         Assert.Throws<OperationCanceledException>(() => _ = traversal.Value);
         checkpoints.Should().Be(1);
     }
@@ -220,13 +277,14 @@ public sealed class NativeXPathTests
         }
 
         var checkpoints = 0;
-        var nav = NativeXPath.CreateNavigator(deepest, _ => checkpoints++, default);
+        var nav = NativeXPath.CreateNavigator(deepest, (_, _) => checkpoints++, default);
         nav.MoveToFirstNamespace(XPathNamespaceScope.All).Should().BeTrue();
         nav.Value.Should().Be(Namespaces.Xml);
         checkpoints.Should().BeLessThan(30);
         var before = checkpoints;
         for (var i = 0; i < 100; i++) nav.LookupNamespace("xml").Should().Be(Namespaces.Xml);
-        checkpoints.Should().Be(before);
+        // One atomization charge per answer is expected; an ancestor rescan is not.
+        checkpoints.Should().BeLessThan(before + 30);
 
         var first = NativeXPath.CreateNavigator(root, default);
         var last = NativeXPath.CreateNavigator(deepest, default);
@@ -243,7 +301,7 @@ public sealed class NativeXPathTests
         for (var i = 0; i < 2048; i++) element.SetAttribute("a" + i, "v");
 
         var checkpoints = 0;
-        var nav = NativeXPath.CreateNavigator(element, _ => checkpoints++, default);
+        var nav = NativeXPath.CreateNavigator(element, (_, _) => checkpoints++, default);
         nav.MoveToFirstAttribute().Should().BeTrue();
         var scanned = checkpoints;
         for (var i = 1; i < 2048; i++) nav.MoveToNextAttribute().Should().BeTrue();
@@ -252,8 +310,15 @@ public sealed class NativeXPathTests
         checkpoints.Should().BeLessThan(100);
 
         using var cancellation = new CancellationTokenSource();
-        var canceled = NativeXPath.CreateNavigator(element, _ => cancellation.Cancel(), cancellation.Token);
+        var canceledAtScan = false;
+        var canceled = NativeXPath.CreateNavigator(element, (stage, _) =>
+        {
+            if (stage != XPathWorkStage.AttributeScan) return;
+            canceledAtScan = true;
+            cancellation.Cancel();
+        }, cancellation.Token);
         Assert.Throws<OperationCanceledException>(() => canceled.MoveToFirstAttribute());
+        canceledAtScan.Should().BeTrue();
     }
 
     [Test]
@@ -270,9 +335,9 @@ public sealed class NativeXPathTests
         }
 
         var changed = false;
-        var first = NativeXPath.CreateNavigator(root, _ =>
+        var first = NativeXPath.CreateNavigator(root, (stage, _) =>
         {
-            if (changed) return;
+            if (changed || stage != XPathWorkStage.OrderIndex) return;
             changed = true;
             root.SetAttribute("changed", "yes");
         }, default);
@@ -280,5 +345,83 @@ public sealed class NativeXPathTests
         Assert.Throws<InvalidOperationException>(() => first.ComparePosition(final));
         changed.Should().BeTrue();
         Assert.Throws<InvalidOperationException>(() => first.MoveToFirstChild());
+    }
+
+    [Test]
+    public void PreviousTraversalAndInterleavedEmptyTextKeepOneRunIdentity()
+    {
+        var document = Document.CreateXml();
+        var fragment = document.CreateDocumentFragment();
+        var before = document.CreateElement("before");
+        var first = document.CreateTextNode("A");
+        var empty = document.CreateTextNode("");
+        var last = document.CreateCDataSection(" B");
+        var after = document.CreateElement("after");
+        fragment.AppendChild(before);
+        fragment.AppendChild(first);
+        fragment.AppendChild(empty);
+        fragment.AppendChild(last);
+        fragment.AppendChild(after);
+
+        var nav = NativeXPath.CreateNavigator(last, default);
+        nav.UnderlyingObject.Should().BeSameAs(first);
+        nav.Value.Should().Be("A B");
+        Assert.Throws<ArgumentException>(() => NativeXPath.CreateNavigator(empty, default));
+        nav.MoveToNext().Should().BeTrue();
+        nav.UnderlyingObject.Should().BeSameAs(after);
+        nav.MoveToPrevious().Should().BeTrue();
+        nav.UnderlyingObject.Should().BeSameAs(first);
+        nav.Value.Should().Be("A B");
+        nav.MoveToPrevious().Should().BeTrue();
+        nav.UnderlyingObject.Should().BeSameAs(before);
+        nav.MoveToPrevious().Should().BeFalse();
+        nav.UnderlyingObject.Should().BeSameAs(before);
+    }
+
+    [Test]
+    public void AdoptionAndSaturatedStampInvalidateReadSessions()
+    {
+        var firstDocument = Document.CreateXml();
+        var secondDocument = Document.CreateXml();
+        var detached = firstDocument.CreateElement("detached");
+        var nav = NativeXPath.CreateNavigator(detached, default);
+        secondDocument.AdoptNode(detached);
+        Assert.Throws<InvalidOperationException>(() => _ = nav.Value);
+        NativeXPath.CreateNavigator(detached, default).UnderlyingObject.Should().BeSameAs(detached);
+
+        var stamp = typeof(Document).GetField("_mutationStamp", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        stamp.SetValue(secondDocument, ulong.MaxValue);
+        Assert.Throws<InvalidOperationException>(() => NativeXPath.CreateNavigator(detached, default));
+    }
+
+    [Test]
+    public void NameAndNamespaceScansCancelAtTheirOwnCheckpoints()
+    {
+        var document = Document.CreateXml();
+        var named = document.CreateElement(new string('n', 1024));
+        using var nameCancellation = new CancellationTokenSource();
+        var nameStageReached = false;
+        var nameNavigator = NativeXPath.CreateNavigator(named, (stage, _) =>
+        {
+            if (stage != XPathWorkStage.NameAtomization) return;
+            nameStageReached = true;
+            nameCancellation.Cancel();
+        }, nameCancellation.Token);
+        Assert.Throws<OperationCanceledException>(() => _ = nameNavigator.Name);
+        nameStageReached.Should().BeTrue();
+
+        var root = document.CreateElement("r");
+        document.AppendChild(root);
+        for (var i = 0; i < 500; i++) root.SetAttributeNS(Namespaces.Xmlns, "xmlns:p" + i, "urn:" + i);
+        using var namespaceCancellation = new CancellationTokenSource();
+        var namespaceStageReached = false;
+        var namespaceNavigator = NativeXPath.CreateNavigator(root, (stage, _) =>
+        {
+            if (stage != XPathWorkStage.NamespaceScan) return;
+            namespaceStageReached = true;
+            namespaceCancellation.Cancel();
+        }, namespaceCancellation.Token);
+        Assert.Throws<OperationCanceledException>(() => namespaceNavigator.MoveToFirstNamespace(XPathNamespaceScope.All));
+        namespaceStageReached.Should().BeTrue();
     }
 }

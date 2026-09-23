@@ -4,12 +4,25 @@ using System.Xml.XPath;
 
 namespace Jint.HtmlParser;
 
+internal enum XPathWorkStage
+{
+    Other,
+    AncestorScan,
+    DescendantScan,
+    AttributeScan,
+    AttributeIndex,
+    NamespaceScan,
+    NamespaceIndex,
+    OrderIndex,
+    NameAtomization
+}
+
 internal sealed class XPathReadSession
 {
     private readonly Document _document;
     private readonly ulong _stamp;
     private readonly CancellationToken _token;
-    private readonly Action<int>? _checkpoint;
+    private readonly Action<XPathWorkStage, int>? _checkpoint;
     private int _work;
     private readonly Dictionary<Element, Attr[]> _attributes = new();
     private readonly Dictionary<Attr, int> _attributeOrder = new();
@@ -20,7 +33,7 @@ internal sealed class XPathReadSession
     private readonly Dictionary<Node, string> _textValues = new();
     private Dictionary<Node, int>? _order;
 
-    internal XPathReadSession(Node context, Action<int>? checkpoint, CancellationToken token)
+    internal XPathReadSession(Node context, Action<XPathWorkStage, int>? checkpoint, CancellationToken token)
     {
         _token = token;
         _checkpoint = checkpoint;
@@ -48,7 +61,7 @@ internal sealed class XPathReadSession
             _work++;
             if ((_work & 255) == 0)
             {
-                _checkpoint?.Invoke(_work);
+                _checkpoint?.Invoke(XPathWorkStage.AncestorScan, _work);
                 _token.ThrowIfCancellationRequested();
                 if (_document.MutationStamp != _stamp)
                 {
@@ -76,14 +89,14 @@ internal sealed class XPathReadSession
         }
     }
 
-    internal void Work(int units = 1)
+    internal void Work(int units = 1, XPathWorkStage stage = XPathWorkStage.Other)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(units);
         var old = _work;
         _work = unchecked(_work + units);
         if ((_work >> 8) != (old >> 8) || _work < old)
         {
-            _checkpoint?.Invoke(_work);
+            _checkpoint?.Invoke(stage, _work);
             Check();
         }
     }
@@ -98,7 +111,7 @@ internal sealed class XPathReadSession
     internal string Atom(string value)
     {
         Check();
-        Work(value.Length);
+        Work(value.Length, XPathWorkStage.NameAtomization);
         Check();
         var atom = NameTable.Add(value);
         Check();
@@ -177,7 +190,7 @@ internal sealed class XPathReadSession
         var list = new List<Attr>(element.AttributeCount);
         foreach (var attr in element.Attributes)
         {
-            Work(1 + attr.LocalName.Length + attr.Value.Length);
+            Work(1 + attr.LocalName.Length + attr.Value.Length, XPathWorkStage.AttributeScan);
             if (attr.NamespaceUri != Jint.HtmlParser.Namespaces.Xmlns) list.Add(attr);
         }
 
@@ -185,7 +198,13 @@ internal sealed class XPathReadSession
         found = list.ToArray();
         Work(found.Length);
         Check();
-        for (var i = 0; i < found.Length; i++) _attributeOrder.Add(found[i], i);
+        for (var i = 0; i < found.Length; i++)
+        {
+            Work(1, XPathWorkStage.AttributeIndex);
+            _attributeOrder.Add(found[i], i);
+        }
+
+        Check();
         _attributes.Add(element, found);
         return found;
     }
@@ -229,11 +248,11 @@ internal sealed class XPathReadSession
         var current = root.FirstChild;
         while (current is not null)
         {
-            Work();
+            Work(1, XPathWorkStage.DescendantScan);
             if (IsText(current))
             {
                 var data = Data(current);
-                Work(data.Length);
+                Work(data.Length, XPathWorkStage.DescendantScan);
                 Check();
                 builder.Append(data);
                 Check();
@@ -247,7 +266,7 @@ internal sealed class XPathReadSession
 
             while (current is not null && !ReferenceEquals(current, root) && current.NextSibling is null)
             {
-                Work();
+                Work(1, XPathWorkStage.DescendantScan);
                 current = current.ParentNode;
             }
 
@@ -268,14 +287,14 @@ internal sealed class XPathReadSession
         var path = new Stack<Element>();
         for (Node? current = element; current is Element ancestor; current = current.ParentNode)
         {
-            Work();
+            Work(1, XPathWorkStage.NamespaceScan);
             if (_scopes.ContainsKey(ancestor)) break;
             path.Push(ancestor);
         }
 
         while (path.TryPop(out var next))
         {
-            Work();
+            Work(1, XPathWorkStage.NamespaceScan);
             var parent = next.ParentNode as Element;
             var parentMap = parent is null ? null : _scopes[parent].Map;
             Dictionary<string, string>? map = null;
@@ -306,7 +325,7 @@ internal sealed class XPathReadSession
             var declaredXml = false;
             foreach (var attr in next.Attributes)
             {
-                Work(1 + attr.LocalName.Length + attr.Value.Length);
+                Work(1 + attr.LocalName.Length + attr.Value.Length, XPathWorkStage.NamespaceScan);
                 if (attr.NamespaceUri != Jint.HtmlParser.Namespaces.Xmlns) continue;
                 var prefix = attr.Prefix == "xmlns" ? attr.LocalName : "";
                 if (prefix == "xmlns") continue;
@@ -330,7 +349,11 @@ internal sealed class XPathReadSession
             }
 
             var effective = map ?? parentMap!;
-            _scopes.Add(next, new Scope(effective, local?.Distinct(StringComparer.Ordinal).ToArray() ?? []));
+            Work(local?.Count ?? 0, XPathWorkStage.NamespaceIndex);
+            Check();
+            var localPrefixes = local?.Distinct(StringComparer.Ordinal).ToArray() ?? [];
+            Check();
+            _scopes.Add(next, new Scope(effective, localPrefixes));
         }
 
         Check();
@@ -348,7 +371,7 @@ internal sealed class XPathReadSession
         var results = new List<XPathNamespaceBinding>(prefixes.Length);
         foreach (var prefix in prefixes)
         {
-            Work(prefix.Length + 1);
+            Work(prefix.Length + 1, XPathWorkStage.NamespaceScan);
             if (scope == XPathNamespaceScope.ExcludeXml && prefix == "xml") continue;
             if (info.Map.TryGetValue(prefix, out var uri) && uri.Length != 0)
             {
@@ -372,7 +395,13 @@ internal sealed class XPathReadSession
         Check();
         if (scope == XPathNamespaceScope.All)
         {
-            for (var i = 0; i < answer.Length; i++) _namespaceOrder.Add((element, answer[i].Prefix), i);
+            for (var i = 0; i < answer.Length; i++)
+            {
+                Work(1 + answer[i].Prefix.Length, XPathWorkStage.NamespaceIndex);
+                _namespaceOrder.Add((element, answer[i].Prefix), i);
+            }
+
+            Check();
             _allNamespaces.Add(element, answer);
         }
 
@@ -386,6 +415,13 @@ internal sealed class XPathReadSession
         return _namespaceOrder[(binding.OwnerElement, binding.Prefix)];
     }
 
+    internal XPathNamespaceBinding? BindingFor(Element owner, string prefix, string uri)
+    {
+        Check();
+        Namespaces(owner, XPathNamespaceScope.All);
+        return _bindings.TryGetValue((owner, prefix), out var binding) && binding.NamespaceUri == uri ? binding : null;
+    }
+
     internal int OrderOf(Node node)
     {
         Check();
@@ -396,11 +432,11 @@ internal sealed class XPathReadSession
             stack.Push(Root);
             while (stack.TryPop(out var current))
             {
-                Work();
+                Work(1, XPathWorkStage.OrderIndex);
                 if (Visible(current)) index.Add(current, index.Count);
                 for (var child = current.LastChild; child is not null; child = child.PreviousSibling)
                 {
-                    Work();
+                    Work(1, XPathWorkStage.OrderIndex);
                     if (Visible(child)) stack.Push(child);
                 }
             }
