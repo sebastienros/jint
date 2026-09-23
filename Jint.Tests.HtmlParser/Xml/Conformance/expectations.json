@@ -8026,5 +8026,135 @@
     ],
     "notations": [],
     "review": "Pinned W3C INPUT a95c220cf496c17bba8d575c052a7d12a87930a01b9e2c503b74bf71eed3667c and original OUTPUT 00a30838cbec6898163f140c7d97705096dc47acbf585f7d68e6832889378f39; Two explicit CDATA attributes retain source order. XML 1.0 Fifth Edition \u00a72.8/\u00a73.1/\u00a74.1 https://www.w3.org/TR/xml/."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#valid-not-sa-001",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "001.ent",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "001.ent"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "cb80096267f115dc1bf811dc7a6297fa988cd00e80124eee3afbdf366f8be191",
+    "review": "Pinned W3C INPUT a1f8ea087819ed5c98fc31af45ca7fda70680426685b4d98d929aab129167602, unread subset e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, original OUTPUT cb80096267f115dc1bf811dc7a6297fa988cd00e80124eee3afbdf366f8be191; The unread external subset is empty. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#valid-not-sa-002",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "002.ent",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "002.ent"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "cb80096267f115dc1bf811dc7a6297fa988cd00e80124eee3afbdf366f8be191",
+    "review": "Pinned W3C INPUT 4d40daa3573ff699403b77a583ca6496f700c375eb240d27a06781825d4a8d86, unread subset 9d1e0e2d9459d06523ad13e28a4093c2316baafe7aec5b25f30eba2e113599c4, original OUTPUT cb80096267f115dc1bf811dc7a6297fa988cd00e80124eee3afbdf366f8be191; The unread external subset consists solely of CR whitespace. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
+  },
+  {
+    "key": "xmlconf/xmltest/xmltest.xml#valid-not-sa-010",
+    "outcome": "accept",
+    "skipped": [
+      {
+        "Kind": "ExternalSubset",
+        "Name": "",
+        "PublicId": null,
+        "SystemId": "010.ent",
+        "Offset": 0
+      }
+    ],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": "010.ent"
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "doc",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [
+          {
+            "Name": "a1",
+            "NamespaceUri": null,
+            "Prefix": null,
+            "Value": "v1"
+          }
+        ],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "notations": [],
+    "outputPolicy": "original-output-after-omission",
+    "originalOutputSha256": "47a1224f5d7888088f53628f25cccd6256a573b000e4fa78fd89aea6cbe15078",
+    "review": "Pinned W3C INPUT d479a3e196516eb848d71d86ee0cb7b33314f7c1781cc904f7cc6c27a5837ac7, unread subset fb16517ede1980858afdab438156b07761ef8c8438b6f7df5fb61d7804769f58, original OUTPUT 47a1224f5d7888088f53628f25cccd6256a573b000e4fa78fd89aea6cbe15078; The internal subset declares default a1=v1; the unread external subset repeats a1 with v2, so the first declaration and no-fetch observation both yield v1. XML 1.0 Fifth Edition \u00a75.1 https://www.w3.org/TR/xml/#sec-conformance."
   }
 ]
