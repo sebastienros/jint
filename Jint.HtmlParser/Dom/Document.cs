@@ -15,13 +15,31 @@ public sealed class Document : Node
 
     private IReadOnlyList<XmlSkippedEntity>? _skippedXmlEntities;
 
-    public Document(DocumentKind kind) : base(null) => Kind = kind;
+    public Document(DocumentKind kind) : this(kind, kind == DocumentKind.Html ? "text/html" : "application/xml") { }
+
+    internal Document(DocumentKind kind, string contentType) : base(null)
+    {
+        Kind = kind;
+        ContentType = contentType;
+    }
 
     public static Document CreateHtml() => new(DocumentKind.Html);
     public static Document CreateXml() => new(DocumentKind.Xml);
+    public static Document CreateXml(string contentType)
+    {
+        ArgumentNullException.ThrowIfNull(contentType);
+        if (!IsCanonicalXmlContentType(contentType))
+        {
+            throw new ArgumentException("A canonical XML MIME essence is required.", nameof(contentType));
+        }
+
+        return new Document(DocumentKind.Xml, contentType);
+    }
 
     public override NodeType NodeType => NodeType.Document;
     public DocumentKind Kind { get; }
+    public string ContentType { get; }
+    public string CharacterSet { get; } = "UTF-8";
 
     /// <summary>Immutable records of XML entities or external subsets omitted during parsing.</summary>
     public IReadOnlyList<XmlSkippedEntity> SkippedXmlEntities => _skippedXmlEntities ?? EmptySkippedXmlEntities;
@@ -81,7 +99,7 @@ public sealed class Document : Node
         ArgumentNullException.ThrowIfNull(localName);
         var normalized = Kind == DocumentKind.Html ? QualifiedName.AsciiLower(localName) : localName;
         QualifiedName.ValidateElementLocalName(normalized);
-        return new Element(this, Kind == DocumentKind.Html ? Namespaces.Html : null, normalized, null);
+        return new Element(this, Kind == DocumentKind.Html || ContentType == "application/xhtml+xml" ? Namespaces.Html : null, normalized, null);
     }
 
     public Element CreateElementNS(string? namespaceUri, string qualifiedName)
@@ -136,6 +154,35 @@ public sealed class Document : Node
     {
         ArgumentNullException.ThrowIfNull(source);
         return NodeCloner.CloneAttribute(source, this);
+    }
+
+    // RFC 9110 token grammar, limited to a canonical lowercase MIME essence.
+    private static bool IsCanonicalXmlContentType(string contentType)
+    {
+        var slash = contentType.IndexOf('/');
+        if (slash <= 0 || slash == contentType.Length - 1 || contentType.IndexOf('/', slash + 1) >= 0)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < contentType.Length; i++)
+        {
+            var ch = contentType[i];
+            if (ch == '/')
+            {
+                continue;
+            }
+
+            if (ch is >= 'a' and <= 'z' or >= '0' and <= '9' or '!' or '#' or '$' or '%' or '&' or '\'' or '*' or '+' or '-' or '.' or '^' or '_' or '`' or '|' or '~')
+            {
+                continue;
+            }
+
+            return false;
+        }
+
+        return contentType is "text/xml" or "application/xml" ||
+            contentType.AsSpan(slash + 1).EndsWith("+xml", StringComparison.Ordinal) && slash + 5 < contentType.Length;
     }
 }
 

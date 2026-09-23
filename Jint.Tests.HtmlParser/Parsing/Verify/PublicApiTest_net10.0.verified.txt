@@ -35,6 +35,8 @@
     public sealed class Document : Jint.HtmlParser.Node
     {
         public Document(Jint.HtmlParser.DocumentKind kind) { }
+        public string CharacterSet { get; }
+        public string ContentType { get; }
         public Jint.HtmlParser.DocumentType? Doctype { get; }
         public Jint.HtmlParser.Element? DocumentElement { get; }
         public Jint.HtmlParser.DocumentKind Kind { get; }
@@ -54,6 +56,7 @@
         public Jint.HtmlParser.Node ImportNode(Jint.HtmlParser.Node source, bool deep = false) { }
         public static Jint.HtmlParser.Document CreateHtml() { }
         public static Jint.HtmlParser.Document CreateXml() { }
+        public static Jint.HtmlParser.Document CreateXml(string contentType) { }
     }
     public sealed class DocumentFragment : Jint.HtmlParser.Node
     {
