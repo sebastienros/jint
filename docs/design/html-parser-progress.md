@@ -29,6 +29,7 @@ the earlier repository direction to retain AngleSharp.
 | XML shared contracts and provenance | `01a0cf2c-ab5e-7023-95ab-1ab3a4fc8d77` | Reviewed and integrated |
 | X1 native XML/SVG parsing | `01a0cf3f-9380-7513-a351-4078c30d2241` | Internal scanner milestone in progress |
 | Native metadata, adoption and templates | `01a0cf47-2a27-7163-8f4e-951fbe9999f5` | Sequential feature commits in progress |
+| D4a iterative native traversal | `01a0cf51-0a0a-7753-8235-126166e1484c` | In progress |
 
 ## Initial repository evidence
 
@@ -70,6 +71,8 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   tree construction and the full XML implementation remain unfinished.
 - After integrating document MIME/charset metadata and XHTML creation behavior,
   340 tests pass across both frameworks, zero failures/skips.
+- Trusted construction and deterministic bulk cancellation bring the suite to 352
+  passing tests. Adoption/replace-all then bring it to 372, zero failures/skips.
 
 ## Integrated commits
 
@@ -116,3 +119,8 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   bulk-initialization cancellation (source `ccf8673a4`, `5f6837e3d`).
 - `c0a9ea848`, `686d5d43a`: document metadata, XHTML creation and XML MIME suffix
   correction (source `bfcc65603`, `98399a3bd`); final Astra recheck clear.
+- `f46b030d9`, `a17b9c326`: trusted native construction and deterministic mid-batch
+  cancellation (source `ea54f0f0c`, `84ce04f44`); final Astra recheck clear.
+- `5dd824c92`: explicit adoption and replace-all with complete pre-validation,
+  fragment ownership distinctions and generated API snapshots (source `cb4ed3d8e`);
+  Astra review clear.
