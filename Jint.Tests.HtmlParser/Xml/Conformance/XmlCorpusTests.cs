@@ -240,7 +240,7 @@ public class XmlCorpusTests
         wrongOmission.Kind.Should().Be(XmlOutcomeKind.OptionalPolicyMismatch);
         wrongOmission.Signature.Should().StartWith("skip-count:");
 
-        var unreviewed = XmlCorpus.Case("xmlconf/sun/sun-error.xml#uri01");
+        var unreviewed = XmlCorpus.Case("xmlconf/oasis/oasis.xml#o-p11pass1");
         var observed = XmlConformanceRunner.Run(unreviewed);
         observed.Kind.Should().Be(XmlOutcomeKind.OptionalObservedUnreviewed);
         observed.Detail.Should().Contain("observed=");
@@ -283,7 +283,7 @@ public class XmlCorpusTests
                 }
             }
         }
-        XmlExpectations.OptionalPolicies.Values.Count(item => item.Status == "verified").Should().Be(5);
+        XmlExpectations.OptionalPolicies.Values.Count(item => item.Status == "verified").Should().Be(6);
         XmlExpectations.OptionalPolicies.Values.Count(item => item.Status == "pending-notation-metadata").Should().Be(1);
         foreach (var (key, policy) in XmlExpectations.OptionalPolicies)
         {

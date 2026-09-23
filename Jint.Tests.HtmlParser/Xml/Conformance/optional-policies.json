@@ -242,5 +242,36 @@
       }
     ],
     "review": "Pinned xml:space value is neither default nor preserve; XML §2.10 permits reporting or recovery, including reporting the erroneous value to applications. This policy preserves the literal attribute. https://www.w3.org/TR/xml/#sec-white-space."
+  },
+  {
+    "key": "xmlconf/sun/sun-error.xml#uri01",
+    "status": "verified",
+    "outcome": "accept",
+    "skipped": [],
+    "projection": [
+      {
+        "Depth": 0,
+        "Kind": "DocumentType",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": null,
+        "PublicId": "",
+        "SystemId": ""
+      },
+      {
+        "Depth": 0,
+        "Kind": "Element",
+        "Name": "root",
+        "NamespaceUri": null,
+        "Prefix": null,
+        "Value": null,
+        "Attributes": [],
+        "PublicId": null,
+        "SystemId": null
+      }
+    ],
+    "review": "Pinned internal declaration <!ENTITY foo SYSTEM \"foo#bar\"> is never referenced. XML §4.2.2 calls a fragment in a system identifier a nonfatal error; this reviewed optional policy accepts, preserves the empty root, and reports no external omission. https://www.w3.org/TR/xml/#sec-external-ent."
   }
 ]
