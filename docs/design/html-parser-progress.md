@@ -13,6 +13,12 @@ the earlier repository direction to retain AngleSharp.
 - Design, planning, and reviews: GPT-6 Astra, high reasoning.
 - Feature implementations: dedicated GPT-6 Sol, high reasoning tasks in local worktrees.
 - Merge finalized feature commits into the integration worktree; no pull requests.
+- User cleanup rule: archive tasks and remove their worktrees after review, integration and
+  successful common-worktree checks. Retain interrupted/failed tasks until unfinished work is
+  recovered. Keep task history and Git branches; use managed archive cleanup and verify removal.
+  Twenty-one completed tasks have now been archived; their worktrees are gone.
+  Patch equivalence, clean local state and stopped-task status were checked before removal.
+  Earlier worktrees already removed by Codex remain represented by their integrated commits.
 
 ## Tasks
 
@@ -20,32 +26,34 @@ the earlier repository direction to retain AngleSharp.
 | --- | --- | --- |
 | Architecture and migration design | `01a0ceec-94ec-7f63-9bfb-189cac69df5f` | Reviewed contracts and Markdig-inspired primitive benchmarks integrated; timing pending |
 | Comparison corpus and benchmark harness | `01a0ceee-7b09-7513-b507-a5c412eb4518` | Reviewed XML/SVG comparison integrated; measurements pending |
-| A1 dependency and binding inventory | `01a0cef5-3c12-7d22-926c-e2aeefe58949` | Reviewed and integrated |
-| A2/D1/D2 package and DOM foundation | `01a0cef5-4a7d-72e2-b551-74f03c9da7ec` | Reviewed fixes integrated; 52 combined tests pass |
-| H1–H3 resumable HTML tokenizer | `01a0cf2a-8177-7941-9413-ee60edc59454` | Reviewed and integrated |
-| C1 CSS syntax | `01a0cf2a-8a51-76b1-a12b-ac57c7d2b594` | Reviewed constructs and list/block extension integrated |
-| C4a internal CSS syntax editors | `01a0cf89-02d0-79b0-a4d1-5f37f747f728` | Reviewed fixes integrated |
-| A2 shared limits/diagnostics/errors and API snapshots | `01a0cf2c-ab5e-7023-95ab-1ab3a4fc8d77` | Reviewed and integrated |
-| D3a native cloning and import | `01a0cf34-dc42-75d0-960e-735bef6eb68a` | Reviewed and integrated |
-| XML shared contracts and provenance | `01a0cf2c-ab5e-7023-95ab-1ab3a4fc8d77` | Reviewed and integrated |
-| X1 native XML/SVG parsing | `01a0cf3f-9380-7513-a351-4078c30d2241` | Reviewed facade/DTD fixes integrated; full corpus acceptance pending |
-| Native metadata, adoption and templates | `01a0cf47-2a27-7163-8f4e-951fbe9999f5` | Reviewed and integrated, including H4 prerequisites |
-| D4a iterative native traversal | `01a0cf51-0a0a-7753-8235-126166e1484c` | Reviewed and integrated, including template boundaries |
-| C2a selector compiler | `01a0cf57-a964-7922-9f56-3c568a0e51f1` | Reviewed corrections integrated |
-| C2b structural selector evaluator | `01a0cf84-0ef3-70f2-bb95-81bcea063cf7` | Reviewed corrections integrated |
-| C2c relational selector evaluator | `01a0cfa9-3193-73c1-a9cf-f5e2d915cca7` | Reviewed contract dispatched; implementation in progress |
-| H4 HTML tree construction | `01a0cf5a-9eed-7913-bcb4-e019fbbb5e8c` | Reviewed corrections integrated |
-| H5a HTML table structure | `01a0cf80-d939-7a72-829a-859771c547f0` | Reviewed fixes integrated |
-| H5b HTML table text and foster insertion | `01a0cf9d-4989-78a3-9ec5-3302a335a8bc` | Reviewed implementation and diagnostic correction integrated |
+| A1 dependency and binding inventory | `01a0cef5-3c12-7d22-926c-e2aeefe58949` | Reviewed and integrated; archived, worktree removed |
+| A2/D1/D2 package and DOM foundation | `01a0cef5-4a7d-72e2-b551-74f03c9da7ec` | Reviewed fixes integrated; 52 combined tests pass; archived, worktree removed |
+| H1–H3 resumable HTML tokenizer | `01a0cf2a-8177-7941-9413-ee60edc59454` | Reviewed and integrated; archived, worktree removed |
+| C1 CSS syntax | `01a0cf2a-8a51-76b1-a12b-ac57c7d2b594` | Reviewed constructs and list/block extension integrated; archived, worktree removed |
+| C4a internal CSS syntax editors | `01a0cf89-02d0-79b0-a4d1-5f37f747f728` | Reviewed fixes integrated; archived, worktree removed |
+| A2 shared limits/diagnostics/errors and API snapshots | `01a0cf2c-ab5e-7023-95ab-1ab3a4fc8d77` | Reviewed and integrated; archived, worktree removed |
+| D3a native cloning and import | `01a0cf34-dc42-75d0-960e-735bef6eb68a` | Reviewed and integrated; archived, worktree removed |
+| XML shared contracts and provenance | `01a0cf2c-ab5e-7023-95ab-1ab3a4fc8d77` | Reviewed and integrated; archived, worktree removed |
+| X1 native XML/SVG parsing | `01a0cf3f-9380-7513-a351-4078c30d2241` | Reviewed facade/DTD fixes integrated; full corpus acceptance pending; archived, worktree removed |
+| Native metadata, adoption and templates | `01a0cf47-2a27-7163-8f4e-951fbe9999f5` | Reviewed and integrated, including H4 prerequisites; archived, worktree removed |
+| D4a iterative native traversal | `01a0cf51-0a0a-7753-8235-126166e1484c` | Reviewed and integrated, including template boundaries; archived, worktree removed |
+| C2a selector compiler | `01a0cf57-a964-7922-9f56-3c568a0e51f1` | Reviewed corrections integrated; archived, worktree removed |
+| C2b structural selector evaluator | `01a0cf84-0ef3-70f2-bb95-81bcea063cf7` | Reviewed corrections integrated; archived, worktree removed |
+| C2c relational selector evaluator | `01a0cfa9-3193-73c1-a9cf-f5e2d915cca7` | Reviewed correctness and complexity fixes integrated; archived, worktree removed |
+| H4 HTML tree construction | `01a0cf5a-9eed-7913-bcb4-e019fbbb5e8c` | Reviewed corrections integrated; archived, worktree removed |
+| H5a HTML table structure | `01a0cf80-d939-7a72-829a-859771c547f0` | Reviewed fixes integrated; archived, worktree removed |
+| H5b HTML table text and foster insertion | `01a0cf9d-4989-78a3-9ec5-3302a335a8bc` | Reviewed implementation and diagnostic correction integrated; archived, worktree removed |
 | H6a active formatting reconstruction | `01a0cfba-939d-7c52-9867-dc86e37f5b0d` | In progress; exclusive tree-builder owner |
-| H5b native fresh insertion prerequisite | `01a0cfa5-4d54-73d1-9e18-3f263463a87c` | Reviewed implementation integrated |
-| D5 native mutation tracking | `01a0cf62-1c76-7411-ae32-d5d6beee5915` | Reviewed corrections integrated; native ownership retained for fixes |
+| H5b native fresh insertion prerequisite | `01a0cfa5-4d54-73d1-9e18-3f263463a87c` | Reviewed implementation integrated; archived, worktree removed |
+| D5 native mutation tracking | `01a0cf62-1c76-7411-ae32-d5d6beee5915` | Reviewed mutation and PI corrections integrated; archived, worktree removed |
 | XML conformance corpus and harness | `01a0cf6e-aa5f-7631-af1b-03f6136013a1` | Full harness integrated; remaining policy/output debt fails visibly |
-| Native immutable XML notation metadata | `01a0cf91-311c-7283-8de6-5272978c0529` | Metadata and XML population integrated; corpus OUTPUT adaptation in progress |
-| D6s1 native shadow root ownership | `01a0cfae-7f75-7c72-bc9f-c9f06fccb468` | Independently reviewed contract dispatched; implementation in progress |
-| Packed public XML and mutation consumer | `01a0cf2c-ab5e-7023-95ab-1ab3a4fc8d77` | Reviewed harness and package README integrated |
-| C5 V0a CSS value primitives | `01a0cf7b-7669-7883-944b-3f3c35fc4585` | Reviewed corrections integrated |
-| C5 V0b1 basic CSS math | `01a0cf9b-ba8a-7a32-b6e4-09de7672e6ed` | Reviewed design dispatched; implementation in progress |
+| Native immutable XML notation metadata | `01a0cf91-311c-7283-8de6-5272978c0529` | Metadata, parser population and reviewed SCF output integrated; archived, worktree removed |
+| D6s1 native shadow root ownership | `01a0cfae-7f75-7c72-bc9f-c9f06fccb468` | Reviewed roots/ownership and API snapshots integrated; archived, worktree removed |
+| Packed public XML and mutation consumer | `01a0cf2c-ab5e-7023-95ab-1ab3a4fc8d77` | Reviewed harness and package README integrated; archived, worktree removed |
+| C5 V0a CSS value primitives | `01a0cf7b-7669-7883-944b-3f3c35fc4585` | Reviewed corrections integrated; archived, worktree removed |
+| C5 V0b1 basic CSS math | `01a0cf9b-ba8a-7a32-b6e4-09de7672e6ed` | Astra review findings being corrected |
+| D7a1 native form association | `01a0cfce-720d-76a2-aff0-6ab0c6c1315a` | In progress; exclusive shared native-file owner |
+| X4a native XPath adapter | `client-new-thread:b9f92a93-911e-44eb-8f90-c701079b8421` | Reviewed design dispatched; actual task identity pending handoff |
 
 The XML conformance gate inventories all 2,585 pinned W3C rows with explicit profile
 classifications and separate output assertions. Current execution results and remaining debt are below.
@@ -337,3 +345,28 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   implementation awaits the shared native files currently owned by D6s1.
 - `7776b504e`, `1ea70953e`: reviewed H5b pending table text/foster insertion and
   resumable diagnostic correction (source `659c22ab5`, `56b2c300a`).
+
+## Latest integration and cleanup checkpoint
+
+- Native shadow roots and reviewed adoption/custom-name corrections: `2adc25415`,
+  `7c7cc9765` (sources `6da427a66`, `4664260dc`). Both framework API snapshots record
+  only DocumentFragment becoming unsealed, in `95e003601`; its constructor remains internal.
+- Reviewed XPath dispatch design: `04c75b18f`. Live traversal and column-selector designs
+  remain under independent review; they are not implementation-completion claims.
+- XML notation SCF and URI corrections: `c0ebd34be`, `f9e6c997b`, `0d32dc659`,
+  `ef7568427` (sources `9ffd768f8`, `a9232174b`, `ab23d1713`, `1d2db11a2`).
+- Exact 17-row XML default packet and 20-row OASIS packet: `89683f4e7`, `0ffd34f4a`
+  (sources `5aa862e94`, `49af94df9`). The OASIS packet is nine valid and eleven not-well-formed
+  upstream cases, including p62fail1; all twenty main documents meet the reviewed no-fetch policy.
+- Full common suite after shadow/XML integration: 5,644 tests, 4,926 passed, 718 failed, no skips.
+  All failures are XML corpus rows and its census gate. Each framework reports 1,609 conformance
+  passes, 338 unresolved required cases, zero known defects/harness failures, fourteen unreviewed
+  optional observations, six optional adapter debts, seven verified optional policies and zero
+  mismatches. Canonical OUTPUT: 263/386 compared, 123 pending, sixteen reviewed no-fetch alternatives.
+  Evidence: `/private/tmp/jint-shadow-xml-integrated.log`. This remains an intentionally red gate.
+- Relational selectors and all reviewed scope/backtracking/featureless complexity corrections:
+  `3f4be7cd7`, `2563d1219`, `eb5d7af66`, `f03d2ba51` (sources `6567860cf`,
+  `438728ea1`, `73bfeb207`, `27a1b1693`). Fresh combined non-corpus tests after this integration
+  pass 1,672/1,672 across net8/net10 with no skips.
+  Evidence: `/private/tmp/jint-relational-native-integrated.log`.
+- Browser still uses AngleSharp. Measurements remain pending; no speedup is claimed.
