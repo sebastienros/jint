@@ -89,4 +89,30 @@ public class ParserConstructionTests
         element.Attributes.First().Name.Should().Be("a0");
         element.Attributes.Last().Value.Should().Be("v4999");
     }
+
+    [Test]
+    public void MidBatchCancellationLeavesFreshElementUnpublished()
+    {
+        var element = Document.CreateXml().CreateParsedElement(null, "root", null);
+        var attributes = new ParserAttribute[128];
+        for (var i = 0; i < attributes.Length; i++)
+        {
+            attributes[i] = new ParserAttribute(null, "a" + i, null, "v");
+        }
+
+        using var canceled = new CancellationTokenSource();
+        var checkpoint = -1;
+        Assert.Throws<OperationCanceledException>(() => element.InitializeParsedAttributes(attributes,
+            count =>
+            {
+                checkpoint = count;
+                if (count == 64)
+                {
+                    canceled.Cancel();
+                }
+            }, canceled.Token));
+        checkpoint.Should().Be(64);
+        element.AttributeCount.Should().Be(0);
+        element.ParentNode.Should().BeNull();
+    }
 }

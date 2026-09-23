@@ -203,6 +203,12 @@ public sealed class Element : Node
     // The parser supplies one duplicate-free, validated initial batch before the
     // element can be observed. Attach in source order without repeated lookups.
     internal void InitializeParsedAttributes(ReadOnlySpan<ParserAttribute> attributes, CancellationToken cancellationToken)
+        => InitializeParsedAttributes(attributes, null, cancellationToken);
+
+    // Per-invocation checkpoint lets tests deterministically cancel a partial
+    // unpublished batch without adding shared state to parser construction.
+    internal void InitializeParsedAttributes(ReadOnlySpan<ParserAttribute> attributes, Action<int>? workCheckpoint,
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (_attributes is not null || ParentNode is not null || ChildCount != 0)
@@ -221,6 +227,7 @@ public sealed class Element : Node
         {
             if ((i & 63) == 0)
             {
+                workCheckpoint?.Invoke(i);
                 cancellationToken.ThrowIfCancellationRequested();
             }
 
