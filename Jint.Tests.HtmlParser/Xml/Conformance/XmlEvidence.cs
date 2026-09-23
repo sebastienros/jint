@@ -167,8 +167,11 @@ internal static class XmlEvidence
         Consider(rooted);
         if (inputBase.AbsolutePath == target.AbsolutePath)
             Consider(target.Query);
-        if (shortest.EndsWith('/'))
-            Consider(shortest[..^1]);
+        var queryStart = shortest.IndexOf('?');
+        if (queryStart < 0)
+            queryStart = shortest.Length;
+        if (queryStart > 0 && shortest[queryStart - 1] == '/')
+            Consider(shortest.Remove(queryStart - 1, 1));
         return shortest;
     }
 
