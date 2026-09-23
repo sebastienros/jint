@@ -114,6 +114,7 @@ internal sealed partial class HtmlTokenizer
             case State.MarkupDeclaration:
                 Error("incorrectly-opened-comment"); _comment.Clear(); return EmitComment(out token);
             case State.BogusComment:
+                return EmitComment(out token);
             case State.CommentStart:
             case State.CommentStartDash:
             case State.Comment:
@@ -141,15 +142,20 @@ internal sealed partial class HtmlTokenizer
             case State.SystemDouble:
             case State.SystemSingle:
             case State.AfterSystemIdentifier:
-            case State.BogusDoctype:
                 Error("eof-in-doctype");
                 if (_state == State.DoctypeName) _doctypeName = _name.ToString();
                 if (_state is State.PublicDouble or State.PublicSingle) _publicIdentifier = _value.ToString();
                 if (_state is State.SystemDouble or State.SystemSingle) _systemIdentifier = _value.ToString();
                 if (_state != State.BogusDoctype) _forceQuirks = true;
                 return EmitDoctype(out token);
-            case State.CDataBracket: Text(']', _input.Offset - 1); break;
-            case State.CDataEnd: Text("]]", _input.Offset - 2); break;
+            case State.BogusDoctype:
+                return EmitDoctype(out token);
+            case State.CData:
+                Error("eof-in-cdata"); break;
+            case State.CDataBracket:
+                Error("eof-in-cdata"); Text(']', _input.Offset - 1); break;
+            case State.CDataEnd:
+                Error("eof-in-cdata"); Text("]]", _input.Offset - 2); break;
             case State.CharacterReference:
             case State.NamedReference:
             case State.AmbiguousAmpersand:
@@ -158,7 +164,7 @@ internal sealed partial class HtmlTokenizer
             case State.DecimalStart:
             case State.HexReference:
             case State.DecimalReference:
-                FinishReferenceAtEof(); break;
+                FinishReferenceAtEof(); return RecoverAtEof(out token);
         }
         _state = State.Data;
         if (_text.Length > 0) { FlushText(out token); return true; }

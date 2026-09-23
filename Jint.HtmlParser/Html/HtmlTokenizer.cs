@@ -129,6 +129,10 @@ internal sealed partial class HtmlTokenizer
                     token = new HtmlToken(HtmlTokenKind.EndOfFile, offset: _input.Offset);
                     return HtmlReadStatus.Token;
                 }
+                // HTML input preprocessing happens before state dispatch. Take() also
+                // normalizes the consumed unit and skips a following LF, including
+                // when that LF arrives in a later input segment.
+                if (current == '\r') current = '\n';
                 _needsInput = false;
                 if (Step(current, out token)) return HtmlReadStatus.Token;
                 if (_needsInput) return ReturnNeedInput(out token);

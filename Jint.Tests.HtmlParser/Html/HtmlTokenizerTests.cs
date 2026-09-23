@@ -88,6 +88,16 @@ public class HtmlTokenizerTests
 
     [TestCase("plain", "T:plain|EOF|")]
     [TestCase("a\r\nb", "T:a\nb|EOF|")]
+    [TestCase("<a\rb=x>", "S:a b=x|EOF|")]
+    [TestCase("<a\r\nb=x>", "S:a b=x|EOF|")]
+    [TestCase("<a x=one\ry=two>", "S:a x=one y=two|EOF|")]
+    [TestCase("<a x='one\rtwo'>", "S:a x=one\ntwo|EOF|")]
+    [TestCase("<!DOCTYPE\rhtml>", "D:html:(null):(null):False|EOF|")]
+    [TestCase("<!DOCTYPE html\rPUBLIC 'p'>", "D:html:p:(null):False|EOF|")]
+    [TestCase("<!--a\rb-->", "C:a\nb|EOF|")]
+    [TestCase("<?pi\rdata?>", "P:pi:data|EOF|")]
+    [TestCase("<?pi data\rline?>", "P:pi:data\nline|EOF|")]
+    [TestCase("&amp\rx", "T:&\nx|EOF|")]
     [TestCase("a\0b", "T:a\0b|EOF|")]
     [TestCase("<DIV A=one b='two' a=three/>", "S:div a=one b=two|EOF|")]
     [TestCase("</X foo=bar/>", "E:x foo=bar/|EOF|")]
@@ -366,5 +376,27 @@ public class HtmlTokenizerTests
         cancellation.Cancel();
         Assert.Throws<OperationCanceledException>(() => canceled.Read(10, cancellation.Token, out _));
         Assert.Throws<InvalidOperationException>(() => canceled.Read(10, default, out _));
+    }
+
+    [TestCase("<a x='&amp", "EOF|", "html/missing-semicolon-after-character-reference|html/eof-in-tag", false)]
+    [TestCase("&amp", "T:&|EOF|", "html/missing-semicolon-after-character-reference", false)]
+    [TestCase("<![CDATA[x]", "T:x]|EOF|", "html/eof-in-cdata", true)]
+    [TestCase("<![CDATA[x]]", "T:x]]|EOF|", "html/eof-in-cdata", true)]
+    [TestCase("<!bogus", "C:bogus|EOF|", "html/incorrectly-opened-comment", false)]
+    [TestCase("<!doctype x ???", "D:x:(null):(null):True|EOF|", "html/invalid-character-sequence-after-doctype-name", false)]
+    [TestCase("<!--x", "C:x|EOF|", "html/eof-in-comment", false)]
+    [TestCase("<!doctype x", "D:x:(null):(null):True|EOF|", "html/eof-in-doctype", false)]
+    [TestCase("<?pi", "EOF|", "html/eof-in-processing-instruction", false)]
+    public void EofRecoveryReportsOnlyTheSpecifiedDiagnostics(string source, string expected,
+        string codes, bool allowCData)
+    {
+        for (var split = -1; split <= source.Length; split++)
+            foreach (var quota in new[] { 1, 3 })
+            {
+                var diagnostics = new ParseDiagnosticCollector();
+                var context = new HtmlTokenizerContext(diagnostics: diagnostics, allowCData: allowCData);
+                Assert.That(Signature(Scan(source, quota, split, context)), Is.EqualTo(expected), $"split {split}, quota {quota}");
+                Assert.That(string.Join("|", diagnostics.Items.Select(x => x.Code)), Is.EqualTo(codes), $"split {split}, quota {quota}");
+            }
     }
 }

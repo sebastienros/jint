@@ -190,7 +190,7 @@ internal sealed partial class HtmlTokenizer
         {
             case State.CharacterReference: FinishLiteralReference(); break;
             case State.NamedReference: FinishNamedReference('\0'); break;
-            case State.AmbiguousAmpersand: _referenceStart = -1; break;
+            case State.AmbiguousAmpersand: _referenceStart = -1; _state = _returnState; break;
             case State.NumericReference:
             case State.HexStart:
             case State.DecimalStart:
