@@ -259,7 +259,7 @@ internal static class XmlMarkupSerializer
                 if (prefixToWrite is null && ownPrefix is not null && ns is not null)
                 {
                     prefixToWrite = localReserved.Contains(ownPrefix) || ownPrefix == "xml"
-                        ? _scope.Generate(ns, localReserved)
+                        ? _scope.Generate(localReserved)
                         : ownPrefix;
                     generatedPrefix = true;
                     _scope.Bind(prefixToWrite, ns);
@@ -356,7 +356,7 @@ internal static class XmlMarkupSerializer
                     {
                         var own = attribute.Prefix;
                         prefix = own is not null && !localReserved.Contains(own) && own != "xml"
-                            ? own : _scope.Generate(ns, localReserved);
+                            ? own : _scope.Generate(localReserved);
                         _scope.Bind(prefix, ns);
                         localReserved.Add(prefix);
                         WriteDeclaration(prefix, ns);

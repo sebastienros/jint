@@ -65,14 +65,14 @@ internal sealed class XmlNamespaceScope
         _work.Poll(SerializationStage.Scan);
     }
 
-    internal string Generate(string uri, HashSet<string> localReserved)
+    internal string Generate(HashSet<string> localReserved)
     {
         while (true)
         {
             _work.Charge(1, SerializationStage.Scan);
             var prefix = "ns" + _prefixIndex.ToString(System.Globalization.CultureInfo.InvariantCulture);
             _prefixIndex = checked(_prefixIndex + 1);
-            _work.Charge(prefix.Length * 2 + uri.Length, SerializationStage.Scan);
+            _work.Charge(prefix.Length * 2, SerializationStage.Scan);
             if (_prefixes.ContainsKey(prefix) || localReserved.Contains(prefix)) continue;
             return prefix;
         }

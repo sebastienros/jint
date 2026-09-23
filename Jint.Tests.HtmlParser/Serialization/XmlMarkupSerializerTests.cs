@@ -375,6 +375,31 @@ public sealed class XmlMarkupSerializerTests
         var reserved = new HashSet<string>(StringComparer.Ordinal);
         for (var i = 1; i <= 1_000; i++) reserved.Add("ns" + i);
         armed = true;
-        Assert.Throws<OperationCanceledException>(() => scope.Generate("urn:new", reserved));
+        Assert.Throws<OperationCanceledException>(() => scope.Generate(reserved));
+    }
+
+    [Test]
+    public void PrefixCollisionWorkDoesNotMultiplyByNamespaceUriLength()
+    {
+        static int CountScanPolls(int collisions, int uriLength)
+        {
+            var polls = 0;
+            var work = new SerializationWork(default, stage =>
+            {
+                if (stage == SerializationStage.Scan) polls++;
+            });
+            var scope = new XmlNamespaceScope(work);
+            var reserved = new HashSet<string>(StringComparer.Ordinal);
+            for (var index = 1; index <= collisions; index++) reserved.Add("ns" + index);
+            var prefix = scope.Generate(reserved);
+            scope.Bind(prefix, new string('u', uriLength));
+            return polls;
+        }
+
+        var shortUri = CountScanPolls(1_000, 8);
+        var longUri = CountScanPolls(1_000, 4_096);
+        var longerCollisionChain = CountScanPolls(2_000, 4_096);
+        (longUri - shortUri).Should().BeLessThan(24);
+        longerCollisionChain.Should().BeLessThan(longUri * 3);
     }
 }
