@@ -250,6 +250,9 @@ case-preserving XHTML element creation. Default standalone XML type is `applicat
 is `image/svg+xml`. Browser applies the caller/response type through its internal creation path, before
 nodes are built. Do not infer type from an `html`/`svg` root, and do not expose a MIME option just to wire
 Browser. XML declaration metadata may be retained internally; no new public declaration API is needed.
+The [native follow-up dispatch](html-parser-native-followups.md) now gives the exact metadata/factory
+and fresh-document parser seam, followed by the concrete template-content ownership commit. These
+prerequisites land before the complete XML facade, under the native owner rather than the XML task.
 
 Parsing uses native insertion/attribute primitives so intrinsic element state and mutation invariants
 are maintained. Detached parsing schedules no host event. XHTML template children require the native

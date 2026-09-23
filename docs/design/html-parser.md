@@ -285,6 +285,8 @@ Null required strings/nodes fail with `ArgumentNullException`. Nullable namespac
 Document/node factories and their small API snapshots land with D1/D2/D3; the parser project bootstrap
 does not reserve every future method in a shipped assembly. There is no runtime element-factory plugin
 or per-tag class hierarchy. Named CSS and selector constructors above likewise land with C1/C2/C4/C5.
+The [native follow-up contract](html-parser-native-followups.md) specifies document metadata, D3b
+explicit adoption/replace-all and the required template-content ownership commit after D3a clone/import.
 
 Options carry required context, resource limits and diagnostics, not feature enablement or alternate
 recovery algorithms. They are small immutable values, snapshotted at session creation. No builder/container chain and
@@ -479,8 +481,11 @@ Use three separate mechanisms, with explicit ownership:
    separate style versions/notifications; DOM MutationObserver does not invent CSSOM records.
 
 For standalone .NET consumers, expose a disposable pull subscription:
-`document.ObserveMutations(target, options)` returns `MutationSubscription` with `TakeRecords()` and
-`Disconnect()`. Records contain stable node references and immutable added/removed snapshots. No
+`document.ObserveMutations(target, options)` returns `MutationSubscription`; the
+[D5 dispatch](html-parser-mutations.md) defines its exact options/record surface and lifetime.
+`TakeRecords()` drains only; `TakeRecordsForDelivery()` also completes transient-registration cleanup,
+providing standalone callers an explicit delivery boundary. `Disconnect()` clears the subscription.
+Records contain stable node references and immutable added/removed snapshots. No
 hidden thread or event loop is started. The browser adds its own callback scheduling over this machinery.
 Draining one subscription never drains another. Disconnect clears its registrations and records;
 records retain removed nodes only while queued or retained by a consumer. Add callback convenience
