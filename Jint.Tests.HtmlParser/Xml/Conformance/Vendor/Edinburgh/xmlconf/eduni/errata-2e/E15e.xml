@@ -1,0 +1,5 @@
+<!DOCTYPE foo [
+<!ELEMENT foo (foo*)>
+<!ENTITY space " ">
+]>
+<foo><foo/>&space;<foo/></foo>

@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<!-- Namespace name test: a syntactically plausible URI with a 
+     fictitious scheme -->
+<!DOCTYPE foo [
+<!ELEMENT foo ANY>
+<!ATTLIST foo xmlns CDATA #IMPLIED>
+]>
+<foo xmlns="zarquon://example.org/namespace"/>

@@ -1,0 +1,4 @@
+<!DOCTYPE root [
+<!ENTITY bomboom8 SYSTEM "8bomboom.xml">
+]>
+<root>&bomboom8;</root>

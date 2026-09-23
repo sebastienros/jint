@@ -1,0 +1,6 @@
+<!-- Default values for NMTOKENS attributes must match Nmtokens. -->
+<!DOCTYPE foo [
+<!ELEMENT foo EMPTY>
+<!ATTLIST foo a NMTOKENS "34+">
+]>
+<foo a="34"/>

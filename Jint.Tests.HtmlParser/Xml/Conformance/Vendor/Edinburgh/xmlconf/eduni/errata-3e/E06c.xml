@@ -1,0 +1,7 @@
+<!-- Default values for IDREFS attributes must match Names. -->
+<!DOCTYPE foo [
+<!ELEMENT foo EMPTY>
+<!ATTLIST foo id ID #IMPLIED>
+<!ATTLIST foo a IDREFS "34">
+]>
+<foo id="g0034" a="g0034"/>

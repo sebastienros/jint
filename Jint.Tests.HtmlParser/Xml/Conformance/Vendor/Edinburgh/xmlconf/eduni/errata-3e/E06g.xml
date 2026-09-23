@@ -1,0 +1,8 @@
+<!-- Default values for NOTATION attributes must match one of the enumerated values. -->
+<!DOCTYPE foo [
+<!ELEMENT foo ANY>
+<!ATTLIST foo a NOTATION (not) "not2">
+<!NOTATION not SYSTEM "not">
+<!NOTATION not2 SYSTEM "not2">
+]>
+<foo a="not">junk</foo>

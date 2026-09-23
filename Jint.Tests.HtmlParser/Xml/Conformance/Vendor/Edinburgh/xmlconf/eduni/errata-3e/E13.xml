@@ -1,0 +1,7 @@
+<!-- Even internal parameter entity references are enough to make undeclared entities into mere validity errors rather than well-formedness errors. -->
+<!DOCTYPE foo [
+<!ENTITY % pe "<!ENTITY ent1 'text'>">
+%pe;
+<!ELEMENT foo ANY>
+]>
+<foo>&ent2;</foo>

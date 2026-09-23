@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<!-- Simple legal case: default namespace and rebinding -->
+<foo xmlns="http://example.org/namespace">
+ <foo xmlns="http://example.org/other-namespace"/>
+</foo>
+

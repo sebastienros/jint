@@ -1,0 +1,67 @@
+<TESTCASES PROFILE="Richard Tobin's XML 1.0 3rd edition errata test suite 1 June 2006">
+
+<!-- These tests are for the errata to XML 1.0 3rd edition
+     (http://www.w3.org/XML/xml-V10-3e-errata).
+     The errata to XML 1.1 (first edition) are a superset of these
+     (http://www.w3.org/XML/xml-V11-1e-errata).
+     The additional XML 1.1 errata are (a) minor fixes to the BNF
+     and (b) a correction concerning 1.0 compatibility; these do
+     not seem to me to merit tests. -->
+
+<!-- E01 concerns xml:lang and is not testable at the XML level -->
+
+<TEST RECOMMENDATION="XML1.0-errata3e" SECTIONS="E05" URI="E05a.xml" ID="rmt-e3e-05a" TYPE="valid">
+CDATA sections may occur in Mixed content.
+</TEST>
+
+<TEST RECOMMENDATION="XML1.0-errata3e" SECTIONS="E05" URI="E05b.xml" ID="rmt-e3e-05b" TYPE="valid">
+CDATA sections, comments and PIs may occur in ANY content.
+</TEST>
+
+<TEST RECOMMENDATION="XML1.0-errata3e" SECTIONS="E06" URI="E06a.xml" ID="rmt-e3e-06a" TYPE="invalid">
+Default values for IDREF attributes must match Name.
+</TEST>
+
+<TEST RECOMMENDATION="XML1.0-errata3e" SECTIONS="E06" URI="E06b.xml" ID="rmt-e3e-06b" TYPE="invalid">
+Default values for ENTITY attributes must match Name.
+</TEST>
+
+<TEST RECOMMENDATION="XML1.0-errata3e" SECTIONS="E06" URI="E06c.xml" ID="rmt-e3e-06c" TYPE="invalid">
+Default values for IDREFS attributes must match Names.
+</TEST>
+
+<TEST RECOMMENDATION="XML1.0-errata3e" SECTIONS="E06" URI="E06d.xml" ID="rmt-e3e-06d" TYPE="invalid">
+Default values for ENTITIES attributes must match Names.
+</TEST>
+
+<TEST RECOMMENDATION="XML1.0-errata3e" SECTIONS="E06" URI="E06e.xml" ID="rmt-e3e-06e" TYPE="invalid">
+Default values for NMTOKEN attributes must match Nmtoken.
+</TEST>
+
+<TEST RECOMMENDATION="XML1.0-errata3e" SECTIONS="E06" URI="E06f.xml" ID="rmt-e3e-06f" TYPE="invalid">
+Default values for NMTOKENS attributes must match Nmtokens.
+</TEST>
+
+<TEST RECOMMENDATION="XML1.0-errata3e" SECTIONS="E06" URI="E06g.xml" ID="rmt-e3e-06g" TYPE="invalid">
+Default values for NOTATION attributes must match one of the enumerated values.
+</TEST>
+
+<TEST RECOMMENDATION="XML1.0-errata3e" SECTIONS="E06" URI="E06h.xml" ID="rmt-e3e-06h" TYPE="invalid">
+Default values for enumerated attributes must match one of the enumerated values.
+</TEST>
+
+<TEST RECOMMENDATION="XML1.0-errata3e" SECTIONS="E06" URI="E06i.xml" ID="rmt-e3e-06i" TYPE="valid">
+Non-syntactic validity errors in default attributes only happen if
+the attribute is in fact defaulted.
+</TEST>
+
+<TEST RECOMMENDATION="XML1.0-errata3e" SECTIONS="E12" URI="E12.xml" ID="rmt-e3e-12" TYPE="not-wf">
+Default values for attributes may not contain references to external entities.
+</TEST>
+
+<TEST RECOMMENDATION="XML1.0-errata3e" SECTIONS="E13" URI="E13.xml" ID="rmt-e3e-13" TYPE="invalid">
+Even internal parameter entity references are enough to make undeclared
+entities into mere validity errors rather than well-formedness errors.
+</TEST>
+
+</TESTCASES>

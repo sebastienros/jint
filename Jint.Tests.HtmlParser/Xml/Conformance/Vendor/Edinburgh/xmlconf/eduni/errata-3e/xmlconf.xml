@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+
+<!-- Richard Tobin's XML 1.0 3rd edition errata test suite. 
+     Copyright Richard Tobin, HCRC June 2006.
+     May be freely redistributed provided copyright notice is retained.
+  -->
+
+<?xml-stylesheet href="xmlconformance.xsl" type="text/xsl"?>
+
+<!DOCTYPE TESTSUITE SYSTEM "testcases.dtd" [
+    <!ENTITY eduni-errata3e SYSTEM "errata3e.xml">
+]>
+
+<TESTSUITE PROFILE="Richard Tobin's XML 1.0 3rd edition errata test suite 1 June 2006">
+    &eduni-errata3e;
+</TESTSUITE>

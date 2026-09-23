@@ -1,0 +1,4 @@
+<?xml version="1.0"?>
+<!-- Reserved prefixes and namespaces: declaring the xml prefix incorrectly -->
+<foo xmlns:xml="http://example.org/namespace"/>
+

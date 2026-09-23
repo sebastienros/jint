@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+
+<!-- Richard Tobin's XML Namespaces 1.0/1.1 2nd edition test suite 1 June 2006
+     Copyright Richard Tobin, HCRC June 2006.
+     May be freely redistributed provided copyright notice is retained.
+  -->
+
+<?xml-stylesheet href="xmlconformance.xsl" type="text/xsl"?>
+
+<!DOCTYPE TESTSUITE SYSTEM "testcases.dtd" [
+    <!ENTITY eduni-nse SYSTEM "errata1e.xml">
+]>
+
+<TESTSUITE PROFILE="Richard Tobin's XML Namespaces 1.0/1.1 2nd edition test suite 1 June 2006">
+    &eduni-nse;
+</TESTSUITE>

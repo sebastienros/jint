@@ -1,0 +1,4 @@
+<!DOCTYPE foo [
+<!ELEMENT foo (PCDATA|foo)*>
+]>
+<foo><foo/><!-- comment --><foo/></foo>

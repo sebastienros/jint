@@ -1,0 +1,5 @@
+﻿<?xml version="1.0"?>
+<!DOCTYPE foo [
+<!ELEMENT foo ANY>
+]>
+<foo/>
