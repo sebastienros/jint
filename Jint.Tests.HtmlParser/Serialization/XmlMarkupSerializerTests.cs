@@ -110,6 +110,34 @@ public sealed class XmlMarkupSerializerTests
     }
 
     [Test]
+    public void InheritedPrefixCanBeLocallyReboundWithoutChangingAnEarlierName()
+    {
+        var document = Document.CreateXml();
+        var root = document.CreateElement("root");
+        root.SetAttributeNS(Namespaces.Xmlns, "xmlns:p", "urn:old");
+        root.SetAttributeNS(Namespaces.Xmlns, "xmlns:q", "urn:old");
+        var child = document.CreateElementNS("urn:new", "p:child");
+        child.SetAttributeNS("urn:newer", "q:a", "1");
+        root.AppendChild(child);
+        XmlMarkupSerializer.Serialize(root, true).Should().Be(
+            "<root xmlns:p=\"urn:old\" xmlns:q=\"urn:old\"><p:child xmlns:p=\"urn:new\" xmlns:q=\"urn:newer\" q:a=\"1\"/></root>");
+    }
+
+    [Test]
+    public void LaterAttributeCannotRebindAnAlreadyEmittedPrefix()
+    {
+        var document = Document.CreateXml();
+        var root = document.CreateElement("root");
+        root.SetAttributeNS(Namespaces.Xmlns, "xmlns:p", "urn:old");
+        var child = document.CreateElement("child");
+        child.SetAttributeNS("urn:old", "p:first", "1");
+        child.SetAttributeNS("urn:new", "p:second", "2");
+        root.AppendChild(child);
+        XmlMarkupSerializer.Serialize(root, true).Should().Be(
+            "<root xmlns:p=\"urn:old\"><child p:first=\"1\" xmlns:ns1=\"urn:new\" ns1:second=\"2\"/></root>");
+    }
+
+    [Test]
     public void RedundantAncestorPrefixDeclarationIsOmittedAndDefaultConflictIsRepaired()
     {
         var document = Document.CreateXml();

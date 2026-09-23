@@ -241,7 +241,7 @@ internal static class XmlMarkupSerializer
                 prefixToWrite = ns is null ? null : _scope.Preferred(ns, ownPrefix);
                 if (prefixToWrite is null && ownPrefix is not null && ns is not null)
                 {
-                    prefixToWrite = localReserved.Contains(ownPrefix) || _scope.Effective(ownPrefix) is not null
+                    prefixToWrite = localReserved.Contains(ownPrefix) || ownPrefix == "xml"
                         ? _scope.Generate(ns, localReserved)
                         : ownPrefix;
                     generatedPrefix = true;
@@ -267,6 +267,8 @@ internal static class XmlMarkupSerializer
             {
                 WriteDeclaration(null, ns ?? string.Empty);
             }
+
+            if (prefixToWrite is not null) localReserved.Add(prefixToWrite);
 
             frame.ChildNamespace = prefixToWrite is null ? ns :
                 localDefault is not null && localDefault != Namespaces.Xml ? EmptyAsNull(localDefault) : inherited;
@@ -336,12 +338,14 @@ internal static class XmlMarkupSerializer
                     if (prefix is null)
                     {
                         var own = attribute.Prefix;
-                        prefix = own is not null && !localReserved.Contains(own) && _scope.Effective(own) is null
+                        prefix = own is not null && !localReserved.Contains(own) && own != "xml"
                             ? own : _scope.Generate(ns, localReserved);
                         _scope.Bind(prefix, ns);
                         localReserved.Add(prefix);
                         WriteDeclaration(prefix, ns);
                     }
+
+                    localReserved.Add(prefix);
                 }
 
                 WriteAttribute(prefix is null ? local : string.Concat(prefix, ":", local), value);
