@@ -18,6 +18,7 @@ public enum NodeType
 public abstract partial class Node
 {
     private Document? _ownerDocument;
+    internal HtmlFormIndex? FormIndex;
 
     internal Node(Document? ownerDocument) => _ownerDocument = ownerDocument;
 
@@ -48,7 +49,11 @@ public abstract partial class Node
     // A clone is already valid by its source tree. D6s2/D6s3 must add the
     // insertion's assignment and slot-signal steps here, including for copied
     // fallback children, without repeating public ancestor validation.
-    internal void AppendClonedChild(Node child) => LinkBefore(child, null);
+    internal void AppendClonedChild(Node child)
+    {
+        LinkBefore(child, null);
+        HtmlFormAssociation.Inserted(child);
+    }
 
     // Trusted fresh-node parser insertion. The caller has established the full
     // document shape and host-inclusive cycle conditions before this O(1) link.
@@ -492,6 +497,7 @@ public abstract partial class Node
             return;
         }
 
+        var formRemoval = HtmlFormAssociation.BeforeRemoval(node, parent);
         var previousSibling = node.PreviousSibling;
         var nextSibling = node.NextSibling;
         var matches = suppressRecord ? null : MutationTracking.Match(parent, MutationRecordKind.ChildList);
@@ -520,6 +526,7 @@ public abstract partial class Node
         node.PreviousSibling = null;
         node.NextSibling = null;
         (parent as Document ?? parent._ownerDocument!).MarkMutation();
+        HtmlFormAssociation.Removed(node, formRemoval);
         if (!suppressRecord)
         {
             MutationTracking.QueueChildList(parent, null, node, previousSibling, nextSibling, matches);
@@ -557,6 +564,7 @@ public abstract partial class Node
         var previousSibling = referenceChild is null ? LastChild : referenceChild.PreviousSibling;
         LinkBefore(node, referenceChild);
         (this as Document ?? _ownerDocument!).MarkMutation();
+        HtmlFormAssociation.Inserted(node);
         if (!suppressRecord)
         {
             MutationTracking.QueueChildList(this, node, null, previousSibling, referenceChild);

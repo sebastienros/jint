@@ -34,6 +34,7 @@ public sealed class Attr
             if (owner is not null)
             {
                 owner.OwnerDocument!.MarkMutation();
+                HtmlFormAssociation.AttributeChanged(owner, NamespaceUri, LocalName, oldValue, value);
                 MutationTracking.QueueAttribute(owner, LocalName, NamespaceUri, oldValue, matches);
             }
         }

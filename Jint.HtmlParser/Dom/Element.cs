@@ -10,6 +10,12 @@ internal enum ParsedAttributeMergeCheckpoint
 public sealed class Element : Node
 {
     private List<Attr>? _attributes;
+    private HtmlElementState? _htmlState;
+    internal HtmlFormAssociationState? FormAssociationState;
+    internal bool WasInserted { get; set; }
+
+    internal HtmlElementState? GetHtmlState()
+        => NamespaceUri == Namespaces.Html ? _htmlState ??= new HtmlElementState(this) : null;
     internal ShadowRoot? AttachedShadowRoot { get; private set; }
     internal ShadowRoot? OpenShadowRoot => AttachedShadowRoot is { Mode: ShadowRootMode.Open } root ? root : null;
     internal CustomElementRegistryIdentity? CustomElementRegistry { get; private set; }
@@ -174,6 +180,8 @@ public sealed class Element : Node
             attribute.OwnerElement = this;
             attribute.OwnerDocument = OwnerDocument!;
             OwnerDocument!.MarkMutation();
+            HtmlFormAssociation.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
+                oldValue, attribute.Value);
             MutationTracking.QueueAttribute(this, attribute.LocalName, attribute.NamespaceUri, oldValue, matches);
         }
 
@@ -209,6 +217,8 @@ public sealed class Element : Node
         _attributes!.Remove(attribute);
         attribute.OwnerElement = null;
         OwnerDocument!.MarkMutation();
+        HtmlFormAssociation.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
+            attribute.Value, null);
         MutationTracking.QueueAttribute(this, attribute.LocalName, attribute.NamespaceUri, attribute.Value);
         return attribute;
     }
@@ -345,6 +355,8 @@ public sealed class Element : Node
         attribute.OwnerElement = this;
         attribute.OwnerDocument = OwnerDocument!;
         OwnerDocument!.MarkMutation();
+        HtmlFormAssociation.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
+            null, attribute.Value);
         MutationTracking.QueueAttribute(this, attribute.LocalName, attribute.NamespaceUri, null);
     }
 
