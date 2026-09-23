@@ -7,6 +7,14 @@ public enum DocumentKind
     Xml
 }
 
+/// <summary>The HTML parser's persisted document mode.</summary>
+internal enum DocumentMode
+{
+    NoQuirks,
+    Quirks,
+    LimitedQuirks
+}
+
 /// <summary>The owner and root of a native document tree.</summary>
 public sealed class Document : Node
 {
@@ -48,6 +56,8 @@ public sealed class Document : Node
 
     public override NodeType NodeType => NodeType.Document;
     public DocumentKind Kind { get; }
+    internal DocumentMode Mode { get; private set; }
+    internal void SetParserMode(DocumentMode mode) => Mode = mode;
     public string ContentType { get; }
     public string CharacterSet { get; } = "UTF-8";
 
