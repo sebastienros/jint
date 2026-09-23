@@ -18,13 +18,13 @@ the earlier repository direction to retain AngleSharp.
 
 | Task | Identity | State |
 | --- | --- | --- |
-| Architecture and migration design | `01a0ceec-94ec-7f63-9bfb-189cac69df5f` | Reviewed design and feature contracts integrated |
+| Architecture and migration design | `01a0ceec-94ec-7f63-9bfb-189cac69df5f` | Reviewed contracts and Markdig-inspired primitive benchmarks integrated; timing pending |
 | Comparison corpus and benchmark harness | `01a0ceee-7b09-7513-b507-a5c412eb4518` | Reviewed XML/SVG comparison integrated; measurements pending |
 | A1 dependency and binding inventory | `01a0cef5-3c12-7d22-926c-e2aeefe58949` | Reviewed and integrated |
 | A2/D1/D2 package and DOM foundation | `01a0cef5-4a7d-72e2-b551-74f03c9da7ec` | Reviewed fixes integrated; 52 combined tests pass |
 | H1–H3 resumable HTML tokenizer | `01a0cf2a-8177-7941-9413-ee60edc59454` | Reviewed and integrated |
 | C1 CSS syntax | `01a0cf2a-8a51-76b1-a12b-ac57c7d2b594` | Reviewed constructs and list/block extension integrated |
-| C4a internal CSS syntax editors | `01a0cf89-02d0-79b0-a4d1-5f37f747f728` | In progress |
+| C4a internal CSS syntax editors | `01a0cf89-02d0-79b0-a4d1-5f37f747f728` | Reviewed fixes integrated |
 | A2 shared limits/diagnostics/errors and API snapshots | `01a0cf2c-ab5e-7023-95ab-1ab3a4fc8d77` | Reviewed and integrated |
 | D3a native cloning and import | `01a0cf34-dc42-75d0-960e-735bef6eb68a` | Reviewed and integrated |
 | XML shared contracts and provenance | `01a0cf2c-ab5e-7023-95ab-1ab3a4fc8d77` | Reviewed and integrated |
@@ -32,16 +32,19 @@ the earlier repository direction to retain AngleSharp.
 | Native metadata, adoption and templates | `01a0cf47-2a27-7163-8f4e-951fbe9999f5` | Reviewed and integrated, including H4 prerequisites |
 | D4a iterative native traversal | `01a0cf51-0a0a-7753-8235-126166e1484c` | Reviewed and integrated, including template boundaries |
 | C2a selector compiler | `01a0cf57-a964-7922-9f56-3c568a0e51f1` | Reviewed corrections integrated |
-| C2b structural selector evaluator | `01a0cf84-0ef3-70f2-bb95-81bcea063cf7` | In progress |
+| C2b structural selector evaluator | `01a0cf84-0ef3-70f2-bb95-81bcea063cf7` | Implementation under Astra review |
 | H4 HTML tree construction | `01a0cf5a-9eed-7913-bcb4-e019fbbb5e8c` | Reviewed corrections integrated |
-| H5a HTML table structure | `01a0cf80-d939-7a72-829a-859771c547f0` | In progress; exclusive tree-builder owner |
+| H5a HTML table structure | `01a0cf80-d939-7a72-829a-859771c547f0` | Reviewed fixes integrated |
+| H5b HTML table text and foster insertion | `01a0cf9d-4989-78a3-9ec5-3302a335a8bc` | In progress; exclusive tree-builder owner |
 | D5 native mutation tracking | `01a0cf62-1c76-7411-ae32-d5d6beee5915` | Reviewed corrections integrated; native ownership retained for fixes |
-| XML conformance corpus and harness | `01a0cf6e-aa5f-7631-af1b-03f6136013a1` | Reviewed source inventory integrated; outcome/output harness in progress |
+| XML conformance corpus and harness | `01a0cf6e-aa5f-7631-af1b-03f6136013a1` | Full harness integrated; remaining policy/output debt fails visibly |
+| Native immutable XML notation metadata | `01a0cf91-311c-7283-8de6-5272978c0529` | Astra review correction in progress |
 | Packed public XML and mutation consumer | `01a0cf2c-ab5e-7023-95ab-1ab3a4fc8d77` | Reviewed harness and package README integrated |
 | C5 V0a CSS value primitives | `01a0cf7b-7669-7883-944b-3f3c35fc4585` | Reviewed corrections integrated |
+| C5 V0b1 basic CSS math | `01a0cf9b-ba8a-7a32-b6e4-09de7672e6ed` | Reviewed design dispatched; implementation in progress |
 
 The XML conformance gate inventories all 2,585 pinned W3C rows with explicit profile
-classifications and separate output assertions. No corpus execution result is claimed yet.
+classifications and separate output assertions. Current execution results and remaining debt are below.
 The reviewed CSSOM plan separates internal syntax editing from validated property and
 rule semantics; public CSSOM completion requires the full reviewed registry disposition.
 
@@ -121,12 +124,17 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   across both frameworks. The integrated full corpus harness then runs 5,364 total
   tests: 4,494 pass and 870 fail, with zero skips. Per framework, all non-corpus
   tests pass; 434 individual corpus cases and the census gate fail visibly.
+- After reviewed H5a table structure, C4a syntax editors and thirteen additional exact XML
+  expectations, the integrated suite runs 5,436 tests: 4,592 pass and 844 fail, zero skips.
+  All failures are the existing corpus obligations: 421 individual cases and the census per TFM.
 - The current corpus census is 2,585 inventoried rows: 593 outside the XML/namespace
   profile, 18 reviewed byte-boundary exclusions, 1,947 runnable candidates and 27
-  optional-error decisions. It reports 1,540 passing cases, 433 unresolved cases,
+  optional-error decisions. It reports 1,553 passing cases, 420 unresolved cases,
   one known required notation-reporting defect, and zero harness-error outcomes.
   Output evidence is 238 comparisons passed out of 386 eligible, with 148 pending.
   The original eight parser defects are confirmed fixed by this corpus rerun.
+  Decoded optional-error rows now execute and report typed observations without being
+  awarded conformance passes; unsupported byte adapters remain explicit debt.
 - Twelve separately named UTF-16 surrogate tests pass after constructing code units
   at runtime. An earlier failure report came from attribute-metadata replacement of
   invalid surrogate strings, not a scanner defect; no production fix was made.
@@ -138,9 +146,9 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   net10.0, plus a Native AOT publish/run on osx-arm64 in its implementation worktree.
   Package inspection found no production dependencies. Its reviewed probes cover
   public XML/SVG/fragments and mutation records; this is not the final full-package gate.
-- The first full XML corpus run reports a valid 1.x declaration rejected and seven
-  current XML Name characters rejected at the native PI factory. These are visible
-  parser defects under correction, alongside unfinished output/profile expectations.
+- The first full XML corpus run exposed a valid 1.x declaration rejection and seven
+  current XML Name character rejections at the native PI factory. All eight are fixed;
+  unfinished output/profile expectations remain visible.
 
 ## Integrated commits
 
@@ -258,3 +266,14 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
 - `cac76ef1d`, `eab3aca1c`: reviewed public-parser corpus runner, strict decoding,
   Second Canonical Form evidence, exact byte/resource classifications and corrected
   projection/output gates (source `f81da684`, `841569ee`). Remaining debt fails tests.
+- `d247afc8f`: thirteen exact reviewed XML rejection expectations (source `ea47120b7`).
+- `cd036b7de`: independently reviewed finite basic CSS math implementation contract.
+- `ff8b96592`, `8f99ad326`: reviewed HTML table structure and heading-scope/reset-index
+  corrections (source `8e5d87112`, `17090b80e`); deterministic repeated-prefix work is linear.
+- `2ae5e4f67`: optional XML cases execute without becoming conformance passes
+  (source `2943b43b2`); exact policy verification remains separate.
+- `7bcaddb84`: reviewed Markdig-inspired throughput/allocation kernels and independent
+  correctness checks (source `35233301e`); no timing or optimization winner claimed.
+- `0a2ec01fd`, `14a86667a`, `7a1e1320d`: reviewed internal CSS syntax editors,
+  quoted-URL serialization and deterministic projection cancellation fixes
+  (source `0514cfa14`, `a91e4c417`, `eb70e3d76`).
