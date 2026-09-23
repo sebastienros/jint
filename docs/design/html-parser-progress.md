@@ -18,8 +18,10 @@ the earlier repository direction to retain AngleSharp.
 
 | Task | Identity | State |
 | --- | --- | --- |
-| Architecture and migration design | `01a0ceec-94ec-7f63-9bfb-189cac69df5f` | In progress |
-| Comparison corpus and benchmark harness | Pending task setup | Queued |
+| Architecture and migration design | `01a0ceec-94ec-7f63-9bfb-189cac69df5f` | Initial design integrated; review corrections in progress |
+| Comparison corpus and benchmark harness | `01a0ceee-7b09-7513-b507-a5c412eb4518` | In progress |
+| A1 dependency and binding inventory | `01a0cef5-3c12-7d22-926c-e2aeefe58949` | In progress |
+| A2/D1/D2 package and DOM foundation | `01a0cef5-4a7d-72e2-b551-74f03c9da7ec` | In progress |
 
 ## Initial repository evidence
 
@@ -35,5 +37,17 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
 
 ## Validation
 
-- Baseline Release build: in progress.
+- Baseline Release build: passed on .NET 8 and .NET 10, zero warnings/errors.
+- Baseline document-loading, DOMParser, and mutation-observer tests: 88 passed,
+  zero failed/skipped across both frameworks. Filter:
+  `FullyQualifiedName~DocumentLoadTests|FullyQualifiedName~MutationObserverTests|FullyQualifiedName~DomParserTests`.
+- Local restore requires `-p:RestoreSources=https://api.nuget.org/v3/index.json`
+  because the user-level additional feed has no source mapping (`NU1507`).
 - No parser implementation or performance claim has been completed yet.
+
+## Integrated commits
+
+- `30f9343eb`: initial Astra architecture and dependency plan, from `e47db2a0d`.
+  Independent Astra review requested tighter configuration scope, complete standalone
+  construct APIs, explicit ownership of intrinsic element semantics, and completion
+  gates covering the standalone package as well as browser replacement.
