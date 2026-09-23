@@ -19,11 +19,20 @@ internal sealed partial class HtmlTokenizer
         BeforeSystemIdentifier, SystemDouble, SystemSingle, AfterSystemIdentifier,
         BogusDoctype, CData, CDataBracket, CDataEnd,
         CharacterReference, NamedReference, AmbiguousAmpersand, NumericReference, HexStart, DecimalStart,
-        HexReference, DecimalReference
+        HexReference, DecimalReference,
+        RcData, RcDataLessThan, RcDataEndTagOpen, RcDataEndTagName,
+        RawText, RawTextLessThan, RawTextEndTagOpen, RawTextEndTagName,
+        ScriptData, ScriptLessThan, ScriptEndTagOpen, ScriptEndTagName,
+        ScriptEscapeStart, ScriptEscapeStartDash, ScriptEscaped, ScriptEscapedDash,
+        ScriptEscapedDashDash, ScriptEscapedLessThan, ScriptEscapedEndTagOpen,
+        ScriptEscapedEndTagName, ScriptDoubleEscapeStart, ScriptDoubleEscaped,
+        ScriptDoubleEscapedDash, ScriptDoubleEscapedDashDash,
+        ScriptDoubleEscapedLessThan, ScriptDoubleEscapeEnd, PlainText
     }
 
     private bool Step(char c, out HtmlToken token)
     {
+        if (_state >= State.RcData) return StepTextMode(c, out token);
         token = default;
         switch (_state)
         {

@@ -22,6 +22,7 @@ internal sealed partial class HtmlTokenizer
     private readonly StringBuilder _comment = new();
     private readonly StringBuilder _piTarget = new();
     private readonly StringBuilder _piData = new();
+    private readonly StringBuilder _textEndTagBuffer = new();
     private string? _piName;
     private readonly List<HtmlAttribute> _attributes = new();
     private readonly HashSet<string> _attributeNames = new(StringComparer.Ordinal);
@@ -30,6 +31,11 @@ internal sealed partial class HtmlTokenizer
     private HtmlToken _pending;
     private bool _hasPending;
     private bool _needsInput;
+    private bool _canSetTextMode = true;
+    private HtmlTextMode _textMode;
+    private string? _appropriateEndTagName;
+    private int _scriptWordLength;
+    private bool _scriptWordMatches;
     private bool _ended;
     private bool _terminal;
     private bool _skipLf;
@@ -91,10 +97,12 @@ internal sealed partial class HtmlTokenizer
             _terminal = true;
             cancellationToken.ThrowIfCancellationRequested();
         }
+        _canSetTextMode = false;
         if (_hasPending)
         {
             _hasPending = false;
             token = _pending;
+            _canSetTextMode = CanSetModeAfterToken();
             return HtmlReadStatus.Token;
         }
         if (_ended) return HtmlReadStatus.Complete;
@@ -176,6 +184,7 @@ internal sealed partial class HtmlTokenizer
     {
         token = new HtmlToken(HtmlTokenKind.Text, data: Materialize(_text), offset: _textStart);
         _text.Clear();
+        _canSetTextMode = CanSetModeAfterToken();
         return HtmlReadStatus.Token;
     }
 
@@ -189,6 +198,7 @@ internal sealed partial class HtmlTokenizer
             return true;
         }
         token = produced;
+        _canSetTextMode = CanSetModeAfterToken();
         return true;
     }
 
@@ -278,6 +288,8 @@ internal sealed partial class HtmlTokenizer
         // Tag name has a separate buffer from the current attribute.
         _tokenStart = -1;
         _state = State.Data;
+        _textMode = HtmlTextMode.Data;
+        _appropriateEndTagName = null;
         return Emit(produced, out token);
     }
 

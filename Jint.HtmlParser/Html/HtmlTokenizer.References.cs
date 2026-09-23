@@ -42,7 +42,7 @@ internal sealed partial class HtmlTokenizer
                 {
                     var offset = _input.Offset;
                     var character = Take();
-                    if (_returnState == State.Data) Text(character, offset);
+                    if (_returnState is State.Data or State.RcData) Text(character, offset);
                     else Append(_value, character);
                     return false;
                 }
@@ -120,7 +120,7 @@ internal sealed partial class HtmlTokenizer
         var matched = spelling.AsSpan(0, _bestEntityLength);
         var hasSemicolon = matched[^1] == ';';
         var next = _bestEntityLength < spelling.Length ? spelling[_bestEntityLength] : following;
-        if (!hasSemicolon && _returnState != State.Data && (AsciiAlpha(next) || AsciiDigit(next) || next == '='))
+        if (!hasSemicolon && _returnState is not (State.Data or State.RcData) && (AsciiAlpha(next) || AsciiDigit(next) || next == '='))
         {
             FinishLiteralReference();
             return;
@@ -206,7 +206,7 @@ internal sealed partial class HtmlTokenizer
 
     private void AppendReferenceResult(string value)
     {
-        if (_returnState == State.Data) Text(value, _referenceStart);
+        if (_returnState is State.Data or State.RcData) Text(value, _referenceStart);
         else Append(_value, value);
     }
 }

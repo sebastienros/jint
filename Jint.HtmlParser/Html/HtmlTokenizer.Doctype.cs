@@ -87,6 +87,7 @@ internal sealed partial class HtmlTokenizer
 
     private bool RecoverAtEof(out HtmlToken token)
     {
+        if (_state >= State.RcData) return RecoverTextModeAtEof(out token);
         token = default;
         switch (_state)
         {
