@@ -22,14 +22,16 @@ the earlier repository direction to retain AngleSharp.
 | Comparison corpus and benchmark harness | `01a0ceee-7b09-7513-b507-a5c412eb4518` | Reviewed and integrated |
 | A1 dependency and binding inventory | `01a0cef5-3c12-7d22-926c-e2aeefe58949` | Reviewed and integrated |
 | A2/D1/D2 package and DOM foundation | `01a0cef5-4a7d-72e2-b551-74f03c9da7ec` | Reviewed fixes integrated; 52 combined tests pass |
-| H1/H2 resumable HTML tokenizer | `01a0cf2a-8177-7941-9413-ee60edc59454` | Reviewed and integrated; H3 text modes in progress |
+| H1–H3 resumable HTML tokenizer | `01a0cf2a-8177-7941-9413-ee60edc59454` | Reviewed and integrated |
 | C1 CSS syntax | `01a0cf2a-8a51-76b1-a12b-ac57c7d2b594` | Reviewed and integrated |
 | A2 shared limits/diagnostics/errors and API snapshots | `01a0cf2c-ab5e-7023-95ab-1ab3a4fc8d77` | Reviewed and integrated |
 | D3a native cloning and import | `01a0cf34-dc42-75d0-960e-735bef6eb68a` | Reviewed and integrated |
 | XML shared contracts and provenance | `01a0cf2c-ab5e-7023-95ab-1ab3a4fc8d77` | Reviewed and integrated |
-| X1 native XML/SVG parsing | `01a0cf3f-9380-7513-a351-4078c30d2241` | Internal scanner milestone in progress |
-| Native metadata, adoption and templates | `01a0cf47-2a27-7163-8f4e-951fbe9999f5` | Sequential feature commits in progress |
-| D4a iterative native traversal | `01a0cf51-0a0a-7753-8235-126166e1484c` | In progress |
+| X1 native XML/SVG parsing | `01a0cf3f-9380-7513-a351-4078c30d2241` | Reviewed internal core integrated; DTD under review |
+| Native metadata, adoption and templates | `01a0cf47-2a27-7163-8f4e-951fbe9999f5` | Reviewed and integrated; H4 native prerequisites in progress |
+| D4a iterative native traversal | `01a0cf51-0a0a-7753-8235-126166e1484c` | Reviewed and integrated; template-boundary tests in progress |
+| C2a selector compiler | `01a0cf57-a964-7922-9f56-3c568a0e51f1` | In progress |
+| H4 HTML tree construction | `01a0cf5a-9eed-7913-bcb4-e019fbbb5e8c` | In progress |
 
 ## Initial repository evidence
 
@@ -73,6 +75,10 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   340 tests pass across both frameworks, zero failures/skips.
 - Trusted construction and deterministic bulk cancellation bring the suite to 352
   passing tests. Adoption/replace-all then bring it to 372, zero failures/skips.
+- With native traversal and the reviewed XML core, 442 tests pass. Integrating H3,
+  the internal selector exception and corrected template ownership brings the suite
+  to 630 tests across both frameworks, zero failures/skips. Full XML/HTML facades,
+  browser replacement and comparative performance acceptance remain unfinished.
 
 ## Integrated commits
 
@@ -124,3 +130,15 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
 - `5dd824c92`: explicit adoption and replace-all with complete pre-validation,
   fragment ownership distinctions and generated API snapshots (source `cb4ed3d8e`);
   Astra review clear.
+- `32b48cf7e`: iterative traversal and cancellation through final ascent
+  (source `ef53e0d84`); Astra review clear.
+- `be0b46f70`: reviewed selector compilation/matching dispatch and explicit
+  standards/compatibility decisions.
+- `b7b5d6a36`, `5418ccd99`, `c44261538`, `c8e3c5bd1`: internal XML core and all
+  reviewed namespace, fragment, linear-construction, allocation and polling fixes
+  (source `ceb09b1a8`, `28519f37a`, `e0a27b030`, `d7c76cccc`); final Astra rechecks clear.
+- `eb778d660`: H3 text modes and script escapes (source `2d4655709`); Astra review clear.
+- `850ce0628`: internal selector parse exception (source `f18cc643b`); Astra review clear.
+- `2de85c47c`, `902774bb7`: native templates and same-document adoption-boundary
+  correction (source `1bf760697`, `e8ebfb4b`); final Astra recheck clear.
+- `fc5083c41`: reviewed H4 tree-construction dispatch and native/shared prerequisites.
