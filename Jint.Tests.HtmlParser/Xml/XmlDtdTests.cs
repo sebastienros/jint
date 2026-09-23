@@ -163,4 +163,18 @@ public class XmlDtdTests
         var error = Assert.Throws<MarkupParseException>(() => XmlTreeParser.ParseDocument(source, ParseLimits.Unbounded, default));
         error!.Code.Should().Be("xml/invalid-markup");
     }
+
+    [Test]
+    public void XhtmlTemplateChildrenUseNativeInertContentOwner()
+    {
+        const string source = "<html xmlns='http://www.w3.org/1999/xhtml'><template><span/>text</template></html>";
+        var document = XmlTreeParser.ParseDocument(source, ParseLimits.Unbounded, default);
+        var template = (Element) document.DocumentElement!.FirstChild!;
+        template.ChildCount.Should().Be(0);
+        var content = template.TemplateContent!;
+        content.ChildCount.Should().Be(2);
+        content.OwnerDocument.Should().NotBeSameAs(document);
+        content.FirstChild!.OwnerDocument.Should().BeSameAs(content.OwnerDocument);
+        content.LastChild!.OwnerDocument.Should().BeSameAs(content.OwnerDocument);
+    }
 }

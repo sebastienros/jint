@@ -87,6 +87,25 @@ public class XmlDtdReviewTests
             default).DocumentElement!.FirstChild!).Data.Should().Be("<");
     }
 
+    [TestCase("nbsp", 1, "\u00A0")]
+    [TestCase("Afr", 2, "\U0001D504")]
+    [TestCase("nvlt", 7, "<\u20D2")]
+    [TestCase("AMP", 6, "&")]
+    public void CatalogBudgetMatchesLiteralAndEscapedReplacementUnits(string name, long units, string expected)
+    {
+        var source = "<!DOCTYPE r PUBLIC '-//W3C//DTD XHTML 1.0 Strict//EN' 'unused'><r>&" + name + ";</r>";
+        if (units > 1)
+        {
+            var below = Assert.Throws<ParseLimitException>(() => XmlTreeParser.ParseDocument(source,
+                new ParseLimits { MaxEntityExpansionCharacters = units - 1 }, default));
+            below!.Kind.Should().Be(ParseLimitKind.EntityExpansionCharacters);
+            below.Observed.Should().Be(units);
+        }
+        var root = XmlTreeParser.ParseDocument(source,
+            new ParseLimits { MaxEntityExpansionCharacters = units }, default).DocumentElement!;
+        ((Text) root.FirstChild!).Data.Should().Be(expected);
+    }
+
     [TestCase("<!DOCTYPE r [<!ATTLIST unused a CDATA '<'>]><r/>")]
     [TestCase("<!DOCTYPE r [<!ATTLIST unused a CDATA '&later;'><!ENTITY later 'x'>]><r/>")]
     public void UnusedDefaultsStillEnforceDeclarationTimeWellFormedness(string source)
@@ -164,5 +183,63 @@ public class XmlDtdReviewTests
             new ParseLimits { MaxEntityExpansionCharacters = 1 }, default));
         limit!.Kind.Should().Be(ParseLimitKind.EntityExpansionCharacters);
         limit.Observed.Should().Be(2);
+    }
+
+    [Test]
+    public void ReplacementMarkupAttributeKeepsConstructedCrAndLfSeparate()
+    {
+        const string source = "<!DOCTYPE r [<!ENTITY e \"<x a='&#13;&#10;'/>\">]><r>&e;</r>";
+        var child = (Element) XmlTreeParser.ParseDocument(source, ParseLimits.Unbounded, default)
+            .DocumentElement!.FirstChild!;
+        child.GetAttribute("a").Should().Be("  ");
+    }
+
+    [Test]
+    public void ParameterSuppliedDeclarationKeepsConstructedCr()
+    {
+        const string source = "<!DOCTYPE r [<!ENTITY % p \"<!ENTITY e '&#13;'>\">%p;]><r>&e;</r>";
+        var root = XmlTreeParser.ParseDocument(source, ParseLimits.Unbounded, default).DocumentElement!;
+        ((Text) root.FirstChild!).Data.Should().Be("\r");
+    }
+
+    [Test]
+    public void ParameterSuppliedDefaultKeepsConstructedCrAndLfSeparate()
+    {
+        const string source = "<!DOCTYPE r [<!ENTITY % p \"<!ATTLIST r a CDATA '&#13;&#10;'>\">%p;]><r/>";
+        var root = XmlTreeParser.ParseDocument(source, ParseLimits.Unbounded, default).DocumentElement!;
+        root.GetAttribute("a").Should().Be("  ");
+    }
+
+    [Test]
+    public void ParameterSuppliedEntityDeclarationStillForbidsParameterReference()
+    {
+        const string source = "<!DOCTYPE r [<!ENTITY % q 'x'><!ENTITY % p '<!ENTITY e \"&#37;q;\"'>%p;]><r>&e;</r>";
+        var error = Assert.Throws<MarkupParseException>(() => XmlTreeParser.ParseDocument(source, ParseLimits.Unbounded, default));
+        error!.Code.Should().Be("xml/invalid-declaration");
+    }
+
+    [Test]
+    public void StandaloneDocumentDoesNotUseExternalCatalogEntity()
+    {
+        const string source = "<?xml version='1.0' standalone='yes'?><!DOCTYPE r PUBLIC '-//W3C//DTD XHTML 1.0 Strict//EN' 'unused'><r>&nbsp;</r>";
+        var error = Assert.Throws<MarkupParseException>(() => XmlTreeParser.ParseDocument(source, ParseLimits.Unbounded, default));
+        error!.Code.Should().Be("xml/undeclared-entity");
+    }
+
+    [Test]
+    public void StandaloneDefaultWithinParameterEntityCanReferenceItsEntity()
+    {
+        const string source = "<?xml version='1.0' standalone='yes'?><!DOCTYPE r [<!ENTITY % p '<!ENTITY e \"x\"><!ATTLIST r a CDATA \"&e;\">'>%p;]><r/>";
+        var root = XmlTreeParser.ParseDocument(source, ParseLimits.Unbounded, default).DocumentElement!;
+        root.GetAttribute("a").Should().Be("x");
+    }
+
+    [Test]
+    public void UndeclaredParameterEntityIsValidityOnlyEvenWhenStandalone()
+    {
+        const string source = "<?xml version='1.0' standalone='yes'?><!DOCTYPE r [%missing;]><r/>";
+        var document = XmlTreeParser.ParseDocument(source, ParseLimits.Unbounded, default);
+        document.SkippedXmlEntities.Should().ContainSingle();
+        document.SkippedXmlEntities[0].Kind.Should().Be(XmlSkippedEntityKind.Parameter);
     }
 }

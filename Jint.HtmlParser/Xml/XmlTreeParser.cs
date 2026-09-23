@@ -13,6 +13,7 @@ internal sealed partial class XmlTreeParser
     private readonly CancellationToken _cancellationToken;
     private readonly Action? _onCancellationPoll;
     private readonly Document _document;
+    private readonly bool _requireSvgRoot;
     private readonly DocumentFragment? _fragment;
     private readonly Element? _context;
     private readonly Stack<ElementFrame> _frames = new();
@@ -40,7 +41,8 @@ internal sealed partial class XmlTreeParser
     private StringBuilder? _pendingText;
     private int _pendingTextOffset;
 
-    private XmlTreeParser(string source, ParseLimits limits, Element? context, Action? onCancellationPoll, CancellationToken cancellationToken)
+    private XmlTreeParser(string source, ParseLimits limits, Element? context, Document? document,
+        bool requireSvgRoot, Action? onCancellationPoll, CancellationToken cancellationToken)
     {
         _originalSource = source;
         _source = source;
@@ -53,7 +55,8 @@ internal sealed partial class XmlTreeParser
             throw new ParseLimitException(ParseLimitKind.InputCharacters, limits.MaxInputCharacters, source.Length);
         }
         _context = context;
-        _document = context?.OwnerDocument ?? Document.CreateXml();
+        _document = document ?? context?.OwnerDocument ?? Document.CreateXml();
+        _requireSvgRoot = requireSvgRoot;
         _fragment = context is null ? null : _document.CreateDocumentFragment();
         for (var ancestor = context; ancestor is not null; ancestor = ancestor.ParentNode as Element)
         {
@@ -77,7 +80,7 @@ internal sealed partial class XmlTreeParser
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(limits);
-        var parser = new XmlTreeParser(source, limits, null, onCancellationPoll, cancellationToken);
+        var parser = new XmlTreeParser(source, limits, null, null, false, onCancellationPoll, cancellationToken);
         parser.Parse();
         return parser._document;
     }
@@ -91,9 +94,22 @@ internal sealed partial class XmlTreeParser
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(limits);
-        var parser = new XmlTreeParser(source, limits, context, onCancellationPoll, cancellationToken);
+        var parser = new XmlTreeParser(source, limits, context, null, false, onCancellationPoll, cancellationToken);
         parser.Parse();
         return parser._fragment!;
+    }
+
+    internal static Document ParseIntoDocument(string source, Document document, ParseLimits limits,
+        bool requireSvgRoot, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(limits);
+        if (document.Kind != DocumentKind.Xml || document.ChildCount != 0)
+            throw new ArgumentException("A fresh empty XML document is required.", nameof(document));
+        var parser = new XmlTreeParser(source, limits, null, document, requireSvgRoot, null, cancellationToken);
+        parser.Parse();
+        return document;
     }
 
     private void Parse()
@@ -179,7 +195,7 @@ internal sealed partial class XmlTreeParser
             {
                 var data = NormalizeLines(_source.AsSpan(contentStart, _position - contentStart));
                 ConsumeLiteral("-->", start);
-                Parent.AppendParsedChild(_document.CreateComment(data));
+                Parent.AppendParsedChild(CurrentDocument.CreateComment(data));
                 return;
             }
 
@@ -202,7 +218,7 @@ internal sealed partial class XmlTreeParser
             {
                 var data = NormalizeLines(_source.AsSpan(contentStart, _position - contentStart));
                 ConsumeLiteral("]]>", start);
-                Parent.AppendParsedChild(_document.CreateParsedCDataSection(data));
+                Parent.AppendParsedChild(CurrentDocument.CreateParsedCDataSection(data));
                 return;
             }
 
@@ -234,7 +250,7 @@ internal sealed partial class XmlTreeParser
         }
 
         ConsumeLiteral("?>", start);
-        Parent.AppendParsedChild(_document.CreateProcessingInstruction(target, data));
+        Parent.AppendParsedChild(CurrentDocument.CreateProcessingInstruction(target, data));
     }
 
     private void ParseStartTag()
@@ -301,7 +317,9 @@ internal sealed partial class XmlTreeParser
         var split = SplitName(name);
         var namespaceUri = split.Prefix is null ? Resolve(string.Empty, localBindings) : ResolveRequired(split.Prefix, localBindings, start);
         if (namespaceUri == Namespaces.Xmlns || split.Prefix == "xmlns") Error("xml/namespace-error", start);
-        var element = _document.CreateParsedElement(namespaceUri, split.LocalName, split.Prefix);
+        if (_requireSvgRoot && _frames.Count == 0 && (split.LocalName != "svg" || namespaceUri != Namespaces.Svg))
+            Error("xml/svg-root-required", start);
+        var element = CurrentDocument.CreateParsedElement(namespaceUri, split.LocalName, split.Prefix);
         var expanded = new HashSet<(string?, string)>();
         var parsedAttributes = new List<ParserAttribute>(attributes.Count);
         foreach (var attribute in attributes)
@@ -395,7 +413,7 @@ internal sealed partial class XmlTreeParser
             return;
         }
 
-        Parent.AppendParsedChild(_document.CreateTextNode(value));
+        Parent.AppendParsedChild(CurrentDocument.CreateTextNode(value));
     }
 
     private string ReadAttributeValue(int tokenStart)
@@ -411,14 +429,13 @@ internal sealed partial class XmlTreeParser
             if (Current == '&')
             {
                 var replacement = ReadReference(tokenStart, inAttribute: true);
-                WorkUnits(replacement?.Length ?? 0);
-                builder.Append(replacement);
+                AppendCopy(builder, replacement);
             }
             else
             {
                 if (IsWhitespace(Current))
                 {
-                    if (Current == '\r' && Peek(1) == '\n') Consume();
+                    if (Current == '\r' && _inputFrames.Count == 0 && Peek(1) == '\n') Consume();
                     Consume();
                     builder.Append(' ');
                 }
@@ -427,7 +444,7 @@ internal sealed partial class XmlTreeParser
             CheckToken(tokenStart);
         }
         Consume();
-        return builder.ToString();
+        return Materialize(builder);
     }
 
     private string? ReadReference(int parentTokenStart, bool inAttribute)
@@ -552,7 +569,9 @@ internal sealed partial class XmlTreeParser
 
     private static string? EmptyToNull(string value) => value.Length == 0 ? null : value;
 
-    private Node Parent => _frames.Count == 0 ? (Node?) _fragment ?? _document : _frames.Peek().Element;
+    private Node Parent => _frames.Count == 0 ? (Node?) _fragment ?? _document
+        : (Node?) _frames.Peek().Element.TemplateContent ?? _frames.Peek().Element;
+    private Document CurrentDocument => Parent as Document ?? Parent.OwnerDocument!;
     private bool End => _position >= _source.Length;
     private char Current => End ? '\0' : _source[_position];
     private char Peek(int delta) => _position + delta < _source.Length ? _source[_position + delta] : '\0';
@@ -673,13 +692,31 @@ internal sealed partial class XmlTreeParser
             }
             else builder.Append(value[i]);
         }
-        return builder.ToString();
+        return Materialize(builder);
     }
 
     private void WorkUnits(int count)
     {
         // A secondary copy is work too, even when the BCL performs it in one call.
         while (count-- > 0) WorkUnit();
+    }
+
+    private void AppendCopy(StringBuilder builder, string? value)
+    {
+        if (value is null) return;
+        WorkUnits(value.Length);
+        _cancellationToken.ThrowIfCancellationRequested();
+        builder.Append(value);
+        _cancellationToken.ThrowIfCancellationRequested();
+    }
+
+    private string Materialize(StringBuilder builder)
+    {
+        WorkUnits(builder.Length);
+        _cancellationToken.ThrowIfCancellationRequested();
+        var value = builder.ToString();
+        _cancellationToken.ThrowIfCancellationRequested();
+        return value;
     }
 
     private void WorkUnit()

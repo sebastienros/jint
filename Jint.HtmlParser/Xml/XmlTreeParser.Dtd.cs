@@ -49,16 +49,18 @@ internal sealed partial class XmlTreeParser
 
     private string? ResolveGeneralEntity(string name, int offset, bool inAttribute)
     {
+        var referenceInsideParameterEntity = _inputFrames.Count != 0 && _inputFrames.Peek().Parameter;
         if (!_generalEntities.TryGetValue(name, out var declaration))
         {
-            if (_catalogActive && HtmlEntities.Values.TryGetValue(name + ";", out var catalogValue))
+            if (_catalogActive && (!_standalone || referenceInsideParameterEntity) &&
+                HtmlEntities.Values.TryGetValue(name + ";", out var catalogValue))
                 return IncludeCatalogEntity(catalogValue, inAttribute);
-            if (!_hasExternalSubset && !_sawParameterReference || _standalone)
+            if ((!_hasExternalSubset && !_sawParameterReference || _standalone) && !referenceInsideParameterEntity)
                 Error("xml/undeclared-entity", offset);
             AddSkip(XmlSkippedEntityKind.General, name, null, null, offset);
             return string.Empty;
         }
-        if (_standalone && declaration.FromParameterEntity)
+        if (_standalone && declaration.FromParameterEntity && !referenceInsideParameterEntity)
             Error("xml/undeclared-entity", offset);
         if (declaration.Unparsed) Error("xml/invalid-markup", offset);
         if (declaration.Value is null)
@@ -147,19 +149,22 @@ internal sealed partial class XmlTreeParser
                 }
                 if (!_generalEntities.TryGetValue(referenceName, out var nested))
                 {
-                    if (_catalogActive && HtmlEntities.Values.TryGetValue(referenceName + ";", out var catalogValue))
+                    var referenceInsideParameterEntity = _inputFrames.Count != 0 && _inputFrames.Peek().Parameter;
+                    if (_catalogActive && (!_standalone || referenceInsideParameterEntity) &&
+                        HtmlEntities.Values.TryGetValue(referenceName + ";", out var catalogValue))
                     {
                         var included = IncludeCatalogEntity(catalogValue, inAttribute: true);
-                        WorkUnits(included.Length);
-                        result.Append(included);
+                        AppendCopy(result, included);
                         continue;
                     }
-                    if (!_hasExternalSubset && !_sawParameterReference || _standalone)
+                    if ((!_hasExternalSubset && !_sawParameterReference || _standalone) &&
+                        !referenceInsideParameterEntity)
                         Error("xml/undeclared-entity", offset);
                     AddSkip(XmlSkippedEntityKind.General, referenceName, null, null, offset);
                     continue;
                 }
-                if (_standalone && nested.FromParameterEntity)
+                if (_standalone && nested.FromParameterEntity &&
+                    !(_inputFrames.Count != 0 && _inputFrames.Peek().Parameter))
                     Error("xml/undeclared-entity", offset);
                 if (nested.Value is null || nested.Unparsed) Error("xml/invalid-markup", offset);
                 if (!_activeGeneralEntities.Add(referenceName)) Error("xml/recursive-entity", offset);
@@ -171,9 +176,7 @@ internal sealed partial class XmlTreeParser
         {
             while (pending.TryPop(out var frame)) _activeGeneralEntities.Remove(frame.Name);
         }
-        WorkUnits(result.Length);
-        _cancellationToken.ThrowIfCancellationRequested();
-        return result.ToString();
+        return Materialize(result);
     }
 
     private string IncludeCatalogEntity(string value, bool inAttribute)
@@ -184,9 +187,10 @@ internal sealed partial class XmlTreeParser
             var c = value[i];
             var scalar = char.IsHighSurrogate(c) && i + 1 < value.Length && char.IsLowSurrogate(value[i + 1])
                 ? char.ConvertToUtf32(c, value[i + 1]) : c;
-            var digits = 1;
-            for (var remaining = (uint) scalar; remaining >= 16; remaining >>= 4) digits++;
-            for (var work = digits + 4; work > 0; work--) ChargeExpansionCharacter();
+            // The local XHTML DTD catalog escapes < and & with six-unit character
+            // references. Other decoded characters are literal replacement units.
+            var replacementUnits = scalar is '<' or '&' ? 6 : scalar > 0xFFFF ? 2 : 1;
+            for (var work = replacementUnits; work > 0; work--) ChargeExpansionCharacter();
             if (normalized is not null)
             {
                 normalized.Append(IsWhitespace(c) ? ' ' : c);
@@ -203,9 +207,7 @@ internal sealed partial class XmlTreeParser
             }
         }
         if (normalized is null) return value;
-        WorkUnits(normalized.Length);
-        _cancellationToken.ThrowIfCancellationRequested();
-        return normalized.ToString();
+        return Materialize(normalized);
     }
 
     private string DecodeCharacterReference(ReadOnlySpan<char> reference, int offset)
@@ -380,7 +382,9 @@ internal sealed partial class XmlTreeParser
         XmlEntityDeclaration declaration;
         if (Current is '\'' or '"')
         {
-            var value = ConstructEntityValue(ReadQuoted("xml/invalid-declaration", start), start);
+            var replacementSource = _inputFrames.Count != 0;
+            var value = ConstructEntityValue(ReadQuoted("xml/invalid-declaration", start), start,
+                replacementSource);
             declaration = new XmlEntityDeclaration(value, null, null, false, fromParameterEntity);
         }
         else
@@ -440,7 +444,9 @@ internal sealed partial class XmlTreeParser
                     ConsumeLiteral("#FIXED", start);
                     RequireDtdSpace();
                 }
-                defaultValue = NormalizeDtdDefault(ReadQuoted("xml/invalid-declaration", start), start);
+                var replacementSource = _inputFrames.Count != 0;
+                defaultValue = NormalizeDtdDefault(ReadQuoted("xml/invalid-declaration", start), start,
+                    replacementSource);
                 if (type != "CDATA") defaultValue = CollapseSpaces(defaultValue);
             }
             declarations.Add(new XmlAttributeDeclaration(attributeName, type == "CDATA", defaultValue, fixedValue));
@@ -463,7 +469,7 @@ internal sealed partial class XmlTreeParser
         }
     }
 
-    private string ConstructEntityValue(string source, int offset)
+    private string ConstructEntityValue(string source, int offset, bool replacementSource)
     {
         var result = new StringBuilder(source.Length);
         var frames = new Stack<AttributeEntityFrame>();
@@ -485,7 +491,7 @@ internal sealed partial class XmlTreeParser
                 else ChargeExpansionCharacter();
                 if (c is '&' or '%')
                 {
-                    if (c == '%' && _inputFrames.Count == 0)
+                    if (c == '%' && frame.Name.Length == 0)
                         Error("xml/invalid-declaration", offset);
                     if (c == '%') _sawParameterReference = true;
                     var start = frame.Position;
@@ -515,7 +521,6 @@ internal sealed partial class XmlTreeParser
                     var name = reference.ToString();
                     if (!_parameterEntities.TryGetValue(name, out var declaration))
                     {
-                        if (!_hasExternalSubset || _catalogActive || _standalone) Error("xml/undeclared-entity", offset);
                         AddSkip(XmlSkippedEntityKind.Parameter, name, null, null, offset);
                         _unreadParameterEntity = true;
                         continue;
@@ -542,7 +547,7 @@ internal sealed partial class XmlTreeParser
                     continue;
                 }
                 if (!IsXmlChar(c)) Error("xml/invalid-character", offset);
-                if (c == '\r')
+                if (c == '\r' && frame.Name.Length == 0 && !replacementSource)
                 {
                     if (frame.Position < frame.Value.Length && frame.Value[frame.Position] == '\n')
                     {
@@ -562,9 +567,7 @@ internal sealed partial class XmlTreeParser
                 if (frame.Name.Length != 0) _activeParameterEntities.Remove(frame.Name);
             }
         }
-        WorkUnits(result.Length);
-        _cancellationToken.ThrowIfCancellationRequested();
-        return result.ToString();
+        return Materialize(result);
     }
 
     private void ValidateEntityReferenceName(ReadOnlySpan<char> name, int offset)
@@ -622,7 +625,7 @@ internal sealed partial class XmlTreeParser
         return result;
     }
 
-    private string NormalizeDtdDefault(string value, int offset)
+    private string NormalizeDtdDefault(string value, int offset, bool replacementSource)
     {
         var result = new StringBuilder(value.Length);
         for (var i = 0; i < value.Length; i++)
@@ -658,7 +661,7 @@ internal sealed partial class XmlTreeParser
                     _ => null
                 };
                 if (predefined is not null) result.Append(predefined);
-                else result.Append(ResolveGeneralEntity(name, offset, inAttribute: true));
+                else AppendCopy(result, ResolveGeneralEntity(name, offset, inAttribute: true));
                 continue;
             }
             if (char.IsHighSurrogate(c))
@@ -670,10 +673,10 @@ internal sealed partial class XmlTreeParser
                 continue;
             }
             if (!IsXmlChar(c)) Error("xml/invalid-character", offset);
-            if (c == '\r' && i + 1 < value.Length && value[i + 1] == '\n') i++;
+            if (c == '\r' && !replacementSource && i + 1 < value.Length && value[i + 1] == '\n') i++;
             result.Append(IsWhitespace(c) ? ' ' : c);
         }
-        return result.ToString();
+        return Materialize(result);
     }
 
     private string CollapseSpaces(string value)
@@ -692,7 +695,7 @@ internal sealed partial class XmlTreeParser
             result.Append(c);
             pendingSpace = false;
         }
-        return result.ToString();
+        return Materialize(result);
     }
 
     private string ReadAttributeType()
@@ -748,14 +751,10 @@ internal sealed partial class XmlTreeParser
         Expect(';', "xml/invalid-declaration", offset);
         if (!_parameterEntities.TryGetValue(name, out var declaration))
         {
-            if (!_hasExternalSubset && !_sawParameterReference || _standalone)
-                Error("xml/undeclared-entity", offset);
             AddSkip(XmlSkippedEntityKind.Parameter, name, null, null, offset);
             _unreadParameterEntity = true;
             return;
         }
-        if (_standalone && declaration.FromParameterEntity)
-            Error("xml/undeclared-entity", offset);
         if (declaration.Value is null)
         {
             AddSkip(XmlSkippedEntityKind.Parameter, name, declaration.PublicId, declaration.SystemId, offset);

@@ -125,6 +125,17 @@ public class XmlCoreTests
     }
 
     [Test]
+    public void CancelsWhileMaterializingAnAttributeValue()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var polls = 0;
+        var source = "<r a='" + new string('x', 4_100) + "'/>";
+        Assert.Throws<OperationCanceledException>(() => XmlTreeParser.ParseDocument(source, ParseLimits.Unbounded,
+            () => { if (++polls == 2) cancellation.Cancel(); }, cancellation.Token));
+        polls.Should().Be(2);
+    }
+
+    [Test]
     public void AcceptsFifthEditionAndSupplementaryNames()
     {
         var document = XmlTreeParser.ParseDocument("<\u037Fnode \U00010000attr='v'/>", ParseLimits.Unbounded, default);
