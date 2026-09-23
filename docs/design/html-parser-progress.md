@@ -16,7 +16,7 @@ the earlier repository direction to retain AngleSharp.
 - User cleanup rule: archive tasks and remove their worktrees after review, integration and
   successful common-worktree checks. Retain interrupted/failed tasks until unfinished work is
   recovered. Keep task history and Git branches; use managed archive cleanup and verify removal.
-  Twenty-one completed tasks have now been archived; their worktrees are gone.
+  Twenty-two completed tasks have now been archived; their worktrees are gone.
   Patch equivalence, clean local state and stopped-task status were checked before removal.
   Earlier worktrees already removed by Codex remain represented by their integrated commits.
 
@@ -43,7 +43,8 @@ the earlier repository direction to retain AngleSharp.
 | H4 HTML tree construction | `01a0cf5a-9eed-7913-bcb4-e019fbbb5e8c` | Reviewed corrections integrated; archived, worktree removed |
 | H5a HTML table structure | `01a0cf80-d939-7a72-829a-859771c547f0` | Reviewed fixes integrated; archived, worktree removed |
 | H5b HTML table text and foster insertion | `01a0cf9d-4989-78a3-9ec5-3302a335a8bc` | Reviewed implementation and diagnostic correction integrated; archived, worktree removed |
-| H6a active formatting reconstruction | `01a0cfba-939d-7c52-9867-dc86e37f5b0d` | In progress; exclusive tree-builder owner |
+| H6a active formatting reconstruction | `01a0cfba-939d-7c52-9867-dc86e37f5b0d` | Reviewed fixes integrated and tested; archived, worktree removed |
+| H6b adoption agency | `01a0cfd9-5ae3-7db1-bb26-d25650617b85` | In progress; exclusive tree-builder owner |
 | H5b native fresh insertion prerequisite | `01a0cfa5-4d54-73d1-9e18-3f263463a87c` | Reviewed implementation integrated; archived, worktree removed |
 | D5 native mutation tracking | `01a0cf62-1c76-7411-ae32-d5d6beee5915` | Reviewed mutation and PI corrections integrated; archived, worktree removed |
 | XML conformance corpus and harness | `01a0cf6e-aa5f-7631-af1b-03f6136013a1` | Full harness integrated; remaining policy/output debt fails visibly |
@@ -52,9 +53,10 @@ the earlier repository direction to retain AngleSharp.
 | Packed public XML and mutation consumer | `01a0cf2c-ab5e-7023-95ab-1ab3a4fc8d77` | Reviewed harness and package README integrated; archived, worktree removed |
 | C5 V0a CSS value primitives | `01a0cf7b-7669-7883-944b-3f3c35fc4585` | Reviewed corrections integrated; archived, worktree removed |
 | C5 V0b1 basic CSS math | `01a0cf9b-ba8a-7a32-b6e4-09de7672e6ed` | Astra review findings being corrected |
-| D7a1 native form association | `01a0cfce-720d-76a2-aff0-6ab0c6c1315a` | In progress; exclusive shared native-file owner |
+| D7a1 native form association | `01a0cfce-720d-76a2-aff0-6ab0c6c1315a` | Under Astra review; required work-scaling tests being added; exclusive shared native-file owner |
 | X4a native XPath adapter | `01a0cfc2-9808-7643-a56f-c29d6ec8005c` | Implementation under independent Astra review |
 | C2d1 native table-column model | `01a0cfd3-4970-7c53-af17-767d5a5cbdaa` | Reviewed design dispatched; independent new-file implementation in progress |
+| D6r1 native boundary/static-range primitives | `01a0cfd7-4a2d-76e3-a72b-4af81516af7f` | Reviewed independent new-file slice in progress |
 
 The XML conformance gate inventories all 2,585 pinned W3C rows with explicit profile
 classifications and separate output assertions. Current execution results and remaining debt are below.
@@ -379,3 +381,12 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   Each framework now reports 1,629 conformance passes and 318 unresolved required cases; optional
   and canonical-output counts are unchanged from the previous checkpoint. Evidence:
   `/private/tmp/jint-xml-sun20-integrated.log`. No shared harness rule or runtime behavior changed.
+
+- `decd6a290`: independently reviewed live-range/traversal stages and D6r1 dispatch.
+  D6r1 adds only working boundary/static-range primitives; shared native mutations remain reserved
+  to D7a1. Later live registration, text fixups, filter traversal and Browser gates remain required.
+
+- `5db571025`, `0eb6a1bd3`: reviewed active formatting reconstruction and marker/attribute
+  work corrections (sources `53b2d2b06`, `f8ea5c231`). Fresh combined non-corpus tests pass
+  1,728/1,728 across both frameworks with no skips. Evidence:
+  `/private/tmp/jint-formatting-native-integrated.log`. H6b adoption agency is dispatched separately.
