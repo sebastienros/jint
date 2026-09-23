@@ -132,6 +132,29 @@ public sealed class SelectorCompilerTests
         predicate.B.Should().Be(BigInteger.Parse(digits));
     }
 
+    [Test]
+    public void DecimalConversionDoesNotRepeatedlyMultiplyTheGrowingPrefix()
+    {
+        static long OperandWork(int chunkCount)
+        {
+            var digits = new string('9', chunkCount * 9);
+            var worker = new SelectorCompiler.Worker(string.Empty, new SelectorParseContext(),
+                CancellationToken.None);
+            long operandBytes = 0;
+            worker.TryUnsigned(digits.AsSpan(), out var number,
+                observeArithmeticOperandBytes: bytes => operandBytes += bytes).Should().BeTrue();
+            number.Should().Be(BigInteger.Parse(digits));
+            return operandBytes;
+        }
+
+        var smaller = OperandWork(64);
+        var larger = OperandWork(128);
+        smaller.Should().BeGreaterThan(0);
+        larger.Should().BeGreaterThan(smaller);
+        // Doubling a growing-prefix fold approaches four times the operand bytes.
+        larger.Should().BeLessThan(smaller * 3);
+    }
+
     [TestCase(":nth-child(n-)")]
     [TestCase(":nth-child(2n-)")]
     [TestCase(":nth-child(2.5n)")]

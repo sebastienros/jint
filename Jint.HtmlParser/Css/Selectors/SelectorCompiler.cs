@@ -504,7 +504,7 @@ internal static class SelectorCompiler
         }
 
         internal bool TryUnsigned(ReadOnlySpan<char> digits, out BigInteger number,
-            Action? afterFirstConvertedChunk = null)
+            Action? afterFirstConvertedChunk = null, Action<int>? observeArithmeticOperandBytes = null)
         {
             number = default;
             if (digits.Length == 0) return false;
@@ -541,8 +541,9 @@ internal static class SelectorCompiler
                     _cancellation.ThrowIfCancellationRequested();
                     var left = groups[^1];
                     groups.RemoveAt(groups.Count - 1);
-                    group = new DigitGroup(left.Value * PowerForLevel(group.Level, powers) +
-                        group.Value, group.Level + 1);
+                    group = new DigitGroup(
+                        Multiply(left.Value, PowerForLevel(group.Level, powers, observeArithmeticOperandBytes),
+                            observeArithmeticOperandBytes) + group.Value, group.Level + 1);
                     _cancellation.ThrowIfCancellationRequested();
                 }
                 groups.Add(group);
@@ -555,23 +556,36 @@ internal static class SelectorCompiler
                 Poll();
                 _cancellation.ThrowIfCancellationRequested();
                 var right = groups[i];
-                number = number * PowerForLevel(right.Level, powers) + right.Value;
+                number = Multiply(number, PowerForLevel(right.Level, powers, observeArithmeticOperandBytes),
+                    observeArithmeticOperandBytes) + right.Value;
                 _cancellation.ThrowIfCancellationRequested();
             }
             return true;
         }
 
-        private BigInteger PowerForLevel(int level, List<BigInteger> powers)
+        private BigInteger PowerForLevel(int level, List<BigInteger> powers,
+            Action<int>? observeArithmeticOperandBytes)
         {
             while (powers.Count <= level)
             {
                 Poll();
                 _cancellation.ThrowIfCancellationRequested();
                 var previous = powers[^1];
-                powers.Add(previous * previous);
+                powers.Add(Multiply(previous, previous, observeArithmeticOperandBytes));
                 _cancellation.ThrowIfCancellationRequested();
             }
             return powers[level];
+        }
+
+        private BigInteger Multiply(BigInteger left, BigInteger right,
+            Action<int>? observeArithmeticOperandBytes)
+        {
+            if (observeArithmeticOperandBytes is not null)
+            {
+                observeArithmeticOperandBytes(left.ToByteArray().Length + right.ToByteArray().Length);
+                _cancellation.ThrowIfCancellationRequested();
+            }
+            return left * right;
         }
 
         private readonly record struct DigitGroup(BigInteger Value, int Level);
