@@ -16,7 +16,7 @@ the earlier repository direction to retain AngleSharp.
 - User cleanup rule: archive tasks and remove their worktrees after review, integration and
   successful common-worktree checks. Retain interrupted/failed tasks until unfinished work is
   recovered. Keep task history and Git branches; use managed archive cleanup and verify removal.
-  Twenty-three completed tasks have now been archived; their worktrees are gone.
+  Twenty-four completed tasks have now been archived; their worktrees are gone.
   Patch equivalence, clean local state and stopped-task status were checked before removal.
   Earlier worktrees already removed by Codex remain represented by their integrated commits.
 
@@ -56,7 +56,7 @@ the earlier repository direction to retain AngleSharp.
 | D7a1 native form association | `01a0cfce-720d-76a2-aff0-6ab0c6c1315a` | Under Astra review; required work-scaling tests being added; exclusive shared native-file owner |
 | X4a native XPath adapter | `01a0cfc2-9808-7643-a56f-c29d6ec8005c` | Reviewed fixes integrated and tested; archived, worktree removed |
 | C2d1 native table-column model | `01a0cfd3-4970-7c53-af17-767d5a5cbdaa` | Implementation under independent Astra review |
-| D6r1 native boundary/static-range primitives | `01a0cfd7-4a2d-76e3-a72b-4af81516af7f` | Runtime review clear; cancellation-test correction pending |
+| D6r1 native boundary/static-range primitives | `01a0cfd7-4a2d-76e3-a72b-4af81516af7f` | Reviewed fixes integrated and tested; archived, worktree removed |
 
 The XML conformance gate inventories all 2,585 pinned W3C rows with explicit profile
 classifications and separate output assertions. Current execution results and remaining debt are below.
@@ -401,3 +401,14 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   1,756/1,756 across net8/net10, no skips. Evidence:
   `/private/tmp/jint-xpath-native-integrated.log`. Typed IDs, detached attributes and public
   promotion remain separate required stages. The finalized task is archived and its worktree removed.
+- `debfd4c0a`, `d4661b2cb`: reviewed native boundary ordering/static-range primitives and
+  exact in-work cancellation assertions (sources `0e9fc3e87`, `12aecc5a5`). The task is archived;
+  its clean, patch-equivalent worktree was removed after common verification.
+- `246fd9961`: sixteen independently source-reviewed IBM external-ID/NDATA rejection
+  expectations (source `722eec8ef`), with exact pinned-byte offsets and no generic exemption.
+  Fresh full common suite after this and D6r1: 5,772 total, 5,160 passed, 612 failed, no skips.
+  All 1,774 non-corpus tests pass. All failures are XML corpus rows/census; each framework reports
+  1,662 conformance passes, 285 unresolved required cases, zero known defects/harness failures,
+  fourteen optional observations, six optional adapter debts, seven verified policies, zero mismatches.
+  Canonical OUTPUT remains 263/386 compared, 123 pending, sixteen no-fetch alternatives.
+  Evidence: `/private/tmp/jint-range-ibm16-integrated.log`. The full conformance gate remains red.
