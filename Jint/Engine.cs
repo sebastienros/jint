@@ -140,6 +140,8 @@ public sealed partial class Engine : IDisposable
     // Read with Volatile.Read behind IsDisposed: Dispose may be called from a thread other than the one that
     // last ran script, and Post - the one cross-thread entry - is what reads it.
     private int _disposed;
+    private int _retired;
+    private int _retirementFinished;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal HostCallScope EnterHostCall(object? asyncOwner = null, object? callbackOwner = null)
@@ -1091,16 +1093,26 @@ public sealed partial class Engine : IDisposable
                 _engine._memoryLimitConstraint!.EndSegment(in _memorySegment);
             }
 
-            _engine.ExitHostCall();
-            if (_callbackOwner is not null)
+            try
             {
-                // Before the reservation release below, which waits for this very count to reach zero.
-                _engine.ReleaseHostCallbackAdmission(_callbackOwner);
+                if (_isEntryRoot && _engine.IsRetired)
+                {
+                    _engine.FinishRetirement();
+                }
             }
-
-            if (_isEntryRoot)
+            finally
             {
-                _engine.ReleaseEntryReservationIfHeld();
+                _engine.ExitHostCall();
+                if (_callbackOwner is not null)
+                {
+                    // Before the reservation release below, which waits for this very count to reach zero.
+                    _engine.ReleaseHostCallbackAdmission(_callbackOwner);
+                }
+
+                if (_isEntryRoot)
+                {
+                    _engine.ReleaseEntryReservationIfHeld();
+                }
             }
         }
     }
@@ -2775,6 +2787,7 @@ public sealed partial class Engine : IDisposable
     /// </param>
     internal void AddToEventLoop(Action continuation, EventLoopJobKind kind)
     {
+        if (IsRetired) return;
         _eventLoop.Enqueue(new EventLoopJob(continuation, _eventLoop.Generation, CaptureMemoryLimitState(), kind));
     }
 
@@ -2789,6 +2802,7 @@ public sealed partial class Engine : IDisposable
     /// <param name="kind">Which of HTML's two queues it belongs to — see <see cref="EventLoopJobKind"/>.</param>
     internal void AddToEventLoop(Action continuation, EventLoopRegistration registration, EventLoopJobKind kind)
     {
+        if (IsRetired) return;
         _eventLoop.Enqueue(new EventLoopJob(
             continuation,
             registration.Generation,
@@ -2817,6 +2831,7 @@ public sealed partial class Engine : IDisposable
     /// <param name="kind">Which of HTML's two queues it belongs to — see <see cref="EventLoopJobKind"/>.</param>
     internal void AddToEventLoop(Action continuation, int generation, EventLoopJobKind kind)
     {
+        if (IsRetired) return;
         _eventLoop.Enqueue(new EventLoopJob(continuation, generation, memoryState: null, kind));
     }
 
@@ -2826,6 +2841,7 @@ public sealed partial class Engine : IDisposable
     /// </summary>
     internal void AddToEventLoop(PromiseReaction reaction, JsValue value)
     {
+        if (IsRetired) return;
         _eventLoop.Enqueue(new EventLoopJob(reaction, value, _eventLoop.Generation, reaction.MemoryState));
     }
 
@@ -2846,6 +2862,7 @@ public sealed partial class Engine : IDisposable
     /// </summary>
     internal void EnqueueModuleLoadCompletion(Action continuation, EventLoopRegistration registration)
     {
+        if (IsRetired) return;
         _eventLoop.Enqueue(new EventLoopJob(
             continuation,
             registration.Generation,
@@ -2862,7 +2879,7 @@ public sealed partial class Engine : IDisposable
 
     internal void RunEventLoopJob(in EventLoopJob job)
     {
-        if (!_host.CanExecuteJob())
+        if (IsRetired)
         {
             return;
         }
@@ -2881,6 +2898,37 @@ public sealed partial class Engine : IDisposable
         finally
         {
             _emptyStackContextDepth = previousEmptyStackDepth;
+            if (IsRetired)
+            {
+                FinishRetirement();
+            }
+        }
+    }
+
+    private void FinishRetirement()
+    {
+        if (Interlocked.Exchange(ref _retirementFinished, 1) != 0)
+        {
+            return;
+        }
+
+        try
+        {
+            ResetTransientEvaluationState();
+        }
+        finally
+        {
+            _eventLoop.NextGeneration();
+            _eventLoop.Signal();
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void ThrowIfRetired()
+    {
+        if (IsRetired)
+        {
+            Throw.InvalidOperationException("The engine has been retired and cannot run more work.");
         }
     }
 
@@ -3031,6 +3079,12 @@ public sealed partial class Engine : IDisposable
     /// </remarks>
     internal bool NotifyAboutRejectedPromises()
     {
+        if (IsRetired)
+        {
+            _rejectionNotifications?.Clear();
+            return false;
+        }
+
         var pending = _rejectionNotifications;
         if (pending is null || pending.Count == 0)
         {
@@ -3320,12 +3374,17 @@ public sealed partial class Engine : IDisposable
 
             while (!isSettled(state))
             {
+                if (IsRetired) FinishRetirement();
+                ThrowIfRetired();
                 // The caller's token is checked before any work is run, so an already-cancelled token
                 // fails the wait rather than being masked by a drain that happens to settle the
                 // condition on its first turn.
                 cancellationToken.ThrowIfCancellationRequested();
 
                 RunAvailableContinuations();
+
+                if (IsRetired) FinishRetirement();
+                ThrowIfRetired();
 
                 if (isSettled(state))
                 {
@@ -4031,6 +4090,7 @@ public sealed partial class Engine : IDisposable
         ThrowIfConstructionInFlight();
 
         using var ownership = EnterHostCall();
+        ThrowIfRetired();
 
         // A nested call — a host callback inside a running script calling back into the engine —
         // must not re-arm the outer run's constraints: the outer budget (time/statements) keeps
@@ -4097,6 +4157,10 @@ public sealed partial class Engine : IDisposable
                 ResetConstraints();
             }
             _agent.ClearKeptObjects();
+            if (!isNested && IsRetired)
+            {
+                FinishRetirement();
+            }
         }
     }
 
@@ -4159,6 +4223,10 @@ public sealed partial class Engine : IDisposable
                 ResetConstraints();
             }
             _agent.ClearKeptObjects();
+            if (!isNested && IsRetired)
+            {
+                FinishRetirement();
+            }
         }
     }
 
@@ -5314,6 +5382,9 @@ public sealed partial class Engine : IDisposable
     /// </para>
     /// </remarks>
     public bool IsDisposed => Volatile.Read(ref _disposed) != 0;
+
+    /// <summary>Whether the host permanently retired this engine through <see cref="AdvancedOperations.Retire"/>.</summary>
+    public bool IsRetired => Volatile.Read(ref _retired) != 0;
 
     /// <summary>
     /// Raised once, on whichever thread calls <see cref="Dispose"/>, as this engine begins going away.

@@ -433,6 +433,14 @@ public partial class Engine
         {
             while (promise.State == PromiseState.Pending)
             {
+                if (IsRetired)
+                {
+                    using (EnterTransferredHostCall(owner))
+                    {
+                        FinishRetirement();
+                    }
+                    ThrowIfRetired();
+                }
                 effectiveCt.ThrowIfCancellationRequested();
 
                 // Truly async wait — releases the thread back to the pool.
@@ -464,6 +472,8 @@ public partial class Engine
 
                 using (EnterTransferredHostCall(owner))
                 {
+                    if (IsRetired) FinishRetirement();
+                    ThrowIfRetired();
                     // Woke up — take ownership of the event loop for this processing cycle.
                     // Setting _waitingThreadId prevents any other thread from processing
                     // JavaScript continuations while we're running.
@@ -492,6 +502,7 @@ public partial class Engine
             ownedCts?.Dispose();
         }
 
+        ThrowIfRetired();
         return promise.State switch
         {
             PromiseState.Fulfilled => promise.Value,

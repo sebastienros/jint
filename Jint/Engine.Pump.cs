@@ -96,6 +96,7 @@ public partial class Engine
     internal bool TryPromoteDueTimerJob(bool includeIdleCallbacks = true)
     {
 #if NET8_0_OR_GREATER
+        if (IsRetired) return false;
         var webApi = _webApi;
         return webApi is not null && webApi.TryPromoteDeferredWork(includeIdleCallbacks);
 #else
@@ -108,6 +109,7 @@ public partial class Engine
     internal bool TryRunIdleCallback()
     {
 #if NET8_0_OR_GREATER
+        if (IsRetired) return false;
         return _webApi?.IdleCallbacks is { } idle && idle.TryRunIdleCallback();
 #else
         return false;
@@ -151,6 +153,7 @@ public partial class Engine
     /// </remarks>
     internal bool HasImmediatePumpWork()
     {
+        if (IsRetired) return false;
         if (_eventLoop.HasPendingJobs)
         {
             return true;
@@ -170,6 +173,7 @@ public partial class Engine
     /// </summary>
     internal TimeSpan? TimeUntilNextPumpScheduledWork()
     {
+        if (IsRetired) return null;
         var untilWaiter = _atomicsWaiterDeadlines?.TimeUntilNextDeadline();
 
 #if NET8_0_OR_GREATER
@@ -344,6 +348,11 @@ public partial class Engine
     internal bool WaitForScheduledWork(TimeSpan timeout, CancellationToken cancellationToken)
     {
         using var ownership = EnterHostCall();
+        if (IsRetired)
+        {
+            FinishRetirement();
+            return false;
+        }
 
         var isTopLevelPark = ownership.IsEntryRoot;
         using var admission = isTopLevelPark ? OpenHostCallbackAdmissionWindow() : default;
@@ -390,6 +399,11 @@ public partial class Engine
                     RethrowPumpWaitCancellation(cancellationToken);
                 }
 
+                if (IsRetired)
+                {
+                    FinishRetirement();
+                    return false;
+                }
                 state = InspectScheduledWork();
                 if (state.IsAvailable)
                 {
@@ -440,6 +454,11 @@ public partial class Engine
             CancellationToken waitToken;
             using (EnterTransferredHostCall(owner))
             {
+                if (IsRetired)
+                {
+                    FinishRetirement();
+                    return false;
+                }
                 state = InspectScheduledWork();
                 waitToken = BuildPumpWaitToken(cancellationToken, out linkedTokenSource);
             }
@@ -492,6 +511,11 @@ public partial class Engine
 
                 using (EnterTransferredHostCall(owner))
                 {
+                    if (IsRetired)
+                    {
+                        FinishRetirement();
+                        return false;
+                    }
                     state = InspectScheduledWork();
                 }
 

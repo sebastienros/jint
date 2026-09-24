@@ -30,6 +30,22 @@ public class AsyncModuleLoaderTests
         options.UseModules(loader);
         options.Constraints.PromiseTimeout = TestBudgets.WedgeCeiling;
     });
+
+    [Test]
+    public void RetiringAnEngineCompletesAnOutstandingImportAsAbandoned()
+    {
+        var loader = new DeferredModuleLoader();
+        using var engine = CreateEngine(loader);
+        var import = engine.Modules.StartImport("module");
+        loader.Pending.Should().ContainSingle();
+
+        engine.Advanced.Retire();
+
+        import.IsCompleted.Should().BeTrue();
+        import.IsFaulted.Should().BeTrue();
+        var repeat = () => engine.Modules.StartImport("module");
+        repeat.Should().Throw<InvalidOperationException>().WithMessage("*retired*");
+    }
     /// <summary>
     /// A loader that hands every request to the test and finishes nothing by itself, so a test can prove the
     /// engine really does carry on without the answer.

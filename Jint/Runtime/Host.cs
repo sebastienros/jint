@@ -488,17 +488,6 @@ public class Host
     }
 
     /// <summary>
-    /// Determines whether the next queued interpreter job may execute.
-    /// </summary>
-    /// <remarks>
-    /// Called on the engine thread before each job, including jobs queued by another job.
-    /// Returning false discards that job without settling its promise. Hosts can use this
-    /// to prevent callbacks from running after their execution context has been retired.
-    /// The currently executing script or job is not interrupted.
-    /// </remarks>
-    public virtual bool CanExecuteJob() => true;
-
-    /// <summary>
     /// https://tc39.es/ecma262/#sec-hostenqueuepromisejob
     /// </summary>
     internal void HostEnqueuePromiseJob(Action job, Realm realm)

@@ -173,7 +173,8 @@ public partial class Engine
         /// <exception cref="ArgumentException"><paramref name="snapshot"/> was captured from another engine.</exception>
         /// <exception cref="InvalidOperationException">An evaluation is in progress — script on the stack, or
         /// an <c>EvaluateAsync</c>/<c>ExecuteAsync</c>/<c>InvokeAsync</c> Task still outstanding — or the
-        /// engine's realm no longer has the global object the snapshot was taken from.</exception>
+        /// engine's realm no longer has the global object the snapshot was taken from, or the engine has
+        /// been retired.</exception>
         public void RestoreGlobalSnapshot(GlobalSnapshot snapshot)
         {
             using var ownership = _engine.EnterHostCall();
@@ -183,6 +184,7 @@ public partial class Engine
             }
 
             var engine = _engine;
+            engine.ThrowIfRetired();
             if (!ReferenceEquals(snapshot.Engine, engine))
             {
                 Throw.ArgumentException("The snapshot was captured from a different engine.", nameof(snapshot));

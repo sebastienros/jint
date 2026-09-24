@@ -6930,16 +6930,18 @@ The query reads native metadata without invoking script or changing the buffer. 
 construction mode for an out-of-bounds view or a detached buffer; callers must validate bounds and
 detachment separately. Non-view values and proxies around views return `false`.
 
-### 5.39 Hosts can reject jobs after their execution context retires
+### 5.39 Retiring an engine
 
-Override `Host.CanExecuteJob()` to decide whether a queued interpreter job may run.
-The engine calls it on its owning thread before each job, including Promise reactions,
-async continuations and posted host work. The default returns `true`.
+Call `engine.Advanced.Retire()` when the host permanently ends the execution context owned by
+that engine. `engine.IsRetired` is a one-way status flag: no later script, queued job or posted
+callback runs, and new `Tasks.Post` calls fail. The current script or job may finish. Pending
+engine waits wake, while module imports, fetch-handler invocations and stream copies report
+abandonment when polled. Transient timers, web resources and shared locks are released. Call
+`Dispose` after any active entry has returned to release the remaining engine state.
 
-Returning `false` discards the job without settling its promise. It does not interrupt
-the script or job currently running, cancel external operations, or settle host waits.
-A host retiring a document or another execution context should cancel those operations
-separately and keep returning `false` for that retired engine.
+`Host.CanExecuteJob()` was removed. A per-job veto could discard the very completion a host was
+awaiting without waking that host or releasing resources. Retiring an engine is terminal; use
+`RestoreGlobalSnapshot` only when the same engine must continue serving a trusted cycle.
 
 ## 6. AOT and trimming
 

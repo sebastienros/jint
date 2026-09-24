@@ -38,6 +38,34 @@ public partial class Engine
         }
 
         /// <summary>
+        /// Permanently stops this engine's queued work and releases transient web and module state.
+        /// </summary>
+        /// <remarks>
+        /// May be called from a running host callback or another thread. The current script or job can
+        /// finish, but its later jobs cannot run. Pending promise waits fail; scheduled-work waits return
+        /// <see langword="false"/>. Dispose the engine after the current entry returns.
+        /// </remarks>
+        public void Retire()
+        {
+            if (System.Threading.Interlocked.Exchange(ref _engine._retired, 1) != 0)
+            {
+                return;
+            }
+
+            _engine._eventLoop.Retire();
+            if (_engine.TryEnterHostCall(out var ownership))
+            {
+                using (ownership)
+                {
+                    if (ownership.IsEntryRoot)
+                    {
+                        _engine.FinishRetirement();
+                    }
+                }
+            }
+        }
+
+        /// <summary>
         /// Clears the engine's call stack. The frames are zeroed, so everything an interrupted execution
         /// left them holding — callee functions, receivers, arguments — is released.
         /// </summary>

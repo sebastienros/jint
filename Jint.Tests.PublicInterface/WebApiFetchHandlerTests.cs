@@ -310,6 +310,21 @@ public class WebApiFetchHandlerTests
     }
 
     [Test]
+    public void RetirementAbandonsAPendingFetchHandler()
+    {
+        using var engine = Handler("globalThis.handler = { fetch() { return new Promise(() => {}); } };");
+        var operation = engine.WebApi.InvokeFetchHandler(Get());
+        operation.IsCompleted.Should().BeFalse();
+
+        engine.Advanced.Retire();
+
+        operation.IsCompleted.Should().BeTrue();
+        operation.IsFaulted.Should().BeTrue();
+        var repeat = () => engine.WebApi.InvokeFetchHandler(Get());
+        repeat.Should().Throw<InvalidOperationException>().WithMessage("*retired*");
+    }
+
+    [Test]
     public async Task ThePromiseHandlerCompletesThroughTheAwaitableVariant()
     {
         var engine = Handler("globalThis.handler = { async fetch(request) { return new Response('awaited ' + request.url); } };");

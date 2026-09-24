@@ -167,8 +167,10 @@ public sealed class HostStreamCopyOperation
             return;
         }
 
-        Fail(_engine.Realm.Intrinsics.Error.Construct(
-            "The stream copy was abandoned: Engine.Advanced.RestoreGlobalSnapshot ended the evaluation cycle it was started in, so nothing it is waiting for can reach this engine any more. The destination stream has been released. Start the copy again on the restored engine."));
+        var message = _engine.IsRetired
+            ? "The stream copy was abandoned because the engine was retired. The destination stream has been released."
+            : "The stream copy was abandoned: Engine.Advanced.RestoreGlobalSnapshot ended the evaluation cycle it was started in, so nothing it is waiting for can reach this engine any more. The destination stream has been released. Start the copy again on the restored engine.";
+        Fail(_engine.Realm.Intrinsics.Error.Construct(message));
     }
 
     internal void Fulfil()

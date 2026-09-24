@@ -32,6 +32,10 @@ The action runs on whichever thread next calls `engine.Tasks.ProcessTasks()`. Ba
 completions may likewise enqueue work, but they do not grant permission for unrelated host calls while an async
 operation owns the engine.
 
+`engine.Advanced.Retire()` is another cross-thread entry. It permanently stops new script and queued work,
+wakes a pending promise or scheduled-work wait, and releases transient resources once the current engine
+entry returns. It does not preempt a script already running. Dispose the engine after that entry completes.
+
 ## Values and construction
 
 JavaScript objects are engine-affine. Build `JsObject`, `JsArray`, and other engine-owned values on the thread

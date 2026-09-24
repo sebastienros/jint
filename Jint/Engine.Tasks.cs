@@ -105,6 +105,7 @@ public partial class Engine
         /// <param name="action">The callback to run on the engine's own thread.</param>
         /// <exception cref="ArgumentNullException"><paramref name="action"/> is <c>null</c>.</exception>
         /// <exception cref="ObjectDisposedException">The engine has been disposed.</exception>
+        /// <exception cref="InvalidOperationException">The engine has been retired.</exception>
         /// <example>
         /// One thread per engine, with the rest of the process handing it work:
         /// <code>
@@ -132,6 +133,8 @@ public partial class Engine
                     nameof(Engine),
                     "The engine has been disposed; nothing will pump it again, so this job could never run.");
             }
+
+            _engine.ThrowIfRetired();
 
             // Deliberately unguarded — no EnterHostCall — because the caller is the thread that does not own
             // the engine; the queue is concurrent and the enqueue is what wakes a park.
@@ -178,6 +181,7 @@ public partial class Engine
         public ManualPromise RegisterPromise()
         {
             using var ownership = _engine.EnterHostCall();
+            _engine.ThrowIfRetired();
             return _engine.RegisterPromise();
         }
 

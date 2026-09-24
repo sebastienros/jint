@@ -291,7 +291,10 @@ public sealed class FetchHandlerOperation
             return;
         }
 
-        Fail(new InvalidOperationException("The fetch handler invocation was abandoned: Engine.Advanced.RestoreGlobalSnapshot ended the evaluation cycle it was started in, so nothing it is waiting for can settle into this engine any more. Invoke the handler again on the restored engine."));
+        var message = _engine.IsRetired
+            ? "The fetch handler invocation was abandoned because the engine was retired. Invoke the handler on another engine."
+            : "The fetch handler invocation was abandoned: Engine.Advanced.RestoreGlobalSnapshot ended the evaluation cycle it was started in, so nothing it is waiting for can settle into this engine any more. Invoke the handler again on the restored engine.";
+        Fail(new InvalidOperationException(message));
     }
 }
 #endif
