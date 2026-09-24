@@ -1639,6 +1639,15 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
         return a;
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.with
+    /// </summary>
+    /// <remarks>
+    /// Step 12 propagates the <c>TypedArraySetElement</c> abrupt completion. The published prose still asserts
+    /// it cannot fail (<c>!</c>); tc39/ecma262#3979 corrects that to <c>?</c> and test262 already tests it:
+    /// coercing the index or the value can run script that shrinks the buffer, and every element past the new
+    /// length then reads as <c>undefined</c>, which a BigInt array rejects with a <c>TypeError</c>.
+    /// </remarks>
     [JsFunction]
     private ObjectInstance With(JsValue thisObject, JsValue indexArg, JsValue value)
     {
@@ -1670,11 +1679,26 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
         var a = TypedArrayCreateSameType(o, [JsNumber.Create(len)]);
 
         // The result has the same element type, so bulk-copy the source bytes into the freshly created target
-        // and then overwrite the single replaced element (whose value is already coerced above).
+        // and then overwrite the single replaced element (whose value is already coerced above). Only the
+        // elements O still has are copied: the coercions above may have shrunk its buffer, and the valid-index
+        // check proved only that actualIndex survived.
         var elementSize = o._arrayElementType.GetElementSize();
+        var present = System.Math.Min(len, o.GetLength());
         _engine.Constraints.Check();
-        System.Array.Copy(o._viewedArrayBuffer._arrayBufferData!, o._byteOffset, a._viewedArrayBuffer._arrayBufferData!, a._byteOffset, len * elementSize);
+        System.Array.Copy(o._viewedArrayBuffer._arrayBufferData!, o._byteOffset, a._viewedArrayBuffer._arrayBufferData!, a._byteOffset, present * elementSize);
         a[(int) actualIndex] = value;
+
+        // Step 12.c reads undefined past O's current length, and step 12.e converts it: NaN for a float element
+        // type, +0 for an integer one, and a TypeError for BigInt.
+        for (var k = present; k < len; k++)
+        {
+            if (k % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
+            a[k] = Undefined;
+        }
 
         return a;
     }

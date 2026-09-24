@@ -15,7 +15,7 @@
 # resolving here until somebody re-runs that.
 #
 verified: 2026-09-19
-anchors: 1259
+anchors: 1260
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -68,6 +68,7 @@ ecma262 sec-%typedarray%.prototype.sort
 ecma262 sec-%typedarray%.prototype.subarray
 ecma262 sec-%typedarray%.prototype.tolocalestring
 ecma262 sec-%typedarray%.prototype.values
+ecma262 sec-%typedarray%.prototype.with
 ecma262 sec-%wrapforvaliditeratorprototype%-object
 ecma262 sec-%wrapforvaliditeratorprototype%.next
 ecma262 sec-%wrapforvaliditeratorprototype%.return
