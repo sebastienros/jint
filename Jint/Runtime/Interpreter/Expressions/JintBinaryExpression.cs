@@ -2452,12 +2452,22 @@ internal abstract class JintBinaryExpression : JintExpression
 
     private sealed class ModuloBinaryExpression : JintBinaryExpression
     {
+        private NumericOperandLane _numericLane;
+
         public ModuloBinaryExpression(NonLogicalBinaryExpression expression) : base(expression)
         {
+            _numericLane.Initialize(_left, _right);
         }
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
+            if (_numericLane.TryGetOperands(context, out var unboxedLeft, out var unboxedRight))
+            {
+                // Number::remainder: reuse the raw-number operation, preserving -0 and
+                // special values without materializing slot-stored numeric operands.
+                return JsNumber.Create(RemainderUnboxed(unboxedLeft, unboxedRight));
+            }
+
             if (!TryEvaluateOperands(context, out var left, out var right))
             {
                 return JsValue.Undefined;
