@@ -2636,7 +2636,11 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         }
         if (!string.IsNullOrWhiteSpace(prefix))
         {
-            name = prefix + " " + name;
+            // BindFunction derives from ObjectInstance rather than Function, so Function.prototype.bind
+            // names the function it creates through this overload - and binding a bound function hands
+            // the previous level's name straight back in. The same deferred concatenation as Function's
+            // overload keeps a chain of binds from copying the whole name at every level (#4129).
+            name = Function.Function.PrefixName(prefix!, name);
         }
 
         DefinePropertyOrThrow(CommonProperties.Name, new PropertyDescriptor(name, PropertyFlag.Configurable));
