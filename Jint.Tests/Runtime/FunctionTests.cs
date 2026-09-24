@@ -103,6 +103,69 @@ public class FunctionTests
     }
 
     [Test]
+    public void ABoundChainIsAConstructorExactlyWhenItsInnermostTargetIs()
+    {
+        // BoundFunctionCreate gives a bound function [[Construct]] only when its target has one, so a chain answers
+        // with its innermost non-bound target's verdict -- a proxy included, which fixed its own at creation.
+        // BindFunction.IsConstructor walks the chain rather than recursing over it; this pins that the walk kept
+        // the answer (the depth half is BoundFunctionChainWalkTests in Jint.Tests.PublicInterface).
+        var result = _engine.Evaluate("""
+            (function () {
+                function chain(target) { return target.bind(null).bind(null).bind(null); }
+                function isConstructor(f) {
+                    try { Reflect.construct(function () {}, [], f); return true; } catch (e) { return false; }
+                }
+                return [
+                    isConstructor(chain(function () {})),
+                    isConstructor(chain(() => {})),
+                    isConstructor(chain(new Proxy(function () {}, {}))),
+                    isConstructor(chain(new Proxy(() => {}, {}))),
+                    isConstructor(chain(class {})),
+                    isConstructor(chain(function* () {})),
+                ].join();
+            })()
+            """);
+        result.AsString().Should().Be("true,false,true,false,true,false");
+    }
+
+    [Test]
+    public void TheRealmOfAChainOfBoundFunctionsAndProxiesIsItsInnermostTargets()
+    {
+        // https://tc39.es/ecma262/#sec-getfunctionrealm steps through [[BoundTargetFunction]] and [[ProxyTarget]]
+        // alike, so a newTarget with no usable "prototype" takes its default prototype from the realm of the
+        // function at the bottom of a mixed chain, not from any link above it or from the running realm.
+        var engine = new Engine();
+        Test262Object.Install(engine);
+        var result = engine.Evaluate("""
+            (function () {
+                var other = $262.createRealm().global;
+                var C = new other.Function();
+                C.prototype = null;
+                var newTarget = new Proxy(new Proxy(C, {}).bind(null), {}).bind(null).bind(null);
+                var b = Reflect.construct(Boolean, [], newTarget);
+                return Object.getPrototypeOf(b) === other.Boolean.prototype;
+            })()
+            """);
+        result.AsBoolean().Should().BeTrue();
+    }
+
+    [Test]
+    public void ARevokedProxyInsideABoundChainFailsTheRealmLookup()
+    {
+        // GetFunctionRealm throws for a revoked proxy wherever it sits in the chain; the bound links above it do
+        // not hide it.
+        var result = _engine.Evaluate("""
+            (function () {
+                var r = Proxy.revocable(function () {}, {});
+                var newTarget = r.proxy.bind(null).bind(null);
+                r.revoke();
+                try { Reflect.construct(function () {}, [], newTarget); return 'constructed'; } catch (e) { return e.name; }
+            })()
+            """);
+        result.AsString().Should().Be("TypeError");
+    }
+
+    [Test]
     public void RepeatedBindAccumulatesArgumentsInOrder()
     {
         var result = _engine.Evaluate("""

@@ -137,7 +137,29 @@ public sealed class BindFunction : Function, IConstructor
         return combined;
     }
 
-    internal override bool IsConstructor => BoundTargetFunction.IsConstructor;
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-boundfunctioncreate gives a bound function <c>[[Construct]]</c> exactly when
+    /// its target has one, so the answer is the first non-bound link's.
+    /// </summary>
+    /// <remarks>
+    /// A walk rather than <c>BoundTargetFunction.IsConstructor</c>: a chain of binds is a linked list script can
+    /// make as long as it likes (#4130 made building one linear), and asking each link in turn cost one native
+    /// frame per link with no stack probe on the way — so <c>new f()</c> on a deep enough chain ended the process
+    /// before <c>[[Construct]]</c>'s own probe was reached. No link has anything to observe, so the loop is exact.
+    /// </remarks>
+    internal override bool IsConstructor
+    {
+        get
+        {
+            var target = BoundTargetFunction;
+            while (target is BindFunction bound)
+            {
+                target = bound.BoundTargetFunction;
+            }
+
+            return target.IsConstructor;
+        }
+    }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-function.prototype.tostring — a bound function is not the function it
