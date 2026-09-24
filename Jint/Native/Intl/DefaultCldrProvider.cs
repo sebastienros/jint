@@ -623,10 +623,15 @@ public class DefaultCldrProvider : ICldrProvider
     // === Locale Data ===
 
     /// <inheritdoc />
+    /// <remarks>
+    /// Read out of CLDR's <c>weekData</c> for the region https://tc39.es/ecma402/#sec-weekinfooflocale picks:
+    /// a <c>-u-rg-</c> override CLDR has week data for, else the region subtag, a <c>-u-sd-</c> subdivision's
+    /// region, the region Add Likely Subtags supplies, and <c>001</c>, in that order - so <c>"en"</c> is
+    /// <c>"en-US"</c>'s Sunday and <c>"en-US-u-rg-gbzzzz"</c> is Great Britain's Monday.
+    /// </remarks>
     public virtual WeekInfo? GetWeekInfo(string locale)
     {
-        // Extract region from locale for week data lookup
-        var region = ExtractRegion(locale);
+        var region = WeekData.GetLookupRegion(RegionPreference.Of(locale));
 
         var weekendNumbers = WeekData.GetWeekend(region);
         var weekend = new DayOfWeek[weekendNumbers.Length];
