@@ -25,6 +25,11 @@ internal sealed class DomHtmlCollectionObject<T> : DomCollectionBase where T : c
     // as DomCollectionObject's static-NodeList branch.
     private readonly DomLiveHtmlCollection? _live;
 
+    private readonly Layout.PageLayout? _layout;
+    private ulong _countVersion;
+    private uint _count;
+    private bool _hasCount;
+
     private List<string> _names = [];
 
     internal DomHtmlCollectionObject(DomRealm realm, DomInterfaceDefinition definition, IHtmlCollection<T> collection)
@@ -32,10 +37,33 @@ internal sealed class DomHtmlCollectionObject<T> : DomCollectionBase where T : c
     {
         _collection = collection;
         _live = collection as DomLiveHtmlCollection;
+        _layout = Runtime.PageRuntime.Find(realm.Engine)?.Layout;
     }
 
     /// <inheritdoc />
-    public override uint Length => (uint) _collection.Length;
+    public override uint Length
+    {
+        get
+        {
+            // https://dom.spec.whatwg.org/#concept-collection-live: each read describes the current
+            // tree. Retain only a scalar count under Browser's synchronous mutation fence, never an
+            // enumerator or nodes. Standalone bindings and arbitrary native writers stay uncached.
+            if (_layout is not { } layout || !layout.TryGetCollectionVersion(out var version))
+            {
+                _hasCount = false;
+                return (uint) _collection.Length;
+            }
+
+            if (!_hasCount || _countVersion != version)
+            {
+                _count = (uint) _collection.Length;
+                _countVersion = version;
+                _hasCount = true;
+            }
+
+            return _count;
+        }
+    }
 
     /// <inheritdoc />
     protected override bool IgnoreNamedPropertiesInSet => true;

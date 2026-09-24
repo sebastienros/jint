@@ -1089,7 +1089,7 @@ internal static class IntlUtilities
     /// https://tc39.es/ecma402/#sec-canonicalizeunicodelocaleid
     /// Canonicalizes a Unicode locale identifier.
     /// </summary>
-    private static string CanonicalizeUnicodeLocaleId(string locale)
+    internal static string CanonicalizeUnicodeLocaleId(string locale)
     {
         // 1. Check grandfathered tags first (highest priority)
         // Use LocaleData first, then fallback to hardcoded dictionary

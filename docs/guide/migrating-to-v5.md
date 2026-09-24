@@ -5640,6 +5640,28 @@ generator nothing swallowed the `TypeError`, so these shapes threw straight out 
 Plain `.` member access on an awaited value was never affected, and neither was an `await` in a call's
 arguments.
 
+### 4.138 `Intl.Locale.prototype.getWeekInfo` reads the region the specification picks ([#4159](https://github.com/sebastienros/jint/issues/4159))
+
+`getWeekInfo` read CLDR's week data for the tag's region subtag and nothing else, so a tag without one got
+the world's week and the `-u-rg-` and `-u-sd-` keywords were ignored. It now picks the region the way
+[RegionPreference](https://tc39.es/ecma402/#sec-regionpreference) does: a `-u-rg-` override CLDR has week
+data for, then the region subtag, then a `-u-sd-` subdivision's region, then the region Add Likely Subtags
+supplies, then `001`.
+
+```js
+// 4.16.x / earlier 5.0
+new Intl.Locale('en').getWeekInfo().firstDay;                // 1
+new Intl.Locale('en-US-u-rg-gbzzzz').getWeekInfo().firstDay; // 7
+
+// 5.x
+new Intl.Locale('en').getWeekInfo().firstDay;                // 7 - "en" is likely "en-US"
+new Intl.Locale('en-US-u-rg-gbzzzz').getWeekInfo().firstDay; // 1 - the override names Great Britain
+```
+
+`DefaultCldrProvider.GetWeekInfo` answers the script, so it makes the same choice. A provider overriding
+`GetWeekInfo` still receives the whole tag, keywords included, and its answer is used as it is; one that
+returns `null` falls back to the embedded data, now read for the same region.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
@@ -5675,8 +5697,9 @@ none of it changes an engine that does not.
 | `LazyJsString` — one base class for a host string whose text is expensive to produce | `class Field : LazyJsString { public Field(int len) : base(len) {} protected override string Materialize() => … }` | [Advanced hosting](advanced-hosting.md) |
 | A synchronous, bounded callback in a host-created realm | `engine.Advanced.WithRealm(realm, action)` | [§5.33](#5-33-a-host-can-run-a-bounded-callback-in-one-of-its-realms-3917) |
 | Web Locks — `navigator.locks`, in a lock space several engines can share | in `UseWebApis()` already; `options.UseWebLocks(manager)` names the shared space | [§5.37](#5-37-several-engines-can-share-one-lock-space-navigator-locks) |
+| Buffer-view construction mode | `value.IsLengthTrackingArrayBufferView()` | [§5.38](#5-38-reading-a-buffer-view-s-length-tracking-mode) |
 
-The last row is the only one that replaces an existing spelling rather than adding a capability, so it is
+The `LazyJsString` row is the only one that replaces an existing spelling rather than adding a capability, so it is
 worth saying what happens to the old one. A lazy host string used to be written by deriving from `JsString`
 and passing **`null`** to a constructor whose parameter is typed `string` — a suppression against a contract
 that existed only in that class's `<remarks>` — and then overriding `ToString()`, `Length` and the indexer
@@ -6888,7 +6911,26 @@ worker from. The flag itself travels, because it grants a worker nothing.
 
 [Web Locks](web-apis/locks.md) is the guide page.
 
-### 5.38 Hosts can reject jobs after their execution context retires
+### 5.38 Reading a buffer view's length-tracking mode
+
+`JsValue.IsLengthTrackingArrayBufferView()` reports whether a native typed array or `DataView`
+tracks changes to its resizable or growable buffer. This lets a host serializer preserve the
+construction mode: a fixed-length view and a length-tracking view can expose the same length today
+but behave differently after the buffer grows.
+
+```csharp
+using Jint.Native;
+
+using var engine = new Engine();
+var view = engine.Evaluate("new Uint8Array(new ArrayBuffer(8, { maxByteLength: 16 }))");
+bool tracksLength = view.IsLengthTrackingArrayBufferView(); // true
+```
+
+The query reads native metadata without invoking script or changing the buffer. It retains the
+construction mode for an out-of-bounds view or a detached buffer; callers must validate bounds and
+detachment separately. Non-view values and proxies around views return `false`.
+
+### 5.39 Hosts can reject jobs after their execution context retires
 
 Override `Host.CanExecuteJob()` to decide whether a queued interpreter job may run.
 The engine calls it on its owning thread before each job, including Promise reactions,

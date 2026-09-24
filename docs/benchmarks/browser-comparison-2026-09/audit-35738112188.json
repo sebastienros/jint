@@ -1,0 +1,38 @@
+{
+  "gitHead": "6363436848365979b2201ed4ec9892ac140c13bc",
+  "allCalibrationDependenciesUnchangedInComparison": true,
+  "phases": {
+    "calibration": {
+      "rows": 360,
+      "comparisons": 110,
+      "hostIdleChecks": 720,
+      "maxHostIdlePercent": 33.49864725762805,
+      "medianHostIdlePercent": 0.49996699430389213,
+      "forcedCleanupCount": 360,
+      "directions": {
+        "higher": 2,
+        "unresolved": 103,
+        "lower": 5
+      },
+      "sourceHashCount": 18,
+      "dependencyFileCount": 160593,
+      "manifestSha256": "c98106ed9419eb8ef43070a71d20a620dca4eb9f8973bb93ef427a4b95480b5c"
+    },
+    "comparison": {
+      "rows": 540,
+      "comparisons": 330,
+      "hostIdleChecks": 1080,
+      "maxHostIdlePercent": 10.499298925060145,
+      "medianHostIdlePercent": 0.4999672111505056,
+      "forcedCleanupCount": 540,
+      "directions": {
+        "lower": 258,
+        "higher": 71,
+        "unresolved": 1
+      },
+      "sourceHashCount": 18,
+      "dependencyFileCount": 160901,
+      "manifestSha256": "7f77b296dfb1590b4e24f33f0ecbc1bc10b61b95af8a0d3b14dfc57488161cb5"
+    }
+  }
+}

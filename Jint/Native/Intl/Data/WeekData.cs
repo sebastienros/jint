@@ -30,6 +30,36 @@ internal static partial class WeekData
     public static Dictionary<string, string> WeekendEnd => _weekendEnd;
 
     /// <summary>
+    /// The region https://tc39.es/ecma402/#sec-weekinfooflocale reads its week data for: the
+    /// <c>-u-rg-</c> override when CLDR has week data for it, then the preferred region when CLDR has, then
+    /// the world.
+    /// </summary>
+    /// <remarks>
+    /// "Available" is read as "named in one of CLDR's <c>weekData</c> tables". The tables list only the
+    /// regions that differ from <c>001</c>, so for the preferred region the answer changes nothing - a region
+    /// with no entry reads <c>001</c> either way. It matters for the override: <c>en-US-u-rg-zzzzzz</c> names
+    /// a region CLDR has no week data for, and so keeps <c>US</c>'s Sunday rather than taking the world's
+    /// Monday.
+    /// </remarks>
+    internal static string GetLookupRegion(in RegionPreference preference)
+    {
+        if (preference.RegionOverride is { } regionOverride && HasWeekData(regionOverride))
+        {
+            return regionOverride;
+        }
+
+        return HasWeekData(preference.Region) ? preference.Region : RegionPreference.World;
+    }
+
+    private static bool HasWeekData(string region)
+    {
+        return _firstDay.ContainsKey(region)
+               || _minDays.ContainsKey(region)
+               || _weekendStart.ContainsKey(region)
+               || _weekendEnd.ContainsKey(region);
+    }
+
+    /// <summary>
     /// Gets the first day of week for a region (1=Monday, 7=Sunday).
     /// </summary>
     public static int GetFirstDayOfWeek(string? region)

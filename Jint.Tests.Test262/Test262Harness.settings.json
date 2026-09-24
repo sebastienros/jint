@@ -1,5 +1,5 @@
 {
-  "SuiteGitSha": "35d566604512cba908054eec49f85e64a59f3091",
+  "SuiteGitSha": "7ab7fafa0003f73fc85c1b95d88094d33f7eb8bd",
   //"SuiteDirectory": "//mnt/c/work/test262",
   "TargetPath": "./Generated",
   "Namespace": "Jint.Tests.Test262",
@@ -169,6 +169,14 @@
     "intl402/Collator/prototype/compare/non-normative-phonebook.js",
     "intl402/Collator/usage-de.js",
 
+    // DateTimeFormat - a component bag such as { weekday, day, month } is not resolved against CLDR's
+    // availableFormats skeletons by a format matcher (https://tc39.es/ecma402/#sec-createdatetimeformat);
+    // JsDateTimeFormat assembles the fields in ShortDatePattern order with fixed separators, and .NET has only
+    // the stand-alone abbreviated weekday names. German's MMMMEd pattern is "EEE, d. MMMM" with the
+    // format-context "Sa.", and this test's "Sa.," needs both; Jint writes "Sa 24 Dezember". Removed when
+    // component bags format through a matched locale pattern with format-context weekday names.
+    "intl402/DateTimeFormat/prototype/format/german-weekday-no-year.js",
+
     // DurationFormat - precision formatting requires exact sub-second arithmetic
     "intl402/DurationFormat/prototype/format/precision-exact-mathematical-values.js",
     // Requires Spanish unit patterns (ICU4N doesn't include unit data, only core locale data)
@@ -192,12 +200,12 @@
     // PluralRules - compact notation affects plural category
     //"intl402/PluralRules/prototype/select/notation.js",
 
-    // Locale - Intl.Locale-info RegionPreference region fallback is not implemented. The spec
-    // (WeekInfoOfLocale/CalendarsOfLocale/HourCyclesOfLocale -> RegionPreference) selects the
-    // lookup region in priority order: "rg" region-override keyword > region subtag > "sd"
-    // subdivision keyword > Add Likely Subtags region > "001". Jint uses only the literal region
-    // subtag (getWeekInfo) or the .NET CultureInfo (getHourCycles) and does not honor the "rg"/"sd"
-    // Unicode keywords, so region-override/subdivision/region-priority cases mismatch. getCalendars
+    // Locale - CalendarsOfLocale/HourCyclesOfLocale do not go through RegionPreference yet
+    // (https://github.com/sebastienros/jint/issues/4159). The spec selects the lookup region in
+    // priority order: "rg" region-override keyword > region subtag > "sd" subdivision keyword >
+    // Add Likely Subtags region > "001". getWeekInfo does (Jint/Native/Intl/RegionPreference.cs);
+    // getHourCycles still reads the .NET CultureInfo and does not honor the "rg"/"sd" Unicode
+    // keywords, so region-override/subdivision/region-priority cases mismatch. getCalendars
     // additionally has no region-specific calendar data (it always reports "gregory"), so its
     // region tests are inconclusive by the test's own precondition.
     "intl402/Locale/prototype/getCalendars/likely-subtags-region.js",
@@ -207,10 +215,6 @@
     "intl402/Locale/prototype/getHourCycles/region-override.js",
     "intl402/Locale/prototype/getHourCycles/region-priority.js",
     "intl402/Locale/prototype/getHourCycles/subdivision-region.js",
-    "intl402/Locale/prototype/getWeekInfo/likely-subtags-region.js",
-    "intl402/Locale/prototype/getWeekInfo/region-override.js",
-    "intl402/Locale/prototype/getWeekInfo/region-priority.js",
-    "intl402/Locale/prototype/getWeekInfo/subdivision-region.js",
 
     // === INTL402 TEMPORAL EXCLUSIONS ===
 

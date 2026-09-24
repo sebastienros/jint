@@ -1187,6 +1187,7 @@ namespace Jint.Native
         public static bool IsInt16Array(this Jint.Native.JsValue value) { }
         public static bool IsInt32Array(this Jint.Native.JsValue value) { }
         public static bool IsInt8Array(this Jint.Native.JsValue value) { }
+        public static bool IsLengthTrackingArrayBufferView(this Jint.Native.JsValue value) { }
         public static bool IsPrimitive(this Jint.Native.JsValue value) { }
         public static bool IsPrivateName(this Jint.Native.JsValue value) { }
         public static bool IsUint16Array(this Jint.Native.JsValue value) { }

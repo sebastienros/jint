@@ -15,7 +15,7 @@
 # resolving here until somebody re-runs that.
 #
 verified: 2026-09-19
-anchors: 1259
+anchors: 1264
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -68,6 +68,7 @@ ecma262 sec-%typedarray%.prototype.sort
 ecma262 sec-%typedarray%.prototype.subarray
 ecma262 sec-%typedarray%.prototype.tolocalestring
 ecma262 sec-%typedarray%.prototype.values
+ecma262 sec-%typedarray%.prototype.with
 ecma262 sec-%wrapforvaliditeratorprototype%-object
 ecma262 sec-%wrapforvaliditeratorprototype%.next
 ecma262 sec-%wrapforvaliditeratorprototype%.return
@@ -863,6 +864,7 @@ ecma402 sec-bestfitmatcher
 ecma402 sec-canonicalizelocalelist
 ecma402 sec-canonicalizeunicodelocaleid
 ecma402 sec-canonicalizeuvalue
+ecma402 sec-canonicalunicodesubdivision
 ecma402 sec-chaindatetimeformat
 ecma402 sec-coerceoptionstoobject
 ecma402 sec-collapsenumberrange
@@ -884,6 +886,7 @@ ecma402 sec-formatnumericrange
 ecma402 sec-formatnumericrangetoparts
 ecma402 sec-formatnumericseconds
 ecma402 sec-getbooleanorstringnumberformatoption
+ecma402 sec-getlocaleregion
 ecma402 sec-getnumberformatpattern
 ecma402 sec-getoption
 ecma402 sec-initializedatetimeformat
@@ -943,6 +946,7 @@ ecma402 sec-properties-of-intl-pluralrules-prototype-object
 ecma402 sec-properties-of-intl-relativetimeformat-prototype-object
 ecma402 sec-properties-of-intl-segmenter-prototype-object
 ecma402 sec-properties-of-the-intl-collator-prototype-object
+ecma402 sec-regionpreference
 ecma402 sec-resolvelocale
 ecma402 sec-resolveoptions
 ecma402 sec-segments-objects
@@ -953,6 +957,7 @@ ecma402 sec-torawfixed
 ecma402 sec-torawprecision
 ecma402 sec-weekdaytouvalue
 ecma402 sec-weekdayuvaluetonumber
+ecma402 sec-weekinfooflocale
 ecma402 segmenter-objects
 ecma402 sup-String.prototype.localeCompare
 ecma402 sup-bigint.prototype.tolocalestring

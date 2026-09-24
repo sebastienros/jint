@@ -118,12 +118,12 @@ internal sealed class ParserDriver : IDisposable
         // and `el.setAttribute` before insertion is the commonest thing a component does. `.With` adds a
         // service rather than replacing one, so AngleSharp's own observer keeps working.
         var documents = new PageDocumentFactory();
-        var configuration = Dom.CaseSensitiveSvgFactory.Configure(Configuration.Default)
+        var configuration = Dom.CaseSensitiveSvgFactory.Configure(Configuration.Default).MaterializeServices()
             // Before WithXml, which reaches into whichever DefaultDocumentFactory the configuration holds
             // and registers its creators on it: this one subclasses it, so WithXml finds it and this parse
             // keeps every mapping AngleSharp contributes. PageDocumentFactory says what it then widens.
-            .WithOnly<AngleSharp.Dom.IDocumentFactory>(documents)
-            .WithCss()
+            .WithOnly<AngleSharp.Dom.IDocumentFactory>(documents).MaterializeServices()
+            .WithCss().MaterializeServices()
             // Selectors §8.2 matches :target only for the document's target element. AngleSharp compares
             // each candidate's ID with its owner document's fragment, so duplicate IDs, shadow descendants
             // and disconnected clones can all match instead of the one HTML indicated element. The same
@@ -143,7 +143,7 @@ internal sealed class ParserDriver : IDisposable
             // all: :focus and :focus-within are AngleSharp's IElement.IsFocused, a flag nothing assigns, so
             // they have to read the page's own focus - Events/FocusController, which is what
             // document.activeElement and every focus event already answer from.
-            .WithOnly<AngleSharp.Css.IPseudoClassSelectorFactory>(new PagePseudoClassSelectorFactory(_runtime))
+            .WithOnly<AngleSharp.Css.IPseudoClassSelectorFactory>(new PagePseudoClassSelectorFactory(_runtime)).MaterializeServices()
             // https://html.spec.whatwg.org/multipage/document-lifecycle.html#read-xml — a document whose
             // content type is an XML MIME type is parsed by the XML parser, and without the creators
             // AngleSharp.Xml supplies there is no XML document for it to produce: `<foo>Dummy</foo>` served
@@ -152,7 +152,7 @@ internal sealed class ParserDriver : IDisposable
             // wrong document's. What it does *not* route is `application/xhtml+xml` and every other `+xml`
             // type, which is what PageDocumentFactory widens. AngleSharp.Xml is referenced for `DOMParser`
             // either way, so this costs a service registration and no dependency.
-            .WithXml()
+            .WithXml().MaterializeServices()
             // https://drafts.csswg.org/selectors-4/#the-lang-pseudo — a document's language is the
             // document's. AngleSharp resolves an element with no inherited language through
             // `IBrowsingContext.GetCulture()`, which without this is whatever `CultureInfo.CurrentCulture`
@@ -183,7 +183,7 @@ internal sealed class ParserDriver : IDisposable
         // After WithXml, because what it takes is the creator WithXml registered.
         documents.ReadXmlWithTheXmlParser();
 
-        var context = BrowsingContext.New(configuration);
+        var context = BrowsingContext.New(configuration.MaterializeServices());
         _context = context;
         _runtime.Dom.AssociateContext(context);
         IDocument document;
