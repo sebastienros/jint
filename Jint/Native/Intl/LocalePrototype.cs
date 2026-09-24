@@ -328,12 +328,14 @@ internal sealed partial class LocalePrototype : Prototype
     private JsObject GetWeekInfo(JsValue thisObject)
     {
         var locale = ValidateLocale(thisObject);
-        var region = locale.Region;
+
+        // The embedded CLDR week data is read for the region https://tc39.es/ecma402/#sec-weekinfooflocale
+        // picks rather than for the region subtag alone.
+        var region = WeekData.GetLookupRegion(RegionPreference.Of(locale.Locale));
 
         var result = OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
 
-        // First day of week (1=Monday, 7=Sunday)
-        // Use fw extension if present, otherwise from CLDR data
+        // First day of week (1=Monday, 7=Sunday). The fw extension wins over the data.
         int firstDayNum;
         if (locale.FirstDayOfWeek is { } firstDayOfWeek && WeekdayUValueToNumber(firstDayOfWeek) is { } overrideDay)
         {
