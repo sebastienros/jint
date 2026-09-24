@@ -520,31 +520,43 @@ public abstract partial class Function : ObjectInstance, ICallable
     /// <summary>
     /// https://tc39.es/ecma262/#sec-getfunctionrealm
     /// </summary>
+    /// <remarks>
+    /// The bound-function and proxy steps are tail recursions through <c>[[BoundTargetFunction]]</c> and
+    /// <c>[[ProxyTarget]]</c>, chains script can make as long as it likes, and no link has anything to observe —
+    /// so they are a loop. Recursing cost one native frame per link with no stack probe, which ended the process
+    /// for <c>Reflect.construct(F, [], deepBoundChain)</c> or an array whose <c>constructor</c> is one, on any
+    /// runtime where the JIT did not happen to turn the call into a jump.
+    /// </remarks>
     internal Realm GetFunctionRealm(JsValue obj)
     {
-        // Step 2 before step 3: a bound function is a Function too, and its own realm is not the answer —
-        // the specification asks its [[BoundTargetFunction]], which is what a cross-realm bind depends on.
-        if (obj is BindFunction bindFunctionInstance)
+        while (true)
         {
-            return GetFunctionRealm(bindFunctionInstance.BoundTargetFunction);
-        }
-
-        if (obj is Function functionInstance && functionInstance._realm is not null)
-        {
-            return functionInstance._realm;
-        }
-
-        if (obj is JsProxy proxyInstance)
-        {
-            if (proxyInstance.IsRevoked)
+            // Step 2 before step 3: a bound function is a Function too, and its own realm is not the answer —
+            // the specification asks its [[BoundTargetFunction]], which is what a cross-realm bind depends on.
+            if (obj is BindFunction bindFunctionInstance)
             {
-                Throw.TypeErrorNoEngine();
+                obj = bindFunctionInstance.BoundTargetFunction;
+                continue;
             }
 
-            return GetFunctionRealm(proxyInstance._target);
-        }
+            if (obj is Function functionInstance && functionInstance._realm is not null)
+            {
+                return functionInstance._realm;
+            }
 
-        return _engine.ExecutionContext.Realm;
+            if (obj is JsProxy proxyInstance)
+            {
+                if (proxyInstance.IsRevoked)
+                {
+                    Throw.TypeErrorNoEngine();
+                }
+
+                obj = proxyInstance._target;
+                continue;
+            }
+
+            return _engine.ExecutionContext.Realm;
+        }
     }
 
     /// <summary>
