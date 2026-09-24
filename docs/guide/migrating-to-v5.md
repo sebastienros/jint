@@ -5640,6 +5640,28 @@ generator nothing swallowed the `TypeError`, so these shapes threw straight out 
 Plain `.` member access on an awaited value was never affected, and neither was an `await` in a call's
 arguments.
 
+### 4.138 `Intl.Locale.prototype.getWeekInfo` reads the region the specification picks ([#4159](https://github.com/sebastienros/jint/issues/4159))
+
+`getWeekInfo` read CLDR's week data for the tag's region subtag and nothing else, so a tag without one got
+the world's week and the `-u-rg-` and `-u-sd-` keywords were ignored. It now picks the region the way
+[RegionPreference](https://tc39.es/ecma402/#sec-regionpreference) does: a `-u-rg-` override CLDR has week
+data for, then the region subtag, then a `-u-sd-` subdivision's region, then the region Add Likely Subtags
+supplies, then `001`.
+
+```js
+// 4.16.x / earlier 5.0
+new Intl.Locale('en').getWeekInfo().firstDay;                // 1
+new Intl.Locale('en-US-u-rg-gbzzzz').getWeekInfo().firstDay; // 7
+
+// 5.x
+new Intl.Locale('en').getWeekInfo().firstDay;                // 7 - "en" is likely "en-US"
+new Intl.Locale('en-US-u-rg-gbzzzz').getWeekInfo().firstDay; // 1 - the override names Great Britain
+```
+
+`DefaultCldrProvider.GetWeekInfo` answers the script, so it makes the same choice. A provider overriding
+`GetWeekInfo` still receives the whole tag, keywords included, and its answer is used as it is; one that
+returns `null` falls back to the embedded data, now read for the same region.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

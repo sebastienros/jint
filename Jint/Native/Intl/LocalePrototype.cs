@@ -330,10 +330,13 @@ internal sealed partial class LocalePrototype : Prototype
         var locale = ValidateLocale(thisObject);
         var weekInfo = Engine.Options.Intl.CldrProvider.GetWeekInfo(locale.Locale);
 
+        // A provider with no opinion falls back to the embedded CLDR data, read for the region
+        // https://tc39.es/ecma402/#sec-weekinfooflocale picks rather than for the region subtag alone.
+        var fallbackRegion = weekInfo is null ? WeekData.GetLookupRegion(RegionPreference.Of(locale.Locale)) : null;
+
         var result = OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
 
-        // First day of week (1=Monday, 7=Sunday). The fw extension wins over the provider; without one,
-        // a provider with no opinion falls back to the embedded CLDR data.
+        // First day of week (1=Monday, 7=Sunday). The fw extension wins over the provider and the data.
         int firstDayNum;
         if (locale.FirstDayOfWeek is { } firstDayOfWeek && WeekdayUValueToNumber(firstDayOfWeek) is { } overrideDay)
         {
@@ -345,7 +348,7 @@ internal sealed partial class LocalePrototype : Prototype
         }
         else
         {
-            firstDayNum = WeekData.GetFirstDayOfWeek(locale.Region);
+            firstDayNum = WeekData.GetFirstDayOfWeek(fallbackRegion);
         }
         result.CreateDataPropertyOrThrow("firstDay", firstDayNum);
 
@@ -366,7 +369,7 @@ internal sealed partial class LocalePrototype : Prototype
         }
         else
         {
-            weekendDays = WeekData.GetWeekend(locale.Region);
+            weekendDays = WeekData.GetWeekend(fallbackRegion);
         }
 
         var weekend = new JsArray(Engine, (uint) weekendDays.Length);
