@@ -25,8 +25,15 @@ namespace Jint.Collections;
 /// <see href="https://tc39.es/ecma262/#sec-ordinaryownpropertykeys">OrdinaryOwnPropertyKeys</see> requires
 /// them "in ascending chronological order of property creation". A removed entry therefore leaves a
 /// tombstone rather than joining a free list an add would pop from — reusing a vacated slot would hand a
-/// key an enumeration position older than its creation. See <see cref="Resize"/> for how the tombstones
-/// are reclaimed.
+/// key an enumeration position older than its creation.
+/// </para>
+/// <para>
+/// The entries occupy a window <c>[_firstIndex, _lastIndex)</c> over the array rather than a prefix of it,
+/// and that window may wrap the end of the array, so a removal at <em>either</em> end retires its slot
+/// instead of leaving a hole: the top walks back when the newest key goes, and the base advances when the
+/// oldest one does. A rotating key set — a fresh name in, the oldest one out, which is what an object used
+/// as a bounded cache does — therefore never compacts at all. Only a removal from the middle leaves a
+/// tombstone behind, and <see cref="Resize"/> is where those are reclaimed.
 /// </para>
 /// </summary>
 [DebuggerTypeProxy(typeof(DictionarySlimDebugView<>))]
@@ -47,8 +54,16 @@ internal sealed class StringDictionarySlim<TValue> : DictionaryBase<TValue>, IRe
 
     // Number of live entries.
     private int _count;
-    // High-water mark: _entries[0.._lastIndex) are live entries and tombstones, in insertion order.
+    // Base of the window: the oldest occupied slot, and a live entry whenever _count is not 0.
+    private int _firstIndex;
+    // The slot the next add writes. The window [_firstIndex, _lastIndex) holds the live entries and the
+    // tombstones between them, in insertion order, and may wrap the end of the array.
     private int _lastIndex;
+    // The one bound the add path tests: the exclusive limit on _lastIndex. It is the capacity while the
+    // window runs to the end of the array, the base while the window wraps below it, and 0 for the shared
+    // dummy array, which nothing may write to. So it is what tells a full window from an empty one, since
+    // both leave _firstIndex equal to _lastIndex.
+    private int _limit;
     // 1-based index into _entries; 0 means empty
     private int[] _buckets;
     private Entry[] _entries;
@@ -67,6 +82,7 @@ internal sealed class StringDictionarySlim<TValue> : DictionaryBase<TValue>, IRe
     {
         _buckets = HashHelpers.SizeOneIntArray;
         _entries = InitialEntries;
+        // _limit is left at 0 so that the first add makes room: the dummy arrays are shared statics.
     }
 
     public StringDictionarySlim(int capacity)
@@ -76,6 +92,7 @@ internal sealed class StringDictionarySlim<TValue> : DictionaryBase<TValue>, IRe
         capacity = HashHelpers.PowerOf2(capacity);
         _buckets = new int[capacity];
         _entries = new Entry[capacity];
+        _limit = capacity;
     }
 
     public override int Count
@@ -90,7 +107,9 @@ internal sealed class StringDictionarySlim<TValue> : DictionaryBase<TValue>, IRe
     public void Clear()
     {
         _count = 0;
+        _firstIndex = 0;
         _lastIndex = 0;
+        _limit = 0;
         _buckets = HashHelpers.SizeOneIntArray;
         _entries = InitialEntries;
     }
@@ -103,19 +122,55 @@ internal sealed class StringDictionarySlim<TValue> : DictionaryBase<TValue>, IRe
     /// </summary>
     public void ClearPreservingCapacity()
     {
-        if (_lastIndex == 0)
+        var entries = _entries;
+        if (entries.Length == 1)
         {
-            // Never grew past the shared dummy arrays — nothing to keep, nothing to clear. Tested on the
-            // high-water mark rather than on Count so that a table emptied by removals resets it: Count
-            // is already 0 there, and returning early would make the next refill append above the
-            // tombstones instead of starting at slot 0.
+            // Never grew past the shared dummy arrays — nothing to keep, nothing to clear, and nothing to
+            // reset: the window is still closed on slot 0, and the bound is still the 0 that refuses the
+            // shared array to the first add.
             return;
         }
 
-        Array.Clear(_buckets, 0, _buckets.Length);
-        Array.Clear(_entries, 0, _lastIndex);
-        _count = 0;
+        if (_count != 0)
+        {
+            var width = (_lastIndex - _firstIndex) & (entries.Length - 1);
+            if (width == 0)
+            {
+                // A full window leaves its two ends on the same slot; an empty one is handled above.
+                width = entries.Length;
+            }
+
+            Array.Clear(_buckets, 0, _buckets.Length);
+            ClearWindow(entries, _firstIndex, width);
+            _count = 0;
+        }
+
+        // A table emptied by removals has already cleared every slot it touched and unhooked every bucket,
+        // but its window closed wherever the last removal left it. Putting it back at the base of the
+        // array is what makes the next refill start from the bottom of the one it kept.
+        _firstIndex = 0;
         _lastIndex = 0;
+        _limit = entries.Length;
+    }
+
+    /// <summary>
+    /// Clears <paramref name="length"/> slots from <paramref name="start"/>, wrapping at the end of the
+    /// array the way the window itself does. Clearing rather than abandoning them is what releases the key
+    /// strings and values a retired slot still references — and what lets an add assume the slot it takes
+    /// holds a default value, which <see cref="SetOrUpdateValue"/> hands to its updater.
+    /// </summary>
+    private static void ClearWindow(Entry[] entries, int start, int length)
+    {
+        var toEnd = entries.Length - start;
+        if (length <= toEnd)
+        {
+            Array.Clear(entries, start, length);
+        }
+        else
+        {
+            Array.Clear(entries, start, toEnd);
+            Array.Clear(entries, 0, length - toEnd);
+        }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -152,12 +207,23 @@ internal sealed class StringDictionarySlim<TValue> : DictionaryBase<TValue>, IRe
                 _count--;
 
                 // Removing the newest entry can hand its slot straight back without disturbing the order
-                // of anything older, which is what makes `o.k = v; delete o.k;` churn free of compaction.
-                if (entryIndex == _lastIndex - 1)
+                // of anything older, which is what makes `o.k = v; delete o.k;` churn free of
+                // compaction. Only the top moves, so the bound the add path tests does not change: the
+                // free space it reopens is the free space it was already allowed to write. It closes the
+                // window where it stands when that entry was also the last live one, which is an empty
+                // window like any other — the next add reopens it on the slot it just gave back.
+                //
+                // The test is written inverted, and everything that is not this case is behind one call,
+                // because that is what the JIT lays out as a comparison this path falls straight through
+                // into its single store and its return — the shape the high-water mark had, with no
+                // taken branch on it. Spelling it as an if/else, or asking about the base here as well,
+                // moves the store out of line and puts a taken branch on the commonest delete there is.
+                if (entryIndex != _lastIndex - 1)
                 {
-                    _lastIndex = entryIndex;
+                    return RetireSlot(entries, entryIndex);
                 }
 
+                _lastIndex = entryIndex;
                 return true;
             }
             lastIndex = entryIndex;
@@ -165,6 +231,66 @@ internal sealed class StringDictionarySlim<TValue> : DictionaryBase<TValue>, IRe
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Retires a just-vacated slot that was not the newest: the window's base advances when it was the
+    /// oldest — which is what makes a rotating key set free of compaction — and nothing moves when it was
+    /// neither.
+    /// <para>
+    /// It advances past any tombstones behind that slot as well, so that the base keeps pointing at a live
+    /// entry: otherwise it would come to rest on a tombstone and the next removal of the oldest would no
+    /// longer recognize itself, and one delete from the middle would disarm the fast path for good. A
+    /// removal from the middle leaves its tombstone where it is, because reclaiming it would move the keys
+    /// above it and their position <em>is</em> their creation order; those are what <see cref="Resize"/>
+    /// squeezes out.
+    /// </para>
+    /// </summary>
+    /// <returns>
+    /// Always <see langword="true" />, which is <see cref="Remove"/>'s own answer: returning it lets the
+    /// caller hand this half of the work over with a tail call instead of a call and a join, which is what
+    /// keeps the newest-entry path straight-line.
+    /// </returns>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private bool RetireSlot(Entry[] entries, int retired)
+    {
+        // Neither end: the tombstone stays where it is, and only Resize reclaims it. Splitting the walk
+        // off keeps this half small, so the commoner of the two answers costs a compare and a return.
+        return retired != _firstIndex || RetireBase(entries, retired);
+    }
+
+    /// <summary>
+    /// Advances the window's base past the slot the oldest entry has just vacated, and past any tombstones
+    /// behind it. Its <see langword="true" /> is <see cref="RetireSlot"/>'s.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private bool RetireBase(Entry[] entries, int retired)
+    {
+        var length = entries.Length;
+        if (_count == 0)
+        {
+            // The last live entry is gone, so the window goes back to the base of the array and the next
+            // add starts at slot 0 again; every slot it held was cleared as it was removed, which is what
+            // makes starting over safe. It is also what ends the walk below: with nothing live left there
+            // would be nothing for it to stop on.
+            _firstIndex = 0;
+            _lastIndex = 0;
+            _limit = length;
+            return true;
+        }
+
+        var first = (retired + 1) & (length - 1);
+        while (entries[first].next == Tombstone)
+        {
+            first = (first + 1) & (length - 1);
+        }
+
+        _firstIndex = first;
+
+        // The window wraps once its top is at or below the new base, and then the base is the slot an add
+        // may not reach; otherwise the free space runs to the end of the array.
+        _limit = _lastIndex <= first ? first : length;
+        return true;
     }
 
     public override ref TValue GetValueRefOrNullRef(Key key)
@@ -241,13 +367,15 @@ internal sealed class StringDictionarySlim<TValue> : DictionaryBase<TValue>, IRe
     [MethodImpl(MethodImplOptions.NoInlining)]
     private ref TValue AddKey(Key key, int bucketIndex)
     {
-        // Always appends: the new entry is the newest key, and enumeration is entry order.
+        // Always appends at the top of the window: the new entry is the newest key, and enumeration is
+        // window order. _limit is the one thing standing between _lastIndex and a slot it may not write,
+        // so the window costs this path a field read where the mark cost an array length read — and one
+        // comparison, where the mark needed two.
         Entry[] entries = _entries;
-        if (_lastIndex == entries.Length || entries.Length == 1)
+        if (_lastIndex == _limit)
         {
-            entries = Resize();
+            entries = MakeRoom();
             bucketIndex = key.HashCode & (_buckets.Length - 1);
-            // entry indexes of surviving entries were not reordered by Resize
         }
 
         var entryIndex = _lastIndex++;
@@ -259,10 +387,43 @@ internal sealed class StringDictionarySlim<TValue> : DictionaryBase<TValue>, IRe
     }
 
     /// <summary>
-    /// Makes room at the top of the entry array, which is the only place an add may write.
+    /// Makes room at the top of the window, which is the only place an add may write, for a window that
+    /// has reached its bound.
     /// <para>
-    /// With no removals this is the plain doubling it has always been. Otherwise the tombstones left by
-    /// <see cref="Remove"/> are squeezed out — in place when the live entries fit in half the capacity,
+    /// There are three ways to have reached it, and only the last one costs anything. A window that has run
+    /// to the end of the array while its base has moved off slot 0 <em>wraps</em>, which is a pair of field
+    /// writes and no data movement at all: that is a rotating key set, and it is why one never compacts. A
+    /// window based at slot 0 is the shape the type has always had, and <see cref="Resize"/> is the code it
+    /// has always run. Anything else is a full window that does not start at slot 0, which
+    /// <see cref="ResizeWindow"/> grows or squeezes.
+    /// </para>
+    /// </summary>
+    private Entry[] MakeRoom()
+    {
+        var entries = _entries;
+        if (_firstIndex != 0)
+        {
+            if (_lastIndex == entries.Length)
+            {
+                // Free space at the bottom of the array, which the window rotated away from: it continues
+                // there, and the base is now the slot the top may not reach.
+                _lastIndex = 0;
+                _limit = _firstIndex;
+                return entries;
+            }
+
+            return ResizeWindow(entries);
+        }
+
+        return Resize();
+    }
+
+    /// <summary>
+    /// Makes room for a window based at slot 0, which is every table that has never had its oldest entry
+    /// removed — and so the only shape this had before the window existed.
+    /// <para>
+    /// With no removals this is the plain doubling it has always been. Otherwise the tombstones left by a
+    /// removal from the middle are squeezed out — in place when the live entries fit in half the capacity,
     /// and into a doubled array when they do not. Compaction preserves relative order, so it is invisible
     /// to enumeration; insisting on the half is what keeps adds amortized O(1), since every call here is
     /// followed by at least <c>capacity / 2</c> adds before the next one.
@@ -271,15 +432,15 @@ internal sealed class StringDictionarySlim<TValue> : DictionaryBase<TValue>, IRe
     /// The half is measured rather than chosen. It is consulted only by a table that has both left
     /// tombstones and filled its array, and because capacities are powers of two it does not tune the
     /// cost continuously — it decides which power of two such a table settles on, and the interval
-    /// between compactions is then the capacity minus the live count. A quarter settles a rotating key
-    /// set at twice its live count and costs a compaction every <c>n</c> adds; a half settles it at four
-    /// times and costs one every <c>3n</c>. Measured against slot reuse that is +34.8% and +8.9%. Going
-    /// on to a three-quarters erases the rest and doubles the ceiling again, which is the trade this
-    /// stops short of; #3285 carries the curve and the memory figures at every setting.
+    /// between compactions is then the capacity minus the live count. It was measured on a rotating key
+    /// set, which no longer reaches this method at all; what still does is a table whose oldest entry
+    /// stays put while the keys above it churn. #3285 carries that curve and the memory figures at every
+    /// setting, and #3315 is why the shape it was measured on is now free.
     /// </para>
     /// </summary>
     private Entry[] Resize()
     {
+        Debug.Assert(_firstIndex == 0);
         Debug.Assert(_lastIndex == _entries.Length || _entries.Length == 1);
 
         var entries = _entries;
@@ -328,6 +489,7 @@ internal sealed class StringDictionarySlim<TValue> : DictionaryBase<TValue>, IRe
 
         _lastIndex = count;
         _entries = newEntries;
+        _limit = newEntries.Length;
 
         var buckets = _buckets;
         while (count-- > 0)
@@ -338,6 +500,123 @@ internal sealed class StringDictionarySlim<TValue> : DictionaryBase<TValue>, IRe
         }
 
         return newEntries;
+    }
+
+    /// <summary>
+    /// Makes room for a full window that does not start at slot 0, which is a table whose base has moved
+    /// and whose middle has since filled with tombstones — a rotating key set with a key pinned under it.
+    /// The threshold is <see cref="Resize"/>'s, measured there.
+    /// <para>
+    /// Growing is the chance to unwrap, so the survivors land at the bottom of the doubled array in window
+    /// order and the window starts over at slot 0; when there is nothing to squeeze out that is two
+    /// <see cref="Array.Copy(Array, int, Array, int, int)"/> runs, the tail of the old array and then its
+    /// head, and taking them the other way round would reverse the keys around the wrap point. Compacting
+    /// in place instead leaves the base where it is and moves the survivors down towards it, so the write
+    /// cursor can never overtake the read cursor — which is what makes a wrapped window safe to squeeze
+    /// without a second array, and why it cannot be rebased to slot 0 in place.
+    /// </para>
+    /// </summary>
+    private Entry[] ResizeWindow(Entry[] entries)
+    {
+        var count = _count;
+        var length = entries.Length;
+        var mask = length - 1;
+        var first = _firstIndex;
+
+        Debug.Assert(first != 0);
+        Debug.Assert(_lastIndex == first);
+        // A bound below the capacity is only ever set on a window that holds a live entry, so the window
+        // reaching it is always a full one and never a closed one, which the squeeze below relies on.
+        Debug.Assert(count != 0);
+
+        if (count == length || count + 1 > length - (length >> 1))
+        {
+            var newSize = length * 2;
+            if ((uint) newSize > int.MaxValue) // uint cast handles overflow
+                throw new InvalidOperationException("Capacity Overflow");
+
+            var newEntries = new Entry[newSize];
+            _buckets = new int[newSize];
+
+            if (count == length)
+            {
+                var toEnd = length - first;
+                Array.Copy(entries, first, newEntries, 0, toEnd);
+                Array.Copy(entries, 0, newEntries, toEnd, first);
+            }
+            else
+            {
+                var target = 0;
+                var source = first;
+                for (var n = 0; n < length; n++)
+                {
+                    if (entries[source].next != Tombstone)
+                    {
+                        newEntries[target++] = entries[source];
+                    }
+
+                    source = (source + 1) & mask;
+                }
+
+                Debug.Assert(target == count);
+            }
+
+            _entries = newEntries;
+            _firstIndex = 0;
+            _lastIndex = count;
+            _limit = newSize;
+            RebuildChains(newEntries, _buckets, 0, count);
+            return newEntries;
+        }
+
+        Array.Clear(_buckets, 0, _buckets.Length);
+
+        var write = first;
+        var read = first;
+        for (var n = 0; n < length; n++)
+        {
+            if (entries[read].next != Tombstone)
+            {
+                if (write != read)
+                {
+                    entries[write] = entries[read];
+                }
+
+                write = (write + 1) & mask;
+            }
+
+            read = (read + 1) & mask;
+        }
+
+        Debug.Assert(write == ((first + count) & mask));
+
+        // Release the key strings and values the squeezed-away slots still reference.
+        ClearWindow(entries, write, length - count);
+
+        _lastIndex = write;
+        _limit = write <= first ? first : length;
+        RebuildChains(entries, _buckets, first, count);
+        return entries;
+    }
+
+    /// <summary>
+    /// Rehangs <paramref name="count"/> entries from <paramref name="first"/> onto empty buckets, walking
+    /// the window in order and wrapping at the end of the array. A bucket and a chain link are physical
+    /// slot indexes that encode no position in the window, which is why the moving base costs lookup
+    /// nothing and why only a resize has to do this at all.
+    /// </summary>
+    private static void RebuildChains(Entry[] entries, int[] buckets, int first, int count)
+    {
+        var mask = entries.Length - 1;
+        var bucketMask = buckets.Length - 1;
+        var index = first;
+        for (var n = 0; n < count; n++)
+        {
+            var bucketIndex = entries[index].key.HashCode & bucketMask;
+            entries[index].next = buckets[bucketIndex] - 1;
+            buckets[bucketIndex] = index + 1;
+            index = (index + 1) & mask;
+        }
     }
 
     /// <summary>
@@ -366,7 +645,7 @@ internal sealed class StringDictionarySlim<TValue> : DictionaryBase<TValue>, IRe
         internal Enumerator(StringDictionarySlim<TValue> dictionary)
         {
             _dictionary = dictionary;
-            _index = 0;
+            _index = dictionary._firstIndex;
             _count = _dictionary._count;
             _current = default;
         }
@@ -381,14 +660,21 @@ internal sealed class StringDictionarySlim<TValue> : DictionaryBase<TValue>, IRe
 
             _count--;
 
-            // Skips the tombstones removals left behind; the live entries between them are still in
-            // insertion order, which is what this type exists to preserve.
-            while (_dictionary._entries[_index].next == Tombstone)
-                _index++;
+            // Walks the window from its base, wrapping at the end of the array, and skips the tombstones a
+            // removal from the middle left behind; the live entries between them are still in insertion
+            // order, which is what this type exists to preserve. The live count is what ends the walk, so
+            // it never has to test the window's top — and starting at the base is what spares it the run of
+            // tombstones a table that keeps dropping its oldest key used to leave below one.
+            var entries = _dictionary._entries;
+            var mask = entries.Length - 1;
+            var index = _index;
+            while (entries[index].next == Tombstone)
+            {
+                index = (index + 1) & mask;
+            }
 
-            _current = new KeyValuePair<Key, TValue>(
-                _dictionary._entries[_index].key,
-                _dictionary._entries[_index++].value);
+            _current = new KeyValuePair<Key, TValue>(entries[index].key, entries[index].value);
+            _index = (index + 1) & mask;
             return true;
         }
 
@@ -398,7 +684,7 @@ internal sealed class StringDictionarySlim<TValue> : DictionaryBase<TValue>, IRe
 
         void IEnumerator.Reset()
         {
-            _index = 0;
+            _index = _dictionary._firstIndex;
             _count = _dictionary._count;
             _current = default;
         }
