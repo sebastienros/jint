@@ -61,7 +61,7 @@ public class HostDeferredStringMemoryLimitTests
             "a value whose flat form is four times the budget must not leave the engine uncharged");
 
         // What the failed run left behind is what a host can still read, and reading it costs its flat size.
-        Utf16Bytes(engine.GetValue("s")).Should().BeLessThanOrEqualTo(2 * Budget);
+        Utf16Bytes(engine.GetValue("s")).Should().BeLessThanOrEqualTo(Budget);
     }
 
     /// <summary>
@@ -77,7 +77,31 @@ public class HostDeferredStringMemoryLimitTests
             "var x = 'y'.repeat(4096); var s = ''; for (var i = 0; i < 1024; i++) { s = s + x; } s"));
 
         failure.Should().BeOfType<MemoryLimitExceededException>();
-        Utf16Bytes(engine.GetValue("s")).Should().BeLessThanOrEqualTo(2 * Budget);
+        Utf16Bytes(engine.GetValue("s")).Should().BeLessThanOrEqualTo(Budget);
+    }
+
+    /// <summary>
+    /// Eight independent doublings of 1,048,576 characters each: every one of them is half the budget on its
+    /// own, and they share nothing, so a host reading all eight copies 16 MB. Refusing only a single value
+    /// larger than the budget is not enough; what the values stand for has to be charged as they are built.
+    /// </summary>
+    [Test]
+    public void IndependentConcatenationsShareOneBudget()
+    {
+        var engine = CreateEngine();
+
+        var failure = Caught.Exception(() => engine.Evaluate("""
+            var parts = [];
+            for (var k = 0; k < 8; k++) {
+                var s = String.fromCharCode(97 + k);
+                for (var i = 0; i < 20; i++) { s = s + s; }
+                parts.push(s);
+            }
+            parts
+            """));
+
+        failure.Should().BeOfType<MemoryLimitExceededException>(
+            "eight unshared values of 2 MB each were built under a 4 MB budget");
     }
 
     /// <summary>
@@ -101,7 +125,7 @@ public class HostDeferredStringMemoryLimitTests
 
         failure.Should().BeOfType<MemoryLimitExceededException>(
             "eight entries of 2 MB each would otherwise leave a 16 MB value behind a 4 MB budget");
-        Utf16Bytes(engine.GetValue("acc")).Should().BeLessThanOrEqualTo(2 * Budget);
+        Utf16Bytes(engine.GetValue("acc")).Should().BeLessThanOrEqualTo(Budget);
     }
 
     /// <summary>
