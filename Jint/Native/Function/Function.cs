@@ -459,29 +459,44 @@ public abstract partial class Function : ObjectInstance, ICallable
     /// <summary>
     /// https://tc39.es/ecma262/#sec-getfunctionrealm
     /// </summary>
+    /// <remarks>
+    /// The bound-function and proxy steps are tail recursions through <c>[[BoundTargetFunction]]</c> and
+    /// <c>[[ProxyTarget]]</c>, chains script can make as long as it likes, and no link has anything to observe —
+    /// so they are a loop. Recursing cost one native frame per link with no stack probe, which ended the process
+    /// for <c>Reflect.construct(F, [], deepBoundChain)</c> or an array whose <c>constructor</c> is one, on any
+    /// runtime where the JIT did not happen to turn the call into a jump.
+    /// </remarks>
     internal Realm GetFunctionRealm(JsValue obj)
     {
-        if (obj is Function functionInstance && functionInstance._realm is not null)
+        while (true)
         {
-            return functionInstance._realm;
-        }
-
-        if (obj is BindFunction bindFunctionInstance)
-        {
-            return GetFunctionRealm(bindFunctionInstance.BoundTargetFunction);
-        }
-
-        if (obj is JsProxy proxyInstance)
-        {
-            if (proxyInstance.IsRevoked)
+            // Neither BindFunction nor JsProxy derives from Function on this branch, so the order of the three
+            // tests does not matter: a bound function or a proxy hands on to its target, and anything else ends
+            // the walk.
+            if (obj is Function functionInstance && functionInstance._realm is not null)
             {
-                Throw.TypeErrorNoEngine();
+                return functionInstance._realm;
             }
 
-            return GetFunctionRealm(proxyInstance._target);
-        }
+            if (obj is BindFunction bindFunctionInstance)
+            {
+                obj = bindFunctionInstance.BoundTargetFunction;
+                continue;
+            }
 
-        return _engine.ExecutionContext.Realm;
+            if (obj is JsProxy proxyInstance)
+            {
+                if (proxyInstance.IsRevoked)
+                {
+                    Throw.TypeErrorNoEngine();
+                }
+
+                obj = proxyInstance._target;
+                continue;
+            }
+
+            return _engine.ExecutionContext.Realm;
+        }
     }
 
     /// <summary>
