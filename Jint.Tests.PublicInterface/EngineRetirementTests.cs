@@ -1,7 +1,9 @@
 #nullable enable
 
 using Jint.Native;
+#if NET8_0_OR_GREATER
 using Jint.WebApi;
+#endif
 
 namespace Jint.Tests.PublicInterface;
 
@@ -137,6 +139,7 @@ public class EngineRetirementTests
         (await waiting).Should().BeFalse();
     }
 
+#if NET8_0_OR_GREATER
     [Test]
     public void RetirementReleasesSharedLocks()
     {
@@ -181,4 +184,5 @@ public class EngineRetirementTests
 
         notifications.Should().Be(0);
     }
+#endif
 }
