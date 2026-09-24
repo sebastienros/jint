@@ -267,8 +267,8 @@ public static class JsValueExtensions
 
     /// <summary>
     /// Reinterprets a value the caller has already proven to be a string with <see cref="IsString"/>.
-    /// <see cref="InternalTypes.String"/> is set only by <see cref="JsString"/> and its two nested
-    /// subclasses (ConcatenatedString, SlicedString), all of which are <see cref="JsString"/>.
+    /// <see cref="InternalTypes.String"/> is set only by <see cref="JsString"/> and its three nested
+    /// subclasses (ConcatenatedString, SlicedString, RopeString), all of which are <see cref="JsString"/>.
     /// </summary>
     [Pure]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
