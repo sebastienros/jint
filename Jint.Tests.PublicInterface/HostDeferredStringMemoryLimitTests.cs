@@ -15,10 +15,10 @@ namespace Jint.Tests.PublicInterface;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Every test here decides its outcome without flattening anything: the assertions read
-/// <see cref="JsString.Length"/>, which a deferred value answers from the node. So none of them allocates
-/// the string it is about, on a fixed build or on a broken one — the budget is 4 MB and the largest value
-/// any script here could reach is 16 MB of UTF-16, never materialized.
+/// No test here flattens the value it is about: the assertions read <see cref="JsString.Length"/>, which a
+/// deferred value answers from the node, so a broken build fails them without allocating the 16 MB a script
+/// here can reach. The largest real allocations are the 6 MB host string one test hands in and the 2 MB
+/// the guard's own script reads back, so the suite needs no heap cap to run a broken build safely.
 /// </para>
 /// <para>
 /// The shapes are the ones a deferred <c>+</c> makes cheap to build and expensive to read: a doubling,
