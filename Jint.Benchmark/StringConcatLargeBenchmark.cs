@@ -16,6 +16,22 @@ namespace Jint.Benchmark;
 /// ChainLargeThree shows the win when the skipped intermediate is large, and ChainNumericThree
 /// guards the numeric fast lanes that must survive on chains that never become strings.
 /// </para>
+/// <para>
+/// The Assign* lanes are the shape the rest of the class was missing, and the reason a rope evaluated
+/// against it in July 2026 came out as a NO-GO: every accumulating lane above builds with
+/// <c>s += chunk</c>, which is already amortised linear, and ConcatLargePair rebuilds a <em>fresh</em>
+/// pair each iteration so its left operand never grows. Accumulating through the <c>+</c> operator —
+/// <c>s = s + x</c>, <c>s = x + s</c>, <c>s = s + x + y</c> — is a different code path, and was
+/// quadratic (<a href="https://github.com/sebastienros/jint/issues/3350">#3350</a>).
+/// </para>
+/// <para>
+/// Two pairings carry the reading. AssignAppendSmallChunks against <b>AppendSmallChunks</b> is the same
+/// 4,096 x 16 characters with one operator changed, so the difference between them is the whole cost of
+/// the <c>+</c> path. AssignAppendThenScan against <b>AssignAppendSmallChunks</b> is that same build
+/// plus a charAt scan of the result, so their difference is what reading the value back as text costs —
+/// the lane a deferred representation cannot cheat, since the other three finish on <c>s.length</c>,
+/// which such a value answers without ever producing the characters.
+/// </para>
 /// <para><b>Engine isolation.</b> Every row gets its own engine — built by <c>CreateEngine</c>, which
 /// re-runs <see cref="SetupSource"/> so each engine owns its own <c>chunk16</c>/<c>chunk4k</c>/
 /// <c>big64k</c> — and warmed with its own script and nothing else (see <see cref="IsolatedScript"/>).
@@ -38,6 +54,10 @@ public class StringConcatLargeBenchmark
     private IsolatedScript _chainSmallSix;
     private IsolatedScript _chainLargeThree;
     private IsolatedScript _chainNumericThree;
+    private IsolatedScript _assignAppendSmallChunks;
+    private IsolatedScript _assignPrependSmallChunks;
+    private IsolatedScript _assignChainThree;
+    private IsolatedScript _assignAppendThenScan;
 
     private const string SetupSource = """
         var chunk16 = 'abcdefghijklmnop';
@@ -156,6 +176,53 @@ public class StringConcatLargeBenchmark
             }
             g();
             """), CreateEngine);
+
+        // the same 4,096 x 16 chars -> 64 KB as AppendSmallChunks, accumulated through `+` instead of
+        // `+=`. Identical semantics, and until #3350 a different code path: this one copied the whole
+        // accumulator on every iteration. Read it paired with AppendSmallChunks.
+        _assignAppendSmallChunks = IsolatedScript.Warm(Engine.PrepareScript("""
+            function f() {
+                var s = '';
+                for (var i = 0; i < 4096; i++) { s = s + chunk16; }
+                return s.length;
+            }
+            f();
+            """), CreateEngine);
+
+        // prepending: the shape `+=` cannot express at all, so it has never had a fast path
+        _assignPrependSmallChunks = IsolatedScript.Warm(Engine.PrepareScript("""
+            function f() {
+                var s = '';
+                for (var i = 0; i < 4096; i++) { s = chunk16 + s; }
+                return s.length;
+            }
+            f();
+            """), CreateEngine);
+
+        // accumulating through a three-operand chain, which is one flattened node rather than two
+        // nested additions -- the same accumulator, reached by the other of the two '+' code paths
+        _assignChainThree = IsolatedScript.Warm(Engine.PrepareScript("""
+            function f() {
+                var s = '';
+                for (var i = 0; i < 2048; i++) { s = s + chunk16 + chunk16; }
+                return s.length;
+            }
+            f();
+            """), CreateEngine);
+
+        // AssignAppendSmallChunks plus a charAt scan of the result, so the difference between the two is
+        // what reading the built value back as text costs -- which for a representation that defers the
+        // copy is where it has to pay for it, over a tree one node deep per iteration.
+        _assignAppendThenScan = IsolatedScript.Warm(Engine.PrepareScript("""
+            function f() {
+                var s = '';
+                for (var i = 0; i < 4096; i++) { s = s + chunk16; }
+                var acc = 0;
+                for (var i = 0; i < s.length; i += 997) { acc += s.charCodeAt(i); }
+                return acc;
+            }
+            f();
+            """), CreateEngine);
     }
 
     [Benchmark]
@@ -181,4 +248,16 @@ public class StringConcatLargeBenchmark
 
     [Benchmark]
     public JsValue ChainNumericThree() => _chainNumericThree.Run();
+
+    [Benchmark]
+    public JsValue AssignAppendSmallChunks() => _assignAppendSmallChunks.Run();
+
+    [Benchmark]
+    public JsValue AssignPrependSmallChunks() => _assignPrependSmallChunks.Run();
+
+    [Benchmark]
+    public JsValue AssignChainThree() => _assignChainThree.Run();
+
+    [Benchmark]
+    public JsValue AssignAppendThenScan() => _assignAppendThenScan.Run();
 }

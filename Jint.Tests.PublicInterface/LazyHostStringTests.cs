@@ -153,6 +153,73 @@ public class LazyHostStringTests
     }
 
     /// <summary>
+    /// A long <c>+</c> defers its copy into a node over its two operands, but a node never holds a host's
+    /// own string: the host's text is read at the <c>+</c>, as it always has been, so a host whose
+    /// <see cref="object.ToString"/> is expensive, or throws when it must not be materialized, is asked at
+    /// the same point of the script as before.
+    /// </summary>
+    [Fact]
+    public void ALongConcatenationReadsTheHostTextAtThePlus()
+    {
+        var engine = CreateEngine(out var host);
+        engine.Execute("var wide = 'x'.repeat(600);");
+
+        engine.Execute("var appended = host + wide;");
+        host.MaterializationCount.Should().Be(1, "the + reads the host's text, whether or not the result is deferred");
+
+        engine.Execute("var prepended = wide + host;");
+        engine.Evaluate("appended === 'abc' + 'x'.repeat(600)").AsBoolean().Should().BeTrue();
+        engine.Evaluate("prepended === 'x'.repeat(600) + 'abc'").AsBoolean().Should().BeTrue();
+        engine.Evaluate("appended.length + prepended.length").AsNumber().Should().Be(1206);
+        host.MaterializationCount.Should().Be(1, "the flat value is produced once and cached");
+    }
+
+    /// <summary>
+    /// The reason a node does not hold a host's string: it answers its own length as the sum of its
+    /// operands' and writes each operand's text at an offset computed from those lengths, and a host's
+    /// length is its own claim. A host whose claim disagreed with its text would have flattened to a
+    /// value padded with NUL characters, or failed with a CLR exception; <c>+</c> has always produced the
+    /// text, and still does, on either side of the cutoff and in either operand position.
+    /// </summary>
+    [Theory]
+    [InlineData("abcd", 3)]
+    [InlineData("ab", 5)]
+    public void ALongConcatenationProducesTheHostTextWhateverLengthTheHostReports(string text, int reportedLength)
+    {
+        var engine = new Engine();
+        engine.SetValue("host", new MisreportedLengthHostString(text, reportedLength));
+        engine.Execute("var wide = 'x'.repeat(600);");
+
+        var wide = new string('x', 600);
+        engine.Evaluate("host + wide").AsString().Should().Be(text + wide);
+        engine.Evaluate("wide + host").AsString().Should().Be(wide + text);
+        engine.Evaluate("host + wide + host").AsString().Should().Be(text + wide + text);
+        engine.Evaluate("host + 'y'").AsString().Should().Be(text + "y");
+    }
+
+    /// <summary>
+    /// A host string whose <see cref="Length"/> is not the length of its text — the shape a host takes when
+    /// it answers the length from an encoded buffer whose size is not the character count.
+    /// </summary>
+    private sealed class MisreportedLengthHostString : JsString
+    {
+        private readonly string _text;
+        private readonly int _reportedLength;
+
+        public MisreportedLengthHostString(string text, int reportedLength) : base(null)
+        {
+            _text = text;
+            _reportedLength = reportedLength;
+        }
+
+        public override string ToString() => _text;
+
+        public override int Length => _reportedLength;
+
+        public override char this[int index] => _text[index];
+    }
+
+    /// <summary>
     /// Stands in for a host string backed by a native handle: the payload is kept encoded and only
     /// decoded on demand. The backing value handed to the base constructor is null, so every member
     /// that needs the text has to route through <see cref="ToString"/>.
