@@ -162,13 +162,13 @@ public sealed class HostStreamCopyOperation
     /// </remarks>
     private void ObserveAbandonment()
     {
-        if (_completed || _engine.EventLoopGeneration == _generation)
+        if (_completed || (!_engine.IsRetired && _engine.EventLoopGeneration == _generation))
         {
             return;
         }
 
         var message = _engine.IsRetired
-            ? "The stream copy was abandoned because the engine was retired. The destination stream has been released."
+            ? "The stream copy was abandoned because the engine was retired. The destination stream is released when the current entry ends."
             : "The stream copy was abandoned: Engine.Advanced.RestoreGlobalSnapshot ended the evaluation cycle it was started in, so nothing it is waiting for can reach this engine any more. The destination stream has been released. Start the copy again on the restored engine.";
         Fail(_engine.Realm.Intrinsics.Error.Construct(message));
     }

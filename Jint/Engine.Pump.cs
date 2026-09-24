@@ -37,6 +37,58 @@ public partial class Engine
     /// </summary>
     private AtomicsWaiterDeadlines? _atomicsWaiterDeadlines;
 
+    // A pending waiter is already rooted by its shared block. Keep the engine-side index only
+    // while waits remain pending, so a long-lived engine does not retain slots for settled waits.
+    private readonly Lock _atomicsAsyncWaitersLock = new();
+    private HashSet<AtomicsInstance.AsyncWaiter>? _atomicsAsyncWaiters;
+    private int _atomicsAsyncWaiterPeak;
+
+    internal void RegisterAtomicsAsyncWaiter(AtomicsInstance.AsyncWaiter waiter)
+    {
+        lock (_atomicsAsyncWaitersLock)
+        {
+            var waiters = _atomicsAsyncWaiters ??= [];
+            waiters.Add(waiter);
+            if (waiters.Count > _atomicsAsyncWaiterPeak) _atomicsAsyncWaiterPeak = waiters.Count;
+        }
+    }
+
+    internal void UnregisterAtomicsAsyncWaiter(AtomicsInstance.AsyncWaiter waiter)
+    {
+        lock (_atomicsAsyncWaitersLock)
+        {
+            var waiters = _atomicsAsyncWaiters;
+            if (waiters is null || !waiters.Remove(waiter)) return;
+            if (waiters.Count == 0)
+            {
+                _atomicsAsyncWaiters = null;
+                _atomicsAsyncWaiterPeak = 0;
+            }
+            else if (_atomicsAsyncWaiterPeak >= 64 && waiters.Count <= _atomicsAsyncWaiterPeak / 4)
+            {
+                _atomicsAsyncWaiters = new HashSet<AtomicsInstance.AsyncWaiter>(waiters);
+                _atomicsAsyncWaiterPeak = waiters.Count;
+            }
+        }
+    }
+
+    private void AbandonAtomicsAsyncWaiters()
+    {
+        HashSet<AtomicsInstance.AsyncWaiter>? waiters;
+        lock (_atomicsAsyncWaitersLock)
+        {
+            waiters = _atomicsAsyncWaiters;
+            _atomicsAsyncWaiters = null;
+            _atomicsAsyncWaiterPeak = 0;
+            _atomicsWaiterDeadlines = null;
+        }
+        if (waiters is null) return;
+        foreach (var waiter in waiters)
+        {
+            waiter.Abandon();
+        }
+    }
+
     /// <summary>
     /// Registers a wait to time out <paramref name="timeoutMilliseconds"/> from now. Called on the engine
     /// thread from <c>Atomics.waitAsync</c>, and only for a finite timeout: a wait asking for none never

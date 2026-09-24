@@ -286,7 +286,7 @@ public sealed class FetchHandlerOperation
     /// </summary>
     private void ObserveAbandonment()
     {
-        if (_completed || _engine.EventLoopGeneration == _generation)
+        if (_completed || (!_engine.IsRetired && _engine.EventLoopGeneration == _generation))
         {
             return;
         }

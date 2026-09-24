@@ -46,6 +46,24 @@ public class AsyncModuleLoaderTests
         var repeat = () => engine.Modules.StartImport("module");
         repeat.Should().Throw<InvalidOperationException>().WithMessage("*retired*");
     }
+
+    [Test]
+    public void ImportReportsAbandonmentBeforeRetiringCallbackReturns()
+    {
+        var loader = new DeferredModuleLoader();
+        using var engine = CreateEngine(loader);
+        var import = engine.Modules.StartImport("module");
+        var observed = false;
+        engine.SetValue("retireAndPoll", new Action(() =>
+        {
+            engine.Advanced.Retire();
+            observed = import.IsCompleted && import.IsFaulted;
+        }));
+
+        engine.Execute("retireAndPoll()");
+
+        observed.Should().BeTrue("the generation changes only after the active entry returns");
+    }
     /// <summary>
     /// A loader that hands every request to the test and finishes nothing by itself, so a test can prove the
     /// engine really does carry on without the answer.

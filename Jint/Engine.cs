@@ -928,6 +928,7 @@ public sealed partial class Engine : IDisposable
             return;
         }
 
+        var reservationReleased = false;
         lock (owner)
         {
             if (ReferenceEquals(Volatile.Read(ref _asyncReleasePending), owner))
@@ -935,9 +936,15 @@ public sealed partial class Engine : IDisposable
                 Interlocked.CompareExchange(ref _asyncOwner, null, owner);
                 Interlocked.CompareExchange(ref _asyncReleasePending, null, owner);
                 Interlocked.CompareExchange(ref _hostCallbackAdmissionClosed, null, owner);
+                reservationReleased = true;
             }
 
             Monitor.PulseAll(owner);
+        }
+
+        if (reservationReleased)
+        {
+            CompleteRetirementIfUnowned();
         }
     }
 
@@ -984,6 +991,7 @@ public sealed partial class Engine : IDisposable
 
     internal void ReleaseAsyncHostOperation(object owner)
     {
+        var reservationReleased = false;
         lock (owner)
         {
             if (!ReferenceEquals(Volatile.Read(ref _asyncOwner), owner))
@@ -1000,10 +1008,27 @@ public sealed partial class Engine : IDisposable
 
             Interlocked.CompareExchange(ref _asyncOwner, null, owner);
             Interlocked.CompareExchange(ref _hostCallbackAdmissionClosed, null, owner);
+            reservationReleased = true;
             if (Volatile.Read(ref _ownerThreadId) == System.Environment.CurrentManagedThreadId
                 && ReferenceEquals(_ownerToken, owner))
             {
                 _ownerToken = null;
+            }
+        }
+
+        if (reservationReleased)
+        {
+            CompleteRetirementIfUnowned();
+        }
+    }
+
+    private void CompleteRetirementIfUnowned()
+    {
+        if (IsRetired && TryEnterHostCall(out var ownership))
+        {
+            using (ownership)
+            {
+                FinishRetirement();
             }
         }
     }
@@ -2914,6 +2939,7 @@ public sealed partial class Engine : IDisposable
 
         try
         {
+            AbandonAtomicsAsyncWaiters();
             ResetTransientEvaluationState();
         }
         finally
@@ -5441,6 +5467,8 @@ public sealed partial class Engine : IDisposable
     private void DisposeCore()
     {
         using var ownership = EnterHostCall();
+
+        AbandonAtomicsAsyncWaiters();
 
         // the recent-wrapper ring (on by default since 4.14) strongly roots its targets and wrappers,
         // so a disposed-but-still-referenced engine must release them

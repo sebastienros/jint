@@ -6939,9 +6939,8 @@ engine waits wake, while module imports, fetch-handler invocations and stream co
 abandonment when polled. Transient timers, web resources and shared locks are released. Call
 `Dispose` after any active entry has returned to release the remaining engine state.
 
-`Host.CanExecuteJob()` was removed. A per-job veto could discard the very completion a host was
-awaiting without waking that host or releasing resources. Retiring an engine is terminal; use
-`RestoreGlobalSnapshot` only when the same engine must continue serving a trusted cycle.
+Retiring an engine is terminal; use `RestoreGlobalSnapshot` only when the same engine must
+continue serving a trusted cycle.
 
 ## 6. AOT and trimming
 

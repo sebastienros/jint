@@ -748,6 +748,26 @@ public class HostStreamBridgeTests
     }
 
     [Test]
+    public void ACopyReportsRetirementBeforeTheCurrentCallbackReturns()
+    {
+        using var engine = StreamEngine();
+        var destination = new RecordingStream();
+        var source = engine.Evaluate("new ReadableStream({ pull(c) { } })");
+        var copy = engine.WebApi.StartReadableStreamCopy(source, destination);
+        var observed = false;
+        engine.SetValue("retireAndPoll", new Action(() =>
+        {
+            engine.Advanced.Retire();
+            observed = copy.IsCompleted && copy.IsFaulted;
+        }));
+
+        engine.Execute("retireAndPoll()");
+
+        observed.Should().BeTrue("the operation cannot wait for generation cleanup after this callback");
+        destination.Disposed.Should().BeTrue();
+    }
+
+    [Test]
     public void TheOptionsRefuseValuesThatWouldMeanNothing()
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => new HostReadableStreamOptions { ChunkSize = 0 });

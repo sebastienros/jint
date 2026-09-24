@@ -325,6 +325,23 @@ public class WebApiFetchHandlerTests
     }
 
     [Test]
+    public void FetchHandlerReportsAbandonmentBeforeRetiringCallbackReturns()
+    {
+        using var engine = Handler("globalThis.handler = { fetch() { return new Promise(() => {}); } };");
+        var operation = engine.WebApi.InvokeFetchHandler(Get());
+        var observed = false;
+        engine.SetValue("retireAndPoll", new Action(() =>
+        {
+            engine.Advanced.Retire();
+            observed = operation.IsCompleted && operation.IsFaulted;
+        }));
+
+        engine.Execute("retireAndPoll()");
+
+        observed.Should().BeTrue("the generation changes only after the active entry returns");
+    }
+
+    [Test]
     public async Task ThePromiseHandlerCompletesThroughTheAwaitableVariant()
     {
         var engine = Handler("globalThis.handler = { async fetch(request) { return new Response('awaited ' + request.url); } };");

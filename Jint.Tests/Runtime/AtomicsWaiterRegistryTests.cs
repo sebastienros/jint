@@ -229,6 +229,40 @@ public class AtomicsWaiterRegistryTests
         GC.KeepAlive(block);
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void TerminalEngineDoesNotConsumeAnotherAgentsNotification(bool dispose)
+    {
+        using var first = new Engine();
+        first.Execute("var sab = new SharedArrayBuffer(8); var i32a = new Int32Array(sab); Atomics.waitAsync(i32a, 0, 0);");
+        var block = BlockOf(first, "sab");
+        using var second = new Engine();
+        second.SetValue("i32a", SharedView(second, block));
+        second.Execute("var outcome = 'pending'; Atomics.waitAsync(i32a, 0, 0).value.then(v => outcome = v);");
+
+        if (dispose) first.Dispose();
+        else first.Advanced.Retire();
+
+        second.Evaluate("Atomics.notify(i32a, 0, 1)").AsNumber().Should().Be(1);
+        second.Evaluate("outcome").AsString().Should().Be("ok");
+        AtomicsInstance.WaiterListCount(block).Should().Be(0);
+    }
+
+    [Test]
+    public void LastAsyncReservationReleaseCompletesRetirementCleanup()
+    {
+        using var engine = new Engine();
+        engine.Execute("var sab = new SharedArrayBuffer(8); var i32a = new Int32Array(sab); Atomics.waitAsync(i32a, 0, 0);");
+        var block = BlockOf(engine, "sab");
+        var owner = engine.ReserveAsyncHostOperation();
+
+        engine.Advanced.Retire();
+        AtomicsInstance.WaiterListCount(block).Should().Be(1);
+        engine.ReleaseAsyncHostOperation(owner);
+
+        AtomicsInstance.WaiterListCount(block).Should().Be(0);
+    }
+
     private static byte[] BlockOf(Engine engine, string name)
     {
         return ((JsArrayBuffer) engine.Evaluate(name))._arrayBufferData!;
