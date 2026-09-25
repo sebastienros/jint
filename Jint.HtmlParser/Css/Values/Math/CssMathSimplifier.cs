@@ -262,7 +262,8 @@ internal static class CssMathSimplifier
         result = default;
         var first = target.Node(children[0]);
         if (first.Kind != CssMathNodeKind.Numeric || first.Numeric.Kind == CssNumericKind.Percentage ||
-            first.Numeric.Kind == CssNumericKind.Dimension && first.Numeric.Unit != CssUnit.Deg)
+            first.Numeric.Kind == CssNumericKind.Dimension &&
+            (kind == CssMathNodeKind.Atan2 ? !IsAbsolute(first.Numeric.Unit) : first.Numeric.Unit != CssUnit.Deg))
             return false;
         double value;
         if (kind == CssMathNodeKind.Atan2)
