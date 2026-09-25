@@ -238,6 +238,30 @@ internal static class ValueSlotReader
     /// </summary>
     private static string? DataPropertyText(ObjectInstance obj, JsString key)
     {
+        var descriptor = FindOnPrototypeChain(obj, key);
+        if (descriptor is null
+            || ReferenceEquals(descriptor, PropertyDescriptor.Undefined)
+            || descriptor.IsAccessorDescriptor())
+        {
+            return null;
+        }
+
+        // Coercing anything but a string would reach `toString`/`valueOf`, which is script.
+        return descriptor.Value is JsString text ? text.ToString() : null;
+    }
+
+    /// <summary>
+    /// The own property <c>[[Get]]</c> would read <paramref name="key"/> from — the first one up
+    /// <paramref name="obj"/>'s prototype chain — found by descriptor lookups alone.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="PropertyDescriptor.Undefined"/> when the chain ends without one, which is the one case where
+    /// <c>[[Get]]</c> would have answered <c>undefined</c> without calling anything. <see langword="null"/>
+    /// when the walk meets a proxy, whose every step is a trap, or climbs past <see cref="MaxPrototypeHops"/>.
+    /// The descriptor found is handed back as it is: an accessor is the caller's to refuse, not to call.
+    /// </remarks>
+    internal static PropertyDescriptor? FindOnPrototypeChain(ObjectInstance obj, JsValue key)
+    {
         ObjectInstance? current = obj;
         for (var hops = 0; current is not null && hops < MaxPrototypeHops; hops++)
         {
@@ -249,18 +273,12 @@ internal static class ValueSlotReader
             var descriptor = current.GetOwnProperty(key);
             if (!ReferenceEquals(descriptor, PropertyDescriptor.Undefined))
             {
-                if (descriptor.IsAccessorDescriptor())
-                {
-                    return null;
-                }
-
-                // Coercing anything but a string would reach `toString`/`valueOf`, which is script.
-                return descriptor.Value is JsString text ? text.ToString() : null;
+                return descriptor;
             }
 
             current = current.Prototype;
         }
 
-        return null;
+        return current is null ? PropertyDescriptor.Undefined : null;
     }
 }

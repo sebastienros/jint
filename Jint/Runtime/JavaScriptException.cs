@@ -1,27 +1,89 @@
 using System.Text;
+using Jint.Diagnostics;
 using Jint.Native;
 using Jint.Native.Error;
 using Jint.Native.Object;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Descriptors.Specialized;
 
 namespace Jint.Runtime;
 
 public class JavaScriptException : JintException
 {
+    /// <summary>
+    /// The CLR message for a thrown value, read without calling anything the script could have installed.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This runs wherever a throw is re-raised to leave a function, generator or <c>eval</c> body, once per
+    /// frame it unwinds through, and neither <c>throw</c> nor <c>catch</c> reads <c>message</c>
+    /// (https://tc39.es/ecma262/#sec-runtime-semantics-catchclauseevaluation). A <c>[[Get]]</c> here is a
+    /// getter or a proxy trap the script can count, and one that throws replaces the value being thrown.
+    /// </para>
+    /// <para>
+    /// So the text is <c>ToString(value.message)</c> only where descriptors decide it — a primitive in a data
+    /// property on the value's chain, or <c>undefined</c> when nothing on the chain has one — and empty where
+    /// only a call could: an accessor, a proxy on the walk, an object-valued <c>message</c>. Two readers are
+    /// allowed past an accessor, because neither reaches script: a <c>DOMException</c>'s slot, which is what
+    /// its intrinsic accessor answers, and a member of a wrapped CLR object, whose getter is the host's own.
+    /// </para>
+    /// <para>
+    /// Eager rather than on first read of <see cref="Exception.Message"/>: a host reads that on any thread and
+    /// at any time, and walking the chain then would race the engine and report the message as it is by then
+    /// rather than as it was thrown.
+    /// </para>
+    /// </remarks>
     private static string? GetMessage(JsValue? error)
     {
-        string? ret = null;
         if (error is ObjectInstance oi)
         {
-            ret = oi.Get(CommonProperties.Message).ToString();
-        }
-        else if (error is not null)
-        {
-            ret = error.IsSymbol() ? error.ToString() : TypeConverter.ToString(error);
+            return MessageOf(oi);
         }
 
-        return ret;
+        if (error is null)
+        {
+            return null;
+        }
+
+        // A primitive converts from its own state. ToString refuses a symbol, which takes its descriptive string.
+        return error.IsSymbol() ? error.ToString() : TypeConverter.ToString(error);
     }
+
+    /// <summary>
+    /// <see cref="GetMessage"/> for an object: its <c>message</c> as far as descriptors can tell.
+    /// </summary>
+    private static string MessageOf(ObjectInstance error)
+    {
+        // An error constructed with a message - by far the most common thing thrown - holds it as an own data
+        // property served from a field, and asking for the descriptor would allocate one to say the same.
+        if (error is JsError { VirtualMessage: { } ownMessage })
+        {
+            return MessageText(ownMessage);
+        }
+
+        var descriptor = ValueSlotReader.FindOnPrototypeChain(error, CommonProperties.Message);
+        if (ReferenceEquals(descriptor, PropertyDescriptor.Undefined))
+        {
+            return MessageText(JsValue.Undefined);
+        }
+
+        if (descriptor is ReflectionDescriptor clrMember)
+        {
+            return MessageText(clrMember.Value);
+        }
+
+        if (descriptor is not null && !descriptor.IsAccessorDescriptor())
+        {
+            return MessageText(descriptor.Value ?? JsValue.Undefined);
+        }
+
+        return (error as IErrorTextSlots)?.ErrorMessageSlot?.ToString() ?? string.Empty;
+    }
+
+    /// <summary>
+    /// A primitive's string form, which runs nothing; an object's would call its <c>toString</c>.
+    /// </summary>
+    private static string MessageText(JsValue message) => message.IsObject() ? string.Empty : message.ToString();
 
     private readonly JavaScriptErrorWrapperException _jsErrorException;
 
@@ -108,8 +170,33 @@ public class JavaScriptException : JintException
                    : Throw.GenericHostErrorMessage);
     }
 
+    /// <summary>
+    /// Creates an exception carrying a thrown JavaScript value, with a <see cref="Exception.Message"/> read from
+    /// that value without running any script.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The message is the value's <c>message</c> wherever a data property holds a string or another primitive
+    /// there, <c>undefined</c> when nothing on its prototype chain has one, and the value itself as a string
+    /// when it is a primitive.
+    /// </para>
+    /// <para>
+    /// It is empty when only running code could produce it: a <c>message</c> getter, a proxy anywhere on the
+    /// walk, or a <c>message</c> that is itself an object. Read <see cref="JavaScriptException.Error"/> on the
+    /// engine's thread when the value itself is needed.
+    /// </para>
+    /// </remarks>
+    /// <param name="error">The value the script threw, or a host wants it to see thrown.</param>
     public JavaScriptException(JsValue error)
-        : base(GetMessage(error), new JavaScriptErrorWrapperException(error, GetMessage(error), GetChainedClrException(error)))
+        : this(GetMessage(error), error)
+    {
+    }
+
+    /// <summary>
+    /// Builds the outer exception and its wrapper from one message, read once.
+    /// </summary>
+    private JavaScriptException(string? message, JsValue error)
+        : base(message, new JavaScriptErrorWrapperException(error, message, GetChainedClrException(error)))
     {
         _jsErrorException = (JavaScriptErrorWrapperException) InnerException!;
     }

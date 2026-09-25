@@ -5753,6 +5753,46 @@ sealed class UmmAlQuraForSaudiArabia : DefaultCldrProvider
 }
 ```
 
+### 4.140 A throw no longer reads `message`, and `JavaScriptException.Message` runs no script
+
+When a throw left a function, generator or `eval` body, the `JavaScriptException` the engine re-raised to carry
+it read the thrown value's `message` through `[[Get]]` for its CLR message — twice for every frame the throw
+unwound through. A `message` getter or a proxy's `get` trap therefore ran on an ordinary `throw`, which reads
+nothing, and one that threw replaced the value being thrown:
+
+```js
+let n = 0;
+const e = new Error();
+Object.defineProperty(e, 'message', { get() { n++; return 'x'; } });
+function f() { throw e; }
+try { f(); } catch {}
+
+// 4.16.x / earlier 5.0: n is 2, and 8 through four frames
+// 5.x:                  n is 0
+```
+
+`Message` is now read from descriptors alone. It is unchanged for an ordinary error, whose `message` is a data
+property on it or on its prototype chain; for a thrown primitive; for an object with no `message` anywhere on
+its chain, which still reads `undefined`; for a `DOMException`, answered from its own slot; and for a wrapped CLR
+object, whose `Message` member is still read.
+
+**What could break:** `Message` is empty wherever only running script could produce it.
+
+| Thrown | `Message` before | `Message` after |
+| --- | --- | --- |
+| an error whose `message` is a getter — its own, or a subclass's `get message()` | the getter's result | `""` |
+| a proxy, or an object with a proxy on its prototype chain | what the `get` trap returned | `""` |
+| an object whose `message` is itself an object | that object's `toString()`, or a debug rendering (`(2)[]` for an array) | `""` |
+| a revoked proxy, passed to `new JavaScriptException(value)` | the constructor threw the proxy's `TypeError` | `""` |
+
+`ToString()` and `GetJavaScriptErrorString()` then start `Error` without the `: message` part, and an uncaught
+error's `ErrorEvent.message` is empty the same way. A host that wants the script's answer asks for it on the
+engine's thread, knowing that this runs the getter:
+
+```c#
+var message = exception.Error is ObjectInstance error ? error.Get("message").ToString() : exception.Message;
+```
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
