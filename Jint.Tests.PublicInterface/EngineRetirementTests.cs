@@ -111,6 +111,39 @@ public class EngineRetirementTests
     }
 
     [Test]
+    public async Task RetirementFromAnotherThreadLetsTheActiveScriptFinish()
+    {
+        using var engine = new Engine();
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        var completed = false;
+        engine.SetValue("hold", new Action(() => {
+            entered.Set();
+            release.Wait(TestBudgets.WedgeCeiling).Should().BeTrue();
+        }));
+        engine.SetValue("complete", new Action(() => completed = true));
+
+        var execution = Task.Run(() => engine.Execute("hold(); complete();"));
+        try
+        {
+            entered.Wait(TestBudgets.WedgeCeiling).Should().BeTrue();
+            engine.Advanced.Retire();
+            engine.IsRetired.Should().BeTrue();
+        }
+        finally
+        {
+            release.Set();
+        }
+
+        var finished = await Task.WhenAny(execution, Task.Delay(TestBudgets.WedgeCeiling));
+        finished.Should().BeSameAs(execution);
+        await execution;
+        completed.Should().BeTrue();
+        var evaluate = () => engine.Evaluate("1");
+        evaluate.Should().Throw<InvalidOperationException>().WithMessage("*retired*");
+    }
+
+    [Test]
     public async Task RetirementWakesAnIndefiniteHostPump()
     {
         using var engine = new Engine();
@@ -154,6 +187,24 @@ public class EngineRetirementTests
         holder.Tasks.ProcessTasks();
         waiter.Tasks.ProcessTasks();
 
+        waiter.Evaluate("granted").AsBoolean().Should().BeTrue();
+    }
+
+    [Test]
+    public void RetirementInsideAJobReleasesSharedLocksAfterTheJobReturns()
+    {
+        var manager = new LockManager();
+        using var holder = new Engine(options => options.UseWebApis().UseWebLocks(manager));
+        using var waiter = new Engine(options => options.UseWebApis().UseWebLocks(manager));
+        holder.SetValue("retire", new Action(() => holder.Advanced.Retire()));
+        holder.Execute("navigator.locks.request('resource', () => new Promise(() => {}));");
+        waiter.Execute("var granted = false; navigator.locks.request('resource', () => { granted = true; });");
+
+        holder.Execute("Promise.resolve().then(() => retire());");
+        holder.Tasks.ProcessTasks();
+        waiter.Tasks.ProcessTasks();
+
+        holder.IsRetired.Should().BeTrue();
         waiter.Evaluate("granted").AsBoolean().Should().BeTrue();
     }
 
