@@ -24,6 +24,8 @@ internal sealed class CssReferenceInput
         var depth = options?.Limits.MaxNestingDepth ?? 0;
         var components = new CssSyntaxParser(valueText, options, cancellationToken).ParseComponentValues();
         cancellationToken.ThrowIfCancellationRequested();
-        return new CssReferenceInput(valueText, components, depth);
+        var input = new CssReferenceInput(valueText, components, depth);
+        cancellationToken.ThrowIfCancellationRequested();
+        return input;
     }
 }

@@ -21,14 +21,14 @@ public sealed class CustomPropertyValueTests
         result.Value.Program.Count.Should().Be(0);
     }
 
-    [TestCase("initial", CssWideKeyword.Initial)]
-    [TestCase(" /**/ iNiTiAl /**/ ", CssWideKeyword.Initial)]
-    [TestCase("revert-layer", CssWideKeyword.RevertLayer)]
-    public void WholeValueWideKeywordsAreCascadeInstructions(string source, CssWideKeyword keyword)
+    [TestCase("initial", (int) CssWideKeyword.Initial)]
+    [TestCase(" /**/ iNiTiAl /**/ ", (int) CssWideKeyword.Initial)]
+    [TestCase("revert-layer", (int) CssWideKeyword.RevertLayer)]
+    public void WholeValueWideKeywordsAreCascadeInstructions(string source, int keyword)
     {
         var result = Parse("--x", source);
         result.Kind.Should().Be(CssCustomPropertyKind.WideKeyword);
-        result.WideKeyword.Should().Be(keyword);
+        result.WideKeyword.Should().Be((CssWideKeyword) keyword);
         result.Input.Source.Should().Be(source);
     }
 

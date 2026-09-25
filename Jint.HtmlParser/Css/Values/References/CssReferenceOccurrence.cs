@@ -21,9 +21,12 @@ internal readonly struct CssReferenceRange
 
 internal readonly struct CssReferenceOccurrence
 {
+    private readonly CssSourceSpan[]? _earlySubstitutions;
+
     internal CssReferenceOccurrence(CssReferenceKind kind, CssSourceSpan span, int parentIndex,
         CssReferenceRange header, bool hasFallback, CssReferenceRange fallback,
-        string? staticName, bool dynamicHeader, bool hasEarlySubstitution, bool hasNestedFallback)
+        string? staticName, bool dynamicHeader, CssSourceSpan[]? earlySubstitutions,
+        bool hasNestedFallback)
     {
         Kind = kind;
         Span = span;
@@ -33,7 +36,7 @@ internal readonly struct CssReferenceOccurrence
         Fallback = fallback;
         StaticName = staticName;
         HasDynamicHeader = dynamicHeader;
-        HasEarlySubstitution = hasEarlySubstitution;
+        _earlySubstitutions = earlySubstitutions;
         HasNestedFallback = hasNestedFallback;
     }
 
@@ -45,9 +48,15 @@ internal readonly struct CssReferenceOccurrence
     internal CssReferenceRange Fallback { get; }
     internal string? StaticName { get; }
     internal bool HasDynamicHeader { get; }
-    internal bool HasEarlySubstitution { get; }
+    internal bool HasEarlySubstitution => _earlySubstitutions is { Length: > 0 };
+    internal int EarlySubstitutionCount => _earlySubstitutions?.Length ?? 0;
+    internal CssSourceSpan EarlySubstitutionSpan(int index) =>
+        _earlySubstitutions is { } spans ? spans[index] : throw new ArgumentOutOfRangeException(nameof(index));
     internal bool HasNestedFallback { get; }
 
     internal CssReferenceOccurrence WithNestedFallback() => new(Kind, Span, ParentIndex,
-        Header, HasFallback, Fallback, StaticName, HasDynamicHeader, HasEarlySubstitution, true);
+        Header, HasFallback, Fallback, StaticName, HasDynamicHeader, _earlySubstitutions, true);
+
+    internal CssReferenceOccurrence WithDynamicHeader() => new(Kind, Span, ParentIndex,
+        Header, HasFallback, Fallback, StaticName, true, _earlySubstitutions, HasNestedFallback);
 }

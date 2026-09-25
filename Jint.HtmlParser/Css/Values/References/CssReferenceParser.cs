@@ -15,6 +15,7 @@ internal static class CssReferenceParser
 
         var occurrences = new List<CssReferenceOccurrence>();
         var stack = new List<Frame> { new(input.Components, -1, 0, false, -1) };
+        work.CheckCancellation();
         CssSourceSpan? invalid = null;
         CssSourceSpan? pending = null;
         string? pendingName = null;
@@ -57,6 +58,7 @@ internal static class CssReferenceParser
             if (value.Kind == CssComponentKind.Function)
             {
                 var name = value.FunctionName;
+                work.Charge(name.Length);
                 if (IsName(name, "var") || IsName(name, "env"))
                 {
                     var referenceKind = IsName(name, "var") ? CssReferenceKind.Var : CssReferenceKind.Env;
@@ -65,7 +67,8 @@ internal static class CssReferenceParser
 
                     var children = value.Values;
                     var comma = -1;
-                    var hasSpread = false;
+                    List<CssSourceSpan>? spreadLocations = null;
+                    var headerHasSpread = false;
                     var headerDynamic = false;
                     for (var i = 0; i < children.Count; i++)
                     {
@@ -79,23 +82,46 @@ internal static class CssReferenceParser
                             IsPeriod(children[i + 2]) && children[i + 3].Kind == CssComponentKind.Function &&
                             IsArbitrary(children[i + 3].FunctionName))
                         {
-                            hasSpread = true;
-                            if (comma < 0 || i < comma) headerDynamic = true;
+                            work.CheckCancellation();
+                            spreadLocations ??= new List<CssSourceSpan>();
+                            var nestedSpan = children[i + 3].Span;
+                            spreadLocations.Add(new CssSourceSpan(child.Span.Start,
+                                nestedSpan.Start + nestedSpan.Length - child.Span.Start));
+                            work.CheckCancellation();
+                            if (comma < 0 || i < comma)
+                            {
+                                headerHasSpread = true;
+                                headerDynamic = true;
+                            }
                         }
                     }
                     var headerCount = comma < 0 ? children.Count : comma;
-                    if (!hasSpread && !HasSignificant(children, 0, headerCount, work)) invalid ??= value.Span;
-                    var header = Range(children, 0, headerCount,
-                        comma < 0 ? value.Span.Start : children[comma].Span.Start, work);
+                    if (!headerHasSpread && !HasSignificant(children, 0, headerCount, work)) invalid ??= value.Span;
+                    var contentStart = OpeningParenthesisEnd(input.Source, value.Span, work);
+                    var contentEnd = value.Span.Start + value.Span.Length - (value.IsClosed ? 1 : 0);
+                    var headerEnd = comma < 0 ? contentEnd : children[comma].Span.Start;
+                    var header = Range(children, 0, headerCount, contentStart, headerEnd, work);
                     var fallback = comma < 0 ? default : Range(children, comma + 1,
-                        children.Count - comma - 1, children[comma].Span.Start + children[comma].Span.Length, work);
+                        children.Count - comma - 1,
+                        children[comma].Span.Start + children[comma].Span.Length, contentEnd, work);
                     var staticName = headerDynamic ? null : StaticName(referenceKind, children, headerCount, work);
+                    CssSourceSpan[]? spreads = null;
+                    if (spreadLocations is not null)
+                    {
+                        work.CheckCancellation();
+                        spreads = spreadLocations.ToArray();
+                        work.Charge(spreads.Length);
+                        work.CheckCancellation();
+                    }
                     owner = occurrences.Count;
                     work.CheckCancellation();
                     occurrences.Add(new CssReferenceOccurrence(referenceKind, value.Span, frame.ParentIndex,
-                        header, comma >= 0, fallback, staticName, headerDynamic, hasSpread, false));
-                    if (frame.ParentIndex >= 0 && inFallback)
-                        occurrences[frame.ParentIndex] = occurrences[frame.ParentIndex].WithNestedFallback();
+                        header, comma >= 0, fallback, staticName, headerDynamic, spreads, false));
+                    work.CheckCancellation();
+                    if (frame.ParentIndex >= 0)
+                        occurrences[frame.ParentIndex] = inFallback
+                            ? occurrences[frame.ParentIndex].WithNestedFallback()
+                            : occurrences[frame.ParentIndex].WithDynamicHeader();
                 }
                 else if (IsPendingFamily(name))
                 {
@@ -112,6 +138,7 @@ internal static class CssReferenceParser
                 ? occurrences[owner].Header.Count : -1;
             stack.Add(new Frame(value.Values, owner, nextDepth,
                 owner != frame.ParentIndex ? false : inFallback, fallbackStart));
+            work.CheckCancellation();
         }
 
         work.CheckCancellation();
@@ -181,14 +208,30 @@ internal static class CssReferenceParser
     }
 
     private static CssReferenceRange Range(CssComponentValueList values, int start, int count,
-        int emptyPosition, CssValueWork work)
+        int sourceStart, int sourceEnd, CssValueWork work)
     {
         work.Charge(1);
-        if (count == 0) return new CssReferenceRange(values, start, 0, new CssSourceSpan(emptyPosition, 0));
-        var first = values[start].Span.Start;
-        var last = values[start + count - 1].Span;
         return new CssReferenceRange(values, start, count,
-            new CssSourceSpan(first, last.Start + last.Length - first));
+            new CssSourceSpan(sourceStart, sourceEnd - sourceStart));
+    }
+
+    private static int OpeningParenthesisEnd(string source, CssSourceSpan functionSpan, CssValueWork work)
+    {
+        var end = functionSpan.Start + functionSpan.Length;
+        for (var i = functionSpan.Start; i < end; i++)
+        {
+            work.Charge(1);
+            if (source[i] == '\\')
+            {
+                if (i + 1 < end)
+                {
+                    i++;
+                    work.Charge(1);
+                }
+            }
+            else if (source[i] == '(') return i + 1;
+        }
+        throw new InvalidOperationException("A C1 function has no opening parenthesis.");
     }
 
     private static string? StaticName(CssReferenceKind kind, CssComponentValueList values,

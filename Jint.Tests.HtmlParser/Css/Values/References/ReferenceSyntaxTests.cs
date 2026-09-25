@@ -10,30 +10,34 @@ public sealed class ReferenceSyntaxTests
     private static CssReferenceAnalysis Analyze(string source, CssReferenceUse use = CssReferenceUse.PropertyValue) =>
         CssReferenceParser.Analyze(CssReferenceInput.Parse(source, null, default), use, new CssValueWork(default));
 
-    [TestCase("red", CssReferenceAnalysisKind.Literal)]
-    [TestCase("foo(var(--a))", CssReferenceAnalysisKind.Deferred)]
-    [TestCase("var(--a)", CssReferenceAnalysisKind.Deferred)]
-    [TestCase("VAR(--a,)", CssReferenceAnalysisKind.Deferred)]
-    [TestCase("var(var(--name), red)", CssReferenceAnalysisKind.Deferred)]
-    [TestCase("var(foo, red)", CssReferenceAnalysisKind.Deferred)]
-    [TestCase("env(safe-area-inset-top)", CssReferenceAnalysisKind.Deferred)]
-    [TestCase("env(viewport-segment-width 999999999999999999999999999)", CssReferenceAnalysisKind.Deferred)]
-    [TestCase("env(var(--name) 0)", CssReferenceAnalysisKind.Deferred)]
-    [TestCase("var(--x", CssReferenceAnalysisKind.Deferred)]
-    [TestCase("var()", CssReferenceAnalysisKind.InvalidSyntax)]
-    [TestCase("var(,red)", CssReferenceAnalysisKind.InvalidSyntax)]
-    [TestCase("var(   ,red)", CssReferenceAnalysisKind.InvalidSyntax)]
-    [TestCase("var(--x) !important", CssReferenceAnalysisKind.InvalidSyntax)]
-    [TestCase("red; blue", CssReferenceAnalysisKind.InvalidSyntax)]
-    [TestCase("red)", CssReferenceAnalysisKind.InvalidSyntax)]
-    [TestCase("attr(data-x)", CssReferenceAnalysisKind.PendingFeature)]
-    [TestCase("if(style(--x),red)", CssReferenceAnalysisKind.PendingFeature)]
-    [TestCase("inherit(--x)", CssReferenceAnalysisKind.PendingFeature)]
-    [TestCase("ident(foo)", CssReferenceAnalysisKind.PendingFeature)]
-    [TestCase("random-item(a,b)", CssReferenceAnalysisKind.PendingFeature)]
-    [TestCase("--choice(a,b)", CssReferenceAnalysisKind.PendingFeature)]
-    public void ClassifiesWholeValue(string source, CssReferenceAnalysisKind expected) =>
-        Analyze(source).Kind.Should().Be(expected);
+    [TestCase("red", (int) CssReferenceAnalysisKind.Literal)]
+    [TestCase("foo(var(--a))", (int) CssReferenceAnalysisKind.Deferred)]
+    [TestCase("var(--a)", (int) CssReferenceAnalysisKind.Deferred)]
+    [TestCase("VAR(--a,)", (int) CssReferenceAnalysisKind.Deferred)]
+    [TestCase("var(var(--name), red)", (int) CssReferenceAnalysisKind.Deferred)]
+    [TestCase("var(foo, red)", (int) CssReferenceAnalysisKind.Deferred)]
+    [TestCase("env(safe-area-inset-top)", (int) CssReferenceAnalysisKind.Deferred)]
+    [TestCase("env(viewport-segment-width 999999999999999999999999999)", (int) CssReferenceAnalysisKind.Deferred)]
+    [TestCase("env(var(--name) 0)", (int) CssReferenceAnalysisKind.Deferred)]
+    [TestCase("var(--x", (int) CssReferenceAnalysisKind.Deferred)]
+    [TestCase("var()", (int) CssReferenceAnalysisKind.InvalidSyntax)]
+    [TestCase("var(,red)", (int) CssReferenceAnalysisKind.InvalidSyntax)]
+    [TestCase("var(   ,red)", (int) CssReferenceAnalysisKind.InvalidSyntax)]
+    [TestCase("var(,...var(--args))", (int) CssReferenceAnalysisKind.InvalidSyntax)]
+    [TestCase("var(--x) !important", (int) CssReferenceAnalysisKind.InvalidSyntax)]
+    [TestCase("red; blue", (int) CssReferenceAnalysisKind.InvalidSyntax)]
+    [TestCase("red)", (int) CssReferenceAnalysisKind.InvalidSyntax)]
+    [TestCase("'bad\nx", (int) CssReferenceAnalysisKind.InvalidSyntax)]
+    [TestCase("url(x y)", (int) CssReferenceAnalysisKind.InvalidSyntax)]
+    [TestCase("foo([a))", (int) CssReferenceAnalysisKind.InvalidSyntax)]
+    [TestCase("attr(data-x)", (int) CssReferenceAnalysisKind.PendingFeature)]
+    [TestCase("if(style(--x),red)", (int) CssReferenceAnalysisKind.PendingFeature)]
+    [TestCase("inherit(--x)", (int) CssReferenceAnalysisKind.PendingFeature)]
+    [TestCase("ident(foo)", (int) CssReferenceAnalysisKind.PendingFeature)]
+    [TestCase("random-item(a,b)", (int) CssReferenceAnalysisKind.PendingFeature)]
+    [TestCase("--choice(a,b)", (int) CssReferenceAnalysisKind.PendingFeature)]
+    public void ClassifiesWholeValue(string source, int expected) =>
+        Analyze(source).Kind.Should().Be((CssReferenceAnalysisKind) expected);
 
     [Test]
     public void RetainsOrderedPotentialReferencesAcrossHeadersAndUnusedFallbacks()
@@ -71,6 +75,30 @@ public sealed class ReferenceSyntaxTests
         rich.Fallback.Span.Length.Should().BeGreaterThan(0);
     }
 
+    [Test]
+    public void HeaderAndFallbackSpansIncludeEdgeCommentsAndWhitespace()
+    {
+        var source = "var(/**/ --x /**/, /**/ red /**/)";
+        var reference = Analyze(source).Program[0];
+        source.Substring(reference.Header.Span.Start, reference.Header.Span.Length)
+            .Should().Be("/**/ --x /**/");
+        source.Substring(reference.Fallback.Span.Start, reference.Fallback.Span.Length)
+            .Should().Be(" /**/ red /**/");
+        var emptySource = "var(--x,/**/)";
+        var empty = Analyze(emptySource).Program[0];
+        empty.Fallback.Count.Should().Be(0);
+        emptySource.Substring(empty.Fallback.Span.Start, empty.Fallback.Span.Length)
+            .Should().Be("/**/");
+    }
+
+    [Test]
+    public void EscapedFunctionNameDoesNotShortenHeaderSpan()
+    {
+        var source = "v\\61r(--x)";
+        var reference = Analyze(source).Program[0];
+        source.Substring(reference.Header.Span.Start, reference.Header.Span.Length).Should().Be("--x");
+    }
+
     [TestCase("var(.../**/var(--args))", true)]
     [TestCase("var(./**/../**/var(--args))", true)]
     [TestCase("var(... /**/var(--args))", false)]
@@ -79,7 +107,34 @@ public sealed class ReferenceSyntaxTests
         var result = Analyze(source);
         result.Kind.Should().Be(CssReferenceAnalysisKind.Deferred);
         result.Program[0].HasEarlySubstitution.Should().Be(expected);
+        result.Program[0].EarlySubstitutionCount.Should().Be(expected ? 1 : 0);
+        if (expected)
+        {
+            var span = result.Program[0].EarlySubstitutionSpan(0);
+            source.Substring(span.Start, span.Length).Should().EndWith("var(--args)");
+        }
         result.Program[0].Header.Count.Should().BeGreaterThan(0);
+    }
+
+    [Test]
+    public void EachSpreadLocationIsRetainedWithoutArrayEscape()
+    {
+        var source = "var(...var(--a) ...env(foo))";
+        var occurrence = Analyze(source).Program[0];
+        occurrence.EarlySubstitutionCount.Should().Be(2);
+        source.Substring(occurrence.EarlySubstitutionSpan(0).Start,
+            occurrence.EarlySubstitutionSpan(0).Length).Should().Be("...var(--a)");
+        source.Substring(occurrence.EarlySubstitutionSpan(1).Start,
+            occurrence.EarlySubstitutionSpan(1).Length).Should().Be("...env(foo)");
+    }
+
+    [Test]
+    public void ReferenceInsideSimpleBlockMakesHeaderDynamic()
+    {
+        var program = Analyze("var([var(--name)], red)").Program;
+        program.Count.Should().Be(2);
+        program[0].HasDynamicHeader.Should().BeTrue();
+        program[1].ParentIndex.Should().Be(0);
     }
 
     [Test]

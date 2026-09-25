@@ -22,6 +22,21 @@ public sealed class ReferenceWorkTests
     }
 
     [Test]
+    public void OriginalInputAndTokenLimitsAreAppliedBeforeAnalysis()
+    {
+        var inputLimit = new CssParseOptions { Limits = new ParseLimits { MaxInputCharacters = 7 } };
+        CssReferenceInput.Parse("var(--x)", inputLimit, default).Source.Should().Be("var(--x)");
+        var inputError = Assert.Throws<ParseLimitException>(() =>
+            CssReferenceInput.Parse("var(--xx)", inputLimit, default));
+        inputError!.Kind.Should().Be(ParseLimitKind.InputCharacters);
+
+        var tokenLimit = new CssParseOptions { Limits = new ParseLimits { MaxTokenCharacters = 2 } };
+        var tokenError = Assert.Throws<ParseLimitException>(() =>
+            CssReferenceInput.Parse("var(--x)", tokenLimit, default));
+        tokenError!.Kind.Should().Be(ParseLimitKind.TokenCharacters);
+    }
+
+    [Test]
     public void CancellationAtAnalysisCheckpointNeverPublishesPartialProgram()
     {
         var input = CssReferenceInput.Parse(string.Concat(Enumerable.Repeat("var(--x) ", 200)), null, default);

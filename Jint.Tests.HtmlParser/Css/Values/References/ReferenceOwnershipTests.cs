@@ -46,6 +46,7 @@ public sealed class ReferenceOwnershipTests
         Assert.Throws<InvalidOperationException>(() => _ = custom.WideKeyword);
         Assert.Throws<InvalidOperationException>(() => _ = custom.Input);
         Assert.Throws<InvalidOperationException>(() => _ = custom.Span);
+        Assert.Throws<InvalidOperationException>(() => _ = custom.PendingFunction);
     }
 
     [Test]
