@@ -4275,9 +4275,10 @@ public sealed partial class Engine : IDisposable
     /// <paramref name="limits"/> to override <see cref="Options.ResultLimits"/> for one call.
     /// </para>
     /// <para>
-    /// Set <see cref="ResultLimits.MaxStringLength"/> and <see cref="ResultLimits.MaxOutputCharacters"/> for an
-    /// untrusted result. The first refuses a string by its length before copying it, and the second stops the
-    /// conversion once the characters copied exceed it; a memory limit charges a copy only after it is made.
+    /// Set <see cref="ResultLimits.MaxOutputCharacters"/> for an untrusted result: each string is checked by its
+    /// length before it is copied, and one that would take the characters copied past the limit is refused, so
+    /// the limit bounds the characters the conversion copies. A memory limit charges a copy only after it is
+    /// made. <see cref="ResultLimits.MaxStringLength"/> refuses any one string longer than it the same way.
     /// </para>
     /// </remarks>
     public object? ConvertResult(JsValue value, ResultLimits? limits = null)

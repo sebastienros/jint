@@ -18,7 +18,8 @@ namespace Jint.Tests.PublicInterface;
 /// No test here flattens the value it is about: the assertions read <see cref="JsString.Length"/>, which a
 /// deferred value answers from the node, so a broken build fails them without allocating the 16 MB a script
 /// here can reach. The largest real allocations are the 6 MB host string one test hands in and the 2 MB
-/// the guard's own script reads back, so the suite needs no heap cap to run a broken build safely.
+/// strings a script reads back or a conversion copies, so the suite needs no heap cap to run a broken build
+/// safely.
 /// </para>
 /// <para>
 /// The shapes are the ones a deferred <c>+</c> makes cheap to build and expensive to read: a doubling,
@@ -244,5 +245,60 @@ public class HostDeferredStringMemoryLimitTests
         failure.Should().BeOfType<ResultLimitExceededException>()
             .Which.Limit.Should().Be(ResultLimit.StringLength);
         constraint.AllocatedBytes.Should().BeLessThan(1L << 20, "copying one value would allocate 2 MB");
+    }
+
+    /// <summary>
+    /// <see cref="ResultLimits.MaxOutputCharacters"/> set on its own is a bound on what the conversion copies,
+    /// not only on what it hands back: a slice view and a deferred concatenation answer their length without
+    /// flattening, so a string that would take the running total past the limit is refused by that length
+    /// before its characters are copied. Each value here is about 1,048,576 characters, a 2 MB copy, against a
+    /// limit of 500,000, and the conversion refuses it having allocated next to nothing. The count reported is
+    /// the one a copy would have made.
+    /// </summary>
+    [TestCase("big.slice(1)", (1 << 20) - 1, TestName = "{m}(slice view)")]
+    [TestCase("big + 'y'", (1 << 20) + 1, TestName = "{m}(deferred concatenation)")]
+    [TestCase("new String(big.slice(1))", (1 << 20) - 1, TestName = "{m}(String object over a slice view)")]
+    [TestCase("new String(big + 'y')", (1 << 20) + 1, TestName = "{m}(String object over a deferred concatenation)")]
+    public void OutputCharactersAloneRefusesAStringBeforeCopyingIt(string expression, int length)
+    {
+        var engine = new Engine(options => options.LimitMemory(16_000_000));
+        var constraint = engine.Constraints.Find<MemoryLimitConstraint>()!;
+        var value = engine.Evaluate($"var big = 'x'.repeat(1 << 20); {expression}");
+
+        var failure = Caught.Exception(() => engine.ConvertResult(value, new ResultLimits { MaxOutputCharacters = 500_000 }));
+
+        var refusal = failure.Should().BeOfType<ResultLimitExceededException>().Which;
+        refusal.Limit.Should().Be(ResultLimit.OutputCharacters);
+        refusal.Maximum.Should().Be(500_000);
+        refusal.Observed.Should().Be(length);
+        constraint.AllocatedBytes.Should().BeLessThan(64 * 1024, "copying the value would allocate 2 MB");
+    }
+
+    /// <summary>
+    /// The running total is checked the same way: 64 slice views of one 1,048,576-character string under a
+    /// limit of 1,500,000 characters copy the first, about 2 MB, and refuse the second, which would take the
+    /// total to 2,097,149, before copying it — so no conversion copies more characters than the limit, where
+    /// counting after each copy let one more string through.
+    /// </summary>
+    [Test]
+    public void OutputCharactersRefusesTheStringThatWouldCrossTheLimitBeforeCopyingIt()
+    {
+        var engine = new Engine(options => options.LimitMemory(16_000_000));
+        var constraint = engine.Constraints.Find<MemoryLimitConstraint>()!;
+        var value = engine.Evaluate("""
+            var big = 'x'.repeat(1 << 20);
+            var values = [];
+            for (var i = 0; i < 64; i++) { values.push(big.slice(i + 1)); }
+            values
+            """);
+
+        var failure = Caught.Exception(() => engine.ConvertResult(value, new ResultLimits { MaxOutputCharacters = 1_500_000 }));
+
+        var refusal = failure.Should().BeOfType<ResultLimitExceededException>().Which;
+        refusal.Limit.Should().Be(ResultLimit.OutputCharacters);
+        refusal.Observed.Should().Be(1_048_575 + 1_048_574);
+        constraint.AllocatedBytes.Should().BeLessThan(
+            3_000_000,
+            "the value within the limit is copied, 2,097,150 bytes, and a copy of the second would add 2,097,148");
     }
 }

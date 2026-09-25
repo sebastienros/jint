@@ -767,6 +767,10 @@ run additional code and consume CPU or memory outside the intended execution bud
 - `ConvertResult` copies Jint-owned arrays, typed arrays, maps, sets, and enumerable
   object properties to a detached CLR graph, rejects cycles, and enforces the selected limits
   before known-size output allocations and before property getters are read.
+- `ConvertResult` checks `MaxStringLength` and `MaxOutputCharacters` against a string's length
+  before copying its characters, so a long `slice` view or deferred `a + b` over shared
+  characters is refused without being flattened, and `MaxOutputCharacters` alone bounds the
+  characters one conversion copies.
 - Jint's JSON serializer enforces the same limits while walking, counts escaped characters
   before appending, and checks exact UTF-8 bytes before touching a writer.
 - Conversion, JSON serialization, and bounded JavaScript error rendering run under execution
@@ -776,9 +780,6 @@ run additional code and consume CPU or memory outside the intended execution bud
 **Missing or residual mitigation.**
 
 - Result limits are unlimited by default.
-- `MaxStringLength` is checked against a string's length before it is copied, but
-  `MaxOutputCharacters` is counted after each copy, so a conversion can copy one string past
-  it. Configure both; together they bound what a conversion copies.
 - Shared references that are not cycles are converted once per occurrence and can amplify the
   detached CLR graph. `MaxPropertyCount` is the structural-work and container-allocation bound;
   string, character, and binary-byte limits do not substitute for it.
