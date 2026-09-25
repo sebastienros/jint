@@ -220,6 +220,114 @@ public class FunctionTests
     }
 
     [Test]
+    public void InstanceofThroughABoundFunctionAsksItsTargetForItsOwnHasInstance()
+    {
+        // https://tc39.es/ecma262/#sec-ordinaryhasinstance step 2 is `? InstanceofOperator(O, BC)`, so a bound target
+        // with an @@hasInstance of its own answers for the chain below it: called with the target as this and V as
+        // its only argument, its result put through ToBoolean. Step 2 also comes before step 3, so a primitive V
+        // still reaches the target's method.
+        var result = _engine.Evaluate("""
+            (function () {
+                var results = [];
+                function F() {}
+                var b1 = F.bind(null);
+                Object.defineProperty(b1, Symbol.hasInstance, { value: function () { return true; } });
+                results.push(({}) instanceof b1.bind(null));
+
+                class C { static [Symbol.hasInstance](v) { return v === 42; } }
+                results.push(42 instanceof C.bind(null));
+                results.push(({}) instanceof C.bind(null).bind(null));
+
+                var seen;
+                function G() {}
+                Object.defineProperty(G, Symbol.hasInstance, { value: function (v) { seen = [this === G, v, arguments.length]; return 'yes'; } });
+                var marker = {};
+                results.push(marker instanceof G.bind(null).bind(null));
+                results.push(seen ? [seen[0], seen[1] === marker, seen[2]].join() : 'not called');
+                return results.join();
+            })()
+            """);
+        result.AsString().Should().Be("true,true,false,true,true,true,1");
+    }
+
+    [Test]
+    public void InstanceofThroughABoundProxyAsksTheProxy()
+    {
+        // A proxy is a callable object like any other bound target: GetMethod goes through its get trap once, and
+        // with no method of its own OrdinaryHasInstance reads its "prototype" through the trap too. A proxy over a
+        // bound function is not itself bound, so it is asked for a prototype a bound function does not have.
+        var result = _engine.Evaluate("""
+            (function () {
+                var results = [];
+                results.push(({}) instanceof new Proxy(function () {}, {}).bind(null));
+
+                function G() {}
+                results.push(new G() instanceof new Proxy(G, {}).bind(null));
+
+                var gets = [];
+                var p = new Proxy(G, { get: function (t, k, r) { gets.push(typeof k === 'symbol' ? k.description : k); return Reflect.get(t, k, r); } });
+                var boundProxy = p.bind(null).bind(null);
+                gets.length = 0;
+                results.push(new G() instanceof boundProxy);
+                results.push(gets.join('|'));
+
+                try { new G() instanceof new Proxy(G.bind(null), {}).bind(null); results.push('no error'); } catch (e) { results.push(e.name); }
+                return results.join();
+            })()
+            """);
+        result.AsString().Should().Be("false,true,true,Symbol.hasInstance|prototype,TypeError");
+    }
+
+    [Test]
+    public void InstanceofThroughABoundChainReadsEveryLinksHasInstanceInOrder()
+    {
+        // Each link's GetMethod is observable through a getter, and the specification performs one per link from the
+        // outermost in, even when every one of them hands back the inherited %Function.prototype[@@hasInstance]%.
+        var result = _engine.Evaluate("""
+            (function () {
+                var order = [];
+                function F() {}
+                var link = F;
+                for (var i = 0; i < 3; i++) {
+                    link = link.bind(null);
+                    (function (n, l) {
+                        var inherited = Function.prototype[Symbol.hasInstance];
+                        Object.defineProperty(l, Symbol.hasInstance, { get: function () { order.push(n); return inherited; } });
+                    })(i, link);
+                }
+                var answer = new F() instanceof link;
+                return order.join() + ':' + answer;
+            })()
+            """);
+        result.AsString().Should().Be("2,1,0:true");
+    }
+
+    [Test]
+    public void InstanceofWalksADeepBoundChainOverAnotherRealmsFunctionToAMethodAtTheBottom()
+    {
+        // A bound function's prototype is its target's, so every link here inherits the other realm's
+        // %Function.prototype[@@hasInstance]% even though this realm's bind made it. BindFunction takes the next step
+        // itself for any realm's intrinsic rather than calling it, which is what keeps 200,000 links a loop on a 1 MB
+        // thread rather than one native frame per link -- and the method on the innermost bound link still answers.
+        DedicatedThread.Run(() =>
+        {
+            var engine = new Engine();
+            Test262Object.Install(engine);
+            var result = engine.Evaluate("""
+                (function () {
+                    var other = $262.createRealm().global;
+                    var F = new other.Function();
+                    var f = Function.prototype.bind.call(F, null);
+                    Object.defineProperty(f, Symbol.hasInstance, { value: function (v) { return v === 'bottom'; } });
+                    for (var i = 0; i < 200000; i++) f = Function.prototype.bind.call(f, null);
+                    return [Object.getPrototypeOf(f) === other.Function.prototype, 'bottom' instanceof f, new F() instanceof f].join();
+                })()
+                """);
+            result.AsString().Should().Be("true,true,false");
+        }, maxStackSize: 1024 * 1024);
+    }
+
+    [Test]
     public void ArrowFunctionShouldBeExtensible()
     {
         new Engine()
