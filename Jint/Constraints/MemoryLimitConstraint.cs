@@ -45,8 +45,9 @@ public enum MemoryLimitAccuracy
 /// </para>
 /// <para>
 /// A long string concatenation that defers its copy is charged when it is built, for the characters it
-/// appends, and one whose result alone exceeds the limit fails at once. <see cref="AllocatedBytes"/> can
-/// therefore include characters that nothing has allocated yet.
+/// appends, and one whose result alone exceeds the limit fails at once. A host's <c>ToString()</c> or
+/// <c>ToObject()</c> on a result is not charged and copies every string in full, shared characters included;
+/// read an untrusted result through <see cref="Engine.ConvertResult"/> under <see cref="ResultLimits"/>.
 /// </para>
 /// </remarks>
 public sealed class MemoryLimitConstraint : Constraint
@@ -79,6 +80,9 @@ public sealed class MemoryLimitConstraint : Constraint
     /// Managed bytes attributed to the current operation, or to the most recently entered operation when
     /// the engine is idle.
     /// </summary>
+    /// <remarks>
+    /// Includes characters a deferred string concatenation has been charged for that nothing has allocated yet.
+    /// </remarks>
     public long AllocatedBytes
     {
         get

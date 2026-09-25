@@ -377,6 +377,10 @@ public abstract partial class JsValue : IEquatable<JsValue>
     /// <summary>
     /// Converts a <see cref="JsValue"/> to its underlying CLR value.
     /// </summary>
+    /// <remarks>
+    /// Nothing bounds what this copies: every string it reaches is copied in full, including characters it
+    /// shares with other strings. Convert an untrusted result with <see cref="Engine.ConvertResult"/> instead.
+    /// </remarks>
     /// <returns>The underlying CLR value of the <see cref="JsValue"/> instance.</returns>
     public abstract object? ToObject();
 

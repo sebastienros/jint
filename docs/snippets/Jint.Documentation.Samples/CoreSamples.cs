@@ -134,4 +134,22 @@ public static class CoreSamples
         return result;
     }
 
+    public static object? GuideBoundedResult(string source)
+    {
+        #region docs:guide-bounded-result
+
+        var engine = new Engine(options => options.LimitMemory(16_000_000));
+        var value = engine.Evaluate(source);
+
+        // Unbounded: copies every string in full, whatever it shares.
+        var copied = value.ToObject();
+
+        // Bounded: checks each string's length before copying it.
+        var detached = engine.ConvertResult(value, ResultLimits.Conservative);
+
+        #endregion
+
+        return detached ?? copied;
+    }
+
 }

@@ -4274,6 +4274,11 @@ public sealed partial class Engine : IDisposable
     /// already holds, so a host that never finds this one takes the unbounded route by default. Pass
     /// <paramref name="limits"/> to override <see cref="Options.ResultLimits"/> for one call.
     /// </para>
+    /// <para>
+    /// Set <see cref="ResultLimits.MaxStringLength"/> and <see cref="ResultLimits.MaxOutputCharacters"/> for an
+    /// untrusted result. The first refuses a string by its length before copying it, and the second stops the
+    /// conversion once the characters copied exceed it; a memory limit charges a copy only after it is made.
+    /// </para>
     /// </remarks>
     public object? ConvertResult(JsValue value, ResultLimits? limits = null)
     {

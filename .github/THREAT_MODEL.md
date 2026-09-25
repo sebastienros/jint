@@ -393,6 +393,10 @@ most of its time in garbage collection.
 - Initial source parsing, work performed by asynchronous producers before they return a
   result, worker threads started by host callbacks, module payload storage outside engine
   turns, and output serialization are not part of this budget.
+- Strings that share characters — long `slice` views of one string, or long `a + b` values
+  over one operand — are each charged only for what they add. A host `ToString()` or
+  `ToObject()` after the operation copies each of them in full, outside this budget;
+  `ConvertResult` under `ResultLimits` (TM-17) is the bounded read.
 - A managed limit cannot guarantee that the process avoids `OutOfMemoryException`.
 
 **Required host action.** Configure conservative Jint limits, input/module/output limits,
@@ -772,6 +776,9 @@ run additional code and consume CPU or memory outside the intended execution bud
 **Missing or residual mitigation.**
 
 - Result limits are unlimited by default.
+- `MaxStringLength` is checked against a string's length before it is copied, but
+  `MaxOutputCharacters` is counted after each copy, so a conversion can copy one string past
+  it. Configure both; together they bound what a conversion copies.
 - Shared references that are not cycles are converted once per occurrence and can amplify the
   detached CLR graph. `MaxPropertyCount` is the structural-work and container-allocation bound;
   string, character, and binary-byte limits do not substitute for it.
