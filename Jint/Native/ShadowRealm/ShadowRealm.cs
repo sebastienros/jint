@@ -358,13 +358,21 @@ public sealed class ShadowRealm : ObjectInstance
     private static WrappedFunction WrappedFunctionCreate(Realm throwerRealm, Realm callerRealm, ObjectInstance target)
     {
         var wrapped = new WrappedFunction(callerRealm.GlobalEnv._engine, callerRealm, target);
+        string? failure = null;
         try
         {
             CopyNameAndLength(wrapped, target);
         }
         catch (JavaScriptException ex)
         {
-            ThrowCrossRealmError(throwerRealm, ex.Message);
+            // Recorded, then thrown once the handler has returned: see WrappedFunction.Call for why a throw
+            // from inside this catch is a native stack overflow waiting for a deep enough recursion.
+            failure = ex.Message;
+        }
+
+        if (failure is not null)
+        {
+            ThrowCrossRealmError(throwerRealm, failure);
         }
 
         return wrapped;
@@ -480,9 +488,23 @@ public sealed class ShadowRealm : ObjectInstance
         return instance;
     }
 
+    private const string CrossRealmErrorPrefix = "Cross-Realm Error: ";
+
+    /// <summary>
+    /// Throws the TypeError https://tc39.es/proposal-shadowrealm/#sec-create-type-error-copy creates in
+    /// <paramref name="callerRealm"/>. Its message is left to the host, so it carries the message of the error
+    /// that crossed, marked once as a crossing.
+    /// </summary>
+    /// <remarks>
+    /// Marked <em>once</em>: a message that already carries the mark is reused as it is, because a failure that
+    /// crosses a chain of wrapped functions is copied at every hop, and a mark added per hop made a chain
+    /// <c>n</c> hops deep build <c>n</c> ever-longer strings — quadratic in the depth of a chain script builds
+    /// in a loop — to say nothing the first mark had not.
+    /// </remarks>
+    [DoesNotReturn]
     private static void ThrowCrossRealmError(Realm callerRealm, string message)
     {
-        Throw.TypeError(callerRealm, "Cross-Realm Error: " + message);
+        Throw.TypeError(callerRealm, message.StartsWith(CrossRealmErrorPrefix, StringComparison.Ordinal) ? message : CrossRealmErrorPrefix + message);
     }
 
     private sealed class WrappedFunction : Function.Function
@@ -516,14 +538,27 @@ public sealed class ShadowRealm : ObjectInstance
             var wrappedThisArgument = GetWrappedValue(callerRealm, targetRealm, thisArgument);
 
             JsValue result;
+            string? failure = null;
             try
             {
                 result = target.Call(wrappedThisArgument, wrappedArgs);
             }
             catch (JavaScriptException ex)
             {
-                ThrowCrossRealmError(_realm, ex.Message);
-                return default!;
+                // The copy is thrown after the handler has returned, never from inside it. A throw from a
+                // catch block is dispatched on top of the one being handled, whose frames — everything from
+                // here down to where it was raised — stay on the native stack until the handler returns. So a
+                // failure crossing a chain of wrapped functions nested one exception dispatch per hop, which
+                // no stack probe sees: a chain script builds by passing a function back and forth across the
+                // boundary a few hundred times turned the guard's catchable RangeError at its bottom into a
+                // native stack overflow on the way back up. Thrown below, the frames it handled are gone first.
+                result = Undefined;
+                failure = ex.Message;
+            }
+
+            if (failure is not null)
+            {
+                ThrowCrossRealmError(_realm, failure);
             }
 
             return GetWrappedValue(callerRealm, callerRealm, result);
