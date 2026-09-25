@@ -27,7 +27,20 @@ internal enum InternalTypes
     RequiresCloning = 2048,
     Module = 4096,
 
-    // the object doesn't override important GetOwnProperty etc which change behavior
+    // the object doesn't override important GetOwnProperty etc which change behavior. Set only through the
+    // internal constructor, by JsObject, JsDate, GlobalObject, NumberPrototype, SharedShapeObject (what a
+    // host's JsObjectShape instantiates) and Prototype (the base of every built-in prototype) — none of
+    // which overrides a property internal method. It is orthogonal to BuiltinShapeMode rather than
+    // exclusive with it: the three lanes that read it as a *storage* claim spell the test
+    // `(_type & (PlainObject | BuiltinShapeMode)) == PlainObject` precisely so that a shaped object is
+    // excluded while its shape is installed and served again once a deopt has made it a dictionary.
+    //
+    // ObjectInstance's [[Set]] and [[HasProperty]] chain walks read it as exactly that claim: a LINK
+    // carrying it is resolved by the walk itself, anything else is handed the rest of the algorithm. So a
+    // type that takes this flag must not override Get, Set or HasProperty — declaring it while overriding
+    // one would make another object's walk skip that override. The direction is safe: a type that does not
+    // take the flag is merely handed over to, which is what always happened. Pinned by
+    // Jint.Tests/Runtime/PrototypeChainWalkTests over every object a built engine can reach.
     PlainObject = 8192,
     // our native array
     Array = 16384,

@@ -944,7 +944,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
                     return jo.GetSlotForRead(slot);
                 }
 
-                return Prototype?.Get(property, receiver) ?? Undefined;
+                return GetFromPrototypeChain(Prototype, property, receiver);
             }
 
             if (_properties?.TryGetValue(property.ToString(), out var ownDesc) == true)
@@ -952,7 +952,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
                 return UnwrapJsValue(ownDesc, receiver);
             }
 
-            return Prototype?.Get(property, receiver) ?? Undefined;
+            return GetFromPrototypeChain(Prototype, property, receiver);
         }
 
         // slow path — a host that overrides TryGetOwnPropertyValue answers the own-property question from its
@@ -980,7 +980,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
                 AssertOwnValueAgreesWithDescriptor(this, property, receiver, answered: false, Undefined);
             }
 
-            return Prototype?.Get(property, receiver) ?? Undefined;
+            return GetFromPrototypeChain(Prototype, property, receiver);
         }
 
         var desc = GetOwnProperty(property);
@@ -989,7 +989,52 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
             return UnwrapJsValue(desc, receiver);
         }
 
-        return Prototype?.Get(property, receiver) ?? Undefined;
+        return GetFromPrototypeChain(Prototype, property, receiver);
+    }
+
+    /// <summary>
+    /// The continuation of an ordinary <c>[[Get]]</c> once the receiver's own property has been ruled out:
+    /// the prototype chain, walked in a loop instead of one native frame per link.
+    /// <para>
+    /// It used to be <c>Prototype?.Get(property, receiver)</c>, which is the same algorithm written as a
+    /// recursion — and a chain is built by script, so its depth is an input. Twenty thousand links of
+    /// <c>x = { __proto__: x }</c> ended the process with a native stack overflow no <c>catch</c> could see
+    /// (sebastienros/jint#4076), where the same depth through <c>JSON.stringify</c> or <c>flat(Infinity)</c>
+    /// already raised a catchable <c>RangeError</c>. The loop removes the frames rather than bounding them, so
+    /// an ordinary chain of any depth now resolves instead of failing politely.
+    /// </para>
+    /// <para>
+    /// The walk is only entitled to run the <em>ordinary</em> algorithm, so it hands the rest of the read to
+    /// the first link carrying one of its own — an exotic <c>[[Get]]</c>, or a host's own-value hook — exactly
+    /// as <c>JintMemberExpression</c>'s member lane does, and for the same reason: probing such a link with
+    /// <see cref="GetOwnProperty"/> would run the wrong algorithm for the first and materialize the descriptor
+    /// the second exists to avoid. That hand-over is a native frame again, so it is the one place here that
+    /// probes the stack — off the ordinary path, and paid only by a chain that really does forward. The loop
+    /// itself deliberately does not probe: this is the hottest generic read lane in the engine, and a second
+    /// native-stack probe on a read has already been measured as unresolvable but not free (the double-probe
+    /// NO-GO recorded in <c>main</c>'s <c>Jint/Constraints/AGENTS.md</c>).
+    /// </para>
+    /// </summary>
+    private JsValue GetFromPrototypeChain(ObjectInstance? link, JsValue property, JsValue receiver)
+    {
+        while (link is not null)
+        {
+            if ((link._type & (InternalTypes.ExoticGet | InternalTypes.OwnValueHook)) != InternalTypes.Empty)
+            {
+                _engine._stackGuard.EnsureNativeStackHeadroom();
+                return link.Get(property, receiver);
+            }
+
+            var descriptor = link.GetOwnProperty(property);
+            if (!ReferenceEquals(descriptor, PropertyDescriptor.Undefined))
+            {
+                return UnwrapJsValue(descriptor, receiver);
+            }
+
+            link = link.Prototype;
+        }
+
+        return Undefined;
     }
 
     /// <summary>
@@ -1686,33 +1731,48 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     // most visibly through IsArrayLike, which probes 'length' before every array
     // destructuring, so `const [a, b] = someInstanceOfSuchAClass;` threw instead of
     // falling through to the iterator protocol.
+    //
+    // The chain is walked in a loop rather than by recursing into the prototype's own
+    // TryGetValue: this overload is private, so the recursion never dispatched to an
+    // override and the loop is the same walk with no frame per link. See
+    // GetFromPrototypeChain for why that matters (sebastienros/jint#4076).
     private bool TryGetValue(JsValue property, JsValue receiver, out JsValue value)
     {
         value = Undefined;
-        var desc = GetOwnProperty(property);
-        if (desc != PropertyDescriptor.Undefined)
+        var link = this;
+        while (true)
         {
-            var descValue = desc.Value;
-            if (desc.WritableSet && descValue is not null)
+            var desc = link.GetOwnProperty(property);
+            if (desc != PropertyDescriptor.Undefined)
             {
-                value = descValue;
+                var descValue = desc.Value;
+                if (desc.WritableSet && descValue is not null)
+                {
+                    value = descValue;
+                    return true;
+                }
+
+                var getter = desc.Get ?? Undefined;
+                if (getter.IsUndefined())
+                {
+                    value = Undefined;
+                    return false;
+                }
+
+                // if getter is not undefined it must be ICallable
+                var callable = (ICallable) getter;
+                value = callable.Call(receiver, Arguments.Empty);
                 return true;
             }
 
-            var getter = desc.Get ?? Undefined;
-            if (getter.IsUndefined())
+            var parent = link.Prototype;
+            if (parent is null)
             {
-                value = Undefined;
                 return false;
             }
 
-            // if getter is not undefined it must be ICallable
-            var callable = (ICallable) getter;
-            value = callable.Call(receiver, Arguments.Empty);
-            return true;
+            link = parent;
         }
-
-        return Prototype?.TryGetValue(property, receiver, out value) == true;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1775,7 +1835,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
                 var shapeParent = GetPrototypeOf();
                 if (shapeParent is not null)
                 {
-                    return shapeParent.Set(property, value, receiver);
+                    return SetOnPrototypeChain(shapeParent, property, value, receiver);
                 }
             }
             else if (_properties?.TryGetValue(key, out var ownDesc) == true)
@@ -1791,7 +1851,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
                 var parent = GetPrototypeOf();
                 if (parent is not null)
                 {
-                    return parent.Set(property, value, receiver);
+                    return SetOnPrototypeChain(parent, property, value, receiver);
                 }
             }
         }
@@ -1799,17 +1859,64 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         return SetUnlikely(property, value, receiver);
     }
 
+    /// <summary>
+    /// The continuation of <c>OrdinarySetWithOwnDescriptor</c> once the receiver has no own property of that
+    /// name: the prototype chain, walked in a loop instead of one native frame per link. The read side's
+    /// <see cref="GetFromPrototypeChain"/> says why (sebastienros/jint#4076); this is the write side of the
+    /// same defect, reached by <c>x.missing = 1</c> on a chain script built.
+    /// <para>
+    /// The classification differs from the read side's because the question does. <c>[[Set]]</c> has no
+    /// derived exotic/ordinary flag, so the walk asks for a <em>positive</em> claim instead and walks only a
+    /// link carrying <see cref="InternalTypes.PlainObject"/> — which, as that flag's own documentation says,
+    /// is exactly an object that does not override the property internal methods. Everything else runs its
+    /// own <c>[[Set]]</c>, which is a hand-over and not a skip, and the hand-over probes: a chain of arrays,
+    /// wrappers or proxies still recurses, and the probe is what makes that a catchable <c>RangeError</c>.
+    /// Conservative in the safe direction — a link the walk declines is merely resolved the way it always was.
+    /// </para>
+    /// </summary>
+    private bool SetOnPrototypeChain(ObjectInstance link, JsValue property, JsValue value, JsValue receiver)
+    {
+        while (true)
+        {
+            if ((link._type & InternalTypes.PlainObject) == InternalTypes.Empty)
+            {
+                _engine._stackGuard.EnsureNativeStackHeadroom();
+                return link.Set(property, value, receiver);
+            }
+
+            var ownDesc = link.GetOwnProperty(property);
+            if (!ReferenceEquals(ownDesc, PropertyDescriptor.Undefined))
+            {
+                return link.OrdinarySetWithOwnDescriptor(property, value, receiver, ownDesc);
+            }
+
+            var parent = link.GetPrototypeOf();
+            if (parent is null)
+            {
+                // Step 2.a.ii of OrdinarySetWithOwnDescriptor: nothing on the chain owns the name, so the
+                // write is a fresh data property on the receiver.
+                return link.OrdinarySetWithOwnDescriptor(property, value, receiver, _marker);
+            }
+
+            link = parent;
+        }
+    }
+
     [MethodImpl(MethodImplOptions.NoInlining)]
     private bool SetUnlikely(JsValue property, JsValue value, JsValue receiver)
-    {
-        var ownDesc = GetOwnProperty(property);
+        => OrdinarySetWithOwnDescriptor(property, value, receiver, GetOwnProperty(property));
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-ordinarysetwithowndescriptor
+    /// </summary>
+    private bool OrdinarySetWithOwnDescriptor(JsValue property, JsValue value, JsValue receiver, PropertyDescriptor ownDesc)
+    {
         if (ownDesc == PropertyDescriptor.Undefined)
         {
             var parent = GetPrototypeOf();
             if (parent is not null)
             {
-                return parent.Set(property, value, receiver);
+                return SetOnPrototypeChain(parent, property, value, receiver);
             }
 
             ownDesc = _marker;
@@ -1921,6 +2028,14 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     /// <summary>
     /// https://tc39.es/ecma262/#sec-ordinary-object-internal-methods-and-internal-slots-hasproperty-p
     /// </summary>
+    /// <remarks>
+    /// The chain is walked in a loop rather than by recursing into each prototype's own
+    /// <c>HasProperty</c>, on the same terms as <see cref="SetOnPrototypeChain"/>: only a link carrying
+    /// <see cref="InternalTypes.PlainObject"/> — an object that does not override the property internal
+    /// methods — may be walked, and anything else is handed the rest of the question after a native-stack
+    /// probe. Reached by <c>'x' in obj</c> and, less obviously, by every identifier resolved inside a
+    /// <c>with</c> statement, whose object environment asks this (sebastienros/jint#4076).
+    /// </remarks>
     public virtual bool HasProperty(JsValue property)
     {
         var key = TypeConverter.ToPropertyKey(property);
@@ -1929,10 +2044,21 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
             return true;
         }
 
-        var parent = GetPrototypeOf();
-        if (parent is not null)
+        var link = GetPrototypeOf();
+        while (link is not null)
         {
-            return parent.HasProperty(key);
+            if ((link._type & InternalTypes.PlainObject) == InternalTypes.Empty)
+            {
+                _engine._stackGuard.EnsureNativeStackHeadroom();
+                return link.HasProperty(key);
+            }
+
+            if (link.ProbeOwnPropertyChecked(key) != OwnPropertyProbe.Missing)
+            {
+                return true;
+            }
+
+            link = link.GetPrototypeOf();
         }
 
         return false;
