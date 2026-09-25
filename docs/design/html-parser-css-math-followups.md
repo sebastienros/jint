@@ -221,8 +221,8 @@ Also cover a nested atan2 with arithmetic-produced negative-zero Y and X=−1, d
 by four, yielding −45deg rather than +45deg. Pinned references:
 [computed fixtures](https://github.com/web-platform-tests/wpt/blob/2136eb1501a106c42cd8977bb31c81b57b785bc8/css/css-values/acos-asin-atan-atan2-computed.html)
 and [serialization fixtures](https://github.com/web-platform-tests/wpt/blob/2136eb1501a106c42cd8977bb31c81b57b785bc8/css/css-values/acos-asin-atan-atan2-serialize.html).
-The Log interpretation below records the independent source review; its project policy remains
-a draft for the coordinating review before V0b3c dispatch.
+The Log interpretation below passed independent and coordinating source review on 2026-09-25.
+Its explicit completion of underspecified bases is the selected V0b3c implementation policy.
 
 Pow's integer/odd checks inspect the binary64 value without an Int64 cast; every representable
 integer at magnitude >=2^53 is even. Implement the specified signed-zero/infinity table before
@@ -231,7 +231,7 @@ squares in O(arguments) work without overflow for representable results, and sca
 for NaN before returning infinity. Do not expand exponentiation into repeated multiplication.
 Exp preserves its specified infinity endpoints.
 
-### V0b3c Log decision draft: source review, 2026-09-23
+### V0b3c Log decision: reviewed 2026-09-25
 
 The current [Values 4 §10.5.1](https://drafts.csswg.org/css-values-4/#exponent-infinities)
 explicitly allows bases between zero and one, but gives base-independent endpoints for
@@ -240,13 +240,13 @@ limit for bases below one. Base zero is not explicitly forbidden, although a log
 base is mathematically undefined. These are specification ambiguities, not evidence that a CLR
 two-argument Log overload supplies the CSS policy.
 
-**Proposed project policy:** preserve the draft's explicit endpoints, with NaN first, then
+**Selected project policy:** preserve the draft's explicit endpoints, with NaN first, then
 invalid base (B<0 or B=1), then negative A, then the stated A endpoints. Only remaining positive
 finite A uses `Math.Log(A) / Math.Log(B)`. Omitted B means e. Treat -0 as zero, not as B<0.
 The quotient for B=±0 or +infinity is an explicit project completion of underspecified bases;
 do not describe it as an upstream resolution. No behavior flag or Browser override is introduced.
 
-The complete proposed matrix is below. Negative includes -infinity; finite interval columns
+The complete selected matrix is below. Negative includes -infinity; finite interval columns
 exclude their endpoints. Q is the binary64 quotient above, including ordinary overflow/underflow.
 Both zero signs in either argument occupy the same indicated row/column.
 
@@ -271,7 +271,7 @@ calc-infinity-nan-computed/serialize-number files contain no exponential-functio
 not its endpoints; the targeted issue search found no endpoint resolution. This is not a claim
 that no relevant discussion exists elsewhere.
 
-Before dispatch approval, retain this matrix as authored policy fixtures, with bit assertions
+The implementation must retain this matrix as authored policy fixtures, with bit assertions
 for signed zero and nested reciprocal tests that expose its sign before top-level censorship.
 Include invalid-base precedence at A=0/1/infinity, every NaN position, explicit versus omitted e,
 and representative bases -infinity, -2, -0, +0, 0.5, 1, 2, +infinity. Do not label these missing

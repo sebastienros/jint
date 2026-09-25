@@ -1,6 +1,6 @@
 # Exact prepared inputs for six Japanese XML corpus cases
 
-Draft, 2026-09-23; exact-predecode direction accepted, detailed design pending root review. This is a
+Independently reviewed for implementation on 2026-09-25, following the 2026-09-23 source review. This is a
 **test-input adaptation**, not a Japanese decoder in the production parser. The production
 `MarkupParser.ParseXml(string)` contract and final XML conformance scope remain unchanged.
 Six existing corpus cases receive independently decoded strings; none gains a parser expectation.
@@ -89,6 +89,8 @@ Add test-only `XmlPreparedInputs.cs`. Give the conformance runner a single input
 for one of the exact six registered keys, load/verify the prepared input; otherwise call the existing
 `XmlByteDecoder.Decode(bytes)`. Do not change the generic decoder's encoding repertoire or its
 existing BOM/signature/declaration precedence.
+Validate the exact six-key registry before selecting a route; a missing metadata entry must not
+silently send a registered case through the generic decoder.
 
 For a prepared case, verify row key/input path, original raw member hash, preparation metadata,
 artifact hash, strict UTF-8 decoding and UTF-16 length. Confirm the decoded declaration's exact
@@ -129,7 +131,8 @@ of the exact string, including original CRLF and declaration text; no normalizat
 
 
 Regenerate exactly these six `cases.json` entries: status becomes `decoded`, decision uses the
-`prepared-*` label above, declared spelling is retained, and old decoder error detail disappears.
+`prepared-*` label above, declared spelling is populated from the reviewed source table, and old
+decoder error detail disappears. Four old strict-decode-error rows have no declared field to retain.
 Add `external-identifier-lexical` after the existing `ENTITIES=parameter` resource signal. Preserve
 category `error`, disposition `optional-error-review`, null OUTPUT fields, and resource profile
 `unreviewed-external-indication`. Every other field/row stays unchanged. Refresh `casesSha256` and

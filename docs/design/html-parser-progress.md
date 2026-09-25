@@ -2,9 +2,9 @@
 
 ## Scope and workflow
 
-**Paused at the user's request on 2026-09-23.** See [the resume checkpoint](html-parser-resume.md)
-for verified common state, retained WIP commits, unfinished reviews and exact next actions.
-No completion or performance claim is implied by this pause.
+**Resumed at the user's request on 2026-09-25.** The [2026-09-23 pause checkpoint](html-parser-resume.md)
+preserves verified common state, retained WIP commits and unfinished reviews at that date.
+Current integration evidence continues below; no completion or performance claim is implied.
 
 The requested package replaces AngleSharp in Jint.Browser with a new API for HTML,
 SVG, XML, CSS, DOM mutation tracking, and browser integration. Performance must be
@@ -20,7 +20,7 @@ the earlier repository direction to retain AngleSharp.
 - User cleanup rule: archive tasks and remove their worktrees after review, integration and
   successful common-worktree checks. Retain interrupted/failed tasks until unfinished work is
   recovered. Keep task history and Git branches; use managed archive cleanup and verify removal.
-  Forty-one completed tasks have now been archived; their worktrees are gone.
+  Forty-three completed tasks have now been archived; their worktrees are gone.
   Patch equivalence, clean local state and stopped-task status were checked before removal.
   Earlier worktrees already removed by Codex remain represented by their integrated commits.
 
@@ -69,14 +69,14 @@ the earlier repository direction to retain AngleSharp.
 | X3b XML serialization | `01a0cffb-eb5e-7843-8a64-7bab61470fa1` | Reviewed fixes integrated and tested; archived, worktree removed |
 | X4b2 XML ID typing | `01a0cff7-3642-7891-b575-1157126eaef5` | Reviewed, integrated and tested; archived, worktree removed |
 | H7 tokenizer context | `01a0cfeb-eb74-7403-9fe5-5876c9699172` | Reviewed exhaustive coverage integrated and tested; archived, worktree removed |
-| D6s2/D6s3 slot assignment and signals | `01a0cff7-448b-73e0-81de-577b76d90bd8` | Six semantic/performance review findings under correction; retained |
+| D6s2/D6s3 slot assignment and signals | `01a0cff7-448b-73e0-81de-577b76d90bd8` | Reviewed fixes integrated and tested; archived, worktree removed |
 | H6c select parsing | `01a0d000-0601-7721-8396-d767beaf6e04` | Reviewed scope correction integrated and tested; archived, worktree removed |
 | V0b2 stepped CSS math | `01a0d000-f77f-7c41-b474-a8e407aa41fe` | Reviewed, integrated and tested; archived, worktree removed |
 | D7b1b pure text algorithms | `01a0d00a-ab70-7510-9978-13e50051aa2e` | Reviewed, integrated and tested; archived, worktree removed |
 | X4b3 XPath completion | `01a0d011-17de-7c01-92b6-cbb7cfcba6ed` | Dedicated Sol implementation in ff28 |
 | C3a1 form-state selectors | `01a0d016-7f69-7670-b118-27244e5dcfad` | Reviewed, integrated and tested; archived, worktree removed |
 | V0b3a CSS abs/sign | `01a0d017-ef27-7d61-84a3-6a628ce82374` | Reviewed, integrated and tested; archived, worktree removed |
-| H6d ordinary templates | `01a0d01a-09e1-7312-b099-2afb6efc86b7` | Exclusive tree-builder implementation in 2a63 |
+| H6d ordinary templates | `01a0d01a-09e1-7312-b099-2afb6efc86b7` | Reviewed, integrated and tested; archived, worktree removed |
 | V0b3b CSS trigonometry | `01a0d029-93fb-7352-bf0c-ff2c92aec72d` | Dedicated Sol implementation in ba36 |
 | V0c1 CSS substitution analysis | `01a0d029-9c47-7600-8b5b-e10aeb7b3b9e` | Dedicated Sol implementation in 4983 |
 
@@ -640,3 +640,23 @@ the resulting string to `Runtime/Parsing/ParserDriver.cs`. Script suspension and
   attribute scans and initial root-child enumeration still lack bounded polling. Exact-source
   probes and 1,000 independent mutation sequences isolate those two remaining blockers; owner is
   correcting them. The task/worktree remain retained and no native shared-file handoff occurred.
+
+## Resumed integration, 2026-09-25
+
+- `86eda440f`, `57e93f939`: the retained 21 IBM expectations exactly match approved packets; all275
+  previous entries unchanged. Fresh common corpus: 4,000 total, 3,732 passed, 268 failed, no skips.
+  Per TFM: 1,820 conformance passes, 127 unresolved required cases, six optional adapter debts,
+  21 verified optional policies, zero harness failures/mismatches; OUTPUT344 compared/42 pending,
+  52 no-fetch alternatives. Evidence: `/private/tmp/jint-resumed-xml-twentyone-integrated.log`.
+- `c88366528`, `d5ddf18a0`, `1ddd8b2c5`, `243d41773`, `1c4c4cfbb`: full reviewed slot-assignment
+  and signal chain. Final independent probes pass on both TFMs, including all previously missing
+  cancellation checkpoints and 1,000 mutation sequences. Common non-corpus tests pass2,778/2,778;
+  evidence `/private/tmp/jint-slots-integrated.log`. Clean/stopped/patch-equivalent task archived,
+  worktree removal verified. Native shared-file ownership is released for the next coordinated slice.
+- `93c9e8e84`: reviewed ordinary templates. Independent split/quota, ownership, observer and EOF
+  cancellation probes pass both TFMs. Common non-corpus tests pass2,820/2,820, zero skips;
+  evidence `/private/tmp/jint-templates-integrated.log`. Clean/stopped/patch-equivalent task archived,
+  worktree removal verified. H6e framesets dispatched separately; foreign/fragment/patch work remains.
+- Exact Japanese prepared-input design cleared for the existing corpus implementation owner.
+  Log endpoint matrix cleared for V0b3c after trigonometry's integration; neither is an implementation
+  completion claim. Numeric input policy still needs a standards-faithful extreme-domain revision.
