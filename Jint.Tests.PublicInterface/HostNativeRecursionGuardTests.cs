@@ -424,6 +424,65 @@ public class HostNativeRecursionGuardTests
         }, maxStackSize: 1024 * 1024);
     }
 
+    /// <summary>
+    /// A chain of trapless proxies over a constructor, used where a built-in reads a property of a
+    /// constructor it was handed rather than calling it: an array's species constructor
+    /// (https://tc39.es/ecma262/#sec-arrayspeciescreate reads <c>@@species</c>) and <c>Reflect.construct</c>'s
+    /// <c>newTarget</c> (https://tc39.es/ecma262/#sec-getprototypefromconstructor reads <c>prototype</c>).
+    /// Neither read has a trap in the way, so each is <c>JsProxy.Get</c> forwarding to its target once per
+    /// link, and it is that forward's probe (#4078) that has to answer — nothing on either route calls
+    /// through the chain.
+    /// <para>
+    /// Two hundred thousand links, because the species route first asks <c>GetFunctionRealm</c>
+    /// (https://tc39.es/ecma262/#sec-getfunctionrealm), which recursed once per <c>[[ProxyTarget]]</c> with no
+    /// probe until #4165 made it a walk, so the depth is also what says it still is: a recursion there ends the
+    /// host before the read begins. What the read itself answers is the <c>RangeError</c> on runtimes that
+    /// keep the forwarding frames, and the value on .NET Framework, whose JIT makes the trapless forward a
+    /// tail call — the same carve-out as the trapless read above.
+    /// </para>
+    /// </summary>
+    public static TestCases<string, string, string> DeepTraplessProxyConstructorChains => new()
+    {
+        {
+            "array species",
+            "var a = [1, 2, 3]; a.constructor = P; outcome = String(a.map(function (x) { return x * 2; }));",
+            "2,4,6"
+        },
+        {
+            "Reflect.construct newTarget",
+            "outcome = String(Object.getPrototypeOf(Reflect.construct(function () {}, [], P)) === F.prototype);",
+            "true"
+        },
+    };
+
+    [TestCaseSource(nameof(DeepTraplessProxyConstructorChains))]
+    public void ADeepTraplessProxyChainReadAsAConstructorRaisesACatchableError(string route, string operation, string frameworkAnswer)
+    {
+        _ = route;
+        DedicatedThread.Run(() =>
+        {
+            using var engine = new Engine();
+            var outcome = engine.Evaluate("""
+                var F = function () {};
+                var P = F;
+                for (var i = 0; i < 200000; i++) { P = new Proxy(P, {}); }
+                var outcome;
+                try {
+                """ + operation + """
+                } catch (error) { outcome = error.name + ':' + error.message; }
+                String(outcome);
+                """).AsString();
+#if NETFRAMEWORK
+            outcome.Should().BeOneOf(frameworkAnswer, "RangeError:Maximum call stack size exceeded");
+#else
+            _ = frameworkAnswer;
+            outcome.Should().Be("RangeError:Maximum call stack size exceeded");
+#endif
+
+            engine.Evaluate("6 * 7").AsNumber().Should().Be(42);
+        }, maxStackSize: 1024 * 1024);
+    }
+
     private sealed class RecursiveHostFunction : HostFunction
     {
         private readonly Engine _hostEngine;
