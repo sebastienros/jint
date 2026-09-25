@@ -90,10 +90,12 @@ var detached = engine.ConvertResult(value, ResultLimits.Conservative);
 ```
 <!-- endSnippet -->
 
-`MaxStringLength` is checked against a string's length before its characters are copied, and
-`MaxOutputCharacters` stops the conversion once the characters copied so far exceed it, so one conversion
-copies no more than the two added together: 3,000,000 characters under `ResultLimits.Conservative`. Set both.
-A refusal throws `ResultLimitExceededException`, whose `Limit` names the bound that was reached.
+Both character limits are checked against a string's length before its characters are copied, and a slice
+view or a deferred `a + b` knows its length without being flattened. `MaxStringLength` refuses any one string
+or property name longer than it, and `MaxOutputCharacters` refuses the one that would take the running total
+past it, so `MaxOutputCharacters` on its own bounds the characters one conversion copies: 2,000,000 under
+`ResultLimits.Conservative`. A refusal throws `ResultLimitExceededException`, whose `Limit` names the bound
+that was reached.
 
 Called without limits, `ConvertResult` uses `Options.ResultLimits`: unlimited by default, and
 `UntrustedCodeLimits.ResultLimits` (`ResultLimits.Conservative` unless changed) on an engine built with
