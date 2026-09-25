@@ -1,4 +1,5 @@
 using Jint.Native.Object;
+using Jint.Native.Symbol;
 using Jint.Runtime;
 
 namespace Jint.Native.Function;
@@ -109,24 +110,83 @@ public sealed class BindFunction : Function, IConstructor
         }
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-ordinaryhasinstance step 2: a bound function answers
+    /// <c>? InstanceofOperator(O, BC)</c> (https://tc39.es/ecma262/#sec-instanceofoperator) for its
+    /// <c>[[BoundTargetFunction]]</c> BC — so every link of a chain of binds is asked for its own
+    /// <c>@@hasInstance</c>, and a link with a method of its own answers for the whole chain below it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A loop rather than the recursion the specification writes, for the reason <see cref="IsConstructor"/> is
+    /// one: a chain of binds is a linked list script can make as long as it likes, and one native frame per link
+    /// ends the process on a deep enough chain. The recursion only continues through
+    /// <c>%Function.prototype[@@hasInstance]%</c>, whose whole behaviour is <c>OrdinaryHasInstance(this, V)</c>
+    /// (https://tc39.es/ecma262/#sec-function.prototype-@@hasinstance), so when a link's <c>GetMethod</c> finds that
+    /// intrinsic — any realm's — the loop takes the next step itself instead of calling it. Everything the
+    /// specification observes is still observed, in its order: the <c>GetMethod</c> of every link, through a getter
+    /// or a proxy's <c>get</c> trap included.
+    /// </para>
+    /// <para>
+    /// Any other method is called, and that call is where script can come back here with the native frames of
+    /// everything below it — a method that asks <c>instanceof</c> of another bound chain is a recursion script
+    /// controls. So the call is probed. The called function usually probes for itself, but on the
+    /// <see cref="Options.ConstraintOptions.MaxExecutionStackCount"/> lane a script function does not, and this
+    /// probe is then the only thing between such a chain and a dead process.
+    /// </para>
+    /// </remarks>
     internal override bool OrdinaryHasInstance(JsValue v)
     {
-        // Per https://tc39.es/ecma262/#sec-instanceofoperator a bound function delegates
-        // instanceof to its [[BoundTargetFunction]], which may itself be a bound function —
-        // follow the chain to the underlying function.
-        var target = BoundTargetFunction;
-        while (target is BindFunction nested)
+        // 1. IsCallable(C) holds for every bound function: Function.prototype.bind refuses a target without [[Call]].
+        var c = this;
+        while (true)
         {
-            target = nested.BoundTargetFunction;
-        }
+            // 2. a. Let BC be C.[[BoundTargetFunction]].
+            //    b. Return ? InstanceofOperator(O, BC).
+            // InstanceofOperator 1. If target is not an Object, throw a TypeError exception.
+            if (c.BoundTargetFunction is not ObjectInstance target)
+            {
+                Throw.TypeError(_realm, "Right-hand side of 'instanceof' is not an object");
+                return false;
+            }
 
-        var f = target as Function;
-        if (f is null)
-        {
-            Throw.TypeError(_realm, "Right-hand side of 'instanceof' is not callable");
-        }
+            // InstanceofOperator 2. Let instOfHandler be ? GetMethod(target, %Symbol.hasInstance%).
+            var instOfHandler = target.GetMethod(GlobalSymbolRegistry.HasInstance);
+            if (instOfHandler is null)
+            {
+                // InstanceofOperator 4. If IsCallable(target) is false, throw a TypeError exception.
+                if (!target.HasCall)
+                {
+                    Throw.TypeError(_realm, "Right-hand side of 'instanceof' is not callable");
+                }
+            }
+            else if (!IsFunctionPrototypeHasInstance(instOfHandler))
+            {
+                // InstanceofOperator 3. If instOfHandler is not undefined, return ToBoolean(? Call(instOfHandler, target, « V »)).
+                _engine._stackGuard.EnsureNativeStackHeadroom();
+                return TypeConverter.ToBoolean(instOfHandler.Call(target, v));
+            }
 
-        return f.OrdinaryHasInstance(v);
+            // InstanceofOperator 5. Return ? OrdinaryHasInstance(target, V) — which is also all that calling the intrinsic
+            // %Function.prototype[@@hasInstance]% with target as this would do, so both routes arrive here.
+            if (target is not BindFunction bound)
+            {
+                return target.OrdinaryHasInstance(v);
+            }
+
+            c = bound;
+        }
+    }
+
+    /// <summary>
+    /// Whether <paramref name="method"/> is <c>%Function.prototype[@@hasInstance]%</c> of the realm it belongs to.
+    /// Asked of the method's own realm rather than of this function's: a bound function's prototype is its target's,
+    /// so a chain built by one realm's <c>bind</c> over another realm's function inherits the other realm's
+    /// intrinsic, which is the same algorithm.
+    /// </summary>
+    private static bool IsFunctionPrototypeHasInstance(ICallable method)
+    {
+        return method is Function { _realm: { } realm } && realm.Intrinsics.Function.PrototypeObject.IsHasInstanceFunction(method);
     }
 
     private JsValue[] CreateArguments(JsCallArguments arguments)
