@@ -160,7 +160,7 @@ public sealed class BindFunction : Function, IConstructor
                     Throw.TypeError(_realm, "Right-hand side of 'instanceof' is not callable");
                 }
             }
-            else if (!IsFunctionPrototypeHasInstance(instOfHandler))
+            else if (!FunctionPrototype.IsIntrinsicHasInstance(instOfHandler))
             {
                 // InstanceofOperator 3. If instOfHandler is not undefined, return ToBoolean(? Call(instOfHandler, target, « V »)).
                 _engine._stackGuard.EnsureNativeStackHeadroom();
@@ -176,17 +176,6 @@ public sealed class BindFunction : Function, IConstructor
 
             c = bound;
         }
-    }
-
-    /// <summary>
-    /// Whether <paramref name="method"/> is <c>%Function.prototype[@@hasInstance]%</c> of the realm it belongs to.
-    /// Asked of the method's own realm rather than of this function's: a bound function's prototype is its target's,
-    /// so a chain built by one realm's <c>bind</c> over another realm's function inherits the other realm's
-    /// intrinsic, which is the same algorithm.
-    /// </summary>
-    private static bool IsFunctionPrototypeHasInstance(ICallable method)
-    {
-        return method is Function { _realm: { } realm } && realm.Intrinsics.Function.PrototypeObject.IsHasInstanceFunction(method);
     }
 
     private JsValue[] CreateArguments(JsCallArguments arguments)

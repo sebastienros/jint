@@ -62,6 +62,22 @@ internal sealed partial class FunctionPrototype : Function
     }
 
     /// <summary>
+    /// Whether <paramref name="method"/> is <c>%Function.prototype[@@hasInstance]%</c> of the realm it belongs to: the one
+    /// method both implementations of https://tc39.es/ecma262/#sec-instanceofoperator step 3 — <see cref="JsValue.InstanceofOperator"/>
+    /// and <see cref="BindFunction"/>'s walk over a bound target — call without probing the native stack first, because its
+    /// whole behaviour is <c>OrdinaryHasInstance(this, V)</c>, a walk with no call of its own for script to recurse through.
+    /// </summary>
+    /// <remarks>
+    /// Asked of the method's own realm rather than the caller's: a bound function's prototype is its target's, so a chain
+    /// built by one realm's <c>bind</c> over another realm's function inherits the other realm's intrinsic, which is the
+    /// same algorithm.
+    /// </remarks>
+    internal static bool IsIntrinsicHasInstance(ICallable method)
+    {
+        return method is Function { _realm: { } realm } && realm.Intrinsics.Function.PrototypeObject.IsHasInstanceFunction(method);
+    }
+
+    /// <summary>
     /// https://tc39.es/ecma262/#sec-function.prototype.bind
     /// </summary>
     [JsFunction(Length = 1)]

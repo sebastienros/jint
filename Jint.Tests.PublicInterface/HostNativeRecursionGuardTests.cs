@@ -531,6 +531,72 @@ public class HostNativeRecursionGuardTests
     }
 
     /// <summary>
+    /// A target whose own <c>@@hasInstance</c> method asks <c>instanceof</c> of that same target, which the operator
+    /// answers by calling the method again (https://tc39.es/ecma262/#sec-instanceofoperator step 3): a recursion script
+    /// controls, one native frame per level, and no call expression anywhere in it.
+    /// <para>
+    /// Every route is a row on both stack lanes. With the default <c>StackOverflowGuard</c> a script function probes on
+    /// entry, so the first two routes were already a <c>RangeError</c> there; with <c>MaxExecutionStackCount</c> it does
+    /// not, and the only probe that lane arms sits in the call expression this recursion never evaluates, so both ended
+    /// the host with a native stack overflow (<c>InstanceOfBinaryExpression</c> → <c>ScriptFunction.CallOnce</c> repeated
+    /// to the bottom). The second route's method is a built-in rather than a script function —
+    /// <c>Function.prototype.call</c>, which calls the target with <c>V</c> as <c>this</c> — which is why the probe is
+    /// on every method but the intrinsic, not on script functions only. The <c>eval</c> route ended the host on both
+    /// lanes: the source it evaluates comes back to the operator without entering any function, so nothing probed at all.
+    /// </para>
+    /// </summary>
+    public static TestCases<string, string, bool> HasInstanceRecursions => new()
+    {
+        { "class static method, StackOverflowGuard", ClassStaticHasInstance, false },
+        { "class static method, MaxExecutionStackCount", ClassStaticHasInstance, true },
+        { "built-in method, StackOverflowGuard", BuiltInHasInstance, false },
+        { "built-in method, MaxExecutionStackCount", BuiltInHasInstance, true },
+        { "eval, StackOverflowGuard", EvalHasInstance, false },
+        { "eval, MaxExecutionStackCount", EvalHasInstance, true },
+    };
+
+    private const string ClassStaticHasInstance =
+        "class C { static [Symbol.hasInstance](v) { return v instanceof C; } } outcome = String({} instanceof C);";
+
+    private const string BuiltInHasInstance =
+        "var C = function () { return this instanceof C; }; Object.defineProperty(C, Symbol.hasInstance, { value: Function.prototype.call }); outcome = String({} instanceof C);";
+
+    // Indirect eval runs in the global scope, so both bindings are global variables.
+    private const string EvalHasInstance =
+        "var s = 's instanceof C'; var C = function () {}; Object.defineProperty(C, Symbol.hasInstance, { value: eval }); outcome = String(s instanceof C);";
+
+    [TestCaseSource(nameof(HasInstanceRecursions))]
+    public void AHasInstanceMethodThatAsksInstanceofOfItsOwnTargetRaisesACatchableError(string route, string operation, bool maxExecutionStackCountLane)
+    {
+        _ = route;
+        DedicatedThread.Run(() =>
+        {
+            using var engine = new Engine(options =>
+            {
+                if (maxExecutionStackCountLane)
+                {
+                    options.Constraints.MaxExecutionStackCount = 500;
+                }
+            });
+
+            var outcome = engine.Evaluate("""
+                var outcome;
+                try {
+                """ + operation + """
+                } catch (error) { outcome = error.name + ':' + error.message; }
+                String(outcome);
+                """).AsString();
+            outcome.Should().Be("RangeError:Maximum call stack size exceeded");
+
+            // the engine recovers, and a method that does not recurse answers as it always did beside the intrinsic
+            engine.Evaluate("""
+                class D { static [Symbol.hasInstance](v) { return v === 1; } }
+                [1 instanceof D, 2 instanceof D, [] instanceof Array, {} instanceof Array].join();
+                """).AsString().Should().Be("true,false,true,false");
+        }, maxStackSize: 1024 * 1024);
+    }
+
+    /// <summary>
     /// Recursions made of evaluations rather than of calls: each level hands source text back to the
     /// evaluator, and the evaluator re-enters the interpreter without entering a function. The first four
     /// never reach a function body at all, so none of the probes a function entry carries saw them, and a
