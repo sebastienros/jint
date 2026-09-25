@@ -1,9 +1,11 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Text;
 using Jint.Extensions;
 using Jint.Native;
 using Jint.Native.Object;
@@ -1588,17 +1590,23 @@ internal abstract class JintBinaryExpression : JintExpression
     {
         if (lprim.IsString() || rprim.IsString())
         {
-            var left = TypeConverter.ToString(lprim);
-            var right = TypeConverter.ToString(rprim);
-
-            // Checked before string.Concat allocates the result. The realm is resolved only inside
-            // the cold branch, so the warm path pays one widened add and one compare.
-            if ((long) left.Length + right.Length > JsString.MaxLength)
+            // Two operands that are already strings — a '+' between two string-valued expressions — need
+            // no coercion at all: each keeps its own representation, so a large one is never materialized
+            // just to be copied, and JsString.Concat decides whether the result is worth deferring, which
+            // is what keeps `s = s + x` in a loop linear.
+            if (lprim is JsString left && rprim is JsString right)
             {
-                Throw.RangeError(context.Engine.Realm, "Invalid string length");
+                // Checked before the result is built, deferred or not. The realm is resolved only inside
+                // the cold branch, so the warm path pays one widened add and one compare.
+                if ((long) left.Length + right.Length > JsString.MaxLength)
+                {
+                    Throw.RangeError(context.Engine.Realm, "Invalid string length");
+                }
+
+                return JsString.Concat(left, right);
             }
 
-            return JsString.Create(string.Concat(left, right));
+            return ConcatWithCoercedOperand(context, lprim, rprim);
         }
 
         if (AreNonBigIntOperands(lprim, rprim))
@@ -1611,16 +1619,65 @@ internal abstract class JintBinaryExpression : JintExpression
     }
 
     /// <summary>
+    /// The concatenating pair where one side is not a string yet — <c>n + "x"</c>, the shape a formatted
+    /// value takes. That side coerces to text, and the <see cref="JsString"/> wrapper a uniform coercion
+    /// would put around that text is allocated only on the branch that actually defers: below the cutoff
+    /// the result is copied out of the characters themselves, so the wrapper would be allocated and
+    /// unwrapped in the same breath.
+    /// </summary>
+    /// <remarks>
+    /// The left operand is coerced before the right one — <c>ToString</c> of a symbol throws, and which
+    /// side throws first is observable — and each side's length is read from whichever form it took,
+    /// both of which answer it without materializing anything.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static JsString ConcatWithCoercedOperand(EvaluationContext context, JsValue lprim, JsValue rprim)
+    {
+        var left = lprim as JsString;
+        var leftText = left is null ? TypeConverter.ToStringNonString(lprim) : null;
+        var right = rprim as JsString;
+        var rightText = right is null ? TypeConverter.ToStringNonString(rprim) : null;
+
+        var leftLength = leftText?.Length ?? left!.Length;
+        var rightLength = rightText?.Length ?? right!.Length;
+        if ((long) leftLength + rightLength > JsString.MaxLength)
+        {
+            Throw.RangeError(context.Engine.Realm, "Invalid string length");
+        }
+
+        if (leftLength + rightLength < JsString.MinDeferredConcatenationLength)
+        {
+            return JsString.Create(string.Concat(leftText ?? left!.ToString(), rightText ?? right!.ToString()));
+        }
+
+        return JsString.Concat(left ?? JsString.Create(leftText!), right ?? JsString.Create(rightText!));
+    }
+
+    /// <summary>
     /// A left-recursive chain of '+' operations (<c>a + b + c [+ d ...]</c>) flattened into one node.
     /// </summary>
     /// <remarks>
     /// <para>
     /// Left-associativity means that once the first operation yields a string, every later '+' in the
     /// chain is also a string concatenation. So the chain's kind can be decided once, from the first
-    /// two primitives: if either is a string the whole chain is concatenated in a single pass and the
-    /// result is allocated exactly once. The nested <see cref="PlusBinaryExpression"/> form instead
-    /// materializes one intermediate string per '+' — for a 3-operand chain of large strings that is
-    /// about twice the result's bytes (measured 250 KB per concat against a 125 KB result).
+    /// two primitives: if either is a string, the whole chain is coerced in a single pass. A short
+    /// result is then allocated exactly once, where the nested <see cref="PlusBinaryExpression"/> form
+    /// materializes one intermediate string per '+' — for a 3-operand chain that is one extra copy of
+    /// the first two operands.
+    /// </para>
+    /// <para>
+    /// A long result is instead folded through <see cref="JsString.Concat"/>, which defers the copy into
+    /// an immutable node, so a chain that accumulates (<c>s = s + a + b</c>) never copies its
+    /// accumulator. This is the same decision the two-operand form makes; deciding it here as well is
+    /// what keeps the flattened chain from being the one shape that stayed quadratic.
+    /// </para>
+    /// <para>
+    /// Which side of that line a chain lands on is read off the operand lengths, and until it has been
+    /// read each operand is held in whichever form its coercion already produced — see
+    /// <c>AdditionChainExpression.Coerce</c>. A chain that lands on the short side then allocates its
+    /// result and the one array its operands live in, and nothing per operand beyond the characters the
+    /// coercion had to produce anyway; the deferred representation is not something a chain pays for
+    /// before it uses it.
     /// </para>
     /// <para>
     /// Evaluation order matches ApplyStringOrNumericBinaryOperator exactly: evaluate operand 0,
@@ -1814,7 +1871,7 @@ internal abstract class JintBinaryExpression : JintExpression
                     nextFold++;
                 }
 
-                return accumulator ?? JsString.Create(ConcatAll(context, buffer, count));
+                return accumulator ?? ConcatAll(context, buffer, count);
             }
             finally
             {
@@ -1864,37 +1921,35 @@ internal abstract class JintBinaryExpression : JintExpression
             }
 
             _kind = ChainKind.String;
-            var s0 = TypeConverter.ToString(p0);
-            var s1 = TypeConverter.ToString(p1);
+            var s0 = Coerce(p0);
+            var s1 = Coerce(p1);
 
             if (count == 3)
             {
-                var s2 = NextOperandAsString(context, operands[2]);
-                CheckConcatenationLength(context, (long) s0.Length + s1.Length + s2.Length);
-                return JsString.Create(string.Concat(s0, s1, s2));
+                var s2 = NextOperandCoerced(context, operands[2]);
+                return ConcatThree(context, s0, s1, s2);
             }
 
             if (count == 4)
             {
-                var s2 = NextOperandAsString(context, operands[2]);
-                var s3 = NextOperandAsString(context, operands[3]);
-                CheckConcatenationLength(context, (long) s0.Length + s1.Length + s2.Length + s3.Length);
-                return JsString.Create(string.Concat(s0, s1, s2, s3));
+                var s2 = NextOperandCoerced(context, operands[2]);
+                var s3 = NextOperandCoerced(context, operands[3]);
+                return ConcatFour(context, s0, s1, s2, s3);
             }
 
-            var strings = new string[count];
-            strings[0] = s0;
-            strings[1] = s1;
-            long total = s0.Length + (long) s1.Length;
+            var parts = new object[count];
+            parts[0] = s0;
+            parts[1] = s1;
+            long total = LengthOf(s0) + (long) LengthOf(s1);
             for (var i = 2; i < count; i++)
             {
-                var next = NextOperandAsString(context, operands[i]);
-                strings[i] = next;
-                total += next.Length;
+                var next = NextOperandCoerced(context, operands[i]);
+                parts[i] = next;
+                total += LengthOf(next);
             }
 
             CheckConcatenationLength(context, total);
-            return JsString.Create(string.Concat(strings));
+            return ConcatMany(parts, total);
         }
 
         /// <summary>
@@ -1902,8 +1957,121 @@ internal abstract class JintBinaryExpression : JintExpression
         /// operand is coerced before the next one is evaluated.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static string NextOperandAsString(EvaluationContext context, JintExpression operand)
-            => TypeConverter.ToString(TypeConverter.ToPrimitive(operand.GetValue(context)));
+        private static object NextOperandCoerced(EvaluationContext context, JintExpression operand)
+            => Coerce(TypeConverter.ToPrimitive(operand.GetValue(context)));
+
+        /// <summary>
+        /// One operand's ToString, held in whichever of two forms costs nothing to produce: the
+        /// <see cref="JsString"/> it already was — whose representation has to survive, because
+        /// flattening it here is exactly the copy the deferred lane exists to avoid — or the plain text
+        /// a non-string primitive coerces to, which is what the eager concatenation below the cutoff
+        /// wants and needs no <see cref="JsString"/> wrapper around it.
+        /// </summary>
+        /// <remarks>
+        /// <see cref="TypeConverter.ToJsString"/> produces the same characters, but wraps that text in a
+        /// <see cref="JsString"/> the eager path unwraps again immediately — one dead object per
+        /// non-string operand, on every evaluation of a chain like <c>y + '-' + m + '-' + d</c>. Both
+        /// forms answer <see cref="LengthOf"/> without materializing anything, which is all the cutoff
+        /// is decided on, so nothing is given up by deciding after the coercion rather than before it.
+        /// </remarks>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static object Coerce(JsValue primitive)
+            => primitive is JsString value ? (object) value : TypeConverter.ToStringNonString(primitive);
+
+        /// <inheritdoc cref="Coerce"/>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static int LengthOf(object operand)
+            => operand is string text ? text.Length : Unsafe.As<JsString>(operand).Length;
+
+        /// <inheritdoc cref="Coerce"/>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static string TextOf(object operand)
+            => operand as string ?? Unsafe.As<JsString>(operand).ToString();
+
+        /// <inheritdoc cref="Coerce"/>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static JsString JsStringOf(object operand)
+            => operand as JsString ?? JsString.Create(Unsafe.As<string>(operand));
+
+        /// <summary>
+        /// The chain's whole result, in the two shapes it can take: a short one is concatenated in the
+        /// single allocation the flattened chain exists to produce, and a long one is folded
+        /// left-to-right through <see cref="JsString.Concat"/>, which defers the copy — so a chain that
+        /// accumulates (<c>s = s + a + b</c>) never copies its accumulator, exactly as the two-operand
+        /// form does not. Both callers — the direct path and the resumed one — share these, so the
+        /// decision cannot drift between them.
+        /// </summary>
+        private static JsString ConcatThree(EvaluationContext context, object s0, object s1, object s2)
+        {
+            var total = (long) LengthOf(s0) + LengthOf(s1) + LengthOf(s2);
+            CheckConcatenationLength(context, total);
+
+            if (total >= JsString.MinDeferredConcatenationLength)
+            {
+                return JsString.Concat(JsString.Concat(JsStringOf(s0), JsStringOf(s1)), JsStringOf(s2));
+            }
+
+            return JsString.Create(string.Concat(TextOf(s0), TextOf(s1), TextOf(s2)));
+        }
+
+        /// <inheritdoc cref="ConcatThree"/>
+        private static JsString ConcatFour(EvaluationContext context, object s0, object s1, object s2, object s3)
+        {
+            var total = (long) LengthOf(s0) + LengthOf(s1) + LengthOf(s2) + LengthOf(s3);
+            CheckConcatenationLength(context, total);
+
+            if (total >= JsString.MinDeferredConcatenationLength)
+            {
+                return JsString.Concat(JsString.Concat(JsString.Concat(JsStringOf(s0), JsStringOf(s1)), JsStringOf(s2)), JsStringOf(s3));
+            }
+
+            return JsString.Create(string.Concat(TextOf(s0), TextOf(s1), TextOf(s2), TextOf(s3)));
+        }
+
+        /// <inheritdoc cref="ConcatThree"/>
+        /// <remarks>
+        /// The five-or-more form, whose caller has already summed and checked the total — the 3- and
+        /// 4-operand ones exist to keep the <see cref="string"/>[]-free <c>string.Concat</c> overloads.
+        /// </remarks>
+        private static JsString ConcatMany(object[] parts, long total)
+        {
+            if (total >= JsString.MinDeferredConcatenationLength)
+            {
+                var accumulator = JsString.Concat(JsStringOf(parts[0]), JsStringOf(parts[1]));
+                for (var i = 2; i < parts.Length; i++)
+                {
+                    accumulator = JsString.Concat(accumulator, JsStringOf(parts[i]));
+                }
+
+                return accumulator;
+            }
+
+            return JsString.Create(ConcatEagerly(parts));
+        }
+
+        /// <summary>
+        /// Joins a chain whose whole result is below the cutoff, in the one allocation that result is.
+        /// </summary>
+        /// <remarks>
+        /// The <see cref="string"/>[] that <see cref="string.Concat(string[])"/> takes would be a second
+        /// array on every such chain, on top of the array the operands already live in — and on a chain
+        /// this short those two arrays cost more than the copy the cutoff has already declined to defer.
+        /// The stack buffer is sized by the cutoff, so it is never grown and, the assembly being built
+        /// with <c>SkipLocalsInit</c>, never zeroed either; the method stays out of its caller's frame
+        /// because that frame is live while the operands — and any user code they reach — are evaluated.
+        /// </remarks>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static string ConcatEagerly(object[] parts)
+        {
+            var builder = new ValueStringBuilder(stackalloc char[JsString.MinDeferredConcatenationLength]);
+            foreach (var part in parts)
+            {
+                builder.Append(TextOf(part));
+            }
+
+            Debug.Assert(builder.Length < JsString.MinDeferredConcatenationLength, "the cutoff is what keeps the stack buffer from growing");
+            return builder.ToString();
+        }
 
         /// <summary>
         /// Refuses a concatenation whose result would exceed <see cref="JsString.MaxLength"/>, before
@@ -1921,42 +2089,33 @@ internal abstract class JintBinaryExpression : JintExpression
         }
 
         /// <summary>
-        /// Joins every operand's string form with a single allocation for the result. The 3- and
-        /// 4-operand overloads avoid the intermediate <see cref="string"/>[] that the general
-        /// <see cref="string.Concat(string[])"/> path needs.
+        /// Joins every operand of a chain that suspended at least once. The buffer already holds each
+        /// operand's coerced <see cref="JsString"/>, so this only has to make the same call the direct
+        /// path makes, through the same three helpers.
         /// </summary>
-        private static string ConcatAll(EvaluationContext context, JsValue[] buffer, int count)
+        private static JsString ConcatAll(EvaluationContext context, JsValue[] buffer, int count)
         {
             if (count == 3)
             {
-                var s0 = TypeConverter.ToString(buffer[0]);
-                var s1 = TypeConverter.ToString(buffer[1]);
-                var s2 = TypeConverter.ToString(buffer[2]);
-                CheckConcatenationLength(context, (long) s0.Length + s1.Length + s2.Length);
-                return string.Concat(s0, s1, s2);
+                return ConcatThree(context, Coerce(buffer[0]), Coerce(buffer[1]), Coerce(buffer[2]));
             }
 
             if (count == 4)
             {
-                var s0 = TypeConverter.ToString(buffer[0]);
-                var s1 = TypeConverter.ToString(buffer[1]);
-                var s2 = TypeConverter.ToString(buffer[2]);
-                var s3 = TypeConverter.ToString(buffer[3]);
-                CheckConcatenationLength(context, (long) s0.Length + s1.Length + s2.Length + s3.Length);
-                return string.Concat(s0, s1, s2, s3);
+                return ConcatFour(context, Coerce(buffer[0]), Coerce(buffer[1]), Coerce(buffer[2]), Coerce(buffer[3]));
             }
 
-            var strings = new string[count];
+            var parts = new object[count];
             long total = 0;
             for (var i = 0; i < count; i++)
             {
-                var next = TypeConverter.ToString(buffer[i]);
-                strings[i] = next;
-                total += next.Length;
+                var next = Coerce(buffer[i]);
+                parts[i] = next;
+                total += LengthOf(next);
             }
 
             CheckConcatenationLength(context, total);
-            return string.Concat(strings);
+            return ConcatMany(parts, total);
         }
     }
 
