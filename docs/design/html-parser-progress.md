@@ -2,9 +2,10 @@
 
 ## Scope and workflow
 
-**Resumed at the user's request on 2026-09-25.** The [2026-09-23 pause checkpoint](html-parser-resume.md)
-preserves verified common state, retained WIP commits and unfinished reviews at that date.
-Current integration evidence continues below; no completion or performance claim is implied.
+**Paused again at the user's request on 2026-09-25.** The [current resume checkpoint](html-parser-resume.md)
+preserves verified common state, retained WIP commits and unfinished reviews, including the newly
+found template ownership defect and XPath cancellation blocker. The goal remains incomplete.
+Historical integration evidence continues below; no performance claim is implied.
 
 The requested package replaces AngleSharp in Jint.Browser with a new API for HTML,
 SVG, XML, CSS, DOM mutation tracking, and browser integration. Performance must be
@@ -76,7 +77,8 @@ the earlier repository direction to retain AngleSharp.
 | X4b3 XPath completion | `01a0d011-17de-7c01-92b6-cbb7cfcba6ed` | Dedicated Sol implementation in ff28 |
 | C3a1 form-state selectors | `01a0d016-7f69-7670-b118-27244e5dcfad` | Reviewed, integrated and tested; archived, worktree removed |
 | V0b3a CSS abs/sign | `01a0d017-ef27-7d61-84a3-6a628ce82374` | Reviewed, integrated and tested; archived, worktree removed |
-| H6d ordinary templates | `01a0d01a-09e1-7312-b099-2afb6efc86b7` | Reviewed, integrated and tested; archived, worktree removed |
+| H6d ordinary templates | `01a0d01a-09e1-7312-b099-2afb6efc86b7` | Integrated and tested; archived; follow-up adoption ownership defect recorded in resume checkpoint |
+| H6e framesets | `01a0dab4-0ad4-7720-ada6-80c245e9c7ff` | Paused WIP `150faca00` in ad95; also owns separate template defect follow-up |
 | V0b3b CSS trigonometry | `01a0d029-93fb-7352-bf0c-ff2c92aec72d` | Dedicated Sol implementation in ba36 |
 | V0c1 CSS substitution analysis | `01a0d029-9c47-7600-8b5b-e10aeb7b3b9e` | Dedicated Sol implementation in 4983 |
 
