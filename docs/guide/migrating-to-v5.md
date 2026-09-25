@@ -5753,7 +5753,7 @@ sealed class UmmAlQuraForSaudiArabia : DefaultCldrProvider
 }
 ```
 
-### 4.140 A throw no longer reads `message`, and `JavaScriptException.Message` runs no script
+### 4.140 A throw no longer reads `message`, and `JavaScriptException.Message` runs no script ([#4186](https://github.com/sebastienros/jint/pull/4186))
 
 When a throw left a function, generator or `eval` body, the `JavaScriptException` the engine re-raised to carry
 it read the thrown value's `message` through `[[Get]]` for its CLR message — twice for every frame the throw
