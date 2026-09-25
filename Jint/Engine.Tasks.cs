@@ -55,6 +55,7 @@ public partial class Engine
         /// deliberately no such method — see the loop shapes on <see cref="TimeUntilNextScheduledWork"/>.
         /// A job belonging to an evaluation cycle that
         /// <see cref="AdvancedOperations.RestoreGlobalSnapshot"/> has ended is discarded rather than run.
+        /// Jobs queued before <see cref="AdvancedOperations.Retire"/> are also discarded.
         /// </para>
         /// </remarks>
         public void ProcessTasks()
@@ -97,6 +98,7 @@ public partial class Engine
         /// <para>
         /// The job belongs to the evaluation cycle current when it was posted, so an
         /// <see cref="AdvancedOperations.RestoreGlobalSnapshot"/> in between drops it; post again afterwards.
+        /// Retirement also drops queued posts and refuses new ones permanently.
         /// <b><see cref="Engine.Dispose"/> is a barrier</b> — a post to a disposed engine is refused with
         /// <see cref="ObjectDisposedException"/>, so subscribe to <see cref="Engine.Disposed"/> or check
         /// <see cref="Engine.IsDisposed"/> rather than posting and hoping.
@@ -166,7 +168,7 @@ public partial class Engine
         /// <para>
         /// A promise registered before an <see cref="AdvancedOperations.RestoreGlobalSnapshot"/> is dropped
         /// when it settles rather than resuming into the restored globals; register one that must outlive a
-        /// restore after it.
+        /// restore after it. Retirement drops pending settlements and refuses new registrations permanently.
         /// </para>
         /// <para>
         /// This is a low-level primitive — the supported way for host code to hand script a promise it
