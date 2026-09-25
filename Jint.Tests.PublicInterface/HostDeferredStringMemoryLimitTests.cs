@@ -145,6 +145,43 @@ public class HostDeferredStringMemoryLimitTests
     }
 
     /// <summary>
+    /// The refusal lands in the middle of an expression, and inside a generator or an async function that
+    /// expression can be one the frame resumes into: the chain's first operand was evaluated before the
+    /// suspension and the whole chain is folded after it. The three operands come to 6 MB flat, so the
+    /// chain's second fold is refused. What the script sees is what any exceeded limit gives it, which is
+    /// nothing: its <c>catch</c> never runs, the host gets the exception, and the engine takes the next entry.
+    /// </summary>
+    [TestCase("""
+        function* build() {
+            try { var r = big + (yield 0) + big; outcome = 'built ' + r.length; }
+            catch (e) { outcome = 'caught'; }
+        }
+        var it = build();
+        it.next();
+        """, "it.next('x')", TestName = "{m}(generator)")]
+    [TestCase("""
+        let resolve;
+        const gate = new Promise(r => resolve = r);
+        (async () => {
+            try { var r = big + await gate + big; outcome = 'built ' + r.length; }
+            catch (e) { outcome = 'caught'; }
+        })();
+        """, "resolve('x')", TestName = "{m}(async function)")]
+    public void ARefusalInsideAResumedChainReachesTheHostAndNotTheScript(string suspend, string resume)
+    {
+        var engine = CreateEngine();
+        engine.SetValue("big", new string('h', 1_500_000));
+        engine.Execute("var outcome = 'pending';\n" + suspend);
+
+        var failure = Caught.Exception(() => engine.Execute(resume));
+
+        failure.Should().BeOfType<MemoryLimitExceededException>(
+            "a chain whose flat form is half as large again as the budget must be refused when it is folded");
+        engine.GetValue("outcome").AsString().Should().Be("pending");
+        engine.Evaluate("outcome + '!'").AsString().Should().Be("pending!");
+    }
+
+    /// <summary>
     /// The deferred characters are part of what the operation reports it has used: <c>a + a</c> over a
     /// 1,048,576-character <c>a</c> appends another 2 MB whether or not anything flattens the result.
     /// </summary>

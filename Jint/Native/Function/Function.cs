@@ -432,7 +432,7 @@ public abstract partial class Function : ObjectInstance, ICallable
 
         if (!string.IsNullOrWhiteSpace(prefix))
         {
-            name = PrefixName(prefix!, name);
+            name = PrefixName(prefix!, name, _engine._evaluationContext);
         }
 
         _nameDescriptor = new PropertyDescriptor(name, PropertyFlag.Configurable);
@@ -457,7 +457,7 @@ public abstract partial class Function : ObjectInstance, ICallable
     /// <see cref="JsString.Concat"/> builds a node over the level below instead — O(1) per level,
     /// flattened once if something ever reads the text — and yields the same characters either way.
     /// </remarks>
-    private static JsString PrefixName(string prefix, JsValue name)
+    private static JsString PrefixName(string prefix, JsValue name, EvaluationContext context)
     {
         if (name is not JsString jsName)
         {
@@ -479,7 +479,7 @@ public abstract partial class Function : ObjectInstance, ICallable
             return JsString.Create(prefix + " " + name);
         }
 
-        return JsString.Concat(prefixWithSeparator, jsName);
+        return JsString.Concat(prefixWithSeparator, jsName, context);
     }
 
     /// <summary>

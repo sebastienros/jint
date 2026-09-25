@@ -3,6 +3,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using Jint.Native;
+using Jint.Runtime.Interpreter;
 
 namespace Jint.Tests.Runtime;
 
@@ -46,9 +47,12 @@ public class RopeStringConcurrencyTests
         var left = new JsString(LeftText);
         var right = new JsString(RightText);
         var nodes = new JsString?[Attempts];
+
+        // Built outside any engine, as a constant fold builds one: there is no memory budget to charge.
+        var noEngine = new EvaluationContext();
         for (var i = 0; i < nodes.Length; i++)
         {
-            nodes[i] = JsString.Concat(left, right);
+            nodes[i] = JsString.Concat(left, right, noEngine);
         }
 
         nodes[0].Should().BeOfType<JsString.RopeString>("the premise: an operand pair this long must defer its copy");
