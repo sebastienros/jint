@@ -97,11 +97,18 @@ internal class DomHostHooks
 
     /// <summary>https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-outerhtml</summary>
     /// <remarks>
+    /// <para>
     /// The markup replaces the element, so what is walked afterwards is the parent it was in — the
     /// element itself is no longer in the tree the new content went into.
+    /// </para>
+    /// <para>
+    /// The layout mutation scope is this algorithm's own because <c>DOM.setOuterHTML</c> reaches it without
+    /// the generated setter's guard; inside that guard it only nests (#4138).
+    /// </para>
     /// </remarks>
     internal virtual void SetOuterHtml(DomRealm realm, IElement element, string markup)
     {
+        using var mutation = realm.MutateLayout();
         var parent = element.Parent;
         var previous = element.PreviousSibling;
         var next = element.NextSibling;

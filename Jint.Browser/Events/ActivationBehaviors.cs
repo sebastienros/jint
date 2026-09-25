@@ -339,10 +339,12 @@ internal static class ActivationBehaviors
     /// <remarks>
     /// Internal rather than private because <c>Page.SelectAsync</c> reaches the same algorithm: a host
     /// choosing an option and a client clicking one have to change the same state and fire the same two
-    /// events, or a page could tell the two apart.
+    /// events, or a page could tell the two apart. That caller has no activation scope around it, so the
+    /// layout mutation scope is this algorithm's own; inside <see cref="Run"/> it only nests (#4138).
     /// </remarks>
     internal static void SelectOption(DomRealm dom, IHtmlOptionElement option)
     {
+        using var mutation = dom.MutateLayout();
         if (option.IsDisabled || Ancestor<IHtmlSelectElement>(option) is not { } select || select.IsDisabled)
         {
             return;

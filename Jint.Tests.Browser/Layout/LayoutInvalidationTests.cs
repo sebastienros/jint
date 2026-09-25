@@ -173,6 +173,55 @@ public sealed class LayoutInvalidationTests
             """)).Should().Be("16,0,16");
     }
 
+    // Page.SelectAsync reaches the option's activation behaviour from a host request rather than from a click,
+    // so the mutation scope has to be the algorithm's own rather than the click's. Selectedness is AngleSharp
+    // state, not an attribute, so a DOM mutation counter would not see this write either (#4138).
+    [Test]
+    public async Task HostSelectionIsVisibleToThePagesOwnChangeListener()
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <select id="pick" multiple><option value="a">a</option><option value="b" selected>b</option><option value="c">c</option></select>
+            """);
+        await page.EvaluateAsync("""
+            const pick = document.getElementById('pick');
+            var seen = [];
+            pick.addEventListener('change', () =>
+              seen.push(pick.selectedOptions.length + '/' + pick.querySelectorAll('option:checked').length));
+            var before = pick.selectedOptions.length;
+            """);
+
+        (await page.SelectAsync("#pick", "c")).Should().BeTrue();
+
+        (await page.EvaluateAsync<string>("before + '|' + seen.join()")).Should().Be("1|2/2");
+    }
+
+    [Test]
+    public async Task HostSelectionRefreshesWarmGeometryOfAFocusedSelect()
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("""
+            <style>option:checked { display: none }</style>
+            <select id="pick" multiple><option value="a">a</option><option value="b" selected>b</option><option value="c">c</option></select>
+            <a id="after" href="#x">after</a>
+            """);
+        // Focused first, so the host request's own focus step changes nothing the cache checks.
+        (await page.EvaluateAsync<string>("""
+            const pick = document.getElementById('pick');
+            const after = document.getElementById('after');
+            pick.focus();
+            var read = () => [pick.selectedOptions.length, after.getBoundingClientRect().top,
+              document.body.getBoundingClientRect().height].join(',');
+            read(); read()
+            """)).Should().Be("1,80,80");
+
+        (await page.SelectAsync("#pick", "c")).Should().BeTrue();
+
+        (await page.EvaluateAsync<string>("read()")).Should().Be("2,64,64");
+    }
+
     [Test]
     public async Task ParserCallbacksDoNotRetainConstructionResults()
     {

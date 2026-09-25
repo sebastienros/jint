@@ -369,6 +369,39 @@ public class DomDomainTests
             .GetProperty("value").GetString().Should().Be("undefined");
     }
 
+    /// <summary>
+    /// A client's <c>setOuterHTML</c> changes the tree exactly as a page's own <c>outerHTML = …</c> does, so a
+    /// live collection and a box the page read before the command answer the edited document after it (#4138).
+    /// </summary>
+    [Test]
+    public async Task SetOuterHtmlRefreshesCollectionsAndBoxesThePageAlreadyRead()
+    {
+        await using var session = await PageSession.CreateAsync();
+        var attachment = await session.OpenPageAsync();
+        await Content(session, attachment, "<div id='box'><p>1</p><p>2</p></div><a id='after' href='#x'>after</a>");
+
+        await session.ResultAsync("DOM.enable", "{}", attachment);
+        var documentId = (await session.ResultAsync("DOM.getDocument", """{"depth":-1}""", attachment))
+            .GetProperty("root").GetProperty("nodeId").GetInt32();
+        var first = (await session.ResultAsync(
+            "DOM.querySelector", $$"""{"nodeId":{{documentId}},"selector":"#box p"}""", attachment)).GetProperty("nodeId").GetInt32();
+
+        // Read twice, so the second answer is the one a warm cache hands back.
+        (await session.EvaluateAsync("""
+            var paragraphs = document.getElementsByTagName('p');
+            var after = document.getElementById('after');
+            var read = () => [paragraphs.length, after.getBoundingClientRect().top,
+              document.body.getBoundingClientRect().height].join(',');
+            read(); read()
+            """, attachment)).GetProperty("value").GetString().Should().Be("2,80,80");
+
+        await session.ResultAsync(
+            "DOM.setOuterHTML", $$"""{"nodeId":{{first}},"outerHTML":"<p>a</p><p>b</p><p>c</p>"}""", attachment);
+
+        (await session.EvaluateAsync("read()", attachment))
+            .GetProperty("value").GetString().Should().Be("4,112,112");
+    }
+
     /// <summary>Chrome's three arms: a selector, an XPath expression, and a text substring.</summary>
     [Test]
     public async Task PerformSearchFindsBySelectorByXPathAndByText()
