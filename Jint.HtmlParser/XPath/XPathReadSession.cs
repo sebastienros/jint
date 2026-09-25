@@ -17,7 +17,8 @@ internal enum XPathWorkStage
     NameAtomization,
     IdIndex,
     CompilationScan,
-    ResultMaterialization
+    ResultMaterialization,
+    ResultPublication
 }
 
 internal sealed class XPathReadSession
@@ -132,6 +133,13 @@ internal sealed class XPathReadSession
     {
         Check();
         Work(value.Length);
+        Check();
+    }
+
+    internal void PublishResult()
+    {
+        Check();
+        _checkpoint?.Invoke(XPathWorkStage.ResultPublication, _work);
         Check();
     }
 

@@ -118,7 +118,7 @@ internal static class NativeXPath
             navigator.ResultWork(array.Length);
             navigator.CheckRead();
             var answer = NativeXPathResult.NodeSet(array, firstValue);
-            navigator.CheckRead();
+            navigator.PublishResult();
             return answer;
         }
 
@@ -131,7 +131,7 @@ internal static class NativeXPath
             _ => throw new XPathException("The XPath expression returned an unsupported result type.")
         };
         if (raw is string resultText) navigator.ResultWork(resultText.Length);
-        navigator.CheckRead();
+        navigator.PublishResult();
         return scalar;
     }
 

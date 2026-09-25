@@ -42,10 +42,12 @@ internal sealed class NativeXPathNavigator : XPathNavigator
     public override XPathNavigator Clone() => new NativeXPathNavigator(this);
     internal void CheckRead() => _session.Check();
     internal void ResultWork(int units = 1) => _session.Work(units, XPathWorkStage.ResultMaterialization);
+    internal void PublishResult() => _session.PublishResult();
     internal object EvaluatePrepared(NativeXPathExpression expression)
     {
+        ArgumentNullException.ThrowIfNull(expression);
         _session.Check();
-        var prepared = expression.Prepared.Clone();
+        var prepared = expression.ClonePrepared();
         _session.Check();
         var result = base.Evaluate(prepared, null);
         _session.Check();

@@ -7,15 +7,17 @@ namespace Jint.HtmlParser;
 // The prepared BCL query is private: callers cannot bypass the guarded source.
 internal sealed class NativeXPathExpression
 {
+    private readonly XPathExpression _prepared;
+
     private NativeXPathExpression(string source, XPathExpression prepared)
     {
         Source = source;
-        Prepared = prepared;
+        _prepared = prepared;
     }
 
     internal string Source { get; }
-    internal XPathResultType ReturnType => Prepared.ReturnType;
-    internal XPathExpression Prepared { get; }
+    internal XPathResultType ReturnType => _prepared.ReturnType;
+    internal XPathExpression ClonePrepared() => _prepared.Clone();
 
     internal static NativeXPathExpression Compile(string source, IXmlNamespaceResolver? resolver,
         Action<XPathWorkStage, int>? checkpoint, CancellationToken token)
@@ -46,14 +48,19 @@ internal sealed class NativeXPathExpression
         StringBuilder? builder = null;
         var copiedThrough = 0;
         var quote = '\0';
-        var work = 0;
+        long work = 0;
+        void Charge(int units)
+        {
+            var previous = work;
+            work += units;
+            if ((work >> 8) == (previous >> 8)) return;
+            checkpoint?.Invoke(XPathWorkStage.CompilationScan, (int) Math.Min(work, int.MaxValue));
+            token.ThrowIfCancellationRequested();
+        }
+
         for (var i = 0; i < source.Length; i++)
         {
-            if ((++work & 255) == 0)
-            {
-                checkpoint?.Invoke(XPathWorkStage.CompilationScan, work);
-                token.ThrowIfCancellationRequested();
-            }
+            Charge(1);
 
             var current = source[i];
             if (quote != '\0')
@@ -79,7 +86,9 @@ internal sealed class NativeXPathExpression
             builder ??= new StringBuilder(source.Length);
             token.ThrowIfCancellationRequested();
             builder.Append(source, copiedThrough, i - copiedThrough);
+            Charge(i - copiedThrough);
             builder.Append(guard);
+            Charge(guard.Length);
             token.ThrowIfCancellationRequested();
             copiedThrough = i;
         }
@@ -87,8 +96,10 @@ internal sealed class NativeXPathExpression
         token.ThrowIfCancellationRequested();
         if (builder is null) return null;
         builder.Append(source, copiedThrough, source.Length - copiedThrough);
+        Charge(source.Length - copiedThrough);
         token.ThrowIfCancellationRequested();
         var result = builder.ToString();
+        Charge(result.Length);
         token.ThrowIfCancellationRequested();
         return result;
     }
