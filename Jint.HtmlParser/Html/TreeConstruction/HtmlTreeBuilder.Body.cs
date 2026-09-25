@@ -51,7 +51,11 @@ internal sealed partial class HtmlTreeBuilder
         {
             Error("unexpected-frameset-start-tag");
             if (_framesetOk && _open.Count > 1 && _open[1].LocalName == "body")
-                Missing(HtmlMissingFeature.Framesets);
+            {
+                _framesetReplacementStage = 1;
+                _framesetScanNode = _open[1];
+                return true;
+            }
             return false;
         }
         if (IsBlockStart(name))

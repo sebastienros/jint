@@ -146,7 +146,10 @@ internal sealed partial class HtmlTreeBuilder
             {
                 InsertTokenElement(); _framesetOk = false; _mode = Mode.InBody; return false;
             }
-            if (name == "frameset") { Missing(HtmlMissingFeature.Framesets); return false; }
+            if (name == "frameset")
+            {
+                InsertTokenElement(); _mode = Mode.InFrameset; return false;
+            }
             if (name is "base" or "basefont" or "bgsound" or "link" or "meta" or "noframes" or "script" or "style" or "template" or "title")
             {
                 Error("head-content-after-head");
@@ -260,6 +263,20 @@ internal sealed partial class HtmlTreeBuilder
                 case Mode.AfterHead:
                     if (White(c)) { AppendCharacterRun(data, whiteOnly: true); continue; }
                     InsertElement("body"); _framesetOk = true; _mode = Mode.InBody;
+                    continue;
+                case Mode.InFrameset:
+                case Mode.AfterFrameset:
+                    if (White(c)) { AppendCharacterRun(data, whiteOnly: true); continue; }
+                    Error("unexpected-character-in-frameset"); _textIndex++; Charge(1);
+                    continue;
+                case Mode.AfterAfterFrameset:
+                    if (White(c))
+                    {
+                        if (!TryReconstructFormatting()) return;
+                        AppendCharacterRun(data, whiteOnly: true);
+                        continue;
+                    }
+                    Error("unexpected-character-after-after-frameset"); _textIndex++; Charge(1);
                     continue;
                 case Mode.InBody:
                 case Mode.InCaption:

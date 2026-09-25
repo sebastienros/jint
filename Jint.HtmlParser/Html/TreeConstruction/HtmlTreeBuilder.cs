@@ -13,7 +13,7 @@ internal sealed partial class HtmlTreeBuilder
     {
         Initial, BeforeHtml, BeforeHead, InHead, InHeadNoscript, AfterHead, InBody, Text,
         InTable, InTableText, InCaption, InColumnGroup, InTableBody, InRow, InCell, InTemplate,
-        AfterBody, AfterAfterBody
+        AfterBody, InFrameset, AfterFrameset, AfterAfterBody, AfterAfterFrameset
     }
 
     private readonly Document _document;
@@ -35,6 +35,9 @@ internal sealed partial class HtmlTreeBuilder
     private Mode _mode;
     private Mode _originalTextMode;
     private bool _framesetOk = true;
+    private int _framesetReplacementStage;
+    private Node? _framesetScanNode;
+    private bool _framesetScanUnwinding;
     private bool _ignoreNextLf;
     private bool _acknowledgedSelfClosing;
     private bool _fosterParenting;
@@ -130,6 +133,12 @@ internal sealed partial class HtmlTreeBuilder
         // budget, so a long chain yields without an arbitrary pass limit.
         while (true)
         {
+            if (_framesetReplacementStage != 0)
+            {
+                if (!AdvanceFramesetReplacement()) return new HtmlParseStep(HtmlParseStepKind.Yielded);
+                FinishToken();
+                return new HtmlParseStep(HtmlParseStepKind.Yielded);
+            }
             if (_pendingShiftIndex >= 0)
             {
                 while (_pendingShiftIndex < _open.Count - 1 && _remaining > 0)
@@ -214,7 +223,10 @@ internal sealed partial class HtmlTreeBuilder
         Mode.InCell => InCell(),
         Mode.InTemplate => InTemplate(),
         Mode.AfterBody => InAfterBody(),
+        Mode.InFrameset => InFrameset(),
+        Mode.AfterFrameset => InAfterFrameset(),
         Mode.AfterAfterBody => InAfterAfterBody(),
+        Mode.AfterAfterFrameset => InAfterAfterFrameset(),
         _ => throw new InvalidOperationException("Unknown HTML insertion mode.")
     };
 
@@ -418,7 +430,7 @@ internal sealed partial class HtmlTreeBuilder
         element.LocalName is "applet" or "caption" or "html" or "table" or "td" or "th" or "marquee" or "object" or "select" or "template";
     private static bool IsResetModeElement(Element element) => element.NamespaceUri == Namespaces.Html &&
         element.LocalName is "td" or "th" or "tr" or "tbody" or "thead" or "tfoot" or "caption" or
-            "colgroup" or "table" or "template" or "head" or "body" or "html";
+            "colgroup" or "table" or "template" or "head" or "body" or "frameset" or "html";
 
     private bool TryGenerateImpliedEndTags(string? except = null)
     {

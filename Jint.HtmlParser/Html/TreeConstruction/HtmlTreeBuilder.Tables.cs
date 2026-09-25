@@ -303,6 +303,7 @@ internal sealed partial class HtmlTreeBuilder
                 break;
             case "head": _mode = Mode.InHead; break;
             case "body": _mode = Mode.InBody; break;
+            case "frameset": _mode = Mode.InFrameset; break;
             case "html": _mode = _head is null ? Mode.BeforeHead : Mode.AfterHead; break;
             default: throw new InvalidOperationException("Unknown HTML insertion-mode reset element.");
         }
