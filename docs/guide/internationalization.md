@@ -36,4 +36,10 @@ var engine = new Engine(options =>
 The calendar provider controls non-ISO arithmetic and the set of recognized calendar identifiers. The CLDR
 provider supplies localized names and patterns for those calendars.
 
+The per-region tables are embedded, from CLDR 48.2: week data, the hour cycles in use, and the calendars in
+use. A CLDR provider can replace the week data (`GetWeekInfo`) and the calendar `Intl.DateTimeFormat` defaults
+to (`GetDefaultCalendar`). It cannot yet replace what `Intl.Locale.prototype.getHourCycles` and `getCalendars`
+report. So a provider that answers `GetDefaultCalendar` differently from CLDR can see `getCalendars()[0]`
+disagree with the formatter's default calendar.
+
 Choose providers before engine construction; the `Options` instance is frozen when an engine consumes it.

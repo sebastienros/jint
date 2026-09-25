@@ -609,10 +609,22 @@ public class DefaultCldrProvider : ICldrProvider
 
     /// <inheritdoc />
     /// <remarks>
-    /// Read out of CLDR's <c>calendarPreferenceData</c>, which keys the answer by region, so a locale that
+    /// <para>
+    /// Read out of CLDR 48.2's <c>calendarPreferenceData</c>, which keys the answer by region, so a locale that
     /// names none is maximized first — <c>"th"</c> is <c>"th-Thai-TH"</c> and therefore <c>"buddhist"</c>.
-    /// Four regions prefer something other than <c>"gregory"</c>: <c>AF</c> and <c>IR</c>, <c>SA</c>, and
-    /// <c>TH</c>.
+    /// Three regions prefer something other than <c>"gregory"</c>: <c>AF</c> and <c>IR</c> (<c>"persian"</c>)
+    /// and <c>TH</c> (<c>"buddhist"</c>). <c>SA</c> preferred <c>"islamic-umalqura"</c> until CLDR 46.
+    /// </para>
+    /// <para>
+    /// <c>Intl.Locale.prototype.getCalendars</c> reads the same table directly rather than through this
+    /// member, so an override here changes the calendar <c>Intl.DateTimeFormat</c> defaults to and leaves
+    /// that list as it was.
+    /// </para>
+    /// <para>
+    /// The <c>-u-rg-</c> and <c>-u-sd-</c> keywords are not read here. <c>Intl.DateTimeFormat</c> asks for the
+    /// locale https://tc39.es/ecma402/#sec-resolvelocale matched, which carries no extension, and the
+    /// specification keys that default by the matched locale alone.
+    /// </para>
     /// </remarks>
     public virtual string? GetDefaultCalendar(string locale)
     {

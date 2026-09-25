@@ -183,17 +183,64 @@ internal sealed partial class LocalePrototype : Prototype
     }
 
     /// <summary>
-    /// https://tc39.es/ecma402/#sec-Intl.Locale.prototype.getCalendars
+    /// https://tc39.es/ecma402/#sec-Intl.Locale.prototype.getCalendars, which is
+    /// https://tc39.es/ecma402/#sec-calendarsoflocale.
     /// </summary>
+    /// <remarks>
+    /// The orderings are the CLDR <c>calendarPreferenceData</c> Jint embeds, read for the region
+    /// https://tc39.es/ecma402/#sec-regionpreference picks. <see cref="DefaultCldrProvider.GetDefaultCalendar"/>
+    /// reads the same table, so with the shipped provider the first calendar listed is the one
+    /// <c>Intl.DateTimeFormat</c> defaults to. <see cref="ICldrProvider"/> has no member for the ordering, so a
+    /// host overriding <see cref="ICldrProvider.GetDefaultCalendar"/> moves the formatter's default and not
+    /// this list, and the two can then disagree.
+    /// </remarks>
     [JsFunction]
     private JsArray GetCalendars(JsValue thisObject)
     {
         var locale = ValidateLocale(thisObject);
 
-        // Return array of supported calendars
-        // For .NET, we primarily support Gregorian calendar
+        // 1. If loc.[[Calendar]] is not undefined, return CreateArrayFromList(« loc.[[Calendar]] »).
+        if (locale.Calendar is not null)
+        {
+            return CreateArrayOfOne(locale.Calendar);
+        }
+
+        // 2-6. The calendars in common use in the region RegionPreference picks.
+        var calendarsInUse = CalendarPreferenceData.GetCalendarsInUse(RegionPreference.Of(locale.Locale));
+
+        // 7-9. Each one canonicalized, kept only if AvailableCalendars() contains it, and listed once. CLDR
+        // lists islamic and islamic-rgsa for several regions, and neither is available unless a host
+        // calendar provider claims it.
+        var list = new List<string>(calendarsInUse.Length);
+        foreach (var identifier in calendarsInUse)
+        {
+            var canonical = IntlUtilities.CanonicalizeUValue("ca", identifier);
+            if (AvailableCalendars.Contains(Engine, canonical) && !list.Contains(canonical))
+            {
+                list.Add(canonical);
+            }
+        }
+
+        // 10. If list is empty, set list to « "gregory" ».
+        if (list.Count == 0)
+        {
+            return CreateArrayOfOne(CalendarPreferenceData.Default);
+        }
+
+        // 11. Return CreateArrayFromList(list).
+        var values = new JsValue[list.Count];
+        for (var i = 0; i < values.Length; i++)
+        {
+            values[i] = JsString.Create(list[i]);
+        }
+
+        return new JsArray(Engine, values);
+    }
+
+    private JsArray CreateArrayOfOne(string value)
+    {
         var result = new JsArray(Engine, 1);
-        result.SetIndexValue(0, locale.Calendar ?? "gregory", updateLength: true);
+        result.SetIndexValue(0, value, updateLength: true);
         return result;
     }
 
@@ -226,23 +273,39 @@ internal sealed partial class LocalePrototype : Prototype
     }
 
     /// <summary>
-    /// https://tc39.es/ecma402/#sec-Intl.Locale.prototype.getHourCycles
+    /// https://tc39.es/ecma402/#sec-Intl.Locale.prototype.getHourCycles, which is
+    /// https://tc39.es/ecma402/#sec-hourcyclesoflocale.
     /// </summary>
+    /// <remarks>
+    /// The hour cycles are the CLDR <c>timeData</c> Jint embeds, read for the language and the region
+    /// https://tc39.es/ecma402/#sec-regionpreference picks. They used to be read off the .NET culture's short
+    /// time pattern, which gave one cycle, depended on the machine's globalization data, and ignored the
+    /// <c>-u-rg-</c> and <c>-u-sd-</c> keywords. <see cref="ICldrProvider"/> has no member for them, so a host
+    /// provider cannot change this answer.
+    /// </remarks>
     [JsFunction]
     private JsArray GetHourCycles(JsValue thisObject)
     {
         var locale = ValidateLocale(thisObject);
-        var culture = locale.CultureInfo;
 
-        // Determine hour cycle based on culture's time format
-        var timePattern = culture.DateTimeFormat.ShortTimePattern;
+        // 1. If loc.[[HourCycle]] is not undefined, return CreateArrayFromList(« loc.[[HourCycle]] »).
+        if (locale.HourCycle is not null)
+        {
+            return CreateArrayOfOne(locale.HourCycle);
+        }
 
-        // 24-hour format uses 'H', 12-hour format uses 'h'
-        var hourCycle = timePattern.Contains('H') ? "h23" : "h12";
+        // 2-7. The hour cycles in common use for the language in the region RegionPreference picks, or « "h23" ».
+        // GetLocaleLanguage is the language subtag, which JsLocale keeps canonicalized.
+        var hourCycles = TimeData.GetHourCycles(locale.Language, RegionPreference.Of(locale.Locale));
 
-        var result = new JsArray(Engine, 1);
-        result.SetIndexValue(0, locale.HourCycle ?? hourCycle, updateLength: true);
-        return result;
+        // 8. Return CreateArrayFromList(hourCycles).
+        var values = new JsValue[hourCycles.Length];
+        for (var i = 0; i < values.Length; i++)
+        {
+            values[i] = JsString.Create(hourCycles[i]);
+        }
+
+        return new JsArray(Engine, values);
     }
 
     /// <summary>

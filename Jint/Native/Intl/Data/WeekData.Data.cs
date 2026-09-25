@@ -1,8 +1,14 @@
+// Generated from CLDR 48.2 (https://github.com/unicode-org/cldr/releases/tag/release-48-2),
+// common/supplemental/supplementalData.xml, <weekData>.
+// The entries carrying alt="variant" are left out: they are not the region's default.
+// Unicode License v3 (CREDITS.txt). The entries are CLDR's own: update them from a later release of that file,
+// not one at a time.
+
 namespace Jint.Native.Intl.Data;
 
 internal static partial class WeekData
 {
-    private static readonly Dictionary<string, string> _firstDay = new(151, StringComparer.OrdinalIgnoreCase)
+    private static readonly Dictionary<string, string> _firstDay = new(150, StringComparer.OrdinalIgnoreCase)
     {
         ["001"] = "mon",
         ["AD"] = "mon",
@@ -57,7 +63,6 @@ internal static partial class WeekData
         ["FO"] = "mon",
         ["FR"] = "mon",
         ["GB"] = "mon",
-        ["GB-alt-variant"] = "sun",
         ["GE"] = "mon",
         ["GF"] = "mon",
         ["GP"] = "mon",
@@ -74,7 +79,7 @@ internal static partial class WeekData
         ["IN"] = "sun",
         ["IQ"] = "sat",
         ["IR"] = "sat",
-        ["IS"] = "mon",
+        ["IS"] = "sun",
         ["IT"] = "mon",
         ["JM"] = "sun",
         ["JO"] = "sat",

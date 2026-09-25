@@ -15,7 +15,7 @@
 # resolving here until somebody re-runs that.
 #
 verified: 2026-09-19
-anchors: 1264
+anchors: 1266
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -861,6 +861,7 @@ ecma402 sec-availablecalendars
 ecma402 sec-availablecanonicalcollations
 ecma402 sec-bestavailablelocale
 ecma402 sec-bestfitmatcher
+ecma402 sec-calendarsoflocale
 ecma402 sec-canonicalizelocalelist
 ecma402 sec-canonicalizeunicodelocaleid
 ecma402 sec-canonicalizeuvalue
@@ -889,6 +890,7 @@ ecma402 sec-getbooleanorstringnumberformatoption
 ecma402 sec-getlocaleregion
 ecma402 sec-getnumberformatpattern
 ecma402 sec-getoption
+ecma402 sec-hourcyclesoflocale
 ecma402 sec-initializedatetimeformat
 ecma402 sec-insert-unicode-extension-and-canonicalize
 ecma402 sec-internal-slots

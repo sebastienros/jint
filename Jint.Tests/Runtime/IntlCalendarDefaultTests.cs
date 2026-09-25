@@ -15,8 +15,10 @@ public class IntlCalendarDefaultTests
     private readonly Engine _engine = new();
 
     /// <summary>
-    /// CLDR's <c>calendarPreferenceData</c> names four regions that prefer something other than
-    /// <c>gregory</c>, and every other region takes territory <c>001</c>'s answer.
+    /// CLDR 48.2's <c>calendarPreferenceData</c> names three regions that put something other than
+    /// <c>gregory</c> first, and every other region either lists <c>gregory</c> first or takes territory
+    /// <c>001</c>'s answer. <c>SA</c> was the fourth until CLDR 46 put <c>gregorian</c> ahead of
+    /// <c>islamic-umalqura</c>.
     /// </summary>
     [TestCase("en-US", "gregory")]
     [TestCase("de-DE", "gregory")]
@@ -28,7 +30,7 @@ public class IntlCalendarDefaultTests
     [TestCase("th-TH", "buddhist")]
     [TestCase("fa-IR", "persian")]
     [TestCase("ps-AF", "persian")]
-    [TestCase("ar-SA", "islamic-umalqura")]
+    [TestCase("ar-SA", "gregory")]
     public void TheLocalesOwnCalendarIsTheDefault(string locale, string expected)
     {
         _engine.Evaluate($"new Intl.DateTimeFormat('{locale}').resolvedOptions().calendar")
@@ -51,23 +53,26 @@ public class IntlCalendarDefaultTests
     }
 
     /// <summary>
-    /// The defect: <c>ar-SA</c> could name no calendar but <c>islamic</c>, because the answer came from
-    /// <c>CultureInfo.Calendar</c> and both of .NET's Hijri classes mapped to that one identifier — while
+    /// The original defect: <c>ar-SA</c> could name no calendar but <c>islamic</c>, because the answer came
+    /// from <c>CultureInfo.Calendar</c> and both of .NET's Hijri classes mapped to that one identifier — while
     /// <c>islamic</c> is a calendar https://tc39.es/ecma402/#sec-createdatetimeformat step 9 says a formatter
-    /// must resolve away from, and <c>islamic-umalqura</c> was one an explicit option could already reach.
+    /// must resolve away from. Read from CLDR instead, the default was <c>islamic-umalqura</c> while the
+    /// table was CLDR 45's; CLDR 46 put <c>gregorian</c> first for <c>SA</c>, and the CLDR 48.2 table Jint
+    /// carries now answers <c>gregory</c>. The Umm al-Qura calendar stays one keyword away.
     /// </summary>
     [Test]
-    public void ArabicSaudiResolvesToUmmAlQuraAndFormatsInIt()
+    public void ArabicSaudiDefaultsToGregorianAndStillReachesUmmAlQura()
     {
         _engine.Evaluate("new Intl.DateTimeFormat('ar-SA').resolvedOptions().calendar")
+            .AsString().Should().Be("gregory");
+        _engine.Evaluate("new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura').resolvedOptions().calendar")
             .AsString().Should().Be("islamic-umalqura");
 
-        // …and the year it writes is that calendar's, where it used to be the Gregorian year beside a
-        // Hijri day and month — 2026-08-27 came out as "14/3/2026"
+        // …and the year the Umm al-Qura formatter writes is that calendar's, not the Gregorian one
         var script = """
             (function () {
                 var d = new Date(Date.UTC(2026, 7, 27));
-                var hijri = new Intl.DateTimeFormat('ar-SA', { year: 'numeric', timeZone: 'UTC' }).format(d);
+                var hijri = new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura', { year: 'numeric', timeZone: 'UTC' }).format(d);
                 var gregorian = new Intl.DateTimeFormat('en-US', { year: 'numeric', timeZone: 'UTC' }).format(d);
                 return hijri !== gregorian;
             })()
@@ -157,9 +162,12 @@ public class IntlCalendarDefaultTests
     /// <summary>
     /// The other direction of the same invariant: with nothing requested the locale's own calendar is still
     /// resolved, and is still the one the date is written in — now through Jint's own conversion rather than
-    /// .NET's.
+    /// .NET's. <c>ar-SA</c>'s own calendar is <c>gregory</c> since CLDR 46 while its .NET culture still
+    /// carries the Umm al-Qura calendar, so it is written in Gregorian fields; asking for Umm al-Qura writes
+    /// that calendar's.
     /// </summary>
-    [TestCase("ar-SA", "islamic-umalqura", "1448-3-14")]
+    [TestCase("ar-SA", "gregory", "2026-8-27")]
+    [TestCase("ar-SA-u-ca-islamic-umalqura", "islamic-umalqura", "1448-3-14")]
     [TestCase("th-TH", "buddhist", "2569-8-27")]
     [TestCase("fa-IR", "persian", "1405-6-5")]
     [TestCase("en-US", "gregory", "2026-8-27")]
@@ -211,17 +219,18 @@ public class IntlCalendarDefaultTests
     /// <summary>
     /// The culture a formatter adjusts is its own clone: the process-wide cache hands out a read-only
     /// instance every engine shares, so one formatter asking for <c>gregory</c> must not be the next one's
-    /// calendar.
+    /// calendar. <c>th-TH</c> is used because its own calendar is not <c>gregory</c>; <c>ar-SA</c>'s no longer
+    /// is, since CLDR 46.
     /// </summary>
     [Test]
     public void OneFormattersCalendarIsNotTheNextOnes()
     {
-        Format("ar-SA", "{ calendar: 'gregory', timeZone: 'UTC' }").Value.Should().Contain("2026");
-        Format("ar-SA", "{ timeZone: 'UTC' }").Value.Should().Contain("1448");
+        Format("th-TH", "{ calendar: 'gregory', timeZone: 'UTC' }").Value.Should().Contain("2026");
+        Format("th-TH", "{ timeZone: 'UTC' }").Value.Should().Contain("2569");
 
         new Engine().Evaluate(
-            "new Intl.DateTimeFormat('ar-SA', { timeZone: 'UTC' }).format(new Date(Date.UTC(2026, 7, 27)))")
-            .AsString().Should().Contain("1448");
+            "new Intl.DateTimeFormat('th-TH', { timeZone: 'UTC' }).format(new Date(Date.UTC(2026, 7, 27)))")
+            .AsString().Should().Contain("2569");
     }
 
     /// <summary>2026-08-27 is 14 Rabi' I 1448, 5 Shahrivar 1405 and 27 August 2569 BE.</summary>
@@ -260,7 +269,7 @@ public class IntlCalendarDefaultTests
     [Test]
     public void TheShippedProviderReadsCldrsTable()
     {
-        DefaultCldrProvider.Instance.GetDefaultCalendar("ar-SA").Should().Be("islamic-umalqura");
+        DefaultCldrProvider.Instance.GetDefaultCalendar("ar-SA").Should().Be("gregory");
         DefaultCldrProvider.Instance.GetDefaultCalendar("th-TH").Should().Be("buddhist");
         DefaultCldrProvider.Instance.GetDefaultCalendar("fa-IR").Should().Be("persian");
         DefaultCldrProvider.Instance.GetDefaultCalendar("en-US").Should().Be("gregory");

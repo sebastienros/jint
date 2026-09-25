@@ -200,22 +200,6 @@
     // PluralRules - compact notation affects plural category
     //"intl402/PluralRules/prototype/select/notation.js",
 
-    // Locale - CalendarsOfLocale/HourCyclesOfLocale do not go through RegionPreference yet
-    // (https://github.com/sebastienros/jint/issues/4159). The spec selects the lookup region in
-    // priority order: "rg" region-override keyword > region subtag > "sd" subdivision keyword >
-    // Add Likely Subtags region > "001". getWeekInfo does (Jint/Native/Intl/RegionPreference.cs);
-    // getHourCycles still reads the .NET CultureInfo and does not honor the "rg"/"sd" Unicode
-    // keywords, so region-override/subdivision/region-priority cases mismatch. getCalendars
-    // additionally has no region-specific calendar data (it always reports "gregory"), so its
-    // region tests are inconclusive by the test's own precondition.
-    "intl402/Locale/prototype/getCalendars/likely-subtags-region.js",
-    "intl402/Locale/prototype/getCalendars/region-override.js",
-    "intl402/Locale/prototype/getCalendars/region-priority.js",
-    "intl402/Locale/prototype/getCalendars/subdivision-region.js",
-    "intl402/Locale/prototype/getHourCycles/region-override.js",
-    "intl402/Locale/prototype/getHourCycles/region-priority.js",
-    "intl402/Locale/prototype/getHourCycles/subdivision-region.js",
-
     // === INTL402 TEMPORAL EXCLUSIONS ===
 
     // Remaining intl402/Temporal calendar failures
