@@ -49,7 +49,7 @@ public class BoundFunctionChainWalkTests
         ["new"] = ("new f(); return 'constructed';", StackExhausted),
         ["Array.from with the chain as this"] = ("Array.from.call(f, []); return 'constructed';", StackExhausted),
         ["super() into the chain"] = ("class D extends Object { constructor() { super(); } } Object.setPrototypeOf(D, f); new D(); return 'constructed';", StackExhausted),
-        ["a ShadowRealm call of the chain"] = ("new ShadowRealm().evaluate('(h) => h()')(f); return 'called';", "TypeError:Cross-Realm Error: Cross-Realm Error: Maximum call stack size exceeded"),
+        ["a ShadowRealm call of the chain"] = ("new ShadowRealm().evaluate('(h) => h()')(f); return 'called';", "TypeError:Cross-Realm Error: Maximum call stack size exceeded"),
     };
 
     [Test]

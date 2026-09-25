@@ -15,7 +15,7 @@
 # resolving here until somebody re-runs that.
 #
 verified: 2026-09-19
-anchors: 1266
+anchors: 1267
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -1050,6 +1050,7 @@ proposal-relative-indexing-method sec-%typedarray.prototype%-additions
 proposal-relative-indexing-method sec-array-prototype-additions
 proposal-relative-indexing-method sec-string-prototype-additions
 proposal-shadowrealm sec-copynameandlength
+proposal-shadowrealm sec-create-type-error-copy
 proposal-shadowrealm sec-getwrappedvalue
 proposal-shadowrealm sec-hostinitializeshadowrealm
 proposal-shadowrealm sec-performshadowrealmeval
