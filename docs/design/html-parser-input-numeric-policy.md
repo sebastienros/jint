@@ -1,10 +1,9 @@
 # D7b3p: input numeric precision, conversion and write policy
 
-Policy amendment revised for independent review, 2026-09-25. This is a design document only; it dispatches no
+Policy amendment independently reviewed and approved, 2026-09-25. This is a design document only; it dispatches no
 implementation and does not edit the reviewed [D7b3 family design](html-parser-input-value-families.md).
-It supplies exact proposed outcomes for that document's four b3p gates and a concrete b3a formatter
-owner. Approval of this packet, not the existence of this file, releases the dependent implementation
-slices. No runtime edit, browser experiment, benchmark, machine sampling or repository test was run.
+It supplies exact approved outcomes for that document's four b3p gates and a concrete b3a formatter
+owner. The independent review releases the dependent implementation slices under the ownership below. No runtime edit, browser experiment, benchmark, machine sampling or repository test was run.
 
 The decisions below distinguish HTML requirements, observed source behavior, and selected native
 policies where those sources do not agree. A source inspection is not a browser execution result.
@@ -133,7 +132,8 @@ must not turn it into any, zero or the default. Default/base/min/max precedence 
 
 Arithmetic on finite parsed inputs has bounded significant-digit/exponent sizes, independent of
 redundant source digits or an author's exponent spelling. Use checked small-integer coefficient
-operations when exact and a bounded System.Numerics integer fallback otherwise. No power of ten
+operations when exact and a bounded System.Numerics integer fallback otherwise. The 1024-bit bound in the calendar path below
+does not apply here: aligning D(Double.MaxValue) with D(5e-324) already requires a 2098-bit integer. No power of ten
 may use an unbounded author exponent, and no operation loops proportional to the grid index/count.
 This replaces the former rounding-cell machinery with ordinary scaled integer remainder/division.
 
@@ -353,7 +353,8 @@ Zero-count fixtures must actually be on their stated grids; an off-grid zero-cou
 b3's alignment branch. Success sets dirty state even when text is unchanged. No old ceiling may clear
 these valid values. Subsequent actual Date construction can still give an invalid Date independently.
 
-The pinned input-valueasnumber.html expects empty for the enormous local numeric vector. That conflicts
+The pinned [input-valueasnumber.html](https://github.com/web-platform-tests/wpt/blob/6c7127bdd9f2cc6a3668fd9791757843e09d5a9e/html/semantics/forms/the-input-element/input-valueasnumber.html#L126)
+expects empty for the enormous local numeric vector (independently retrieved and checked at integration). That conflicts
 with uncapped HTML conversion; the native expected result above intentionally differs and must remain
 a named WPT/spec discrepancy. This amendment supersedes the earlier b3/b3p empty expectation for that
 specific row. Do not copy the WPT expectation into an arbitrary upper bound, silently edit the upstream
