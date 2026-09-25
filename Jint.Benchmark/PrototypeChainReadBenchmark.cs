@@ -35,6 +35,14 @@ namespace Jint.Benchmark;
 /// hierarchy and read off a leaf instance, so it sits three links behind the holder. The subject.
 /// </description></item>
 /// <item><description>
+/// <see cref="AbsentNameRead"/> — a name declared <em>nowhere</em> on the chain, so the read walks every link
+/// including <c>Object.prototype</c> and ends in <c>undefined</c>. It is the only row that exercises the walk
+/// to its end, which is the lane <c>ObjectInstance.Get</c> resolves in a loop rather than by recursing into
+/// each prototype (sebastienros/jint#4076) — and the only row whose cost is the walk itself rather than a
+/// cached hit, since nothing absent can be cached. It reads <c>NaN</c> into the accumulator, which costs the
+/// same add as every other row.
+/// </description></item>
+/// <item><description>
 /// <see cref="DirectPrototypeMethodCall"/> / <see cref="RootPrototypeMethodCall"/> — the same pair for a method
 /// <em>call</em>, which resolves its callee through a different entry point on the same node
 /// (<c>GetCalleeForCall</c>) and reads a data property rather than invoking an accessor. Both lanes share the
@@ -94,6 +102,7 @@ public class PrototypeChainReadBenchmark
     private IsolatedScript _ownRead;
     private IsolatedScript _directGetterRead;
     private IsolatedScript _rootGetterRead;
+    private IsolatedScript _absentRead;
     private IsolatedScript _directMethodCall;
     private IsolatedScript _rootMethodCall;
 
@@ -103,6 +112,7 @@ public class PrototypeChainReadBenchmark
         _ownRead = Loop("obj.value");
         _directGetterRead = Loop("obj.leafAttribute");
         _rootGetterRead = Loop("obj.rootAttribute");
+        _absentRead = Loop("obj.absentAttribute");
         _directMethodCall = Loop("obj.leafOperation()");
         _rootMethodCall = Loop("obj.rootOperation()");
     }
@@ -141,6 +151,7 @@ public class PrototypeChainReadBenchmark
         _ownRead.Engine.Dispose();
         _directGetterRead.Engine.Dispose();
         _rootGetterRead.Engine.Dispose();
+        _absentRead.Engine.Dispose();
         _directMethodCall.Engine.Dispose();
         _rootMethodCall.Engine.Dispose();
     }
@@ -156,6 +167,10 @@ public class PrototypeChainReadBenchmark
     /// <summary>The subject: the same getter, four links up.</summary>
     [Benchmark]
     public JsValue RootPrototypeGetterRead() => _rootGetterRead.Run();
+
+    /// <summary>The walk to its end: a name nowhere on the chain, so every link is asked and none answers.</summary>
+    [Benchmark]
+    public JsValue AbsentNameRead() => _absentRead.Run();
 
     /// <summary>The comparison for the call lane: a method one link up.</summary>
     [Benchmark]
