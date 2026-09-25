@@ -195,6 +195,35 @@ public sealed class NativeXPathEvaluationTests
     }
 
     [Test]
+    public void LongFollowingAxisWhitespacePollsInsideLookahead()
+    {
+        var source = "following" + new string(' ', 100_000) + "::node()";
+        var lookaheadChecks = 0;
+        var lastLookaheadWork = 0;
+        var prepared = NativeXPath.Compile(source, null, (stage, work) =>
+        {
+            if (stage != XPathWorkStage.CompilationLookahead) return;
+            lookaheadChecks++;
+            lastLookaheadWork = work;
+        }, default);
+        prepared.Source.Should().Be(source);
+        lookaheadChecks.Should().BeGreaterThan(300);
+        lastLookaheadWork.Should().BeGreaterThan(99_000);
+        NativeXPath.Select(Document.CreateXml().CreateAttribute("key"), prepared, default).Should().BeEmpty();
+
+        using var cancellation = new CancellationTokenSource();
+        var canceledInsideLookahead = false;
+        Assert.Throws<OperationCanceledException>(() => NativeXPath.Compile(source, null, (stage, work) =>
+        {
+            if (stage != XPathWorkStage.CompilationLookahead) return;
+            work.Should().Be(256);
+            canceledInsideLookahead = true;
+            cancellation.Cancel();
+        }, cancellation.Token));
+        canceledInsideLookahead.Should().BeTrue();
+    }
+
+    [Test]
     public void ScanAndMaterializationCancelWithoutPublishingPartialResults()
     {
         var source = string.Join(" | ", Enumerable.Repeat("following::node()", 400));

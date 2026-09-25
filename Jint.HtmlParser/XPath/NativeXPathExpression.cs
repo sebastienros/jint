@@ -49,12 +49,12 @@ internal sealed class NativeXPathExpression
         var copiedThrough = 0;
         var quote = '\0';
         long work = 0;
-        void Charge(int units)
+        void Charge(int units, XPathWorkStage stage = XPathWorkStage.CompilationScan)
         {
             var previous = work;
             work += units;
             if ((work >> 8) == (previous >> 8)) return;
-            checkpoint?.Invoke(XPathWorkStage.CompilationScan, (int) Math.Min(work, int.MaxValue));
+            checkpoint?.Invoke(stage, (int) Math.Min(work, int.MaxValue));
             token.ThrowIfCancellationRequested();
         }
 
@@ -79,7 +79,11 @@ internal sealed class NativeXPathExpression
                 !source.AsSpan(i).StartsWith(axis.AsSpan(), StringComparison.Ordinal)) continue;
             var after = i + axis.Length;
             if (after < source.Length && source[after] != ':' && IsNameChar(source[after])) continue;
-            while (after < source.Length && IsXPathSpace(source[after])) after++;
+            while (after < source.Length && IsXPathSpace(source[after]))
+            {
+                Charge(1, XPathWorkStage.CompilationLookahead);
+                after++;
+            }
             if (after + 1 >= source.Length || source[after] != ':' || source[after + 1] != ':') continue;
 
             token.ThrowIfCancellationRequested();

@@ -17,6 +17,7 @@ internal enum XPathWorkStage
     NameAtomization,
     IdIndex,
     CompilationScan,
+    CompilationLookahead,
     ResultMaterialization,
     ResultPublication
 }
