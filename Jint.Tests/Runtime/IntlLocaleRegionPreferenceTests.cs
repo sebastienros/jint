@@ -129,6 +129,19 @@ public class IntlLocaleRegionPreferenceTests
         engine.Evaluate("JSON.stringify(new Intl.Locale('en-u-sd-afgh').getWeekInfo().weekend)").AsString().Should().Be("[4,5]");
     }
 
+    /// <summary>
+    /// The week data is CLDR 48.2's, in which Iceland's week starts on Sunday; CLDR 47 and the data Jint
+    /// carried before said Monday. It is the one region whose week that refresh moved.
+    /// </summary>
+    [TestCase("is-IS")]
+    [TestCase("is")]
+    [TestCase("en-US-u-rg-iszzzz")]
+    public void IcelandsWeekStartsOnSunday(string tag)
+    {
+        FirstDay(tag).Should().Be(7);
+        Weekend(tag).Should().Be("[6,7]");
+    }
+
     /// <summary>A host calling the default provider directly gets the same region the script does.</summary>
     [Test]
     public void TheDefaultProviderPicksTheSameRegion()
@@ -136,6 +149,7 @@ public class IntlLocaleRegionPreferenceTests
         DefaultCldrProvider.Instance.GetWeekInfo("en-US-u-rg-gbzzzz")!.FirstDay.Should().Be(DayOfWeek.Monday);
         DefaultCldrProvider.Instance.GetWeekInfo("en")!.FirstDay.Should().Be(DayOfWeek.Sunday);
         DefaultCldrProvider.Instance.GetWeekInfo("fa")!.Weekend.Should().Equal(DayOfWeek.Friday);
+        DefaultCldrProvider.Instance.GetWeekInfo("is-IS")!.FirstDay.Should().Be(DayOfWeek.Sunday);
     }
 
     private sealed class NoWeekInfo : DefaultCldrProvider

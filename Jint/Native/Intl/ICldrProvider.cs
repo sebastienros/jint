@@ -91,6 +91,12 @@ public interface ICldrProvider
     /// so it sits below the locale's <c>-u-ca-</c> extension and below the <c>calendar</c> option, both of
     /// which the same step lets overwrite it. A calendar this engine does not answer for is not in
     /// <c>keyLocaleData</c> at all, and is ignored rather than becoming a calendar nothing can format in.
+    /// <para>
+    /// Only <c>Intl.DateTimeFormat</c> reads it. <c>Intl.Locale.prototype.getCalendars</c> and
+    /// <c>getHourCycles</c> read the CLDR data embedded in the engine and have no member here, so a provider
+    /// answering this differently from that data makes <c>getCalendars()[0]</c> and the formatter's default
+    /// calendar disagree.
+    /// </para>
     /// </remarks>
     string? GetDefaultCalendar(string locale);
 

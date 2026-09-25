@@ -2510,17 +2510,24 @@ and both answered `"islamic"`.
 
 `ICldrProvider` gains a nineteenth member, `GetDefaultCalendar(string locale)`, and `DefaultCldrProvider`
 answers it from CLDR's `calendarPreferenceData` — keyed by region, so a locale naming none is maximized
-first. Four regions prefer something other than `gregory`: `AF` and `IR` (`persian`), `SA`
-(`islamic-umalqura`) and `TH` (`buddhist`).
+first. When this landed the table came from a CLDR release before 46, in which four regions preferred
+something other than `gregory`: `AF` and `IR` (`persian`), `SA` (`islamic-umalqura`) and `TH` (`buddhist`).
+[4.139](#4-139-intl-locale-s-hour-cycles-and-calendars-read-cldr-48-2-for-the-region-the-specification-picks-4159)
+moved it to CLDR 48.2, where `SA` lists `gregorian` first, so three remain.
 
 ```js
-// 4.16.x / earlier 5.0
+// 4.16.x
 new Intl.DateTimeFormat('ar-SA').resolvedOptions().calendar;             // "islamic"
 new Intl.DateTimeFormat('ar-SA').format(new Date(Date.UTC(2026, 7, 27))); // "14/3/2026" - a Hijri day and month beside a Gregorian year
 
-// 5.x
+// earlier 5.0, from this section until 4.139
 new Intl.DateTimeFormat('ar-SA').resolvedOptions().calendar;             // "islamic-umalqura"
 new Intl.DateTimeFormat('ar-SA').format(new Date(Date.UTC(2026, 7, 27))); // "14/3/1448"
+
+// 5.x
+new Intl.DateTimeFormat('ar-SA').resolvedOptions().calendar;             // "gregory"
+new Intl.DateTimeFormat('ar-SA').format(new Date(Date.UTC(2026, 7, 27))); // "27/8/2026"
+new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura').format(new Date(Date.UTC(2026, 7, 27))); // "14/3/1448"
 ```
 
 `islamic-umalqura` was never out of reach — it is in the supported list and an explicit
@@ -2542,11 +2549,14 @@ An answer the engine has no calendar for is discarded rather than resolved to �
 the calendars the implementation supports — so a provider naming `"mayan"` gets `gregory`, as does one
 answering `null`.
 
-**What could break:** `ar-SA` and its region-mates now report and format in `islamic-umalqura`. Every other
-locale reports exactly what it reported before, `.NET`'s answer and CLDR's having already agreed everywhere
-else. A host implementing `ICldrProvider` **from scratch** rather than deriving from `DefaultCldrProvider`
-has one more member to write; deriving costs nothing, and [5.2](#5-2-changing-one-locale-datum-is-one-override-3335)
-is why that is the shape the interface is documented for.
+**What could break:** `ar-SA` reported and formatted in `islamic-umalqura` from this section until
+[4.139](#4-139-intl-locale-s-hour-cycles-and-calendars-read-cldr-48-2-for-the-region-the-specification-picks-4159);
+against 4.16.x it now reports `gregory` and writes a Gregorian date, where 4.16.x reported `islamic` and wrote
+a Hijri day and month beside a Gregorian year. Every other locale reports exactly what it reported before,
+`.NET`'s answer and CLDR's having already agreed everywhere else. A host implementing `ICldrProvider`
+**from scratch** rather than deriving from `DefaultCldrProvider` has one more member to write; deriving costs
+nothing, and [5.2](#5-2-changing-one-locale-datum-is-one-override-3335) is why that is the shape the
+interface is documented for.
 ### 4.48 The blocking promise drain is bounded on the engine's clock, not on the wall clock ([#3406](https://github.com/sebastienros/jint/issues/3406))
 ### 4.49 `Duration.prototype.round` reckons in the calendar its `relativeTo` carries ([#3450](https://github.com/sebastienros/jint/issues/3450))
 
@@ -5661,6 +5671,80 @@ new Intl.Locale('en-US-u-rg-gbzzzz').getWeekInfo().firstDay; // 1 - the override
 `DefaultCldrProvider.GetWeekInfo` answers the script, so it makes the same choice. A provider overriding
 `GetWeekInfo` still receives the whole tag, keywords included, and its answer is used as it is; one that
 returns `null` falls back to the embedded data, now read for the same region.
+
+### 4.139 `Intl.Locale`'s hour cycles and calendars read CLDR 48.2 for the region the specification picks ([#4159](https://github.com/sebastienros/jint/issues/4159))
+
+The rest of what [4.138](#4-138-intl-locale-prototype-getweekinfo-reads-the-region-the-specification-picks-4159)
+began. [HourCyclesOfLocale](https://tc39.es/ecma402/#sec-hourcyclesoflocale) and
+[CalendarsOfLocale](https://tc39.es/ecma402/#sec-calendarsoflocale) read their data for the region
+[RegionPreference](https://tc39.es/ecma402/#sec-regionpreference) picks, and neither did:
+
+- **`getHourCycles`** answered one cycle, read off the .NET culture's short time pattern, so it could list no
+  more than one, depended on the machine's globalization data, and never saw `-u-rg-` or `-u-sd-`. It now
+  reads CLDR's `timeData`: the language joined to the region first where CLDR keys an entry that way
+  (`fr_CA`, `en_001`), then the region, with a `-u-rg-` override CLDR has time data for tried ahead of both.
+  Each answer is CLDR's preferred cycle followed by the others it allows, and a region CLDR has no time data
+  for answers `["h23"]`, the specification's fallback.
+- **`getCalendars`** answered `["gregory"]` for every locale that carried no calendar of its own. It now
+  reads CLDR's `calendarPreferenceData` for the same region, keeping only the calendars Jint can format in:
+  `islamic` and `islamic-rgsa` are left out unless a host `ICalendarProvider` claims them.
+
+```js
+// 4.16.x / earlier 5.0
+new Intl.Locale('en-US').getHourCycles();             // ["h12"]
+new Intl.Locale('ja-JP').getHourCycles();             // ["h23"]
+new Intl.Locale('es-MX').getHourCycles();             // ["h23"] - the culture's short time pattern
+new Intl.Locale('en-US-u-rg-gbzzzz').getHourCycles(); // ["h12"]
+new Intl.Locale('th').getCalendars();                 // ["gregory"]
+new Intl.Locale('ar-SA').getCalendars();              // ["gregory"]
+
+// 5.x
+new Intl.Locale('en-US').getHourCycles();             // ["h12", "h23"]
+new Intl.Locale('ja-JP').getHourCycles();             // ["h23", "h11", "h12"]
+new Intl.Locale('es-MX').getHourCycles();             // ["h12", "h23"]
+new Intl.Locale('en-US-u-rg-gbzzzz').getHourCycles(); // ["h23", "h12"]
+new Intl.Locale('th').getCalendars();                 // ["buddhist", "gregory"]
+new Intl.Locale('ar-SA').getCalendars();              // ["gregory", "islamic-umalqura"]
+```
+
+Every region table Jint embeds is CLDR 48.2's now — the new time data, the calendar preferences and the week
+data — and that moves two answers the new code does not touch:
+
+```js
+// earlier 5.0
+new Intl.Locale('is-IS').getWeekInfo().firstDay;             // 1
+new Intl.DateTimeFormat('ar-SA').resolvedOptions().calendar; // "islamic-umalqura" (4.16.x: "islamic")
+
+// 5.x
+new Intl.Locale('is-IS').getWeekInfo().firstDay;             // 7 - CLDR 48 starts Iceland's week on Sunday
+new Intl.DateTimeFormat('ar-SA').resolvedOptions().calendar; // "gregory" - CLDR 46 put gregorian first for SA
+```
+
+The second amends [4.47](#4-47-intl-datetimeformat-s-calendar-default-comes-from-the-cldr-provider-3457):
+`ar-SA` formats Gregorian dates unless it asks for another calendar. `DefaultCldrProvider.GetWeekInfo` and
+`GetDefaultCalendar` answer the same way when a host calls them.
+
+**Hosts.** Both lists are read from the data Jint embeds, and `ICldrProvider` has no member for either yet. A
+provider overriding `GetDefaultCalendar` therefore moves `Intl.DateTimeFormat`'s default calendar and not
+`getCalendars()`, and the two can disagree; with `DefaultCldrProvider` they read one table, and the first
+calendar listed is the one the formatter defaults to. `Intl.DateTimeFormat`'s default *hour cycle* is
+unchanged and still does not read `timeData`, so `resolvedOptions().hourCycle` and `getHourCycles()[0]` can
+differ as well — `en-GB` is `h12` and `["h23", "h12"]`.
+
+**What could break:** `getHourCycles()` returns more than one cycle for almost every locale, and its first
+element moved where the .NET culture's short time pattern disagreed with CLDR — on the machine this was
+measured on, 26 of 605 cultures, all from `h23` to `h12`, most of them Latin American Spanish. `getCalendars()`
+lists more than `gregory` wherever CLDR does (156 of the same 605). `is-IS` starts its week on Sunday, and
+`ar-SA` defaults to `gregory`. To keep the Umm al-Qura calendar for `ar-SA`, ask for it —
+`new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura')` — or answer it for the whole engine:
+
+```c#
+sealed class UmmAlQuraForSaudiArabia : DefaultCldrProvider
+{
+    public override string? GetDefaultCalendar(string locale)
+        => locale == "ar-SA" ? "islamic-umalqura" : base.GetDefaultCalendar(locale);
+}
+```
 
 ## 5. New in v5
 

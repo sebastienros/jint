@@ -977,8 +977,9 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
     /// could correct and which is coarser than the data: <see cref="System.Globalization.HijriCalendar"/> and
     /// <see cref="System.Globalization.UmAlQuraCalendar"/> are one .NET type each and were both answered
     /// <c>"islamic"</c>, so <c>ar-SA</c> could not resolve to the <c>islamic-umalqura</c> that CLDR's
-    /// <c>calendarPreferenceData</c> — and ICU — put first for <c>SA</c>, even though Jint knows that
-    /// calendar and an explicit option resolves to it.
+    /// <c>calendarPreferenceData</c> then put first for <c>SA</c>, even though Jint knows that calendar and an
+    /// explicit option resolves to it. (CLDR 46 put <c>gregorian</c> first for <c>SA</c>, and the CLDR 48.2
+    /// data the shipped provider reads now answers <c>"gregory"</c> there.)
     /// </para>
     /// <para>
     /// An answer the engine does not answer for is discarded rather than resolved to: the specification
