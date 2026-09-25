@@ -49,6 +49,7 @@ internal sealed class XmlCorpusLock
     public string ArchiveSha256 { get; init; } = "";
     public string ClarkZipSha256 { get; init; } = "";
     public string CasesSha256 { get; init; } = "";
+    public string PreparedInputsSha256 { get; init; } = "";
     public int FileCount { get; init; }
     public int RowCount { get; init; }
     public Dictionary<string, int> Categories { get; init; } = new();

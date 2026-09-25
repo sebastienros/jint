@@ -38,10 +38,19 @@ internal sealed record XmlCaseOutcome(XmlOutcomeKind Kind, string Signature, str
 internal static class XmlConformanceRunner
 {
     internal static XmlCaseOutcome Run(XmlCorpusCase row, XmlCaseExpectation? testExpectation = null,
-        byte[]? testOutput = null)
+        byte[]? testOutput = null, bool usePreparedOverride = false, byte[]? testPrepared = null)
     {
         var bytes = XmlCorpus.Bytes(row.InputPath);
-        var (source, decision) = XmlByteDecoder.Decode(bytes);
+        string? source;
+        XmlDecodingDecision decision;
+        try
+        {
+            (source, decision) = XmlPreparedInputs.Load(row, bytes, usePreparedOverride, testPrepared);
+        }
+        catch (XmlPreparedInputException error)
+        {
+            return new(XmlOutcomeKind.HarnessFailure, error.Signature, error.Message);
+        }
         if (decision.Decision != row.Decoding.Decision || decision.Status != row.Decoding.Status ||
             decision.Declared != row.Decoding.Declared)
         {

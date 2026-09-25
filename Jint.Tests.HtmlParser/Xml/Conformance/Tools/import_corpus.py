@@ -13,7 +13,9 @@ import json
 import os
 import posixpath
 import re
+import sys
 import tarfile
+import tempfile
 import urllib.request
 import xml.parsers.expat as expat
 import zipfile
@@ -71,6 +73,19 @@ MISC_INPUT_IDS = frozenset(
     + [f"hst-lhs-{i:03}" for i in range(7, 10)]
 )
 
+JAPANESE_NAMES = (
+    "pr-xml-euc-jp", "pr-xml-iso-2022-jp", "pr-xml-shift_jis",
+    "weekly-euc-jp", "weekly-iso-2022-jp", "weekly-shift_jis",
+)
+JAPANESE_KEYS = frozenset("xmlconf/japanese/japanese.xml#" + name for name in JAPANESE_NAMES)
+JAPANESE_CODECS = {
+    "euc-jp": ("euc_jp", "prepared-euc-jp"),
+    "iso-2022-jp": ("iso2022_jp", "prepared-iso-2022-jp"),
+    "shift_jis": ("shift_jis", "prepared-shift-jis"),
+}
+HEX_SHA = re.compile(r"[0-9a-f]{64}\Z")
+DECLARATION = re.compile(r"<\?xml\s+[^?]*?\bencoding\s*=\s*(['\"])([^'\"]+)\1", re.I)
+
 
 def digest(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
@@ -117,6 +132,77 @@ def archive_files(data: bytes) -> dict[str, bytes]:
                 raise ValueError(f"Missing archive member: {name}")
             files[name] = stream.read()
     return files
+
+
+def prepared_rows(lock: dict, files: dict[str, bytes]) -> dict[str, dict]:
+    metadata = (ROOT / "prepared-inputs.json").read_bytes()
+    if digest(metadata) != lock.get("preparedInputsSha256"):
+        raise ValueError("Prepared input metadata digest mismatch")
+    entries = json.loads(metadata)
+    if len(entries) != 6 or {row["key"] for row in entries} != JAPANESE_KEYS:
+        raise ValueError("Prepared input key registry drift or duplicate")
+    locked = {row["path"]: row["sha256"] for row in lock["files"]}
+    if len(locked) != len(lock["files"]):
+        raise ValueError("Duplicate source member lock")
+    result = {}
+    for row in entries:
+        name = row["key"].split("#", 1)[1]
+        suffix = name.removeprefix("pr-xml-").removeprefix("weekly-")
+        label = "Shift_JIS" if name == "weekly-shift_jis" else suffix
+        path = "xmlconf/japanese/" + name + ".xml"
+        if set(row) != {"key", "inputPath", "rawSha256", "codec", "decodedUtf8Sha256", "utf16Length", "declared", "decision"} or \
+                row["inputPath"] != path or row["declared"] != label or \
+                (row["codec"], row["decision"]) != JAPANESE_CODECS[label.lower()] or \
+                not all(isinstance(row[field], str) and HEX_SHA.fullmatch(row[field])
+                        for field in ("rawSha256", "decodedUtf8Sha256")) or \
+                not isinstance(row["utf16Length"], int) or row["utf16Length"] <= 0 or \
+                row["rawSha256"] != locked.get(path) or digest(files[path]) != row["rawSha256"]:
+            raise ValueError(f"Prepared input identity drift: {row['key']}")
+        result[row["key"]] = row
+    return result
+
+
+def prepare_text(row: dict, raw: bytes) -> tuple[str, bytes]:
+    if digest(raw) != row["rawSha256"] or raw.startswith((b"\xef\xbb\xbf", b"\xfe\xff", b"\xff\xfe")) or \
+            raw.startswith((b"\x00\x3c", b"\x3c\x00")):
+        raise ValueError(f"Prepared raw input signature/hash mismatch: {row['key']}")
+    text = raw.decode(row["codec"], errors="strict")
+    declaration = DECLARATION.match(text)
+    if not declaration or declaration.group(2) != row["declared"] or text.startswith("\ufeff"):
+        raise ValueError(f"Prepared declaration mismatch: {row['key']}")
+    encoded = text.encode("utf-8", errors="strict")
+    if digest(encoded) != row["decodedUtf8Sha256"] or \
+            len(text.encode("utf-16-le", errors="strict")) // 2 != row["utf16Length"]:
+        raise ValueError(f"Prepared decoded digest/length mismatch: {row['key']}")
+    return text, encoded
+
+
+def prepare_decoded() -> None:
+    lock = json.loads((ROOT / "corpus.lock.json").read_bytes())
+    if lock.get("archiveSha256") != ARCHIVE_SHA or lock.get("clarkZipSha256") != CLARK_SHA:
+        raise ValueError("Prepared archive pin drift")
+    verify(CLARK_ZIP, CLARK_SHA)
+    files = archive_files(verify(ARCHIVE, ARCHIVE_SHA))
+    if len(files) != lock["fileCount"] or len(lock["files"]) != lock["fileCount"]:
+        raise ValueError("Prepared source archive census mismatch")
+    rows = prepared_rows(lock, files)
+    destination_dir = CACHE / "DecodedJapanese"
+    destination_dir.mkdir(parents=True, exist_ok=True)
+    for row in rows.values():
+        _, encoded = prepare_text(row, files[row["inputPath"]])
+        destination = destination_dir / (row["rawSha256"] + ".utf8")
+        temporary: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(dir=destination_dir, prefix=".prepared-", delete=False) as output:
+                temporary = Path(output.name)
+                output.write(encoded)
+            if temporary.read_bytes() != encoded or digest(temporary.read_bytes()) != row["decodedUtf8Sha256"]:
+                raise ValueError(f"Prepared output write mismatch: {row['key']}")
+            os.replace(temporary, destination)
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
+    print(f"Prepared {len(rows)} exact Japanese inputs with Python {sys.version.split()[0]}")
 
 
 def catalog_rows(files: dict[str, bytes]) -> tuple[list[dict], list[str]]:
@@ -238,6 +324,9 @@ def import_corpus() -> None:
     archive_data = verify(ARCHIVE, ARCHIVE_SHA)
     zip_data = verify(CLARK_ZIP, CLARK_SHA)
     files = archive_files(archive_data)
+    previous_lock = json.loads((ROOT / "corpus.lock.json").read_bytes())
+    japanese = prepared_rows(previous_lock, files)
+    used_japanese: set[str] = set()
     import io
 
     with zipfile.ZipFile(io.BytesIO(zip_data)) as original:
@@ -311,7 +400,15 @@ def import_corpus() -> None:
         if output3_path is not None and output3_path not in files:
             raise ValueError(f"Missing OUTPUT3 {key}: {output3_path}")
         profile, reason = in_profile(attributes)
-        source_text, decoder = decode_document(files[input_path])
+        if stable_key in JAPANESE_KEYS:
+            reviewed = japanese[stable_key]
+            if input_path != reviewed["inputPath"]:
+                raise ValueError(f"Prepared catalog input path drift: {stable_key}")
+            source_text, _ = prepare_text(reviewed, files[input_path])
+            decoder = {"decision": reviewed["decision"], "status": "decoded", "declared": reviewed["declared"]}
+            used_japanese.add(stable_key)
+        else:
+            source_text, decoder = decode_document(files[input_path])
         signals = []
         if attributes.get("ENTITIES", "none") != "none":
             signals.append("ENTITIES=" + attributes["ENTITIES"])
@@ -350,6 +447,8 @@ def import_corpus() -> None:
 
     if used_boundary != boundary.keys():
         raise ValueError(f"Stale or unapplied byte-boundary decisions: {sorted(used_boundary ^ boundary.keys())}")
+    if used_japanese != JAPANESE_KEYS:
+        raise ValueError(f"Prepared catalog row drift: {sorted(used_japanese ^ JAPANESE_KEYS)}")
 
     case_json = json.dumps(cases, ensure_ascii=False, indent=2) + "\n"
     lock = {
@@ -357,6 +456,7 @@ def import_corpus() -> None:
         "clarkUrl": CLARK_URL, "clarkZipSha256": CLARK_SHA,
         "metadataPaths": metadata_paths, "fileCount": len(files), "rowCount": len(cases),
         "casesSha256": digest(case_json.encode("utf-8")),
+        "preparedInputsSha256": digest((ROOT / "prepared-inputs.json").read_bytes()),
         "categories": dict(sorted(Counter(case["category"] for case in cases).items())),
         "clarkChanged": changed_clark, "clarkAdded": added_clark,
         "clarkOriginalOnly": original_only_clark,
@@ -371,11 +471,14 @@ def import_corpus() -> None:
 
 if __name__ == "__main__":
     command = argparse.ArgumentParser(description=__doc__)
-    command.add_argument("action", choices=("restore", "import"))
+    command.add_argument("action", choices=("restore", "import", "prepare-decoded"))
     arguments = command.parse_args()
     if arguments.action == "restore":
         restore_one(ARCHIVE_URL, ARCHIVE, ARCHIVE_SHA)
         restore_one(CLARK_URL, CLARK_ZIP, CLARK_SHA)
         print("Pinned archives restored and verified")
+        prepare_decoded()
+    elif arguments.action == "prepare-decoded":
+        prepare_decoded()
     else:
         import_corpus()

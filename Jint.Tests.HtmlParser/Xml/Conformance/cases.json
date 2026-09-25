@@ -11195,16 +11195,17 @@
     "output3": null,
     "output3Path": null,
     "decoding": {
-      "decision": "utf-8-default",
-      "status": "strict-decode-error",
-      "detail": "'utf-8' codec can't decode byte 0xc6 in position 84: invalid continuation byte"
+      "decision": "prepared-euc-jp",
+      "status": "decoded",
+      "declared": "euc-jp"
     },
     "disposition": "optional-error-review",
     "reason": "",
     "boundaryByteOffset": null,
     "resourceProfile": "unreviewed-external-indication",
     "resourceSignals": [
-      "ENTITIES=parameter"
+      "ENTITIES=parameter",
+      "external-identifier-lexical"
     ]
   },
   {
@@ -11227,8 +11228,8 @@
     "output3": null,
     "output3Path": null,
     "decoding": {
-      "decision": "utf-8-default",
-      "status": "declared-encoding-review",
+      "decision": "prepared-iso-2022-jp",
+      "status": "decoded",
       "declared": "iso-2022-jp"
     },
     "disposition": "optional-error-review",
@@ -11236,7 +11237,8 @@
     "boundaryByteOffset": null,
     "resourceProfile": "unreviewed-external-indication",
     "resourceSignals": [
-      "ENTITIES=parameter"
+      "ENTITIES=parameter",
+      "external-identifier-lexical"
     ]
   },
   {
@@ -11292,16 +11294,17 @@
     "output3": null,
     "output3Path": null,
     "decoding": {
-      "decision": "utf-8-default",
-      "status": "strict-decode-error",
-      "detail": "'utf-8' codec can't decode byte 0x93 in position 87: invalid start byte"
+      "decision": "prepared-shift-jis",
+      "status": "decoded",
+      "declared": "shift_jis"
     },
     "disposition": "optional-error-review",
     "reason": "",
     "boundaryByteOffset": null,
     "resourceProfile": "unreviewed-external-indication",
     "resourceSignals": [
-      "ENTITIES=parameter"
+      "ENTITIES=parameter",
+      "external-identifier-lexical"
     ]
   },
   {
@@ -11390,16 +11393,17 @@
     "output3": null,
     "output3Path": null,
     "decoding": {
-      "decision": "utf-8-default",
-      "status": "strict-decode-error",
-      "detail": "'utf-8' codec can't decode byte 0xbd in position 51: invalid start byte"
+      "decision": "prepared-euc-jp",
+      "status": "decoded",
+      "declared": "euc-jp"
     },
     "disposition": "optional-error-review",
     "reason": "",
     "boundaryByteOffset": null,
     "resourceProfile": "unreviewed-external-indication",
     "resourceSignals": [
-      "ENTITIES=parameter"
+      "ENTITIES=parameter",
+      "external-identifier-lexical"
     ]
   },
   {
@@ -11422,8 +11426,8 @@
     "output3": null,
     "output3Path": null,
     "decoding": {
-      "decision": "utf-8-default",
-      "status": "declared-encoding-review",
+      "decision": "prepared-iso-2022-jp",
+      "status": "decoded",
       "declared": "iso-2022-jp"
     },
     "disposition": "optional-error-review",
@@ -11431,7 +11435,8 @@
     "boundaryByteOffset": null,
     "resourceProfile": "unreviewed-external-indication",
     "resourceSignals": [
-      "ENTITIES=parameter"
+      "ENTITIES=parameter",
+      "external-identifier-lexical"
     ]
   },
   {
@@ -11487,16 +11492,17 @@
     "output3": null,
     "output3Path": null,
     "decoding": {
-      "decision": "utf-8-default",
-      "status": "strict-decode-error",
-      "detail": "'utf-8' codec can't decode byte 0x8f in position 54: invalid start byte"
+      "decision": "prepared-shift-jis",
+      "status": "decoded",
+      "declared": "Shift_JIS"
     },
     "disposition": "optional-error-review",
     "reason": "",
     "boundaryByteOffset": null,
     "resourceProfile": "unreviewed-external-indication",
     "resourceSignals": [
-      "ENTITIES=parameter"
+      "ENTITIES=parameter",
+      "external-identifier-lexical"
     ]
   },
   {

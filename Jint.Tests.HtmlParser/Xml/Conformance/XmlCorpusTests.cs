@@ -309,9 +309,19 @@ public class XmlCorpusTests
         XmlConformanceRunner.Run(newlyReviewed).Kind.Should().Be(XmlOutcomeKind.OptionalPolicyVerified);
 
         var unsupportedEncoding = XmlCorpus.Case("xmlconf/japanese/japanese.xml#pr-xml-euc-jp");
-        var unavailable = XmlConformanceRunner.Run(unsupportedEncoding);
+        XmlConformanceRunner.Run(unsupportedEncoding).Kind.Should().Be(XmlOutcomeKind.OptionalObservedUnreviewed);
+        var (_, genericDecision) = XmlByteDecoder.Decode(XmlCorpus.Bytes(unsupportedEncoding.InputPath));
+        var synthetic = new XmlCorpusCase
+        {
+            Key = "synthetic-unsupported-euc-jp", InputPath = unsupportedEncoding.InputPath,
+            Decoding = genericDecision, Disposition = "optional-error-review"
+        };
+        var unavailable = XmlConformanceRunner.Run(synthetic);
         unavailable.Kind.Should().Be(XmlOutcomeKind.OptionalAdapterDebt);
         unavailable.Detail.Should().Contain("input adapter unavailable");
+        var missingPrepared = XmlConformanceRunner.Run(unsupportedEncoding, usePreparedOverride: true);
+        missingPrepared.Kind.Should().Be(XmlOutcomeKind.HarnessFailure);
+        missingPrepared.Signature.Should().Be("prepared-artifact-missing");
 
         var notationDependent = XmlCorpus.Case("xmlconf/eduni/errata-2e/errata2e.xml#rmt-e2e-55");
         XmlConformanceRunner.Run(notationDependent).Kind.Should().Be(XmlOutcomeKind.OptionalPolicyVerified);
