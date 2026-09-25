@@ -98,9 +98,9 @@ public class HtmlTreeSessionTests
         var second = new HtmlParserSession(afterHead);
         second.AppendInput("<html><head></head>&#13;<frameset>", isFinal: true);
         do { result = second.Drive(100, CancellationToken.None); } while (result.Kind == HtmlParseStepKind.Yielded);
-        result.Kind.Should().Be(HtmlParseStepKind.MissingFeature);
-        result.MissingFeature.Should().Be(HtmlMissingFeature.Framesets);
-        ((Text) afterHead.DocumentElement!.LastChild!).Data.Should().Be("\r");
+        result.Kind.Should().Be(HtmlParseStepKind.Complete);
+        ((Element) afterHead.DocumentElement!.LastChild!).LocalName.Should().Be("frameset");
+        ((Text) afterHead.DocumentElement.LastChild!.PreviousSibling!).Data.Should().Be("\r");
     }
 
     [Test]
@@ -220,7 +220,7 @@ public class HtmlTreeSessionTests
                      "type=hidden><frameset>";
         var document = Document.CreateHtml();
         var session = new HtmlParserSession(document);
-        session.AppendInput(source, isFinal: true);
+        session.AppendInput(source[..^"<frameset>".Length]);
         HtmlParseStep step;
         var turns = 0;
         do
@@ -228,9 +228,15 @@ public class HtmlTreeSessionTests
             step = session.Drive(1, CancellationToken.None);
             if (++turns > source.Length * 20) throw new InvalidOperationException("Input attribute scan stalled.");
         } while (step.Kind == HtmlParseStepKind.Yielded);
-        step.Kind.Should().Be(HtmlParseStepKind.MissingFeature);
-        step.MissingFeature.Should().Be(HtmlMissingFeature.Framesets);
-        ((Element) document.DocumentElement!.LastChild!.FirstChild!).AttributeCount.Should().Be(attributes + 1);
+        step.Kind.Should().Be(HtmlParseStepKind.NeedInput);
+        var input = (Element) document.DocumentElement!.LastChild!.FirstChild!;
+        input.AttributeCount.Should().Be(attributes + 1);
+        session.AppendInput("<frameset>", isFinal: true);
+        do step = session.Drive(1, CancellationToken.None);
+        while (step.Kind == HtmlParseStepKind.Yielded);
+        step.Kind.Should().Be(HtmlParseStepKind.Complete);
+        input.ParentNode.Should().BeNull();
+        ((Element) document.DocumentElement.LastChild!).LocalName.Should().Be("frameset");
     }
 
     [Test]
