@@ -217,4 +217,32 @@ public class HostDeferredStringMemoryLimitTests
 
         result.Should().Be(999_999);
     }
+
+    /// <summary>
+    /// What stays open (sebastienros/jint#4175): 64 values over one 1,048,576-character string are each
+    /// charged for what they add, so the script stays far inside its budget, and a host <c>ToObject()</c> of
+    /// the array would copy 128 MB. The documented bounded read is <see cref="Engine.ConvertResult"/> under
+    /// <see cref="ResultLimits"/>, which refuses the first value by its length before copying it — so the
+    /// conversion entry itself allocates less than one copy would.
+    /// </summary>
+    [TestCase("big.slice(i + 1)", TestName = "{m}(slice views)")]
+    [TestCase("rope + 'q'", TestName = "{m}(concatenations over one operand)")]
+    public void ConvertResultRefusesValuesSharingOneStringBeforeCopyingThem(string element)
+    {
+        var engine = new Engine(options => options.LimitMemory(16_000_000));
+        var constraint = engine.Constraints.Find<MemoryLimitConstraint>()!;
+        var value = engine.Evaluate($$"""
+            var big = 'x'.repeat(1 << 20);
+            var rope = big + 'y';
+            var values = [];
+            for (var i = 0; i < 64; i++) { values.push({{element}}); }
+            values
+            """);
+
+        var failure = Caught.Exception(() => engine.ConvertResult(value, ResultLimits.Conservative));
+
+        failure.Should().BeOfType<ResultLimitExceededException>()
+            .Which.Limit.Should().Be(ResultLimit.StringLength);
+        constraint.AllocatedBytes.Should().BeLessThan(1L << 20, "copying one value would allocate 2 MB");
+    }
 }
