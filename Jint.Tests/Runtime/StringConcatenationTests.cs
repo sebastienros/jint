@@ -41,6 +41,23 @@ public class StringConcatenationTests
         value.ToString().Length.Should().Be(2000);
     }
 
+    /// <summary>
+    /// A memory limit charges the deferred value when it is built (sebastienros/jint#4162); it does not stop
+    /// the value being deferred. The simplest way to close that issue was to copy eagerly whenever a limit is
+    /// configured, which would have handed every <c>ForUntrustedCode</c> engine back the quadratic <c>+</c>.
+    /// </summary>
+    [Test]
+    public void AccumulatingWithPlusStaysDeferredUnderAMemoryLimit()
+    {
+        var engine = new Engine(options => options.LimitMemory(16_000_000));
+        engine.Execute(Chunk);
+
+        var value = engine.Evaluate("var s = ''; for (var i = 0; i < 200; i++) { s = s + chunk; } s;");
+
+        value.Should().BeOfType<JsString.RopeString>();
+        value.ToString().Length.Should().Be(2000);
+    }
+
     [Test]
     public void PrependingWithPlusLeavesTheValueDeferred()
     {

@@ -43,6 +43,11 @@ public enum MemoryLimitAccuracy
 /// By default the budget is reset for every top-level engine entry. Use <see cref="Begin"/> and
 /// <see cref="End"/> to cover a host operation made from several entries with one shared budget.
 /// </para>
+/// <para>
+/// A long string concatenation that defers its copy is charged when it is built, for the characters it
+/// appends, and one whose result alone exceeds the limit fails at once. <see cref="AllocatedBytes"/> can
+/// therefore include characters that nothing has allocated yet.
+/// </para>
 /// </remarks>
 public sealed class MemoryLimitConstraint : Constraint
 {
@@ -235,6 +240,50 @@ public sealed class MemoryLimitConstraint : Constraint
     }
 
     internal OperationState? CurrentOperationState => _activeState;
+
+    /// <summary>
+    /// Charges the active operation for a concatenation that defers its copy instead of making it
+    /// (<see cref="Native.JsString.Concat"/>), as if the characters had been allocated where the copy would
+    /// have been (sebastienros/jint#4162).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The charge is what the concatenation <em>appends</em>, its shorter operand: the same thing the result
+    /// costs when built with <c>+=</c>, and what keeps an accumulator linear, because charging every node its
+    /// whole length charges <c>s = s + x</c> for a copy of <c>s</c> on every iteration — the quadratic cost
+    /// the deferral exists to remove. It is also enough to bound every read of the value: following the
+    /// longer operand down from a node reaches one real string, and each node on that path added no more
+    /// than its shorter operand, so a node never stands for more than that string plus what its path was
+    /// charged, whoever flattens it and whenever.
+    /// </para>
+    /// <para>
+    /// That argument cannot bound a path charged across several operations, each within its own budget, or
+    /// a real string the script never allocated — a host string with a character appended. So a result
+    /// whose flat form alone exceeds the whole budget is charged in full, exactly as the copy it replaced
+    /// would have been, and refused before the node exists: no operation leaves behind a value larger than
+    /// its budget.
+    /// </para>
+    /// </remarks>
+    internal void ChargeDeferredConcatenation(int leftLength, int rightLength)
+    {
+        var state = _activeState;
+        if (state is null)
+        {
+            // No operation is armed, so there is nothing to charge: the host called in from outside a run.
+            return;
+        }
+
+        var length = (long) leftLength + rightLength;
+        if (length * sizeof(char) <= _memoryLimit)
+        {
+            // Seen by the next exact check — the statement's own, or the one closing the entry.
+            state.AllocatedBytes = SaturatingAdd(state.AllocatedBytes, Math.Min(leftLength, rightLength) * (long) sizeof(char));
+            return;
+        }
+
+        state.AllocatedBytes = SaturatingAdd(state.AllocatedBytes, length * sizeof(char));
+        Check();
+    }
 
     internal bool TrySuspendActiveSegment(
         out OperationState? operationState,

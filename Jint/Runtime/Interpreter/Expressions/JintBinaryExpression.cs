@@ -1613,7 +1613,7 @@ internal abstract class JintBinaryExpression : JintExpression
                     Throw.RangeError(context.Engine.Realm, "Invalid string length");
                 }
 
-                return JsString.Concat(left, right);
+                return JsString.Concat(left, right, context);
             }
 
             return ConcatWithCoercedOperand(context, lprim, rprim);
@@ -1660,7 +1660,7 @@ internal abstract class JintBinaryExpression : JintExpression
             return JsString.Create(string.Concat(leftText ?? left!.ToString(), rightText ?? right!.ToString()));
         }
 
-        return JsString.Concat(left ?? JsString.Create(leftText!), right ?? JsString.Create(rightText!));
+        return JsString.Concat(left ?? JsString.Create(leftText!), right ?? JsString.Create(rightText!), context);
     }
 
     /// <summary>
@@ -1959,7 +1959,7 @@ internal abstract class JintBinaryExpression : JintExpression
             }
 
             CheckConcatenationLength(context, total);
-            return ConcatMany(parts, total);
+            return ConcatMany(context, parts, total);
         }
 
         /// <summary>
@@ -2018,7 +2018,7 @@ internal abstract class JintBinaryExpression : JintExpression
 
             if (total >= JsString.MinDeferredConcatenationLength)
             {
-                return JsString.Concat(JsString.Concat(JsStringOf(s0), JsStringOf(s1)), JsStringOf(s2));
+                return JsString.Concat(JsString.Concat(JsStringOf(s0), JsStringOf(s1), context), JsStringOf(s2), context);
             }
 
             return JsString.Create(string.Concat(TextOf(s0), TextOf(s1), TextOf(s2)));
@@ -2032,7 +2032,7 @@ internal abstract class JintBinaryExpression : JintExpression
 
             if (total >= JsString.MinDeferredConcatenationLength)
             {
-                return JsString.Concat(JsString.Concat(JsString.Concat(JsStringOf(s0), JsStringOf(s1)), JsStringOf(s2)), JsStringOf(s3));
+                return JsString.Concat(JsString.Concat(JsString.Concat(JsStringOf(s0), JsStringOf(s1), context), JsStringOf(s2), context), JsStringOf(s3), context);
             }
 
             return JsString.Create(string.Concat(TextOf(s0), TextOf(s1), TextOf(s2), TextOf(s3)));
@@ -2043,14 +2043,14 @@ internal abstract class JintBinaryExpression : JintExpression
         /// The five-or-more form, whose caller has already summed and checked the total — the 3- and
         /// 4-operand ones exist to keep the <see cref="string"/>[]-free <c>string.Concat</c> overloads.
         /// </remarks>
-        private static JsString ConcatMany(object[] parts, long total)
+        private static JsString ConcatMany(EvaluationContext context, object[] parts, long total)
         {
             if (total >= JsString.MinDeferredConcatenationLength)
             {
-                var accumulator = JsString.Concat(JsStringOf(parts[0]), JsStringOf(parts[1]));
+                var accumulator = JsString.Concat(JsStringOf(parts[0]), JsStringOf(parts[1]), context);
                 for (var i = 2; i < parts.Length; i++)
                 {
-                    accumulator = JsString.Concat(accumulator, JsStringOf(parts[i]));
+                    accumulator = JsString.Concat(accumulator, JsStringOf(parts[i]), context);
                 }
 
                 return accumulator;
@@ -2125,7 +2125,7 @@ internal abstract class JintBinaryExpression : JintExpression
             }
 
             CheckConcatenationLength(context, total);
-            return ConcatMany(parts, total);
+            return ConcatMany(context, parts, total);
         }
     }
 

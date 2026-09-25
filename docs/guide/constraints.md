@@ -25,6 +25,12 @@ limits for a hard boundary.
 memory, or process memory. `LimitExecutionTime`, statement count, and memory normally reset around each
 top-level `Execute`, `Evaluate`, `Invoke`, or `Call`.
 
+A long `a + b` defers its copy, so it is charged when it is built, for the characters it appends, and a `+`
+whose result alone would exceed the limit fails at once: no string a script builds costs more than the budget
+to read. Strings that share characters are each charged only for what they add, yet a host read copies each in
+full. `ToString()` and `ToObject()` are unbounded; `Engine.ConvertResult` honours `ResultLimits` and refuses an
+over-long string before copying it.
+
 The native stack-overflow guard is enabled by default. It converts exhausted recursion headroom into a
 catchable JavaScript `RangeError` while the engine can still unwind. `MaxRecursionDepth` is an additional,
 configured recursion bound; it does not replace the native-stack guard for every recursion shape.

@@ -1815,7 +1815,7 @@ path at all. From v5 a `+` whose result is at least 512 characters returns an *i
 instead, and materializes the text on the first read that needs characters.
 
 **What could break:** nothing a script can see — the value is the string it stands for, for equality,
-hashing, property keys, `length`, every `String.prototype` method and `JSON.stringify`. Two things a host
+hashing, property keys, `length`, every `String.prototype` method and `JSON.stringify`. Three things a host
 might notice:
 
 - `engine.Evaluate("a + b")` may hand back a `JsString` **subclass**. It always could — `+=` has returned one
@@ -1824,6 +1824,13 @@ might notice:
 - The result keeps its two operands alive until something reads its text. A host that concatenates a large
   string and holds only the result, expecting the operands to become collectable immediately, gets that back
   by reading the result once (`AsString()` is enough) — the node then drops both references.
+- Under `LimitMemory` the node is charged when it is built, for its shorter operand, rather than for the full
+  copy 4.16 made ([#4162](https://github.com/sebastienros/jint/issues/4162)). `s = s + x` is therefore charged
+  linearly — a loop 4.16 refused at 16 MB passes at about 6 MB — while one large `+` the script also reads is
+  charged up to 1.5 times what 4.16 charged. A `+` whose result alone exceeds the whole budget throws
+  `MemoryLimitExceededException` before the value exists, and `MemoryLimitConstraint.AllocatedBytes` counts
+  characters charged but not yet allocated. A host copying out many values that share characters should read
+  them through `Engine.ConvertResult` under `ResultLimits`; `ToString()` and `ToObject()` are not bounded.
 ### 4.28 A read-only host collection refuses script with a JavaScript error ([#3382](https://github.com/sebastienros/jint/issues/3382))
 
 A wrapped collection that declares itself read-only — `ReadOnlyCollection<T>`, `ImmutableList<T>`,
