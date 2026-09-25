@@ -1,6 +1,6 @@
 # D7b3p: input numeric precision, conversion and write policy
 
-Policy amendment for independent review, 2026-09-23. This is a new document only; it dispatches no
+Policy amendment revised for independent review, 2026-09-25. This is a design document only; it dispatches no
 implementation and does not edit the reviewed [D7b3 family design](html-parser-input-value-families.md).
 It supplies exact proposed outcomes for that document's four b3p gates and a concrete b3a formatter
 owner. Approval of this packet, not the existence of this file, releases the dependent implementation
@@ -16,7 +16,7 @@ Normative references are [HTML input](https://html.spec.whatwg.org/multipage/inp
 [HTML number/date microsyntax](https://html.spec.whatwg.org/multipage/common-microsyntaxes.html),
 [ECMA Number::toString](https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#sec-numeric-types-number-tostring),
 [TimeClip](https://tc39.es/ecma262/multipage/numbers-and-dates.html#sec-timeclip), and
-[WebIDL conversion](https://webidl.spec.whatwg.org/#js-type-mapping). HTML was updated 2026-09-22.
+[WebIDL conversion](https://webidl.spec.whatwg.org/#js-type-mapping). The relevant HTML algorithms were rechecked at the 2026-09-25 update.
 
 Implementation evidence was downloaded at fixed commits, not inferred from compatibility tables:
 
@@ -97,90 +97,92 @@ with its formatter in an appropriate test-only harness. A shortest-digit disagre
 do not introduce a silent per-TFM string override. No formatter test or performance result is claimed
 by this design packet.
 
-## 2. Numeric precision: decimal intent and exact rounding cells
+## 2. Numeric precision: exact shortest-decimal remainder
 
-**Selected native precision policy:** HTML parsing first produces the prescribed finite binary64
-value. Constraint arithmetic interprets the shortest decimal representation of that value exactly.
-Step matching admits exactly the lattice points that round to the current binary64 value. This is
-a named compatibility/numerical policy, not a claim that HTML spells out this representation.
-
-This avoids both raw double `%` artifacts for .3/.1 and Chromium's much wider step/2^24 tolerance.
-It also avoids declaring every sufficiently large quotient matched without checking. Firefox uses
-decimal remainder; Chromium uses decimal arithmetic plus tolerance and a large-quotient shortcut.
-Neither source establishes a shared exact extreme-value contract to copy wholesale.
+**Use exact remainder on the shortest-decimal values of the parsed numbers.** This replaces the
+rejected rounding-cell proposal: no projected lattice, ULP neighborhood, epsilon or large-quotient
+exemption can change a nonintegral quotient into a match. The integral-multiple requirement in HTML
+remains the predicate. Decimal representation is the selected numerical interpretation for cases
+such as .3/.1; it is not a claim that HTML specifies every arithmetic representation detail.
 
 Define the operations precisely:
 
-- P(q) rounds an exact rational q under HTML's finite binary64 rule, nearest/ties-even, mapping either
-  zero sign to +0 and reporting overflow instead of publishing infinity. This is a real arithmetic
-  conversion; do not round-trip through a rounded decimal approximation first.
-- D(x) is the exact decimal rational spelled by the b3a formatter for finite x. Original author
-  spelling remains stored separately. Thus numeric parsing of `9007199254740993` yields x=2^53 and
-  D(x)=9007199254740992, without changing the original value string.
-- C(x) is P's preimage interval for x: endpoints are exact midpoints to adjacent binary64 values;
-  midpoint inclusion follows the even-significand rule. Zero has one combined interval. At finite
-  extremes use HTML's special ±2^1024 endpoints, with the overflow threshold excluded from C(max).
-- B is D(parsed base); S is D(parsed positive step) times the family's scale, computed exactly.
-  The mathematical grid is G={B+kS | k is an integer}. The representable grid is L={P(g) | g in G
-  and P(g) succeeds}. StepMismatch(x) is true exactly when G has no point in C(x).
+- Parse each input through its HTML conversion, including nearest finite binary64 conversion where
+  required. A failed conversion is not zero. Preserve the author string separately.
+- D(x) is the exact decimal rational spelled by the b3a formatter for finite parsed x. Do not round
+  it to CLR decimal. For example D(.3)=3/10 and D(.1)=1/10. A source spelling that parses to 2^53
+  has D(x)=9007199254740992, including source `9007199254740993`; its stored spelling is unchanged.
+- V=D(current), B=D(parsed base), S=D(parsed positive step) times the family's scale, computed
+  exactly. StepMismatch is `(V-B)/S` not an integer. For a common decimal scale, subtract integer
+  coefficients and use exact integer remainder. Negative values/bases obey the same zero-remainder
+  test; use mathematical floor/ceiling rather than truncation for alignment.
+- P(q) is nearest/ties-even conversion of an exact arithmetic result q to finite binary64, reporting
+  overflow instead of publishing infinity. P is a publication operation, never a validity rule.
 
-Compute the first/last possible k from rational ceil/floor of the cell endpoints minus B divided by
-S, adjusting an integral endpoint when it is excluded. No scan proportional to k, no epsilon and no
-materialized grid. L is monotone, and duplicate results from nearby grid points collapse to one value.
-Do not use Math.BitIncrement results at infinity as arithmetic endpoints; construct the special
-overflow threshold from the bit-level definition. Zero and powers of two have asymmetric neighbors.
+D is an explicit decimal arithmetic choice: it does not mean the exact base-two rational represented
+by every x, nor the author's unrounded arbitrary-precision decimal. Keep that boundary visible. The
+required integer 2^53 has its exact decimal value under D, so base=0/step=3 necessarily mismatches:
+9007199254740992 = 3 * 3002399751580330 + 2. A neighboring multiple rounding back to 2^53 is irrelevant.
+Chromium's tolerance/large-quotient shortcuts are not adopted. Firefox's decimal-remainder approach
+is supporting implementation evidence, not proof that its precision matches this exact policy.
 
-Input parsing still owns HTML's prefix grammar and nearest conversion. `step=2e-324` parses to zero
-and therefore selects the default; `step=5e-324` is positive and remains a real allowed step.
-An overflowing step spelling such as `2e308` fails parsing and selects the default. In contrast a
-finite parsed step whose multiplication by a temporal scale exceeds binary64 stays an exact positive
-S; it does not turn into step any, zero or the default. All bound comparisons use parsed numbers;
-no comparison may accidentally use the unsanitized author spelling as an arbitrary-precision value.
+`step=2e-324` parses to zero and selects the default; `step=5e-324` remains positive. An overflowing
+step spelling such as `2e308` fails parsing and selects the default. A finite positive parsed step
+whose multiplication by a temporal scale exceeds binary64 remains exact S; multiplication alone
+must not turn it into any, zero or the default. Default/base/min/max precedence remains b3's.
 
-This bounded arithmetic is not a requirement to use BigInteger on ordinary inputs. Use checked small
-integer/decimal-coefficient operations when exact; fall back to engine-independent System.Numerics
-integer rational operations for the extreme cases. After finite parsing, significant decimal digits
-are at most 17 and exponents come from binary64, plus fixed scale and Int32 step count. Rounding-cell
-denominators are bounded by binary64's exponent range. Operand growth is consequently bounded
-independently of the source's exponent spelling or number of redundant digits. Derive and test those
-bounds; never allocate a power of ten using an unbounded parsed author exponent.
+Arithmetic on finite parsed inputs has bounded significant-digit/exponent sizes, independent of
+redundant source digits or an author's exponent spelling. Use checked small-integer coefficient
+operations when exact and a bounded System.Numerics integer fallback otherwise. No power of ten
+may use an unbounded author exponent, and no operation loops proportional to the grid index/count.
+This replaces the former rounding-cell machinery with ordinary scaled integer remainder/division.
 
-The same L must drive mismatch, range rounding and step alignment. For number/range, a matched x's
-arithmetic anchor is the grid point in C(x) nearest D(x), with an exact-distance tie going upward.
-Apply the count to that grid point and enforce bounds through the first/last members of L within
-those bounds, then project once with P. A candidate beyond a finite bound can be bounded before a
-projection that would otherwise overflow; never discard that usable bound. This prevents a successful
-step producing a value the same policy immediately calls mismatched. An off-grid input aligns to the nearest strictly lower/higher member
-of L according to the b3 method branch. The b3 rules about count, method direction and early returns
-otherwise stay in force. Projection need not advance x when the step is below its resolution.
+For both step methods and range sanitization use the mathematical grid B+kS. An off-grid value
+aligns by exact floor/ceiling; an on-grid value adds exactly n*S in the applicable direction. Bounds
+select the first/last mathematical grid point within them. Keep b3's ordering, including its separate
+alignment branch, count semantics and direction guard. Range midpoint is exactly (D(min)+D(max))/2;
+compare exact distances to its adjacent in-bounds grid points, taking the larger on a tie. An interval
+with no grid point retains the clamped value as HTML specifies. No rounded neighboring point can
+stand in for a missing grid point.
 
-For range, measure nearest distances using D(candidate) and the exact decimal target; midpoint is
-(D(min)+D(max))/2 with no floating overflow. Ties go upward. Find adjacent members of L by inverse
-rounding-cell bounds and integer quotient operations, not by stepping through collapsed grid points.
-Restrict to the sanitizer's applicable bounds. If there is no candidate, retain the clamped value as
-HTML requires. For a script step with no finite projected candidate after applicable bound handling,
-return unchanged. This finite-result guard is an explicit native policy for arithmetic overflow.
+Only after this arithmetic does number/range publication apply P and FormatFinite. Temporal
+publication uses its containing-family/floor conversion in section 3. Recompute later facts from the
+published value by the same ordinary parser and remainder rule. Publication can collapse a step or
+leave a result mismatched; do not grant it hidden validity, keep an unobservable exact-current-value
+cache, repeatedly sanitize until convergence, or search for a different rounded grid. Each sanitizer
+invocation performs the prescribed finite sequence once. A second invocation can therefore have a
+separate effect in extreme precision cases; no idempotence shortcut is permitted without proof.
 
-| Inputs, with explicit base 0 unless stated | Required outcome |
+Bounds are applied before publication, so a finite bound can rescue an otherwise overflowing step
+candidate. If the remaining number/range candidate cannot publish a finite value, the script step
+returns unchanged (the retained explicit arithmetic-overflow policy). This guard is not a reason to
+loosen mismatch. Range midpoint/clamping uses finite parsed bounds and exact arithmetic.
+
+| Inputs, with explicit base 0 unless a min/base is stated | Required outcome |
 | --- | --- |
 | value=.3, step=.1 | No mismatch; stepUp produces `0.4` |
 | value=.30000000000000004, step=.1 | Mismatch; stepDown aligns to `0.3` |
+| value=-.3, step=.1 | No mismatch; stepDown produces `-0.4` |
+| value=.3, min=.1, step=.1 | No mismatch: (.3-.1)/.1=2 |
 | value=9007199254740991, step=2 | Mismatch |
 | value string 9007199254740993, step=2 | Stored spelling retained, numeric 9007199254740992, no mismatch |
-| value=9007199254740992, step=3 | No mismatch: grid point 9007199254740993 rounds to the even 2^53 value |
+| value=9007199254740992, step=3 | Mismatch, remainder 2; stepUp selects 9007199254740993, publishes 9007199254740992, still mismatched |
+| same value and step, stepDown | Selects/publishes 9007199254740990, no mismatch |
+| same value and step, stepUp(0) | Off-grid branch still aligns; published number unchanged and mismatched; successful dirty write |
+| value=9007199254740994, step=3 | Mismatch, remainder 1 |
 | value=5e-324, step=5e-324 | No mismatch; stepUp produces `1e-323` |
 | value=5e-324, step=2e-324 | Default step 1, mismatch |
 | value=1, step=2e308 | Default step 1, no mismatch |
-| time step=1e308 | Exact S=1e311 ms; it neither overflows internally nor becomes the default |
+| time step=1e308 | Exact S=1e311 ms; multiplication does not select the default |
 | range min=5.3/max=12/value=6.7, default step | `6.3` |
 | same range with step=.5 | `6.8` |
-| range min=0/max=1/value=.15/step=.1 | `0.2`, using decimal distance and upward tie |
-| range min=-1e308/max=1e308/step=any, empty | `0`, with no midpoint overflow |
-| number max absent, value=1e308, step=1e308, stepUp | Unchanged, because the projected result overflows |
+| range min=0/max=1/value=.15/step=.1 | `0.2`, exact decimal upward tie |
+| range min=-1e308/max=1e308/step=any, empty | `0`, no midpoint overflow |
+| number max absent, value=1e308, step=1e308, stepUp | Unchanged because publication overflows |
 
-The 2^53/step=3 row intentionally distinguishes this policy from an exact-decimal-remainder-only
-implementation. It must be independently reviewed as a compatibility choice. This packet is not a
-license to characterize that newly selected behavior as an observed cross-browser result.
+These vectors are selected exact outcomes, not claims of a browser run. Include exact remainder
+oracles in the future helper tests so a tolerance or double-remainder regression cannot pass merely
+because serialization still looks plausible.
 
 ## 3. Fractional temporal values and steps
 
@@ -215,8 +217,8 @@ changing mismatch facts even when the control has never been edited.
 
 Consequences are deliberately explicit. Temporal stepping selects its numeric grid point under b3,
 then formats its containing calendar/time value; it does not loop until a representable calendar point
-is reached. Thus family projection may collapse a step or leave the result mismatched. This differs
-from number/range's binary64-only projection, because calendar strings have additional granularity.
+is reached. Thus family projection may collapse a step or leave the result mismatched. Calendar
+strings add their own granularity to the publication-rounding effects described in section 2.
 
 | Temporal fixture | Required outcome |
 | --- | --- |
@@ -232,62 +234,131 @@ rounding the attribute or repeatedly advancing the grid in a performance refacto
 review chooses engine-style step normalization instead, that is a policy change to this table and
 the constraints contract, not a harmless implementation detail.
 
-## 4. Temporal domains: strings, numeric getters, Date, numeric setters
+## 4. Full numeric calendar domain, with TimeClip only for Date
 
-**Keep unbounded positive-year lexical validity, finite numeric getters, and a separately named
-compatibility ceiling for calendar numeric setters.** A single DateTime/TimeClip helper cannot serve
-all four surfaces. D7b3's distinction between null and a Date containing NaN remains necessary.
+**Do not impose an upper calendar ceiling on numeric conversion.** HTML's date/week conversion
+returns the date/week containing the supplied instant; month uses a month index; local datetime uses
+a naive instant. Their valid-string grammars have positive years without an upper year limit. ECMA
+TimeClip applies when constructing an actual Date, not when formatting these input values. There
+is no standards-backed reason to copy a CLR or browser year ceiling into the native number-to-string
+algorithm. This section replaces all caps and cap-driven empty writes in the initial policy draft.
 
-| Operation | Selected domain/result |
+| Operation | Domain/result |
 | --- | --- |
-| Assign date/month/week/local string | Validate the HTML positive-year Gregorian grammar without a 9999 or 275760 ceiling; preserve/normalize by family |
-| String to numeric getter/min/max/base | Compute the mathematical coordinate, then nearest finite binary64. No TimeClip. On numeric overflow return conversion failure/NaN, without erasing a valid stored string |
-| valueAsDate getter | Wrong type/parse error gives null. A successful date/month/week/time parse constructs a new Date with the coordinate subjected to ECMA TimeClip; outside TimeClip gives an invalid Date, not null |
-| Calendar valueAsNumber setter: date/week/local | Require the supplied finite instant in [-62135596800000, 8640000000000000] ms, then apply the floor/containing-family conversion. Outside gives empty through the normal write |
-| Month valueAsNumber setter | Floor month index; allow integer indices -23628 through 3285488 inclusive, corresponding to 0001-01 through 275760-09; otherwise empty |
-| Time valueAsNumber setter | Every finite binary64 is accepted by floor/modulo; no TimeClip, Int64 or calendar-year ceiling |
-| valueAsDate setter | Actual Date has already passed TimeClip; null/invalid Date gives empty. UTC date/week/month requiring a nonpositive HTML year gives empty; time extracts the valid Date's UTC time regardless of its year |
+| Assign date/month/week/local string | Positive-year HTML Gregorian grammar without an upper year ceiling; preserve/normalize by family |
+| String to numeric getter/min/max/base | Compute its mathematical coordinate, then nearest finite binary64; no TimeClip. Numeric overflow is conversion failure/NaN and does not erase a valid stored string |
+| valueAsDate getter | Wrong type/parse error gives null. A successful applicable parse constructs a fresh Date using ECMA TimeClip; outside TimeClip gives an invalid Date, not null |
+| Date numeric formatter | Find the UTC date containing the exact finite instant; emit it if its civil year is positive, otherwise empty |
+| Week numeric formatter | Find the ISO week containing the exact finite instant; emit it if its week-year is positive, otherwise empty; do not clip the original instant to Date's domain |
+| Month numeric formatter | Floor the month index, use floor division/modulo by 12 and add 1970 to the year; emit when the resulting year is positive, otherwise empty |
+| Local datetime numeric formatter | Floor the finite instant to milliseconds, split into Gregorian day and within-day time, emit when the civil year is positive, otherwise empty |
+| Time numeric formatter | Every finite binary64 is accepted by exact floor/Euclidean modulo; no TimeClip, Int64 or year ceiling |
+| valueAsDate setter | The actual Date has already passed TimeClip. Null/invalid Date gives empty; valid Date uses UTC family conversion. Time accepts its UTC time even when the Date's year cannot be an HTML date |
 
-The calendar numeric-formatting domain in this table also applies when a step reaches its final
-family formatter. An out-of-domain temporal candidate formats as empty and takes the successful
-sanitized write path; it is distinct from arithmetic overflow, which returns before writing. For
-example, a valid stored date `275760-09-14` with explicit epoch base and step=1 reaches an empty dirty
-write on stepUp(0). This is another explicit consequence of the compatibility domain, not a parser
-failure or an unfinished-family fallback.
+Infinity rejection and NaN's empty write retain b3's ordering. A finite negative instant does not
+necessarily fail: 1969 is a valid positive year. A Date at -8.64e15 is valid as a Date but cannot become
+an HTML date/month/week with a positive year; its time remains usable. Week-year is tested after ISO
+conversion, not by treating the current civil year as its type. There is no upper-bound asymmetry
+between numeric getters and setters introduced by native policy, although binary64 precision and
+family granularity still prevent universal round trips.
 
-The upper numeric-setter ceiling follows the inspected engine domain and the pinned enormous-local-
-datetime setter test. It is a **compatibility choice**, not a lexical HTML year limit or a claim that
-HTML's number-to-calendar prose explicitly prescribes TimeClip. In particular numeric getter then
-setter need not round-trip a lexical date beyond that ceiling. Such asymmetry must be documented and
-tested instead of silently accepting a CLR limit. Large lexical years retain their spelling even if
-their numeric coordinate overflows; validation can compute leap/week residues without allocating a
-BigInteger with the full author's year length.
+### Concrete bounded calendar algorithm
 
-For a valueAsDate getter with a valid astronomical year, compute whether the exact UTC coordinate is
-within TimeClip before narrowing; out-of-range can return the invalid-Date result without constructing
-an enormous integer. Underlying numeric getter conversion is a different operation. A leading-zero
-year is not astronomical merely because it is long. Error/empty stays distinct from valid-but-unusable
-numeric conversion. After an actual Date setter, Date's own truncation cannot be undone by flooring.
+The ordinary path uses checked Int64 arithmetic, with existing Gregorian/ISO component validation;
+no DateTime/DateOnly/ISOWeek result or timezone conversion defines the domain. The exceptional path
+uses System.Numerics.BigInteger only after the fast path cannot represent the intermediate result.
+A finite binary64 integer part has at most 1024 bits: this fallback is bounded even for Double.MaxValue.
+It never allocates an integer proportional to an unbounded author exponent or year spelling.
+
+1. Obtain the exact floor integer from the sign/exponent/significand bits. For normals,
+   x=(-1)^sign * (2^52+fraction) * 2^(exponentField-1075); for subnormals use fraction * 2^-1074.
+   Shift left when integral; otherwise divide by the corresponding power of two, rounding towards
+   negative infinity. Do not use formatter digits to reconstruct this integer: shortest decimal is
+   not necessarily the exact integer represented by a large double. An Int64 cast without a proven
+   range check is not this operation.
+2. For date/local/week/time, floor-divide by 86400000 to obtain epoch day z and remainder r with
+   0<=r<86400000. Time needs only r; a huge integer modulo remains bounded. For month, floor-divide
+   the month index by 12, add 1970 to the quotient and use remainder+1 as month.
+3. Convert z to Gregorian components with the 400-year cycle. Set a=z+719468, era=floor(a/146097),
+   doe=a-era*146097; doe is in 0..146096. Then
+   yoe=(doe-doe/1460+doe/36524-doe/146096)/365, where these divisions are nonnegative integer
+   divisions; y=400*era+yoe; doy=doe-(365*yoe+yoe/4-yoe/100); mp=(5*doy+2)/153;
+   day=doy-(153*mp+2)/5+1; month=mp+(mp<10 ? 3 : -9); add one to y when month<=2.
+   Year zero/negative can exist in intermediate arithmetic; reject only the final family's
+   nonpositive year. The cycle decomposition and inverse are explained in Howard Hinnant's
+   [civil calendar algorithms](https://howardhinnant.github.io/date_algorithms.html#civil_from_days).
+   This document specifies mathematics, not a source-code import; an implementation that ports
+   source must retain its applicable notices. Verify inverse and boundary properties independently.
+4. ISO weekday is floorMod(z+3,7), Monday=0. Convert the Thursday at z+3-weekday to obtain week-year.
+   Compute the epoch day of January 4 of that year and subtract its weekday to obtain first Monday;
+   week=(z-firstMonday)/7+1. The inverse Gregorian mapping uses the same exact 400-year cycle.
+   Do not run a loop over years, months or weeks; no shared instant ceiling precedes this conversion.
+5. Format the positive year in invariant base ten, padded to at least four digits and without a plus
+   sign; remaining components are fixed width, with shortest valid time per section 3. Date/local/week
+   years from a finite binary64 millisecond instant have at most 298 decimal digits; month indices
+   can produce a 308-digit year. Even local output is bounded (at most 317 characters with full
+   millisecond fields). A 384-character result buffer is sufficient for these numeric formatter
+   paths. It is not a cap on arbitrary lexical strings supplied by the user.
+
+Checked arithmetic guards the fast path, including epoch offsets and ISO Thursday/January-4 work;
+fallback operates on the same mathematical equations. BigInteger temporaries remain roughly the
+binary64 integer width plus small calendar constants. For exact decimal arithmetic step results,
+first enforce the finite-number publication bound already required for script stepping, then carry
+out the family's floor conversion without an intervening decimal-to-double rounding that could cross
+a day/month boundary. The common path can use a value-type component result with ordinary integral
+year storage; extended year storage is allocated only on the exceptional path. Avoid an always-BigInteger
+result that adds work to every common date merely to support an extreme value.
+
+For arbitrary lexical years, scan significant digits and compute Gregorian/ISO residues directly
+while validating. Leading zeros do not make a small year enormous. Numeric conversion can classify
+certain overflow from significant-digit count, then use a bounded integer for the remaining boundary
+cases (309 significant year digits already suffice to distinguish all finite numeric coordinates;
+longer positive years necessarily overflow). Do not parse a million-digit year into BigInteger merely
+to discover numeric overflow. A valid stored string stays valid and retains its spelling. A Date getter
+can classify TimeClip overflow even earlier without converting that year to binary64 or constructing
+its full integer. Cancellation polls must cover scanning, validation and output work; bounded fallback
+operations need checkpoints before/after, not source-length charging repeated per fixed arithmetic step.
+
+### Source distinctions and required outcomes
+
+The retained Chromium DateComponents source is useful evidence **against** a shared guard. Its date
+and local helpers route through an ECMA-range check, but its week conversion does not: it converts the
+instant and checks the resulting week. +8.64e15+1 therefore remains week 275760-W37, and that week lasts
+through Sunday 275760-09-14. Chromium's WithinHtmlDateLimits and explicit maximum week/month predicates
+also impose upper result limits. Those are engine limits, not HTML grammar constraints, and are not
+adopted. The native arithmetic above supports the next day/week/month as required by the same HTML
+conversion rules. No source inspection is presented as proof of all-engine interoperability.
 
 | Boundary vector | Exact expected behavior |
 | --- | --- |
 | date `0001-01-01` | Stored valid; numeric -62135596800000; valid Date |
-| date numeric -62135596800001 | Empty; numeric getter then NaN; Date getter null |
+| date numeric -62135596800001 | Empty because the resulting civil year is zero; numeric getter then NaN |
 | date `9999-12-31` / `10000-01-01` | Both valid; numeric 253402214400000 / 253402300800000 |
-| date numeric +8640000000000000 | `275760-09-13` |
-| local numeric +8640000000000000 | `275760-09-13T00:00` |
-| calendar numeric +8640000000000001 or -8640000000000000 | Empty; the negative boundary is outside positive HTML years |
-| date string `275760-09-14` | Preserved; numeric 8640000086400000; valueAsDate is an invalid Date |
-| local string `275760-09-13T00:00:00.001` | Preserved; numeric 8640000000000001; valueAsDate getter null because inapplicable |
-| month numeric 3285488.5 / 3285489 | `275760-09` / empty |
-| month string `275760-10` | Preserved; numeric 3285489; valueAsDate invalid (first day coordinate 8640001555200000) |
-| week string `275760-W38` | Preserved; Monday coordinate 8640000172800000; invalid Date |
-| Date object with time -8640000000000000 assigned to time | `00:00`; the Date is valid even though its year cannot be an HTML date |
-| numeric 2.7343337071894478e26 assigned to time / local | `10:54:10.944` / empty; the time integer remainder is 39250944 ms |
+| numeric +8640000000000000 | date `275760-09-13`; local `275760-09-13T00:00`; week `275760-W37` |
+| numeric +8640000000000001 | date `275760-09-13`; local `275760-09-13T00:00:00.001`; week `275760-W37` |
+| numeric +8640000086400000 | date `275760-09-14`; local `275760-09-14T00:00`; week `275760-W37` |
+| week numeric +8640000172799999 / +8640000172800000 | `275760-W37` / `275760-W38`, the Sunday/Monday boundary |
+| date numeric -8640000000000000 | Empty because its resulting year is nonpositive, not because of an upper/absolute instant guard |
+| date `275760-09-14`, default step, stepUp(0) | Same current date, successful dirty write; numeric 8640000086400000; valueAsDate invalid |
+| week `275760-W37` or `275760-W38`, default step, stepUp(0) | Same respective week and a successful dirty write; W38's Monday coordinate is 8640000172800000 |
+| local `275760-09-13T00:00:00.001`, step=.001, stepUp(0) | Same local string, successful dirty write; number 8640000000000001; Date getter null because inapplicable |
+| month numeric 3285488.5 / 3285489 | `275760-09` / `275760-10` |
+| month `275760-10`, default step, stepUp(0) | Same month, successful dirty write; numeric 3285489; invalid Date (first day coordinate 8640001555200000) |
+| valid Date with time -8640000000000000 assigned to time | `00:00` |
+| numeric 2.7343337071894478e26 assigned to time | `10:54:10.944`; exact integer remainder 39250944 ms |
+| same numeric value assigned to local | `8664758583750640-12-03T10:54:10.944` |
+| Double.MaxValue assigned to date/local/week/month | A nonempty positive-year result from bounded arithmetic; exact inverse/component vectors required, no overflow-to-empty shortcut |
 
-Numeric setters reject infinity with TypeError before HTML applicability, as b3 specifies. NaN is an
-empty write, not an out-of-domain arithmetic exception. The above numeric domain restrictions do not
-alter min/max reflection or turn out-of-domain but finite bounds into missing attributes.
+Zero-count fixtures must actually be on their stated grids; an off-grid zero-count call still takes
+b3's alignment branch. Success sets dirty state even when text is unchanged. No old ceiling may clear
+these valid values. Subsequent actual Date construction can still give an invalid Date independently.
+
+The pinned input-valueasnumber.html expects empty for the enormous local numeric vector. That conflicts
+with uncapped HTML conversion; the native expected result above intentionally differs and must remain
+a named WPT/spec discrepancy. This amendment supersedes the earlier b3/b3p empty expectation for that
+specific row. Do not copy the WPT expectation into an arbitrary upper bound, silently edit the upstream
+case, or broaden an exclusion. A future corpus entry records this exact assertion and normative/source
+evidence for review. The time vector continues to agree with the same pinned file.
 
 ## 5. Dirty state, sanitization and exceptions
 
@@ -306,7 +377,7 @@ contract, never grants public selection APIs to number/date controls.
 
 | Operation/path | Dirty flag and value effects |
 | --- | --- |
-| valueAsNumber finite, including out-of-domain temporal input | Dirty=true; format or empty, then sanitize |
+| valueAsNumber finite, including a nonpositive resulting calendar year | Dirty=true; format or empty, then sanitize |
 | valueAsNumber NaN | Dirty=true; empty branch, then family sanitizer; range defaults/clamps/rounds |
 | valueAsDate null, undefined after WebIDL, or invalid Date | Dirty=true; empty branch on applicable type |
 | Successful step ending in same number/string, including on-grid count=0 | Dirty=true and NonUser, because final write is reached |
@@ -340,8 +411,8 @@ An actual cross-realm Date is accepted by its internal slot; a Proxy around a Da
 ## Review and implementation handoff
 
 This packet closes the four policy questions by selecting outcomes; it does not claim all are literal
-HTML or observed interoperability. Review must explicitly consider the rounding-cell lattice, retained
-fractional temporal steps, unbounded lexical versus bounded numeric-setter calendar domain, and dirty
+HTML or observed interoperability. Review must explicitly consider exact shortest-decimal remainder,
+retained fractional temporal steps, the full finite numeric calendar domain, and dirty
 sanitized numeric writes. Keep the existing named stepDown/empty/min=7 WPT discrepancy from b3; the
 inspected engines both special-case an initially invalid value, but this packet does not silently
 change b3's selected current-HTML method ordering.
@@ -351,8 +422,8 @@ and b3c the bounded arithmetic/conversion/constraints/range helpers. No shared i
 until b1/b2/b3/b4 and current file-owner prerequisites are complete. A later public Browser facade
 must preserve Date-result null versus invalid-Date, exact WebIDL order and event-free script writes.
 
-Validation must include both supported TFMs, formatter identity, rounding-cell inclusive/exclusive
-endpoints, zero/subnormal/overflow cells, negative grid bases, Int32.MinValue counts without negation
+Validation must include both supported TFMs, formatter identity, exact decimal remainder and
+publication-rounding boundaries, negative grid bases, Int32.MinValue counts without negation
 overflow, midpoint extremes, all tables above and post-write attribute/reset sequences. Arithmetic
 fallback cancellation and counted work need deterministic coverage. Source-driven decisions require
 native regressions even when the selected WPT directory has no equivalent assertion. Do not import
