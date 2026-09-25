@@ -45,6 +45,9 @@ public class AsyncModuleLoaderTests
         import.IsFaulted.Should().BeTrue();
         var repeat = () => engine.Modules.StartImport("module");
         repeat.Should().Throw<InvalidOperationException>().WithMessage("*retired*");
+        Invoking(() => engine.Modules.Import("module"))
+            .Should().Throw<InvalidOperationException>().WithMessage("*retired*");
+        loader.AskedFor("module").Should().Be(1, "a refused import must not ask the loader again");
     }
 
     [Test]
@@ -64,6 +67,26 @@ public class AsyncModuleLoaderTests
 
         observed.Should().BeTrue("the generation changes only after the active entry returns");
     }
+
+    [Test]
+    public void RetirementRefusesNestedHostImportsBeforeCallingTheLoader()
+    {
+        var loader = new DeferredModuleLoader();
+        using var engine = CreateEngine(loader);
+        engine.SetValue("retireAndImport", new Action(() =>
+        {
+            engine.Advanced.Retire();
+            Invoking(() => engine.Modules.StartImport("module"))
+                .Should().Throw<InvalidOperationException>().WithMessage("*retired*");
+            Invoking(() => engine.Modules.Import("module"))
+                .Should().Throw<InvalidOperationException>().WithMessage("*retired*");
+        }));
+
+        engine.Execute("retireAndImport()");
+
+        loader.AskedFor("module").Should().Be(0);
+    }
+
     /// <summary>
     /// A loader that hands every request to the test and finishes nothing by itself, so a test can prove the
     /// engine really does carry on without the answer.

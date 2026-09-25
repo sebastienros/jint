@@ -41,25 +41,31 @@ public partial class Engine
         /// Permanently stops this engine's queued work and releases transient web and module state.
         /// </summary>
         /// <remarks>
-        /// May be called from a running host callback or another thread. The current script or job can
-        /// finish, but its later jobs cannot run. Pending promise waits fail; scheduled-work waits return
-        /// <see langword="false"/>. Dispose the engine after the current entry returns.
+        /// Idempotent and safe to call concurrently or after disposal. A running script or job can finish;
+        /// nested script-execution calls may finish. New imports always refuse; a host task cannot start a
+        /// new script entry after retirement.
+        /// Pending promise waits fail, while scheduled-work waits and task processing stop without throwing.
+        /// This method may briefly own an idle engine. Await any active async operation before calling
+        /// <see cref="Engine.Dispose"/>; disposal must follow the active entry's return.
         /// </remarks>
         public void Retire()
         {
-            if (System.Threading.Interlocked.Exchange(ref _engine._retired, 1) != 0)
+            lock (_engine._lifecycleLock)
             {
-                return;
-            }
-
-            _engine._eventLoop.Retire();
-            if (_engine.TryEnterHostCall(out var ownership))
-            {
-                using (ownership)
+                if (_engine.IsDisposed || System.Threading.Interlocked.Exchange(ref _engine._retired, 1) != 0)
                 {
-                    if (ownership.IsEntryRoot)
+                    return;
+                }
+
+                _engine._eventLoop.Retire();
+                if (_engine.TryEnterHostCall(out var ownership))
+                {
+                    using (ownership)
                     {
-                        _engine.FinishRetirement();
+                        if (ownership.IsEntryRoot)
+                        {
+                            _engine.FinishRetirement();
+                        }
                     }
                 }
             }

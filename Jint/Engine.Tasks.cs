@@ -180,6 +180,7 @@ public partial class Engine
         /// </para>
         /// </remarks>
         /// <returns>a Promise instance and functions to either resolve or reject it</returns>
+        /// <exception cref="InvalidOperationException">The engine has been retired.</exception>
         public ManualPromise RegisterPromise()
         {
             using var ownership = _engine.EnterHostCall();

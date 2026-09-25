@@ -29,6 +29,68 @@ public class EngineRetirementTests
     }
 
     [Test]
+    public void RetirementAllowsNestedCallsInTheCurrentScript()
+    {
+        using var engine = new Engine();
+        engine.SetValue("retire", new Action(() => engine.Advanced.Retire()));
+        engine.SetValue("reenter", new Action(() => engine.Evaluate("1 + 1").AsNumber().Should().Be(2)));
+
+        engine.Execute("class C { field = 1; } retire(); new C(); reenter();");
+
+        engine.IsRetired.Should().BeTrue();
+        Invoking(() => engine.Evaluate("1")).Should().Throw<InvalidOperationException>().WithMessage("*retired*");
+    }
+
+    [Test]
+    public void APostedTaskCannotStartANewScriptAfterRetirement()
+    {
+        using var engine = new Engine();
+        var refused = false;
+        engine.Tasks.Post(() =>
+        {
+            engine.Advanced.Retire();
+            Invoking(() => engine.Evaluate("1"))
+                .Should().Throw<InvalidOperationException>().WithMessage("*retired*");
+            refused = true;
+        });
+
+        engine.Tasks.ProcessTasks();
+
+        refused.Should().BeTrue();
+    }
+
+    [Test]
+    public async Task RetirementLetsAnAlreadyCompletedAsyncResultReturn()
+    {
+        using var engine = new Engine();
+        engine.SetValue("retire", new Action(() => engine.Advanced.Retire()));
+
+        var result = await engine.EvaluateAsync("retire(); Promise.resolve(42)");
+
+        result.AsNumber().Should().Be(42);
+        engine.IsRetired.Should().BeTrue();
+
+        using var fromJob = new Engine();
+        fromJob.SetValue("retire", new Action(() => fromJob.Advanced.Retire()));
+        var jobResult = await fromJob.EvaluateAsync("Promise.resolve().then(() => { retire(); return 42; })");
+        jobResult.AsNumber().Should().Be(42);
+    }
+
+    [Test]
+    public async Task ConcurrentRetirementAndDisposalLeaveTheEngineDisposed()
+    {
+        for (var i = 0; i < 100; i++)
+        {
+            var engine = new Engine();
+            var retirement = Task.Run(() => engine.Advanced.Retire());
+            var disposal = Task.Run(engine.Dispose);
+
+            await Task.WhenAll(retirement, disposal);
+            engine.IsDisposed.Should().BeTrue();
+        }
+    }
+
+    [Test]
     public void RetirementDropsLaterManualPromiseSettlement()
     {
         using var engine = new Engine();
@@ -206,6 +268,37 @@ public class EngineRetirementTests
 
         holder.IsRetired.Should().BeTrue();
         waiter.Evaluate("granted").AsBoolean().Should().BeTrue();
+    }
+
+    [Test]
+    public void RetirementAtAMicrotaskCheckpointReleasesResourcesAfterTheTask()
+    {
+        var manager = new LockManager();
+        using var retired = new Engine(options => options.UseWebApis().UseWebLocks(manager));
+        using var other = new Engine(options => options.UseWebApis().UseWebLocks(manager));
+        retired.SetValue("retire", new Action(() => retired.Advanced.Retire()));
+        retired.Execute("""
+            const { port1, port2 } = new MessageChannel();
+            port1.addEventListener('message', () => queueMicrotask(() => retire()));
+            port1.addEventListener('message', () => {
+                navigator.locks.request('shared', () => new Promise(() => {}));
+                setTimeout(() => {}, 0);
+            });
+            port1.start();
+            port2.postMessage('go');
+            """);
+
+        retired.Tasks.ProcessTasks();
+        other.Execute("var got = false; navigator.locks.request('shared', () => { got = true; });");
+        for (var i = 0; i < 20; i++)
+        {
+            retired.Tasks.ProcessTasks();
+            other.Tasks.ProcessTasks();
+        }
+
+        retired.IsRetired.Should().BeTrue();
+        other.Evaluate("got").AsBoolean().Should().BeTrue();
+        retired.Tasks.TimeUntilNextScheduledWork.Should().BeNull();
     }
 
     [Test]

@@ -34,7 +34,8 @@ operation owns the engine.
 
 `engine.Advanced.Retire()` is another cross-thread entry. It permanently stops new script and queued work,
 wakes a pending promise or scheduled-work wait, and releases transient resources once the current engine
-entry returns. It does not preempt a script already running. Dispose the engine after that entry completes.
+entry returns. It does not preempt a script already running. Dispose the engine after that entry and
+any outstanding `*Async` task complete.
 
 ## Values and construction
 

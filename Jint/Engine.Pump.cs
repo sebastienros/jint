@@ -807,7 +807,7 @@ public partial class Engine
             // one refuses every authorized callback instead of admitting the ones this frame issued. Nothing
             // is in force to keep here either — the reservation requires an unowned engine, and an unowned
             // engine has no operation token.
-            var owner = _engine.ReserveAsyncHostOperation(_engine.OwnershipReleasedEvent);
+            var owner = _engine.ReserveAsyncHostOperation(_engine.OwnershipReleasedEvent, allowRetired: true);
             return _engine.WaitForScheduledWorkCoreAsync(owner, timeout, cancellationToken);
         }
     }

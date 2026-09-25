@@ -142,6 +142,10 @@ public sealed partial class Engine : IDisposable
     private int _disposed;
     private int _retired;
     private int _retirementFinished;
+    // net8.0 cannot use System.Threading.Lock; keep one gate across Retire and Dispose.
+#pragma warning disable MA0158
+    private readonly object _lifecycleLock = new();
+#pragma warning restore MA0158
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal HostCallScope EnterHostCall(object? asyncOwner = null, object? callbackOwner = null)
@@ -965,8 +969,14 @@ public sealed partial class Engine : IDisposable
     /// a frame that runs none, where nothing can ever carry it and the match is empty rather than narrow.
     /// </para>
     /// </param>
-    internal object ReserveAsyncHostOperation(object? reservationOwner = null)
+    /// <param name="allowRetired">Whether a non-script wait may return <see langword="false"/> after retirement.</param>
+    internal object ReserveAsyncHostOperation(object? reservationOwner = null, bool allowRetired = false)
     {
+        if (!allowRetired)
+        {
+            ThrowIfRetired();
+        }
+
         var activeOwner = Volatile.Read(ref _ownerThreadId);
         if (activeOwner != 0)
         {
@@ -1024,7 +1034,7 @@ public sealed partial class Engine : IDisposable
 
     private void CompleteRetirementIfUnowned()
     {
-        if (IsRetired && TryEnterHostCall(out var ownership))
+        if (IsRetired && Volatile.Read(ref _retirementFinished) == 0 && TryEnterHostCall(out var ownership))
         {
             using (ownership)
             {
@@ -1137,6 +1147,8 @@ public sealed partial class Engine : IDisposable
                 if (_isEntryRoot)
                 {
                     _engine.ReleaseEntryReservationIfHeld();
+                    // Retirement can arrive after the check above but before ownership is released.
+                    _engine.CompleteRetirementIfUnowned();
                 }
             }
         }
@@ -2561,6 +2573,7 @@ public sealed partial class Engine : IDisposable
     /// <param name="source">The name the source is known by in stack traces and the debugger. Defaults to <c>&lt;anonymous&gt;</c>.</param>
     /// <param name="parsingOptions">Parsing options for this evaluation. Defaults to the engine's <see cref="Options.Parsing"/>.</param>
     /// <returns>The completion value of the script.</returns>
+    /// <exception cref="InvalidOperationException">A top-level entry is attempted after retirement.</exception>
     public JsValue Evaluate(string code, string? source = null, ScriptParsingOptions? parsingOptions = null)
     {
         using var ownership = EnterHostCall();
@@ -2570,6 +2583,7 @@ public sealed partial class Engine : IDisposable
     /// <summary>
     /// Evaluates a prepared script and returns the completion value.
     /// </summary>
+    /// <exception cref="InvalidOperationException">A top-level entry is attempted after retirement.</exception>
     public JsValue Evaluate(in Prepared<Script> preparedScript)
         => ExecuteForCompletion(in preparedScript);
 
@@ -2584,6 +2598,7 @@ public sealed partial class Engine : IDisposable
     /// <param name="source">The name the source is known by in stack traces and the debugger. Defaults to <c>&lt;anonymous&gt;</c>.</param>
     /// <param name="parsingOptions">Parsing options for this execution. Defaults to the engine's <see cref="Options.Parsing"/>.</param>
     /// <returns>This engine, for chaining.</returns>
+    /// <exception cref="InvalidOperationException">A top-level entry is attempted after retirement.</exception>
     public Engine Execute(string code, string? source = null, ScriptParsingOptions? parsingOptions = null)
     {
         using var ownership = EnterHostCall();
@@ -2593,6 +2608,7 @@ public sealed partial class Engine : IDisposable
     /// <summary>
     /// Executes a prepared script into engine and returns the engine instance (useful for chaining).
     /// </summary>
+    /// <exception cref="InvalidOperationException">A top-level entry is attempted after retirement.</exception>
     public Engine Execute(in Prepared<Script> preparedScript)
     {
         ExecuteForCompletion(in preparedScript);
@@ -2923,10 +2939,6 @@ public sealed partial class Engine : IDisposable
         finally
         {
             _emptyStackContextDepth = previousEmptyStackDepth;
-            if (IsRetired)
-            {
-                FinishRetirement();
-            }
         }
     }
 
@@ -2940,7 +2952,7 @@ public sealed partial class Engine : IDisposable
         try
         {
             AbandonAtomicsAsyncWaiters();
-            ResetTransientEvaluationState();
+            ResetTransientEvaluationState(retiring: true);
         }
         finally
         {
@@ -3955,6 +3967,7 @@ public sealed partial class Engine : IDisposable
     /// <param name="propertyName">The name of a property of the global object; see the remarks.</param>
     /// <param name="arguments">The arguments of the function call.</param>
     /// <returns>The value returned by the function call.</returns>
+    /// <exception cref="InvalidOperationException">A top-level entry is attempted after retirement.</exception>
     public JsValue Invoke(string propertyName, params object?[] arguments)
     {
         return Invoke(propertyName, thisObj: null, arguments);
@@ -3990,6 +4003,7 @@ public sealed partial class Engine : IDisposable
     /// <param name="thisObj">The this value inside the function call.</param>
     /// <param name="arguments">The arguments of the function call.</param>
     /// <returns>The value returned by the function call.</returns>
+    /// <exception cref="InvalidOperationException">A top-level entry is attempted after retirement.</exception>
     public JsValue Invoke(string propertyName, object? thisObj, object?[] arguments)
     {
         using var ownership = EnterHostCall();
@@ -4005,6 +4019,7 @@ public sealed partial class Engine : IDisposable
     /// <param name="value">The function to call.</param>
     /// <param name="arguments">The arguments of the function call.</param>
     /// <returns>The value returned by the function call.</returns>
+    /// <exception cref="InvalidOperationException">A top-level entry is attempted after retirement.</exception>
     /// <seealso cref="Call(JsValue, JsValue[])"/>
     public JsValue Invoke(JsValue value, params object?[] arguments)
     {
@@ -4024,6 +4039,7 @@ public sealed partial class Engine : IDisposable
     /// <param name="thisObj">The this value inside the function call.</param>
     /// <param name="arguments">The arguments of the function call.</param>
     /// <returns>The value returned by the function call.</returns>
+    /// <exception cref="InvalidOperationException">A top-level entry is attempted after retirement.</exception>
     /// <seealso cref="Call(JsValue, JsValue, JsValue[])"/>
     public JsValue Invoke(JsValue value, object? thisObj, object?[] arguments)
     {
@@ -4116,7 +4132,6 @@ public sealed partial class Engine : IDisposable
         ThrowIfConstructionInFlight();
 
         using var ownership = EnterHostCall();
-        ThrowIfRetired();
 
         // A nested call — a host callback inside a running script calling back into the engine —
         // must not re-arm the outer run's constraints: the outer budget (time/statements) keeps
@@ -4125,6 +4140,10 @@ public sealed partial class Engine : IDisposable
         // run forever. Host-entry depth covers callbacks that push no interpreter frame; execution-context
         // depth covers async and generator resumes that have no host entry.
         var isNested = _hostEntryDepth > 0 || _executionContexts.Count > 1;
+        if (!isNested)
+        {
+            ThrowIfRetired();
+        }
         if (_memoryLimitConstraint is not null)
         {
             return ExecuteWithMemoryLimit(strict, source, state, callback, isNested);
@@ -5197,6 +5216,7 @@ public sealed partial class Engine : IDisposable
     /// <param name="callable">The callable.</param>
     /// <param name="arguments">The arguments of the call.</param>
     /// <returns>The value returned by the call.</returns>
+    /// <exception cref="InvalidOperationException">A top-level entry is attempted after retirement.</exception>
     /// <seealso cref="Invoke(JsValue, object[])"/>
     public JsValue Call(JsValue callable, params JsCallArguments arguments)
         => Call(callable, thisObject: JsValue.Undefined, arguments);
@@ -5209,6 +5229,7 @@ public sealed partial class Engine : IDisposable
     /// <param name="thisObject">Value bound as this.</param>
     /// <param name="arguments">The arguments of the call.</param>
     /// <returns>The value returned by the call.</returns>
+    /// <exception cref="InvalidOperationException">A top-level entry is attempted after retirement.</exception>
     /// <seealso cref="Invoke(JsValue, object, object[])"/>
     public JsValue Call(JsValue callable, JsValue thisObject, JsCallArguments arguments)
     {
@@ -5410,6 +5431,7 @@ public sealed partial class Engine : IDisposable
     public bool IsDisposed => Volatile.Read(ref _disposed) != 0;
 
     /// <summary>Whether the host permanently retired this engine through <see cref="AdvancedOperations.Retire"/>.</summary>
+    /// <remarks>A one-way status flag safe to read from any thread.</remarks>
     public bool IsRetired => Volatile.Read(ref _retired) != 0;
 
     /// <summary>
@@ -5460,7 +5482,11 @@ public sealed partial class Engine : IDisposable
         }
         finally
         {
-            DisposeCore();
+            // A concurrent Retire can briefly claim an idle engine to release its transient state.
+            lock (_lifecycleLock)
+            {
+                DisposeCore();
+            }
         }
     }
 

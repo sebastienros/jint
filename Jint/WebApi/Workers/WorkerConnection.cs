@@ -256,5 +256,11 @@ public enum WorkerEndReason
     /// serialization into a queue nothing will ever drain.
     /// </summary>
     WorkerDisposed,
+
+    /// <summary>Retirement of the parent engine.</summary>
+    ParentRetired,
+
+    /// <summary>Retirement of the worker engine.</summary>
+    WorkerRetired,
 }
 #endif

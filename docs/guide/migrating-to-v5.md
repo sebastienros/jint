@@ -6932,12 +6932,27 @@ detachment separately. Non-view values and proxies around views return `false`.
 
 ### 5.39 Retiring an engine
 
-Call `engine.Advanced.Retire()` when the host permanently ends the execution context owned by
-that engine. `engine.IsRetired` is a one-way status flag: no later script, queued job or posted
+Call `engine.Advanced.Retire()` ([#4148](https://github.com/sebastienros/jint/pull/4148))
+when the host permanently ends the execution context owned by that engine. `engine.IsRetired`
+is a one-way status flag: no later top-level script entry, queued job or posted
 callback runs, and new `Tasks.Post` calls fail. The current script or job may finish. Pending
 engine waits wake, while module imports, fetch-handler invocations and stream copies report
 abandonment when polled. Transient timers, web resources and shared locks are released. Call
-`Dispose` after any active entry has returned to release the remaining engine state.
+`Dispose` after any active entry has returned to release the remaining engine state. Await an
+outstanding `*Async` operation before disposal, even though retirement wakes it promptly.
+
+Nested script-execution calls made by the current script may finish. New imports always refuse,
+including from that script. A posted host task that retires the engine cannot start a new script
+entry afterward. Later synchronous entries,
+`RegisterPromise`, `Post`, `StartImport`, `Import`, fetch-handler invocation and snapshot restore refuse
+with `InvalidOperationException`. New `EvaluateAsync`, `ExecuteAsync`, `InvokeAsync` and `ImportAsync`
+calls refuse synchronously before returning a task. An in-flight wait for a pending promise faults
+its task; a result already completed in the current synchronous phase may still return.
+`ProcessTasks` and scheduled-work waits stop without throwing. Retirement is idempotent, may be
+called from another thread, and is a no-op after disposal.
+
+Worker connections ended by retirement report `ParentRetired` or `WorkerRetired`, rather than the
+snapshot-restore reasons `ParentRestored` and `WorkerRestored`.
 
 Retiring an engine is terminal; use `RestoreGlobalSnapshot` only when the same engine must
 continue serving a trusted cycle.

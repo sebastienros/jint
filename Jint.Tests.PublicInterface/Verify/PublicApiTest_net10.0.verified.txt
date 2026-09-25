@@ -3042,6 +3042,8 @@ namespace Jint.WebApi
         WorkerRestored = 4,
         ParentDisposed = 5,
         WorkerDisposed = 6,
+        ParentRetired = 7,
+        WorkerRetired = 8,
     }
     public abstract class WorkerProvider
     {
