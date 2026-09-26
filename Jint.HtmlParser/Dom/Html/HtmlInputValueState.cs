@@ -168,7 +168,7 @@ internal sealed partial class HtmlInputValueState
         var clearedDisplay = Type == HtmlInputType.Number && _numberPresentation is not null;
         work.Finish();
         MakeAvailable();
-        CommitValue(prepared, HtmlValueChangeOrigin.NonUser);
+        CommitValue(prepared, HtmlValueChangeOrigin.NonUser, changed);
         ClearNumberPresentation();
         SetDirty(true);
         if (changed)
