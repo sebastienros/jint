@@ -277,7 +277,7 @@ public sealed class CssDeclarationBlockTests
         var stamp = block.Stamp;
         block.SetProperty("opacity", "1", "important");
         block.Stamp.Should().Be(stamp);
-        Assert.Throws<CssIncompleteGrammarException>(() => CssDeclarationBlock.Parse("display:block", CssDeclarationContext.FontFace));
+        CssDeclarationBlock.Parse("display:block", CssDeclarationContext.FontFace).Count.Should().Be(0);
     }
 
     [Test]

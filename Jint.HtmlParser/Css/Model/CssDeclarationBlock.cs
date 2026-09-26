@@ -154,6 +154,7 @@ internal sealed partial class CssDeclarationBlock
 
     internal string RemoveProperty(string name, CssValueWork work)
     {
+        work = ResolutionWork(work);
         work.CheckCancellation();
         work.Charge(name.Length);
         name = NormalizeName(name, _context, work);

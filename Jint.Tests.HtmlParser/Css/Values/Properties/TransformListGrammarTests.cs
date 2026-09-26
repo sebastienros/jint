@@ -111,7 +111,7 @@ public sealed class TransformListGrammarTests
         CssPropertyParser.Parse("transform", "inherit").Value.Text.Should().Be("inherit");
         CssPropertyParser.Parse("transform", "var(--t)").Status.Should().Be(CssPropertyStatus.Deferred);
         CssPropertyParser.Parse("transform", "none", CssDeclarationContext.FontFace).Status
-            .Should().Be(CssPropertyStatus.UnimplementedGrammar);
+            .Should().Be(CssPropertyStatus.UnsupportedProperty);
         CssPropertyRegistry.Completed["transform"].Inherited.Should().BeFalse();
         CssPropertyRegistry.Completed["transform"].InitialValue.Should().Be("none");
         CssPropertyParser.Parse("rotate", "0").Status.Should().Be(CssPropertyStatus.Invalid);

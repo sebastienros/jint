@@ -52,7 +52,7 @@ public sealed class FontWeightPropertyGrammarTests
         deferred.Status.Should().Be(CssPropertyStatus.Deferred);
         deferred.Value.Kind.Should().Be(CssPropertyValueKind.Deferred);
         CssPropertyParser.Parse("font-weight", "400", CssDeclarationContext.FontFace).Status
-            .Should().Be(CssPropertyStatus.UnimplementedGrammar);
+            .Should().Be(CssPropertyStatus.Valid);
         CssPropertyRegistry.Find("font-weight", CssDeclarationContext.Style)!.Inherited.Should().BeTrue();
     }
 
