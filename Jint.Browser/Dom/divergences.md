@@ -244,3 +244,12 @@ this host-boundary limitation is explicit. HTML PI tokenization remains #4098. T
 serialization comparisons pass with #4111. Its 17 failing XML-parser rows feed an ill-formed PI-only document
 and assume Chromium preserves the PI before its error tree, contrary to HTML §8.5.1's required empty error
 document followed by a `parsererror` element; those rows assert behavior the specification does not require.
+
+### Native passive classic keyframes
+
+The native stylesheet producer now exposes actual `CSSKeyframesRule` and `CSSKeyframeRule` objects,
+following [CSS Animations 1 §6](https://drafts.csswg.org/css-animations-1/#dom-interfaces), with stable
+ordered children, exact classic percentage selectors and last-match edits. It reuses the native rule
+ownership and declaration adapter rather than the legacy unavailable CSS brands. The scope and remaining
+completion boundaries are [recorded in the checkpoint](../../../docs/design/native-css-keyframes-rules.md):
+timeline-range selectors remain named pending; no animation execution or animation events are claimed.

@@ -17,9 +17,12 @@ internal static class NativeCssDeclarations
     internal static NativeCssDeclaration Of(DomRealm realm, CssStyleRule rule) =>
         Rules.GetValue(rule.Style, block => new(realm, rule, block));
 
+    internal static NativeCssDeclaration Of(DomRealm realm, CssKeyframeRule rule) =>
+        Rules.GetValue(rule.Style, block => new(realm, rule, block));
+
     private static CssValueWork Work(DomRealm realm) => new(realm.CancellationToken, realm.Engine.Constraints.Check);
 
-    private sealed class RuleDeclaration(DomRealm realm, CssStyleRule rule, CssDeclarationBlock block) : NativeCssDeclaration
+    private sealed class RuleDeclaration(DomRealm realm, CssRule rule, CssDeclarationBlock block) : NativeCssDeclaration
     {
         internal override CssRule ParentRule => rule;
         internal override int Length => block.ResolveAll(Work(realm)).Length;

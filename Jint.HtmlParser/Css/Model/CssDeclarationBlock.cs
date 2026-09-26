@@ -56,6 +56,16 @@ internal sealed partial class CssDeclarationBlock
         if (!Enum.IsDefined(context)) throw new ArgumentOutOfRangeException(nameof(context));
         ArgumentOutOfRangeException.ThrowIfNegative(maximumNestingDepth);
         var result = new CssDeclarationBlock(context);
+        if (context == CssDeclarationContext.Keyframe)
+        {
+            var normal = new List<CssDeclarationSyntax>();
+            foreach (var declaration in declarations)
+            {
+                work.Charge(1);
+                if (!declaration.IsImportant) normal.Add(declaration);
+            }
+            declarations = normal;
+        }
         result._raw = Retain(source, declarations, maximumNestingDepth, work);
         work.CheckCancellation();
         return result;

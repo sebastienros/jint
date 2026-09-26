@@ -64,6 +64,32 @@ internal sealed partial class CssSyntaxParser
         return result;
     }
 
+    // CSS Animations 1 §3 consumes a qualified-rule-list, not mixed style-block contents.
+    internal CssRuleSyntax[] ParseQualifiedRuleList(CssComponentValue block)
+    {
+        CheckCancellation();
+        var rules = new List<CssRuleSyntax>();
+        var values = block.Values;
+        var index = 0;
+        var end = block.Span.Start + block.Span.Length - (block.IsClosed ? 1 : 0);
+        while (index < values.Count)
+        {
+            PollCancellation();
+            if (IsToken(values[index], CssTokenKind.Whitespace)) { index++; continue; }
+            // At-rules are consumed for recovery but never become keyframe children.
+            if (IsToken(values[index], CssTokenKind.AtKeyword))
+            {
+                ConsumeAtRule(values, ref index, end, block.IsClosed);
+                continue;
+            }
+            var rule = ConsumeQualifiedRule(values, ref index, end, nested: false);
+            if (rule is not null) rules.Add(rule);
+        }
+        var result = Copy(rules);
+        CheckCancellation();
+        return result;
+    }
+
     // §5.5.5 preserves declaration runs between rules in source order.
     internal CssBlockSyntax ParseBlockContents(CssComponentValue block)
     {

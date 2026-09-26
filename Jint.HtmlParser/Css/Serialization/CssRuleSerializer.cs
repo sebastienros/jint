@@ -51,7 +51,7 @@ internal static class CssRuleSerializer
             {
                 if (frame.Owner is { } owner)
                 {
-                    if (frame.Rules.Count != 0) builder.Append('\n');
+                    if (frame.Rules.Count != 0 || owner is CssKeyframesRule) builder.Append('\n');
                     builder.Append('}');
                     ranges?.Add(owner, new CssTextRange(frame.Start, builder.Length));
                 }
@@ -68,6 +68,23 @@ internal static class CssRuleSerializer
                 builder.Append(conditionRule is CssMediaRule ? "@media " : "@supports ").Append(condition).Append(" {");
                 if (conditionRule.Rules.Count != 0) builder.Append('\n');
                 frames.Push(new Frame(conditionRule.Rules, conditionRule, start));
+            }
+            else if (rule is CssKeyframesRule keyframes)
+            {
+                builder.Append("@keyframes ").Append(keyframes.SerializeName(work)).Append(" { ");
+                frames.Push(new Frame(keyframes.Rules, keyframes, start));
+            }
+            else if (rule is CssKeyframeRule keyframe)
+            {
+                if (frame.Owner is CssKeyframesRule) builder.Append("  ");
+                // Ranges identify each rule's own text, without its containing rule's indent.
+                start = builder.Length;
+                var declarations = keyframe.Style.Serialize(work);
+                work.Charge(keyframe.KeyText.Length + declarations.Length);
+                builder.Append(keyframe.KeyText).Append(" { ").Append(declarations);
+                if (declarations.Length != 0) builder.Append(' ');
+                builder.Append('}');
+                ranges?.Add(rule, new CssTextRange(start, builder.Length));
             }
             else if (rule is CssStyleRule style)
             {

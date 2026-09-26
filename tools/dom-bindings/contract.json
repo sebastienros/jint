@@ -1429,8 +1429,8 @@
     },
     {
       "DomName": "CSSKeyframeRule",
-      "ClrTypeName": "Jint.Browser.Dom.NativeCssUnavailable",
-      "ReceiverType": "global::Jint.Browser.Dom.NativeCssUnavailable",
+      "ClrTypeName": "Jint.HtmlParser.Css.Model.CssKeyframeRule",
+      "ReceiverType": "global::Jint.HtmlParser.Css.Model.CssKeyframeRule",
       "Parent": "CSSRule",
       "RootsAtEventTarget": false,
       "HasInterfaceObject": true,
@@ -1445,16 +1445,16 @@
         {
           "DomName": "keyText",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSKeyframeRule.keyText\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSKeyframeRule.keyText\");",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSKeyframeRule.keyText\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSKeyframeRule.keyText\");",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssKeyframeRule>(thisObj, \"CSSKeyframeRule.keyText\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Styling.NativeCssBindings.KeyText(self.Realm, self.Target));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssKeyframeRule>(thisObj, \"CSSKeyframeRule.keyText\");\nglobal::Jint.Browser.Styling.NativeCssBindings.SetKeyText(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"CSSKeyframeRule.keyText\")); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "ICssKeyframeRule.KeyText"
         },
         {
           "DomName": "style",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSKeyframeRule.style\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSKeyframeRule.style\");",
-          "SetterBody": null,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssKeyframeRule>(thisObj, \"CSSKeyframeRule.style\");\nreturn self.Realm.Wrap(global::Jint.Browser.Styling.NativeCssDeclarations.Of(self.Realm, self.Target));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssKeyframeRule>(thisObj, \"CSSKeyframeRule.style\");\nglobal::Jint.Browser.Styling.NativeCssDeclarations.Of(self.Realm, self.Target).CssText = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"CSSKeyframeRule.style\"); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "ICssKeyframeRule.Style"
         }
@@ -1464,23 +1464,23 @@
     },
     {
       "DomName": "CSSKeyframesRule",
-      "ClrTypeName": "Jint.Browser.Dom.NativeCssUnavailable",
-      "ReceiverType": "global::Jint.Browser.Dom.NativeCssUnavailable",
+      "ClrTypeName": "Jint.HtmlParser.Css.Model.CssKeyframesRule",
+      "ReceiverType": "global::Jint.HtmlParser.Css.Model.CssKeyframesRule",
       "Parent": "CSSRule",
       "RootsAtEventTarget": false,
       "HasInterfaceObject": true,
-      "Kind": 0,
+      "Kind": 3,
       "FieldName": "CSSKeyframesRule",
       "Group": "Css",
       "ManualShape": null,
       "ShapeAdditions": null,
-      "AccessorClass": null,
-      "AccessorReference": null,
+      "AccessorClass": "/// <summary>CSS Animations 1 §6.3 indexed keyframe getter.</summary>\ninternal sealed class DomAccessorCSSKeyframesRule : DomCollectionAccessor\n{\n    internal static readonly DomAccessorCSSKeyframesRule Instance = new();\n    internal override uint Length(DomRealm realm, object target) => (uint) ((global::Jint.HtmlParser.Css.Model.CssKeyframesRule) target).Rules.Count;\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        realm.Engine.Constraints.Check();\n        realm.CancellationToken.ThrowIfCancellationRequested();\n        var rules = ((global::Jint.HtmlParser.Css.Model.CssKeyframesRule) target).Rules;\n        var present = index < (uint) rules.Count;\n        value = present ? realm.Wrap(rules[(int) index]) : global::Jint.Native.JsValue.Undefined;\n        return present;\n    }\n}\n",
+      "AccessorReference": "DomAccessorCSSKeyframesRule.Instance",
       "Members": [
         {
           "DomName": "appendRule",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSKeyframesRule.appendRule\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSKeyframesRule.appendRule\");",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssKeyframesRule>(thisObj, \"CSSKeyframesRule.appendRule\");\nglobal::Jint.Browser.Styling.NativeCssBindings.AppendKeyframe(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"CSSKeyframesRule.appendRule\")); return global::Jint.Native.JsValue.Undefined;",
           "SetterBody": null,
           "Length": 1,
           "Origin": "ICssKeyframesRule.Add"
@@ -1488,7 +1488,7 @@
         {
           "DomName": "cssRules",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSKeyframesRule.cssRules\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSKeyframesRule.cssRules\");",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssKeyframesRule>(thisObj, \"CSSKeyframesRule.cssRules\");\nreturn self.Realm.Wrap(self.Target.Rules);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "ICssKeyframesRule.Rules"
@@ -1496,7 +1496,7 @@
         {
           "DomName": "deleteRule",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSKeyframesRule.deleteRule\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSKeyframesRule.deleteRule\");",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssKeyframesRule>(thisObj, \"CSSKeyframesRule.deleteRule\");\nglobal::Jint.Browser.Styling.NativeCssBindings.DeleteKeyframe(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"CSSKeyframesRule.deleteRule\")); return global::Jint.Native.JsValue.Undefined;",
           "SetterBody": null,
           "Length": 1,
           "Origin": "ICssKeyframesRule.Remove"
@@ -1504,23 +1504,31 @@
         {
           "DomName": "findRule",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSKeyframesRule.findRule\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSKeyframesRule.findRule\");",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssKeyframesRule>(thisObj, \"CSSKeyframesRule.findRule\");\nreturn self.Realm.Wrap(global::Jint.Browser.Styling.NativeCssBindings.FindRule(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"CSSKeyframesRule.findRule\")));",
           "SetterBody": null,
           "Length": 1,
           "Origin": "ICssKeyframesRule.Find"
         },
         {
+          "DomName": "length",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssKeyframesRule>(thisObj, \"CSSKeyframesRule.length\");\nself.Realm.Engine.Constraints.Check();\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Rules.Count);",
+          "SetterBody": null,
+          "Length": 0,
+          "Origin": "CSS Animations 1 §6.3.2"
+        },
+        {
           "DomName": "name",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSKeyframesRule.name\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSKeyframesRule.name\");",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSKeyframesRule.name\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSKeyframesRule.name\");",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssKeyframesRule>(thisObj, \"CSSKeyframesRule.name\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Styling.NativeCssBindings.Name(self.Realm, self.Target));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssKeyframesRule>(thisObj, \"CSSKeyframesRule.name\");\nglobal::Jint.Browser.Styling.NativeCssBindings.SetName(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"CSSKeyframesRule.name\")); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "ICssKeyframesRule.Name"
         },
         {
           "DomName": "rules",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSKeyframesRule.rules\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSKeyframesRule.rules\");",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssKeyframesRule>(thisObj, \"CSSKeyframesRule.rules\");\nreturn self.Realm.Wrap(self.Target.Rules);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "ICssKeyframesRule.Rules"

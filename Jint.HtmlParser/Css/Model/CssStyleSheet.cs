@@ -176,6 +176,16 @@ internal sealed class CssStyleSheet
         while (pending.TryPop(out var item))
         {
             work.Charge(1);
+            if (item.Owner is CssKeyframesRule keyframes)
+            {
+                foreach (var childSyntax in parser.ParseQualifiedRuleList(item.Block))
+                {
+                    work.Charge(1);
+                    var child = CssKeyframeParser.Build(source, childSyntax, parser, options, work);
+                    if (child is not null) keyframes.AddProjected(child, work);
+                }
+                continue;
+            }
             foreach (var entry in parser.ParseBlockContents(item.Block))
             {
                 work.Charge(1);
@@ -200,6 +210,12 @@ internal sealed class CssStyleSheet
             var name = CssPropertyRegistry.NormalizeName(syntax.Name, work);
             if (name == "media")
                 return syntax.Block is null ? null : new CssMediaRule(CssMediaList.FromComponents(source, syntax.Prelude, parser, work), syntax.Span);
+            if (name == "keyframes")
+            {
+                if (syntax.Block is null || nestingParent is not null) return null;
+                var animationName = CssKeyframeParser.Name(syntax.Prelude, work);
+                return animationName is null ? null : new CssKeyframesRule(animationName, syntax.Span);
+            }
             if (name == "supports")
             {
                 if (syntax.Block is null || !CssSupports.TryParseCondition(source, syntax.Prelude, options, work, out var matches))
@@ -211,7 +227,6 @@ internal sealed class CssStyleSheet
             {
                 "import" or "namespace" => "R1",
                 "container" or "scope" or "starting-style" or "layer" => "R2",
-                "keyframes" => "R3",
                 "font-face" or "font-feature-values" or "font-palette-values" => "R4",
                 "page" or "counter-style" => "R5",
                 "property" or "view-transition" or "position-try" or "color-profile" => "R6",

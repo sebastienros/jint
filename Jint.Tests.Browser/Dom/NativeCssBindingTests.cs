@@ -63,7 +63,7 @@ public sealed class NativeCssBindingTests
     {
         using var dom = Create("a { color:red }");
         dom.Execute("var before=sheet.cssRules[0];");
-        foreach (var source in new[] { "@import 'other.css';", "@keyframes move { from { opacity:0 } }", "a { @media screen { color:red } }" })
+        foreach (var source in new[] { "@import 'other.css';", "@keyframes move { entry 50% { opacity:0 } }", "a { @media screen { color:red } }" })
         {
             dom.Engine.SetValue("source", source);
             dom.Text("(()=>{try{sheet.insertRule(source,0)}catch(e){return e.name}})()").Should().Be("NotSupportedError");

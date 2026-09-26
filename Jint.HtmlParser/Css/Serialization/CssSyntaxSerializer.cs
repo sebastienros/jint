@@ -7,6 +7,16 @@ namespace Jint.HtmlParser.Css.Serialization;
 // CSS Syntax Level 3, §9: https://drafts.csswg.org/css-syntax/#serialization
 internal static class CssSyntaxSerializer
 {
+    internal static string SerializeString(string value, CssValueWork work)
+    {
+        var builder = new StringBuilder();
+        AppendString(builder, value, work);
+        var result = builder.ToString();
+        work.Charge(result.Length);
+        work.CheckCancellation();
+        return result;
+    }
+
     internal static string SerializeIdentifier(string value, CssValueWork? work = null)
     {
         work?.CheckCancellation();
