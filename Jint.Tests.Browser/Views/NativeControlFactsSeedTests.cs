@@ -1,3 +1,4 @@
+using Jint.Browser.Accessibility;
 using Jint.Browser.Dom;
 using Jint.Browser.Dom.Files;
 using Jint.Browser.Events;
