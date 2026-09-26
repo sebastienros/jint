@@ -10,7 +10,8 @@ internal sealed partial class HtmlParserSession
     // HTML Standard §13.4 (2026-09-25). The real target supplies ownership;
     // Browser chooses its context/target for template contents and shadow roots.
     internal static HtmlParserSession CreateFragment(Element context, HtmlParseOptions? options = null,
-        Node? target = null, HtmlParserScriptingMode? scriptingMode = null)
+        Node? target = null, HtmlParserScriptingMode? scriptingMode = null, bool allowDeclarativeShadowRoots = false,
+        IHtmlShadowHostContextProvider? shadowHostContextProvider = null)
     {
         ArgumentNullException.ThrowIfNull(context);
         target ??= context;
@@ -22,7 +23,9 @@ internal sealed partial class HtmlParserSession
             throw new ArgumentOutOfRangeException(nameof(scriptingMode));
         var document = Document.CreateHtml();
         document.SetParserMode(context.OwnerDocument!.Mode);
-        var session = new HtmlParserSession(document, options, scriptingMode: mode)
+        var session = new HtmlParserSession(document, options,
+            context: new HtmlDocumentContext(AllowDeclarativeShadowRoots: allowDeclarativeShadowRoots,
+                ShadowHostContextProvider: shadowHostContextProvider), scriptingMode: mode)
         {
             Fragment = target.OwnerDocument!.CreateDocumentFragment()
         };

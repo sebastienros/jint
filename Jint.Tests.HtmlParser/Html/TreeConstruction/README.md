@@ -22,12 +22,20 @@ foreign scripts, diagnostics, CDATA context, every short split at quotas 1/3/lar
 destination ownership/IsValue, and charged resumable long-name scans. No
 `ForeignContent` stop remains reachable; contextual fragments remain H7b and
 active parser scripting remains H8. Frameset and tail modes are covered in
-`HtmlFramesetTreeTests` against the HTML Standard updated 2026-09-25. Templates stops only where the current
-`for` content-patching branch applies; ordinary template parsing is covered in
-`HtmlTemplateTreeTests` against the HTML Standard updated 2026-09-22. The document
-parser's default declarative-shadow flag is false, so valid `shadowrootmode` tokens
-follow the Standard's ordinary-template fallback. H6f owns active declarative
-shadow parsing and content patching once their native state is integrated.
+`HtmlFramesetTreeTests` against the HTML Standard updated 2026-09-25. Ordinary templates,
+content patching, and applicable declarative-shadow parsing are covered in
+`HtmlTemplateTreeTests` and `HtmlTemplatePatchingTests` against the current HTML Standard.
+No Templates stop remains reachable. Default standalone declarative-shadow permission is false;
+internal calling algorithms can select it and supply cached engine-free Browser host facts.
+Patch coverage includes native PI pseudo-attributes, ordinary descendant and sibling scope,
+actual fragment/template ownership, captured removals from live parents, moved markers, close
+versus EOF, quota-one work scaling, every short fragment split, and coherent cancellation or
+notification failure around atomic native removal. Declarative coverage uses real shadow roots,
+flags/registry ownership, actual fragment hosts, permission/host/existing-root fallback, and
+host-provider lookup gates and original infrastructure exceptions. This is authored native
+coverage, not an expansion of the historical WPT census. Atomic native work boundaries and the
+public HTML promotion amendment are recorded in
+[the promotion checkpoint](../../../../docs/design/html-parser-html-promotion.md).
 `HtmlTableStructureTests` and `HtmlTableTextTests` cover H5a/H5b
 against the 2026-09-22 HTML Standard; the historical corpus pin above is comparison
 evidence, not the rule for a changed algorithm. Table text tests cover pending runs,

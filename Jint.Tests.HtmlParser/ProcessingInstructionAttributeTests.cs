@@ -257,4 +257,20 @@ public class ProcessingInstructionAttributeTests
         pi.GetAttribute("name").Should().Be("after");
         document.RangeOperationDepth.Should().Be(0);
     }
+
+    [Test]
+    public void CancellationFromNativeRangeNotificationIsObservedAfterTheCoherentAttributeCommit()
+    {
+        var document = Document.CreateHtml();
+        var pi = document.CreateProcessingInstruction("marker", "name='before'");
+        var range = document.CreateRange();
+        range.SelectNodeContents(new(pi));
+        using var subscription = range.ObserveChanges(document);
+        using var cancellation = new CancellationTokenSource();
+        document.PendingRangeChanges = cancellation.Cancel;
+        Assert.Throws<OperationCanceledException>(() => pi.SetAttribute("name", "after", new(null, cancellation.Token)));
+        pi.Data.Should().Be("name=\"after\"");
+        pi.GetAttribute("name").Should().Be("after");
+        document.RangeOperationDepth.Should().Be(0);
+    }
 }

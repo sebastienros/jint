@@ -163,14 +163,12 @@ public partial class HtmlTreeConstructionTests
     }
 
     [Test]
-    public void ApplicablePatchingStopsBeforeTemplateSideEffectsWhileShadowSpellingFallsBack()
+    public void MissingPatchTargetsAndDisallowedShadowSpellingUseOrdinaryFallback()
     {
         var stopped = Parse("<body><div>x</div><template for=target><p>y</p></template>", 1);
-        stopped.Step.Kind.Should().Be(HtmlParseStepKind.MissingFeature);
-        stopped.Step.MissingFeature.Should().Be(HtmlMissingFeature.Templates);
-        stopped.Step.Offset.Should().Be(18);
+        stopped.Step.Kind.Should().Be(HtmlParseStepKind.Complete);
         SerializeWithTemplateContents(stopped.Document).Should().Be(
-            "<html><head></head><body><div>x</div></body></html>");
+            "<html><head></head><body><div>x</div><template>{<p>y</p>}</template></body></html>");
 
         var fallback = Parse("<template shadowrootmode=open for=target><p>x</p></template>", 1);
         fallback.Step.Kind.Should().Be(HtmlParseStepKind.Complete);
@@ -179,8 +177,7 @@ public partial class HtmlTreeConstructionTests
         template.GetAttribute("for").Should().Be("target");
 
         var invalidShadow = Parse("<template shadowrootmode=invalid for=target>", 1);
-        invalidShadow.Step.Kind.Should().Be(HtmlParseStepKind.MissingFeature);
-        invalidShadow.Step.MissingFeature.Should().Be(HtmlMissingFeature.Templates);
+        invalidShadow.Step.Kind.Should().Be(HtmlParseStepKind.Complete);
     }
 
     [Test]
