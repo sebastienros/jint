@@ -142,13 +142,15 @@ public sealed class ModuleImportOperation
     /// </summary>
     private void ObserveAbandonment()
     {
-        if (_completed || _engine.EventLoopGeneration == _generation)
+        if (_completed || (!_engine.IsRetired && _engine.EventLoopGeneration == _generation))
         {
             return;
         }
 
-        Fail(_engine.Realm.Intrinsics.Error.Construct(
-            "The module import was abandoned: Engine.Advanced.RestoreGlobalSnapshot ended the evaluation cycle it was started in, so nothing it is waiting for can settle into this engine any more. Start the import again on the restored engine."));
+        var message = _engine.IsRetired
+            ? "The module import was abandoned because the engine was retired. Start the import on another engine."
+            : "The module import was abandoned: Engine.Advanced.RestoreGlobalSnapshot ended the evaluation cycle it was started in, so nothing it is waiting for can settle into this engine any more. Start the import again on the restored engine.";
+        Fail(_engine.Realm.Intrinsics.Error.Construct(message));
     }
 
     internal void Fulfil(JsValue value)

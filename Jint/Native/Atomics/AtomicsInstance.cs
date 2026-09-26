@@ -119,6 +119,18 @@ internal sealed partial class AtomicsInstance : BuiltinShapeObject
             }
         }
 
+        public void AbandonAsync(WaiterList list, AsyncWaiter waiter)
+        {
+            lock (_lock)
+            {
+                // Claim the wait under the same lock that selects notified waiters. Once retirement
+                // wins, a later notify cannot count this waiter or settle its promise.
+                waiter.MarkAbandoned();
+                list.AsyncWaiters.Remove(waiter);
+                PruneIfEmpty(list);
+            }
+        }
+
         /// <summary>
         /// https://tc39.es/ecma262/#sec-notifywaiter
         /// </summary>
@@ -269,8 +281,8 @@ internal sealed partial class AtomicsInstance : BuiltinShapeObject
 
     /// <summary>
     /// One <c>Atomics.waitAsync</c> in progress: the promise capability to settle, and the single flag that
-    /// decides which of the two routes out of the wait — a wake from <c>Atomics.notify</c>, or its own
-    /// timeout — gets to settle it.
+    /// decides whether a wake from <c>Atomics.notify</c> or its timeout settles it, or terminal
+    /// engine cleanup abandons it without settling a promise on an ended engine.
     /// </summary>
     internal sealed class AsyncWaiter
     {
@@ -294,7 +306,7 @@ internal sealed partial class AtomicsInstance : BuiltinShapeObject
         private WaiterList? _list;
 
         /// <summary>
-        /// Nonzero once one of the two routes has claimed the wait. The compare-and-swap in
+        /// Nonzero once a wake, timeout, or terminal cleanup has claimed the wait. The compare-and-swap in
         /// <see cref="Resolve"/> is the whole of the settle-once discipline: whichever route loses it
         /// enqueues nothing, so the promise is settled exactly once however close the race was.
         /// </summary>
@@ -307,13 +319,25 @@ internal sealed partial class AtomicsInstance : BuiltinShapeObject
             _registration = engine.CaptureEventLoopRegistration();
         }
 
-        public bool Resolved => _resolved != 0;
+        public bool Resolved => Volatile.Read(ref _resolved) != 0;
 
         internal void AttachTo(WaiterBlock block, WaiterList list)
         {
             _block = block;
             _list = list;
         }
+
+        internal void Abandon()
+        {
+            var block = _block;
+            var list = _list;
+            if (block is not null && list is not null)
+            {
+                block.AbandonAsync(list, this);
+            }
+        }
+
+        internal void MarkAbandoned() => Interlocked.Exchange(ref _resolved, 1);
 
         /// <summary>
         /// The timeout route, run by the event-loop pump once the deadline this wait registered in
@@ -343,6 +367,7 @@ internal sealed partial class AtomicsInstance : BuiltinShapeObject
         {
             if (Interlocked.CompareExchange(ref _resolved, 1, 0) == 0)
             {
+                _engine.UnregisterAtomicsAsyncWaiter(this);
                 // Queue microtask to resolve the promise: ECMAScript's DoWait enqueues the resolution
                 // as a Job (https://tc39.es/ecma262/#sec-atomics.waitasync), and a Job is a microtask.
                 _engine.AddToEventLoop(() =>
@@ -793,6 +818,7 @@ internal sealed partial class AtomicsInstance : BuiltinShapeObject
         {
             var waiters = _blocks.GetValue(bufferData, _createWaiterBlock);
             var asyncWaiter = new AsyncWaiter(_engine, promiseCapability);
+            _engine.RegisterAtomicsAsyncWaiter(asyncWaiter);
             var waiterList = waiters.AddAsync(byteIndexInBuffer, asyncWaiter);
             asyncWaiter.AttachTo(waiters, waiterList);
 

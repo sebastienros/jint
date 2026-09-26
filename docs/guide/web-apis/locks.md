@@ -68,8 +68,9 @@ waiter.Tasks.ProcessTasks(); // the grant runs here, on the waiting engine's own
 ```
 
 An engine that stops being pumped therefore holds its locks indefinitely, and everything sharing its manager
-waits. Two things give an engine's locks and requests back: `Engine.Advanced.RestoreGlobalSnapshot`, which ends
-the evaluation cycle, and `Engine.Dispose`. Script's own recovery from a stalled peer is the `steal` option.
+waits. Three things give an engine's locks and requests back: `Engine.Advanced.RestoreGlobalSnapshot`, which
+ends the evaluation cycle, `Engine.Advanced.Retire()`, which permanently ends the engine's work, and
+`Engine.Dispose`. Script's own recovery from a stalled peer is the `steal` option.
 
 Continue with [Events and messaging](./events-and-messaging.md) for the `AbortSignal` the `signal` option takes,
 or [Workers](./workers.md) for what a worker does and does not inherit.

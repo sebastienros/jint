@@ -876,6 +876,7 @@ public partial class Engine
         /// thread — a Unity main thread delivering web requests through a coroutine, for instance. Use
         /// <see cref="ImportAsync(string,CancellationToken)"/> or <see cref="StartImport(string)"/> there.
         /// </remarks>
+        /// <exception cref="InvalidOperationException">The engine has been retired.</exception>
         public ObjectInstance Import(string specifier)
         {
             using var ownership = _engine.EnterHostCall();
@@ -893,6 +894,7 @@ public partial class Engine
 
         private ObjectInstance ImportCore(ModuleRequest request, string? referencingModuleLocation)
         {
+            _engine.ThrowIfRetired();
             var budget = new ModuleLoadBudget(_engine.Options.Modules);
             var module = LoadRootModule(request, referencingModuleLocation, budget);
 
@@ -971,6 +973,7 @@ public partial class Engine
         /// This is the same pipeline a dynamic <c>import()</c> inside script goes through, and
         /// <see cref="ModuleImportOperation.Promise"/> is the promise it settles into.
         /// </remarks>
+        /// <exception cref="InvalidOperationException">The engine has been retired.</exception>
         public ModuleImportOperation StartImport(string specifier) => StartImport(specifier, referencingModuleLocation: null);
 
         /// <inheritdoc cref="StartImport(string)" />
@@ -984,6 +987,7 @@ public partial class Engine
 
         private ModuleImportOperation StartImportCore(string specifier, string? referencingModuleLocation)
         {
+            _engine.ThrowIfRetired();
             var request = new ModuleRequest(specifier, []);
             var capability = PromiseConstructor.NewPromiseCapability(_engine, _engine.Realm.Intrinsics.Promise);
             var payload = new DynamicImportPayload(
@@ -1054,7 +1058,7 @@ public partial class Engine
         /// </para>
         /// </remarks>
         /// <exception cref="PromiseRejectedException">The module failed to load or its evaluation threw.</exception>
-        /// <exception cref="InvalidOperationException">This engine is already in use.</exception>
+        /// <exception cref="InvalidOperationException">This engine is already in use or has been retired.</exception>
         public Task<ObjectInstance> ImportAsync(string specifier, CancellationToken cancellationToken = default)
             => ImportAsync(specifier, referencingModuleLocation: null, cancellationToken);
 

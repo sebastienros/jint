@@ -575,6 +575,32 @@ public class WebApiFetchDocumentTests
         }
     }
 
+    private sealed class PendingHandler : HttpMessageHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            throw new InvalidOperationException("The pending request should have been cancelled.");
+        }
+    }
+
+    [Test]
+    public void RetiringAnInFlightFetchReportsRetirementToItsObserver()
+    {
+        var observer = new RecordingObserver();
+        using var engine = WebEngine(new PendingHandler(), fetch => fetch.Observer = observer);
+        engine.Evaluate("fetch('https://example.org/pending')");
+
+        engine.Advanced.Retire();
+
+        lock (observer.Events)
+        {
+            observer.Events.Should().Contain(entry => entry.Contains(
+                "The engine was retired while the request was in flight.", StringComparison.Ordinal));
+        }
+    }
+
     [Test]
     public Task TheObserverSeesEveryHopInOrder() => DedicatedThread.RunAsync(() =>
     {

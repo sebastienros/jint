@@ -79,8 +79,9 @@ internal sealed class HostWritableStreamSink : HostStreamBridge
         {
             // Only reachable for a bridge a restore has abandoned — the standard's own machinery stops a
             // write to a closed, closing or errored stream long before it reaches the sink.
-            capability.Reject(Realm.Intrinsics.TypeError.Construct(
-                "The host stream was released: Engine.Advanced.RestoreGlobalSnapshot ended the evaluation cycle it was created in."));
+            capability.Reject(Realm.Intrinsics.TypeError.Construct(Engine.IsRetired
+                ? "The host stream was released because the engine was retired."
+                : "The host stream was released: Engine.Advanced.RestoreGlobalSnapshot ended the evaluation cycle it was created in."));
             return promise;
         }
 

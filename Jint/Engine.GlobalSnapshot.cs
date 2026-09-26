@@ -173,7 +173,8 @@ public partial class Engine
         /// <exception cref="ArgumentException"><paramref name="snapshot"/> was captured from another engine.</exception>
         /// <exception cref="InvalidOperationException">An evaluation is in progress — script on the stack, or
         /// an <c>EvaluateAsync</c>/<c>ExecuteAsync</c>/<c>InvokeAsync</c> Task still outstanding — or the
-        /// engine's realm no longer has the global object the snapshot was taken from.</exception>
+        /// engine's realm no longer has the global object the snapshot was taken from, or the engine has
+        /// been retired.</exception>
         public void RestoreGlobalSnapshot(GlobalSnapshot snapshot)
         {
             using var ownership = _engine.EnterHostCall();
@@ -183,6 +184,7 @@ public partial class Engine
             }
 
             var engine = _engine;
+            engine.ThrowIfRetired();
             if (!ReferenceEquals(snapshot.Engine, engine))
             {
                 Throw.ArgumentException("The snapshot was captured from a different engine.", nameof(snapshot));
@@ -274,9 +276,9 @@ public partial class Engine
 
     /// <summary>
     /// Clears the ambient per-evaluation state that is not part of any global binding but would otherwise
-    /// be observed by the next evaluation. Called from <see cref="GlobalSnapshot"/> restore.
+    /// be observed by the next evaluation. Called from <see cref="GlobalSnapshot"/> restore or retirement.
     /// </summary>
-    internal void ResetTransientEvaluationState()
+    internal void ResetTransientEvaluationState(bool retiring = false)
     {
         // A continuation left behind by an unsettled promise would otherwise run during the NEXT
         // evaluation's drain and observe — and mutate — the freshly restored globals. This is the eager
@@ -313,7 +315,7 @@ public partial class Engine
         // worker connection is one object spanning two engines rather than two independent peers. Only the
         // thread-safe half happens there: the host's OnWorkerEnded callbacks come back as a list and are run
         // at the bottom of this method, so a provider that throws cannot leave the engine half-reset.
-        var endedWorkers = _webApi?.ResetTransientState();
+        var endedWorkers = _webApi?.ResetTransientState(retiring);
 
         // A bridge to a host System.IO.Stream holds an operating-system handle, so the cycle ending has to
         // close it rather than merely stop delivering its chunks: the generation fence already does the

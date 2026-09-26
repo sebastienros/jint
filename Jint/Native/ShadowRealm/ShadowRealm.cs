@@ -609,7 +609,7 @@ public sealed class ShadowRealm : ObjectInstance
             string? failure = null;
             try
             {
-                result = target.Call(wrappedThisArgument, wrappedArgs);
+                result = _engine.Call((ICallable) target, wrappedThisArgument, wrappedArgs, expression: null);
             }
             catch (JavaScriptException ex)
             {

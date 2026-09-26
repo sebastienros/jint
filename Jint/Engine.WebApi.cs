@@ -1147,16 +1147,18 @@ internal sealed class WebApiEngineState
     /// What does <i>not</i> go with them is the performance entry buffer, which is data behind a restored
     /// binding and follows the module registry's rule instead; <c>JsPerformance</c> records why.
     /// </remarks>
-    internal List<Action>? ResetTransientState()
+    internal List<Action>? ResetTransientState(bool retiring)
     {
         // First, and before the general port sweep below: a worker connection is two endpoints plus a token
         // plus a reason, and CloseMessagePorts would otherwise close this engine's half of it as an anonymous
         // port — stopping delivery while leaving the connection reading as live.
-        var endedWorkers = EndWorkerConnections(WorkerEndReason.ParentRestored, WorkerEndReason.WorkerRestored);
+        var endedWorkers = retiring
+            ? EndWorkerConnections(WorkerEndReason.ParentRetired, WorkerEndReason.WorkerRetired)
+            : EndWorkerConnections(WorkerEndReason.ParentRestored, WorkerEndReason.WorkerRestored);
 
         Timers?.Clear();
         Scheduler?.Clear();
-        AbandonFetches();
+        AbandonFetches(retiring);
         AbandonFetchBodies();
         AbandonEventSources();
         AbandonXhrOperations();
@@ -1265,7 +1267,7 @@ internal sealed class WebApiEngineState
         }
     }
 
-    private void AbandonFetches()
+    private void AbandonFetches(bool retiring)
     {
         if (_fetches is not { Count: > 0 } fetches)
         {
@@ -1279,7 +1281,7 @@ internal sealed class WebApiEngineState
 
         foreach (var fetch in pending)
         {
-            fetch.Abandon();
+            fetch.Abandon(retiring);
         }
     }
 

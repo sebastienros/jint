@@ -55,6 +55,7 @@ public partial class Engine
         /// deliberately no such method — see the loop shapes on <see cref="TimeUntilNextScheduledWork"/>.
         /// A job belonging to an evaluation cycle that
         /// <see cref="AdvancedOperations.RestoreGlobalSnapshot"/> has ended is discarded rather than run.
+        /// Jobs queued before <see cref="AdvancedOperations.Retire"/> are also discarded.
         /// </para>
         /// </remarks>
         public void ProcessTasks()
@@ -97,6 +98,7 @@ public partial class Engine
         /// <para>
         /// The job belongs to the evaluation cycle current when it was posted, so an
         /// <see cref="AdvancedOperations.RestoreGlobalSnapshot"/> in between drops it; post again afterwards.
+        /// Retirement also drops queued posts and refuses new ones permanently.
         /// <b><see cref="Engine.Dispose"/> is a barrier</b> — a post to a disposed engine is refused with
         /// <see cref="ObjectDisposedException"/>, so subscribe to <see cref="Engine.Disposed"/> or check
         /// <see cref="Engine.IsDisposed"/> rather than posting and hoping.
@@ -105,6 +107,7 @@ public partial class Engine
         /// <param name="action">The callback to run on the engine's own thread.</param>
         /// <exception cref="ArgumentNullException"><paramref name="action"/> is <c>null</c>.</exception>
         /// <exception cref="ObjectDisposedException">The engine has been disposed.</exception>
+        /// <exception cref="InvalidOperationException">The engine has been retired.</exception>
         /// <example>
         /// One thread per engine, with the rest of the process handing it work:
         /// <code>
@@ -132,6 +135,8 @@ public partial class Engine
                     nameof(Engine),
                     "The engine has been disposed; nothing will pump it again, so this job could never run.");
             }
+
+            _engine.ThrowIfRetired();
 
             // Deliberately unguarded — no EnterHostCall — because the caller is the thread that does not own
             // the engine; the queue is concurrent and the enqueue is what wakes a park.
@@ -163,7 +168,7 @@ public partial class Engine
         /// <para>
         /// A promise registered before an <see cref="AdvancedOperations.RestoreGlobalSnapshot"/> is dropped
         /// when it settles rather than resuming into the restored globals; register one that must outlive a
-        /// restore after it.
+        /// restore after it. Retirement drops pending settlements and refuses new registrations permanently.
         /// </para>
         /// <para>
         /// This is a low-level primitive — the supported way for host code to hand script a promise it
@@ -175,9 +180,11 @@ public partial class Engine
         /// </para>
         /// </remarks>
         /// <returns>a Promise instance and functions to either resolve or reject it</returns>
+        /// <exception cref="InvalidOperationException">The engine has been retired.</exception>
         public ManualPromise RegisterPromise()
         {
             using var ownership = _engine.EnterHostCall();
+            _engine.ThrowIfRetired();
             return _engine.RegisterPromise();
         }
 
