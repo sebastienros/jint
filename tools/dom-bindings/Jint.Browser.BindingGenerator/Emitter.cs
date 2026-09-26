@@ -406,14 +406,14 @@ internal sealed class Emitter
             builder.Append("        _ => global::Jint.Native.JsString.Create(value.ToString()),\n    };\n\n");
 
             builder.Append("    internal static ").Append(model.ClrFullName).Append(" To").Append(model.HelperName)
-                .Append("(global::Jint.Native.JsValue value, string member) => global::Jint.Runtime.TypeConverter.ToString(value) switch\n    {\n");
+                .Append("(global::Jint.Native.JsValue value, string member)\n    {\n        var text = global::Jint.Runtime.TypeConverter.ToString(value);\n        return text switch\n        {\n");
 
             foreach (var (field, literal) in model.Values)
             {
                 builder.Append("        ").Append(CSharpNames.Literal(literal)).Append(" => ").Append(model.ClrFullName).Append('.').Append(field).Append(",\n");
             }
 
-            builder.Append("        _ => DomConvert.BadEnumValue<").Append(model.ClrFullName).Append(">(value, member),\n    };\n");
+            builder.Append("        _ => DomConvert.BadEnumValue<").Append(model.ClrFullName).Append(">(value, text, member),\n        };\n    }\n");
         }
 
         builder.Append("}\n");

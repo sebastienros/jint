@@ -1,7 +1,36 @@
+using Jint.Browser.Accessibility;
+using Jint.Browser.Dom;
+using Jint.HtmlParser;
+
 namespace Jint.Tests.Browser.Dom;
 
 public sealed class NativeShadowBindingTests
 {
+    [TestCase("mode")]
+    [TestCase("slotAssignment")]
+    public void InvalidEnumsConvertAnObjectOnlyOnce(string member)
+    {
+        using var dom = DomTestFixture.Create("<div></div>");
+        dom.Execute("var count=0, value={toString(){if(++count>1)throw Error('second conversion');return 'invalid'}}, init={mode:'open'}; init['" + member + "']=value; var error; try{document.createElement('div').attachShadow(init)}catch(e){error=e.name}");
+        dom.Text("error").Should().Be("TypeError");
+        dom.Number("count").Should().Be(1);
+    }
+
+    [Test]
+    public void OmittedRegistryReadsTheHostDocumentAfterAllDictionaryGetters()
+    {
+        using var dom = DomTestFixture.Create("<div id=h></div>");
+        var host = ContentDom.ElementById(dom.Document, "h")!;
+        dom.Document.SetCustomElementRegistry(new(false));
+        var destination = Document.CreateHtml();
+        var registry = new CustomElementRegistryIdentity(false);
+        destination.SetCustomElementRegistry(registry);
+        dom.Engine.SetValue("other", DomBindings.Wrap(dom.Engine, destination));
+        dom.Execute("var h=document.getElementById('h'); h.attachShadow({mode:'open',get slotAssignment(){other.adoptNode(h);return 'named'}});");
+        host.OwnerDocument.Should().BeSameAs(destination);
+        host.AttachedShadowRoot!.CustomElementRegistry.Should().BeSameAs(registry);
+    }
+
     [Test]
     public void AttachmentConvertsDictionaryInOrderAndPreservesRootIdentity()
     {

@@ -30,4 +30,16 @@ public sealed class NativeNumericInputBindingTests
         dom.Bool("Number.isNaN(i.valueAsNumber) && i.valueAsDate===null").Should().BeTrue();
         dom.Text("(()=>{try{i.stepUp()}catch(e){return e.name}})()").Should().Be("InvalidStateError");
     }
+
+    [TestCase("text")]
+    [TestCase("datetime-local")]
+    public void DateSetterChecksObjectConversionThenApplicabilityThenDateBrand(string type)
+    {
+        using var dom = DomTestFixture.Create("<input id=i type='" + type + "'>");
+        dom.Execute("var i=document.getElementById('i');");
+        foreach (var value in new[] { "{}", "new Date(0)", "null", "undefined" })
+            dom.Text("(()=>{try{i.valueAsDate=" + value + "}catch(e){return e.name}})()").Should().Be("InvalidStateError");
+        foreach (var value in new[] { "1", "'x'", "true" })
+            dom.Text("(()=>{try{i.valueAsDate=" + value + "}catch(e){return e.name}})()").Should().Be("TypeError");
+    }
 }

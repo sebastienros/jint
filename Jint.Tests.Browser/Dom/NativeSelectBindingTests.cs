@@ -1,9 +1,50 @@
 #nullable enable
+using Jint.Browser.Dom;
+using Jint.Browser.Dom.Collections;
+using Jint.HtmlParser;
 
 namespace Jint.Tests.Browser.Dom;
 
 public sealed class NativeSelectBindingTests
 {
+    [TestCase(false)]
+    [TestCase(true)]
+    public void WarmIndexedOptionsUseLinearWorkAcrossTheExistingCollectionWrapper(bool selectedOnly)
+    {
+        var checks = new ReadChecks();
+        using var engine = new Engine(options => options.AddConstraint(checks));
+        DomBindings.Install(engine);
+        var document = Document.CreateHtml();
+        var select = document.CreateElement("select");
+        select.SetAttribute("multiple", "");
+        var options = new Element[128];
+        for (var index = 0; index < options.Length; index++)
+        {
+            options[index] = document.CreateElement("option");
+            options[index].SetAttribute("selected", "");
+            select.AppendChild(options[index]);
+        }
+        var realm = DomRealm.Of(engine);
+        var view = DomSelectCollection.Of(realm, select, selectedOnly);
+        var collection = (DomHtmlCollectionObject<Element>) realm.WrapCollection<Element>(view);
+        collection.Length.Should().Be((uint) options.Length);
+        checks.Clear();
+        for (uint index = 0; index < options.Length; index++)
+        {
+            collection.TryGetIndex(index, out var value).Should().BeTrue();
+            ((IDomWrapper) value).DomTarget.Should().BeSameAs(options[index]);
+        }
+        checks.Count.Should().BeLessThanOrEqualTo(options.Length * 4);
+    }
+
+    private sealed class ReadChecks : Constraint
+    {
+        internal int Count { get; private set; }
+        internal void Clear() => Count = 0;
+        public override void Check() => Count++;
+        public override void Reset() { }
+    }
+
     [Test]
     public void OptionsKeepTheirPrototypeAndLiveSelectednessIdentity()
     {

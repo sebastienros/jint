@@ -19,7 +19,7 @@ internal static class DomShadowMembers
         var dictionary = argument as ObjectInstance;
         var clonable = TypeConverter.ToBoolean(dictionary?.Get("clonable") ?? JsValue.Undefined);
         var registryValue = dictionary?.Get("customElementRegistry") ?? JsValue.Undefined;
-        CustomElementRegistryIdentity? registry = host.OwnerDocument!.CustomElementRegistry;
+        CustomElementRegistryIdentity? registry = null;
         if (!registryValue.IsUndefined())
         {
             if (registryValue.IsNull()) registry = null;
@@ -32,13 +32,17 @@ internal static class DomShadowMembers
         var mode = DomEnums.ToShadowRootMode(modeValue, member);
         var serializable = TypeConverter.ToBoolean(dictionary?.Get("serializable") ?? JsValue.Undefined);
         var slotValue = dictionary?.Get("slotAssignment") ?? JsValue.Undefined;
-        var slot = slotValue.IsUndefined() ? SlotAssignmentMode.Named : TypeConverter.ToString(slotValue) switch
+        var slotText = slotValue.IsUndefined() ? "named" : TypeConverter.ToString(slotValue);
+        var slot = slotText switch
         {
             "named" => SlotAssignmentMode.Named,
             "manual" => SlotAssignmentMode.Manual,
-            _ => DomConvert.BadEnumValue<SlotAssignmentMode>(slotValue, member),
+            _ => DomConvert.BadEnumValue<SlotAssignmentMode>(slotValue, slotText, member),
         };
-        if (registry is { IsScoped: false } && !ReferenceEquals(registry, host.OwnerDocument.CustomElementRegistry))
+        // Dictionary getters may adopt the receiver; the algorithm reads its node document afterwards.
+        var document = host.OwnerDocument!;
+        if (registryValue.IsUndefined()) registry = document.CustomElementRegistry;
+        if (registry is { IsScoped: false } && !ReferenceEquals(registry, document.CustomElementRegistry))
             throw DomException.NotSupported();
         var context = DomShadowHostContext.Of(host, CustomElementRegistry.Of(realm.Engine)) with { Registry = registry };
         realm.Engine.Constraints.Check();

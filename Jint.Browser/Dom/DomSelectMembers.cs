@@ -64,6 +64,8 @@ internal class DomSelectCollection(DomRealm realm, Element select, bool selected
 
     internal override int Length => Native.GetCount(realm.CancellationToken);
 
+    internal override Element? GetItem(uint index) => Native.Item(index, realm.CancellationToken);
+
     public override IEnumerator<Element> GetEnumerator()
     {
         var options = Native;

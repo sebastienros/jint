@@ -42,11 +42,14 @@ internal static class DomTitleMembers
         => ChildText(title, new DomReadWork(realm.NativeReadCheckpoint, realm.CancellationToken), collapse: false);
 
     internal static JsValue SetText(DomRealm realm, Element title, string value)
+        => SetText(title, value, realm.NativeReadCheckpoint, realm.CancellationToken);
+
+    internal static JsValue SetText(Element title, string value, Action<int>? checkpoint, CancellationToken token)
     {
-        realm.Engine.Constraints.Check();
-        realm.CancellationToken.ThrowIfCancellationRequested();
+        var work = new DomReadWork(checkpoint, token);
+        work.Check();
         title.ReplaceChildren(value.Length == 0 ? null : title.OwnerDocument!.CreateTextNode(value));
-        realm.CancellationToken.ThrowIfCancellationRequested();
+        work.Check();
         return JsValue.Undefined;
     }
 
@@ -81,7 +84,9 @@ internal static class DomTitleMembers
                 foreach (var character in data.Data) Append(character);
         }
         work.Check();
-        return result.ToString();
+        var value = result.ToString();
+        work.Check();
+        return value;
 
         void Append(char character)
         {

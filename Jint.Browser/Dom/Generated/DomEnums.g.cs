@@ -25,14 +25,18 @@ internal static class DomEnums
         _ => global::Jint.Native.JsString.Create(value.ToString()),
     };
 
-    internal static global::AngleSharp.Dom.AdjacentPosition ToAdjacentPosition(global::Jint.Native.JsValue value, string member) => global::Jint.Runtime.TypeConverter.ToString(value) switch
+    internal static global::AngleSharp.Dom.AdjacentPosition ToAdjacentPosition(global::Jint.Native.JsValue value, string member)
     {
+        var text = global::Jint.Runtime.TypeConverter.ToString(value);
+        return text switch
+        {
         "beforebegin" => global::AngleSharp.Dom.AdjacentPosition.BeforeBegin,
         "afterbegin" => global::AngleSharp.Dom.AdjacentPosition.AfterBegin,
         "beforeend" => global::AngleSharp.Dom.AdjacentPosition.BeforeEnd,
         "afterend" => global::AngleSharp.Dom.AdjacentPosition.AfterEnd,
-        _ => DomConvert.BadEnumValue<global::AngleSharp.Dom.AdjacentPosition>(value, member),
-    };
+        _ => DomConvert.BadEnumValue<global::AngleSharp.Dom.AdjacentPosition>(value, text, member),
+        };
+    }
 
     internal static global::Jint.Native.JsValue FromDocumentReadyState(global::AngleSharp.Dom.DocumentReadyState value) => value switch
     {
@@ -42,13 +46,17 @@ internal static class DomEnums
         _ => global::Jint.Native.JsString.Create(value.ToString()),
     };
 
-    internal static global::AngleSharp.Dom.DocumentReadyState ToDocumentReadyState(global::Jint.Native.JsValue value, string member) => global::Jint.Runtime.TypeConverter.ToString(value) switch
+    internal static global::AngleSharp.Dom.DocumentReadyState ToDocumentReadyState(global::Jint.Native.JsValue value, string member)
     {
+        var text = global::Jint.Runtime.TypeConverter.ToString(value);
+        return text switch
+        {
         "loading" => global::AngleSharp.Dom.DocumentReadyState.Loading,
         "interactive" => global::AngleSharp.Dom.DocumentReadyState.Interactive,
         "complete" => global::AngleSharp.Dom.DocumentReadyState.Complete,
-        _ => DomConvert.BadEnumValue<global::AngleSharp.Dom.DocumentReadyState>(value, member),
-    };
+        _ => DomConvert.BadEnumValue<global::AngleSharp.Dom.DocumentReadyState>(value, text, member),
+        };
+    }
 
     internal static global::Jint.Native.JsValue FromMediaControllerPlaybackState(global::AngleSharp.Media.Dom.MediaControllerPlaybackState value) => value switch
     {
@@ -58,13 +66,17 @@ internal static class DomEnums
         _ => global::Jint.Native.JsString.Create(value.ToString()),
     };
 
-    internal static global::AngleSharp.Media.Dom.MediaControllerPlaybackState ToMediaControllerPlaybackState(global::Jint.Native.JsValue value, string member) => global::Jint.Runtime.TypeConverter.ToString(value) switch
+    internal static global::AngleSharp.Media.Dom.MediaControllerPlaybackState ToMediaControllerPlaybackState(global::Jint.Native.JsValue value, string member)
     {
+        var text = global::Jint.Runtime.TypeConverter.ToString(value);
+        return text switch
+        {
         "waiting" => global::AngleSharp.Media.Dom.MediaControllerPlaybackState.Waiting,
         "playing" => global::AngleSharp.Media.Dom.MediaControllerPlaybackState.Playing,
         "ended" => global::AngleSharp.Media.Dom.MediaControllerPlaybackState.Ended,
-        _ => DomConvert.BadEnumValue<global::AngleSharp.Media.Dom.MediaControllerPlaybackState>(value, member),
-    };
+        _ => DomConvert.BadEnumValue<global::AngleSharp.Media.Dom.MediaControllerPlaybackState>(value, text, member),
+        };
+    }
 
     internal static global::Jint.Native.JsValue FromScrollBehavior(global::AngleSharp.Css.Dom.ScrollBehavior value) => value switch
     {
@@ -74,13 +86,17 @@ internal static class DomEnums
         _ => global::Jint.Native.JsString.Create(value.ToString()),
     };
 
-    internal static global::AngleSharp.Css.Dom.ScrollBehavior ToScrollBehavior(global::Jint.Native.JsValue value, string member) => global::Jint.Runtime.TypeConverter.ToString(value) switch
+    internal static global::AngleSharp.Css.Dom.ScrollBehavior ToScrollBehavior(global::Jint.Native.JsValue value, string member)
     {
+        var text = global::Jint.Runtime.TypeConverter.ToString(value);
+        return text switch
+        {
         "auto" => global::AngleSharp.Css.Dom.ScrollBehavior.Auto,
         "instant" => global::AngleSharp.Css.Dom.ScrollBehavior.Instant,
         "smooth" => global::AngleSharp.Css.Dom.ScrollBehavior.Smooth,
-        _ => DomConvert.BadEnumValue<global::AngleSharp.Css.Dom.ScrollBehavior>(value, member),
-    };
+        _ => DomConvert.BadEnumValue<global::AngleSharp.Css.Dom.ScrollBehavior>(value, text, member),
+        };
+    }
 
     internal static global::Jint.Native.JsValue FromScrollLogicalPosition(global::AngleSharp.Css.Dom.ScrollLogicalPosition value) => value switch
     {
@@ -89,12 +105,16 @@ internal static class DomEnums
         _ => global::Jint.Native.JsString.Create(value.ToString()),
     };
 
-    internal static global::AngleSharp.Css.Dom.ScrollLogicalPosition ToScrollLogicalPosition(global::Jint.Native.JsValue value, string member) => global::Jint.Runtime.TypeConverter.ToString(value) switch
+    internal static global::AngleSharp.Css.Dom.ScrollLogicalPosition ToScrollLogicalPosition(global::Jint.Native.JsValue value, string member)
     {
+        var text = global::Jint.Runtime.TypeConverter.ToString(value);
+        return text switch
+        {
         "start" => global::AngleSharp.Css.Dom.ScrollLogicalPosition.Start,
         "end" => global::AngleSharp.Css.Dom.ScrollLogicalPosition.End,
-        _ => DomConvert.BadEnumValue<global::AngleSharp.Css.Dom.ScrollLogicalPosition>(value, member),
-    };
+        _ => DomConvert.BadEnumValue<global::AngleSharp.Css.Dom.ScrollLogicalPosition>(value, text, member),
+        };
+    }
 
     internal static global::Jint.Native.JsValue FromShadowRootMode(global::Jint.HtmlParser.ShadowRootMode value) => value switch
     {
@@ -103,12 +123,16 @@ internal static class DomEnums
         _ => global::Jint.Native.JsString.Create(value.ToString()),
     };
 
-    internal static global::Jint.HtmlParser.ShadowRootMode ToShadowRootMode(global::Jint.Native.JsValue value, string member) => global::Jint.Runtime.TypeConverter.ToString(value) switch
+    internal static global::Jint.HtmlParser.ShadowRootMode ToShadowRootMode(global::Jint.Native.JsValue value, string member)
     {
+        var text = global::Jint.Runtime.TypeConverter.ToString(value);
+        return text switch
+        {
         "open" => global::Jint.HtmlParser.ShadowRootMode.Open,
         "closed" => global::Jint.HtmlParser.ShadowRootMode.Closed,
-        _ => DomConvert.BadEnumValue<global::Jint.HtmlParser.ShadowRootMode>(value, member),
-    };
+        _ => DomConvert.BadEnumValue<global::Jint.HtmlParser.ShadowRootMode>(value, text, member),
+        };
+    }
 
     internal static global::Jint.Native.JsValue FromTextTrackMode(global::AngleSharp.Media.Dom.TextTrackMode value) => value switch
     {
@@ -118,11 +142,15 @@ internal static class DomEnums
         _ => global::Jint.Native.JsString.Create(value.ToString()),
     };
 
-    internal static global::AngleSharp.Media.Dom.TextTrackMode ToTextTrackMode(global::Jint.Native.JsValue value, string member) => global::Jint.Runtime.TypeConverter.ToString(value) switch
+    internal static global::AngleSharp.Media.Dom.TextTrackMode ToTextTrackMode(global::Jint.Native.JsValue value, string member)
     {
+        var text = global::Jint.Runtime.TypeConverter.ToString(value);
+        return text switch
+        {
         "disabled" => global::AngleSharp.Media.Dom.TextTrackMode.Disabled,
         "hidden" => global::AngleSharp.Media.Dom.TextTrackMode.Hidden,
         "showing" => global::AngleSharp.Media.Dom.TextTrackMode.Showing,
-        _ => DomConvert.BadEnumValue<global::AngleSharp.Media.Dom.TextTrackMode>(value, member),
-    };
+        _ => DomConvert.BadEnumValue<global::AngleSharp.Media.Dom.TextTrackMode>(value, text, member),
+        };
+    }
 }

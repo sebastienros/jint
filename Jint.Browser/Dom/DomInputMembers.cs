@@ -1,5 +1,6 @@
 using Jint.HtmlParser;
 using Jint.Native;
+using Jint.Native.Object;
 using Jint.Runtime;
 
 namespace Jint.Browser.Dom;
@@ -34,13 +35,19 @@ internal static class DomInputMembers
 
     internal static JsValue SetDate(DomRealm realm, Element input, JsValue value)
     {
+        if (!value.IsNullOrUndefined() && value is not ObjectInstance)
+            Throw.TypeError(realm.OwningRealm, "valueAsDate must be an object or null.");
+        var state = ValueState(realm, input);
+        // HTML checks applicability after WebIDL's object? conversion, before checking the Date slot.
+        if (state.Type is not (HtmlInputType.Date or HtmlInputType.Month or HtmlInputType.Week or HtmlInputType.Time))
+            throw new DomException("InvalidStateError", "This input does not permit the date operation.");
         double? milliseconds = null;
         if (!value.IsNullOrUndefined())
         {
             if (value is not JsDate date) Throw.TypeError(realm.OwningRealm, "valueAsDate must be a Date or null.");
             else milliseconds = date._dateValue.IsNaN ? double.NaN : date._dateValue.Value;
         }
-        ValueState(realm, input).SetValueAsDate(milliseconds, realm.CancellationToken);
+        state.SetValueAsDate(milliseconds, realm.CancellationToken);
         realm.Engine.Constraints.Check();
         return JsValue.Undefined;
     }

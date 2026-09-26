@@ -120,8 +120,11 @@ internal static class DomConvert
     /// <c>TypeError</c>. Generic so that the generated <c>DomEnums</c> switch can end in an expression.
     /// </summary>
     internal static T BadEnumValue<T>(JsValue value, string member)
+        => BadEnumValue<T>(value, TypeConverter.ToString(value), member);
+
+    internal static T BadEnumValue<T>(JsValue value, string text, string member)
     {
-        var message = "Failed to execute '" + member + "': the provided value '" + TypeConverter.ToString(value) + "' is not a valid enum value.";
+        var message = "Failed to execute '" + member + "': the provided value '" + text + "' is not a valid enum value.";
 
         if (value is ObjectInstance instance)
         {
