@@ -26,11 +26,18 @@ internal static class CssSupports
         ArgumentNullException.ThrowIfNull(text);
         work.CheckCancellation();
         var values = Parse(text, options, work);
-        if (!ValidAnyValue(values, work)) return false;
-        var result = Condition(text, values, options, work);
-        // §7.5's second attempt is an implied parentheses pair. Keep the original C1
-        // components and their source spans, rather than retokenizing injected text.
-        if (result != Result.True) result = Operand(text, values, options, work, out _);
+        var result = ValidAnyValue(values, work) ? Condition(text, values, options, work) : Result.Invalid;
+        if (result != Result.True)
+        {
+            // §7.5's implied parentheses can regroup unmatched delimiters in the
+            // original input. Reparse the changed source, with the same work and limits.
+            work.CheckCancellation();
+            var wrapped = string.Concat("(", text, ")");
+            work.Charge(wrapped.Length);
+            work.CheckCancellation();
+            values = Parse(wrapped, options, work);
+            result = ValidAnyValue(values, work) ? Condition(wrapped, values, options, work) : Result.Invalid;
+        }
         work.CheckCancellation();
         return result == Result.True;
     }

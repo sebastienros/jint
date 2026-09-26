@@ -66,12 +66,12 @@ public sealed class CssSupportsTests
         await using var browser = new Browser();
         var page = await browser.NewPageAsync();
         (await page.EvaluateAsync<string>("""
-            [CSS.supports('color', 'red'), CSS.supports(' color', 'red'),
+            [CSS.supports('color:red) or (width:1px'), CSS.supports('color', 'red'), CSS.supports(' color', 'red'),
              CSS.supports('color', 'red!important'), CSS.supports('color:red!important'),
              CSS.supports('--', ''), CSS.supports('border-color', 'red'),
              CSS.supports('selector(:is(div, :unknown))'),
              CSS.supports('(color:red) or (display:block) trailing'),
              CSS.supports('color', 'red) or (display:block')].join('|')
-            """)).Should().Be("true|false|false|true|true|false|false|false|false");
+            """)).Should().Be("true|true|false|false|true|true|false|false|false|false");
     }
 }

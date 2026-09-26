@@ -33,6 +33,7 @@ public sealed class CssSupportsTests
         CssSupports.EvaluateDeclaration(name, value, null, new CssValueWork(default)).Should().Be(expected);
 
     [TestCase("color:red", true)]
+    [TestCase("color:red) or (width:1px", true)]
     [TestCase("c\\6flor:red", true)]
     [TestCase("(color:red !IMPORTANT)", true)]
     [TestCase("color:red !important", true)]
