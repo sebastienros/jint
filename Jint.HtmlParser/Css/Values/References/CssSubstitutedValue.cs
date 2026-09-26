@@ -317,6 +317,13 @@ internal sealed partial class CssSegment
     internal static CssSegment Concat(CssSegment[] children, CssValueWork work)
     {
         work.CheckCancellation();
+        if (children.Length <= 1)
+        {
+            work.Charge(children.Length);
+            var single = children.Length == 0 || children[0].IsEmpty ? Empty : children[0];
+            work.CheckCancellation();
+            return single;
+        }
         // Normalize immediate children only. Shared DAGs are never flattened to find an edge marker.
         var retained = new List<CssSegment>(children.Length);
         foreach (var child in children)
@@ -346,13 +353,11 @@ internal sealed partial class CssSegment
             depth = System.Math.Max(depth, child.Depth);
             lexicalLength = Saturate(lexicalLength, child.LexicalLength, CssSubstitutedValue.MaxSpelling);
         }
-        work.Charge(retained.Count);
-        var normalized = retained.ToArray();
-        work.CheckCancellation();
+        // Copy directly into the immutable owner; an intermediate array would only be copied again.
         return new CssSegment(CssSegmentKind.Concat, null, default, default,
-            new CssSegmentList(normalized, work), tokens, spelling, depth,
-            lexicalLength: lexicalLength, startsBoundary: normalized[0].StartsBoundary,
-            endsBoundary: normalized[^1].EndsBoundary);
+            new CssSegmentList(retained, work), tokens, spelling, depth,
+            lexicalLength: lexicalLength, startsBoundary: retained[0].StartsBoundary,
+            endsBoundary: retained[^1].EndsBoundary);
     }
 
     internal static CssSegment FromInput(CssReferenceInput input, CssValueWork work)
@@ -436,6 +441,17 @@ internal sealed class CssSegmentList
         work.CheckCancellation();
         _values = new CssSegment[values.Length];
         for (var i = 0; i < values.Length; i++)
+        {
+            work.Charge(1);
+            _values[i] = values[i];
+        }
+        work.CheckCancellation();
+    }
+    internal CssSegmentList(List<CssSegment> values, CssValueWork work)
+    {
+        work.CheckCancellation();
+        _values = new CssSegment[values.Count];
+        for (var i = 0; i < values.Count; i++)
         {
             work.Charge(1);
             _values[i] = values[i];

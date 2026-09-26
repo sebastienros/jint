@@ -64,9 +64,13 @@ internal static class CssSubstitutionExecutor
                     }
                     if (frame.Index == frame.Children!.Length)
                     {
-                        work.Charge(frame.Output!.Count);
+                        var output = frame.Output!;
+                        work.Charge(output.Count);
                         work.CheckCancellation();
-                        last = Eval.Tokens(CssSegment.Concat(frame.Output!.ToArray(), work),
+                        // A completed child is already normalized and immutable. A singleton needs
+                        // neither an array copy nor another normalization/ownership-copy pass.
+                        var assembled = output.Count == 1 ? output[0] : CssSegment.Concat(output.ToArray(), work);
+                        last = Eval.Tokens(assembled,
                             frame.ExpandedTokens, frame.ExpandedSpelling, frame.ExpandedLexicalLength);
                         frames.RemoveAt(frames.Count - 1);
                         continue;

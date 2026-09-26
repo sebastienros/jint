@@ -71,6 +71,21 @@ public sealed class SubstitutionNormalizationTests
     }
 
     [Test]
+    public void DirectStagingListPublicationStillOwnsItsChildren()
+    {
+        var work = new CssValueWork(default);
+        var red = CssSegment.FromInput(SubstitutionFixture.Input("red"), work);
+        var green = CssSegment.FromInput(SubstitutionFixture.Input("green"), work);
+        var staging = new List<CssSegment> { red, red };
+        var published = new CssSegmentList(staging, work);
+        staging[0] = green;
+        staging.Clear();
+        published.Length.Should().Be(2);
+        published[0].Should().BeSameAs(red);
+        published[1].Should().BeSameAs(red);
+    }
+
+    [Test]
     public void BoundaryNormalizationIsIdempotentAndInspectsOnlyImmediateChildren()
     {
         var work = new CssValueWork(default);
