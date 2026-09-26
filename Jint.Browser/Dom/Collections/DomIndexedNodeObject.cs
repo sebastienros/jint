@@ -88,7 +88,7 @@ internal sealed class DomIndexedNodeObject : DomNodeObject
             indices.Add(JsString.Create(i));
         }
 
-        foreach (var name in _accessor.SupportedNames(DomTarget))
+        foreach (var name in _accessor.SupportedNames(DomRealm, DomTarget))
         {
             // A name the object already carries - an expando, or an inherited member shadowed by one - is the
             // base list's, and listing it twice would make Object.getOwnPropertyNames report a duplicate.
