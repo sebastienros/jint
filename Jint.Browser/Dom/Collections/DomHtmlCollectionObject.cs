@@ -10,7 +10,7 @@ namespace Jint.Browser.Dom.Collections;
 /// </summary>
 /// <remarks>
 /// It is the one collection the generated <see cref="DomCollectionAccessor"/> scheme cannot serve, because
-/// AngleSharp's <see cref="IHtmlCollection{T}"/> is generic and <b>invariant</b>: an
+/// the former generic HTML collection is generic and <b>invariant</b>: an
 /// <c>IHtmlCollection&lt;IHtmlOptionElement&gt;</c> is not an <c>IHtmlCollection&lt;Element&gt;</c>, so one
 /// non-generic accessor could not reach the indexer at all. A generated member instead names its declared
 /// element type at the call site — <c>realm.WrapCollection&lt;IHtmlOptionElement&gt;(…)</c> — which keeps the
@@ -19,50 +19,16 @@ namespace Jint.Browser.Dom.Collections;
 internal sealed class DomHtmlCollectionObject<T> : DomCollectionBase where T : Node
 {
     private readonly DomHtmlCollection<T> _collection;
-    // The collection when it is the binding's own live one, and null when it is AngleSharp's -- read on
-    // every indexed access, so it is a field rather than a type test, the same shape and for the same reason
-    // as DomCollectionObject's static-NodeList branch.
-    private readonly DomLiveHtmlCollection? _live;
-
-    private readonly Layout.PageLayout? _layout;
-    private ulong _countVersion;
-    private uint _count;
-    private bool _hasCount;
-
     private List<string> _names = [];
 
     internal DomHtmlCollectionObject(DomRealm realm, DomInterfaceDefinition definition, DomHtmlCollection<T> collection)
         : base(realm, definition, collection)
     {
         _collection = collection;
-        _live = collection as DomLiveHtmlCollection;
-        _layout = Runtime.PageRuntime.Find(realm.Engine)?.Layout;
     }
 
     /// <inheritdoc />
-    public override uint Length
-    {
-        get
-        {
-            // https://dom.spec.whatwg.org/#concept-collection-live: each read describes the current
-            // tree. Retain only a scalar count under Browser's synchronous mutation fence, never an
-            // enumerator or nodes. Standalone bindings and arbitrary native writers stay uncached.
-            if (_layout is not { } layout || !layout.TryGetCollectionVersion(out var version))
-            {
-                _hasCount = false;
-                return (uint) _collection.Length;
-            }
-
-            if (!_hasCount || _countVersion != version)
-            {
-                _count = (uint) _collection.Length;
-                _countVersion = version;
-                _hasCount = true;
-            }
-
-            return _count;
-        }
-    }
+    public override uint Length => (uint) _collection.Length;
 
     /// <inheritdoc />
     protected override bool IgnoreNamedPropertiesInSet => true;
@@ -109,27 +75,7 @@ internal sealed class DomHtmlCollectionObject<T> : DomCollectionBase where T : N
     /// whose length probe is a field read, and it stays where it is.
     /// </para>
     /// </remarks>
-    private Element? ElementAt(uint index)
-    {
-        if (_live is { } live)
-        {
-            return live.TryGetElementAt(index, out var element) ? element : null;
-        }
-
-        var remaining = index;
-
-        foreach (var candidate in _collection)
-        {
-            if (remaining == 0)
-            {
-                return (Element) (Node) candidate;
-            }
-
-            remaining--;
-        }
-
-        return null;
-    }
+    private Element? ElementAt(uint index) => _collection.Item(index) as Element;
 
     /// <summary>
     /// https://dom.spec.whatwg.org/#interface-htmlcollection — the supported property names are every
