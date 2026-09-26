@@ -137,7 +137,7 @@ internal static partial class NativeCssStyleSheets
         return Array.Empty<NativeCssSheet>();
     }
 
-    private static IReadOnlyList<NativeCssSheet> Get(Node root, Document document, CssValueWork work, bool includeShadow)
+    private static ReadOnlyCollection<NativeCssSheet> Get(Node root, Document document, CssValueWork work, bool includeShadow)
     {
         var result = new List<NativeCssSheet>();
         var resources = Documents.GetValue(document, static _ => new Resources());
