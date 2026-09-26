@@ -4,8 +4,10 @@
 
 **Current checkpoint (September 26):** the isolated native Browser and its test project compile with
 zero warnings/errors and no production AngleSharp dependencies. The first full Browser gate failed
-279 of 3,964 cases; subsequent focused gates include **280/286 Browser**, **87/87 native query/state**,
-and **217/219 native supports/media/lexical** cases. Reviewed fixes and new feature slices continue;
+279 of 3,964 cases; subsequent focused gates include **76/76 native imports/keyframes**,
+**272/272 native transform lists/matrices**, and **70/70 Browser child-resource/recovery** cases.
+Final frame/file checks pass within a **71/72** gate whose sole stale-message assertion has a
+reviewed correction awaiting rerun. Reviewed fixes and new feature slices continue;
 these overlapping focused results are not a new full-suite total. The benchmark project compiles,
 but paired timing and speedup acceptance remain outstanding. Routine builds/tests use Release/net10;
 all supported TFMs are deferred to the final gate. Common integration and exact current evidence are

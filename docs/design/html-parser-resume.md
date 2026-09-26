@@ -19,6 +19,29 @@ the final full framework/API baseline gate must run normally. The feature chat i
 Release `net10.0` only. Validate every supported target framework at the final integration gate;
 this defers the other framework legs, not their acceptance requirement. Never use `--no-build`.
 
+**Latest isolated evidence, September 26:** the reviewed native import model/keyframes pass
+**76/76** (`/private/tmp/native-import-keyframes-net10-test.log`), and transform lists/matrices pass
+**272/272** (`/private/tmp/native-css-transform-list-matrix-net10-test.log`). Child resource ordering,
+META recovery and seed preparation pass **70/70**
+(`/private/tmp/native-browser-child-resource-boundary-net10-test.log`). Final frame preparation and
+file-history recovery then pass their selected cases in a **71/72** Browser gate
+(`/private/tmp/native-browser-frame-token-file-transform-net10-test.log`); the sole failure expects
+one particular invalidation message although another native guard correctly rejects publication.
+Reviewed correction `1040dcc22` accepts only those two exact messages and also asserts no matrix
+was published. Its rerun is pending. The exact handler-count WPT variants pass **3/3**, zero skipped
+(`/private/tmp/native-browser-handler-count-variants-net10-test.log`). These overlapping focused
+gates do not supersede the failed full Browser acceptance run below.
+
+The final frame cancellation fix `50bede540` is source-clear and tested: a constraint callback that
+cancels and returns cannot consume pending work or commit navigation. File-history queue identity
+fix `cf4d99fdc` is reviewed, integrated, and its original regressions pass. Native import graph
+revision snapshots (`f1e0897259`) and named transform accessors (`00c19cd10`) are source-clear;
+consumer wiring and generated bindings remain separate gates. Browser import loading is assigned
+to `16aa`, with shared scheduling/fetch hooks owned by `414c`; queries never initiate fetching.
+Resolved box values are assigned to `902c`. Text-decoration production is reviewed with a narrow
+inline-element fixture correction pending. Finalized slices will move into common at a reviewed
+checkpoint before these later feature assignments finish.
+
 **Demand boundary amendment:** [parsing and lazy behavior](html-parser-demand-boundary.md) follows the
 user's latest direction. Input value initialization is lazy at `825eba36e`; select derived views and
 inventories are lazy at `96827c3d9`, preserving intrinsic history. Numeric/temporal values and number
