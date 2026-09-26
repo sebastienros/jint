@@ -57,11 +57,17 @@ internal static class HtmlCheckednessAlgorithms
         SetCore(state, state.DefaultChecked, dirty: false, ref work);
     }
 
-    internal static void CopyCheckedness(Element source, Element copy)
+    internal static void CopyCheckedness(Element source, Element copy, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(copy);
-        var state = HtmlCheckableState.Get(source);
-        if (state is not null)
-            (HtmlCheckableState.Get(copy) ?? throw new ArgumentException("An HTML input copy is required.", nameof(copy))).CopyFrom(state);
+        var work = new HtmlCheckedWork(source.OwnerDocument?.CheckedWorkProbe, cancellationToken);
+        work.Check();
+        var state = HtmlCheckableState.Get(source, ref work);
+        if (state is null) return;
+        var target = HtmlCheckableState.Get(copy, ref work)
+            ?? throw new ArgumentException("An HTML input copy is required.", nameof(copy));
+        work.Check();
+        target.CopyFrom(state);
     }
 }
