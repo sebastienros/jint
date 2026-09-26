@@ -78,7 +78,7 @@ internal static partial class NativeCssStyleSheets
             checkpoint?.Invoke();
             realm.CancellationToken.ThrowIfCancellationRequested();
         }
-        BrowserSelectorControlFacts.PrepareControlFactsRead(realm, realm.NativeReadCheckpoint, token);
+        BrowserSelectorControlFacts.PrepareControlFactsRead(realm, _ => Check(), token);
         var work = new CssValueWork(token, Check);
         var page = PageRuntime.FindBrowsingContext(realm.Engine, document)?.Media ?? PageMediaEnvironment.Default;
         IReadOnlyDictionary<string, string> features = page;

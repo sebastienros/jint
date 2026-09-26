@@ -58,6 +58,31 @@ public sealed class NativeControlFactsSeedTests
     }
 
     [Test]
+    public void CssPreparationConsultsTheCallerCheckpointBeforeCommittingFileCleanup()
+    {
+        using var fixture = DomTestFixture.Create("<input id=i type=file required>");
+        var realm = DomRealm.Of(fixture.Engine);
+        NativeCssStyleSheets.Associate(realm, fixture.Document);
+        var input = ContentDom.ElementById(fixture.Document, "i")!;
+        var files = FileTransferRealm.Of(fixture.Engine);
+        var selected = files.NewFileList();
+        selected.Add(new Jint.WebApi.Files.JsFile(fixture.Engine, new byte[] { 1 }, "text/plain", "kept.txt", 0));
+        files.SetInputFiles(input, selected);
+        input.SetAttribute("type", "text");
+        input.SetAttribute("type", "file");
+        var revision = BrowserSelectorSemanticRevision.Read(fixture.Document);
+        var failure = new OperationCanceledException("caller checkpoint");
+        Action create = () => NativeCssStyleSheets.CreateQuery(fixture.Document, realm,
+            checkpoint: () => throw failure);
+        create.Should().Throw<OperationCanceledException>().Which.Should().BeSameAs(failure);
+        BrowserSelectorSemanticRevision.Read(fixture.Document).Should().Be(revision);
+        var retry = NativeCssStyleSheets.CreateQuery(fixture.Document, realm);
+        retry.Query.GetProperty(input, "opacity", ref retry.Matching).Text.Should().Be("1");
+        files.InputFiles(input, create: true)!.Length.Should().Be(0);
+        selected.Length.Should().Be(1);
+    }
+
+    [Test]
     public async Task WarmGeometryRefreshesAfterHostValidityChangesOnlyTheSemanticRevision()
     {
         await using var browser = new global::Jint.Browser.Browser();
