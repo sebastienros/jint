@@ -346,48 +346,48 @@ internal static partial class DomInterfaces
             .Accessor("disabled",
                 global::Jint.Browser.Dom.DomFailures.Guard("StyleSheet.disabled", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IStyleSheet>(thisObj, "StyleSheet.disabled");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssStyleSheet>(thisObj, "StyleSheet.disabled");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsDisabled);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("StyleSheet.disabled", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IStyleSheet>(thisObj, "StyleSheet.disabled");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssStyleSheet>(thisObj, "StyleSheet.disabled");
                     self.Target.IsDisabled = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("href",
                 global::Jint.Browser.Dom.DomFailures.Guard("StyleSheet.href", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IStyleSheet>(thisObj, "StyleSheet.href");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Href);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssStyleSheet>(thisObj, "StyleSheet.href");
+                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Styling.NativeCssBindings.Href(self.Target));
                 }))
             .Accessor("media",
                 global::Jint.Browser.Dom.DomFailures.Guard("StyleSheet.media", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IStyleSheet>(thisObj, "StyleSheet.media");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssStyleSheet>(thisObj, "StyleSheet.media");
                     return self.Realm.Wrap(self.Target.Media);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("StyleSheet.media", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IStyleSheet>(thisObj, "StyleSheet.media");
-                    var forwardTarget = self.Target.Media; if (forwardTarget is not null) { forwardTarget.MediaText = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "StyleSheet.media"); } return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssStyleSheet>(thisObj, "StyleSheet.media");
+                    global::Jint.Browser.Styling.NativeCssBindings.SetMediaText(self.Realm, self.Target.Media, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "StyleSheet.media")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("ownerNode",
                 global::Jint.Browser.Dom.DomFailures.Guard("StyleSheet.ownerNode", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IStyleSheet>(thisObj, "StyleSheet.ownerNode");
-                    return self.Realm.WrapNodeValue(self.Target.OwnerNode);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssStyleSheet>(thisObj, "StyleSheet.ownerNode");
+                    return self.Realm.WrapNodeValue(global::Jint.Browser.Styling.NativeCssBindings.OwnerNode(self.Target));
                 }))
             .Accessor("title",
                 global::Jint.Browser.Dom.DomFailures.Guard("StyleSheet.title", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IStyleSheet>(thisObj, "StyleSheet.title");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Title);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssStyleSheet>(thisObj, "StyleSheet.title");
+                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Styling.NativeCssBindings.Title(self.Realm, self.Target));
                 }))
             .Accessor("type",
                 global::Jint.Browser.Dom.DomFailures.Guard("StyleSheet.type", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IStyleSheet>(thisObj, "StyleSheet.type");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Type);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssStyleSheet>(thisObj, "StyleSheet.type");
+                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Styling.NativeCssBindings.Type(self.Target));
                 }))
             .Build();
 
@@ -1319,7 +1319,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.styleSheets", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.styleSheets");
-                    return self.Realm.Wrap(self.Target.StyleSheets);
+                    return self.Realm.Wrap(global::Jint.Browser.Styling.NativeCssStyleSheets.ListOf(self.Realm, self.Target));
                 }))
             .Accessor("title",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.title", static (thisObj, args) =>
@@ -1975,12 +1975,12 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.style", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "Element.style");
-                    return self.Realm.Wrap(self.Target.GetStyle());
+                    return self.Realm.Wrap(global::Jint.Browser.Styling.NativeCssDeclarations.Of(self.Realm, self.Target));
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Element.style", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "Element.style");
-                    self.Target.SetStyle(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Element.style")); return global::Jint.Native.JsValue.Undefined;
+                    global::Jint.Browser.Styling.NativeCssDeclarations.Of(self.Realm, self.Target).CssText = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Element.style"); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("tagName",
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.tagName", static (thisObj, args) =>
@@ -2718,14 +2718,14 @@ internal static partial class DomInterfaces
             .Method("item",
                 global::Jint.Browser.Dom.DomFailures.Guard("StyleSheetList.item", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IStyleSheetList>(thisObj, "StyleSheetList.item");
-                    return self.Realm.Wrap(self.Target[global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "StyleSheetList.item")]);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssStyleSheetList>(thisObj, "StyleSheetList.item");
+                    return self.Realm.Wrap(self.Target.Item(global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "StyleSheetList.item")));
                 }),
                 length: 1)
             .Accessor("length",
                 global::Jint.Browser.Dom.DomFailures.Guard("StyleSheetList.length", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IStyleSheetList>(thisObj, "StyleSheetList.length");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssStyleSheetList>(thisObj, "StyleSheetList.length");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);
                 }))
             .Build();

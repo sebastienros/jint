@@ -33,103 +33,103 @@ internal static partial class DomInterfaces
     /// <summary>The <c>Blob</c> interface, projected from <c>AngleSharp.Io.Dom.IBlob</c>.</summary>
     internal static readonly DomInterfaceDefinition Blob;
 
-    /// <summary>The <c>CSSRule</c> interface, projected from <c>AngleSharp.Css.Dom.ICssRule</c>.</summary>
+    /// <summary>The <c>CSSRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssRule</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSRule;
 
-    /// <summary>The <c>CSSCharsetRule</c> interface, projected from <c>AngleSharp.Css.Dom.ICssCharsetRule</c>.</summary>
+    /// <summary>The <c>CSSCharsetRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSCharsetRule;
 
-    /// <summary>The <c>CSSColorProfileRule</c> interface, projected from <c>AngleSharp.Css.Dom.ICssColorProfileRule</c>.</summary>
+    /// <summary>The <c>CSSColorProfileRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSColorProfileRule;
 
-    /// <summary>The <c>CSSGroupingRule</c> interface, projected from <c>AngleSharp.Css.Dom.ICssGroupingRule</c>.</summary>
+    /// <summary>The <c>CSSGroupingRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssMediaRule</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSGroupingRule;
 
-    /// <summary>The <c>CSSConditionRule</c> interface, projected from <c>AngleSharp.Css.Dom.ICssConditionRule</c>.</summary>
+    /// <summary>The <c>CSSConditionRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssMediaRule</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSConditionRule;
 
-    /// <summary>The <c>CSSContainerRule</c> interface, projected from <c>AngleSharp.Css.Dom.ICssContainerRule</c>.</summary>
+    /// <summary>The <c>CSSContainerRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSContainerRule;
 
-    /// <summary>The <c>CSSCounterStyleRule</c> interface, projected from <c>AngleSharp.Css.Dom.ICssCounterStyleRule</c>.</summary>
+    /// <summary>The <c>CSSCounterStyleRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSCounterStyleRule;
 
-    /// <summary>The <c>CSSDocumentRule</c> interface, projected from <c>AngleSharp.Css.Dom.ICssDocumentRule</c>.</summary>
+    /// <summary>The <c>CSSDocumentRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSDocumentRule;
 
-    /// <summary>The <c>CSSFontFaceRule</c> interface, projected from <c>AngleSharp.Css.Dom.ICssFontFaceRule</c>.</summary>
+    /// <summary>The <c>CSSFontFaceRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSFontFaceRule;
 
-    /// <summary>The <c>CSSFontFeatureValuesRule</c> interface, projected from <c>AngleSharp.Css.Dom.ICssFontFeatureValuesRule</c>.</summary>
+    /// <summary>The <c>CSSFontFeatureValuesRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSFontFeatureValuesRule;
 
-    /// <summary>The <c>CSSFontPaletteValuesRule</c> interface, projected from <c>AngleSharp.Css.Dom.ICssFontPaletteValuesRule</c>.</summary>
+    /// <summary>The <c>CSSFontPaletteValuesRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSFontPaletteValuesRule;
 
-    /// <summary>The <c>CSSImportRule</c> interface, projected from <c>AngleSharp.Css.Dom.ICssImportRule</c>.</summary>
+    /// <summary>The <c>CSSImportRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSImportRule;
 
-    /// <summary>The <c>CSSKeyframeRule</c> interface, projected from <c>AngleSharp.Css.Dom.ICssKeyframeRule</c>.</summary>
+    /// <summary>The <c>CSSKeyframeRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSKeyframeRule;
 
-    /// <summary>The <c>CSSKeyframesRule</c> interface, projected from <c>AngleSharp.Css.Dom.ICssKeyframesRule</c>.</summary>
+    /// <summary>The <c>CSSKeyframesRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSKeyframesRule;
 
-    /// <summary>The <c>CSSLayerRule</c> interface, projected from <c>AngleSharp.Css.Dom.ICssLayerRule</c>.</summary>
+    /// <summary>The <c>CSSLayerRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSLayerRule;
 
-    /// <summary>The <c>CSSMarginRule</c> interface, projected from <c>AngleSharp.Css.Dom.ICssMarginRule</c>.</summary>
+    /// <summary>The <c>CSSMarginRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSMarginRule;
 
-    /// <summary>The <c>CSSMediaRule</c> interface, projected from <c>AngleSharp.Css.Dom.ICssMediaRule</c>.</summary>
+    /// <summary>The <c>CSSMediaRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssMediaRule</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSMediaRule;
 
-    /// <summary>The <c>CSSNamespaceRule</c> interface, projected from <c>AngleSharp.Css.Dom.ICssNamespaceRule</c>.</summary>
+    /// <summary>The <c>CSSNamespaceRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSNamespaceRule;
 
-    /// <summary>The <c>CSSPageRule</c> interface, projected from <c>AngleSharp.Css.Dom.ICssPageRule</c>.</summary>
+    /// <summary>The <c>CSSPageRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSPageRule;
 
-    /// <summary>The <c>CSSPositionTryRule</c> interface, projected from <c>AngleSharp.Css.Dom.ICssPositionTryRule</c>.</summary>
+    /// <summary>The <c>CSSPositionTryRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSPositionTryRule;
 
-    /// <summary>The <c>CSSProperty</c> interface, projected from <c>AngleSharp.Css.Dom.ICssProperty</c>.</summary>
+    /// <summary>The <c>CSSProperty</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSProperty;
 
-    /// <summary>The <c>CSSPropertyRule</c> interface, projected from <c>AngleSharp.Css.Dom.ICssPropertyRule</c>.</summary>
+    /// <summary>The <c>CSSPropertyRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSPropertyRule;
 
-    /// <summary>The <c>CSSPseudoElement</c> interface, projected from <c>AngleSharp.Css.Dom.ICssPseudoElement</c>.</summary>
+    /// <summary>The <c>CSSPseudoElement</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSPseudoElement;
 
-    /// <summary>The <c>CSSPseudoElementList</c> interface, projected from <c>AngleSharp.Css.Dom.ICssPseudoElementList</c>.</summary>
+    /// <summary>The <c>CSSPseudoElementList</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSPseudoElementList;
 
-    /// <summary>The <c>CSSRuleList</c> interface, projected from <c>AngleSharp.Css.Dom.ICssRuleList</c>.</summary>
+    /// <summary>The <c>CSSRuleList</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssRuleList</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSRuleList;
 
-    /// <summary>The <c>CSSScopeRule</c> interface, projected from <c>AngleSharp.Css.Dom.ICssScopeRule</c>.</summary>
+    /// <summary>The <c>CSSScopeRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSScopeRule;
 
-    /// <summary>The <c>CSSStartingStyleRule</c> interface, projected from <c>AngleSharp.Css.Dom.ICssStartingStyleRule</c>.</summary>
+    /// <summary>The <c>CSSStartingStyleRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSStartingStyleRule;
 
-    /// <summary>The <c>CSSStyleDeclaration</c> interface, projected from <c>AngleSharp.Css.Dom.ICssStyleDeclaration</c>.</summary>
+    /// <summary>The <c>CSSStyleDeclaration</c> interface, projected from <c>Jint.Browser.Styling.NativeCssDeclaration</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSStyleDeclaration;
 
-    /// <summary>The <c>CSSStyleRule</c> interface, projected from <c>AngleSharp.Css.Dom.ICssStyleRule</c>.</summary>
+    /// <summary>The <c>CSSStyleRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssStyleRule</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSStyleRule;
 
-    /// <summary>The <c>StyleSheet</c> interface, projected from <c>AngleSharp.Dom.IStyleSheet</c>.</summary>
+    /// <summary>The <c>StyleSheet</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssStyleSheet</c>.</summary>
     internal static readonly DomInterfaceDefinition StyleSheet;
 
-    /// <summary>The <c>CSSStyleSheet</c> interface, projected from <c>AngleSharp.Css.Dom.ICssStyleSheet</c>.</summary>
+    /// <summary>The <c>CSSStyleSheet</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssStyleSheet</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSStyleSheet;
 
-    /// <summary>The <c>CSSSupportsRule</c> interface, projected from <c>AngleSharp.Css.Dom.ICssSupportsRule</c>.</summary>
+    /// <summary>The <c>CSSSupportsRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSSupportsRule;
 
-    /// <summary>The <c>CSSViewTransitionRule</c> interface, projected from <c>AngleSharp.Css.Dom.ICssViewTransitionRule</c>.</summary>
+    /// <summary>The <c>CSSViewTransitionRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSViewTransitionRule;
 
     /// <summary>The <c>RenderingContext</c> interface, projected from <c>AngleSharp.Media.Dom.IRenderingContext</c>.</summary>
@@ -138,7 +138,7 @@ internal static partial class DomInterfaces
     /// <summary>The <c>CanvasRenderingContext2D</c> interface, projected from <c>AngleSharp.Media.Dom.ICanvasRenderingContext2D</c>.</summary>
     internal static readonly DomInterfaceDefinition CanvasRenderingContext2D;
 
-    /// <summary>The <c>CaretPosition</c> interface, projected from <c>AngleSharp.Css.Dom.ICaretPosition</c>.</summary>
+    /// <summary>The <c>CaretPosition</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition CaretPosition;
 
     /// <summary>The <c>CharacterData</c> interface, projected from <c>Jint.HtmlParser.Node</c>.</summary>
@@ -414,10 +414,10 @@ internal static partial class DomInterfaces
     /// <summary>The <c>MediaError</c> interface, projected from <c>Jint.Browser.Dom.BrowserMediaError</c>.</summary>
     internal static readonly DomInterfaceDefinition MediaError;
 
-    /// <summary>The <c>MediaList</c> interface, projected from <c>AngleSharp.Css.Dom.IMediaList</c>.</summary>
+    /// <summary>The <c>MediaList</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssMediaList</c>.</summary>
     internal static readonly DomInterfaceDefinition MediaList;
 
-    /// <summary>The <c>MediaQueryList</c> interface, projected from <c>AngleSharp.Css.Dom.IMediaQueryList</c>.</summary>
+    /// <summary>The <c>MediaQueryList</c> interface, projected from <c>Jint.Browser.Runtime.JsMediaQueryList</c>.</summary>
     internal static readonly DomInterfaceDefinition MediaQueryList;
 
     /// <summary>The <c>MessagePort</c> interface, projected from <c>AngleSharp.Dom.Events.IMessagePort</c>.</summary>
@@ -471,7 +471,7 @@ internal static partial class DomInterfaces
     /// <summary>The <c>ShadowRoot</c> interface, projected from <c>Jint.HtmlParser.ShadowRoot</c>.</summary>
     internal static readonly DomInterfaceDefinition ShadowRoot;
 
-    /// <summary>The <c>StyleSheetList</c> interface, projected from <c>AngleSharp.Dom.IStyleSheetList</c>.</summary>
+    /// <summary>The <c>StyleSheetList</c> interface, projected from <c>Jint.Browser.Styling.NativeCssStyleSheetList</c>.</summary>
     internal static readonly DomInterfaceDefinition StyleSheetList;
 
     /// <summary>The <c>Text</c> interface, projected from <c>Jint.HtmlParser.Node</c>.</summary>
@@ -598,7 +598,7 @@ internal static partial class DomInterfaces
 
         CSSRule = Add(new DomInterfaceDefinition(
             "CSSRule",
-            typeof(global::AngleSharp.Css.Dom.ICssRule),
+            typeof(global::Jint.HtmlParser.Css.Model.CssRule),
             BuildCSSRule,
             null,
             rootsAtEventTarget: false,
@@ -635,7 +635,7 @@ internal static partial class DomInterfaces
 
         CSSCharsetRule = Add(new DomInterfaceDefinition(
             "CSSCharsetRule",
-            typeof(global::AngleSharp.Css.Dom.ICssCharsetRule),
+            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
             BuildCSSCharsetRule,
             CSSRule,
             rootsAtEventTarget: false,
@@ -644,7 +644,7 @@ internal static partial class DomInterfaces
 
         CSSColorProfileRule = Add(new DomInterfaceDefinition(
             "CSSColorProfileRule",
-            typeof(global::AngleSharp.Css.Dom.ICssColorProfileRule),
+            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
             BuildCSSColorProfileRule,
             CSSRule,
             rootsAtEventTarget: false,
@@ -653,7 +653,7 @@ internal static partial class DomInterfaces
 
         CSSGroupingRule = Add(new DomInterfaceDefinition(
             "CSSGroupingRule",
-            typeof(global::AngleSharp.Css.Dom.ICssGroupingRule),
+            typeof(global::Jint.HtmlParser.Css.Model.CssMediaRule),
             BuildCSSGroupingRule,
             CSSRule,
             rootsAtEventTarget: false,
@@ -662,7 +662,7 @@ internal static partial class DomInterfaces
 
         CSSConditionRule = Add(new DomInterfaceDefinition(
             "CSSConditionRule",
-            typeof(global::AngleSharp.Css.Dom.ICssConditionRule),
+            typeof(global::Jint.HtmlParser.Css.Model.CssMediaRule),
             BuildCSSConditionRule,
             CSSGroupingRule,
             rootsAtEventTarget: false,
@@ -671,7 +671,7 @@ internal static partial class DomInterfaces
 
         CSSContainerRule = Add(new DomInterfaceDefinition(
             "CSSContainerRule",
-            typeof(global::AngleSharp.Css.Dom.ICssContainerRule),
+            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
             BuildCSSContainerRule,
             CSSConditionRule,
             rootsAtEventTarget: false,
@@ -680,7 +680,7 @@ internal static partial class DomInterfaces
 
         CSSCounterStyleRule = Add(new DomInterfaceDefinition(
             "CSSCounterStyleRule",
-            typeof(global::AngleSharp.Css.Dom.ICssCounterStyleRule),
+            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
             BuildCSSCounterStyleRule,
             CSSRule,
             rootsAtEventTarget: false,
@@ -689,7 +689,7 @@ internal static partial class DomInterfaces
 
         CSSDocumentRule = Add(new DomInterfaceDefinition(
             "CSSDocumentRule",
-            typeof(global::AngleSharp.Css.Dom.ICssDocumentRule),
+            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
             BuildCSSDocumentRule,
             CSSConditionRule,
             rootsAtEventTarget: false,
@@ -698,7 +698,7 @@ internal static partial class DomInterfaces
 
         CSSFontFaceRule = Add(new DomInterfaceDefinition(
             "CSSFontFaceRule",
-            typeof(global::AngleSharp.Css.Dom.ICssFontFaceRule),
+            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
             BuildCSSFontFaceRule,
             CSSRule,
             rootsAtEventTarget: false,
@@ -707,7 +707,7 @@ internal static partial class DomInterfaces
 
         CSSFontFeatureValuesRule = Add(new DomInterfaceDefinition(
             "CSSFontFeatureValuesRule",
-            typeof(global::AngleSharp.Css.Dom.ICssFontFeatureValuesRule),
+            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
             BuildCSSFontFeatureValuesRule,
             CSSRule,
             rootsAtEventTarget: false,
@@ -716,7 +716,7 @@ internal static partial class DomInterfaces
 
         CSSFontPaletteValuesRule = Add(new DomInterfaceDefinition(
             "CSSFontPaletteValuesRule",
-            typeof(global::AngleSharp.Css.Dom.ICssFontPaletteValuesRule),
+            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
             BuildCSSFontPaletteValuesRule,
             CSSRule,
             rootsAtEventTarget: false,
@@ -725,7 +725,7 @@ internal static partial class DomInterfaces
 
         CSSImportRule = Add(new DomInterfaceDefinition(
             "CSSImportRule",
-            typeof(global::AngleSharp.Css.Dom.ICssImportRule),
+            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
             BuildCSSImportRule,
             CSSRule,
             rootsAtEventTarget: false,
@@ -734,7 +734,7 @@ internal static partial class DomInterfaces
 
         CSSKeyframeRule = Add(new DomInterfaceDefinition(
             "CSSKeyframeRule",
-            typeof(global::AngleSharp.Css.Dom.ICssKeyframeRule),
+            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
             BuildCSSKeyframeRule,
             CSSRule,
             rootsAtEventTarget: false,
@@ -743,7 +743,7 @@ internal static partial class DomInterfaces
 
         CSSKeyframesRule = Add(new DomInterfaceDefinition(
             "CSSKeyframesRule",
-            typeof(global::AngleSharp.Css.Dom.ICssKeyframesRule),
+            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
             BuildCSSKeyframesRule,
             CSSRule,
             rootsAtEventTarget: false,
@@ -752,7 +752,7 @@ internal static partial class DomInterfaces
 
         CSSLayerRule = Add(new DomInterfaceDefinition(
             "CSSLayerRule",
-            typeof(global::AngleSharp.Css.Dom.ICssLayerRule),
+            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
             BuildCSSLayerRule,
             CSSGroupingRule,
             rootsAtEventTarget: false,
@@ -761,7 +761,7 @@ internal static partial class DomInterfaces
 
         CSSMarginRule = Add(new DomInterfaceDefinition(
             "CSSMarginRule",
-            typeof(global::AngleSharp.Css.Dom.ICssMarginRule),
+            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
             BuildCSSMarginRule,
             CSSRule,
             rootsAtEventTarget: false,
@@ -770,7 +770,7 @@ internal static partial class DomInterfaces
 
         CSSMediaRule = Add(new DomInterfaceDefinition(
             "CSSMediaRule",
-            typeof(global::AngleSharp.Css.Dom.ICssMediaRule),
+            typeof(global::Jint.HtmlParser.Css.Model.CssMediaRule),
             BuildCSSMediaRule,
             CSSConditionRule,
             rootsAtEventTarget: false,
@@ -779,7 +779,7 @@ internal static partial class DomInterfaces
 
         CSSNamespaceRule = Add(new DomInterfaceDefinition(
             "CSSNamespaceRule",
-            typeof(global::AngleSharp.Css.Dom.ICssNamespaceRule),
+            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
             BuildCSSNamespaceRule,
             CSSRule,
             rootsAtEventTarget: false,
@@ -788,7 +788,7 @@ internal static partial class DomInterfaces
 
         CSSPageRule = Add(new DomInterfaceDefinition(
             "CSSPageRule",
-            typeof(global::AngleSharp.Css.Dom.ICssPageRule),
+            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
             BuildCSSPageRule,
             CSSRule,
             rootsAtEventTarget: false,
@@ -797,7 +797,7 @@ internal static partial class DomInterfaces
 
         CSSPositionTryRule = Add(new DomInterfaceDefinition(
             "CSSPositionTryRule",
-            typeof(global::AngleSharp.Css.Dom.ICssPositionTryRule),
+            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
             BuildCSSPositionTryRule,
             CSSRule,
             rootsAtEventTarget: false,
@@ -806,7 +806,7 @@ internal static partial class DomInterfaces
 
         CSSProperty = Add(new DomInterfaceDefinition(
             "CSSProperty",
-            typeof(global::AngleSharp.Css.Dom.ICssProperty),
+            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
             BuildCSSProperty,
             null,
             rootsAtEventTarget: false,
@@ -815,7 +815,7 @@ internal static partial class DomInterfaces
 
         CSSPropertyRule = Add(new DomInterfaceDefinition(
             "CSSPropertyRule",
-            typeof(global::AngleSharp.Css.Dom.ICssPropertyRule),
+            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
             BuildCSSPropertyRule,
             CSSRule,
             rootsAtEventTarget: false,
@@ -824,7 +824,7 @@ internal static partial class DomInterfaces
 
         CSSPseudoElement = Add(new DomInterfaceDefinition(
             "CSSPseudoElement",
-            typeof(global::AngleSharp.Css.Dom.ICssPseudoElement),
+            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
             BuildCSSPseudoElement,
             null,
             rootsAtEventTarget: true,
@@ -833,7 +833,7 @@ internal static partial class DomInterfaces
 
         CSSPseudoElementList = Add(new DomInterfaceDefinition(
             "CSSPseudoElementList",
-            typeof(global::AngleSharp.Css.Dom.ICssPseudoElementList),
+            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
             BuildCSSPseudoElementList,
             null,
             rootsAtEventTarget: false,
@@ -843,7 +843,7 @@ internal static partial class DomInterfaces
 
         CSSRuleList = Add(new DomInterfaceDefinition(
             "CSSRuleList",
-            typeof(global::AngleSharp.Css.Dom.ICssRuleList),
+            typeof(global::Jint.HtmlParser.Css.Model.CssRuleList),
             BuildCSSRuleList,
             null,
             rootsAtEventTarget: false,
@@ -853,7 +853,7 @@ internal static partial class DomInterfaces
 
         CSSScopeRule = Add(new DomInterfaceDefinition(
             "CSSScopeRule",
-            typeof(global::AngleSharp.Css.Dom.ICssScopeRule),
+            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
             BuildCSSScopeRule,
             CSSGroupingRule,
             rootsAtEventTarget: false,
@@ -862,7 +862,7 @@ internal static partial class DomInterfaces
 
         CSSStartingStyleRule = Add(new DomInterfaceDefinition(
             "CSSStartingStyleRule",
-            typeof(global::AngleSharp.Css.Dom.ICssStartingStyleRule),
+            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
             BuildCSSStartingStyleRule,
             CSSGroupingRule,
             rootsAtEventTarget: false,
@@ -871,7 +871,7 @@ internal static partial class DomInterfaces
 
         CSSStyleDeclaration = Add(new DomInterfaceDefinition(
             "CSSStyleDeclaration",
-            typeof(global::AngleSharp.Css.Dom.ICssStyleDeclaration),
+            typeof(global::Jint.Browser.Styling.NativeCssDeclaration),
             BuildCSSStyleDeclaration,
             null,
             rootsAtEventTarget: false,
@@ -881,7 +881,7 @@ internal static partial class DomInterfaces
 
         CSSStyleRule = Add(new DomInterfaceDefinition(
             "CSSStyleRule",
-            typeof(global::AngleSharp.Css.Dom.ICssStyleRule),
+            typeof(global::Jint.HtmlParser.Css.Model.CssStyleRule),
             BuildCSSStyleRule,
             CSSRule,
             rootsAtEventTarget: false,
@@ -890,7 +890,7 @@ internal static partial class DomInterfaces
 
         StyleSheet = Add(new DomInterfaceDefinition(
             "StyleSheet",
-            typeof(global::AngleSharp.Dom.IStyleSheet),
+            typeof(global::Jint.HtmlParser.Css.Model.CssStyleSheet),
             BuildStyleSheet,
             null,
             rootsAtEventTarget: false,
@@ -899,7 +899,7 @@ internal static partial class DomInterfaces
 
         CSSStyleSheet = Add(new DomInterfaceDefinition(
             "CSSStyleSheet",
-            typeof(global::AngleSharp.Css.Dom.ICssStyleSheet),
+            typeof(global::Jint.HtmlParser.Css.Model.CssStyleSheet),
             BuildCSSStyleSheet,
             StyleSheet,
             rootsAtEventTarget: false,
@@ -908,7 +908,7 @@ internal static partial class DomInterfaces
 
         CSSSupportsRule = Add(new DomInterfaceDefinition(
             "CSSSupportsRule",
-            typeof(global::AngleSharp.Css.Dom.ICssSupportsRule),
+            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
             BuildCSSSupportsRule,
             CSSConditionRule,
             rootsAtEventTarget: false,
@@ -917,7 +917,7 @@ internal static partial class DomInterfaces
 
         CSSViewTransitionRule = Add(new DomInterfaceDefinition(
             "CSSViewTransitionRule",
-            typeof(global::AngleSharp.Css.Dom.ICssViewTransitionRule),
+            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
             BuildCSSViewTransitionRule,
             CSSRule,
             rootsAtEventTarget: false,
@@ -944,7 +944,7 @@ internal static partial class DomInterfaces
 
         CaretPosition = Add(new DomInterfaceDefinition(
             "CaretPosition",
-            typeof(global::AngleSharp.Css.Dom.ICaretPosition),
+            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
             BuildCaretPosition,
             null,
             rootsAtEventTarget: false,
@@ -1812,7 +1812,7 @@ internal static partial class DomInterfaces
 
         MediaList = Add(new DomInterfaceDefinition(
             "MediaList",
-            typeof(global::AngleSharp.Css.Dom.IMediaList),
+            typeof(global::Jint.HtmlParser.Css.Model.CssMediaList),
             BuildMediaList,
             null,
             rootsAtEventTarget: false,
@@ -1822,7 +1822,7 @@ internal static partial class DomInterfaces
 
         MediaQueryList = Add(new DomInterfaceDefinition(
             "MediaQueryList",
-            typeof(global::AngleSharp.Css.Dom.IMediaQueryList),
+            typeof(global::Jint.Browser.Runtime.JsMediaQueryList),
             BuildMediaQueryList,
             null,
             rootsAtEventTarget: true,
@@ -2009,7 +2009,7 @@ internal static partial class DomInterfaces
 
         StyleSheetList = Add(new DomInterfaceDefinition(
             "StyleSheetList",
-            typeof(global::AngleSharp.Dom.IStyleSheetList),
+            typeof(global::Jint.Browser.Styling.NativeCssStyleSheetList),
             BuildStyleSheetList,
             null,
             rootsAtEventTarget: false,

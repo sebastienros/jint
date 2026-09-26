@@ -22,65 +22,38 @@ internal sealed class DomAccessorAudioTrackList : DomCollectionAccessor
     }
 }
 
-/// <summary>How <c>CSSPseudoElementList</c> answers indexed and named property lookups.</summary>
+/// <summary>Dormant CSSPseudoElementList contract, without a native producer.</summary>
 internal sealed class DomAccessorCSSPseudoElementList : DomCollectionAccessor
 {
     internal static readonly DomAccessorCSSPseudoElementList Instance = new();
-
-    internal override uint Length(DomRealm realm, object target) => (uint) ((global::AngleSharp.Css.Dom.ICssPseudoElementList) target).Length;
-
-    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
-    {
-        var collection = (global::AngleSharp.Css.Dom.ICssPseudoElementList) target;
-        if (index >= (uint) collection.Length)
-        {
-            value = global::Jint.Native.JsValue.Undefined;
-            return false;
-        }
-
-        value = realm.Wrap(collection[(int) index]);
-        return true;
-    }
+    internal override uint Length(DomRealm realm, object target) => throw new global::System.NotSupportedException("No native CSSPseudoElementList producer.");
+    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value) => throw new global::System.NotSupportedException("No native CSSPseudoElementList producer.");
 }
 
-/// <summary>How <c>CSSRuleList</c> answers indexed and named property lookups.</summary>
+/// <summary>Native CSSRuleList indexed properties.</summary>
 internal sealed class DomAccessorCSSRuleList : DomCollectionAccessor
 {
     internal static readonly DomAccessorCSSRuleList Instance = new();
-
-    internal override uint Length(DomRealm realm, object target) => (uint) ((global::AngleSharp.Css.Dom.ICssRuleList) target).Length;
-
+    internal override uint Length(DomRealm realm, object target) => (uint) ((global::Jint.HtmlParser.Css.Model.CssRuleList) target).Count;
     internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
     {
-        var collection = (global::AngleSharp.Css.Dom.ICssRuleList) target;
-        if (index >= (uint) collection.Length)
-        {
-            value = global::Jint.Native.JsValue.Undefined;
-            return false;
-        }
-
+        var collection = (global::Jint.HtmlParser.Css.Model.CssRuleList) target;
+        if (index >= (uint) collection.Count) { value = global::Jint.Native.JsValue.Undefined; return false; }
         value = realm.Wrap(collection[(int) index]);
         return true;
     }
 }
 
-/// <summary>How <c>CSSStyleDeclaration</c> answers indexed and named property lookups.</summary>
+/// <summary>Native CSSStyleDeclaration indexed properties.</summary>
 internal sealed class DomAccessorCSSStyleDeclaration : DomCollectionAccessor
 {
     internal static readonly DomAccessorCSSStyleDeclaration Instance = new();
-
-    internal override uint Length(DomRealm realm, object target) => (uint) ((global::AngleSharp.Css.Dom.ICssStyleDeclaration) target).Length;
-
+    internal override uint Length(DomRealm realm, object target) => (uint) ((global::Jint.Browser.Styling.NativeCssDeclaration) target).Length;
     internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
     {
-        var collection = (global::AngleSharp.Css.Dom.ICssStyleDeclaration) target;
-        if (index >= (uint) collection.Length)
-        {
-            value = global::Jint.Native.JsValue.Undefined;
-            return false;
-        }
-
-        value = global::Jint.Browser.Dom.DomConvert.Text(collection[(int) index]);
+        var collection = (global::Jint.Browser.Styling.NativeCssDeclaration) target;
+        if (index >= (uint) collection.Length) { value = global::Jint.Native.JsValue.Undefined; return false; }
+        value = global::Jint.Browser.Dom.DomConvert.Text(collection.Item((int) index));
         return true;
     }
 }
@@ -253,22 +226,15 @@ internal sealed class DomAccessorHTMLSelectElement : DomCollectionAccessor
     }
 }
 
-/// <summary>How <c>MediaList</c> answers indexed and named property lookups.</summary>
+/// <summary>Native MediaList indexed properties.</summary>
 internal sealed class DomAccessorMediaList : DomCollectionAccessor
 {
     internal static readonly DomAccessorMediaList Instance = new();
-
-    internal override uint Length(DomRealm realm, object target) => (uint) ((global::AngleSharp.Css.Dom.IMediaList) target).Length;
-
+    internal override uint Length(DomRealm realm, object target) => (uint) ((global::Jint.HtmlParser.Css.Model.CssMediaList) target).Count;
     internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
     {
-        var collection = (global::AngleSharp.Css.Dom.IMediaList) target;
-        if (index >= (uint) collection.Length)
-        {
-            value = global::Jint.Native.JsValue.Undefined;
-            return false;
-        }
-
+        var collection = (global::Jint.HtmlParser.Css.Model.CssMediaList) target;
+        if (index >= (uint) collection.Count) { value = global::Jint.Native.JsValue.Undefined; return false; }
         value = global::Jint.Browser.Dom.DomConvert.Text(collection[(int) index]);
         return true;
     }
@@ -316,23 +282,16 @@ internal sealed class DomAccessorNodeList : DomCollectionAccessor
     }
 }
 
-/// <summary>How <c>StyleSheetList</c> answers indexed and named property lookups.</summary>
+/// <summary>Native StyleSheetList indexed properties.</summary>
 internal sealed class DomAccessorStyleSheetList : DomCollectionAccessor
 {
     internal static readonly DomAccessorStyleSheetList Instance = new();
-
-    internal override uint Length(DomRealm realm, object target) => (uint) ((global::AngleSharp.Dom.IStyleSheetList) target).Length;
-
+    internal override uint Length(DomRealm realm, object target) => (uint) ((global::Jint.Browser.Styling.NativeCssStyleSheetList) target).Length;
     internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
     {
-        var collection = (global::AngleSharp.Dom.IStyleSheetList) target;
-        if (index >= (uint) collection.Length)
-        {
-            value = global::Jint.Native.JsValue.Undefined;
-            return false;
-        }
-
-        value = realm.Wrap(collection[(int) index]);
+        var collection = (global::Jint.Browser.Styling.NativeCssStyleSheetList) target;
+        if (index >= (uint) collection.Length) { value = global::Jint.Native.JsValue.Undefined; return false; }
+        value = realm.Wrap(collection.Item((int) index));
         return true;
     }
 }

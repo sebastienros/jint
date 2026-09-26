@@ -3420,7 +3420,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLLinkElement.sheet", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLLinkElement.sheet");
-                    return self.Realm.Wrap(self.Target.Sheet);
+                    return self.Realm.Wrap(global::Jint.Browser.Styling.NativeCssStyleSheets.SheetOf(self.Realm, self.Target));
                 }))
             .Accessor("sizes",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLLinkElement.sizes", static (thisObj, args) =>
@@ -5067,7 +5067,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLStyleElement.sheet", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLStyleElement.sheet");
-                    return self.Realm.Wrap(self.Target.Sheet);
+                    return self.Realm.Wrap(global::Jint.Browser.Styling.NativeCssStyleSheets.SheetOf(self.Realm, self.Target));
                 }))
             .Accessor("type",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLStyleElement.type", static (thisObj, args) =>
