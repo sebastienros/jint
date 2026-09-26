@@ -558,22 +558,22 @@ internal static partial class DomInterfaces
             .Method("contains",
                 global::Jint.Browser.Dom.DomFailures.Guard("DOMStringList.contains", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IStringList>(thisObj, "DOMStringList.contains");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Contains(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "DOMStringList.contains")));
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssStyleSetList>(thisObj, "DOMStringList.contains");
+                    return global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Styling.NativeCssBindings.Contains(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "DOMStringList.contains")));
                 }),
                 length: 1)
             .Method("item",
                 global::Jint.Browser.Dom.DomFailures.Guard("DOMStringList.item", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IStringList>(thisObj, "DOMStringList.item");
-                    return global::Jint.Browser.Dom.DomConvert.Text(((global::System.Collections.Generic.IReadOnlyList<global::System.String>) self.Target)[global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "DOMStringList.item")]);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssStyleSetList>(thisObj, "DOMStringList.item");
+                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Styling.NativeCssBindings.Item(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "DOMStringList.item")));
                 }),
                 length: 1)
             .Accessor("length",
                 global::Jint.Browser.Dom.DomFailures.Guard("DOMStringList.length", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IStringList>(thisObj, "DOMStringList.length");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssStyleSetList>(thisObj, "DOMStringList.length");
+                    return global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Styling.NativeCssBindings.Length(self.Realm, self.Target));
                 }))
             .Build();
 
@@ -1011,7 +1011,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.enableStyleSheetsForSet", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.enableStyleSheetsForSet");
-                    self.Target.EnableStyleSheetsForSet(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.enableStyleSheetsForSet")); return global::Jint.Native.JsValue.Undefined;
+                    global::Jint.Browser.Styling.NativeCssBindings.EnableStyleSheetsForSet(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.enableStyleSheetsForSet")); return global::Jint.Native.JsValue.Undefined;
                 }),
                 length: 1)
             .Method("evaluate",
@@ -1157,7 +1157,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.lastStyleSheetSet", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.lastStyleSheetSet");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.LastStyleSheetSet);
+                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Styling.NativeCssBindings.LastStyleSheetSet(self.Realm, self.Target));
                 }))
             .Accessor("linkColor",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.linkColor", static (thisObj, args) =>
@@ -1210,7 +1210,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.preferredStyleSheetSet", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.preferredStyleSheetSet");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.PreferredStyleSheetSet);
+                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Styling.NativeCssBindings.PreferredStyleSheetSet(self.Realm, self.Target));
                 }))
             .Method("prepend",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.prepend", static (thisObj, args) =>
@@ -1313,18 +1313,18 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.selectedStyleSheetSet", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.selectedStyleSheetSet");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.SelectedStyleSheetSet);
+                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Styling.NativeCssBindings.SelectedStyleSheetSet(self.Realm, self.Target));
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Document.selectedStyleSheetSet", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.selectedStyleSheetSet");
-                    self.Target.SelectedStyleSheetSet = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.selectedStyleSheetSet"); return global::Jint.Native.JsValue.Undefined;
+                    global::Jint.Browser.Styling.NativeCssBindings.SetSelectedStyleSheetSet(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.selectedStyleSheetSet")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("styleSheetSets",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.styleSheetSets", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, "Document.styleSheetSets");
-                    return self.Realm.Wrap(self.Target.StyleSheetSets);
+                    return self.Realm.Wrap(global::Jint.Browser.Styling.NativeCssBindings.StyleSheetSets(self.Realm, self.Target));
                 }))
             .Accessor("styleSheets",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.styleSheets", static (thisObj, args) =>
@@ -2714,7 +2714,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("ShadowRoot.styleSheets", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.ShadowRoot>(thisObj, "ShadowRoot.styleSheets");
-                    return self.Realm.Wrap(self.Target.StyleSheets);
+                    return self.Realm.Wrap(global::Jint.Browser.Styling.NativeCssStyleSheets.ListOf(self.Realm, self.Target));
                 }))
             .Build();
 

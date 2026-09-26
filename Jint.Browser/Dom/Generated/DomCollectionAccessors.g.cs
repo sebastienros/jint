@@ -58,23 +58,23 @@ internal sealed class DomAccessorCSSStyleDeclaration : DomCollectionAccessor
     }
 }
 
-/// <summary>How <c>DOMStringList</c> answers indexed and named property lookups.</summary>
+/// <summary>Indexed access to the actual live stylesheet-set name list.</summary>
 internal sealed class DomAccessorDOMStringList : DomCollectionAccessor
 {
     internal static readonly DomAccessorDOMStringList Instance = new();
 
-    internal override uint Length(DomRealm realm, object target) => (uint) ((global::AngleSharp.Dom.IStringList) target).Length;
+    internal override uint Length(DomRealm realm, object target)
+        => (uint) global::Jint.Browser.Styling.NativeCssBindings.Length(realm, (global::Jint.Browser.Styling.NativeCssStyleSetList) target);
 
     internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
     {
-        var collection = (global::AngleSharp.Dom.IStringList) target;
-        if (index >= (uint) collection.Length)
+        var item = global::Jint.Browser.Styling.NativeCssBindings.Item(realm, (global::Jint.Browser.Styling.NativeCssStyleSetList) target, (int) index);
+        if (item is null)
         {
             value = global::Jint.Native.JsValue.Undefined;
             return false;
         }
-
-        value = global::Jint.Browser.Dom.DomConvert.Text(((global::System.Collections.Generic.IReadOnlyList<global::System.String>) collection)[(int) index]);
+        value = global::Jint.Browser.Dom.DomConvert.Text(item);
         return true;
     }
 }

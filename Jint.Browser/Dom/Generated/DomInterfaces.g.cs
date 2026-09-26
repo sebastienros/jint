@@ -153,7 +153,7 @@ internal static partial class DomInterfaces
     /// <summary>The <c>DOMImplementation</c> interface, projected from <c>AngleSharp.Dom.IImplementation</c>.</summary>
     internal static readonly DomInterfaceDefinition DOMImplementation;
 
-    /// <summary>The <c>DOMStringList</c> interface, projected from <c>AngleSharp.Dom.IStringList</c>.</summary>
+    /// <summary>The <c>DOMStringList</c> interface, projected from <c>Jint.Browser.Styling.NativeCssStyleSetList</c>.</summary>
     internal static readonly DomInterfaceDefinition DOMStringList;
 
     /// <summary>The <c>DOMStringMap</c> interface, projected from <c>AngleSharp.Dom.IStringMap</c>.</summary>
@@ -989,7 +989,7 @@ internal static partial class DomInterfaces
 
         DOMStringList = Add(new DomInterfaceDefinition(
             "DOMStringList",
-            typeof(global::AngleSharp.Dom.IStringList),
+            typeof(global::Jint.Browser.Styling.NativeCssStyleSetList),
             BuildDOMStringList,
             null,
             rootsAtEventTarget: false,

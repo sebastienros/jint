@@ -4502,8 +4502,8 @@
     },
     {
       "DomName": "DOMStringList",
-      "ClrTypeName": "AngleSharp.Dom.IStringList",
-      "ReceiverType": "global::AngleSharp.Dom.IStringList",
+      "ClrTypeName": "Jint.Browser.Styling.NativeCssStyleSetList",
+      "ReceiverType": "global::Jint.Browser.Styling.NativeCssStyleSetList",
       "Parent": null,
       "RootsAtEventTarget": false,
       "HasInterfaceObject": true,
@@ -4512,13 +4512,13 @@
       "Group": "Dom",
       "ManualShape": null,
       "ShapeAdditions": null,
-      "AccessorClass": "/// <summary>How <c>DOMStringList</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorDOMStringList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorDOMStringList Instance = new();\n\n    internal override uint Length(DomRealm realm, object target) => (uint) ((global::AngleSharp.Dom.IStringList) target).Length;\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::AngleSharp.Dom.IStringList) target;\n        if (index >= (uint) collection.Length)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = global::Jint.Browser.Dom.DomConvert.Text(((global::System.Collections.Generic.IReadOnlyList<global::System.String>) collection)[(int) index]);\n        return true;\n    }\n}\n",
+      "AccessorClass": "/// <summary>Indexed access to the actual live stylesheet-set name list.</summary>\ninternal sealed class DomAccessorDOMStringList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorDOMStringList Instance = new();\n\n    internal override uint Length(DomRealm realm, object target)\n        => (uint) global::Jint.Browser.Styling.NativeCssBindings.Length(realm, (global::Jint.Browser.Styling.NativeCssStyleSetList) target);\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var item = global::Jint.Browser.Styling.NativeCssBindings.Item(realm, (global::Jint.Browser.Styling.NativeCssStyleSetList) target, (int) index);\n        if (item is null)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n        value = global::Jint.Browser.Dom.DomConvert.Text(item);\n        return true;\n    }\n}\n",
       "AccessorReference": "DomAccessorDOMStringList.Instance",
       "Members": [
         {
           "DomName": "contains",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IStringList>(thisObj, \"DOMStringList.contains\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Contains(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"DOMStringList.contains\")));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssStyleSetList>(thisObj, \"DOMStringList.contains\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(global::Jint.Browser.Styling.NativeCssBindings.Contains(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"DOMStringList.contains\")));",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IStringList.Contains"
@@ -4526,7 +4526,7 @@
         {
           "DomName": "item",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IStringList>(thisObj, \"DOMStringList.item\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(((global::System.Collections.Generic.IReadOnlyList<global::System.String>) self.Target)[global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"DOMStringList.item\")]);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssStyleSetList>(thisObj, \"DOMStringList.item\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Styling.NativeCssBindings.Item(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"DOMStringList.item\")));",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IStringList.System.Collections.Generic.IReadOnlyList<System.String>.Item"
@@ -4534,14 +4534,15 @@
         {
           "DomName": "length",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IStringList>(thisObj, \"DOMStringList.length\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssStyleSetList>(thisObj, \"DOMStringList.length\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.Browser.Styling.NativeCssBindings.Length(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IStringList.Length"
         }
       ],
       "Constants": [],
-      "Unscopables": []
+      "Unscopables": [],
+      "TypeMapCandidate": true
     },
     {
       "DomName": "DOMStringMap",
@@ -5038,7 +5039,7 @@
         {
           "DomName": "enableStyleSheetsForSet",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.enableStyleSheetsForSet\");\nself.Target.EnableStyleSheetsForSet(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Document.enableStyleSheetsForSet\")); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.enableStyleSheetsForSet\");\nglobal::Jint.Browser.Styling.NativeCssBindings.EnableStyleSheetsForSet(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Document.enableStyleSheetsForSet\")); return global::Jint.Native.JsValue.Undefined;",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IDocumentStyle.EnableStyleSheetsForSet"
@@ -5206,7 +5207,7 @@
         {
           "DomName": "lastStyleSheetSet",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.lastStyleSheetSet\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.LastStyleSheetSet);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.lastStyleSheetSet\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Styling.NativeCssBindings.LastStyleSheetSet(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IDocumentStyle.LastStyleSheetSet"
@@ -5262,7 +5263,7 @@
         {
           "DomName": "preferredStyleSheetSet",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.preferredStyleSheetSet\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.PreferredStyleSheetSet);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.preferredStyleSheetSet\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Styling.NativeCssBindings.PreferredStyleSheetSet(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IDocumentStyle.PreferredStyleSheetSet"
@@ -5374,15 +5375,15 @@
         {
           "DomName": "selectedStyleSheetSet",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.selectedStyleSheetSet\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.SelectedStyleSheetSet);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.selectedStyleSheetSet\");\nself.Target.SelectedStyleSheetSet = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Document.selectedStyleSheetSet\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.selectedStyleSheetSet\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Styling.NativeCssBindings.SelectedStyleSheetSet(self.Realm, self.Target));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.selectedStyleSheetSet\");\nglobal::Jint.Browser.Styling.NativeCssBindings.SetSelectedStyleSheetSet(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Document.selectedStyleSheetSet\")); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "IDocumentStyle.SelectedStyleSheetSet"
         },
         {
           "DomName": "styleSheetSets",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.styleSheetSets\");\nreturn self.Realm.Wrap(self.Target.StyleSheetSets);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.styleSheetSets\");\nreturn self.Realm.Wrap(global::Jint.Browser.Styling.NativeCssBindings.StyleSheetSets(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IDocumentStyle.StyleSheetSets"
@@ -14157,7 +14158,7 @@
         {
           "DomName": "styleSheets",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.ShadowRoot>(thisObj, \"ShadowRoot.styleSheets\");\nreturn self.Realm.Wrap(self.Target.StyleSheets);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.ShadowRoot>(thisObj, \"ShadowRoot.styleSheets\");\nreturn self.Realm.Wrap(global::Jint.Browser.Styling.NativeCssStyleSheets.ListOf(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IShadowRoot.StyleSheets"
