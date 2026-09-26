@@ -205,7 +205,7 @@ public sealed class CDataSection : Node
 }
 
 /// <summary>An XML processing instruction.</summary>
-public sealed class ProcessingInstruction : Node
+public sealed partial class ProcessingInstruction : Node
 {
     private string _data = string.Empty;
 
@@ -326,7 +326,7 @@ public sealed class ProcessingInstruction : Node
     /// <exception cref="DomException">The offset exceeds the data length (IndexSizeError).</exception>
     public void ReplaceData(uint offset, uint count, string data) => NativeCharacterData.ReplaceData(this, offset, count, data);
 
-    internal void ReplaceDataCore(string value, uint offset, uint count, uint insertedLength)
+    internal void ReplaceDataCore(string value, uint offset, uint count, uint insertedLength, bool preserveAttributes = false)
     {
         using var rangeMutation = new RangeMutationScope(OwnerDocument!);
         ArgumentNullException.ThrowIfNull(value);
@@ -334,6 +334,7 @@ public sealed class ProcessingInstruction : Node
         var oldValue = matches?.NeedsOldValue == true ? _data : null;
         LiveTraversalTracking.ReplaceData(this, offset, count, insertedLength);
         _data = value;
+        if (!preserveAttributes) InvalidateAttributes();
         OwnerDocument!.MarkMutation();
         if (ParentNode is { } parent) HtmlTextAreaMutations.ChildrenChanged(parent);
         MutationTracking.QueueCharacterData(this, oldValue, matches);
