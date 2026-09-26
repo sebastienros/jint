@@ -57,6 +57,7 @@ public sealed class CssTextAlignDeclarationTests
     }
 
     [TestCase("left", "center", "")]
+    [TestCase("match-parent", "auto", "")]
     [TestCase("justify", "justify", "justify-all")]
     [TestCase("match-parent", "match-parent", "match-parent")]
     [TestCase("center", "auto", "center")]
@@ -64,6 +65,19 @@ public sealed class CssTextAlignDeclarationTests
     {
         var block = CssDeclarationBlock.Parse("text-align-all:" + all + ";text-align-last:" + last);
         block.GetPropertyValue("text-align").Should().Be(expected);
+    }
+
+    [Test]
+    public void NonrepresentableMatchParentAndAutoPairSurvivesCssTextRoundtrip()
+    {
+        var block = CssDeclarationBlock.Parse("text-align-all:match-parent;text-align-last:auto");
+        block.GetPropertyValue("text-align").Should().Be("");
+        block.CssText.Should().Contain("text-align-all: match-parent;").And.Contain("text-align-last: auto;");
+        var roundtrip = CssDeclarationBlock.Parse(block.CssText);
+        roundtrip.GetPropertyValue("text-align-all").Should().Be("match-parent");
+        roundtrip.GetPropertyValue("text-align-last").Should().Be("auto");
+        roundtrip.GetPropertyValue("text-align").Should().Be("");
+        roundtrip.CssText.Should().Be(block.CssText);
     }
 
     [Test]

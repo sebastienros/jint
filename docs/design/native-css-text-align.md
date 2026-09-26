@@ -16,11 +16,13 @@ values are converted to left/right, using the parent's computed direction. Inher
 logical values; it does not apply the child's direction. Root match-parent computes to start.
 Dependencies use the query's iterative parent walk, so deep trees remain cancellation-bounded.
 
-Inverse serialization emits all when last is auto, justify-all when both are justify,
+Inverse serialization emits all when last is auto and all is not match-parent, justify-all when both are justify,
 match-parent when both are match-parent, and empty for other nonrepresentable pairs. The shared
 declaration block preserves mixed-importance and CSS-wide restrictions, pending shorthand identity,
-partial overrides, and reset behavior. Integration needs the two-line TextAlign serializer hook in
-`CssDeclarationBlock.ShorthandValue`; expansion already uses the generic component path.
+partial overrides, and reset behavior. The TextAlign serializer hook is included in
+`CssDeclarationBlock.ShorthandValue`; expansion uses the generic component path. The
+nonrepresentable match-parent/auto pair serializes as separate longhands and preserves both
+values through a CssText roundtrip.
 
 Fixtures: `CssTextAlignDeclarationTests`, native `NativeCssTextAlignTests`, and Browser
 `Views.NativeCssTextAlignTests`. They cover specified reconstruction, importance, resets,

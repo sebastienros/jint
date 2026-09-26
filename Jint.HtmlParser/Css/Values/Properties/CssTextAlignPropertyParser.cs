@@ -27,9 +27,14 @@ internal static class CssTextAlignPropertyParser
     internal static string Serialize(string all, string last, CssValueWork work)
     {
         work.CheckCancellation();
-        var text = last == "auto" ? all
-            : all == "justify" && last == "justify" ? "justify-all"
-            : all == "match-parent" && last == "match-parent" ? "match-parent" : "";
+        var text = (all, last) switch
+        {
+            ("match-parent", "auto") => "",
+            (_, "auto") => all,
+            ("justify", "justify") => "justify-all",
+            ("match-parent", "match-parent") => "match-parent",
+            _ => ""
+        };
         work.Charge(text.Length);
         work.CheckCancellation();
         return text;
