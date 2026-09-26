@@ -69,10 +69,11 @@ public sealed class NativeMetaDefaultStyleTests
             """);
         (await page.EvaluateAsync<string>("firstPreference")).Should().Be("first");
         (await page.EvaluateAsync<string>("""
-            preference.content = 'second';
+            const element = preference;
+            element.content = 'second';
             const unchanged = document.preferredStyleSheetSet;
-            preference.remove();
-            document.body.append(preference);
+            element.remove();
+            document.body.append(element);
             unchanged + '|' + document.preferredStyleSheetSet;
             """)).Should().Be("first|second");
         page.Errors.Should().BeEmpty();
