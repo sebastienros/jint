@@ -95,13 +95,60 @@ public sealed class NativeTokenMemberWorkTests
         }
     }
 
+    [TestCase("add", "old", "host", "host new")]
+    [TestCase("add", null, "host", "host new")]
+    [TestCase("remove", "old new", "host old", "host")]
+    [TestCase("toggle", "old", "host new", "host")]
+    [TestCase("replace", "old tail", "host old", "host new")]
+    [TestCase("force", "old", "host", "host old")]
+    public void ALastCheckpointMutationRetriesBeforePublishing(string operation, string? initial, string changed, string expected)
+    {
+        var probe = new ReadProbe();
+        using var engine = new Engine(options => options.AddConstraint(probe));
+        var realm = DomRealm.Of(engine);
+        var baseline = NewElement();
+        probe.Count = 0;
+        Invoke(baseline);
+        var lastCheck = probe.Count;
+        var target = NewElement();
+        probe.Count = 0;
+        probe.OnCheck = () =>
+        {
+            if (probe.Count == lastCheck) target.SetAttributeNS(null, "class", changed);
+        };
+        Invoke(target);
+        target.GetAttributeNS(null, "class").Should().Be(expected);
+        probe.Count.Should().BeGreaterThan(lastCheck);
+
+        Element NewElement()
+        {
+            var element = Document.CreateHtml().CreateElement("div");
+            if (initial is not null) element.SetAttributeNS(null, "class", initial);
+            return element;
+        }
+        void Invoke(Element element)
+        {
+            var list = DomAttributeTokenList.Of(element, "class");
+            switch (operation)
+            {
+                case "add": DomTokenListMembers.Add(realm, list, [JsString.Create("new")]); break;
+                case "remove": DomTokenListMembers.Remove(realm, list, [JsString.Create("old")]); break;
+                case "toggle": DomTokenListMembers.Toggle(realm, list, [JsString.Create("new")]); break;
+                case "replace": DomTokenListMembers.Replace(realm, list, [JsString.Create("old"), JsString.Create("new")]); break;
+                case "force": DomTokenListMembers.Toggle(realm, list, [JsString.Create("old"), JsBoolean.True]); break;
+            }
+        }
+    }
+
     private sealed class ReadProbe : Constraint
     {
         internal int Remaining;
         internal int Count;
+        internal Action? OnCheck;
         public override void Check()
         {
             Count++;
+            OnCheck?.Invoke();
             if (Remaining > 0 && --Remaining == 0) throw new OperationCanceledException();
         }
         public override void Reset() { }

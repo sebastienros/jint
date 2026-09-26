@@ -41,14 +41,16 @@ internal static class DomTokenListMembers
         var tokens = DomConvert.TextRest(arguments, 0);
         var work = Work(realm);
         Validate(realm, tokens, Member.Add, work);
-        var next = Snapshot(list, work);
-        var present = Index(next, work);
-        foreach (var token in tokens)
+        while (true)
         {
-            if (present.Add(token)) next.Add(token);
+            var next = list.ReadSnapshot(work, out var proof);
+            var present = Index(next, work);
+            foreach (var token in tokens)
+            {
+                if (present.Add(token)) next.Add(token);
+            }
+            if (TryUpdate(list, next, work, proof)) return JsValue.Undefined;
         }
-        Update(list, next, work);
-        return JsValue.Undefined;
     }
 
     // https://dom.spec.whatwg.org/#dom-domtokenlist-remove
@@ -58,15 +60,17 @@ internal static class DomTokenListMembers
         var work = Work(realm);
         Validate(realm, tokens, Member.Remove, work);
         var removed = Index(tokens, work);
-        var next = Snapshot(list, work);
-        var retained = new List<string>(next.Count);
-        foreach (var existing in next)
+        while (true)
         {
-            work.Step();
-            if (!removed.Contains(existing)) retained.Add(existing);
+            var next = list.ReadSnapshot(work, out var proof);
+            var retained = new List<string>(next.Count);
+            foreach (var existing in next)
+            {
+                work.Step();
+                if (!removed.Contains(existing)) retained.Add(existing);
+            }
+            if (TryUpdate(list, retained, work, proof)) return JsValue.Undefined;
         }
-        Update(list, retained, work);
-        return JsValue.Undefined;
     }
 
     // https://dom.spec.whatwg.org/#dom-domtokenlist-toggle
@@ -77,19 +81,24 @@ internal static class DomTokenListMembers
         Validate(realm, token, Member.Toggle, work);
         var given = arguments.Length > 1 && !arguments[1].IsUndefined();
         var force = given && TypeConverter.ToBoolean(arguments[1]);
-        var next = Snapshot(list, work);
-        for (var i = 0; i < next.Count; i++)
+        while (true)
         {
-            if (!work.Equal(next[i], token)) continue;
-            if (given && force) { work.Check(); return JsBoolean.True; }
-            next.RemoveAt(i);
-            Update(list, next, work);
-            return JsBoolean.False;
+            var next = list.ReadSnapshot(work, out var proof);
+            var index = -1;
+            for (var i = 0; i < next.Count; i++)
+            {
+                if (work.Equal(next[i], token)) { index = i; break; }
+            }
+            if (index >= 0 && given && force || index < 0 && given && !force)
+            {
+                work.Check();
+                if (!proof.IsCurrent) continue;
+                return index >= 0 ? JsBoolean.True : JsBoolean.False;
+            }
+            if (index >= 0) next.RemoveAt(index);
+            else next.Add(token);
+            if (TryUpdate(list, next, work, proof)) return index >= 0 ? JsBoolean.False : JsBoolean.True;
         }
-        if (given && !force) { work.Check(); return JsBoolean.False; }
-        next.Add(token);
-        Update(list, next, work);
-        return JsBoolean.True;
     }
 
     // https://dom.spec.whatwg.org/#dom-domtokenlist-replace
@@ -104,24 +113,31 @@ internal static class DomTokenListMembers
         RefuseEmpty(realm, replacement, Member.Replace);
         RefuseWhitespace(realm, token, Member.Replace, work);
         RefuseWhitespace(realm, replacement, Member.Replace, work);
-        var tokens = Snapshot(list, work);
-        var oldIndex = -1;
-        var newIndex = -1;
-        for (var i = 0; i < tokens.Count; i++)
+        while (true)
         {
-            if (work.Equal(tokens[i], token)) oldIndex = i;
-            if (work.Equal(tokens[i], replacement)) newIndex = i;
+            var tokens = list.ReadSnapshot(work, out var proof);
+            var oldIndex = -1;
+            var newIndex = -1;
+            for (var i = 0; i < tokens.Count; i++)
+            {
+                if (work.Equal(tokens[i], token)) oldIndex = i;
+                if (work.Equal(tokens[i], replacement)) newIndex = i;
+            }
+            if (oldIndex < 0)
+            {
+                work.Check();
+                if (!proof.IsCurrent) continue;
+                return JsBoolean.False;
+            }
+            // The earlier of the old/replacement entries keeps the ordered-set position.
+            if (newIndex >= 0 && newIndex != oldIndex)
+            {
+                tokens[Math.Min(oldIndex, newIndex)] = replacement;
+                tokens.RemoveAt(Math.Max(oldIndex, newIndex));
+            }
+            else tokens[oldIndex] = replacement;
+            if (TryWrite(list, Serialize(tokens, work), work, proof)) return JsBoolean.True;
         }
-        if (oldIndex < 0) { work.Check(); return JsBoolean.False; }
-        // The earlier of the old/replacement entries keeps the ordered-set position.
-        if (newIndex >= 0 && newIndex != oldIndex)
-        {
-            tokens[Math.Min(oldIndex, newIndex)] = replacement;
-            tokens.RemoveAt(Math.Max(oldIndex, newIndex));
-        }
-        else tokens[oldIndex] = replacement;
-        Write(list, Serialize(tokens, work), work);
-        return JsBoolean.True;
     }
 
     // Attributes with supported-token sets retain the existing unsupported capability.
@@ -145,9 +161,6 @@ internal static class DomTokenListMembers
     }
 
     private static DomReadWork Work(DomRealm realm) => new(realm.NativeReadCheckpoint, realm.CancellationToken);
-
-    private static List<string> Snapshot(DomAttributeTokenList list, DomReadWork work)
-        => list.ReadSnapshot(work);
 
     private static HashSet<string> Index(IReadOnlyList<string> tokens, DomReadWork work)
     {
@@ -182,14 +195,25 @@ internal static class DomTokenListMembers
     }
 
     // https://dom.spec.whatwg.org/#concept-dtl-update
-    private static void Update(DomAttributeTokenList list, List<string> tokens, DomReadWork work)
+    private static bool TryUpdate(DomAttributeTokenList list, List<string> tokens, DomReadWork work,
+        DomAttributeTokenList.SourceProof proof)
     {
-        if (tokens.Count == 0 && work.Attribute(list.Element, list.Attribute) is null)
+        if (tokens.Count == 0 && proof.Value is null)
         {
             work.Check();
-            return;
+            return proof.IsCurrent;
         }
-        Write(list, Serialize(tokens, work), work);
+        return TryWrite(list, Serialize(tokens, work), work, proof);
+    }
+
+    private static bool TryWrite(DomAttributeTokenList list, string value, DomReadWork work,
+        DomAttributeTokenList.SourceProof proof)
+    {
+        work.Check();
+        if (!proof.IsCurrent) return false;
+        // No callback between the constant source proof and the one null-namespace publication.
+        list.Element.SetAttributeNS(null, list.Attribute, value);
+        return true;
     }
 
     private static string Serialize(List<string> tokens, DomReadWork work)
