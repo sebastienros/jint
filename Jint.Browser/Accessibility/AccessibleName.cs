@@ -242,7 +242,7 @@ internal sealed class AccessibleName
 
     private string NativeLabel(Element element, string role, Context context)
     {
-        switch (element.LocalName)
+        switch (ContentDom.HtmlName(element))
         {
             case "input":
                 return InputLabel(element, role, context);

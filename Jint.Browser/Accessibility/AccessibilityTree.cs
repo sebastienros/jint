@@ -64,7 +64,7 @@ internal static class AccessibilityTree
         var root = new AxNode(IdOf(document, document), AriaRoles.RootWebArea)
         {
             Node = document,
-            Name = NullIfEmpty(AccessibleName.Flatten(ContentDom.First(document, "title") is { } title ? ContentDom.TextContent(title) : string.Empty)),
+            Name = NullIfEmpty(AccessibleName.Flatten(ContentDom.DocumentTitle(document))),
             Properties = properties,
             Children = children,
         };
@@ -620,7 +620,7 @@ internal static class AccessibilityTree
                 return index > int.MinValue;
             }
 
-            switch (element.LocalName)
+            switch (ContentDom.HtmlName(element))
             {
                 case "a":
                 case "area":
@@ -640,7 +640,7 @@ internal static class AccessibilityTree
                 case "video":
                     return element.HasAttribute("controls");
                 default:
-                    return Events.ContentEditing.HostOf(element) is not null;
+                    return element.NamespaceUri == Namespaces.Html && Events.ContentEditing.HostOf(element) is not null;
             }
         }
 
