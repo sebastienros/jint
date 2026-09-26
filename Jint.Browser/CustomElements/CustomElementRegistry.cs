@@ -41,6 +41,8 @@ internal sealed partial class CustomElementRegistry : ObjectInstance
         : base(runtime.Engine)
     {
         _runtime = runtime;
+        Identity = runtime.Document?.CustomElementRegistry ?? new CustomElementRegistryIdentity(isScoped: false);
+        runtime.Document?.SetCustomElementRegistry(Identity);
         runtime.Engine.Disposed += (_, _) => ReleaseNativeSubscriptions();
         InterfaceObject = interfaceObject;
         _checkpoint = RunCheckpoint;
@@ -49,6 +51,8 @@ internal sealed partial class CustomElementRegistry : ObjectInstance
 
     /// <summary>The global <c>CustomElementRegistry</c>, built together with this object's prototype.</summary>
     internal HostInterfaceObject InterfaceObject { get; }
+
+    internal CustomElementRegistryIdentity Identity { get; }
 
     /// <summary>Whether any definition exists, which is what every hot path tests before doing anything.</summary>
     internal bool HasDefinitions => _byName.Count > 0;
