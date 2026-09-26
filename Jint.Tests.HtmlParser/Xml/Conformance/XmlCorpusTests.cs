@@ -327,6 +327,27 @@ public class XmlCorpusTests
         XmlConformanceRunner.Run(notationDependent).Kind.Should().Be(XmlOutcomeKind.OptionalPolicyVerified);
     }
 
+    [TestCase("weekly-euc-jp", "weekly-euc-jp.dtd", 41)]
+    [TestCase("weekly-iso-2022-jp", "weekly-iso-2022-jp.dtd", 46)]
+    [TestCase("weekly-shift_jis", "weekly-shift_jis.dtd", 44)]
+    public void WeeklyJapanesePoliciesVerifyTheExactPreparedSources(string id, string systemId, int offset)
+    {
+        var key = "xmlconf/japanese/japanese.xml#" + id;
+        var row = XmlCorpus.Case(key);
+        var policy = XmlExpectations.OptionalPolicies[key];
+        row.Decoding.Decision.Should().StartWith("prepared-");
+        row.OutputPath.Should().BeNull();
+        policy.Projection.Should().HaveCount(150);
+        policy.Notations.Should().BeEmpty();
+        var omission = policy.Skipped.Should().ContainSingle().Which;
+        omission.Kind.Should().Be("ExternalSubset");
+        omission.Name.Should().BeEmpty();
+        omission.PublicId.Should().BeNull();
+        omission.SystemId.Should().Be(systemId);
+        omission.Offset.Should().Be(offset);
+        XmlConformanceRunner.Run(row).Kind.Should().Be(XmlOutcomeKind.OptionalPolicyVerified);
+    }
+
     [Test]
     public void OptionalOutputNeedsPinnedOriginalBytesBeforeVerification()
     {
@@ -475,7 +496,7 @@ public class XmlCorpusTests
             XmlExpectations.Reviewed[key].Notations.Should().NotBeNullOrEmpty();
             XmlCorpus.Case(key).OutputPath.Should().NotBeNull();
         }
-        XmlExpectations.OptionalPolicies.Values.Count(item => item.Status == "verified").Should().Be(21);
+        XmlExpectations.OptionalPolicies.Values.Count(item => item.Status == "verified").Should().Be(24);
         foreach (var (key, policy) in XmlExpectations.OptionalPolicies)
         {
             var row = XmlCorpus.Case(key);
