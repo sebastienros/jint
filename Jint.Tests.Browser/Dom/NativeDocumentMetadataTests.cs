@@ -122,6 +122,7 @@ public sealed class NativeDocumentMetadataTests
         try
         {
             await fixture.Page.NavigateAsync(fixture.Url("/")).WaitAsync(Jint.Tests.TestBudgets.WedgeCeiling);
+            fixture.Page.Errors.Should().BeEmpty("the frame fetch pump must run the scheduled adoption callback without a script or load failure");
             await fixture.Page.RunOnLoopAsync(engine =>
             {
                 var runtime = PageRuntime.Find(engine)!;
