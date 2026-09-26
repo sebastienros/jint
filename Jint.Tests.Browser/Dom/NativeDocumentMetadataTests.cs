@@ -33,7 +33,8 @@ public sealed class NativeDocumentMetadataTests
     {
         await using var browser = new Browser();
         var page = await browser.NewPageAsync();
-        await page.SetContentAsync("<iframe id=b></iframe><iframe id=s srcdoc='<p>child</p>'></iframe><iframe id=x sandbox srcdoc='<p>child</p>'></iframe>");
+        await page.SetContentAsync("<iframe id=b></iframe><iframe id=s srcdoc='<p>child</p>'></iframe><iframe id=x name=blocked sandbox srcdoc='<p>child</p>'></iframe>");
+        (await page.EvaluateAsync<bool>("typeof frames[2] === 'undefined' && typeof window[2] === 'undefined' && blocked === document.getElementById('x')")).Should().BeTrue();
         await page.RunOnLoopAsync(engine =>
         {
             var runtime = PageRuntime.Find(engine)!;
@@ -46,6 +47,7 @@ public sealed class NativeDocumentMetadataTests
                 DomDocumentMetadata.Origin(child).Should().Be("null");
                 origin.IsSameOrigin(DomDocumentState.Of(child).Origin).Should().Be(id != "x");
                 DomFrameMembers.ContentDocument(runtime.Dom, frame).IsNull().Should().Be(id == "x");
+                FrameWindows.For(runtime, frame).IsNull().Should().Be(id == "x");
                 frame.RemoveAttribute("sandbox");
                 origin.IsSameOrigin(DomDocumentState.Of(child).Origin).Should().Be(id != "x");
             }

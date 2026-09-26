@@ -15,7 +15,8 @@ namespace Jint.Browser.Runtime;
 /// <remarks>
 /// https://html.spec.whatwg.org/multipage/webappapis.html#realms-settings-objects-global-objects —
 /// each document has independent intrinsics and global bindings in the page's engine. WindowProxy
-/// navigation and cross-origin access remain unsupported; DomFrameMembers gates exposed windows.
+/// navigation and cross-origin access remain unsupported; every exposed child window is gated by
+/// its actual frozen origin rather than by its URL.
 /// </remarks>
 internal static class FrameWindows
 {
@@ -25,7 +26,9 @@ internal static class FrameWindows
     /// </summary>
     internal static JsValue For(PageRuntime runtime, Element frame)
     {
-        if (DomBrowsingContext.OfFrame(frame)?.Active is not { } document)
+        if (DomBrowsingContext.OfFrame(frame)?.Active is not { } document
+            || frame.OwnerDocument is not { } owner
+            || !DomDocumentState.Of(owner).Origin.IsSameOrigin(DomDocumentState.Of(document).Origin))
         {
             return JsValue.Null;
         }
