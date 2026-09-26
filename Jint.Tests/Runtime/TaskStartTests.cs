@@ -49,8 +49,8 @@ public sealed class TaskStartTests
         }));
         engine.Tasks.Post(() => engine.Execute("record('task'); Promise.resolve().then(() => record('reaction'))"));
         engine.Tasks.ProcessTask();
-        // The nested evaluation's checkpoint is itself a healthy entry in the enclosing budget.
-        order.Should().Equal("start", "task", "start", "reaction");
+        // A nested evaluation leaves its reactions to the active pump's existing checkpoint.
+        order.Should().Equal("start", "task", "reaction");
         budget.Depth.Should().Be(0);
     }
 
