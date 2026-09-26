@@ -126,16 +126,17 @@ internal static class MutationTracking
         var qualifiedName = attribute.Name;
         var previousQualifiedName = replaced is not null && !string.Equals(replaced.Prefix, attribute.Prefix, StringComparison.Ordinal)
             ? replaced.Name : null;
-        // Queue invokes a trusted pending callback. Freeze the transition before the first
+        // Notification invokes a trusted pending callback. Freeze the transition before the first
         // subscription can reenter and change or remove the attribute for later subscriptions.
         var newValue = ReferenceEquals(attribute.OwnerElement, target) ? attribute.Value : null;
         foreach (var entry in matches.Entries)
         {
-            entry.Subscription.Queue(new MutationRecord(MutationRecordKind.Attributes, target,
+            entry.Subscription.Enqueue(new MutationRecord(MutationRecordKind.Attributes, target,
                 attributeName: attribute.LocalName, attributeNamespace: attribute.NamespaceUri,
                 oldValue: entry.OldValue ? oldValue : null, attributeQualifiedName: qualifiedName,
                 attributePreviousQualifiedName: previousQualifiedName, attributeNewValue: newValue));
         }
+        Notify(matches);
     }
 
     internal static void QueueCharacterData(Node target, string? oldValue, MutationMatches? matches = null)
@@ -148,9 +149,10 @@ internal static class MutationTracking
 
         foreach (var entry in matches.Entries)
         {
-            entry.Subscription.Queue(new MutationRecord(MutationRecordKind.CharacterData, target,
+            entry.Subscription.Enqueue(new MutationRecord(MutationRecordKind.CharacterData, target,
                 oldValue: entry.OldValue ? oldValue : null));
         }
+        Notify(matches);
     }
 
     private static ReadOnlyCollection<Node> SnapshotSingle(Node node) => Array.AsReadOnly(new[] { node });
@@ -176,9 +178,19 @@ internal static class MutationTracking
     {
         foreach (var entry in matches.Entries)
         {
-            entry.Subscription.Queue(new MutationRecord(MutationRecordKind.ChildList, target,
+            entry.Subscription.Enqueue(new MutationRecord(MutationRecordKind.ChildList, target,
                 added, removed, previousSibling, nextSibling, targetWasConnected: matches.TargetWasConnected));
         }
+        Notify(matches);
+    }
+
+    private static void Notify(MutationMatches matches)
+    {
+        // DOM §4.3.2 queues each interested observer's record before scheduling delivery.
+        // Reuse the captured matches so reentrant notifications cannot reorder the outer
+        // record behind nested records in a later subscription. Host exceptions still
+        // propagate immediately and stop subsequent signals; all records are already queued.
+        for (var i = 0; i < matches.Entries.Count; i++) matches.Entries[i].Subscription.NotifyIfPending();
     }
 }
 

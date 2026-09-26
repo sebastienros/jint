@@ -104,10 +104,10 @@ public sealed class AttributeTransitionValueTests
         var firstRecords = first.TakeRecords();
         var secondRecords = second.TakeRecords();
         firstRecords.Select(record => record.AttributeNewValue).Should().Equal("outer", remove ? null : "inner");
-        secondRecords.Select(record => record.AttributeNewValue).Should().Equal(remove ? null : "inner", "outer");
+        secondRecords.Select(record => record.AttributeNewValue).Should().Equal("outer", remove ? null : "inner");
         firstRecords.Select(record => record.OldValue).Should().Equal("before", "outer");
         secondRecords.Select(record => record.OldValue).Should().Equal(
-            secondOldValue ? "outer" : null, secondOldValue ? "before" : null);
+            secondOldValue ? "before" : null, secondOldValue ? "outer" : null);
         element.GetAttribute("x").Should().Be(remove ? null : "inner");
     }
 

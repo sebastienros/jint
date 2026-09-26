@@ -79,10 +79,13 @@ public sealed class MutationSubscription : IDisposable
     internal void AddTransientNode(Node node)
         => (_transientNodes ??= []).Add(new WeakReference<Node>(node));
 
-    internal void Queue(MutationRecord record)
+    internal void Enqueue(MutationRecord record) => (_records ??= []).Add(record);
+
+    internal void NotifyIfPending()
     {
-        (_records ??= []).Add(record);
-        PendingRecord?.Invoke(this);
+        // An earlier subscription may have drained or disconnected this one, including
+        // during a nested mutation. Do not send a stale trailing pending signal.
+        if (_records is { Count: > 0 }) PendingRecord?.Invoke(this);
     }
 
     private ReadOnlyCollection<MutationRecord> Drain()
