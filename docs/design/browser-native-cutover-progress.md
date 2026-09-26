@@ -250,3 +250,26 @@ Remaining work before the production cutover can be claimed:
 The worktree is preserved for unfinished work. list_artifacts returned an empty
 artifact list at wrap-up (this checkout is the chat's existing workspace, with no
 attached managed worktree or pull request).
+
+## Reviewed leaf integrated into preserved WIP
+
+At the parent's explicit reviewed disposition, cherry-picked exactly
+`cdf59d402`, `b1725f7ee`, and `90aa31b723c63b7b79fee5fdf1d96a9de92b0c66`
+into this isolated branch as `559fb89d8`, `3dc1e3cc7`, and `fb853f441`.
+Integration was conflict-free and includes the reviewed namespace corrections.
+No common-branch merge or additional implementation was performed. This section
+supersedes the previous checkpoint's statement that the leaf was not included.
+
+One fresh Release net8 Browser build after integration failed with **932 errors,
+zero warnings**, in 21.96 seconds. Ten diagnostics remain in Accessibility:
+input/select/option consumers require native authoritative state; ContentEditing
+accepts old AngleSharp element identities; and CssCascade/visibility consumers
+accept old document/element identities. These dependencies remain unresolved,
+without substitute values or disabled behavior. Accessibility and Extraction
+golden tests and new focused tests remain unverified because Browser is not
+buildable. Earlier parser, remaining generated binding, runtime, event, CSS and
+DevTools blockers still apply.
+
+The build process completed with exit code 1. No task build/generator process
+remains running. Work stops at this preserved WIP integration checkpoint; both
+unfinished chats are retained by the parent.
