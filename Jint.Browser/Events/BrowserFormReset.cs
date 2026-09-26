@@ -30,7 +30,7 @@ internal static class BrowserFormReset
                 case "input" when HtmlInputTypes.Get(control) != HtmlInputType.File:
                     control.GetHtmlState()!.GetInputValueState(realm.NativeReadCheckpoint, realm.CancellationToken)!.ResetValue(realm.NativeReadCheckpoint, realm.CancellationToken);
                     if (HtmlInputTypes.Get(control) is HtmlInputType.Checkbox or HtmlInputType.Radio)
-                        HtmlCheckednessAlgorithms.ResetCheckedness(control, realm.CancellationToken);
+                        HtmlCheckednessAlgorithms.ResetCheckedness(control, realm.NativeReadCheckpoint, realm.CancellationToken);
                     break;
                 case "textarea":
                     control.GetHtmlState()!.TextArea!.Reset(realm.NativeReadCheckpoint, realm.CancellationToken);

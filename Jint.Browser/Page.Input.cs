@@ -477,9 +477,33 @@ public sealed partial class Page
             }
 
             var token = runtime.Dom.CancellationToken;
-            var options = select.GetHtmlState()!.GetSelectState(token)!.Options.Snapshot(token);
-            var option = options.FirstOrDefault(o => string.Equals(o.GetHtmlState()!.GetOptionState(token)!.GetValue(token), value, StringComparison.Ordinal))
-                ?? options.FirstOrDefault(o => string.Equals(o.GetHtmlState()!.GetOptionState(token)!.GetText(token), value, StringComparison.Ordinal));
+            var checkpoint = runtime.Dom.NativeReadCheckpoint;
+            var work = new DomReadWork(checkpoint, token);
+            work.Check();
+            var options = select.GetHtmlState()!.GetSelectState(checkpoint, token)!.Options.Snapshot(checkpoint, token);
+            Element? option = null;
+            foreach (var candidate in options)
+            {
+                work.Step();
+                if (work.Equal(candidate.GetHtmlState()!.GetOptionState(checkpoint, token)!.GetValue(checkpoint, token), value))
+                {
+                    option = candidate;
+                    break;
+                }
+            }
+            if (option is null)
+            {
+                foreach (var candidate in options)
+                {
+                    work.Step();
+                    if (work.Equal(candidate.GetHtmlState()!.GetOptionState(checkpoint, token)!.GetText(checkpoint, token), value))
+                    {
+                        option = candidate;
+                        break;
+                    }
+                }
+            }
+            work.Check();
 
             if (option is null)
             {

@@ -72,19 +72,21 @@ internal static class ActivationBehaviors
 
         // https://html.spec.whatwg.org/multipage/input.html#checkbox-state-(type=checkbox) and
         // #radio-button-state-(type=radio) — the two input types with a legacy-pre-activation behaviour.
-        if (IsType(input, "checkbox"))
+        var inputType = input.GetHtmlState()!.GetInputValueState(wrapper.DomRealm.NativeReadCheckpoint, wrapper.DomRealm.CancellationToken)!.Type;
+        if (inputType == HtmlInputType.Checkbox)
         {
-            _snapshots.AddOrUpdate(wrapper, PreActivationSnapshot.ForCheckbox(HtmlCheckableState.Get(input)!.Checked, HtmlCheckableState.Get(input)!.Indeterminate));
-            HtmlCheckednessAlgorithms.Set(input, !HtmlCheckableState.Get(input)!.Checked, HtmlCheckedChangeOrigin.UserInteraction, wrapper.DomRealm.CancellationToken);
-            HtmlCheckableState.Get(input)!.SetIndeterminate(false);
+            var state = HtmlCheckableState.Get(input, wrapper.DomRealm.NativeReadCheckpoint, wrapper.DomRealm.CancellationToken)!;
+            _snapshots.AddOrUpdate(wrapper, PreActivationSnapshot.ForCheckbox(state.Checked, state.Indeterminate));
+            HtmlCheckednessAlgorithms.Set(input, !state.Checked, HtmlCheckedChangeOrigin.UserInteraction, wrapper.DomRealm.NativeReadCheckpoint, wrapper.DomRealm.CancellationToken);
+            state.SetIndeterminate(false, wrapper.DomRealm.NativeReadCheckpoint, wrapper.DomRealm.CancellationToken);
             return;
         }
 
-        if (IsType(input, "radio"))
+        if (inputType == HtmlInputType.Radio)
         {
-            var previously = HtmlCheckableState.FirstCheckedRadio(input, wrapper.DomRealm.CancellationToken);
+            var previously = HtmlCheckableState.FirstCheckedRadio(input, wrapper.DomRealm.NativeReadCheckpoint, wrapper.DomRealm.CancellationToken);
             _snapshots.AddOrUpdate(wrapper, PreActivationSnapshot.ForRadio(previously));
-            HtmlCheckednessAlgorithms.Set(input, true, HtmlCheckedChangeOrigin.UserInteraction, wrapper.DomRealm.CancellationToken);
+            HtmlCheckednessAlgorithms.Set(input, true, HtmlCheckedChangeOrigin.UserInteraction, wrapper.DomRealm.NativeReadCheckpoint, wrapper.DomRealm.CancellationToken);
         }
     }
 
@@ -104,19 +106,19 @@ internal static class ActivationBehaviors
 
         if (snapshot.IsCheckbox)
         {
-            HtmlCheckednessAlgorithms.Set(input, snapshot.WasChecked, HtmlCheckedChangeOrigin.Algorithm, wrapper.DomRealm.CancellationToken);
-            HtmlCheckableState.Get(input)!.SetIndeterminate(snapshot.WasIndeterminate);
+            HtmlCheckednessAlgorithms.Set(input, snapshot.WasChecked, HtmlCheckedChangeOrigin.Algorithm, wrapper.DomRealm.NativeReadCheckpoint, wrapper.DomRealm.CancellationToken);
+            HtmlCheckableState.Get(input, wrapper.DomRealm.NativeReadCheckpoint, wrapper.DomRealm.CancellationToken)!.SetIndeterminate(snapshot.WasIndeterminate, wrapper.DomRealm.NativeReadCheckpoint, wrapper.DomRealm.CancellationToken);
             return;
         }
 
         // A radio group's rollback is not "uncheck this one": HTML says to restore the element that was
         // checked before, and a group with nothing checked stays with nothing checked.
-        HtmlCheckednessAlgorithms.Set(input, false, HtmlCheckedChangeOrigin.Algorithm, wrapper.DomRealm.CancellationToken);
+        HtmlCheckednessAlgorithms.Set(input, false, HtmlCheckedChangeOrigin.Algorithm, wrapper.DomRealm.NativeReadCheckpoint, wrapper.DomRealm.CancellationToken);
 
         if (snapshot.PreviouslyChecked is { } previous
-            && HtmlCheckableState.SameRadioGroup(previous, input, wrapper.DomRealm.CancellationToken))
+            && HtmlCheckableState.SameRadioGroup(previous, input, wrapper.DomRealm.NativeReadCheckpoint, wrapper.DomRealm.CancellationToken))
         {
-            HtmlCheckednessAlgorithms.Set(previous, true, HtmlCheckedChangeOrigin.Algorithm, wrapper.DomRealm.CancellationToken);
+            HtmlCheckednessAlgorithms.Set(previous, true, HtmlCheckedChangeOrigin.Algorithm, wrapper.DomRealm.NativeReadCheckpoint, wrapper.DomRealm.CancellationToken);
         }
     }
 
@@ -342,8 +344,8 @@ internal static class ActivationBehaviors
             return;
         }
 
-        var state = select.GetHtmlState()!.GetSelectState(dom.CancellationToken)!;
-        if (!state.ApplyUserSelection(option, selected: true, dom.CancellationToken))
+        var state = select.GetHtmlState()!.GetSelectState(dom.NativeReadCheckpoint, dom.CancellationToken)!;
+        if (!state.ApplyUserSelection(option, selected: true, dom.NativeReadCheckpoint, dom.CancellationToken))
         {
             return;
         }
@@ -352,7 +354,7 @@ internal static class ActivationBehaviors
         dom.Engine.Tasks.Post(() =>
         {
             using var update = dom.MutateLayout();
-            state.CompleteUserSelection(dom.CancellationToken);
+            state.CompleteUserSelection(dom.NativeReadCheckpoint, dom.CancellationToken);
             FireInputAndChange(target);
         });
     }

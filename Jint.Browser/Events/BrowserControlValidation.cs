@@ -158,10 +158,10 @@ internal static class BrowserControlValidation
         var state = element.GetHtmlState()!.GetInputValueState(realm.NativeReadCheckpoint, work.Token)!;
         var required = work.Attribute(element, "required") is not null;
         if (state.Type == HtmlInputType.Checkbox)
-            return required && !HtmlCheckableState.Get(element)!.Checked ? ControlValidityFlags.ValueMissing : ControlValidityFlags.None;
+            return required && !HtmlCheckableState.Get(element, realm.NativeReadCheckpoint, work.Token)!.Checked ? ControlValidityFlags.ValueMissing : ControlValidityFlags.None;
         if (state.Type == HtmlInputType.Radio)
         {
-            var group = HtmlCheckableState.GetRadioGroupFacts(element, work.Token);
+            var group = HtmlCheckableState.GetRadioGroupFacts(element, realm.NativeReadCheckpoint, work.Token);
             return group.RequiredCount > 0 && group.CheckedCount == 0 ? ControlValidityFlags.ValueMissing : ControlValidityFlags.None;
         }
         if (state.Type == HtmlInputType.File)
