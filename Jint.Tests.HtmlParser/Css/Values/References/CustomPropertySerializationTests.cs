@@ -91,7 +91,7 @@ public sealed class CustomPropertySerializationTests
         serialized.Should().Be(expected);
         if (source.StartsWith("f(", StringComparison.Ordinal))
         {
-            var reparsed = CssReferenceInput.Parse(serialized, options: null).Components[0].Values;
+            var reparsed = CssReferenceInput.Parse(serialized, options: null, cancellationToken: default).Components[0].Values;
             reparsed.Count.Should().Be(3);
             reparsed[0].Token.Kind.Should().Be(CssTokenKind.Delim);
             reparsed[0].Token.Delimiter.Should().Be('<');
