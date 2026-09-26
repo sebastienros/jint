@@ -599,7 +599,7 @@ internal sealed record EventLoop
                 return;
             }
 
-            if (!_tasks!.TryDequeue(out var task))
+            if (!_tasks!.TryPeek(out var task))
             {
                 if (engine.TryPromoteDueTimerJob(includeIdleCallbacks: false))
                 {
@@ -632,15 +632,13 @@ internal sealed record EventLoop
                 continue;
             }
 
-            if (task.Generation != Generation)
-            {
-                continue;
-            }
-
             _taskBudget!.BeginTask(isTask: true);
             try
             {
                 _taskStart?.Invoke();
+                // Recovery may throw, or replace the queue through a snapshot restore. Consume
+                // only after it succeeds, and validate the actual current head rather than the peek.
+                if (!_tasks.TryDequeue(out task) || task.Generation != Generation) continue;
                 engine.RunEventLoopJob(in task);
                 RunTaskCheckpoint(engine);
             }

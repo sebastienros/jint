@@ -75,22 +75,51 @@ public sealed class TaskStartTests
     }
 
     [Test]
-    public void ATaskStartFailureUnwindsItsBudgetAndLeavesLaterTasksAvailable()
+    public void ATaskStartFailureUnwindsItsBudgetAndRetainsAllTasksInFifoOrder()
     {
         using var engine = new Engine();
         var budget = new Budget();
         engine.Tasks.ConfigureTaskBudget(budget);
         var failure = new InvalidOperationException("pending native failure");
-        engine.Tasks.ConfigureTaskStart(() => throw failure);
         var order = new List<int>();
+        var fail = true;
+        engine.Tasks.ConfigureTaskStart(() =>
+        {
+            if (!fail) return;
+            fail = false;
+            engine.Tasks.Post(() => order.Add(3));
+            throw failure;
+        });
         engine.Tasks.Post(() => order.Add(1));
         engine.Tasks.Post(() => order.Add(2));
         Caught.Exception(engine.Tasks.ProcessTask).Should().BeSameAs(failure);
         order.Should().BeEmpty();
         budget.Depth.Should().Be(0);
         engine.Tasks.ConfigureTaskStart(() => budget.Depth.Should().Be(1));
-        engine.Tasks.ProcessTask();
-        order.Should().Equal(2);
+        engine.Tasks.ProcessTasks();
+        order.Should().Equal(1, 2, 3);
+        budget.Depth.Should().Be(0);
+    }
+
+    [Test]
+    public void ATaskStartSnapshotRestoreExecutesTheReplacementHeadAndNeverTheStalePeek()
+    {
+        using var engine = new Engine();
+        var budget = new Budget();
+        engine.Tasks.ConfigureTaskBudget(budget);
+        var snapshot = engine.Advanced.CaptureGlobalSnapshot();
+        var order = new List<string>();
+        var restore = true;
+        engine.Tasks.ConfigureTaskStart(() =>
+        {
+            if (!restore) return;
+            restore = false;
+            engine.Advanced.RestoreGlobalSnapshot(snapshot);
+            engine.Tasks.Post(() => order.Add("replacement"));
+        });
+        engine.Tasks.Post(() => order.Add("stale"));
+        engine.Tasks.ProcessTasks();
+        order.Should().Equal("replacement");
         budget.Depth.Should().Be(0);
     }
 

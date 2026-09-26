@@ -188,7 +188,7 @@ internal sealed class PageLoop : IDisposable
 
             try
             {
-                PageRuntime.Find(engine)?.Parser?.RecoverNativeMutationNotifications();
+                if (bracketed) PageRuntime.Find(engine)?.Parser?.RecoverNativeMutationNotifications();
                 completion.TrySetResult(work(engine));
             }
             catch (Exception exception)
