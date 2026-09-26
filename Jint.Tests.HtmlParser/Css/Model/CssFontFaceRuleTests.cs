@@ -150,6 +150,33 @@ public sealed class CssFontFaceRuleTests
         block.Count.Should().Be(0);
     }
 
+
+    [Test]
+    public void LongDescriptorNamesPollCancellationDuringTheAllocatedCopy()
+    {
+        // Warm the string.Create callback before using its output allocation as the copy boundary.
+        CssFontFaceDescriptorCatalog.NormalizeName("FONT-FAMILY", new CssValueWork(default)).Should().Be("font-family");
+        var name = new string('A', 16384);
+        using var cancellation = new CancellationTokenSource();
+        var polls = 0;
+        long allocationBeforeCall = 0;
+        var work = new CssValueWork(cancellation.Token, () =>
+        {
+            polls++;
+            // Precharging name.Length cannot cancel here: the destination string does not yet exist.
+            if (GC.GetAllocatedBytesForCurrentThread() - allocationBeforeCall >= name.Length * sizeof(char))
+                cancellation.Cancel();
+        });
+        OperationCanceledException? failure = null;
+        allocationBeforeCall = GC.GetAllocatedBytesForCurrentThread();
+        // Keep assertion-framework allocations outside the boundary being observed.
+        try { CssFontFaceDescriptorCatalog.NormalizeName(name, work); }
+        catch (OperationCanceledException exception) { failure = exception; }
+        failure.Should().NotBeNull();
+        // Entry plus the first charged chunk of the actual copy, rather than an exit-only poll.
+        polls.Should().Be(2);
+    }
+
     [Test]
     public void CancelledAndReentrantWritesPublishNoPartialReplacement()
     {
