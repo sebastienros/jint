@@ -72,7 +72,10 @@ internal static class ActivationBehaviors
 
         // https://html.spec.whatwg.org/multipage/input.html#checkbox-state-(type=checkbox) and
         // #radio-button-state-(type=radio) — the two input types with a legacy-pre-activation behaviour.
-        var inputType = input.GetHtmlState()!.GetInputValueState(wrapper.DomRealm.NativeReadCheckpoint, wrapper.DomRealm.CancellationToken)!.Type;
+        var work = new DomReadWork(wrapper.DomRealm.NativeReadCheckpoint, wrapper.DomRealm.CancellationToken);
+        work.Check();
+        var inputType = HtmlInputTypes.Parse(work.Attribute(input, "type"));
+        work.Check();
         if (inputType == HtmlInputType.Checkbox)
         {
             var state = HtmlCheckableState.Get(input, wrapper.DomRealm.NativeReadCheckpoint, wrapper.DomRealm.CancellationToken)!;
