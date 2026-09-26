@@ -24,7 +24,7 @@ public sealed class ReferenceWorkTests
     [Test]
     public void OriginalInputAndTokenLimitsAreAppliedBeforeAnalysis()
     {
-        var inputLimit = new CssParseOptions { Limits = new ParseLimits { MaxInputCharacters = 7 } };
+        var inputLimit = new CssParseOptions { Limits = new ParseLimits { MaxInputCharacters = 8 } };
         CssReferenceInput.Parse("var(--x)", inputLimit, default).Source.Should().Be("var(--x)");
         var inputError = Assert.Throws<ParseLimitException>(() =>
             CssReferenceInput.Parse("var(--xx)", inputLimit, default));

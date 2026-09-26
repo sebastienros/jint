@@ -76,8 +76,6 @@ internal static class CssReferenceParser
                         var child = children[i];
                         if (comma < 0 && child.Kind == CssComponentKind.Token &&
                             child.Token.Kind == CssTokenKind.Comma) comma = i;
-                        if (child.Kind == CssComponentKind.Function && i < (comma < 0 ? children.Count : comma))
-                            headerDynamic = true;
                         if (i + 3 < children.Count && IsPeriod(child) && IsPeriod(children[i + 1]) &&
                             IsPeriod(children[i + 2]) && children[i + 3].Kind == CssComponentKind.Function &&
                             IsArbitrary(children[i + 3].FunctionName))

@@ -138,6 +138,16 @@ public sealed class ReferenceSyntaxTests
     }
 
     [Test]
+    public void OrdinaryFunctionInHeaderIsNotAReferenceByItself()
+    {
+        var ordinary = Analyze("var(foo(1), red)").Program[0];
+        ordinary.HasDynamicHeader.Should().BeFalse();
+        ordinary.StaticName.Should().BeNull();
+        var nested = Analyze("var(foo(var(--name)), red)").Program[0];
+        nested.HasDynamicHeader.Should().BeTrue();
+    }
+
+    [Test]
     public void SpreadOutsideArgumentContextIsOrdinary()
     {
         var result = Analyze("...var(--x)");
