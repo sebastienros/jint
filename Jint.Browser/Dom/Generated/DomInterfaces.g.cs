@@ -132,10 +132,10 @@ internal static partial class DomInterfaces
     /// <summary>The <c>CSSViewTransitionRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSViewTransitionRule;
 
-    /// <summary>The <c>RenderingContext</c> interface, projected from <c>AngleSharp.Media.Dom.IRenderingContext</c>.</summary>
+    /// <summary>The <c>RenderingContext</c> interface, projected from <c>Jint.Browser.Dom.NativeMediaUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition RenderingContext;
 
-    /// <summary>The <c>CanvasRenderingContext2D</c> interface, projected from <c>AngleSharp.Media.Dom.ICanvasRenderingContext2D</c>.</summary>
+    /// <summary>The <c>CanvasRenderingContext2D</c> interface, projected from <c>Jint.Browser.Dom.NativeMediaUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition CanvasRenderingContext2D;
 
     /// <summary>The <c>CaretPosition</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
@@ -480,7 +480,7 @@ internal static partial class DomInterfaces
     /// <summary>The <c>TextTrack</c> interface, projected from <c>AngleSharp.Media.Dom.ITextTrack</c>.</summary>
     internal static readonly DomInterfaceDefinition TextTrack;
 
-    /// <summary>The <c>TextTrackCue</c> interface, projected from <c>AngleSharp.Media.Dom.ITextTrackCue</c>.</summary>
+    /// <summary>The <c>TextTrackCue</c> interface, projected from <c>Jint.Browser.Dom.NativeMediaUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition TextTrackCue;
 
     /// <summary>The <c>TextTrackCueList</c> interface, projected from <c>AngleSharp.Media.Dom.ITextTrackCueList</c>.</summary>
@@ -926,7 +926,7 @@ internal static partial class DomInterfaces
 
         RenderingContext = Add(new DomInterfaceDefinition(
             "RenderingContext",
-            typeof(global::AngleSharp.Media.Dom.IRenderingContext),
+            typeof(global::Jint.Browser.Dom.NativeMediaUnavailable),
             BuildRenderingContext,
             null,
             rootsAtEventTarget: false,
@@ -935,7 +935,7 @@ internal static partial class DomInterfaces
 
         CanvasRenderingContext2D = Add(new DomInterfaceDefinition(
             "CanvasRenderingContext2D",
-            typeof(global::AngleSharp.Media.Dom.ICanvasRenderingContext2D),
+            typeof(global::Jint.Browser.Dom.NativeMediaUnavailable),
             BuildCanvasRenderingContext2D,
             RenderingContext,
             rootsAtEventTarget: false,
@@ -2037,7 +2037,7 @@ internal static partial class DomInterfaces
 
         TextTrackCue = Add(new DomInterfaceDefinition(
             "TextTrackCue",
-            typeof(global::AngleSharp.Media.Dom.ITextTrackCue),
+            typeof(global::Jint.Browser.Dom.NativeMediaUnavailable),
             BuildTextTrackCue,
             null,
             rootsAtEventTarget: true,

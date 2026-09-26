@@ -4159,8 +4159,8 @@
     },
     {
       "DomName": "RenderingContext",
-      "ClrTypeName": "AngleSharp.Media.Dom.IRenderingContext",
-      "ReceiverType": "global::AngleSharp.Media.Dom.IRenderingContext",
+      "ClrTypeName": "Jint.Browser.Dom.NativeMediaUnavailable",
+      "ReceiverType": "global::Jint.Browser.Dom.NativeMediaUnavailable",
       "Parent": null,
       "RootsAtEventTarget": false,
       "HasInterfaceObject": true,
@@ -4177,8 +4177,8 @@
     },
     {
       "DomName": "CanvasRenderingContext2D",
-      "ClrTypeName": "AngleSharp.Media.Dom.ICanvasRenderingContext2D",
-      "ReceiverType": "global::AngleSharp.Media.Dom.ICanvasRenderingContext2D",
+      "ClrTypeName": "Jint.Browser.Dom.NativeMediaUnavailable",
+      "ReceiverType": "global::Jint.Browser.Dom.NativeMediaUnavailable",
       "Parent": "RenderingContext",
       "RootsAtEventTarget": false,
       "HasInterfaceObject": true,
@@ -4193,7 +4193,7 @@
         {
           "DomName": "canvas",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ICanvasRenderingContext2D>(thisObj, \"CanvasRenderingContext2D.canvas\");\nreturn self.Realm.WrapNodeValue(self.Target.Canvas);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"CanvasRenderingContext2D.canvas\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"CanvasRenderingContext2D.canvas\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "ICanvasRenderingContext2D.Canvas"
@@ -4201,15 +4201,15 @@
         {
           "DomName": "height",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ICanvasRenderingContext2D>(thisObj, \"CanvasRenderingContext2D.height\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Height);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ICanvasRenderingContext2D>(thisObj, \"CanvasRenderingContext2D.height\");\nself.Target.Height = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"CanvasRenderingContext2D.height\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"CanvasRenderingContext2D.height\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"CanvasRenderingContext2D.height\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"CanvasRenderingContext2D.height\");\n_ = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"CanvasRenderingContext2D.height\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"CanvasRenderingContext2D.height\");",
           "Length": 0,
           "Origin": "ICanvasRenderingContext2D.Height"
         },
         {
           "DomName": "restore",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ICanvasRenderingContext2D>(thisObj, \"CanvasRenderingContext2D.restore\");\nself.Target.RestoreState(); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"CanvasRenderingContext2D.restore\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"CanvasRenderingContext2D.restore\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "ICanvasRenderingContext2D.RestoreState"
@@ -4217,7 +4217,7 @@
         {
           "DomName": "save",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ICanvasRenderingContext2D>(thisObj, \"CanvasRenderingContext2D.save\");\nself.Target.SaveState(); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"CanvasRenderingContext2D.save\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"CanvasRenderingContext2D.save\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "ICanvasRenderingContext2D.SaveState"
@@ -4225,8 +4225,8 @@
         {
           "DomName": "width",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ICanvasRenderingContext2D>(thisObj, \"CanvasRenderingContext2D.width\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Width);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ICanvasRenderingContext2D>(thisObj, \"CanvasRenderingContext2D.width\");\nself.Target.Width = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"CanvasRenderingContext2D.width\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"CanvasRenderingContext2D.width\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"CanvasRenderingContext2D.width\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"CanvasRenderingContext2D.width\");\n_ = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"CanvasRenderingContext2D.width\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"CanvasRenderingContext2D.width\");",
           "Length": 0,
           "Origin": "ICanvasRenderingContext2D.Width"
         }
@@ -14320,8 +14320,8 @@
     },
     {
       "DomName": "TextTrackCue",
-      "ClrTypeName": "AngleSharp.Media.Dom.ITextTrackCue",
-      "ReceiverType": "global::AngleSharp.Media.Dom.ITextTrackCue",
+      "ClrTypeName": "Jint.Browser.Dom.NativeMediaUnavailable",
+      "ReceiverType": "global::Jint.Browser.Dom.NativeMediaUnavailable",
       "Parent": null,
       "RootsAtEventTarget": true,
       "HasInterfaceObject": true,
@@ -14336,23 +14336,23 @@
         {
           "DomName": "align",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, \"TextTrackCue.align\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Alignment);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, \"TextTrackCue.align\");\nself.Target.Alignment = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"TextTrackCue.align\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"TextTrackCue.align\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"TextTrackCue.align\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"TextTrackCue.align\");\n_ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"TextTrackCue.align\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"TextTrackCue.align\");",
           "Length": 0,
           "Origin": "ITextTrackCue.Alignment"
         },
         {
           "DomName": "endTime",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, \"TextTrackCue.endTime\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.EndTime);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, \"TextTrackCue.endTime\");\nself.Target.EndTime = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, \"TextTrackCue.endTime\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"TextTrackCue.endTime\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"TextTrackCue.endTime\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"TextTrackCue.endTime\");\n_ = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, \"TextTrackCue.endTime\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"TextTrackCue.endTime\");",
           "Length": 0,
           "Origin": "ITextTrackCue.EndTime"
         },
         {
           "DomName": "getCueAsHTML",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, \"TextTrackCue.getCueAsHTML\");\nreturn self.Realm.WrapNodeValue(self.Target.AsHtml());",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"TextTrackCue.getCueAsHTML\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"TextTrackCue.getCueAsHTML\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "ITextTrackCue.AsHtml"
@@ -14360,71 +14360,71 @@
         {
           "DomName": "id",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, \"TextTrackCue.id\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Id);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, \"TextTrackCue.id\");\nself.Target.Id = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"TextTrackCue.id\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"TextTrackCue.id\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"TextTrackCue.id\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"TextTrackCue.id\");\n_ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"TextTrackCue.id\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"TextTrackCue.id\");",
           "Length": 0,
           "Origin": "ITextTrackCue.Id"
         },
         {
           "DomName": "line",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, \"TextTrackCue.line\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Line);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, \"TextTrackCue.line\");\nself.Target.Line = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"TextTrackCue.line\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"TextTrackCue.line\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"TextTrackCue.line\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"TextTrackCue.line\");\n_ = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"TextTrackCue.line\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"TextTrackCue.line\");",
           "Length": 0,
           "Origin": "ITextTrackCue.Line"
         },
         {
           "DomName": "pauseOnExit",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, \"TextTrackCue.pauseOnExit\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsPausedOnExit);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, \"TextTrackCue.pauseOnExit\");\nself.Target.IsPausedOnExit = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"TextTrackCue.pauseOnExit\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"TextTrackCue.pauseOnExit\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"TextTrackCue.pauseOnExit\");\n_ = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false);\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"TextTrackCue.pauseOnExit\");",
           "Length": 0,
           "Origin": "ITextTrackCue.IsPausedOnExit"
         },
         {
           "DomName": "position",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, \"TextTrackCue.position\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Position);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, \"TextTrackCue.position\");\nself.Target.Position = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"TextTrackCue.position\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"TextTrackCue.position\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"TextTrackCue.position\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"TextTrackCue.position\");\n_ = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"TextTrackCue.position\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"TextTrackCue.position\");",
           "Length": 0,
           "Origin": "ITextTrackCue.Position"
         },
         {
           "DomName": "size",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, \"TextTrackCue.size\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Size);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, \"TextTrackCue.size\");\nself.Target.Size = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"TextTrackCue.size\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"TextTrackCue.size\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"TextTrackCue.size\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"TextTrackCue.size\");\n_ = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"TextTrackCue.size\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"TextTrackCue.size\");",
           "Length": 0,
           "Origin": "ITextTrackCue.Size"
         },
         {
           "DomName": "snapToLines",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, \"TextTrackCue.snapToLines\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsSnappedToLines);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, \"TextTrackCue.snapToLines\");\nself.Target.IsSnappedToLines = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"TextTrackCue.snapToLines\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"TextTrackCue.snapToLines\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"TextTrackCue.snapToLines\");\n_ = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false);\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"TextTrackCue.snapToLines\");",
           "Length": 0,
           "Origin": "ITextTrackCue.IsSnappedToLines"
         },
         {
           "DomName": "startTime",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, \"TextTrackCue.startTime\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.StartTime);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, \"TextTrackCue.startTime\");\nself.Target.StartTime = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, \"TextTrackCue.startTime\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"TextTrackCue.startTime\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"TextTrackCue.startTime\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"TextTrackCue.startTime\");\n_ = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, \"TextTrackCue.startTime\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"TextTrackCue.startTime\");",
           "Length": 0,
           "Origin": "ITextTrackCue.StartTime"
         },
         {
           "DomName": "text",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, \"TextTrackCue.text\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Text);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, \"TextTrackCue.text\");\nself.Target.Text = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"TextTrackCue.text\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"TextTrackCue.text\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"TextTrackCue.text\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"TextTrackCue.text\");\n_ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"TextTrackCue.text\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"TextTrackCue.text\");",
           "Length": 0,
           "Origin": "ITextTrackCue.Text"
         },
         {
           "DomName": "track",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, \"TextTrackCue.track\");\nreturn self.Realm.Wrap(self.Target.Track);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"TextTrackCue.track\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"TextTrackCue.track\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "ITextTrackCue.Track"
@@ -14432,8 +14432,8 @@
         {
           "DomName": "vertical",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, \"TextTrackCue.vertical\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Vertical);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, \"TextTrackCue.vertical\");\nself.Target.Vertical = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"TextTrackCue.vertical\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"TextTrackCue.vertical\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"TextTrackCue.vertical\");",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, \"TextTrackCue.vertical\");\n_ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"TextTrackCue.vertical\");\nreturn global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, \"TextTrackCue.vertical\");",
           "Length": 0,
           "Origin": "ITextTrackCue.Vertical"
         }

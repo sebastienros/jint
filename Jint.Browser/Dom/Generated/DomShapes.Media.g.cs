@@ -94,44 +94,46 @@ internal static partial class DomInterfaces
             .Accessor("canvas",
                 global::Jint.Browser.Dom.DomFailures.Guard("CanvasRenderingContext2D.canvas", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ICanvasRenderingContext2D>(thisObj, "CanvasRenderingContext2D.canvas");
-                    return self.Realm.WrapNodeValue(self.Target.Canvas);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "CanvasRenderingContext2D.canvas");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "CanvasRenderingContext2D.canvas");
                 }))
             .Accessor("height",
                 global::Jint.Browser.Dom.DomFailures.Guard("CanvasRenderingContext2D.height", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ICanvasRenderingContext2D>(thisObj, "CanvasRenderingContext2D.height");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Height);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "CanvasRenderingContext2D.height");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "CanvasRenderingContext2D.height");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CanvasRenderingContext2D.height", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ICanvasRenderingContext2D>(thisObj, "CanvasRenderingContext2D.height");
-                    self.Target.Height = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "CanvasRenderingContext2D.height"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "CanvasRenderingContext2D.height");
+                    _ = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "CanvasRenderingContext2D.height");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "CanvasRenderingContext2D.height");
                 }))
             .Method("restore",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CanvasRenderingContext2D.restore", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ICanvasRenderingContext2D>(thisObj, "CanvasRenderingContext2D.restore");
-                    self.Target.RestoreState(); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "CanvasRenderingContext2D.restore");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "CanvasRenderingContext2D.restore");
                 }),
                 length: 0)
             .Method("save",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CanvasRenderingContext2D.save", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ICanvasRenderingContext2D>(thisObj, "CanvasRenderingContext2D.save");
-                    self.Target.SaveState(); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "CanvasRenderingContext2D.save");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "CanvasRenderingContext2D.save");
                 }),
                 length: 0)
             .Accessor("width",
                 global::Jint.Browser.Dom.DomFailures.Guard("CanvasRenderingContext2D.width", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ICanvasRenderingContext2D>(thisObj, "CanvasRenderingContext2D.width");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Width);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "CanvasRenderingContext2D.width");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "CanvasRenderingContext2D.width");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CanvasRenderingContext2D.width", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ICanvasRenderingContext2D>(thisObj, "CanvasRenderingContext2D.width");
-                    self.Target.Width = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "CanvasRenderingContext2D.width"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "CanvasRenderingContext2D.width");
+                    _ = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "CanvasRenderingContext2D.width");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "CanvasRenderingContext2D.width");
                 }))
             .Build();
 
@@ -345,136 +347,147 @@ internal static partial class DomInterfaces
             .Accessor("align",
                 global::Jint.Browser.Dom.DomFailures.Guard("TextTrackCue.align", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.align");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Alignment);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "TextTrackCue.align");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "TextTrackCue.align");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("TextTrackCue.align", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.align");
-                    self.Target.Alignment = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "TextTrackCue.align"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "TextTrackCue.align");
+                    _ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "TextTrackCue.align");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "TextTrackCue.align");
                 }))
             .Accessor("endTime",
                 global::Jint.Browser.Dom.DomFailures.Guard("TextTrackCue.endTime", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.endTime");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.EndTime);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "TextTrackCue.endTime");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "TextTrackCue.endTime");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("TextTrackCue.endTime", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.endTime");
-                    self.Target.EndTime = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, "TextTrackCue.endTime"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "TextTrackCue.endTime");
+                    _ = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, "TextTrackCue.endTime");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "TextTrackCue.endTime");
                 }))
             .Method("getCueAsHTML",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("TextTrackCue.getCueAsHTML", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.getCueAsHTML");
-                    return self.Realm.WrapNodeValue(self.Target.AsHtml());
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "TextTrackCue.getCueAsHTML");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "TextTrackCue.getCueAsHTML");
                 }),
                 length: 0)
             .Accessor("id",
                 global::Jint.Browser.Dom.DomFailures.Guard("TextTrackCue.id", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.id");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Id);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "TextTrackCue.id");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "TextTrackCue.id");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("TextTrackCue.id", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.id");
-                    self.Target.Id = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "TextTrackCue.id"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "TextTrackCue.id");
+                    _ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "TextTrackCue.id");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "TextTrackCue.id");
                 }))
             .Accessor("line",
                 global::Jint.Browser.Dom.DomFailures.Guard("TextTrackCue.line", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.line");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Line);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "TextTrackCue.line");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "TextTrackCue.line");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("TextTrackCue.line", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.line");
-                    self.Target.Line = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "TextTrackCue.line"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "TextTrackCue.line");
+                    _ = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "TextTrackCue.line");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "TextTrackCue.line");
                 }))
             .Accessor("pauseOnExit",
                 global::Jint.Browser.Dom.DomFailures.Guard("TextTrackCue.pauseOnExit", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.pauseOnExit");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsPausedOnExit);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "TextTrackCue.pauseOnExit");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "TextTrackCue.pauseOnExit");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("TextTrackCue.pauseOnExit", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.pauseOnExit");
-                    self.Target.IsPausedOnExit = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "TextTrackCue.pauseOnExit");
+                    _ = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false);
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "TextTrackCue.pauseOnExit");
                 }))
             .Accessor("position",
                 global::Jint.Browser.Dom.DomFailures.Guard("TextTrackCue.position", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.position");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Position);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "TextTrackCue.position");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "TextTrackCue.position");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("TextTrackCue.position", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.position");
-                    self.Target.Position = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "TextTrackCue.position"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "TextTrackCue.position");
+                    _ = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "TextTrackCue.position");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "TextTrackCue.position");
                 }))
             .Accessor("size",
                 global::Jint.Browser.Dom.DomFailures.Guard("TextTrackCue.size", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.size");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Size);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "TextTrackCue.size");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "TextTrackCue.size");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("TextTrackCue.size", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.size");
-                    self.Target.Size = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "TextTrackCue.size"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "TextTrackCue.size");
+                    _ = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "TextTrackCue.size");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "TextTrackCue.size");
                 }))
             .Accessor("snapToLines",
                 global::Jint.Browser.Dom.DomFailures.Guard("TextTrackCue.snapToLines", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.snapToLines");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsSnappedToLines);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "TextTrackCue.snapToLines");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "TextTrackCue.snapToLines");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("TextTrackCue.snapToLines", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.snapToLines");
-                    self.Target.IsSnappedToLines = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "TextTrackCue.snapToLines");
+                    _ = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false);
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "TextTrackCue.snapToLines");
                 }))
             .Accessor("startTime",
                 global::Jint.Browser.Dom.DomFailures.Guard("TextTrackCue.startTime", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.startTime");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.StartTime);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "TextTrackCue.startTime");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "TextTrackCue.startTime");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("TextTrackCue.startTime", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.startTime");
-                    self.Target.StartTime = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, "TextTrackCue.startTime"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "TextTrackCue.startTime");
+                    _ = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, "TextTrackCue.startTime");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "TextTrackCue.startTime");
                 }))
             .Accessor("text",
                 global::Jint.Browser.Dom.DomFailures.Guard("TextTrackCue.text", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.text");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Text);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "TextTrackCue.text");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "TextTrackCue.text");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("TextTrackCue.text", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.text");
-                    self.Target.Text = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "TextTrackCue.text"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "TextTrackCue.text");
+                    _ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "TextTrackCue.text");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "TextTrackCue.text");
                 }))
             .Accessor("track",
                 global::Jint.Browser.Dom.DomFailures.Guard("TextTrackCue.track", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.track");
-                    return self.Realm.Wrap(self.Target.Track);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "TextTrackCue.track");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "TextTrackCue.track");
                 }))
             .Accessor("vertical",
                 global::Jint.Browser.Dom.DomFailures.Guard("TextTrackCue.vertical", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.vertical");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Vertical);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "TextTrackCue.vertical");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "TextTrackCue.vertical");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("TextTrackCue.vertical", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.vertical");
-                    self.Target.Vertical = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "TextTrackCue.vertical"); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeMediaUnavailable>(thisObj, "TextTrackCue.vertical");
+                    _ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "TextTrackCue.vertical");
+                    return global::Jint.Browser.Dom.BrowserUnavailableMediaMembers.Refuse(self.Realm, "TextTrackCue.vertical");
                 }))
             .Build();
 
