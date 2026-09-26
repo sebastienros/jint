@@ -57,3 +57,29 @@ public class RegistrationWorkTests
         return work;
     }
 }
+
+public class SubscriptionRegistrationWorkTests
+{
+    [Test]
+    public void DenseSubscriptionRegistrationHasLinearWork()
+    {
+        var small = RegisterSubscriptions(512);
+        var large = RegisterSubscriptions(1024);
+        large.Should().BeLessThanOrEqualTo(2 * small + 100);
+        large.Should().BeLessThanOrEqualTo(9 * 1024);
+    }
+    private static int RegisterSubscriptions(int count)
+    {
+        var document = Document.CreateHtml(); var range = document.CreateRange();
+        var subscriptions = new RangeChangeSubscription[count]; var work = 0;
+        for (var i = 0; i < count; i++) subscriptions[i] = range.ObserveChanges(document, _ => work++);
+        range.SelectNodeContents(new(document.CreateTextNode("x")));
+        foreach (var subscription in subscriptions) subscription.TakePendingChange().Should().BeTrue();
+        foreach (var subscription in subscriptions) subscription.Disconnect();
+        using var active = range.ObserveChanges(document);
+        range.Collapse(true); active.TakePendingChange().Should().BeTrue();
+        foreach (var subscription in subscriptions) subscription.TakePendingChange().Should().BeFalse();
+        GC.KeepAlive(subscriptions);
+        return work;
+    }
+}

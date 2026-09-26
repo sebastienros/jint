@@ -4,7 +4,9 @@ namespace Jint.HtmlParser;
 
 // DOM Standard §5.5. Ordinary-tree endpoints are authoritative native state.
 // https://dom.spec.whatwg.org/#interface-range
-internal sealed partial class DomRange
+/// <summary>A live ordinary-tree range whose endpoints follow native DOM mutations.</summary>
+/// <remarks>Create ranges through Document.CreateRange. Native objects require serialized host access. Geometry and Selection belong to Browser.</remarks>
+public sealed partial class DomRange
 {
     private EndpointHandle? _startHandle;
     private EndpointHandle? _endHandle;
@@ -17,9 +19,12 @@ internal sealed partial class DomRange
         _startHandle = LiveTraversalTracking.Register(this, true, Start.Container, registrationCheckpoint);
         _endHandle = LiveTraversalTracking.Register(this, false, End.Container, registrationCheckpoint);
     }
-    internal BoundaryPoint Start { get; private set; }
-    internal BoundaryPoint End { get; private set; }
-    internal bool Collapsed => Start.Equals(End);
+    /// <summary>Gets the start boundary point.</summary>
+    public BoundaryPoint Start { get; private set; }
+    /// <summary>Gets the end boundary point.</summary>
+    public BoundaryPoint End { get; private set; }
+    /// <summary>Gets whether both endpoints are the same boundary point.</summary>
+    public bool Collapsed => Start.Equals(End);
 
     internal void Repair(bool start, BoundaryPoint point)
     {
@@ -34,12 +39,18 @@ internal sealed partial class DomRange
         }
         if (start) Start = point;
         else End = point;
+        Changed();
     }
 
-    internal void SetStart(DomNodeIdentity node, uint offset) => Set(true, new(node, offset));
-    internal void SetEnd(DomNodeIdentity node, uint offset) => Set(false, new(node, offset));
+    /// <summary>Sets the start boundary, collapsing the end if the point is later or in a different tree.</summary>
+    /// <exception cref="DomException">InvalidNodeTypeError for a doctype, or IndexSizeError for an excessive offset.</exception>
+    public void SetStart(DomNodeIdentity node, uint offset) => Set(true, new(node, offset));
+    /// <summary>Sets the end boundary, collapsing the start if the point is earlier or in a different tree.</summary>
+    /// <exception cref="DomException">InvalidNodeTypeError for a doctype, or IndexSizeError for an excessive offset.</exception>
+    public void SetEnd(DomNodeIdentity node, uint offset) => Set(false, new(node, offset));
     private void Set(bool start, BoundaryPoint point)
     {
+        using var change = Changing();
         Validate(point);
         var opposite = start ? End : Start;
         var different = !BoundaryOrder.GetRoot(point.Container, default).Equals(BoundaryOrder.GetRoot(opposite.Container, default));
@@ -60,39 +71,64 @@ internal sealed partial class DomRange
         if (identity.Node?.ParentNode is not { } parent) throw Error("InvalidNodeTypeError");
         return new(new(parent), LiveTraversalTracking.IndexOf(identity.Node) + (after ? 1u : 0u));
     }
-    internal void SetStartBefore(DomNodeIdentity node) => Set(true, Beside(node, false));
-    internal void SetStartAfter(DomNodeIdentity node) => Set(true, Beside(node, true));
-    internal void SetEndBefore(DomNodeIdentity node) => Set(false, Beside(node, false));
-    internal void SetEndAfter(DomNodeIdentity node) => Set(false, Beside(node, true));
-    internal void Collapse(bool toStart = false) => Repair(toStart ? false : true, toStart ? Start : End);
-    internal void SelectNode(DomNodeIdentity node)
+    /// <summary>Sets the start immediately before a node in its ordinary parent.</summary>
+    /// <exception cref="DomException">InvalidNodeTypeError when the identity has no ordinary parent.</exception>
+    public void SetStartBefore(DomNodeIdentity node) => Set(true, Beside(node, false));
+    /// <summary>Sets the start immediately after a node in its ordinary parent.</summary>
+    /// <exception cref="DomException">InvalidNodeTypeError when the identity has no ordinary parent.</exception>
+    public void SetStartAfter(DomNodeIdentity node) => Set(true, Beside(node, true));
+    /// <summary>Sets the end immediately before a node in its ordinary parent.</summary>
+    /// <exception cref="DomException">InvalidNodeTypeError when the identity has no ordinary parent.</exception>
+    public void SetEndBefore(DomNodeIdentity node) => Set(false, Beside(node, false));
+    /// <summary>Sets the end immediately after a node in its ordinary parent.</summary>
+    /// <exception cref="DomException">InvalidNodeTypeError when the identity has no ordinary parent.</exception>
+    public void SetEndAfter(DomNodeIdentity node) => Set(false, Beside(node, true));
+    /// <summary>Collapses to the end by default, or to the start when toStart is true.</summary>
+    public void Collapse(bool toStart = false)
     {
+        using var change = Changing();
+        Repair(toStart ? false : true, toStart ? Start : End);
+    }
+    /// <summary>Selects a node in its ordinary parent, without entering hosted template or shadow contents.</summary>
+    /// <exception cref="DomException">InvalidNodeTypeError when the identity has no ordinary parent.</exception>
+    public void SelectNode(DomNodeIdentity node)
+    {
+        using var change = Changing();
         var start = Beside(node, false);
         Repair(true, start);
         Repair(false, start with { Offset = start.Offset + 1 });
     }
-    internal void SelectNodeContents(DomNodeIdentity node)
+    /// <summary>Selects the full character data or ordinary children of an identity.</summary>
+    /// <exception cref="DomException">InvalidNodeTypeError for a doctype, or IndexSizeError for an excessive offset.</exception>
+    public void SelectNodeContents(DomNodeIdentity node)
     {
+        using var change = Changing();
         var point = new BoundaryPoint(node, 0);
         Validate(point);
         Repair(true, point);
         Repair(false, point with { Offset = BoundaryOrder.GetLength(node) });
     }
-    internal DomRange CloneRange()
+    /// <summary>Creates an independently live range with the same endpoint identities and offsets.</summary>
+    public DomRange CloneRange()
     {
         var clone = new DomRange(LiveTraversalTracking.DocumentOf(Start.Container));
         clone.Repair(true, Start);
         clone.Repair(false, End);
         return clone;
     }
+    /// <summary>Performs the DOM compatibility no-op; the object remains usable and live.</summary>
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822", Justification = "DOM Range.detach is an instance no-op.")]
-    internal void Detach() { }
-    internal DomNodeIdentity GetCommonAncestor(CancellationToken cancellationToken)
+    public void Detach() { }
+    /// <summary>Gets the nearest ordinary-tree inclusive ancestor of both endpoints.</summary>
+    /// <exception cref="OperationCanceledException">The supplied cancellation token is canceled.</exception>
+    public DomNodeIdentity GetCommonAncestor(CancellationToken cancellationToken = default) => GetCommonAncestor(null, cancellationToken);
+
+    internal DomNodeIdentity GetCommonAncestor(Action<int>? workCheckpoint, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (Start.Container.Equals(End.Container)) return Start.Container;
         var ancestors = new HashSet<Node>();
-        var work = new TraversalWork(cancellationToken);
+        var work = new TraversalWork(workCheckpoint, cancellationToken);
         for (var node = Start.Container.Node; node is not null; node = node.ParentNode) { ancestors.Add(node); work.Step(); }
         for (var node = End.Container.Node; node is not null; node = node.ParentNode)
         {
@@ -101,7 +137,9 @@ internal sealed partial class DomRange
         }
         throw Error("WrongDocumentError");
     }
-    internal int CompareBoundaryPoints(ushort how, DomRange source, CancellationToken cancellationToken)
+    /// <summary>Compares selected boundary points using DOM selectors 0, 1, 2, or 3; returns -1, 0, or 1.</summary>
+    /// <exception cref="OperationCanceledException">The supplied cancellation token is canceled.</exception>
+    public int CompareBoundaryPoints(ushort how, DomRange source, CancellationToken cancellationToken = default)
     {
         if (how > 3) throw Error("NotSupportedError");
         ArgumentNullException.ThrowIfNull(source);
@@ -114,7 +152,9 @@ internal sealed partial class DomRange
         };
         return BoundaryOrder.Compare(left, right, cancellationToken);
     }
-    internal int ComparePoint(DomNodeIdentity node, uint offset, CancellationToken cancellationToken)
+    /// <summary>Returns -1 before the range, 0 inside it, or 1 after it; a different root throws WrongDocumentError.</summary>
+    /// <exception cref="OperationCanceledException">The supplied cancellation token is canceled.</exception>
+    public int ComparePoint(DomNodeIdentity node, uint offset, CancellationToken cancellationToken = default)
     {
         if (!BoundaryOrder.GetRoot(node, cancellationToken).Equals(BoundaryOrder.GetRoot(Start.Container, cancellationToken))) throw Error("WrongDocumentError");
         var point = new BoundaryPoint(node, offset);
@@ -122,12 +162,16 @@ internal sealed partial class DomRange
         if (BoundaryOrder.Compare(point, Start, cancellationToken) < 0) return -1;
         return BoundaryOrder.Compare(point, End, cancellationToken) > 0 ? 1 : 0;
     }
-    internal bool IsPointInRange(DomNodeIdentity node, uint offset, CancellationToken cancellationToken)
+    /// <summary>Tests whether a valid point is within the range, returning false for a different root.</summary>
+    /// <exception cref="OperationCanceledException">The supplied cancellation token is canceled.</exception>
+    public bool IsPointInRange(DomNodeIdentity node, uint offset, CancellationToken cancellationToken = default)
     {
         if (!BoundaryOrder.GetRoot(node, cancellationToken).Equals(BoundaryOrder.GetRoot(Start.Container, cancellationToken))) return false;
         return ComparePoint(node, offset, cancellationToken) == 0;
     }
-    internal bool IntersectsNode(DomNodeIdentity node, CancellationToken cancellationToken)
+    /// <summary>Tests ordinary-tree intersection; a matching parentless root intersects even a collapsed range.</summary>
+    /// <exception cref="OperationCanceledException">The supplied cancellation token is canceled.</exception>
+    public bool IntersectsNode(DomNodeIdentity node, CancellationToken cancellationToken = default)
     {
         if (!BoundaryOrder.GetRoot(node, cancellationToken).Equals(BoundaryOrder.GetRoot(Start.Container, cancellationToken))) return false;
         if (node.Node?.ParentNode is null) return true;
@@ -139,9 +183,13 @@ internal sealed partial class DomRange
         return BoundaryOrder.Compare(before with { Offset = before.Offset + 1 }, Start, cancellationToken) > 0 &&
                BoundaryOrder.Compare(before, End, cancellationToken) < 0;
     }
-    internal string GetText(CancellationToken cancellationToken)
+    /// <summary>Copies selected Text and CDATA data in tree order, excluding Comment and processing-instruction data.</summary>
+    /// <exception cref="OperationCanceledException">The supplied cancellation token is canceled.</exception>
+    public string GetText(CancellationToken cancellationToken = default) => GetText(null, cancellationToken);
+
+    internal string GetText(Action<int>? workCheckpoint, CancellationToken cancellationToken)
     {
-        var work = new TraversalWork(cancellationToken);
+        var work = new TraversalWork(workCheckpoint, cancellationToken);
         if (Collapsed) { work.Check(); return string.Empty; }
         var root = GetCommonAncestor(cancellationToken).Node;
         if (root is null) { work.Check(); return string.Empty; }
@@ -187,10 +235,12 @@ internal sealed partial class DomRange
 internal struct TraversalWork
 {
     private readonly CancellationToken _token;
+    private readonly Action<int>? _checkpoint;
     private int _count;
-    internal TraversalWork(CancellationToken token) { _token = token; _count = 0; Check(); }
+    internal TraversalWork(CancellationToken token) : this(null, token) { }
+    internal TraversalWork(Action<int>? checkpoint, CancellationToken token) { _token = token; _checkpoint = checkpoint; _count = 0; Check(); }
     internal void Step() { if ((++_count & 255) == 0) Check(); }
-    internal readonly void Check() => _token.ThrowIfCancellationRequested();
+    internal readonly void Check() { _checkpoint?.Invoke(_count); _token.ThrowIfCancellationRequested(); }
 }
 internal static class NativeTraversal
 {

@@ -52,6 +52,7 @@ internal static class NativeCharacterData
     }
     internal static Text SplitText(Node node, uint offset)
     {
+        using var rangeMutation = new RangeMutationScope(node?.OwnerDocument ?? throw new ArgumentNullException(nameof(node)));
         ArgumentNullException.ThrowIfNull(node);
         if (node is not Text and not CDataSection) throw new ArgumentException("A Text or CDATA node is required.", nameof(node));
         var length = GetLength(node);
@@ -76,6 +77,7 @@ internal static class NativeCharacterData
     internal static void Normalize(Node root, Action<int>? workCheckpoint)
     {
         ArgumentNullException.ThrowIfNull(root);
+        using var rangeMutation = new RangeMutationScope(root as Document ?? root.OwnerDocument!);
         var frames = new Stack<NormalizationFrame>();
         frames.Push(new(root.FirstChild, 0));
         var steps = 0;

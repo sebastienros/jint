@@ -171,15 +171,26 @@ internal static class LiveTraversalTracking
     {
         if (parent.RangeEndpoints is not { } bucket || before is null || count == 0) return;
         var index = IndexOf(before);
-        Adjust(bucket, point => point.Offset > index ? point with { Offset = point.Offset + count } : point);
+        foreach (var entry in bucket.Entries.ToArray())
+        {
+            if (!entry.Range.TryGetTarget(out var range)) continue;
+            var point = entry.Start ? range.Start : range.End;
+            if (point.Offset > index) range.Repair(entry.Start, point with { Offset = point.Offset + count });
+        }
     }
 
     internal static void ReplaceData(Node node, uint offset, uint count, uint length)
     {
         if (node.RangeEndpoints is not { } bucket) return;
-        Adjust(bucket, point => point.Offset > offset + count
-            ? point with { Offset = point.Offset - count + length }
-            : point.Offset > offset ? point with { Offset = offset } : point);
+        foreach (var entry in bucket.Entries.ToArray())
+        {
+            if (!entry.Range.TryGetTarget(out var range)) continue;
+            var point = entry.Start ? range.Start : range.End;
+            var next = point.Offset > offset + count
+                ? point with { Offset = point.Offset - count + length }
+                : point.Offset > offset ? point with { Offset = offset } : point;
+            range.Repair(entry.Start, next);
+        }
     }
 
     internal static void Remove(Node node, Node parent, uint? knownIndex = null)

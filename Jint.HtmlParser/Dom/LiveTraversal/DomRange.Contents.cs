@@ -4,7 +4,7 @@ namespace Jint.HtmlParser;
 // https://dom.spec.whatwg.org/#dom-range-deletecontents
 // https://dom.spec.whatwg.org/#concept-range-extract
 // https://dom.spec.whatwg.org/#concept-range-clone
-internal sealed partial class DomRange
+public sealed partial class DomRange
 {
     private sealed class ContentPart(Node source, bool partial, uint offset = 0, uint count = 0)
     {
@@ -79,8 +79,11 @@ internal sealed partial class DomRange
         while (reference.ParentNode is { } parent && !endPath.Contains(parent)) reference = parent;
         return new(new(reference.ParentNode!), LiveTraversalTracking.IndexOf(reference) + 1);
     }
-    internal void DeleteContents()
+    /// <summary>Deletes selected data and nodes, preserving the DOM algorithm's intermediate mutation phases.</summary>
+    public void DeleteContents()
     {
+        using var mutation = new RangeMutationScope(LiveTraversalTracking.DocumentOf(Start.Container));
+        using var change = Changing();
         if (Collapsed) return;
         var start = Start; var end = End;
         var plan = PlanContents(start, end);
@@ -103,8 +106,10 @@ internal sealed partial class DomRange
         }
         finally { while (frames.TryPop(out var frame)) frame.Dispose(); }
     }
-    internal DocumentFragment ExtractContents() => CopyContents(true);
-    internal DocumentFragment CloneContents() => CopyContents(false);
+    /// <summary>Moves fully selected nodes and copies partial ancestors into a new document fragment.</summary>
+    public DocumentFragment ExtractContents() => CopyContents(true);
+    /// <summary>Creates a document fragment containing copies of selected data and nodes, without changing this range.</summary>
+    public DocumentFragment CloneContents() => CopyContents(false);
     private sealed class CopyFrame(List<ContentPart> parts, DocumentFragment output, Node? finishTarget)
     {
         internal readonly List<ContentPart> Parts = parts;
@@ -114,6 +119,8 @@ internal sealed partial class DomRange
     }
     private DocumentFragment CopyContents(bool extract)
     {
+        using var mutation = new RangeMutationScope(LiveTraversalTracking.DocumentOf(Start.Container));
+        using var change = Changing();
         var document = LiveTraversalTracking.DocumentOf(Start.Container);
         var fragment = document.CreateDocumentFragment();
         if (Collapsed) return fragment;
@@ -157,8 +164,11 @@ internal sealed partial class DomRange
         }
         return fragment;
     }
-    internal void InsertNode(DomNodeIdentity identity)
+    /// <summary>Prevalidates and inserts a node at the start, splitting Text or CDATA when required.</summary>
+    public void InsertNode(DomNodeIdentity identity)
     {
+        using var mutation = new RangeMutationScope(LiveTraversalTracking.DocumentOf(Start.Container), identity.IsValid ? LiveTraversalTracking.DocumentOf(identity) : null);
+        using var change = Changing();
         if (!identity.IsValid) throw new ArgumentException("A valid identity is required.", nameof(identity));
         var node = identity.Node;
         var start = Start.Container.Node;
@@ -181,8 +191,11 @@ internal sealed partial class DomRange
         for (uint i = 0; i < index && child is not null; i++) child = child.NextSibling;
         return child;
     }
-    internal void SurroundContents(DomNodeIdentity identity)
+    /// <summary>Extracts the selection, inserts a wrapper, appends the contents, and selects the wrapper.</summary>
+    public void SurroundContents(DomNodeIdentity identity)
     {
+        using var mutation = new RangeMutationScope(LiveTraversalTracking.DocumentOf(Start.Container), identity.IsValid ? LiveTraversalTracking.DocumentOf(identity) : null);
+        using var change = Changing();
         if (!identity.IsValid) throw new ArgumentException("A valid identity is required.", nameof(identity));
         if (!Start.Container.Equals(End.Container))
         {
