@@ -7,6 +7,10 @@ references, standalone parsing entry points, and equivalent paired benchmark acc
 conformance debt remains explicit; passing a missing-feature or checkpoint test is not completion.
 No PRs. Astra High owns designs/reviews; Sol High owns implementation in local worktrees.
 
+**Build feedback amendment (user request):** routine implementation builds and tests now target
+Release `net10.0` only. Validate every supported target framework at the final integration gate;
+this defers the other framework legs, not their acceptance requirement. Never use `--no-build`.
+
 **Demand boundary amendment:** [parsing and lazy behavior](html-parser-demand-boundary.md) follows the
 user's latest direction. Input value initialization is lazy at `825eba36e`; select derived views and
 inventories will follow, preserving intrinsic history. CSS cascade belongs to an on-demand Browser
