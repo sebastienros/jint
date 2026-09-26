@@ -21,6 +21,18 @@ internal sealed class HtmlElementState
             ? _checkedState ??= new HtmlInputCheckedState(Element, ref work) : null;
     internal HtmlInputCheckedState? ExistingCheckedState => _checkedState;
 
+    private HtmlInputValueState? _inputValue;
+    internal HtmlInputValueState? InputValue => GetInputValueState(default);
+    internal HtmlInputValueState? GetInputValueState(CancellationToken token)
+        => Element is { NamespaceUri: Namespaces.Html, LocalName: "input" }
+            ? _inputValue ??= new HtmlInputValueState(Element, cancellationToken: token) : null;
+    internal HtmlInputValueState? ExistingInputValue => _inputValue;
+    internal void InitializeInputValue(HtmlInputValueState prepared)
+    {
+        if (_inputValue is null) _inputValue = prepared;
+        else _inputValue.InitializeFrom(prepared);
+    }
+
     private HtmlTextAreaState? _textArea;
     internal HtmlTextAreaState? TextArea => Element is { NamespaceUri: Namespaces.Html, LocalName: "textarea" }
         ? _textArea ??= new HtmlTextAreaState(Element) : null;

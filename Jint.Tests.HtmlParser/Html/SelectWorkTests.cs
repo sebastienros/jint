@@ -158,4 +158,20 @@ public class SelectWorkTests
         probe.Units.Should().Be(0);
     }
 
+    [Test]
+    public void CombinedClonePassesCancellationIntoColdInputValueConstruction()
+    {
+        var document = Document.CreateHtml(); var attributes = document.CreateElement("div");
+        attributes.InitializeParsedAttributes(Enumerable.Range(0, 1024).Select(i => new ParserAttribute(null, "data-" + i, null, "x")).ToArray(), default);
+        var input = document.CreateElement("input");
+        input.CopyAttributesFrom(attributes, document); // A trusted cold source, no value-state read yet.
+        input.GetHtmlState()!.ExistingInputValue.Should().BeNull();
+        using var cts = new CancellationTokenSource();
+        var probe = new HtmlSelectWorkProbe { Checkpoint = units => { if (units == 1025) cts.Cancel(); } }; document.SelectWorkProbe = probe;
+        var stamp = document.MutationStamp;
+        Assert.Throws<OperationCanceledException>(() => NodeCloner.Clone(input, document, true, cancellationToken: cts.Token));
+        input.GetHtmlState()!.ExistingInputValue.Should().BeNull();
+        probe.Units.Should().Be(1025); document.MutationStamp.Should().Be(stamp);
+    }
+
 }

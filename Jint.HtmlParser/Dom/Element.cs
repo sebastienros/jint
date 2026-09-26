@@ -179,6 +179,7 @@ public sealed class Element : Node
         }
         else
         {
+            HtmlInputStateChanges.BeforeAttributeChanged(this, attribute.NamespaceUri, attribute.LocalName);
             var oldValue = previous.Value;
             var matches = MutationTracking.Match(this, MutationRecordKind.Attributes,
                 attribute.LocalName, attribute.NamespaceUri);
@@ -190,13 +191,13 @@ public sealed class Element : Node
             OwnerDocument!.MarkMutation();
             HtmlFormAssociation.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
                 oldValue, attribute.Value);
+            MutationTracking.QueueAttribute(this, attribute.LocalName, attribute.NamespaceUri, oldValue, matches);
             HtmlInputStateChanges.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
                 oldValue, attribute.Value);
             HtmlSelectMutations.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
                 oldValue, attribute.Value);
             SlotAssignment.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
                 oldValue, attribute.Value);
-            MutationTracking.QueueAttribute(this, attribute.LocalName, attribute.NamespaceUri, oldValue, matches);
         }
 
         return previous;
@@ -228,18 +229,19 @@ public sealed class Element : Node
             throw DomException.NotFound();
         }
 
+        HtmlInputStateChanges.BeforeAttributeChanged(this, attribute.NamespaceUri, attribute.LocalName);
         _attributes!.Remove(attribute);
         attribute.OwnerElement = null;
         OwnerDocument!.MarkMutation();
         HtmlFormAssociation.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
             attribute.Value, null);
+        MutationTracking.QueueAttribute(this, attribute.LocalName, attribute.NamespaceUri, attribute.Value);
         HtmlInputStateChanges.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
             attribute.Value, null);
         HtmlSelectMutations.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
             attribute.Value, null);
         SlotAssignment.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
             attribute.Value, null);
-        MutationTracking.QueueAttribute(this, attribute.LocalName, attribute.NamespaceUri, attribute.Value);
         return attribute;
     }
 
@@ -323,11 +325,12 @@ public sealed class Element : Node
             result.Add(attribute);
         }
 
+        var preparedInput = HtmlInputStateChanges.PrepareInitialization(this, result, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         var selectInitialization = HtmlSelectMutations.PrepareInitialization(this, result, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         _attributes = result;
-        HtmlInputStateChanges.Initialize(this);
+        HtmlInputStateChanges.Initialize(this, preparedInput);
         HtmlSelectMutations.Initialize(this, selectInitialization);
         if (scriptAsyncAdded) GetHtmlState()!.Script!.ForceAsync = false;
     }
@@ -387,6 +390,7 @@ public sealed class Element : Node
 
     private void AppendNewAttribute(Attr attribute)
     {
+        HtmlInputStateChanges.BeforeAttributeChanged(this, attribute.NamespaceUri, attribute.LocalName);
         _attributes ??= [];
         _attributes.Add(attribute);
         attribute.OwnerElement = this;
@@ -395,13 +399,13 @@ public sealed class Element : Node
         OwnerDocument!.MarkMutation();
         HtmlFormAssociation.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
             null, attribute.Value);
+        MutationTracking.QueueAttribute(this, attribute.LocalName, attribute.NamespaceUri, null);
         HtmlInputStateChanges.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
             null, attribute.Value);
         HtmlSelectMutations.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
             null, attribute.Value);
         SlotAssignment.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
             null, attribute.Value);
-        MutationTracking.QueueAttribute(this, attribute.LocalName, attribute.NamespaceUri, null);
     }
 
     private void ScriptAttributeAdded(Attr attribute)
