@@ -1,5 +1,5 @@
 using System.Runtime.CompilerServices;
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Dom;
 using Jint.Native;
 
@@ -7,14 +7,14 @@ namespace Jint.Tests.Browser.Dom;
 
 public class ProcessingInstructionAttributeTests
 {
-    [TestCase("cloneContents", false, "a", "a|false")]
+    [TestCase("cloneContents", false, "a", "|false")]
     [TestCase("cloneContents", false, "$", "|false")]
     [TestCase("extractContents", false, "a", "a|true")]
     [TestCase("extractContents", false, "$", "$|true")]
     [TestCase("cloneContents", true, "a", "a|false")]
     [TestCase("extractContents", true, "a", "a|false")]
     [TestCase("extractContents", true, "$", "|false")]
-    public void RangeCopiesParseDataWhileMovedInstructionsKeepTheirMap(string operation, bool boundary, string name, string expected)
+    public void RangeCopiesStartWithEmptyMapsWhileMovedInstructionsKeepTheirMap(string operation, bool boundary, string name, string expected)
     {
         using var fixture = DomTestFixture.Create("");
         fixture.Evaluate($$"""
@@ -175,7 +175,7 @@ public class ProcessingInstructionAttributeTests
 
     [TestCase("p.cloneNode()")]
     [TestCase("document.importNode(p)")]
-    public void EqualDataWritePreservesParsedClonedAttributes(string clone)
+    public void EqualDataWriteInitializesTheEmptyClonedMap(string clone)
     {
         using var fixture = DomTestFixture.Create("");
         fixture.Evaluate($$"""
@@ -186,7 +186,7 @@ public class ProcessingInstructionAttributeTests
               copy.data = copy.data;
               return initial + '|' + copy.getAttribute('a');
             })()
-            """).ToString().Should().Be("v|v");
+            """).ToString().Should().Be("null|v");
     }
 
     [TestCase("p.data = p.data")]
@@ -227,15 +227,15 @@ public class ProcessingInstructionAttributeTests
             """)).Should().Be("2|characterData|true|a=\"1\"|a=\"2\"|a=\"2\"");
     }
 
-    [TestCase("p.cloneNode()", "a", "a")]
-    [TestCase("document.importNode(p)", "a", "a")]
-    [TestCase("container.cloneNode(true).firstChild", "a", "a")]
-    [TestCase("document.importNode(container, true).firstChild", "a", "a")]
+    [TestCase("p.cloneNode()", "a", "")]
+    [TestCase("document.importNode(p)", "a", "")]
+    [TestCase("container.cloneNode(true).firstChild", "a", "")]
+    [TestCase("document.importNode(container, true).firstChild", "a", "")]
     [TestCase("p.cloneNode()", "$", "")]
     [TestCase("document.importNode(p)", "$", "")]
     [TestCase("container.cloneNode(true).firstChild", "$", "")]
     [TestCase("document.importNode(container, true).firstChild", "$", "")]
-    public void CloningReparsesNativeDataInsteadOfCopyingAttributeState(string clone, string name, string expectedNames)
+    public void CloningPreservesDataAndStartsWithAnEmptyAttributeMap(string clone, string name, string expectedNames)
     {
         using var fixture = DomTestFixture.Create("");
         fixture.Evaluate($$"""
@@ -313,7 +313,7 @@ public class ProcessingInstructionAttributeTests
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static WeakReference CreateDetachedState(IDocument document, DomRealm realm)
+    private static WeakReference CreateDetachedState(Document document, DomRealm realm)
     {
         var node = document.CreateProcessingInstruction("t", "");
         DomProcessingInstructionAttributes.Invoke(realm, node, "setAttribute", [JsString.Create("a"), JsString.Create("v")]);

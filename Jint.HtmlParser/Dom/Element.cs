@@ -13,6 +13,7 @@ public sealed class Element : Node
     private HtmlElementState? _htmlState;
     internal HtmlFormAssociationState? FormAssociationState;
     internal SlotElementState? SlotState;
+    internal HtmlTemplatePatchState? TemplatePatchState;
     internal bool WasInserted { get; set; }
 
     internal HtmlElementState? GetHtmlState()

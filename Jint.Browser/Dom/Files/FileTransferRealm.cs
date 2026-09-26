@@ -142,6 +142,7 @@ internal sealed class FileTransferRealm
     private readonly Queue<InputFileState> _pendingChanges = new();
     private readonly HashSet<InputFileState> _queuedChanges = new();
     private readonly List<WeakReference<MutationSubscription>> _subscriptions = [];
+    private readonly List<WeakReference<InputFileState>> _fileStates = [];
 
     internal JsFileList? InputFiles(Element input, bool create)
     {
@@ -195,7 +196,7 @@ internal sealed class FileTransferRealm
 
     internal JsValue SetInputType(Element input, string type)
     {
-        input.SetAttribute("type", type);
+        input.SetAttributeNS(null, "type", type);
         FlushChanges();
         return JsValue.Undefined;
     }
@@ -213,7 +214,14 @@ internal sealed class FileTransferRealm
     {
         var subscription = input.OwnerDocument!.ObserveMutations(input,
             new MutationObserverOptions { Attributes = true, AttributeOldValue = true, AttributeFilter = ["type"] });
-        var state = new InputFileState(new WeakReference<Element>(input), files, subscription, external);
+        var weakInput = new WeakReference<Element>(input);
+        Action changed = () =>
+        {
+            if (weakInput.TryGetTarget(out var selectedInput)) selectedInput.OwnerDocument!.MarkMutation();
+        };
+        var state = new InputFileState(weakInput, files, subscription, external, changed);
+        files.Changed += changed;
+        _fileStates.Add(new WeakReference<InputFileState>(state));
         subscription.PendingRecord = _ =>
         {
             // Trusted scheduling: no script runs inside native attribute mutation.
@@ -234,7 +242,7 @@ internal sealed class FileTransferRealm
             for (var i = 0; i < records.Count; i++)
             {
                 _engine.Constraints.Check();
-                var nextType = i + 1 < records.Count ? records[i + 1].OldValue : input.GetAttribute("type");
+                var nextType = i + 1 < records.Count ? records[i + 1].OldValue : ReadInputType(input);
                 if ((HtmlInputTypes.Parse(records[i].OldValue) == HtmlInputType.File)
                     != (HtmlInputTypes.Parse(nextType) == HtmlInputType.File))
                 {
@@ -251,6 +259,7 @@ internal sealed class FileTransferRealm
         {
             _queuedChanges.Remove(current);
             current.Subscription.Dispose();
+            current.Files.Changed -= current.Changed;
             _inputFiles.Remove(input);
         }
     }
@@ -269,16 +278,18 @@ internal sealed class FileTransferRealm
             state.Files.Clear();
             if (!preserveList) Detach(input);
         }
-        if (hadFiles) input.OwnerDocument!.MarkMutation();
+        if (hadFiles && state.External) input.OwnerDocument!.MarkMutation();
     }
 
     private bool IsFileInput(Element input)
+        => input is { NamespaceUri: Namespaces.Html, LocalName: "input" } && HtmlInputTypes.Parse(ReadInputType(input)) == HtmlInputType.File;
+
+    private string? ReadInputType(Element input)
     {
-        if (input is not { NamespaceUri: Namespaces.Html, LocalName: "input" }) return false;
         var realm = DomRealm.Of(_engine);
         var work = new DomReadWork(realm.NativeReadCheckpoint, realm.CancellationToken);
         work.Check();
-        return HtmlInputTypes.Parse(work.Attribute(input, "type")) == HtmlInputType.File;
+        return work.Attribute(input, "type");
     }
 
     private void Release()
@@ -288,11 +299,16 @@ internal sealed class FileTransferRealm
             if (weak.TryGetTarget(out var subscription)) subscription.Dispose();
         }
         _subscriptions.Clear();
+        foreach (var weak in _fileStates)
+        {
+            if (weak.TryGetTarget(out var state)) state.Files.Changed -= state.Changed;
+        }
+        _fileStates.Clear();
         _pendingChanges.Clear();
         _queuedChanges.Clear();
         _inputFiles.Clear();
     }
 
     private sealed record InputFileState(WeakReference<Element> Input, JsFileList Files,
-        MutationSubscription Subscription, bool External);
+        MutationSubscription Subscription, bool External, Action Changed);
 }
