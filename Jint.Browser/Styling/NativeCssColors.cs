@@ -60,7 +60,7 @@ internal sealed partial class NativeCssQuery
         {
             if (name == "color")
                 throw new InvalidOperationException("The color currentColor dependency must inherit before computation.");
-            return GetProperty(element, "color", ref matching).Value!;
+            return value;
         }
         if (color.Kind is CssColorKind.System or CssColorKind.DeprecatedSystem)
             color = _systemColors?.Find(color.Keyword, _work) ??

@@ -31,10 +31,17 @@ selection, inheritance/defaulting, origin/rule rollback, deferred values, media 
 source identity and invalidation have actual-source tests in `Jint.Tests.HtmlParser`.
 Typed numeric computation converts absolute/viewport/font-metric lengths and simplifies the
 shared math graph on demand. Unresolved percentage bases stay typed percentages/calculations;
-font metrics must be supplied explicitly. CurrentColor follows the inherited color dependency, and named colors compute to absolute
+font metrics must be supplied explicitly. Browser supplies its existing 16px initial font-size model for em/rem; it supplies no glyph or line-height metrics. CurrentColor follows the inherited color dependency, and named colors compute to absolute
 coordinates. System colors require an explicit immutable host palette; the Browser handoff
-does not yet supply one. Layer rollback remains explicitly pending. Cascade, read-only
+supplies an explicit neutral light/dark canvas palette; other system colors retain a missing-input failure. Layer rollback remains explicitly pending. Supported display keywords blockify/inlinify from their box context, and overflow axes compute jointly. Cascade, read-only
 declaration and CSS protocol consumers now target this producer, but generated bindings
 and the native node tracker are still integration dependencies. The source harness proves
 the query and returned coverage text/ranges; it does not prove script-facing computed style,
 layout or protocol-client behavior until the full Browser build and tests pass. Used geometry belongs to Browser layout, not CSS syntax or validators.
+
+Browser defaults are inputs to the cascade, not declaration fallbacks. The supported HTML
+user-agent display rules are namespace-filtered and apply in every tree; author rules retain
+their owner tree scope. Inheritance follows native shadow hosts and fresh slot assignments.
+Document stylesheet lists exclude shadow sheets; matching and coverage can request both.
+Inline source reads use the shared bounded descendant-text producer. Type and media owner
+attributes reconcile at CSS demand, with fetched link text retained independently.

@@ -89,7 +89,7 @@ internal sealed class CssRuleUsageTracker
         if (!_refreshed || !_resourceStamp.CanReuse || _resourceStamp != stamp || _documentStamp != _document.MutationStamp)
         {
             _reportable.Clear();
-            foreach (var sheet in NativeCssStyleSheets.Get(_document, work))
+            foreach (var sheet in NativeCssStyleSheets.Get(_document, work, includeShadow: true))
             {
                 work.Charge(1);
                 if (sheet.Origin == NativeCssOrigin.Author) _reportable.Add(sheet.Sheet);

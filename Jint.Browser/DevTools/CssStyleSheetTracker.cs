@@ -111,7 +111,7 @@ internal sealed class CssStyleSheetTracker
     internal static List<CssStyleSheet> SheetsOf(Document document, CssValueWork work)
     {
         var result = new List<CssStyleSheet>();
-        foreach (var sheet in NativeCssStyleSheets.Get(document, work))
+        foreach (var sheet in NativeCssStyleSheets.Get(document, work, includeShadow: true))
         {
             work.Charge(1);
             if (sheet.Origin == NativeCssOrigin.Author) result.Add(sheet.Sheet);

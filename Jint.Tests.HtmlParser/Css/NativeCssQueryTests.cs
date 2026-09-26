@@ -333,6 +333,169 @@ public sealed class NativeCssQueryTests
         view.GetPropertyValue("opacity").Should().Be("0.75");
     }
 
+    [Test]
+    public void InheritedCurrentColorResolvesAgainstTheChildsOwnColor()
+    {
+        var document = Document.CreateHtml();
+        var parent = document.CreateElement("div");
+        var child = document.CreateElement("span");
+        parent.AppendChild(child);
+        var sheet = CssStyleSheet.Parse("div { color:red; background-color:currentColor; } "
+            + "span { color:blue; background-color:inherit; }");
+        var query = Query(document, [new(sheet, NativeCssOrigin.Author)]);
+        var matching = new SelectorMatchWork(document, default);
+        query.GetProperty(parent, "background-color", ref matching).Text.Should().Be("rgb(255, 0, 0)");
+        var inherited = query.GetProperty(child, "background-color", ref matching);
+        inherited.Text.Should().Be("rgb(0, 0, 255)");
+        inherited.Value!.Color.Kind.Should().Be(CssColorKind.CurrentColor);
+    }
+
+    [Test]
+    public void OwnerTypeAndMediaAttributesControlDemandedSheetEligibility()
+    {
+        var document = Document.CreateHtml();
+        var target = document.CreateElement("div");
+        document.AppendChild(target);
+        var owner = document.CreateElement("style");
+        owner.AppendChild(document.CreateTextNode("div { opacity:.25; }"));
+        target.AppendChild(owner);
+        var work = new CssValueWork(default);
+        owner.SetAttribute("type", "text/plain");
+        NativeCssStyleSheets.Get(document, work).Should().BeEmpty();
+        owner.SetAttribute("type", "text/css");
+        owner.SetAttribute("media", "print");
+        var sheets = NativeCssStyleSheets.Get(document, work);
+        var query = Query(document, sheets.ToArray());
+        var matching = new SelectorMatchWork(document, default);
+        query.GetProperty(target, "opacity", ref matching).Text.Should().Be("1");
+        owner.SetAttribute("media", "screen");
+        var updated = NativeCssStyleSheets.Get(document, work);
+        updated[0].Sheet.Should().BeSameAs(sheets[0].Sheet);
+        query = Query(document, updated.ToArray());
+        matching = new(document, default);
+        query.GetProperty(target, "opacity", ref matching).Text.Should().Be("0.25");
+    }
+
+    [Test]
+    public void ShadowInheritanceUsesHostAndSlotWhileAuthorSheetsKeepTheirTreeScope()
+    {
+        var document = Document.CreateHtml();
+        var host = document.CreateElement("div");
+        host.SetAttribute("id", "host");
+        document.AppendChild(host);
+        var shadow = ShadowTree.Attach(host, new ShadowRootInit(ShadowRootMode.Open), default);
+        var target = document.CreateElement("span");
+        shadow.AppendChild(target);
+        var shadowOwner = document.CreateElement("style");
+        shadowOwner.AppendChild(document.CreateTextNode("span { opacity:var(--x); }"));
+        shadow.AppendChild(shadowOwner);
+        var owner = document.CreateElement("style");
+        owner.AppendChild(document.CreateTextNode("#host { visibility:hidden; --x:.25; } "
+            + "span { visibility:visible; } button { opacity:var(--x); }"));
+        host.AppendChild(owner);
+        var slot = document.CreateElement("slot");
+        slot.SetAttribute("style", "visibility:collapse; --x:.75");
+        shadow.AppendChild(slot);
+        var assigned = document.CreateElement("button");
+        host.AppendChild(assigned);
+        var work = new CssValueWork(default);
+        var sheets = NativeCssStyleSheets.Get(document, work, includeShadow: true);
+        NativeCssStyleSheets.Get(document, work).Count.Should().Be(1);
+        var query = new NativeCssQuery(document, sheets, [], new CssMediaEnvironment(), new(document, null, null, null),
+            CssEnvironmentSnapshot.Create([], work), work, readInlineAttributes: true);
+        var matching = new SelectorMatchWork(document, default);
+        query.GetProperty(target, "visibility", ref matching).Text.Should().Be("hidden");
+        query.GetProperty(target, "opacity", ref matching).Text.Should().Be("0.25");
+        query.GetProperty(assigned, "visibility", ref matching).Text.Should().Be("collapse");
+        query.GetProperty(assigned, "opacity", ref matching).Text.Should().Be("0.75");
+    }
+
+    [TestCase("visible", "scroll", "auto", "scroll")]
+    [TestCase("clip", "scroll", "hidden", "scroll")]
+    [TestCase("visible", "clip", "visible", "clip")]
+    [TestCase("scroll", "clip", "scroll", "hidden")]
+    public void OverflowAxesComputeJointly(string x, string y, string computedX, string computedY)
+    {
+        var document = Document.CreateHtml();
+        var element = document.CreateElement("div");
+        var inline = CssDeclarationBlock.Parse($"overflow-x:{x}; overflow-y:{y}");
+        var query = Query(document, [], [(element, inline)]);
+        var matching = new SelectorMatchWork(document, default);
+        query.GetProperty(element, "overflow-y", ref matching).Text.Should().Be(computedY);
+        query.GetProperty(element, "overflow-x", ref matching).Text.Should().Be(computedX);
+    }
+
+    [Test]
+    public void ExplicitOverflowInheritanceReadsTheParentsAdjustedValue()
+    {
+        var document = Document.CreateHtml();
+        var parent = document.CreateElement("div");
+        var child = document.CreateElement("span");
+        parent.AppendChild(child);
+        var query = Query(document, [], [(parent, CssDeclarationBlock.Parse("overflow-x:visible; overflow-y:scroll")),
+            (child, CssDeclarationBlock.Parse("overflow-x:inherit; overflow-y:visible"))]);
+        var matching = new SelectorMatchWork(document, default);
+        query.GetProperty(child, "overflow-x", ref matching).Text.Should().Be("auto");
+        query.GetProperty(child, "overflow-y", ref matching).Text.Should().Be("auto");
+    }
+
+    [TestCase("inline", "absolute", "block")]
+    [TestCase("inline-flex", "fixed", "flex")]
+    [TestCase("inline-block", "absolute", "block")]
+    [TestCase("none", "absolute", "none")]
+    [TestCase("contents", "absolute", "contents")]
+    public void PositionedDisplayTypesBlockify(string display, string position, string expected)
+    {
+        var document = Document.CreateHtml();
+        var element = document.CreateElement("div");
+        var query = Query(document, [], [(element, CssDeclarationBlock.Parse($"display:{display};position:{position}"))]);
+        var matching = new SelectorMatchWork(document, default);
+        query.GetProperty(element, "display", ref matching).Text.Should().Be(expected);
+    }
+
+    [Test]
+    public void FlexItemDisplayBlockifiesAndDeepParentDependenciesStayIterative()
+    {
+        var document = Document.CreateHtml();
+        var root = document.CreateElement("div");
+        document.AppendChild(root);
+        var parent = root;
+        for (var i = 0; i < 10000; i++)
+        {
+            var child = document.CreateElement("div");
+            parent.AppendChild(child);
+            parent = child;
+        }
+        var item = document.CreateElement("span");
+        parent.AppendChild(item);
+        var query = Query(document, [], [(parent, CssDeclarationBlock.Parse("display:flex"))]);
+        var matching = new SelectorMatchWork(document, default);
+        query.GetProperty(item, "display", ref matching).Text.Should().Be("block");
+        query.GetProperty(root, "display", ref matching).Text.Should().Be("block");
+    }
+
+    [Test]
+    public void BrowserDefaultsAreHtmlScopedAndAuthorRulesOverrideTheirNormalOrigin()
+    {
+        var document = Document.CreateHtml();
+        var div = document.CreateElement("div");
+        var svgDiv = document.CreateElementNS(Namespaces.Svg, "div");
+        var style = document.CreateElement("style");
+        var work = new CssValueWork(default);
+        var ua = NativeCssBrowserDefaults.Sheet(document, work);
+        var query = Query(document, [ua]);
+        var matching = new SelectorMatchWork(document, default);
+        query.GetProperty(div, "display", ref matching).Text.Should().Be("block");
+        query.GetProperty(style, "display", ref matching).Text.Should().Be("none");
+        query.GetProperty(svgDiv, "display", ref matching).Text.Should().Be("inline");
+        var author = CssStyleSheet.Parse("div { display:inline; }");
+        query = Query(document, [ua, new(author, NativeCssOrigin.Author)]);
+        query.GetProperty(div, "display", ref matching).Text.Should().Be("inline");
+        query = new(document, [ua], [], new CssMediaEnvironment(), new(document, null, null, null),
+            CssEnvironmentSnapshot.Create([], work), work, systemColors: NativeCssBrowserDefaults.Palette(false, work));
+        query.GetProperty(div, "color", ref matching).Text.Should().Be("rgb(0, 0, 0)");
+    }
+
     private static NativeCssQuery Query(Document document, NativeCssSheet[] sheets,
         (Element Element, CssDeclarationBlock Block)[]? inline = null)
     {

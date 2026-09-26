@@ -14,7 +14,7 @@ namespace Jint.Browser.Styling;
 
 internal enum NativeCssOrigin { UserAgent, User, Author }
 internal enum NativeCssDisposition { Cascaded, Initial, Inherited, InvalidAtComputedValue }
-internal sealed record NativeCssSheet(CssStyleSheet Sheet, NativeCssOrigin Origin);
+internal sealed record NativeCssSheet(CssStyleSheet Sheet, NativeCssOrigin Origin, string? NamespaceUri = null);
 internal sealed record NativeCssSource(CssStyleRule? Rule, CssDeclarationBlock Block,
     NativeCssOrigin Origin, SelectorSpecificity Specificity, long Order, bool Inline);
 internal sealed record NativeCssProperty(string Name, string Text, CssPropertyValue? Value,
@@ -32,6 +32,7 @@ internal sealed partial class NativeCssQuery
     private readonly CssMutationStamp[] _sheetStamps;
     private readonly Dictionary<Element, (CssDeclarationBlock Block, CssMutationStamp Stamp)> _inline = new();
     private readonly Dictionary<Element, State> _states = new();
+    private readonly Dictionary<string, CssPropertyValue> _initialValues = new(StringComparer.Ordinal);
     private readonly CssMediaEnvironment _media;
     private readonly NativeCssMetrics _metrics;
     private readonly NativeCssSystemColors? _systemColors;
@@ -39,7 +40,7 @@ internal sealed partial class NativeCssQuery
     private readonly CssEnvironmentSnapshot _environment;
     private readonly CssValueWork _work;
     private readonly bool _readInlineAttributes;
-    private List<(CssStyleRule Rule, NativeCssOrigin Origin, long Order)>? _rules;
+    private List<(CssStyleRule Rule, NativeCssOrigin Origin, long Order, string? NamespaceUri)>? _rules;
 
     internal NativeCssQuery(Document document, IReadOnlyList<NativeCssSheet> sheets,
         IReadOnlyList<(Element Element, CssDeclarationBlock Block)> inline,
@@ -77,6 +78,9 @@ internal sealed partial class NativeCssQuery
     }
 
     internal NativeCssProperty GetProperty(Element element, string name, ref SelectorMatchWork matching)
+        => GetPropertyCore(element, name, ref matching, adjust: true);
+
+    private NativeCssProperty GetPropertyCore(Element element, string name, ref SelectorMatchWork matching, bool adjust)
     {
         Verify();
         matching.Observe(element);
@@ -105,6 +109,10 @@ internal sealed partial class NativeCssQuery
             return new(name, text, null, null, NativeCssDisposition.Cascaded);
         }
 
+        if (adjust && name is "overflow-x" or "overflow-y")
+            return Overflow(element, name, ref matching);
+        if (adjust && name == "display") WarmParents(element, name, ref matching);
+
         // Inheritance is iterative even for arbitrarily deep native trees.
         var pending = new Stack<(State State, NativeCssSource? Source, NativeCssDisposition Disposition)>();
         var current = element;
@@ -113,7 +121,8 @@ internal sealed partial class NativeCssQuery
         {
             _work.Charge(1);
             var state = StateOf(current, ref matching);
-            if (state.Computed.TryGetValue(name, out result!)) break;
+            if ((adjust ? state.Computed : state.Unadjusted).TryGetValue(name, out result!) ||
+                !ReferenceEquals(current, element) && state.Computed.TryGetValue(name, out result!)) break;
             var candidate = Winner(state, name, ref matching, substitute: true);
             var value = candidate is { WasSubstituted: true } ? candidate.Resolved : candidate?.Declaration.Value;
             var disposition = NativeCssDisposition.Cascaded;
@@ -123,7 +132,8 @@ internal sealed partial class NativeCssQuery
                 (value.Text == "inherit" || value.Text == "unset" && metadata.Inherited);
             inherit |= name == "color" && value is { Kind: CssPropertyValueKind.Color } &&
                 value.Color.Kind == CssColorKind.CurrentColor;
-            if (inherit && current.ParentNode is Element parent)
+            var parent = InheritanceParent(current);
+            if (inherit && parent is not null)
             {
                 pending.Push((state, candidate?.Source, disposition == NativeCssDisposition.InvalidAtComputedValue
                     ? disposition : NativeCssDisposition.Inherited));
@@ -131,28 +141,41 @@ internal sealed partial class NativeCssQuery
                 current = parent;
                 continue;
             }
-            if (value is null || inherit && current.ParentNode is not Element ||
+            if (value is null || inherit && parent is null ||
                 value.Kind == CssPropertyValueKind.Keyword && value.Text is "initial" or "inherit" or "unset")
             {
-                value = CssPropertyParser.Parse(name, metadata.InitialValue).Value;
+                if (!_initialValues.TryGetValue(name, out value))
+                {
+                    value = CssPropertyParser.Parse(name, metadata.InitialValue).Value;
+                    _initialValues.Add(name, value);
+                }
                 if (disposition != NativeCssDisposition.InvalidAtComputedValue) disposition = NativeCssDisposition.Initial;
             }
             value = value.Kind == CssPropertyValueKind.Color
                 ? ComputeColor(current, name, value, ref matching) : Compute(name, value);
-            result = new(name, value.Serialize(), value, candidate?.Source, disposition);
-            state.Computed.Add(name, result);
+            if (adjust && name == "display") value = Display(current, value, ref matching);
+            result = new(name, ColorText(current, name, value, ref matching), value, candidate?.Source, disposition);
+            (adjust ? state.Computed : state.Unadjusted).Add(name, result);
             break;
         }
         while (pending.TryPop(out var item))
         {
             _work.Charge(1);
-            result = result with { Source = item.Source, Disposition = item.Disposition };
-            item.State.Computed.Add(name, result);
+            var value = adjust && name == "display" ? Display(item.State.Element, result.Value!, ref matching) : result.Value!;
+            result = result with { Text = ColorText(item.State.Element, name, value, ref matching), Value = value,
+                Source = item.Source, Disposition = item.Disposition };
+            (adjust ? item.State.Computed : item.State.Unadjusted).Add(name, result);
         }
         matching.VerifyRead();
         Verify();
         return result;
     }
+
+    // CSS Color 4: contextual currentColor survives inheritance outside the color property.
+    // CSSOM resolves that retained dependency for each element's returned color text.
+    private string ColorText(Element element, string name, CssPropertyValue value, ref SelectorMatchWork matching) =>
+        name != "color" && value.Kind == CssPropertyValueKind.Color && value.Color.Kind == CssColorKind.CurrentColor
+            ? GetProperty(element, "color", ref matching).Text : value.Serialize();
 
     internal IReadOnlyList<CssStyleRule> MatchedRules(Element element, ref SelectorMatchWork matching)
     {
@@ -211,20 +234,24 @@ internal sealed partial class NativeCssQuery
         var state = new State(element, _work);
         if (_rules is null)
         {
-            var rules = new List<(CssStyleRule, NativeCssOrigin, long)>();
+            var rules = new List<(CssStyleRule, NativeCssOrigin, long, string?)>();
             long order = 0;
             foreach (var input in _sheets)
                 foreach (var rule in input.Sheet.ApplicableStyleRules(_media, _work))
                 {
                     _work.Charge(1);
-                    rules.Add((rule, input.Origin, order++));
+                    rules.Add((rule, input.Origin, order++, input.NamespaceUri));
                 }
             Verify();
             _rules = rules;
         }
-        foreach (var (rule, origin, order) in _rules)
+        foreach (var (rule, origin, order, namespaceUri) in _rules)
         {
             _work.Charge(1);
+            if (namespaceUri is not null && element.NamespaceUri != namespaceUri) continue;
+            if (origin == NativeCssOrigin.Author &&
+                !ReferenceEquals(rule.ParentStyleSheet?.Attachment.OwnerNode?.TreeShadowRoot, element.TreeShadowRoot))
+                continue;
             if (rule.TryMatch(element, out var specificity, null, _selectors, ref matching))
             {
                 state.Matches.Add(rule);
@@ -314,7 +341,7 @@ internal sealed partial class NativeCssQuery
         {
             _work.Charge(1);
             pending.Push(current);
-            if (current.Element.ParentNode is not Element parent) break;
+            if (InheritanceParent(current.Element) is not { } parent) break;
             current.Parent ??= StateOf(parent, ref matching);
             current = current.Parent;
         }
@@ -418,6 +445,19 @@ internal sealed partial class NativeCssQuery
         }
     }
 
+    // CSS Scoping 1: inheritance follows the flat tree; selector rules retain their tree scope.
+    private Element? InheritanceParent(Element element)
+    {
+        _work.Charge(1);
+        if (SlotAssignment.FindSlot(element, false, _work.Charge, _work.Token) is { } slot) return slot;
+        return element.ParentNode switch
+        {
+            ShadowRoot root => root.Host,
+            Element { AttachedShadowRoot: null } parent => parent,
+            _ => null
+        };
+    }
+
     private sealed record Candidate(CssDeclaration Declaration, NativeCssSource Source,
         CssPropertyValue? Resolved = null, bool WasSubstituted = false);
     private sealed class State(Element element, CssValueWork work)
@@ -428,6 +468,7 @@ internal sealed partial class NativeCssQuery
         internal IReadOnlyList<NativeCssProperty>? Enumeration;
         internal Dictionary<string, List<Candidate>> Candidates { get; } = new(new Names(work));
         internal Dictionary<string, NativeCssProperty> Computed { get; } = new(new Names(work));
+        internal Dictionary<string, NativeCssProperty> Unadjusted { get; } = new(new Names(work));
         internal Dictionary<CssPendingShorthand, CssDeclaration[]?> Shorthands { get; } = new(ReferenceEqualityComparer.Instance);
         internal List<CssStyleRule> Matches { get; } = [];
     }

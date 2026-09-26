@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using Jint.HtmlParser;
+using Jint.Browser.Dom;
 using Jint.HtmlParser.Css.Model;
 using Jint.HtmlParser.Css.Model.Syntax;
 using Jint.HtmlParser.Css.Values;
@@ -45,7 +46,7 @@ internal static partial class NativeCssStyleSheets
     internal static CssMutationStamp Stamp(Document document) =>
         Documents.TryGetValue(document, out var resources) ? new(resources.Version) : new(0);
 
-    internal static IReadOnlyList<NativeCssSheet> Get(Document document, CssValueWork work)
+    internal static IReadOnlyList<NativeCssSheet> Get(Document document, CssValueWork work, bool includeShadow = false)
     {
         var result = new List<NativeCssSheet>();
         var resources = Documents.GetValue(document, static _ => new Resources());
@@ -65,8 +66,19 @@ internal static partial class NativeCssStyleSheets
         while (pending.TryPop(out var node))
         {
             work.Charge(1);
+            if (includeShadow && node is Element { AttachedShadowRoot: { } shadow }) pending.Push(shadow);
+            for (var child = node.LastChild; child is not null; child = child.PreviousSibling)
+            {
+                work.Charge(1);
+                pending.Push(child);
+            }
             if (node is Element element)
             {
+                var ownerWork = new DomReadWork(work.Charge, work.Token);
+                var type = ownerWork.Attribute(element, "type");
+                if (element.NamespaceUri == Namespaces.Html && element.LocalName is "style" or "link" &&
+                    !string.IsNullOrEmpty(type) && !ownerWork.EqualAsciiIgnoreCase(type, "text/css"))
+                    continue;
                 var known = resources.Owners.TryGetValue(element, out var entry);
                 if (element.NamespaceUri == Namespaces.Html && element.LocalName == "style" &&
                     (!known || entry!.NativeStamp != documentStamp))
@@ -108,54 +120,23 @@ internal static partial class NativeCssStyleSheets
                         resource.Sheet.SetAttachment(resource.Attachment);
                         resource.Replaced = false;
                     }
+                    var media = ownerWork.Attribute(element, "media") ?? "";
+                    if (resource.MediaSource is null || !CssSubstitutionArguments.Equals(resource.MediaSource, media, work))
+                    {
+                        resource.Sheet.Media.SetMediaText(media, null, work, work.Token);
+                        Verify();
+                        resource.MediaSource = media;
+                    }
                     result.Add(new(resource.Sheet, NativeCssOrigin.Author));
                 }
-            }
-            for (var child = node.LastChild; child is not null; child = child.PreviousSibling)
-            {
-                work.Charge(1);
-                pending.Push(child);
             }
         }
         Verify();
         return result.AsReadOnly();
     }
 
-    private static string ReadText(Element owner, CssValueWork work)
-    {
-        var text = new System.Text.StringBuilder();
-        var pending = new Stack<Node>();
-        pending.Push(owner);
-        while (pending.TryPop(out var node))
-        {
-            work.Charge(1);
-            if (node is Text data)
-                for (var i = 0; i < data.DataLength; i++)
-                {
-                    work.Charge(1);
-                    text.Append(data.DataAt(i));
-                }
-            else if (node is CDataSection section)
-            {
-                var value = section.Data;
-                for (var i = 0; i < value.Length; i++)
-                {
-                    work.Charge(1);
-                    text.Append(value[i]);
-                }
-            }
-            for (var child = node.LastChild; child is not null; child = child.PreviousSibling)
-            {
-                work.Charge(1);
-                pending.Push(child);
-            }
-        }
-        work.CheckCancellation();
-        var result = text.ToString();
-        work.Charge(result.Length);
-        work.CheckCancellation();
-        return result;
-    }
+    private static string ReadText(Element owner, CssValueWork work) =>
+        DomDescendantText.Read(owner, work.Charge, work.Token);
 
     private sealed class Resources
     {
@@ -169,5 +150,6 @@ internal static partial class NativeCssStyleSheets
         internal CssStyleSheet? Sheet;
         internal bool Replaced;
         internal ulong? NativeStamp;
+        internal string? MediaSource;
     }
 }

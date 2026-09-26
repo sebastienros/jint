@@ -13,6 +13,23 @@ namespace Jint.Browser.Styling;
 internal static partial class NativeCssStyleSheets
 {
     private static readonly ConditionalWeakTable<Document, WeakReference<DomRealm>> Hosts = new();
+    private static readonly ConditionalWeakTable<Document, NativeCssStyleSheetList> Lists = new();
+
+    internal static NativeCssStyleSheetList ListOf(DomRealm realm, Document document) =>
+        Lists.GetValue(document, owner => new(realm, owner));
+
+    internal static Jint.HtmlParser.Css.Model.CssStyleSheet? SheetOf(DomRealm realm, Element owner)
+    {
+        if (owner.OwnerDocument is not { } document) return null;
+        var work = new CssValueWork(realm.CancellationToken, realm.Engine.Constraints.Check);
+        foreach (var input in Get(document, work, includeShadow: true))
+        {
+            work.Charge(1);
+            if (ReferenceEquals(input.Sheet.Attachment.OwnerNode, owner)) return input.Sheet;
+        }
+        work.CheckCancellation();
+        return null;
+    }
 
     internal static void Associate(DomRealm realm, Document document)
     {
@@ -61,10 +78,27 @@ internal static partial class NativeCssStyleSheets
             focus?.OwnerDocument == document ? focus : null,
             press?.OwnerDocument == document ? press : null,
             target?.OwnerDocument == document ? target : null);
-        var sheets = Get(document, work);
+        var author = Get(document, work, includeShadow: true);
+        var sheets = new List<NativeCssSheet>(author.Count + 1) { NativeCssBrowserDefaults.Sheet(document, work) };
+        foreach (var sheet in author) { work.Charge(1); sheets.Add(sheet); }
         var query = new NativeCssQuery(document, sheets, [], media, selectors,
-            CssEnvironmentSnapshot.Create([], work), work, readInlineAttributes: true);
+            CssEnvironmentSnapshot.Create([], work), work,
+            new NativeCssMetrics { FontSize = MediaQuery.PixelsPerEm, RootFontSize = MediaQuery.PixelsPerEm },
+            readInlineAttributes: true, systemColors: NativeCssBrowserDefaults.Palette(media.ColorScheme == "dark", work));
         var matching = new SelectorMatchWork(document, realm.CancellationToken, realm.Engine.Constraints.Check);
         return (query, matching);
+    }
+}
+
+// CSSOM §6.2: stable list identity, with its members reconciled only when read.
+internal sealed class NativeCssStyleSheetList(DomRealm realm, Document document)
+{
+    private IReadOnlyList<NativeCssSheet> Read() => NativeCssStyleSheets.Get(document,
+        new CssValueWork(realm.CancellationToken, realm.Engine.Constraints.Check));
+    internal int Length => Read().Count;
+    internal Jint.HtmlParser.Css.Model.CssStyleSheet? Item(int index)
+    {
+        var sheets = Read();
+        return (uint) index < (uint) sheets.Count ? sheets[index].Sheet : null;
     }
 }

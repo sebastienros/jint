@@ -37,10 +37,14 @@ internal sealed class CssMediaList
 
     internal static CssMediaList Parse(string source, CssParseOptions? options = null,
         CancellationToken cancellationToken = default)
+        => Parse(source, options, new CssValueWork(cancellationToken), cancellationToken);
+
+    internal static CssMediaList Parse(string source, CssParseOptions? options, CssValueWork work,
+        CancellationToken cancellationToken)
     {
-        var parser = new CssSyntaxParser(source, options, cancellationToken);
+        var parser = new CssSyntaxParser(source, options, cancellationToken, work.CheckCancellation);
         var values = parser.ParseComponentValues();
-        return FromComponents(source, values, parser, new CssValueWork(cancellationToken));
+        return FromComponents(source, values, parser, work);
     }
 
     internal static CssMediaList FromComponents(string source, CssComponentValueList values, CssSyntaxParser parser, CssValueWork work) =>
@@ -66,9 +70,12 @@ internal sealed class CssMediaList
     }
 
     internal void SetMediaText(string source, CssParseOptions? options = null, CancellationToken cancellationToken = default)
+        => SetMediaText(source, options, new CssValueWork(cancellationToken), cancellationToken);
+
+    internal void SetMediaText(string source, CssParseOptions? options, CssValueWork work, CancellationToken cancellationToken)
     {
-        var replacement = Parse(source, options, cancellationToken);
-        cancellationToken.ThrowIfCancellationRequested();
+        var replacement = Parse(source, options, work, cancellationToken);
+        work.CheckCancellation();
         _queries = replacement._queries;
         Changed();
     }
