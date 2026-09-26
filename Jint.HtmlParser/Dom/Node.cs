@@ -59,6 +59,7 @@ public abstract partial class Node
         LinkBefore(child, null);
         SlotAssignment.AfterInsertion(this, child, null);
         HtmlFormAssociation.Inserted(child);
+        HtmlTextAreaMutations.ChildrenChanged(this, mayShorten: false, markDocument: false);
     }
 
     // Trusted fresh-node parser insertion. The caller has established the full
@@ -154,8 +155,10 @@ public abstract partial class Node
             {
                 var node = incoming[i];
                 Adopt(node, destinationDocument);
-                InsertValidated(node, referenceChild, suppressRecord: true);
+                InsertValidated(node, referenceChild, suppressRecord: true, suppressSemantic: true);
             }
+
+            HtmlTextAreaMutations.ChildrenChanged(this, mayShorten: false);
 
             MutationTracking.QueueChildList(this, incoming.Many, null, previousSibling, referenceChild);
         }
@@ -224,8 +227,10 @@ public abstract partial class Node
             {
                 var node = incoming[i];
                 Adopt(node, destinationDocument);
-                InsertValidated(node, anchor, suppressRecord: true);
+                InsertValidated(node, anchor, suppressRecord: true, suppressSemantic: true);
             }
+
+            if (incoming.Count != 0) HtmlTextAreaMutations.ChildrenChanged(this, mayShorten: false);
 
             if (targetMatches is not null)
             {
@@ -278,10 +283,13 @@ public abstract partial class Node
             }
         }
 
+        var hadChildren = ChildCount != 0;
         while (FirstChild is { } child)
         {
-            Detach(child, suppressRecord: true);
+            Detach(child, suppressRecord: true, suppressSemantic: true);
         }
+
+        if (hadChildren) HtmlTextAreaMutations.ChildrenChanged(this);
 
         if (replacement is DocumentFragment && incoming.Count != 0)
         {
@@ -302,8 +310,10 @@ public abstract partial class Node
                 Detach(node);
             }
             Adopt(node, destinationDocument);
-            InsertValidated(node, null, suppressRecord: true);
+            InsertValidated(node, null, suppressRecord: true, suppressSemantic: true);
         }
+
+        if (incoming.Count != 0) HtmlTextAreaMutations.ChildrenChanged(this, mayShorten: false);
 
         if (targetMatches is not null && (incoming.Count != 0 || removed is { Count: > 0 }))
         {
@@ -495,7 +505,7 @@ public abstract partial class Node
         }
     }
 
-    private static void Detach(Node node, bool suppressRecord = false)
+    private static void Detach(Node node, bool suppressRecord = false, bool suppressSemantic = false)
     {
         var parent = node.ParentNode;
         if (parent is null)
@@ -534,6 +544,7 @@ public abstract partial class Node
         (parent as Document ?? parent._ownerDocument!).MarkMutation();
         SlotAssignment.AfterRemoval(parent, node);
         HtmlFormAssociation.Removed(node, formRemoval);
+        if (!suppressSemantic) HtmlTextAreaMutations.ChildrenChanged(parent);
         if (!suppressRecord)
         {
             MutationTracking.QueueChildList(parent, null, node, previousSibling, nextSibling, matches);
@@ -566,13 +577,15 @@ public abstract partial class Node
         ChildCount++;
     }
 
-    private void InsertValidated(Node node, Node? referenceChild, bool suppressRecord = false)
+    private void InsertValidated(Node node, Node? referenceChild, bool suppressRecord = false,
+        bool suppressSemantic = false)
     {
         var previousSibling = referenceChild is null ? LastChild : referenceChild.PreviousSibling;
         LinkBefore(node, referenceChild);
         (this as Document ?? _ownerDocument!).MarkMutation();
         SlotAssignment.AfterInsertion(this, node, referenceChild);
         HtmlFormAssociation.Inserted(node);
+        if (!suppressSemantic) HtmlTextAreaMutations.ChildrenChanged(this, mayShorten: false);
         if (!suppressRecord)
         {
             MutationTracking.QueueChildList(this, node, null, previousSibling, referenceChild);

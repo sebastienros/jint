@@ -7,6 +7,10 @@ internal sealed class HtmlElementState
 
     internal Element Element { get; }
     internal Element? FormOwner => HtmlFormState.GetOwner(Element);
+    private HtmlTextAreaState? _textArea;
+    internal HtmlTextAreaState? TextArea => Element is { NamespaceUri: Namespaces.Html, LocalName: "textarea" }
+        ? _textArea ??= new HtmlTextAreaState(Element) : null;
+    internal HtmlTextAreaState? ExistingTextArea => _textArea;
 
     private bool _firstLegendKnown;
     private Element? _firstLegend;

@@ -17,6 +17,8 @@ public sealed class Text : Node
 
     internal Text(Document owner, string data) : base(owner) => _data = data ?? throw new ArgumentNullException(nameof(data));
     public override NodeType NodeType => NodeType.Text;
+    internal int DataLength => _parsedStorage is null ? _data.Length : _parsedLength;
+    internal char DataAt(int index) => _parsedStorage is null ? _data[index] : _parsedStorage[index];
     public string Data
     {
         get => _parsedStorage is null ? _data : _cachedParsedData ??= new string(_parsedStorage, 0, _parsedLength);
@@ -30,6 +32,7 @@ public sealed class Text : Node
             _parsedLength = 0;
             _cachedParsedData = null;
             OwnerDocument!.MarkMutation();
+            if (ParentNode is { } parent) HtmlTextAreaMutations.ChildrenChanged(parent);
             MutationTracking.QueueCharacterData(this, oldValue, matches);
         }
     }
@@ -89,6 +92,7 @@ public sealed class Text : Node
         _data = string.Empty;
         _cachedParsedData = null;
         OwnerDocument!.MarkMutation();
+        if (ParentNode is { } parent) HtmlTextAreaMutations.ChildrenChanged(parent, mayShorten: false);
         MutationTracking.QueueCharacterData(this, oldValue, matches);
 
         workCheckpoint?.Invoke(TextAppendCheckpoint.AfterCommit);
@@ -113,6 +117,7 @@ public sealed class Comment : Node
             var oldValue = matches?.NeedsOldValue == true ? _data : null;
             _data = value;
             OwnerDocument!.MarkMutation();
+            if (ParentNode is { } parent) HtmlTextAreaMutations.ChildrenChanged(parent);
             MutationTracking.QueueCharacterData(this, oldValue, matches);
         }
     }
@@ -140,6 +145,7 @@ public sealed class CDataSection : Node
             var oldValue = matches?.NeedsOldValue == true ? _data : null;
             _data = value;
             OwnerDocument!.MarkMutation();
+            if (ParentNode is { } parent) HtmlTextAreaMutations.ChildrenChanged(parent);
             MutationTracking.QueueCharacterData(this, oldValue, matches);
         }
     }
@@ -262,6 +268,7 @@ public sealed class ProcessingInstruction : Node
             var oldValue = matches?.NeedsOldValue == true ? _data : null;
             _data = value;
             OwnerDocument!.MarkMutation();
+            if (ParentNode is { } parent) HtmlTextAreaMutations.ChildrenChanged(parent);
             MutationTracking.QueueCharacterData(this, oldValue, matches);
         }
     }

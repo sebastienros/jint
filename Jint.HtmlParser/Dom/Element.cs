@@ -17,6 +17,7 @@ public sealed class Element : Node
 
     internal HtmlElementState? GetHtmlState()
         => NamespaceUri == Namespaces.Html ? _htmlState ??= new HtmlElementState(this) : null;
+    internal HtmlTextAreaState? ExistingTextAreaState => _htmlState?.ExistingTextArea;
     internal ShadowRoot? AttachedShadowRoot { get; private set; }
     internal ShadowRoot? OpenShadowRoot => AttachedShadowRoot is { Mode: ShadowRootMode.Open } root ? root : null;
     internal CustomElementRegistryIdentity? CustomElementRegistry { get; private set; }
