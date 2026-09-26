@@ -22,16 +22,25 @@ internal static class CssPropertyRegistry
     private static readonly System.Collections.ObjectModel.ReadOnlyDictionary<string, CssPropertyMetadata> Entries = Build();
     internal static IReadOnlyDictionary<string, CssPropertyMetadata> Completed => Entries;
 
-    internal static string NormalizeName(string name)
+    internal static string NormalizeName(string name, CssValueWork? work = null)
     {
         ArgumentNullException.ThrowIfNull(name);
+        work?.CheckCancellation();
         if (name.StartsWith("--", StringComparison.Ordinal)) return name;
-        return string.Create(name.Length, name, static (target, source) =>
+        var result = string.Create(name.Length, new NameNormalization(name, work), static (target, state) =>
         {
-            for (var i = 0; i < source.Length; i++) target[i] = source[i] is >= 'A' and <= 'Z'
-                ? (char) (source[i] + 32) : source[i];
+            var source = state.Name;
+            for (var i = 0; i < source.Length; i++)
+            {
+                state.Work?.Charge(1);
+                target[i] = source[i] is >= 'A' and <= 'Z' ? (char) (source[i] + 32) : source[i];
+            }
         });
+        work?.CheckCancellation();
+        return result;
     }
+
+    private readonly record struct NameNormalization(string Name, CssValueWork? Work);
 
     internal static CssPropertyMetadata? Find(string normalizedName, CssDeclarationContext context) =>
         context is CssDeclarationContext.Style or CssDeclarationContext.Keyframe &&

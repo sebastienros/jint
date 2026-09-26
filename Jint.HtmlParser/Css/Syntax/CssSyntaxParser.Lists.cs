@@ -242,11 +242,11 @@ internal sealed partial class CssSyntaxParser
             if (!IsWhitespace(value)) spanEnd = value.Span.Start + value.Span.Length;
         }
         return FinalizeDeclaration(name, declarationValues, valueStart,
-            terminalOffset, spanEnd);
+            terminalOffset, spanEnd, colon.Span.Start + colon.Span.Length);
     }
 
     private CssDeclarationSyntax? FinalizeDeclaration(CssToken name,
-        List<CssComponentValue> values, int valueStart, int valueEnd, int spanEnd)
+        List<CssComponentValue> values, int valueStart, int valueEnd, int spanEnd, int lexicalValueStart)
     {
         TrimTrailingWhitespace(values);
         var important = false;
@@ -274,8 +274,57 @@ internal sealed partial class CssSyntaxParser
             values = RetokenizeUnicodeRangeValue(valueStart, retokenizeEnd);
             TrimTrailingWhitespace(values);
         }
-        return new CssDeclarationSyntax(name.Text, List(values), important,
-            new CssSourceSpan(name.Span.Start, spanEnd - name.Span.Start));
+        var components = List(values);
+        return new CssDeclarationSyntax(name.Text, components, important,
+            new CssSourceSpan(name.Span.Start, spanEnd - name.Span.Start),
+            new CssSourceSpan(lexicalValueStart, retokenizeEnd - lexicalValueStart),
+            TrimLexicalBoundaryWhitespace(lexicalValueStart, retokenizeEnd, components),
+            ValueTermination(components, new CssSourceSpan(lexicalValueStart, retokenizeEnd - lexicalValueStart),
+                new Values.CssValueWork(_cancellationToken)));
+    }
+
+    // Comments occupy source gaps, not tokens. Trim only whitespace tokens touching the
+    // boundary; an unterminated comment's trailing spaces are part of the comment.
+    internal CssSourceSpan TrimLexicalBoundaryWhitespace(int start, int end, CssComponentValueList components)
+    {
+        var firstComponent = 0;
+        var lastComponent = components.Count - 1;
+        while (firstComponent <= lastComponent && IsWhitespace(components[firstComponent]))
+        { PollCancellation(); firstComponent++; }
+        while (lastComponent >= firstComponent && IsWhitespace(components[lastComponent]))
+        { PollCancellation(); lastComponent--; }
+        var leftLimit = firstComponent > lastComponent ? end : components[firstComponent].Span.Start;
+        var rightLimit = firstComponent > lastComponent ? start : components[lastComponent].Span.Start +
+            components[lastComponent].Span.Length;
+        var first = TokenAtOrAfter(start);
+        while (first < _tokens.Count && _tokens[first].Kind == CssTokenKind.Whitespace &&
+               _tokens[first].Span.Start == start && start < leftLimit && start < end)
+        {
+            PollCancellation();
+            start += _tokens[first++].Span.Length;
+        }
+        var last = TokenAtOrAfter(end) - 1;
+        while (last >= 0 && _tokens[last].Kind == CssTokenKind.Whitespace &&
+               _tokens[last].Span.Start + _tokens[last].Span.Length == end && end > rightLimit && end > start)
+        {
+            PollCancellation();
+            end = _tokens[last--].Span.Start;
+        }
+        return new CssSourceSpan(start, end - start);
+    }
+
+    private int TokenAtOrAfter(int offset)
+    {
+        var lo = 0;
+        var hi = _tokens.Count;
+        while (lo < hi)
+        {
+            PollCancellation();
+            var mid = lo + ((hi - lo) >> 1);
+            if (_tokens[mid].Span.Start < offset) lo = mid + 1;
+            else hi = mid;
+        }
+        return lo;
     }
 
     private bool CouldStartDeclaration(IReadOnlyList<CssComponentValue> values, int start)

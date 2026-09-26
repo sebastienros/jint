@@ -15,6 +15,9 @@ internal sealed class CssTokenizer
     private int _scanStart;
     private int _work;
     private bool _inComment;
+    private string _eofRecoverySuffix = string.Empty;
+
+    internal string EofRecoverySuffix => _eofRecoverySuffix;
 
     internal CssTokenizer(string source, int maxTokenCharacters,
         ParseDiagnosticCollector? diagnostics, CancellationToken cancellationToken,
@@ -220,6 +223,7 @@ internal sealed class CssTokenizer
             var c = Peek();
             if (c < 0)
             {
+                _eofRecoverySuffix += ")";
                 Report("css/unexpected-eof", _position);
                 return Make(CssTokenKind.Url, start, text: text.ToString());
             }
@@ -238,6 +242,7 @@ internal sealed class CssTokenizer
                 }
                 if (Peek() < 0)
                 {
+                    _eofRecoverySuffix += ")";
                     Report("css/unexpected-eof", _position);
                     return Make(CssTokenKind.Url, start, text: text.ToString());
                 }
@@ -291,6 +296,7 @@ internal sealed class CssTokenizer
             var c = Peek();
             if (c < 0)
             {
+                _eofRecoverySuffix += (char) quote;
                 Report("css/unexpected-eof", _position);
                 return Make(CssTokenKind.String, start, text: text.ToString());
             }
@@ -307,7 +313,7 @@ internal sealed class CssTokenizer
             if (c == '\\')
             {
                 Consume();
-                if (Peek() < 0) continue;
+                if (Peek() < 0) { _eofRecoverySuffix += "\n"; continue; }
                 if (Peek() == '\n') { Consume(); continue; }
                 AppendCodePoint(text, ConsumeEscape());
             }
@@ -334,6 +340,7 @@ internal sealed class CssTokenizer
     {
         if (Peek() < 0)
         {
+            _eofRecoverySuffix += "\ufffd";
             Report("css/unexpected-eof", _position);
             return 0xfffd;
         }
@@ -368,7 +375,11 @@ internal sealed class CssTokenizer
                 Consume();
             }
             _inComment = false;
-            if (!closed) Report("css/unexpected-eof", _position);
+            if (!closed)
+            {
+                _eofRecoverySuffix += "*/";
+                Report("css/unexpected-eof", _position);
+            }
         }
     }
 
