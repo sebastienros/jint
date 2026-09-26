@@ -61,7 +61,17 @@ internal static class CssRuleSerializer
             if (frame.Index != 0) builder.Append('\n');
             var rule = frame.Rules[frame.Index++];
             var start = builder.Length;
-            if (rule is CssConditionRule conditionRule)
+            if (rule is CssImportRule import)
+            {
+                builder.Append("@import url(");
+                CssSyntaxSerializer.AppendString(builder, import.Href, work);
+                builder.Append(')');
+                var mediaText = import.Media.Serialize(work);
+                if (mediaText.Length != 0) builder.Append(' ').Append(mediaText);
+                builder.Append(';');
+                ranges?.Add(rule, new CssTextRange(start, builder.Length));
+            }
+            else if (rule is CssConditionRule conditionRule)
             {
                 var condition = conditionRule is CssMediaRule media ? media.Media.Serialize(work) : conditionRule.ConditionText;
                 work.Charge(condition.Length);

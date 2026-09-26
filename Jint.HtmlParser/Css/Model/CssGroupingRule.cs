@@ -23,6 +23,8 @@ internal abstract class CssGroupingRule : CssRule
         if ((uint) index > (uint) _rules.Count)
             throw new DomException("IndexSizeError", "The rule index is outside the list.");
         var rule = CssStyleSheet.ParseSingle(source, options, work, cancellationToken);
+        if (rule is CssImportRule)
+            throw new DomException("HierarchyRequestError", "Imports cannot be nested.");
         rule.Attach(ParentStyleSheet, this, work);
         work.CheckCancellation();
         _rules.Insert(index, rule);

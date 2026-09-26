@@ -274,7 +274,7 @@ internal static class CssSyntaxSerializer
         }
     }
 
-    private static void AppendString(StringBuilder builder, string value, CssValueWork? work = null)
+    internal static void AppendString(StringBuilder builder, string value, CssValueWork? work = null)
     {
         builder.Append('"');
         foreach (var character in value)

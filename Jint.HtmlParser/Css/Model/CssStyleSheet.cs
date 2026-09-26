@@ -24,7 +24,7 @@ internal sealed class CssStyleSheet
     }
 
     internal CssRuleList Rules { get; }
-    internal CssMediaList Media { get; }
+    internal CssMediaList Media { get; private set; }
     internal CssStyleSheetAttachment Attachment { get; private set; } = new();
     internal CssMutationStamp Stamp => new(_version);
     internal bool Disabled
@@ -43,10 +43,13 @@ internal sealed class CssStyleSheet
         var parser = new CssSyntaxParser(source, options, cancellationToken, work.CheckCancellation);
         var syntax = parser.ParseStyleSheet();
         var sheet = new CssStyleSheet();
+        var importsAllowed = true;
         foreach (var item in syntax)
         {
             work.Charge(1);
+            if (!importsAllowed && item.Kind == CssRuleKind.AtRule && CssAscii.EqualsIgnoreCase(item.Name, "import")) continue;
             var rule = BuildRule(source, item, parser, options, work, cancellationToken);
+            if (rule is not null && rule is not CssImportRule) importsAllowed = false;
             if (rule is not null) { rule.Attach(sheet, null, work); sheet._rules.Add(rule); }
         }
         work.CheckCancellation();
@@ -56,6 +59,10 @@ internal sealed class CssStyleSheet
     internal void SetAttachment(CssStyleSheetAttachment attachment)
     {
         ArgumentNullException.ThrowIfNull(attachment);
+        if (!ReferenceEquals(Attachment.ImportOwner, attachment.ImportOwner))
+            throw new InvalidOperationException("Import ownership is assigned only when publishing the child.");
+        if (Attachment.ImportOwner is not null && attachment.OwnerNode is not null)
+            throw new InvalidOperationException("An imported sheet cannot have an owner node.");
         if (Attachment == attachment) return;
         Attachment = attachment;
         Changed();
@@ -95,6 +102,14 @@ internal sealed class CssStyleSheet
         if ((uint) index > (uint) _rules.Count)
             throw new DomException("IndexSizeError", "The rule index is outside the list.");
         var rule = ParseSingle(source, options, work, cancellationToken);
+        // CSSOM insert a CSS rule: parse precedes hierarchy validation.
+        for (var i = 0; i < _rules.Count; i++)
+        {
+            work.Charge(1);
+            if (rule is CssImportRule && i < index && _rules[i] is not CssImportRule ||
+                rule is not CssImportRule && i >= index && _rules[i] is CssImportRule)
+                throw new DomException("HierarchyRequestError", "Imports must precede other rules.");
+        }
         rule.Attach(this, null, work);
         work.CheckCancellation();
         _rules.Insert(index, rule);
@@ -119,33 +134,91 @@ internal sealed class CssStyleSheet
     internal CssSerializationSnapshot SerializeWithRanges(CssValueWork work) =>
         CssRuleSerializer.SerializeSheet(this, work);
 
+    // Enumerate all revisions, including disabled or nonmatching children, without materializing values.
+    internal CssStyleSheet[] ImportedStyleSheets(CssValueWork work)
+    {
+        work.CheckCancellation();
+        var result = new List<CssStyleSheet>();
+        var seen = new HashSet<CssStyleSheet>(ReferenceEqualityComparer.Instance);
+        var pending = new Stack<CssStyleSheet>();
+        pending.Push(this);
+        while (pending.TryPop(out var sheet))
+        {
+            work.Charge(1);
+            if (!seen.Add(sheet)) continue;
+            result.Add(sheet);
+            foreach (var rule in sheet.Rules)
+            {
+                work.Charge(1);
+                if (rule is CssImportRule { StyleSheet: { } child }) pending.Push(child);
+            }
+        }
+        work.CheckCancellation();
+        return result.ToArray();
+    }
+
+    // Imported sheets inherit the root sheet's tree scope, despite having no owner node themselves.
+    internal Node? EffectiveOwnerNode(CssValueWork work)
+    {
+        work.CheckCancellation();
+        var seen = new HashSet<CssStyleSheet>(ReferenceEqualityComparer.Instance);
+        CssStyleSheet? sheet = this;
+        while (sheet is not null && seen.Add(sheet))
+        {
+            work.Charge(1);
+            if (sheet.Attachment.OwnerNode is { } owner) { work.CheckCancellation(); return owner; }
+            sheet = sheet.Attachment.ImportOwner?.ParentStyleSheet;
+        }
+        work.CheckCancellation();
+        return null;
+    }
+
     internal CssStyleRule[] ApplicableStyleRules(CssMediaEnvironment environment, CssValueWork work)
     {
         work.CheckCancellation();
         if (Disabled || !Media.Matches(environment, work)) return [];
         var result = new List<CssStyleRule>();
-        var frames = new Stack<(CssRuleList Rules, int Index)>();
-        frames.Push((Rules, 0));
+        var active = new HashSet<CssStyleSheet>(ReferenceEqualityComparer.Instance) { this };
+        var frames = new Stack<(CssRuleList Rules, int Index, CssStyleSheet? Sheet)>();
+        frames.Push((Rules, 0, this));
         while (frames.TryPop(out var frame))
         {
             work.Charge(1);
-            if (frame.Index == frame.Rules.Count) continue;
+            if (frame.Index == frame.Rules.Count)
+            {
+                if (frame.Sheet is { } finished) active.Remove(finished);
+                continue;
+            }
             var rule = frame.Rules[frame.Index];
-            frames.Push((frame.Rules, frame.Index + 1));
+            frames.Push((frame.Rules, frame.Index + 1, frame.Sheet));
             if (rule is CssStyleRule style)
             {
                 result.Add(style);
-                frames.Push((style.Rules, 0));
+                frames.Push((style.Rules, 0, null));
             }
             else if (rule is CssMediaRule media && media.Media.Matches(environment, work))
-                frames.Push((media.Rules, 0));
+                frames.Push((media.Rules, 0, null));
             else if (rule is CssSupportsRule { Matches: true } supports)
-                frames.Push((supports.Rules, 0));
+                frames.Push((supports.Rules, 0, null));
+            else if (rule is CssImportRule { StyleSheet: { } child } && !child.Disabled &&
+                child.Media.Matches(environment, work) && active.Add(child))
+                frames.Push((child.Rules, 0, child));
         }
         work.CheckCancellation();
         var rules = result.ToArray();
         work.CheckCancellation();
         return rules;
+    }
+
+    internal void SetImportAttachment(CssImportRule owner, CssMediaList media, Uri? sourceUrl, Uri? baseUrl)
+    {
+        if (Attachment.ImportOwner is not null || Attachment.OwnerNode is not null ||
+            !ReferenceEquals(owner.StyleSheet, this) || !ReferenceEquals(owner.Media, media))
+            throw new InvalidOperationException("The child must be published by its actual import owner.");
+        Attachment = new CssStyleSheetAttachment { ImportOwner = owner, SourceUrl = sourceUrl, BaseUrl = baseUrl };
+        Media = media;
+        media.AttachTo(this);
+        Changed();
     }
 
     internal void Changed() => CssMutationStamp.Advance(ref _version);
@@ -172,7 +245,7 @@ internal sealed class CssStyleSheet
         var root = BuildShallow(source, syntax, parser, options, work, cancellationToken);
         if (root is null) return null;
         var pending = new Stack<(CssRule Owner, CssComponentValue Block)>();
-        pending.Push((root, syntax.Block!.Value));
+        if (syntax.Block is { } rootBlock) pending.Push((root, rootBlock));
         while (pending.TryPop(out var item))
         {
             work.Charge(1);
@@ -190,12 +263,13 @@ internal sealed class CssStyleSheet
             {
                 work.Charge(1);
                 if (entry.Kind != CssBlockItemKind.Rule) continue;
+                if (entry.Rule.Kind == CssRuleKind.AtRule && CssAscii.EqualsIgnoreCase(entry.Rule.Name, "import")) continue;
                 var child = BuildShallow(source, entry.Rule, parser, options, work, cancellationToken,
                     item.Owner as CssStyleRule);
                 if (child is null) continue;
                 if (item.Owner is CssGroupingRule group) group.AddProjected(child);
                 else ((CssStyleRule) item.Owner).AddProjected(child);
-                pending.Push((child, entry.Rule.Block!.Value));
+                if (entry.Rule.Block is { } childBlock) pending.Push((child, childBlock));
             }
         }
         return root;
@@ -208,6 +282,7 @@ internal sealed class CssStyleSheet
         if (syntax.Kind == CssRuleKind.AtRule)
         {
             var name = CssPropertyRegistry.NormalizeName(syntax.Name, work);
+            if (name == "import") return CssImportRule.Parse(source, syntax, parser, work);
             if (name == "media")
                 return syntax.Block is null ? null : new CssMediaRule(CssMediaList.FromComponents(source, syntax.Prelude, parser, work), syntax.Span);
             if (name == "keyframes")
@@ -225,7 +300,7 @@ internal sealed class CssStyleSheet
             }
             var group = name switch
             {
-                "import" or "namespace" => "R1",
+                "namespace" => "R1",
                 "container" or "scope" or "starting-style" or "layer" => "R2",
                 "font-face" or "font-feature-values" or "font-palette-values" => "R4",
                 "page" or "counter-style" => "R5",
@@ -262,7 +337,8 @@ internal sealed class CssStyleSheet
                 // Unknown at-rules recover; known nested grammars must remain completion blockers.
                 if (CssAscii.EqualsIgnoreCase(item.Rule.Name, "media") || CssAscii.EqualsIgnoreCase(item.Rule.Name, "supports"))
                     throw new CssIncompleteRuleGrammarException("nested-" + item.Rule.Name, "C2:nesting-selector-context", item.Rule.Span);
-                BuildShallow(source, item.Rule, parser, options, work, cancellationToken);
+                if (!CssAscii.EqualsIgnoreCase(item.Rule.Name, "import"))
+                    BuildShallow(source, item.Rule, parser, options, work, cancellationToken);
                 continue;
             }
             if (afterNestedRule)
