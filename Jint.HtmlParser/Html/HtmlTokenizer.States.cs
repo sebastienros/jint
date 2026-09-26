@@ -52,6 +52,7 @@ internal sealed partial class HtmlTokenizer
                     _declarationAllowCData = _readAllowCData;
                     _tokenStart = _input.Offset;
                     Take();
+                    _tokenSourceChanges = _input.SourceChanges;
                     _state = State.TagOpen;
                     return false;
                 }

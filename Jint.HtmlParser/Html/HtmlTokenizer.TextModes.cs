@@ -52,6 +52,7 @@ internal sealed partial class HtmlTokenizer
     private void StartTextLessThan(State next)
     {
         _tokenStart = _input.Offset;
+        _tokenSourceChanges = _input.SourceChanges;
         Take();
         _state = next;
     }

@@ -4,7 +4,10 @@ namespace Jint.HtmlParser;
 internal sealed class HtmlFormIndex
 {
     private readonly Node _root;
+    internal HtmlFormWorkProbe? Probe => _root.FormWorkProbe;
     private readonly Dictionary<string, IdBucket> _ids = new(StringComparer.Ordinal);
+    private readonly HashSet<Element> _resetCandidates = [];
+    private Element[]? _orderedResetCandidates;
     private readonly Dictionary<string, HashSet<Element>> _references = new(StringComparer.Ordinal);
 
     private HtmlFormIndex(Node root)
@@ -89,6 +92,23 @@ internal sealed class HtmlFormIndex
         return result;
     }
 
+    internal Element[] ResetCandidates()
+    {
+        if (_orderedResetCandidates is { } cached) return cached;
+        if (_resetCandidates.Count == 0) return _orderedResetCandidates = [];
+        var result = new List<Element>(_resetCandidates.Count);
+        // One ordinary preorder costs O(N + F), including unrelated nodes. This
+        // fallback avoids F log F repeated depth/sibling scans. Reuse the order
+        // until candidate membership/order changes, independent of unrelated mutations.
+        var work = new HtmlCheckedWork(null, default);
+        for (Node? current = _root; current is not null; current = HtmlRadioGroupIndex.Next(current, _root, ref work))
+        {
+            _root.FormWorkProbe?.Visit();
+            if (current is Element element && _resetCandidates.Contains(element)) result.Add(element);
+        }
+        return _orderedResetCandidates = result.ToArray();
+    }
+
     internal void Add(Element element, bool ordered = false)
     {
         _root.FormWorkProbe?.Visit();
@@ -97,15 +117,16 @@ internal sealed class HtmlFormIndex
             AddId(id, element, ordered);
         }
 
-        if (HtmlFormState.IsListed(element) &&
-            element.GetAttributeNodeNS(null, "form")?.Value is { Length: > 0 } reference)
+        if (HtmlFormState.IsListed(element) && element.GetAttributeNodeNS(null, "form") is { } attribute)
         {
-            Add(_references, reference, element);
+            if (_resetCandidates.Add(element)) _orderedResetCandidates = null;
+            if (attribute.Value.Length > 0) Add(_references, attribute.Value, element);
         }
     }
 
     internal void Remove(Element element)
     {
+        if (_resetCandidates.Remove(element)) _orderedResetCandidates = null;
         _root.FormWorkProbe?.Visit();
         if (element.GetAttributeNodeNS(null, "id")?.Value is { Length: > 0 } id)
         {
@@ -135,6 +156,11 @@ internal sealed class HtmlFormIndex
 
     internal void ChangeReference(Element element, string? oldValue, string? newValue)
     {
+        if (newValue is null)
+        {
+            if (_resetCandidates.Remove(element)) _orderedResetCandidates = null;
+        }
+        else if (_resetCandidates.Add(element)) _orderedResetCandidates = null;
         _root.FormWorkProbe?.Visit();
         if (!string.IsNullOrEmpty(oldValue))
         {

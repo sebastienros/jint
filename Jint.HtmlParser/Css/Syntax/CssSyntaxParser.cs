@@ -10,6 +10,7 @@ internal sealed partial class CssSyntaxParser
     private readonly int _maxNestingDepth;
     private readonly CancellationToken _cancellationToken;
     private readonly int _sourceLength;
+    private readonly string _eofRecoverySuffix = string.Empty;
     private int _index;
     private int _work;
 
@@ -39,7 +40,12 @@ internal sealed partial class CssSyntaxParser
             if (token.Kind == CssTokenKind.None) break;
             _tokens.Add(token);
         }
+        _eofRecoverySuffix = tokenizer.EofRecoverySuffix;
     }
+
+    internal string ValueTermination(CssComponentValueList components, CssSourceSpan retainedSpan,
+        Values.CssValueWork work) =>
+        CssValueTermination.Create(components, retainedSpan, _sourceLength, _eofRecoverySuffix, work);
 
     private CssSyntaxParser(List<CssToken> tokens, int sourceLength, int maxTokenCharacters,
         int maxNestingDepth, ParseDiagnosticCollector? diagnostics, CancellationToken cancellationToken)
@@ -164,7 +170,8 @@ internal sealed partial class CssSyntaxParser
         SkipWhitespace();
         if (Current.Kind != CssTokenKind.None) throw Error("css/trailing-input", Current.Span.Start);
 
-        var result = FinalizeDeclaration(first, values, valueStart, valueEnd, end) ??
+        var result = FinalizeDeclaration(first, values, valueStart, valueEnd, end,
+            colon.Span.Start + colon.Span.Length) ??
             throw Error("css/mixed-brace-declaration-value", first.Span.Start);
         _cancellationToken.ThrowIfCancellationRequested();
         return result;

@@ -34,14 +34,30 @@ internal sealed class CssReferenceInput
         var first = components[0].Span;
         var last = components[components.Count - 1].Span;
         var end = checked(last.Start + last.Length);
-        if (first.Start < 0 || end < first.Start || end > source.Length)
-            throw new ArgumentOutOfRangeException(nameof(components));
-        var length = end - first.Start;
+        return FromComponents(source, components, maxNestingDepth,
+            new CssSourceSpan(first.Start, checked(end - first.Start)), work);
+    }
+
+    internal static CssReferenceInput FromComponents(string source, CssComponentValueList components,
+        int maxNestingDepth, CssSourceSpan retainedSourceSpan, CssValueWork work)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(components);
+        ArgumentNullException.ThrowIfNull(work);
+        ArgumentOutOfRangeException.ThrowIfNegative(maxNestingDepth);
         work.CheckCancellation();
-        var slice = source.Substring(first.Start, length);
+        var start = retainedSourceSpan.Start;
+        var length = retainedSourceSpan.Length;
+        if (start < 0 || start > source.Length || length < 0 || length > source.Length - start)
+            throw new ArgumentOutOfRangeException(nameof(retainedSourceSpan));
+        if (components.Count != 0 && (components[0].Span.Start < start ||
+            (long) components[components.Count - 1].Span.Start + components[components.Count - 1].Span.Length > (long) start + length))
+            throw new ArgumentOutOfRangeException(nameof(retainedSourceSpan));
+        work.CheckCancellation();
+        var slice = source.Substring(start, length);
         work.Charge(length);
         work.CheckCancellation();
-        return new CssReferenceInput(slice, first.Start, components, maxNestingDepth);
+        return new CssReferenceInput(slice, start, components, maxNestingDepth);
     }
 
     internal ReadOnlySpan<char> SourceSlice(CssSourceSpan originalSpan)

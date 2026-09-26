@@ -73,6 +73,27 @@ public sealed class ReferenceOwnershipTests
     }
 
     [Test]
+    public void ExplicitLexicalRangeOwnsBoundaryCommentsWithOriginalComponentIdentity()
+    {
+        const string source = "opacity: .5; --x: /* first */ red /* last */ !important; --y:/* only */;";
+        var declarations = new CssSyntaxParser(source, null, default).ParseDeclarationList();
+        var work = new CssValueWork(default);
+        var syntax = declarations[1];
+        var input = CssReferenceInput.FromComponents(source, syntax.Value, 0, syntax.ValueSourceSpan, work);
+        input.Components.Should().BeSameAs(syntax.Value);
+        input.Source.Should().Be(" /* first */ red /* last */ ");
+        input.SourceOffset.Should().Be(syntax.ValueSourceSpan.Start);
+        var comment = declarations[2];
+        var commentInput = CssReferenceInput.FromComponents(source, comment.Value, 0, comment.ValueSourceSpan, work);
+        commentInput.Source.Should().Be("/* only */");
+        commentInput.Components.Count.Should().Be(0);
+        Assert.Throws<ArgumentOutOfRangeException>(() => CssReferenceInput.FromComponents(source, syntax.Value, 0,
+            new CssSourceSpan(0, 1), work));
+        Assert.Throws<ArgumentOutOfRangeException>(() => CssReferenceInput.FromComponents(source, syntax.Value, 0,
+            new CssSourceSpan(source.Length, 1), work));
+    }
+
+    [Test]
     public void InputRetainsOriginalStringAfterCallerReassignsVariable()
     {
         var source = "var(--a, /* exact */ red)";
