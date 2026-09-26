@@ -32,9 +32,6 @@ namespace Jint.Browser.Dom.Collections;
 /// </remarks>
 internal sealed class DomAttributeTokenList : IEnumerable<string>
 {
-    /// <summary>https://infra.spec.whatwg.org/#ascii-whitespace: TAB, LF, FF, CR and SPACE, and nothing else.</summary>
-    private static readonly char[] _asciiWhitespace = ['\t', '\n', '\f', '\r', ' '];
-
     /// <summary>
     /// The <c>rel</c> list of each element that has been asked for one, so that WebIDL's
     /// <a href="https://webidl.spec.whatwg.org/#SameObject"><c>[SameObject]</c></a> holds:
@@ -68,11 +65,81 @@ internal sealed class DomAttributeTokenList : IEnumerable<string>
         return list;
     }
 
-    public int Length => Tokens().Count;
+    internal Element Element => _element;
+    internal string Attribute => _attribute;
+    internal string Value
+    {
+        get => _element.GetAttributeNS(null, _attribute) ?? "";
+        set => _element.SetAttributeNS(null, _attribute, value);
+    }
 
-    public string this[int index] => Tokens()[index];
+    public int Length => ReadLength(null, default);
 
-    public bool Contains(string token) => Tokens().Contains(token, StringComparer.Ordinal);
+    public string this[int index] => index < 0 ? throw new ArgumentOutOfRangeException(nameof(index))
+        : ReadItem((uint) index, null, default) ?? throw new ArgumentOutOfRangeException(nameof(index));
+
+    public bool Contains(string token) => ReadContains(token, null, default);
+
+    internal int ReadLength(Action<int>? checkpoint, CancellationToken token)
+        => ReadLength(new DomReadWork(checkpoint, token));
+
+    internal int ReadLength(DomReadWork work)
+    {
+        var count = 0;
+        foreach (var unused in Slices(work)) count++;
+        return count;
+    }
+
+    internal string? ReadItem(uint index, Action<int>? checkpoint, CancellationToken token)
+        => ReadItem(index, new DomReadWork(checkpoint, token));
+
+    internal string? ReadItem(uint index, DomReadWork work)
+    {
+        foreach (var slice in Slices(work))
+        {
+            if (index-- != 0) continue;
+            return slice.Materialize();
+        }
+        return null;
+    }
+
+    internal bool ReadContains(string token, Action<int>? checkpoint, CancellationToken cancellationToken)
+        => ReadContains(token, new DomReadWork(checkpoint, cancellationToken));
+
+    internal bool ReadContains(string token, DomReadWork work)
+    {
+        foreach (var slice in Slices(work)) if (slice.Matches(token, work)) return true;
+        return false;
+    }
+
+    internal string ReadValue(Action<int>? checkpoint, CancellationToken token)
+        => ReadValue(new DomReadWork(checkpoint, token));
+
+    internal string ReadValue(DomReadWork work)
+    {
+        work.Check();
+        var value = work.Attribute(_element, _attribute) ?? "";
+        work.Check();
+        return value;
+    }
+
+    internal IEnumerable<string> Read(Action<int>? checkpoint, CancellationToken token)
+        => Read(new DomReadWork(checkpoint, token));
+
+    internal IEnumerable<string> Read(DomReadWork work)
+    {
+        foreach (var slice in Slices(work)) yield return slice.Materialize();
+    }
+
+    internal List<string> ReadSnapshot(DomReadWork work)
+    {
+        var result = new List<string>();
+        foreach (var token in Read(work)) result.Add(token);
+        return result;
+    }
+
+    internal List<string> ReadSnapshot(Action<int>? checkpoint, CancellationToken token)
+        => ReadSnapshot(new DomReadWork(checkpoint, token));
 
     public void Add(params string[] tokens)
     {
@@ -132,7 +199,7 @@ internal sealed class DomAttributeTokenList : IEnumerable<string>
         return true;
     }
 
-    public IEnumerator<string> GetEnumerator() => Tokens().GetEnumerator();
+    public IEnumerator<string> GetEnumerator() => Read(null, default).GetEnumerator();
 
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
@@ -141,26 +208,74 @@ internal sealed class DomAttributeTokenList : IEnumerable<string>
     /// duplicates dropped, which is what <a href="https://dom.spec.whatwg.org/#concept-ordered-set-parser">
     /// DOM's ordered set parser</a> makes of a content attribute.
     /// </summary>
-    private List<string> Tokens()
+    private List<string> Tokens() => ReadSnapshot(new DomReadWork(null, default));
+
+    private IEnumerable<TokenSlice> Slices(DomReadWork work)
     {
-        var declared = _element.GetAttribute(_attribute);
-
-        if (string.IsNullOrEmpty(declared))
+        work.Check();
+        var declared = work.Attribute(_element, _attribute) ?? "";
+        var seen = new HashSet<TokenSlice>(new SliceComparer(work));
+        var start = -1;
+        uint hash = 2166136261;
+        try
         {
-            return [];
-        }
-
-        var set = new List<string>();
-
-        foreach (var token in declared!.Split(_asciiWhitespace, StringSplitOptions.RemoveEmptyEntries))
-        {
-            if (!set.Contains(token, StringComparer.Ordinal))
+            for (var position = 0; position <= declared.Length; position++)
             {
-                set.Add(token);
+                if (position < declared.Length)
+                {
+                    work.Step();
+                    var c = declared[position];
+                    if (c is not ('\t' or '\n' or '\f' or '\r' or ' '))
+                    {
+                        if (start < 0) { start = position; hash = 2166136261; }
+                        hash = unchecked((hash ^ c) * 16777619);
+                        continue;
+                    }
+                }
+                if (start < 0) continue;
+                var slice = new TokenSlice(declared, start, position - start, hash);
+                start = -1;
+                if (seen.Add(slice)) yield return slice;
             }
         }
+        finally { work.Check(); }
+    }
 
-        return set;
+    private readonly struct TokenSlice(string source, int start, int length, uint hash)
+    {
+        private readonly string _source = source;
+        private readonly int _start = start;
+        internal int Length { get; } = length;
+        internal uint Hash { get; } = hash;
+        internal string Materialize() => _source.Substring(_start, Length);
+        internal bool Matches(string token, DomReadWork work)
+        {
+            work.Step();
+            if (Length != token.Length) return false;
+            for (var i = 0; i < Length; i++)
+            {
+                work.Step();
+                if (_source[_start + i] != token[i]) return false;
+            }
+            return true;
+        }
+        internal bool Matches(TokenSlice other, DomReadWork work)
+        {
+            work.Step();
+            if (Length != other.Length) return false;
+            for (var i = 0; i < Length; i++)
+            {
+                work.Step();
+                if (_source[_start + i] != other._source[other._start + i]) return false;
+            }
+            return true;
+        }
+    }
+
+    private sealed class SliceComparer(DomReadWork work) : IEqualityComparer<TokenSlice>
+    {
+        public bool Equals(TokenSlice x, TokenSlice y) => x.Matches(y, work);
+        public int GetHashCode(TokenSlice value) => unchecked((int) value.Hash);
     }
 
     /// <summary>
@@ -168,5 +283,5 @@ internal sealed class DomAttributeTokenList : IEnumerable<string>
     /// attribute again on the way out, which is §7.1's update steps and is deliberately not conditional; this
     /// write is what keeps the set the next read parses in step with the one a member just changed.
     /// </summary>
-    private void Write(List<string> tokens) => _element.SetAttribute(_attribute, string.Join(" ", tokens));
+    private void Write(List<string> tokens) => _element.SetAttributeNS(null, _attribute, string.Join(" ", tokens));
 }
