@@ -12,7 +12,7 @@ internal static class DomTextAreaMembers
     internal static string Value(DomRealm realm, Element element)
     {
         realm.Engine.Constraints.Check();
-        var value = State(element).GetValue(realm.CancellationToken);
+        var value = State(element).GetValue(realm.NativeReadCheckpoint, realm.CancellationToken);
         realm.Engine.Constraints.Check();
         return value;
     }
@@ -20,7 +20,7 @@ internal static class DomTextAreaMembers
     internal static string DefaultValue(DomRealm realm, Element element)
     {
         realm.Engine.Constraints.Check();
-        var value = State(element).GetDefaultValue(realm.CancellationToken);
+        var value = State(element).GetDefaultValue(realm.NativeReadCheckpoint, realm.CancellationToken);
         realm.Engine.Constraints.Check();
         return value;
     }
@@ -29,13 +29,19 @@ internal static class DomTextAreaMembers
     {
         var state = State(element);
         var selection = state.Selection;
-        if (defaultValue) state.SetDefaultValue(value, realm.CancellationToken);
+        if (defaultValue)
+        {
+            realm.Engine.Constraints.Check();
+            state.SetDefaultValue(value, realm.CancellationToken);
+            realm.Engine.Constraints.Check();
+        }
         else state.SetValue(value, realm.NativeReadCheckpoint, realm.CancellationToken);
         SelectionChanged(realm, element, selection, state.Selection, fireSelect: false);
         return JsValue.Undefined;
     }
 
-    internal static string Direction(Element element) => State(element).Selection.Direction switch
+    internal static string Direction(DomRealm realm, Element element)
+        => State(element).GetSelection(realm.NativeReadCheckpoint, realm.CancellationToken).Direction switch
     {
         HtmlSelectionDirection.Forward => "forward",
         HtmlSelectionDirection.Backward => "backward",
@@ -46,8 +52,8 @@ internal static class DomTextAreaMembers
     {
         var state = State(element);
         var previous = state.Selection;
-        if (start) state.SetSelectionStart(offset, realm.CancellationToken);
-        else state.SetSelectionEnd(offset, realm.CancellationToken);
+        if (start) state.SetSelectionStart(offset, realm.NativeReadCheckpoint, realm.CancellationToken);
+        else state.SetSelectionEnd(offset, realm.NativeReadCheckpoint, realm.CancellationToken);
         SelectionChanged(realm, element, previous, state.Selection, fireSelect: true);
         return JsValue.Undefined;
     }
@@ -60,7 +66,7 @@ internal static class DomTextAreaMembers
         var direction = DomConvert.OptionalText(arguments, 2, null);
         var state = State(element);
         var previous = state.Selection;
-        state.SetSelectionRange(start, end, direction, realm.CancellationToken);
+        state.SetSelectionRange(start, end, direction, realm.NativeReadCheckpoint, realm.CancellationToken);
         SelectionChanged(realm, element, previous, state.Selection, fireSelect: true);
         return JsValue.Undefined;
     }
@@ -69,7 +75,7 @@ internal static class DomTextAreaMembers
     {
         var state = State(element);
         var previous = state.Selection;
-        state.Select(realm.CancellationToken);
+        state.Select(realm.NativeReadCheckpoint, realm.CancellationToken);
         SelectionChanged(realm, element, previous, state.Selection, fireSelect: true);
         return JsValue.Undefined;
     }
