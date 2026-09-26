@@ -59,7 +59,7 @@ internal static class TextExtractor
         {
             // A deferred sibling frame keeps storage proportional to depth, rather than subtree width.
             var pending = new Stack<Frame>();
-            pending.Push(new Frame(root, false, false, false, null, 0, true, false));
+            pending.Push(new Frame(root, WhiteSpaceMode.Collapse, false, false, null, 0, true, false));
             while (pending.TryPop(out var frame))
             {
                 work.Step();
@@ -72,14 +72,14 @@ internal static class TextExtractor
                     continue;
                 }
                 if (frame.Siblings && frame.Node.NextSibling is { } sibling)
-                    pending.Push(new Frame(sibling, frame.Preserve, false, true, null, 0, false, frame.Hidden));
+                    pending.Push(new Frame(sibling, frame.Mode, false, true, null, 0, false, frame.Hidden));
                 switch (frame.Node)
                 {
                     case Text text:
-                        if (!frame.Hidden) AddText(text, frame.Preserve);
+                        if (!frame.Hidden) AddText(text, frame.Mode);
                         break;
                     case CDataSection cdata:
-                        if (!frame.Hidden) AddText(cdata.Data, frame.Preserve);
+                        if (!frame.Hidden) AddText(cdata.Data, frame.Mode);
                         break;
                     case Element element:
                         if (ImplicitRole.IsMetadataContent(element)) break;
@@ -100,42 +100,85 @@ internal static class TextExtractor
                             Break(breaks);
                             break;
                         }
-                        var preserve = frame.Preserve || HtmlDisplay.PreservesWhitespace(element, visibility.WhiteSpace(element, traversal));
-                        pending.Push(new Frame(element, preserve, true, false, hidden || frame.Root ? null : display, breaks, false, hidden));
-                        if (element.FirstChild is { } child) pending.Push(new Frame(child, preserve, false, true, null, 0, false, hidden));
+                        var mode = WhiteSpaceFor(element, frame.Mode);
+                        pending.Push(new Frame(element, mode, true, false, hidden || frame.Root ? null : display, breaks, false, hidden));
+                        if (element.FirstChild is { } child) pending.Push(new Frame(child, mode, false, true, null, 0, false, hidden));
                         break;
                 }
             }
         }
 
-        private void AddText(Text text, bool preserve)
+        private WhiteSpaceMode WhiteSpaceFor(Element element, WhiteSpaceMode inherited)
+        {
+            // CSS Text §4.1: use the actual computed longhand, so a descendant normal overrides pre.
+            if (visibility.WhiteSpaceCollapse(element, traversal) is { } value)
+                return value switch
+                {
+                    "collapse" => WhiteSpaceMode.Collapse,
+                    "preserve" or "break-spaces" => WhiteSpaceMode.Preserve,
+                    "preserve-breaks" => WhiteSpaceMode.PreserveBreaks,
+                    "preserve-spaces" => WhiteSpaceMode.PreserveSpaces,
+                    _ => throw new NotSupportedException("innerText does not support computed white-space-collapse: " + value)
+                };
+            // The engine-free fallback uses HTML's suggested rendering without inventing CSS values.
+            return HtmlDisplay.PreservesWhitespace(element, null) ? WhiteSpaceMode.Preserve : inherited;
+        }
+
+        private void AddText(Text text, WhiteSpaceMode mode)
         {
             var first = true;
             for (var i = 0; i < text.DataLength; i++)
             {
                 work.Step();
-                AddCharacter(text.DataAt(i), preserve, ref first);
+                var c = text.DataAt(i);
+                if (c == '\r')
+                {
+                    c = '\n';
+                    if (i + 1 < text.DataLength)
+                    {
+                        work.Step();
+                        if (text.DataAt(i + 1) == '\n') i++;
+                    }
+                }
+                AddCharacter(c, mode, ref first);
             }
         }
 
-        private void AddText(string text, bool preserve)
+        private void AddText(string text, WhiteSpaceMode mode)
         {
             var first = true;
             for (var i = 0; i < text.Length; i++)
             {
                 work.Step();
-                AddCharacter(text[i], preserve, ref first);
+                var c = text[i];
+                if (c == '\r')
+                {
+                    c = '\n';
+                    if (i + 1 < text.Length)
+                    {
+                        work.Step();
+                        if (text[i + 1] == '\n') i++;
+                    }
+                }
+                AddCharacter(c, mode, ref first);
             }
         }
 
-        private void AddCharacter(char c, bool preserve, ref bool first)
+        private void AddCharacter(char c, WhiteSpaceMode mode, ref bool first)
         {
-            if (!preserve && c is ' ' or '\t' or '\n' or '\r' or '\f')
+            if (mode == WhiteSpaceMode.PreserveSpaces && c is '\t' or '\n' or '\f') c = ' ';
+            var collapse = mode is WhiteSpaceMode.Collapse or WhiteSpaceMode.PreserveBreaks;
+            if (mode == WhiteSpaceMode.PreserveBreaks && c == '\n')
+            {
+                _pendingSpace = false;
+                Prefix();
+            }
+            else if (collapse && c is ' ' or '\t' or '\n' or '\f')
             {
                 _pendingSpace = true;
                 return;
             }
-            if (!preserve || first) Prefix();
+            else if (collapse || first) Prefix();
             _builder.Append(c);
             _started = true;
             _pendingSpace = false;
@@ -203,6 +246,8 @@ internal static class TextExtractor
             return true;
         }
 
-        private readonly record struct Frame(Node Node, bool Preserve, bool Exit, bool Siblings, string? Display, int Breaks, bool Root, bool Hidden);
+        private enum WhiteSpaceMode { Collapse, Preserve, PreserveBreaks, PreserveSpaces }
+
+        private readonly record struct Frame(Node Node, WhiteSpaceMode Mode, bool Exit, bool Siblings, string? Display, int Breaks, bool Root, bool Hidden);
     }
 }

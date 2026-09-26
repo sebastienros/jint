@@ -114,10 +114,10 @@ internal sealed class ElementVisibility
     }
 
     /// <summary>
-    /// Reads the element's declared <c>white-space</c>, or <see langword="null"/> when the cascade cannot
+    /// Reads the element's computed <c>white-space-collapse</c>, or <see langword="null"/> when the cascade cannot
     /// answer.
     /// </summary>
-    internal string? WhiteSpace(Element element, CssCascade.Traversal? traversal = null)
+    internal string? WhiteSpaceCollapse(Element element, CssCascade.Traversal? traversal = null)
     {
         if (!_useComputedStyle || !_cascadeAvailable)
         {
@@ -126,7 +126,7 @@ internal sealed class ElementVisibility
 
         _work?.Check();
         if ((traversal is null ? CssCascade.Of(element) : traversal.Of(element)) is { } computed
-            && Dom.Views.CssCascade.ValueOf(computed, "white-space") is { } whiteSpace)
+            && Dom.Views.CssCascade.ValueOf(computed, "white-space-collapse") is { } whiteSpace)
         {
             _work?.Check();
             _cascadeAnswered = true;

@@ -7,6 +7,17 @@ namespace Jint.Tests.Browser.Extraction;
 
 public sealed class NativeInnerTextTests
 {
+    [TestCase("<div id=t style='white-space:pre-line'>a\n  b   c</div>", "a\nb c")]
+    [TestCase("<div id=t style='white-space:pre'><span style='white-space:normal'>a\n  b   c</span></div>", "a b c")]
+    [TestCase("<div id=t style='white-space-collapse:preserve-breaks'>a\n  b   c</div>", "a\nb c")]
+    public async Task ScriptGetterUsesTheActualComputedCollapseMode(string markup, string expected)
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(markup);
+        (await page.EvaluateAsync<string>("document.getElementById('t').innerText")).Should().Be(expected);
+    }
+
     [TestCase("<div id=t>a<div hidden>b</div><div>c</div>d<br>e</div>", "a\nc\nd\ne")]
     [TestCase("<div id=t hidden>  a<br>b\nc </div>", "  ab\nc ")]
     [TestCase("<section style='display:none'><div id=t> a<br>b </div></section>", " ab ")]
