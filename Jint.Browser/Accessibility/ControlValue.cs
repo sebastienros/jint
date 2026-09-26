@@ -1,5 +1,4 @@
 using System.Globalization;
-using AngleSharp.Html.Dom;
 using Jint.HtmlParser;
 
 namespace Jint.Browser.Accessibility;
@@ -27,14 +26,14 @@ internal static class ControlValue
 
         switch (element)
         {
-            case IHtmlInputElement input when role is "textbox" or "searchbox" or "combobox" or "spinbutton" or "slider":
-                return input.Value ?? string.Empty;
+            case { NamespaceUri: Namespaces.Html, LocalName: "input" } when role is "textbox" or "searchbox" or "combobox" or "spinbutton" or "slider":
+                return element.GetHtmlState()!.InputValue!.GetValue(CancellationToken.None);
 
             case { NamespaceUri: Namespaces.Html, LocalName: "textarea" }:
                 return element.GetHtmlState()!.TextArea!.GetValue(CancellationToken.None);
 
-            case IHtmlSelectElement select:
-                return SelectedText(select);
+            case { NamespaceUri: Namespaces.Html, LocalName: "select" }:
+                return SelectedText(element);
 
             case { NamespaceUri: Namespaces.Html, LocalName: "progress" }:
                 return HtmlControlView.ProgressValue(element).ToString("0.############", CultureInfo.InvariantCulture);
@@ -89,17 +88,13 @@ internal static class ControlValue
     private static bool IsRange(string role) =>
         role is "slider" or "spinbutton" or "progressbar" or "meter" or "scrollbar";
 
-    private static string SelectedText(IHtmlSelectElement select)
+    private static string SelectedText(Element select)
     {
-        foreach (var option in select.Options)
-        {
-            if (option.IsSelected)
-            {
-                return AccessibleName.Flatten(option.Text ?? string.Empty);
-            }
-        }
-
-        return string.Empty;
+        var state = select.GetHtmlState()!.GetSelectState(CancellationToken.None)!;
+        var index = state.GetSelectedIndex(CancellationToken.None);
+        var option = index < 0 ? null : state.Options.Item((uint) index, CancellationToken.None);
+        return option is null ? string.Empty
+            : AccessibleName.Flatten(option.GetHtmlState()!.GetOptionState(CancellationToken.None)!.GetText(CancellationToken.None));
     }
 
     private static double? Parse(string? text) =>

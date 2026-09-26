@@ -185,7 +185,7 @@ internal static class ActivationBehaviors
 
         switch (EventDom.ButtonType(button))
         {
-            case "submit":
+            case "submit" when FormSubmission.IsSubmitButton(button):
                 FormSubmission.Submit(wrapper.DomRealm, HtmlFormOwner.Of(button), button);
                 break;
             case "reset":
@@ -333,28 +333,28 @@ internal static class ActivationBehaviors
     /// choosing an option and a client clicking one have to change the same state and fire the same two
     /// events, or a page could tell the two apart.
     /// </remarks>
-    internal static void SelectOption(DomRealm dom, IHtmlOptionElement option)
+    internal static void SelectOption(DomRealm dom, Element option)
     {
-        if (option.IsDisabled || Ancestor<IHtmlSelectElement>(option) is not { } select || select.IsDisabled)
+        using var mutation = dom.MutateLayout();
+        if (!EventDom.IsHtml(option, "option")
+            || HtmlSelectAncestry.GetNearestSelect(option, dom.NativeReadCheckpoint, dom.CancellationToken) is not { } select)
         {
             return;
         }
 
-        if (option.IsSelected)
+        var state = select.GetHtmlState()!.GetSelectState(dom.CancellationToken)!;
+        if (!state.ApplyUserSelection(option, selected: true, dom.CancellationToken))
         {
             return;
         }
 
-        if (!select.IsMultiple)
+        var target = dom.WrapNode(select);
+        dom.Engine.Tasks.Post(() =>
         {
-            foreach (var other in select.Options)
-            {
-                other.IsSelected = false;
-            }
-        }
-
-        option.IsSelected = true;
-        FireInputAndChange(dom.WrapNode(select));
+            using var update = dom.MutateLayout();
+            state.CompleteUserSelection(dom.CancellationToken);
+            FireInputAndChange(target);
+        });
     }
 
     /// <summary>
@@ -481,19 +481,6 @@ internal static class ActivationBehaviors
 
             return current is Document;
         }
-    }
-
-    private static T? Ancestor<T>(Node node) where T : class
-    {
-        for (var current = node.ParentNode; current is not null; current = current.ParentNode)
-        {
-            if (current is T match)
-            {
-                return match;
-            }
-        }
-
-        return null;
     }
 
     /// <summary>
