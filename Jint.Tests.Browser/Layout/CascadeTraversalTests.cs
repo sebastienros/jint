@@ -556,20 +556,7 @@ public sealed class CascadeTraversalTests
         }
     }
 
-    private static DomTestFixture Create(string html)
-    {
-        var fixture = DomTestFixture.Create(html);
-        var realm = DomRealm.Of(fixture.Engine);
-        NativeCssStyleSheets.Associate(realm, fixture.Document);
-        // The inert fixture has completed parsing: publish each completed style owner explicitly,
-        // as the page parser does, before any cascade read. Queries only consume these resources.
-        foreach (var owner in ContentDom.Descendants(fixture.Document)
-                     .Where(element => element.LocalName == "style" && element.NamespaceUri is Namespaces.Html or Namespaces.Svg))
-        {
-            NativeCssStyleSheets.Install(realm, owner, ContentDom.TextContent(owner), "about:blank");
-        }
-        return fixture;
-    }
+    private static DomTestFixture Create(string html) => DomTestFixture.Create(html);
 
     private static IReadOnlyList<Element> Select(Document document, string selector) =>
         DomSelectors.QuerySelectorAll(NativeCssStyleSheets.RealmOf(document)!, document, selector);

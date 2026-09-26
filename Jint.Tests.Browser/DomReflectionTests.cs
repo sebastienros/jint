@@ -69,6 +69,7 @@ public sealed class DomReflectionTests
     public void AUrlAttributeReflectsAnAbsoluteUrl()
     {
         using var fixture = DomTestFixture.Create("<a id='a' href='/relative'>x</a><script id='s' src='sub/one.js'></script>");
+        DomDocumentState.Of(fixture.Document).Url = "http://localhost/";
 
         // The content attribute keeps what was written; the IDL attribute answers what it resolves to.
         fixture.Text("document.querySelector('#s').getAttribute('src')").Should().Be("sub/one.js");

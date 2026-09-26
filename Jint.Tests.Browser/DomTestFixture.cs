@@ -1,12 +1,13 @@
 using Jint.HtmlParser;
-using Jint.HtmlParser.Html;
+using Jint.Browser.Accessibility;
+using Jint.Browser.Styling;
 using Jint.Browser.Dom;
 using Jint.Native;
 
 namespace Jint.Tests.Browser;
 
 /// <summary>Native binding fixture: a minimally parsed document and an engine with Web APIs.</summary>
-/// <remarks>The native parser produces raw nodes; CSS and enhanced HTML state are demanded by bindings.</remarks>
+/// <remarks>Completed ordinary-tree styles are registered; CSS parsing and enhanced HTML state remain lazy.</remarks>
 internal sealed class DomTestFixture : IDisposable
 {
     private DomTestFixture(Document document, Engine engine)
@@ -22,19 +23,10 @@ internal sealed class DomTestFixture : IDisposable
     /// <summary>Parses <paramref name="html"/> and installs it as <c>document</c> on a fresh engine.</summary>
     internal static DomTestFixture Create(string html)
     {
-        var document = Document.CreateHtml();
         var engine = new Engine(options => options.UseWebApis());
-        var session = new HtmlParserSession(document, new HtmlParseOptions { ScriptingEnabled = false });
-        session.AppendInput(html, isFinal: true);
-        while (true)
-        {
-            engine.Constraints.Check();
-            var step = session.Drive(4096, CancellationToken.None);
-            if (step.Kind == HtmlParseStepKind.Complete) break;
-            if (step.Kind != HtmlParseStepKind.Yielded) throw new InvalidOperationException("Native fixture parser returned " + step.Kind);
-        }
-
+        var document = ContentDom.Parse(html, checkpoint: engine.Constraints.Check);
         DomBindings.Install(engine);
+        NativeCssStyleSheets.Associate(DomRealm.Of(engine), document);
         engine.SetValue("document", DomBindings.Wrap(engine, document));
 
         return new DomTestFixture(document, engine);
