@@ -2,6 +2,12 @@
 
 ## Scope and workflow
 
+**User resumed the full replacement on September 25.** Six implementation owners now cover Browser
+bindings/runtime, Events and accessibility, native CSS sheets/media, select/option state, input numeric
+algorithms, and contextual HTML fragments. The first new binding pass reduced Browser build errors
+from 932 to 718; this is progress, not a passing build. Exact chat ownership and completion gates are
+in [the resume checkpoint](html-parser-resume.md). No new performance claim or PR.
+
 **Latest user-directed finalization (September 25):** three independently reviewed parser slices
 are integrated: checkedness/radio state `ee422cefc`, original script source coordinates `9bc9157cf`,
 and internal CSS declarations `6e8915d7c`, `e8925567e`, `c9925b18c`. Fresh common Release non-corpus
