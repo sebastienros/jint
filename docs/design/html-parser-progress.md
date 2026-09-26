@@ -2,6 +2,14 @@
 
 ## Scope and workflow
 
+**Active continuation after wrap-up:** the full objective resumed from `97a77c148`. Browser native
+cutover (`414c`, chat `01a0db4d-a396-7e33-a770-ace95e2ad537`) and D6r6 notification/publication
+(`e333`, chat `01a0db52-af75-7971-9e0f-682e63ae96b0`) are active again. New H8 session/script
+handoff work is isolated in `af00`, chat `01a0db6e-c116-72e3-80cb-626149bab447`, based on the
+reviewed `html-parser-script-handoff.md` contract. All use GPT-6 Sol High; Astra High owns design
+and reviews. The saved checkpoint and cleanup counts below describe the preceding completed pass.
+No PRs. Continue the actual Browser replacement and preserve the native/parser/CSS ownership seams.
+
 **Latest user-directed wrap-up (September 25):** the five implementation chats reached saved
 checkpoints. All mergeable changes passed independent Astra High review and common Release validation.
 Common implementation HEAD is `10f8ee2ac`; production Browser still uses AngleSharp. No new feature
