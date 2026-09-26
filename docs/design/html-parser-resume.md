@@ -7,6 +7,13 @@ references, standalone parsing entry points, and equivalent paired benchmark acc
 conformance debt remains explicit; passing a missing-feature or checkpoint test is not completion.
 No PRs. Astra High owns designs/reviews; Sol High owns implementation in local worktrees.
 
+**Current integrated checkpoint: `6e3273234`.** Reviewed number parsing/shortest formatting
+(`c9885646d`) and contextual HTML fragments with bounded parser form association
+(`df35c6263`, `6e3273234`) pass **5,224/5,224** fresh Release non-corpus tests across net8/net10,
+zero failures/skips (`/private/tmp/jint-resumed-fragments-common.log`). Browser work remains isolated;
+its latest build stops at early declaration errors that mask later diagnostics. No passing native
+Browser build or speedup claim yet. CSS media, input value state and select state are under review.
+
 Current owners:
 
 | Work | Chat | Checkout |
@@ -29,7 +36,7 @@ Browser changes remain in `414c` until the package builds and works. Reopening C
 chats archived and 22 completed checkouts awaiting managed archive identities; previous counts below
 refer to the finite checkpoint.
 
-**Latest user-directed finalization (September 25):** reviewed native checkedness/radio state,
+**Historical user-directed finalization (September 25, before resumption):** reviewed native checkedness/radio state,
 script source coordinates, and internal CSS declaration blocks are integrated through `c9925b18c`.
 Fresh common Release non-corpus tests pass **4,482/4,482**, net8/net10, zero failures/skips:
 `/private/tmp/jint-finalize-all-parser.log`. Production Browser still uses AngleSharp; its unfinished

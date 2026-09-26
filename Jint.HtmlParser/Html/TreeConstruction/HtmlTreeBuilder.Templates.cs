@@ -12,7 +12,7 @@ internal sealed partial class HtmlTreeBuilder
     private bool _templateHasFor;
     private bool _templateOrdinaryShadowFallback;
 
-    private bool IsParsingTemplateContents => Last("template") >= 0;
+    private bool IsParsingTemplateContents => Last("template") >= 0 || _fragmentContext is { NamespaceUri: Namespaces.Html, LocalName: "template" };
 
     private void StartTemplate()
     {
