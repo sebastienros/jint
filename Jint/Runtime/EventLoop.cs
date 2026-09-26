@@ -157,6 +157,7 @@ internal sealed record EventLoop
     private readonly ConcurrentQueue<EventLoopJob> _events = new();
     private ConcurrentQueue<EventLoopJob>? _tasks;
     private IEventLoopTaskBudget? _taskBudget;
+    private Action? _taskStart;
     private int _taskDrainDeferralDepth;
 
     internal TaskDrainScope DeferTaskDrain()
@@ -204,6 +205,10 @@ internal sealed record EventLoop
         _taskBudget = budget;
         _tasks = tasks;
     }
+
+    // A host may reconcile pending native work only at a healthy, budgeted entry, inside the
+    // task's existing try/finally. Ordinary engines keep their existing FIFO without this hook.
+    internal void ConfigureTaskStart(Action taskStart) => _taskStart = taskStart;
 
     /// <summary>
     /// Tracks whether we are currently processing the event loop.
@@ -571,6 +576,7 @@ internal sealed record EventLoop
             var entered = _taskBudget!.BeginTask(isTask: false);
             try
             {
+                _taskStart?.Invoke();
                 RunTaskCheckpoint(engine);
             }
             finally
@@ -605,6 +611,7 @@ internal sealed record EventLoop
                 _taskBudget!.BeginTask(isTask: true);
                 try
                 {
+                    _taskStart?.Invoke();
                     if (!engine.TryRunIdleCallback())
                     {
                         return;
@@ -633,6 +640,7 @@ internal sealed record EventLoop
             _taskBudget!.BeginTask(isTask: true);
             try
             {
+                _taskStart?.Invoke();
                 engine.RunEventLoopJob(in task);
                 RunTaskCheckpoint(engine);
             }
