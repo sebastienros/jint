@@ -151,7 +151,9 @@ public sealed class CascadeTraversalTests
         // Independent expected values for main, its first div/span, and its three remaining divs.
         var displays = selector switch
         {
-            ".a" or ".ancestor .a" => new[] { "block", "none", "flex", "none", "block", "flex" },
+            // CSS Cascade 5 §6.1: later .b wins its equal-specificity tie with .a on class="a b".
+            ".a" => new[] { "block", "none", "flex", "flex", "block", "flex" },
+            ".ancestor .a" => new[] { "block", "none", "flex", "none", "block", "flex" },
             ".a.b" or ".a + .b" or ".a:nth-child(2)" => new[] { "block", "block", "flex", "none", "block", "flex" },
             ".a > .b" => new[] { "block", "block", "none", "flex", "block", "flex" },
             ".a ~ .b" => new[] { "block", "block", "flex", "none", "block", "none" },
