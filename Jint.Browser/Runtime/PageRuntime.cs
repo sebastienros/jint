@@ -227,6 +227,9 @@ internal sealed class PageRuntime
     /// <summary>The DOM views of this engine — <c>DOMParser</c>, <c>XMLSerializer</c>, <c>Selection</c>.</summary>
     internal Dom.Views.ViewRealm Views => _views ??= new Dom.Views.ViewRealm(this);
     internal Dom.Views.ViewRealm? ViewsIfCreated => _views;
+    // The same immutable record is assigned to the document before its parser runs.
+    // It is available to new-document scripts before the document has been constructed.
+    internal DomDocumentOrigin? DocumentCreationOrigin { get; set; }
 
     /// <summary>The document this engine is showing, or <see langword="null"/> before the first parse.</summary>
     /// <remarks>

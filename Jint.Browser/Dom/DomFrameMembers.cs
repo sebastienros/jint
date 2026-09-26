@@ -43,8 +43,8 @@ internal static class DomFrameMembers
     /// <c>srcdoc</c> frame's document carries the owner's URL already and needs no rule of its own.
     /// </para>
     /// <para>
-    /// Every other opaque origin answers <see langword="null"/>, being same origin with nothing — not even
-    /// itself. <c>document.domain</c> is not implemented, so "same origin-domain" and "same origin" are one
+    /// An opaque origin is compared by identity: an inherited blank or srcdoc origin remains same origin
+    /// with its creator, while independently created opaque origins are different. <c>document.domain</c> is not implemented, so "same origin-domain" and "same origin" are one
     /// question here.
     /// </para>
     /// </remarks>
@@ -55,20 +55,8 @@ internal static class DomFrameMembers
             return JsValue.Null;
         }
 
-        var here = PageUrl.OriginOf(frame.OwnerDocument is { } owner ? DomDocumentState.Of(owner).Url : null);
-
-        if (string.Equals(here, PageUrl.OpaqueOrigin, StringComparison.Ordinal))
-        {
-            return JsValue.Null;
-        }
-
-        if (string.Equals(DomDocumentState.Of(nested).Url, "about:blank", StringComparison.OrdinalIgnoreCase))
-        {
-            Attach(realm, frame, nested);
-            return realm.WrapNodeValue(nested);
-        }
-
-        if (!string.Equals(here, PageUrl.OriginOf(DomDocumentState.Of(nested).Url), StringComparison.Ordinal))
+        if (frame.OwnerDocument is not { } owner
+            || !DomDocumentState.Of(owner).Origin.IsSameOrigin(DomDocumentState.Of(nested).Origin))
         {
             return JsValue.Null;
         }

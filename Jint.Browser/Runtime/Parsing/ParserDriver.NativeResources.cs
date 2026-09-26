@@ -208,10 +208,17 @@ internal sealed partial class ParserDriver
     private void LoadFrame(Element frame)
     {
         if (!IsResourceConnected(frame)) return;
+        // Freeze origin and sandbox facts before fetching can pump a later page turn.
+        var owner = frame.OwnerDocument!;
+        var creatorOrigin = DomDocumentState.Of(owner).Origin;
+        var creatorUrl = DomDocumentState.Of(owner).Url;
+        var creatorBaseUrl = BaseUrlOf(owner);
+        var creatorContext = DomBrowsingContext.Of(owner);
+        var sandboxedOrigin = HasSandboxedOrigin(frame);
         var srcdoc = Attribute(frame, "srcdoc");
         var src = Attribute(frame, "src");
         var url = srcdoc is not null ? "about:srcdoc"
-            : string.IsNullOrEmpty(src) ? "about:blank" : PageUrl.Resolve(src, BaseUrlOf(frame.OwnerDocument!));
+            : string.IsNullOrEmpty(src) ? "about:blank" : PageUrl.Resolve(src, creatorBaseUrl);
         var signature = srcdoc is not null ? "srcdoc:" + srcdoc : "src:" + url;
         var source = _resourceSources.GetValue(frame, static _ => new ResourceSource());
         if (source.Signature == signature) return;
@@ -227,6 +234,7 @@ internal sealed partial class ParserDriver
         _frameDocuments++;
         string markup;
         string contentType;
+        DateTimeOffset? lastModified = null;
         if (srcdoc is not null || url == "about:blank")
         {
             markup = srcdoc ?? "";
@@ -236,27 +244,46 @@ internal sealed partial class ParserDriver
         {
             if (FetchBytes(url, frame, "frame document", PageRequestKind.Frame,
                     mayPump: !_runtime.Engine.IsEvaluationInProgress) is not { } body) return;
+            lastModified = body.LastModified;
             (markup, contentType) = DocumentFetch.Decode(body.Bytes, body.ContentType, body.Url);
             url = body.Url;
         }
         var document = new Document(DomContentType.IsXml(contentType) ? DocumentKind.Xml : DocumentKind.Html,
             contentType, new CustomElementRegistryIdentity(isScoped: false));
+        DomDocumentMetadata.Initialize(document, sandboxedOrigin ? DomDocumentOrigin.Opaque()
+            : url is "about:blank" or "about:srcdoc" ? creatorOrigin : DomDocumentOrigin.FromUrl(url), lastModified);
         var metadata = DomDocumentState.Of(document);
         metadata.Url = url;
-        metadata.Referrer = DomDocumentState.Of(frame.OwnerDocument!).Url;
+        metadata.Referrer = creatorUrl;
         metadata.ReadyState = "loading";
-        if (url is "about:blank" or "about:srcdoc") metadata.AboutBaseUrl = BaseUrlOf(frame.OwnerDocument!);
+        if (url is "about:blank" or "about:srcdoc") metadata.AboutBaseUrl = creatorBaseUrl;
         if (DomBrowsingContext.OfFrame(frame) is { } context)
         {
             if (context.Active is { } previous && _resourceWatches.Remove(previous, out var watch)) watch.Subscription.Dispose();
             context.Activate(document);
         }
-        else context = new DomBrowsingContext(document, DomBrowsingContext.Of(frame.OwnerDocument!), frame);
+        else context = new DomBrowsingContext(document, creatorContext, frame);
         var dom = FrameWindows.DocumentRealm(_runtime, document);
         dom.AssociateContext(context);
         Parse(document, markup, isSrcdoc: srcdoc is not null);
         dom.RecordSubtree(document);
         QueueResourceEvent(frame, "load", afterParse: true);
+    }
+
+    // https://html.spec.whatwg.org/multipage/origin.html#sandboxed-origin-browsing-context-flag
+    private bool HasSandboxedOrigin(Element frame)
+    {
+        var sandbox = Attribute(frame, "sandbox");
+        if (sandbox is null) return false;
+        var start = 0;
+        for (var i = 0; i <= sandbox.Length; i++)
+        {
+            if ((i & 4095) == 0) _runtime.Engine.Constraints.Check();
+            if (i != sandbox.Length && sandbox[i] is not (' ' or '\t' or '\n' or '\r' or '\f')) continue;
+            if (sandbox.AsSpan(start, i - start).Equals("allow-same-origin", StringComparison.OrdinalIgnoreCase)) return false;
+            start = i + 1;
+        }
+        return true;
     }
 
     private void ObserveUnstartedScript(Element script)

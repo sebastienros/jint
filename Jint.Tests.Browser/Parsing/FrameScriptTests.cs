@@ -85,7 +85,16 @@ public class FrameScriptTests
                 ? "<!doctype html><iframe sandbox srcdoc=\"" + child + "\"></iframe>"
                 : "<!doctype html><iframe sandbox src=/child></iframe>"));
         await loopback.Page.NavigateAsync(loopback.Url("/"));
-        await loopback.Page.EvaluateAsync("document.querySelector('iframe').contentDocument.querySelector('button').dispatchEvent(new Event('click'))");
+        (await loopback.Page.EvaluateAsync<bool>("document.querySelector('iframe').contentDocument === null")).Should().BeTrue();
+        await loopback.Page.RunOnLoopAsync(engine =>
+        {
+            var runtime = global::Jint.Browser.Runtime.PageRuntime.Find(engine)!;
+            var frame = global::Jint.Browser.Dom.DomSelectors.QuerySelector(runtime.Dom, runtime.Document!, "iframe")!;
+            var childDocument = global::Jint.Browser.Dom.DomBrowsingContext.OfFrame(frame)!.Active!;
+            engine.SetValue("sandboxChildForHostTest", runtime.Dom.WrapNodeValue(childDocument));
+            engine.Evaluate("sandboxChildForHostTest.querySelector('button').dispatchEvent(new Event('click'))");
+            return true;
+        });
         (await loopback.Page.EvaluateAsync<bool>("typeof leaked === 'undefined'")).Should().BeTrue();
         loopback.Page.Errors.Should().BeEmpty();
     }

@@ -74,7 +74,9 @@ internal static class DomConstructors
     {
         if (ReferenceEquals(definition, DomInterfaces.Document))
         {
-            instance = (ObjectInstance) realm.Wrap(NewXmlDocument(), DomInterfaces.Document);
+            var document = NewXmlDocument();
+            DomDocumentMetadata.Initialize(document, DomDocumentMetadata.CreatorOrigin(realm));
+            instance = (ObjectInstance) realm.Wrap(document, DomInterfaces.Document);
             return true;
         }
 
@@ -150,7 +152,12 @@ internal static class DomConstructors
 
     /// <summary>The current global object's associated <c>Document</c>, or an empty one when there is none.</summary>
     private static Document NodeDocument(DomRealm realm)
-        => realm.Document ?? NewXmlDocument();
+    {
+        if (realm.Document is { } document) return document;
+        document = NewXmlDocument();
+        DomDocumentMetadata.Initialize(document, DomDocumentMetadata.CreatorOrigin(realm));
+        return document;
+    }
 
     private static string Data(JsValue[] arguments)
         => DomConvert.OptionalText(arguments, 0, string.Empty)!;

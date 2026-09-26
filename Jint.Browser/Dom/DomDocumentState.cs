@@ -18,6 +18,8 @@ internal sealed class DomDocumentState
         => States.TryGetValue(document, out var state) && state.DesignModeEnabled;
 
     internal bool DesignModeEnabled { get; set; }
+    internal DomDocumentOrigin Origin { get; set; } = DomDocumentOrigin.Opaque();
+    internal DateTimeOffset? SourceLastModified { get; set; }
 
     internal string Url { get; set; } = "about:blank";
     internal string Referrer { get; set; } = "";

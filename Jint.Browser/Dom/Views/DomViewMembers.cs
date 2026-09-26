@@ -194,6 +194,7 @@ internal static class DomViewMembers
         var given = arguments.Length > 0 && !arguments[0].IsUndefined();
         var title = DomConvert.OptionalText(arguments, 0, "")!;
         var document = HtmlParser.Document.CreateHtml();
+        DomDocumentMetadata.Initialize(document, DomDocumentState.Of(implementation.Document).Origin);
         document.AppendChild(document.CreateDocumentType("html"));
         var html = document.CreateElement("html");
         document.AppendChild(html);
@@ -226,7 +227,7 @@ internal static class DomViewMembers
     /// <see cref="DomContentType"/>.
     /// </para>
     /// </remarks>
-    internal static JsValue CreateDocument(DomRealm realm, JsValue[] arguments)
+    internal static JsValue CreateDocument(DomRealm realm, DomImplementation implementation, JsValue[] arguments)
     {
         if (arguments.Length < 2)
         {
@@ -248,6 +249,7 @@ internal static class DomViewMembers
         // Step 7, taken first because the content type is what the document is parsed as rather than
         // something set on it afterwards.
         var document = DomConstructors.NewXmlDocument(ContentTypeFor(namespaceUri));
+        DomDocumentMetadata.Initialize(document, DomDocumentState.Of(implementation.Document).Origin);
 
         // Step 3: the internal createElementNS steps. Validate-and-extract's two refusals are DomNames', which
         // this member now has a row of its own in: the creation no longer leans on AngleSharp's stricter name

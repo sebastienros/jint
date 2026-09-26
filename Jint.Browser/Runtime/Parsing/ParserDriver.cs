@@ -70,13 +70,14 @@ internal sealed partial class ParserDriver : IDisposable
         string markup,
         string url,
         string contentType,
-        Action<NavigationPhase>? onPhase)
+        Action<NavigationPhase>? onPhase,
+        DateTimeOffset? lastModified = null)
     {
         using var construction = runtime.Layout.BeginMutation();
         var driver = new ParserDriver(runtime, url, runtime.Cancellation?.Token ?? CancellationToken.None);
         runtime.Parser = driver;
         runtime.Engine.Disposed += (_, _) => driver.Dispose();
-        try { return driver.Run(markup, contentType, onPhase); }
+        try { return driver.Run(markup, contentType, onPhase, lastModified); }
         catch { driver.Dispose(); runtime.Parser = null; throw; }
     }
 
@@ -94,9 +95,10 @@ internal sealed partial class ParserDriver : IDisposable
         _baton.Dispose();
     }
 
-    private PageLoad Run(string markup, string contentType, Action<NavigationPhase>? onPhase)
+    private PageLoad Run(string markup, string contentType, Action<NavigationPhase>? onPhase, DateTimeOffset? lastModified)
     {
         var document = new Document(DomContentType.IsXml(contentType) ? DocumentKind.Xml : DocumentKind.Html, contentType, new CustomElementRegistryIdentity(isScoped: false));
+        DomDocumentMetadata.Initialize(document, _runtime.DocumentCreationOrigin ?? DomDocumentOrigin.FromUrl(_url), lastModified);
         var context = new DomBrowsingContext(document);
         _context = context;
         _runtime.Dom.AssociateContext(context);
@@ -514,7 +516,7 @@ internal sealed partial class ParserDriver : IDisposable
             return new FetchedBody(
                 fetched.Bytes,
                 ResponseUrl(fetched.Url, fetched.Fragment),
-                fetched.ContentType);
+                fetched.ContentType, fetched.LastModified);
         }
         catch (OperationCanceledException) when (_cancellationToken.IsCancellationRequested)
         {
@@ -578,7 +580,7 @@ internal sealed partial class ParserDriver : IDisposable
     }
 
     /// <summary>One subresource's bytes, the URL they were answered under, and what the server called them.</summary>
-    private readonly record struct FetchedBody(byte[] Bytes, string Url, string? ContentType);
+    private readonly record struct FetchedBody(byte[] Bytes, string Url, string? ContentType, DateTimeOffset? LastModified = null);
 
     /// <summary>The URL a fetched subresource is answered under.</summary>
     /// <remarks>

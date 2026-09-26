@@ -349,7 +349,7 @@ internal static class WindowInstaller
                     PageRuntime.Of(t, "name").WindowName = TypeConverter.ToString(args.At(0));
                     return JsValue.Undefined;
                 })
-            .Accessor("origin", static (t, _) => JsString.Create(PageUrl.OriginOf(PageRuntime.Of(t, "origin").DocumentUrl)))
+            .Accessor("origin", static (t, _) => JsString.Create(DomDocumentMetadata.CreatorOrigin(PageRuntime.Of(t, "origin").Dom).Serialized))
             .Method("stop", static (_, _) => JsValue.Undefined)
             .Method("focus", static (_, _) => JsValue.Undefined)
             .Method("blur", static (_, _) => JsValue.Undefined)
@@ -552,7 +552,7 @@ internal static class WindowInstaller
         // message is serialized now, in the caller's turn, and deserialized into the event later — so a
         // mutation between the two is not observed by the listener.
         var message = StructuredCloner.Clone(engine, realm, arguments.At(0), transferList: null);
-        var origin = JsString.Create(PageUrl.OriginOf(runtime.DocumentUrl));
+        var origin = JsString.Create(DomDocumentMetadata.CreatorOrigin(runtime.Dom).Serialized);
 
         engine.Tasks.Post(() =>
         {

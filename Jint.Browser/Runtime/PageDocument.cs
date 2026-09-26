@@ -23,8 +23,8 @@ internal static class PageDocument
         string markup,
         string url,
         string contentType,
-        Action<NavigationPhase>? onPhase = null)
-        => ParserDriver.Load(runtime, markup, url, contentType, onPhase);
+        Action<NavigationPhase>? onPhase = null, DateTimeOffset? lastModified = null)
+        => ParserDriver.Load(runtime, markup, url, contentType, onPhase, lastModified);
 }
 
 /// <summary>What one parse produced: the document, the context that owns it, and how much script ran.</summary>

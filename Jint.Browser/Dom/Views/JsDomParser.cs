@@ -25,10 +25,12 @@ internal sealed class JsDomParser : ObjectInstance
     private const string ParserErrorNamespace = "http://www.mozilla.org/newlayout/xml/parsererror.xml";
 
     private readonly PageRuntime _runtime;
+    private readonly DomRealm _realm;
 
     internal JsDomParser(PageRuntime runtime, ObjectInstance prototype) : base(runtime.Engine)
     {
         _runtime = runtime;
+        _realm = runtime.Dom;
         Prototype = prototype;
     }
 
@@ -78,12 +80,12 @@ internal sealed class JsDomParser : ObjectInstance
             _ => Unsupported(_runtime.Engine, type),
         };
 
-        return _runtime.Dom.WrapNode(document);
+        return _realm.WrapNode(document);
     }
 
     private Document ParseHtml(string source)
     {
-        var document = Document.CreateHtml();
+        var document = CreateDocument(DomContentType.Html);
         var session = new HtmlParserSession(document, new HtmlParseOptions { ScriptingEnabled = false });
         session.AppendInput(source, isFinal: true);
         var cancellationToken = _runtime.Cancellation?.Token ?? CancellationToken.None;
@@ -106,7 +108,7 @@ internal sealed class JsDomParser : ObjectInstance
     {
         try
         {
-            return XmlDocumentParser.Parse(source, Document.CreateXml(type), null,
+            return XmlDocumentParser.Parse(source, CreateDocument(type), null,
                 _runtime.Cancellation?.Token ?? CancellationToken.None);
         }
         catch (MarkupParseException exception)
@@ -115,10 +117,19 @@ internal sealed class JsDomParser : ObjectInstance
         }
     }
 
-    /// <summary>The parsererror document HTML's parseFromString algorithm requires on XML syntax failure.</summary>
-    private static Document ErrorDocument(string message, string type)
+    private Document CreateDocument(string type)
     {
-        var document = Document.CreateXml(type);
+        var document = type == DomContentType.Html ? Document.CreateHtml() : Document.CreateXml(type);
+        DomDocumentMetadata.Initialize(document, DomDocumentMetadata.CreatorOrigin(_realm));
+        DomDocumentState.Of(document).Url = _realm.Document is { } associated
+            ? DomDocumentState.Of(associated).Url : _runtime.DocumentUrl;
+        return document;
+    }
+
+    /// <summary>The parsererror document HTML's parseFromString algorithm requires on XML syntax failure.</summary>
+    private Document ErrorDocument(string message, string type)
+    {
+        var document = CreateDocument(type);
         var html = document.CreateElementNS(Namespaces.Html, "html");
         var body = document.CreateElementNS(Namespaces.Html, "body");
         var error = document.CreateElementNS(ParserErrorNamespace, "parsererror");

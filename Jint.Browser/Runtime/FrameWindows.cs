@@ -145,7 +145,7 @@ internal static class FrameWindows
         Accessor("frameElement", () => runtime.Dom.WrapNodeValue(ElementOf(document)));
         Accessor("length", () => JsNumber.Create(Count(document)));
         Accessor("name", () => JsString.Create(ElementOf(document)?.GetAttribute("name") ?? ""));
-        Own(window, "origin", JsString.Create(PageUrl.OriginOf(DomDocumentState.Of(document).Url)));
+        Own(window, "origin", JsString.Create(DomDocumentMetadata.Origin(document)));
         var location = Location(runtime.Engine, realm, document);
         window.DefineOwnPropertyUnchecked("location", new GetSetPropertyDescriptor(
             new ClrFunction(runtime.Engine, realm, "get location", (_, _) => location, 0),
@@ -172,15 +172,14 @@ internal static class FrameWindows
     {
         // Cross-origin WindowProxy access control and sandboxed globals are separate capabilities.
         // Do not expose the parent's raw global through a child which cannot normally reach it.
-        var origin = PageUrl.OriginOf(runtime.DocumentUrl);
-        if (origin == PageUrl.OpaqueOrigin || runtime.Document is not { } principal)
+        if (runtime.Document is not { } principal)
         {
             return false;
         }
+        var origin = DomDocumentState.Of(principal).Origin;
         for (var current = document; !ReferenceEquals(DomBrowsingContext.Of(current), DomBrowsingContext.Of(principal));)
         {
-            if (!string.Equals(DomDocumentState.Of(current).Url, "about:blank", StringComparison.OrdinalIgnoreCase)
-                && !string.Equals(PageUrl.OriginOf(DomDocumentState.Of(current).Url), origin, StringComparison.Ordinal))
+            if (!origin.IsSameOrigin(DomDocumentState.Of(current).Origin))
             {
                 return false;
             }

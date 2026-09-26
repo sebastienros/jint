@@ -11,7 +11,8 @@ namespace Jint.Browser.Runtime;
 /// <param name="Url">The URL the resource ended up at, serialized without its fragment.</param>
 /// <param name="Fragment">The last hop's fragment: null when absent, empty when an explicit trailing <c>#</c>.</param>
 /// <param name="Status">The status of the final response.</param>
-internal sealed record FetchedSubresource(byte[] Bytes, string? ContentType, string Url, string? Fragment, int Status)
+/// <param name="LastModified">The final response's resource timestamp, when its header is valid.</param>
+internal sealed record FetchedSubresource(byte[] Bytes, string? ContentType, string Url, string? Fragment, int Status, DateTimeOffset? LastModified = null)
 {
     /// <summary>
     /// The body decoded as text, with the charset the response declared, then the caller's hint, then UTF-8.
@@ -184,7 +185,7 @@ internal static class SubresourceFetch
                     "'" + final + "' answered " + status.ToString(System.Globalization.CultureInfo.InvariantCulture) + ".");
             }
 
-            return new FetchedSubresource(bytes, ContentTypeOf(response), final, exchange.Url.Fragment, status);
+            return new FetchedSubresource(bytes, ContentTypeOf(response), final, exchange.Url.Fragment, status, response.Content.Headers.LastModified);
         }
         catch (SubresourceFetchException)
         {

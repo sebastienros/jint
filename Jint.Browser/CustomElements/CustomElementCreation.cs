@@ -75,6 +75,7 @@ internal static class CustomElementCreation
         {
             var sourceState = DomDocumentState.Of(original);
             var copyState = DomDocumentState.Of(documentCopy);
+            copyState.Origin = sourceState.Origin;
             copyState.Url = sourceState.Url;
             copyState.Referrer = sourceState.Referrer;
             copyState.CharacterSet = sourceState.CharacterSet;
