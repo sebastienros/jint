@@ -22,20 +22,22 @@ public sealed class Text : Node
     public string Data
     {
         get => _parsedStorage is null ? _data : _cachedParsedData ??= new string(_parsedStorage, 0, _parsedLength);
-        set
-        {
-            ArgumentNullException.ThrowIfNull(value);
-            var matches = MutationTracking.Match(this, MutationRecordKind.CharacterData);
-            var oldValue = matches?.NeedsOldValue == true ? Data : null;
-            LiveTraversalTracking.ReplaceData(this, 0, (uint) BoundaryOrder.GetLength(new DomNodeIdentity(this)), (uint) value.Length);
-            _data = value;
-            _parsedStorage = null;
-            _parsedLength = 0;
-            _cachedParsedData = null;
-            OwnerDocument!.MarkMutation();
-            if (ParentNode is { } parent) HtmlTextAreaMutations.ChildrenChanged(parent);
-            MutationTracking.QueueCharacterData(this, oldValue, matches);
-        }
+        set => ReplaceDataCore(value, 0, BoundaryOrder.GetLength(new DomNodeIdentity(this)), (uint) (value?.Length ?? 0));
+    }
+
+    internal void ReplaceDataCore(string value, uint offset, uint count, uint insertedLength)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        var matches = MutationTracking.Match(this, MutationRecordKind.CharacterData);
+        var oldValue = matches?.NeedsOldValue == true ? Data : null;
+        LiveTraversalTracking.ReplaceData(this, offset, count, insertedLength);
+        _data = value;
+        _parsedStorage = null;
+        _parsedLength = 0;
+        _cachedParsedData = null;
+        OwnerDocument!.MarkMutation();
+        if (ParentNode is { } parent) HtmlTextAreaMutations.ChildrenChanged(parent);
+        MutationTracking.QueueCharacterData(this, oldValue, matches);
     }
 
     internal void AppendParsedData(ReadOnlySpan<char> data, CancellationToken cancellationToken)
@@ -112,17 +114,19 @@ public sealed class Comment : Node
     public string Data
     {
         get => _data;
-        set
-        {
-            ArgumentNullException.ThrowIfNull(value);
-            var matches = MutationTracking.Match(this, MutationRecordKind.CharacterData);
-            var oldValue = matches?.NeedsOldValue == true ? _data : null;
-            LiveTraversalTracking.ReplaceData(this, 0, (uint) BoundaryOrder.GetLength(new DomNodeIdentity(this)), (uint) value.Length);
-            _data = value;
-            OwnerDocument!.MarkMutation();
-            if (ParentNode is { } parent) HtmlTextAreaMutations.ChildrenChanged(parent);
-            MutationTracking.QueueCharacterData(this, oldValue, matches);
-        }
+        set => ReplaceDataCore(value, 0, BoundaryOrder.GetLength(new DomNodeIdentity(this)), (uint) (value?.Length ?? 0));
+    }
+
+    internal void ReplaceDataCore(string value, uint offset, uint count, uint insertedLength)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        var matches = MutationTracking.Match(this, MutationRecordKind.CharacterData);
+        var oldValue = matches?.NeedsOldValue == true ? _data : null;
+        LiveTraversalTracking.ReplaceData(this, offset, count, insertedLength);
+        _data = value;
+        OwnerDocument!.MarkMutation();
+        if (ParentNode is { } parent) HtmlTextAreaMutations.ChildrenChanged(parent);
+        MutationTracking.QueueCharacterData(this, oldValue, matches);
     }
 }
 
@@ -141,17 +145,19 @@ public sealed class CDataSection : Node
     public string Data
     {
         get => _data;
-        set
-        {
-            ArgumentNullException.ThrowIfNull(value);
-            var matches = MutationTracking.Match(this, MutationRecordKind.CharacterData);
-            var oldValue = matches?.NeedsOldValue == true ? _data : null;
-            LiveTraversalTracking.ReplaceData(this, 0, (uint) BoundaryOrder.GetLength(new DomNodeIdentity(this)), (uint) value.Length);
-            _data = value;
-            OwnerDocument!.MarkMutation();
-            if (ParentNode is { } parent) HtmlTextAreaMutations.ChildrenChanged(parent);
-            MutationTracking.QueueCharacterData(this, oldValue, matches);
-        }
+        set => ReplaceDataCore(value, 0, BoundaryOrder.GetLength(new DomNodeIdentity(this)), (uint) (value?.Length ?? 0));
+    }
+
+    internal void ReplaceDataCore(string value, uint offset, uint count, uint insertedLength)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        var matches = MutationTracking.Match(this, MutationRecordKind.CharacterData);
+        var oldValue = matches?.NeedsOldValue == true ? _data : null;
+        LiveTraversalTracking.ReplaceData(this, offset, count, insertedLength);
+        _data = value;
+        OwnerDocument!.MarkMutation();
+        if (ParentNode is { } parent) HtmlTextAreaMutations.ChildrenChanged(parent);
+        MutationTracking.QueueCharacterData(this, oldValue, matches);
     }
 }
 
@@ -265,17 +271,19 @@ public sealed class ProcessingInstruction : Node
     public string Data
     {
         get => _data;
-        set
-        {
-            ArgumentNullException.ThrowIfNull(value);
-            var matches = MutationTracking.Match(this, MutationRecordKind.CharacterData);
-            var oldValue = matches?.NeedsOldValue == true ? _data : null;
-            LiveTraversalTracking.ReplaceData(this, 0, (uint) BoundaryOrder.GetLength(new DomNodeIdentity(this)), (uint) value.Length);
-            _data = value;
-            OwnerDocument!.MarkMutation();
-            if (ParentNode is { } parent) HtmlTextAreaMutations.ChildrenChanged(parent);
-            MutationTracking.QueueCharacterData(this, oldValue, matches);
-        }
+        set => ReplaceDataCore(value, 0, BoundaryOrder.GetLength(new DomNodeIdentity(this)), (uint) (value?.Length ?? 0));
+    }
+
+    internal void ReplaceDataCore(string value, uint offset, uint count, uint insertedLength)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        var matches = MutationTracking.Match(this, MutationRecordKind.CharacterData);
+        var oldValue = matches?.NeedsOldValue == true ? _data : null;
+        LiveTraversalTracking.ReplaceData(this, offset, count, insertedLength);
+        _data = value;
+        OwnerDocument!.MarkMutation();
+        if (ParentNode is { } parent) HtmlTextAreaMutations.ChildrenChanged(parent);
+        MutationTracking.QueueCharacterData(this, oldValue, matches);
     }
 }
 

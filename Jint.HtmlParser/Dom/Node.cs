@@ -513,7 +513,9 @@ public abstract partial class Node
         }
     }
 
-    private static void Detach(Node node, bool suppressRecord = false, bool suppressSemantic = false)
+    internal void RemoveForNormalization(uint index) => Detach(this, knownIndex: index);
+
+    private static void Detach(Node node, bool suppressRecord = false, bool suppressSemantic = false, uint? knownIndex = null)
     {
         var parent = node.ParentNode;
         if (parent is null)
@@ -521,7 +523,7 @@ public abstract partial class Node
             return;
         }
 
-        LiveTraversalTracking.Remove(node, parent);
+        LiveTraversalTracking.Remove(node, parent, knownIndex);
         var formRemoval = HtmlFormAssociation.BeforeRemoval(node, parent);
         var previousSibling = node.PreviousSibling;
         var nextSibling = node.NextSibling;

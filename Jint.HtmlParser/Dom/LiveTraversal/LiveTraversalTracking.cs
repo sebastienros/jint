@@ -103,11 +103,11 @@ internal static class LiveTraversalTracking
             : point.Offset > offset ? point with { Offset = offset } : point);
     }
 
-    internal static void Remove(Node node, Node parent)
+    internal static void Remove(Node node, Node parent, uint? knownIndex = null)
     {
         var document = parent as Document ?? parent.OwnerDocument!;
         if (document.RangeBuckets is not { } buckets) return;
-        var index = IndexOf(node);
+        var index = knownIndex ?? IndexOf(node);
         // Snapshot handles once before endpoint moves rewire the sparse index.
         List<EndpointHandle>? affected = null;
         foreach (var slot in buckets)
