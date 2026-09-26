@@ -1386,8 +1386,8 @@
     },
     {
       "DomName": "CSSImportRule",
-      "ClrTypeName": "Jint.Browser.Dom.NativeCssUnavailable",
-      "ReceiverType": "global::Jint.Browser.Dom.NativeCssUnavailable",
+      "ClrTypeName": "Jint.HtmlParser.Css.Model.CssImportRule",
+      "ReceiverType": "global::Jint.HtmlParser.Css.Model.CssImportRule",
       "Parent": "CSSRule",
       "RootsAtEventTarget": false,
       "HasInterfaceObject": true,
@@ -1402,7 +1402,7 @@
         {
           "DomName": "href",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSImportRule.href\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSImportRule.href\");",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssImportRule>(thisObj, \"CSSImportRule.href\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Href);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "ICssImportRule.Href"
@@ -1410,15 +1410,15 @@
         {
           "DomName": "media",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSImportRule.media\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSImportRule.media\");",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSImportRule.media\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSImportRule.media\");",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssImportRule>(thisObj, \"CSSImportRule.media\");\nreturn self.Realm.Wrap(self.Target.Media);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssImportRule>(thisObj, \"CSSImportRule.media\");\nglobal::Jint.Browser.Styling.NativeCssBindings.SetMediaText(self.Realm, self.Target.Media, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"CSSImportRule.media\")); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "ICssImportRule.Media"
         },
         {
           "DomName": "styleSheet",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSImportRule.styleSheet\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSImportRule.styleSheet\");",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssImportRule>(thisObj, \"CSSImportRule.styleSheet\");\nreturn self.Realm.Wrap(self.Target.StyleSheet);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "ICssImportRule.Sheet"
