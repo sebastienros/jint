@@ -2,55 +2,24 @@
 
 ## Scope and workflow
 
-**Active continuation from `0b9b921de`:** the full replacement goal resumed after the finite
-wrap-up below. Browser cutover chat `01a0db4d-a396-7e33-a770-ace95e2ad537` is active again in
-`414c`. New Sol High chats implement D7b2 checkedness/radio state (`757c`,
-`01a0db8d-f2c1-7623-a908-49742dafdd77`) and validated CSS declaration blocks (`16aa`,
-`01a0db8e-10ce-7671-ac02-2e224a13bb8d`). Range read-operation budget callbacks from
-`e3b0` are now reviewed and integrated; chat `01a0db90-31aa-7a92-922a-b084def3fd98` is archived.
-Astra High owns design and review. Completed D6/H8
-owners released their files; D7b2 now exclusively owns the required Element/HtmlElementState/NodeCloner
-hooks as well as the checkedness/form lifecycle files. CSS declarations do not own DOM, selectors,
-Browser or public facade files. No PRs. Historical finalization/cleanup counts below remain unchanged.
+**Latest user-directed finalization (September 25):** three independently reviewed parser slices
+are integrated: checkedness/radio state `ee422cefc`, original script source coordinates `9bc9157cf`,
+and internal CSS declarations `6e8915d7c`, `e8925567e`, `c9925b18c`. Fresh common Release non-corpus
+tests pass **4,482/4,482**, net8/net10, zero failures/skips (`/private/tmp/jint-finalize-all-parser.log`).
+The checkedness lifecycle XML run preserves all 256 known failure names exactly, with 3,766/4,022
+passing (`/private/tmp/jint-finalize-checkedness-xml.log`). No conformance or speedup acceptance claim.
 
-**Script source metadata owner:** `631c`, chat `01a0dba6-8588-7262-8a1f-fdacf5bcc420`,
-implements source-unit-aware positions for parser-created scripts. Normal input chunks share primary
-coordinates; inserted input units retain separate coordinates, so inserted newlines cannot shift later
-primary-script locations. The anchor is immediately after the start tag; tags and content crossing
-units are explicitly mixed. Browser uses primary document lines and script-relative coordinates for
-generated/mixed text. No D7-owned DOM files are reserved by this worker.
+All three completed chats are archived after review and common tests. Totals: **68 archived completed
+chats**, 44 previously removed worktrees, and 24 completed clean checkouts retained because managed
+archive identities are unavailable. The incomplete Browser cutover is saved at `1b723d891` in `414c`
+(932 Release compilation errors); the native accessibility/extraction leaf in `68c5` is also preserved
+unfinished. Production Browser remains on AngleSharp. No new feature chats or PRs were created during
+this finalization pass. See [the resume checkpoint](html-parser-resume.md) for exact commit mappings,
+cleanup inventory, known gaps and resumption instructions.
 
-**Current continuation:** Browser checkpoint `92732c130` contains further native DOM adapters,
-retained navigation target state and host-budget Range wiring, still isolated with an incomplete build.
-Accessibility/extraction is delegated from that checkpoint to `68c5`, chat
-`01a0db9d-701a-7752-8791-64eb54dd2d0c`; it exclusively owns those two implementation directories and
-matching Browser test directories. The Browser owner keeps shared DOM, cascade, runtime and generator.
-C1 custom-property lexical provenance source `7691e6680` is reviewed and integrated as `ba5f3adcb`.
-Fresh common Release non-corpus parser tests: **4,262/4,262 passed**, both TFMs, zero failures/skips;
-`/private/tmp/jint-css-lexical-span-common.log`. CSS declarations and native checkedness remain unmerged.
-Review is correcting radio high-water storage and repeated attribute-scan costs, and verifying native
-Browser target/slot budget semantics. No PRs or benchmark timings.
-
-**Continuation integration:** compact CSS source ownership `ca376e0eb` → `c3256b793`, direct
-attribute indexing `ea0d2010e` → `4f5d7109b`, and six read-only Range host-budget callbacks
-`6795451c0` → `2b6cc11f2`. Fresh combined Release parser gate: **4,226/4,226 passed**, net8/net10,
-zero failures/skips (`/private/tmp/jint-range-read-budget-common.log`). The Range chat is complete and
-archived, with no owned processes. Its clean `e3b0` checkout is retained because its artifact list is
-empty; there are now **65 archived completed chats and 21 retained completed checkouts** (44 previously
-removed). Browser, checkedness and declaration implementation remain active. No PR or timing claim.
-
-**Latest finalization (September 25):** four more reviewed implementation slices are integrated
-through `616bb320b`: public Range/traversal and subscriptions (`b55a70797`, `6e90de6e6`), native HTML
-script handoff (`1001437d9`), initial validated CSS property core (`1763825d7`, `c45bb5671`, `0c05ccd37`),
-and selector interaction state (`616bb320b`). Final common Release parser gate: **4,158/4,158 passed**, zero failures/skips across net8/net10.
-Browser contract/staleness checks: 44/44; unsigned packed consumer: both TFMs pass; inventory: six pass.
-The 256 known XML debt failures are unchanged. No timing or speedup claim.
-
-Sixty-four completed chats are archived; twenty completed clean checkouts await managed archive
-identities. Only the unfinished Browser chat remains open, clean at `763a3ae363` in `414c`; its build
-still has 1,058 errors, so its production changes were not integrated. All implementation turns have
-stopped. No new feature chat or PR was created in this finalization pass. Exact source/common commit
-mapping, logs, cleanup inventory and next work are in [the resume checkpoint](html-parser-resume.md).
+Earlier continuation prerequisites integrated compact CSS source ownership (`c3256b793`), O(1)
+attribute indexing (`4f5d7109b`), Range read budgets (`2b6cc11f2`) and custom-property lexical spans
+(`ba5f3adcb`). The finite work remains part of the larger unfinished replacement objective.
 
 ### Previous checkpoint history
 

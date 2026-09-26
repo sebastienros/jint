@@ -1,48 +1,39 @@
 # Jint.HtmlParser resume checkpoint
 
-**Active continuation from `0b9b921de`:** the full replacement goal resumed after the finite
-wrap-up below. Browser cutover chat `01a0db4d-a396-7e33-a770-ace95e2ad537` is active again in
-`414c`. New Sol High chats implement D7b2 checkedness/radio state (`757c`,
-`01a0db8d-f2c1-7623-a908-49742dafdd77`) and validated CSS declaration blocks (`16aa`,
-`01a0db8e-10ce-7671-ac02-2e224a13bb8d`). Range read-operation budget callbacks from
-`e3b0` are now reviewed and integrated; chat `01a0db90-31aa-7a92-922a-b084def3fd98` is archived.
-Astra High owns design and review. Completed D6/H8
-owners released their files; D7b2 now exclusively owns the required Element/HtmlElementState/NodeCloner
-hooks as well as the checkedness/form lifecycle files. CSS declarations do not own DOM, selectors,
-Browser or public facade files. No PRs. Historical finalization/cleanup counts below remain unchanged.
+**Latest user-directed finalization (September 25):** reviewed native checkedness/radio state,
+script source coordinates, and internal CSS declaration blocks are integrated through `c9925b18c`.
+Fresh common Release non-corpus tests pass **4,482/4,482**, net8/net10, zero failures/skips:
+`/private/tmp/jint-finalize-all-parser.log`. Production Browser still uses AngleSharp; its unfinished
+native cutover stays isolated. No PRs or performance claims. Implementation expansion has stopped.
 
-**Script source metadata owner:** `631c`, chat `01a0dba6-8588-7262-8a1f-fdacf5bcc420`,
-implements source-unit-aware positions for parser-created scripts. Normal input chunks share primary
-coordinates; inserted input units retain separate coordinates, so inserted newlines cannot shift later
-primary-script locations. The anchor is immediately after the start tag; tags and content crossing
-units are explicitly mixed. Browser uses primary document lines and script-relative coordinates for
-generated/mixed text. No D7-owned DOM files are reserved by this worker.
+| Completed slice | Source commits | Common commits |
+| --- | --- | --- |
+| Native checkedness and incremental radio groups | `83ff093d8` | `ee422cefc` |
+| Original script source-unit coordinates | `f874a0a42` | `9bc9157cf` |
+| Internal validated declarations and serialization review fixes | `33ae2bb06`, `57d25d444`, `4f2391f8c` | `6e8915d7c`, `e8925567e`, `c9925b18c` |
 
-**Current continuation:** Browser checkpoint `92732c130` contains further native DOM adapters,
-retained navigation target state and host-budget Range wiring, still isolated with an incomplete build.
-Accessibility/extraction is delegated from that checkpoint to `68c5`, chat
-`01a0db9d-701a-7752-8791-64eb54dd2d0c`; it exclusively owns those two implementation directories and
-matching Browser test directories. The Browser owner keeps shared DOM, cascade, runtime and generator.
-C1 custom-property lexical provenance source `7691e6680` is reviewed and integrated as `ba5f3adcb`.
-Fresh common Release non-corpus parser tests: **4,262/4,262 passed**, both TFMs, zero failures/skips;
-`/private/tmp/jint-css-lexical-span-common.log`. CSS declarations and native checkedness remain unmerged.
-Review is correcting radio high-water storage and repeated attribute-scan costs, and verifying native
-Browser target/slot budget semantics. No PRs or benchmark timings.
+All three slices passed independent GPT-6 Astra High review, were implemented in GPT-6 Sol High
+local-worktree chats, and passed the combined common gate before those chats were archived.
+Checkedness lifecycle changes also preserve the exact prior XML failure-name multiset:
+4,022 total, 3,766 passed, 256 known debt failures, zero skips;
+`/private/tmp/jint-finalize-checkedness-xml.log`, compared with `/private/tmp/jint-final-chats-xml.log`.
 
-**Continuation integration:** compact CSS source ownership `ca376e0eb` → `c3256b793`, direct
-attribute indexing `ea0d2010e` → `4f5d7109b`, and six read-only Range host-budget callbacks
-`6795451c0` → `2b6cc11f2`. Fresh combined Release parser gate: **4,226/4,226 passed**, net8/net10,
-zero failures/skips (`/private/tmp/jint-range-read-budget-common.log`). The Range chat is complete and
-archived, with no owned processes. Its clean `e3b0` checkout is retained because its artifact list is
-empty; there are now **65 archived completed chats and 21 retained completed checkouts** (44 previously
-removed). Browser, checkedness and declaration implementation remain active. No PR or timing claim.
+Explicit remaining seams: HTML tree construction does not yet call `AssociateFromParser` for
+nonancestor form-pointer ownership; source attribution is unavailable for SVG scripts; CSS declarations
+remain internal with 423 catalog grammars pending, and sheets/rules/cascade remain unfinished.
+Script metadata distinguishes primary, inserted and mixed source units without changing expanded
+input offsets. Browser still needs to consume the metadata in its native scheduler.
 
-**Latest user-directed finalization (September 25):** the five remaining implementation chats
-have reached saved checkpoints. Four reviewed slices are integrated through **`616bb320b`** in the
-common worktree. The incomplete Browser cutover remains isolated. No new feature chats or PRs were
-created during this finalization pass. The full replacement and performance objective is unfinished.
+Earlier continuation integrations: compact CSS source ownership `ca376e0eb` → `c3256b793`, direct
+attribute indexing `ea0d2010e` → `4f5d7109b`, Range read budgets `6795451c0` → `2b6cc11f2`, and
+custom-property lexical provenance `7691e6680` → `ba5f3adcb`.
 
-## Integrated checkpoints
+There are **68 archived completed chats and 24 retained completed checkouts** (44 previously
+removed). Root and owning chats return empty managed-artifact lists, so these remaining completed
+checkouts cannot be passed to `archive_worktree`. Do not invent identities or remove them by shell.
+Unfinished Browser worktrees are preserved separately below.
+
+## Earlier integrated checkpoints
 
 | Completed slice | Source commits | Common commits |
 | --- | --- | --- |
@@ -62,7 +53,7 @@ selector cancellation assertions remain intact; the mixed unsupported-branch fix
 
 - Worktree `/Users/sebastienros/.codex/worktrees/bd4c/jint`, branch `codex/html-parser-integration`.
 - Production Browser still uses AngleSharp. No timing run or speedup claim was made in this pass.
-- Final combined Release non-corpus parser validation: **4,158/4,158 passed**, zero failures/skips across net8/net10;
+- Earlier combined Release non-corpus parser validation: **4,158/4,158 passed**, zero failures/skips across net8/net10;
   `/private/tmp/jint-final-chats-combined.log`.
 - Browser binding/prototype/identity plus generated-code staleness: **44/44 passed**, net8/net10;
   `/private/tmp/jint-final-chats-browser.log`, `/private/tmp/jint-final-chats-staleness.log`.
@@ -80,20 +71,26 @@ selector cancellation assertions remain intact; the mixed unsupported-branch fix
 
 Chat `01a0db4d-a396-7e33-a770-ace95e2ad537` remains open in
 `/Users/sebastienros/.codex/worktrees/414c/jint`, branch `codex/browser-native-dom-cutover`.
-Its clean saved HEAD is **`763a3ae3633e1ae0cf66aec857060bb1221570b9`**; production progress is
-`eb9379071bfeee38c9f4fd1b550b5a07634327bf`. Read that checkout's
-`docs/design/browser-native-cutover-progress.md` for the current handoff; its older handoff document
-predates this continuation. Fresh Release net8 build has **1,058 errors, zero warnings**; Browser tests
-were not run. Regeneration preserves 163 interfaces with zero generator diagnostics. No owned process
-needs the checkout. Do not integrate this incomplete cutover merely to close its chat.
+Its saved HEAD is **`1b723d891`**, including native textarea bindings, with the final handoff in
+`docs/design/browser-native-cutover-progress.md` in that checkout. Fresh Release net8 build has
+**932 errors, zero warnings**; Browser tests cannot run. Generator regeneration preserves 163
+interfaces and 12 files with zero diagnostics. This is saved unfinished work, not common integration.
 
-Before resuming, merge the reviewed common prerequisites into that isolated branch. Remaining work
-includes native input/control state, CSSOM/cascade, runtime/parser scheduling, generated binding member
-implementations and the remaining production consumers. The selector environment and H8 host protocol
-are now implemented internally; Browser wiring is not. D7 checkable dispatch is approved in
-`html-parser-checkable-dispatch.md` but was not started. CSS property-core follow-up is recorded in
-`html-parser-cssom-core-checkpoint.md`; declaration blocks, sheets/rules/media and 423 pending catalog
-registrations remain future work, not implemented CSSOM.
+Accessibility/extraction chat `01a0db9d-701a-7752-8791-64eb54dd2d0c` in `68c5` owns a separate
+unfinished native leaf checkpoint based on `c4005dea0`: `cdf59d402`, `b1725f7ee`, and
+`90aa31b72`. Independent review cleared preservation after fixing foreign-input HTML semantics
+and SVG-title leakage into HTML document naming; a reduced actual-source Release harness passed.
+The leaf commits are now consolidated into isolated `414c` as `559fb89d8`, `3dc1e3cc7`,
+and `fb853f441`; handoff commit `1b723d891` records the fresh failed build. Both implementation
+turns have ended, their worktrees are clean, and no task-owned build/generator sessions remain.
+It still needs input/select state, ContentEditing and actual native CssCascade. Full accessibility
+and extraction golden tests are not verified. Retain this chat and checkout until that work is recovered.
+
+Before resuming, merge the reviewed common prerequisites into the isolated Browser branch. Remaining
+work includes native CSSOM/cascade, controls/validation, context-sensitive fragments, parser scheduling,
+observers/events, runtime/DevTools consumers, generated bindings, host-budget seams and production
+AngleSharp removal. Review and test the leaf before declaring it complete. Do not merge a broken
+Browser build into common merely to close a chat.
 
 The former D6r6 draft is fully recovered/superseded by the merged final implementation. Its stash
 commit `386302865d1f5c92faf9e35bee5904b1e4edeaa9` and
@@ -101,8 +98,8 @@ commit `386302865d1f5c92faf9e35bee5904b1e4edeaa9` and
 
 ## Chat completion and cleanup
 
-Sixty-four completed chats are archived. Forty-four checkouts were previously removed.
-Twenty completed clean checkouts remain because root and owning chats expose empty `list_artifacts`
+Sixty-eight completed chats are archived. Forty-four checkouts were previously removed.
+Twenty-four completed clean checkouts remain because root and owning chats expose empty `list_artifacts`
 results; no managed identity is available for `archive_worktree`. Use managed archival when identities
 become available; do not bypass it with shell deletion. The unfinished Browser checkout above is
 retained separately.
@@ -132,6 +129,9 @@ retained separately.
 | `19f0` | `01a0db7a-eb94-7f42-8443-92412a91810d` | C3b selector interaction state |
 
 | `e3b0` | `01a0db90-31aa-7a92-922a-b084def3fd98` | Native Range read budgets |
+| `757c` | `01a0db8d-f2c1-7623-a908-49742dafdd77` | Native checkedness/radio groups |
+| `631c` | `01a0dba6-8588-7262-8a1f-fdacf5bcc420` | Script source coordinates |
+| `16aa` | `01a0db8e-10ce-7671-ac02-2e224a13bb8d` | Internal CSS declarations |
 
 Directories are `/Users/sebastienros/.codex/worktrees/<checkout>/jint`.
 
@@ -174,8 +174,8 @@ handles CR/LF across adjacent text nodes and excluded children. Independent revi
 mixed-child cases and 36,000 suffix lengths. Parser lifecycle and selection-event transport remain b1e.
 
 The tokenizer context and inserted-input primitives and H7a foreign tree construction are complete.
-H7a supplies the per-read context and covers formatting reconstruction/CDATA. Active script handoff
-remains H8; use the reviewed `html-parser-script-handoff.md` protocol after resumption. The internal HTML
+H7a supplies the per-read context and covers formatting reconstruction/CDATA. Native script handoff
+H8 is integrated; Browser scheduling remains unfinished. Use the reviewed `html-parser-script-handoff.md` protocol after resumption. The internal HTML
 serializer is complete for its reviewed slice, including template/shadow traversal and IsValue;
 public facade and Browser wiring remain separate. No performance claim follows from these tests.
 
