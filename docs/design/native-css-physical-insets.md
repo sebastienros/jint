@@ -16,6 +16,9 @@ Static position does not erase an inset's computed value. Browser resolved reads
 values for static or no-box elements. Positioned boxes require `C6:positioned-inset`: the flat row
 model does not implement positioning and supplies no fabricated zero or viewport percentage basis.
 Static reads request no layout measurements. No positioning state or new value kind is introduced.
+The current common resolved-value dispatcher owns the inset route. Explicit display:none and
+display:contents preserve computed insets before measurement; connection checks reuse its charged
+ancestor walk and verify the style before any computed-value early return.
 
 Tests cover all four initial values and grammars, signed values, mixed calculations, inheritance and
 var/env, atomic invalid/pending/cancelled replacements, cold static reads, and the positioned dependency.
