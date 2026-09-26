@@ -116,7 +116,7 @@ public sealed class DomReflectionTests
             """);
         (await page.EvaluateAsync<string>("otherLink.href")).Should().Be("https://other.example/root/");
         await page.EvaluateAsync("secondary.getElementById('otherBase').remove()");
-        (await page.EvaluateAsync<string>("otherLink.href")).Should().BeEmpty();
+        (await page.EvaluateAsync<string>("otherLink.href")).Should().Be("https://document.example/root/page.html");
     }
 
     /// <summary>
