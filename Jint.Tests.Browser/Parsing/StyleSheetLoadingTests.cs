@@ -283,9 +283,9 @@ public class StyleSheetLoadingTests
                 </head><body></body>
                 """));
         await loopback.Page.NavigateAsync(loopback.Url("/"));
-        await loopback.Page.EvaluateAsync("window.saved=sheet.sheet; sheet.remove()");
+        await loopback.Page.EvaluateAsync("window.savedLink=sheet; window.saved=sheet.sheet; savedLink.remove()");
         (await loopback.Page.EvaluateAsync<int>("document.styleSheets.length")).Should().Be(0);
-        await loopback.Page.EvaluateAsync("document.body.appendChild(sheet)");
+        await loopback.Page.EvaluateAsync("document.body.appendChild(savedLink)");
         await loopback.Page.WaitForIdleAsync(Timeout);
 
         (await loopback.Page.EvaluateAsync<bool>("sheet.sheet !== saved")).Should().BeTrue();
