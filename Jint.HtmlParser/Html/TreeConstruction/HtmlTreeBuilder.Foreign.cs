@@ -74,8 +74,7 @@ internal sealed partial class HtmlTreeBuilder
                 if (_token.SelfClosing)
                 {
                     _acknowledgedSelfClosing = true;
-                    // SVG script has the same inert completion point as its end tag.
-                    Pop();
+                    CompleteForeignScriptOrPop();
                 }
                 return false;
             case HtmlTokenKind.EndTag:
@@ -94,7 +93,7 @@ internal sealed partial class HtmlTreeBuilder
                 {
                     if (Current.NamespaceUri == Namespaces.Svg && Current.LocalName == "script" && _token.Name == "script")
                     {
-                        Pop();
+                        CompleteForeignScriptOrPop();
                         return false;
                     }
                     _foreignEndStarted = true;
@@ -125,6 +124,18 @@ internal sealed partial class HtmlTreeBuilder
                 return true;
             default: throw new InvalidOperationException("Unexpected foreign token.");
         }
+    }
+
+    private void CompleteForeignScriptOrPop()
+    {
+        if (Current.NamespaceUri == Namespaces.Svg && Current.LocalName == "script" &&
+            ScriptRequestsEnabled &&
+            _scriptingMode is not (HtmlParserScriptingMode.Inert or HtmlParserScriptingMode.Fragment))
+        {
+            ClosedScript = Current;
+            ClosedScriptIsSvg = true;
+        }
+        Pop();
     }
 
     private bool IsForeignBreakout(string name)

@@ -22,6 +22,23 @@ internal sealed partial class HtmlTreeBuilder
     private readonly HtmlDocumentContext _context;
     private readonly int _maxDepth;
     private readonly bool _scriptingEnabled;
+    private readonly HtmlParserScriptingMode _scriptingMode;
+    internal bool ScriptRequestsEnabled { get; set; }
+    internal Element? ScriptBoundary { get; private set; }
+    internal Element? ClosedScript { get; private set; }
+    internal bool ClosedScriptIsSvg { get; private set; }
+    private bool _scriptCheckpointCompleted;
+
+    internal void CompleteScriptCheckpoint()
+    {
+        _scriptCheckpointCompleted = true;
+        ScriptBoundary = null;
+    }
+    internal void TakeClosedScript()
+    {
+        ClosedScript = null;
+        ClosedScriptIsSvg = false;
+    }
     private readonly List<Element> _open = [];
     private Dictionary<(string? Namespace, string Name), List<int>> _nameIndexes = [];
     private List<int> _specialIndexes = [];
@@ -70,11 +87,19 @@ internal sealed partial class HtmlTreeBuilder
 
     internal HtmlTreeBuilder(Document document, HtmlTokenizer tokenizer, int maxDepth, bool scriptingEnabled,
         ParseDiagnosticCollector? diagnostics, HtmlDocumentContext context)
+        : this(document, tokenizer, maxDepth,
+            scriptingEnabled ? HtmlParserScriptingMode.Normal : HtmlParserScriptingMode.Disabled, diagnostics, context)
+    {
+    }
+
+    internal HtmlTreeBuilder(Document document, HtmlTokenizer tokenizer, int maxDepth, HtmlParserScriptingMode scriptingMode,
+        ParseDiagnosticCollector? diagnostics, HtmlDocumentContext context)
     {
         _document = document;
         _tokenizer = tokenizer;
         _maxDepth = maxDepth;
-        _scriptingEnabled = scriptingEnabled;
+        _scriptingMode = scriptingMode;
+        _scriptingEnabled = scriptingMode != HtmlParserScriptingMode.Disabled;
         _diagnostics = diagnostics;
         _context = context;
     }
@@ -204,6 +229,7 @@ internal sealed partial class HtmlTreeBuilder
             if (_delegateToBody && _mode != _delegatedFromMode) _delegateToBody = false;
             var reprocess = !_foreignHtmlReprocess && (_foreignBreakout || ShouldUseForeignRules(_token))
                 ? InForeign() : Dispatch(_delegateToBody ? Mode.InBody : _mode);
+            if (ScriptBoundary is not null) return new HtmlParseStep(HtmlParseStepKind.Yielded);
             if (_missing is { } family)
                 return new HtmlParseStep(HtmlParseStepKind.MissingFeature, family, _token.Offset);
             if (_pendingShiftIndex >= 0) continue;
@@ -281,6 +307,13 @@ internal sealed partial class HtmlTreeBuilder
         var location = FindAdjustedInsertionLocation(parentOverride ?? _headInsertionOverride);
         var owner = location.Parent as Document ?? location.Parent.OwnerDocument!;
         var element = owner.CreateParsedElement(Namespaces.Html, name, null, isValue);
+        if (name == "script")
+        {
+            var state = element.GetHtmlState()!.Script!;
+            if (_scriptingMode != HtmlParserScriptingMode.Fragment) state.ParserDocument = _document;
+            state.ForceAsync = false;
+            if (_scriptingMode == HtmlParserScriptingMode.Inert) state.AlreadyStarted = true;
+        }
         if (attributes is { Length: > 0 })
         {
             element.InitializeParsedAttributes(attributes, _cancellationToken);

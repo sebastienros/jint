@@ -178,12 +178,25 @@ internal sealed partial class HtmlTreeBuilder
         if (_token.Kind == HtmlTokenKind.EndOfFile)
         {
             Error("eof-in-text");
+            if (IsHtmlElement(Current, "script")) Current.GetHtmlState()!.Script!.AlreadyStarted = true;
             Pop();
             _mode = _originalTextMode;
             return true;
         }
         if (_token.Kind == HtmlTokenKind.EndTag)
         {
+            if (IsHtmlElement(Current, "script") && ScriptRequestsEnabled &&
+                _scriptingMode is not (HtmlParserScriptingMode.Inert or HtmlParserScriptingMode.Fragment))
+            {
+                if (!_scriptCheckpointCompleted)
+                {
+                    ScriptBoundary = Current;
+                    return false;
+                }
+                ClosedScript = Current;
+                ScriptBoundary = null;
+                _scriptCheckpointCompleted = false;
+            }
             Pop();
             _mode = _originalTextMode;
             return false;

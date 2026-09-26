@@ -99,6 +99,10 @@ internal static class NodeCloner
                 {
                     element.GetHtmlState()!.TextArea!.CopyFrom(original.GetHtmlState()!.TextArea!);
                 }
+                if (original is { NamespaceUri: Namespaces.Html, LocalName: "script" })
+                {
+                    element.GetHtmlState()!.Script!.AlreadyStarted = original.GetHtmlState()!.Script!.AlreadyStarted;
+                }
                 var registry = original.CustomElementRegistry ?? fallbackRegistry;
                 element.InitializeCustomElementRegistry(registry is { IsScoped: false }
                     ? EffectiveGlobalRegistry(document)

@@ -12,6 +12,10 @@ internal sealed class HtmlElementState
         ? _textArea ??= new HtmlTextAreaState(Element) : null;
     internal HtmlTextAreaState? ExistingTextArea => _textArea;
 
+    private HtmlScriptState? _script;
+    internal HtmlScriptState? Script => Element is { NamespaceUri: Namespaces.Html, LocalName: "script" }
+        ? _script ??= new HtmlScriptState() : null;
+
     private bool _firstLegendKnown;
     private Element? _firstLegend;
 
