@@ -1,7 +1,10 @@
 #nullable enable
 using Jint.Browser.Dom.Views;
 using Jint.Browser.Runtime;
+using Jint.Browser.Styling;
 using Jint.HtmlParser;
+using Jint.HtmlParser.Css.Model;
+using Jint.HtmlParser.Css.Values;
 
 namespace Jint.Tests.Browser.Views;
 
@@ -10,6 +13,44 @@ using Browser = global::Jint.Browser.Browser;
 [NonParallelizable]
 public sealed class NativeCssConsumerTests
 {
+    [Test]
+    public async Task WarmedGeometryRefreshesForCssomAndNativeStyleSourceChanges()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<style id='source'>#box { display:block; width:10px; height:20px; }</style><div id='box'></div>");
+        await page.RunOnLoopAsync(engine =>
+        {
+            var runtime = PageRuntime.Find(engine)!;
+            var document = runtime.Document!;
+            var target = document.GetElementById("box")!;
+            var owner = document.GetElementById("source")!;
+            runtime.Layout.ClientBoxOf(target)!.Value.Width.Should().Be(10);
+            var warmed = runtime.Layout.MeasureSizes();
+            runtime.Layout.MeasureSizes().Should().BeSameAs(warmed);
+            var stamp = document.MutationStamp;
+            var sheet = NativeCssStyleSheets.SheetOf(runtime.Dom, owner)!;
+            ((CssStyleRule) sheet.Rules[0]).Style.SetProperty("width", "25px");
+            document.MutationStamp.Should().Be(stamp);
+            runtime.Layout.ClientBoxOf(target)!.Value.Width.Should().Be(25);
+            runtime.Layout.MeasureSizes().Should().NotBeSameAs(warmed);
+            ((Text) owner.FirstChild!).Data = "#box { display:block; width:40px; height:20px; }";
+            runtime.Layout.ClientBoxOf(target)!.Value.Width.Should().Be(40);
+
+            var link = document.CreateElement("link");
+            link.SetAttribute("rel", "stylesheet");
+            document.DocumentElement!.AppendChild(link);
+            var work = new CssValueWork(default);
+            NativeCssStyleSheets.Install(document, link, "#box { width:50px; }", "", "", work);
+            runtime.Layout.ClientBoxOf(target)!.Value.Width.Should().Be(50);
+            stamp = document.MutationStamp;
+            NativeCssStyleSheets.Install(document, link, "#box { width:60px; }", "", "", work);
+            document.MutationStamp.Should().Be(stamp);
+            runtime.Layout.ClientBoxOf(target)!.Value.Width.Should().Be(60);
+            return true;
+        });
+    }
+
     [Test]
     public async Task CoverageSweepIncludesRulesMatchedInsideShadowTrees()
     {
