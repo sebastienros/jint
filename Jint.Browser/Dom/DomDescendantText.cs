@@ -14,15 +14,21 @@ internal static class DomDescendantText
         for (var node = root.FirstChild; node is not null;)
         {
             work.Step();
-            var data = node switch { Text text => text.Data, CDataSection cdata => cdata.Data, _ => null };
-            if (data is not null)
+            if (node is Text text)
             {
-                for (var offset = 0; offset < data.Length;)
+                for (var offset = 0; offset < text.DataLength; offset++)
                 {
-                    work.Check();
-                    var count = Math.Min(256, data.Length - offset);
-                    result.Append(data, offset, count);
-                    offset += count;
+                    work.Step();
+                    result.Append(text.DataAt(offset));
+                }
+            }
+            else if (node is CDataSection cdata)
+            {
+                var data = cdata.Data;
+                for (var offset = 0; offset < data.Length; offset++)
+                {
+                    work.Step();
+                    result.Append(data[offset]);
                 }
             }
             if (node.FirstChild is { } child) { node = child; continue; }
@@ -35,6 +41,8 @@ internal static class DomDescendantText
             node = node.NextSibling;
         }
         work.Check();
-        return result.ToString();
+        var value = result.ToString();
+        work.Check();
+        return value;
     }
 }
