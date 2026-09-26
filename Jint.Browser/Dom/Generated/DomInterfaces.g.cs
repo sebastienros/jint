@@ -441,7 +441,7 @@ internal static partial class DomInterfaces
     /// <summary>The <c>ProcessingInstruction</c> interface, projected from <c>Jint.HtmlParser.ProcessingInstruction</c>.</summary>
     internal static readonly DomInterfaceDefinition ProcessingInstruction;
 
-    /// <summary>The <c>PseudoElement</c> interface, projected from <c>Jint.HtmlParser.Node</c>.</summary>
+    /// <summary>The <c>PseudoElement</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition PseudoElement;
 
     /// <summary>The <c>Range</c> interface, projected from <c>AngleSharp.Dom.IRange</c>.</summary>
@@ -1912,7 +1912,7 @@ internal static partial class DomInterfaces
 
         PseudoElement = Add(new DomInterfaceDefinition(
             "PseudoElement",
-            typeof(global::Jint.HtmlParser.Node),
+            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
             BuildPseudoElement,
             Element,
             rootsAtEventTarget: true,

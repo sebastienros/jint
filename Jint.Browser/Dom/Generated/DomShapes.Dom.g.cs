@@ -2454,20 +2454,20 @@ internal static partial class DomInterfaces
             .Accessor("cascadedStyle",
                 global::Jint.Browser.Dom.DomFailures.Guard("PseudoElement.cascadedStyle", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Node>(thisObj, "PseudoElement.cascadedStyle");
-                    return self.Realm.Wrap(self.Target.GetCascadedStyle());
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, "PseudoElement.cascadedStyle");
+                    return global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, "PseudoElement.cascadedStyle");
                 }))
             .Accessor("defaultStyle",
                 global::Jint.Browser.Dom.DomFailures.Guard("PseudoElement.defaultStyle", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Node>(thisObj, "PseudoElement.defaultStyle");
-                    return self.Realm.Wrap(self.Target.GetDefaultStyle());
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, "PseudoElement.defaultStyle");
+                    return global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, "PseudoElement.defaultStyle");
                 }))
             .Accessor("rawComputedStyle",
                 global::Jint.Browser.Dom.DomFailures.Guard("PseudoElement.rawComputedStyle", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Node>(thisObj, "PseudoElement.rawComputedStyle");
-                    return self.Realm.Wrap(self.Target.GetRawComputedStyle());
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, "PseudoElement.rawComputedStyle");
+                    return global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, "PseudoElement.rawComputedStyle");
                 }))
             .Build();
 

@@ -13615,8 +13615,8 @@
     },
     {
       "DomName": "PseudoElement",
-      "ClrTypeName": "Jint.HtmlParser.Node",
-      "ReceiverType": "global::Jint.HtmlParser.Node",
+      "ClrTypeName": "Jint.Browser.Dom.NativeCssUnavailable",
+      "ReceiverType": "global::Jint.Browser.Dom.NativeCssUnavailable",
       "Parent": "Element",
       "RootsAtEventTarget": true,
       "HasInterfaceObject": false,
@@ -13631,7 +13631,7 @@
         {
           "DomName": "cascadedStyle",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Node>(thisObj, \"PseudoElement.cascadedStyle\");\nreturn self.Realm.Wrap(self.Target.GetCascadedStyle());",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"PseudoElement.cascadedStyle\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"PseudoElement.cascadedStyle\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "StyleUtilityExtensions.GetCascadedStyle"
@@ -13639,7 +13639,7 @@
         {
           "DomName": "defaultStyle",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Node>(thisObj, \"PseudoElement.defaultStyle\");\nreturn self.Realm.Wrap(self.Target.GetDefaultStyle());",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"PseudoElement.defaultStyle\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"PseudoElement.defaultStyle\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "StyleUtilityExtensions.GetDefaultStyle"
@@ -13647,7 +13647,7 @@
         {
           "DomName": "rawComputedStyle",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Node>(thisObj, \"PseudoElement.rawComputedStyle\");\nreturn self.Realm.Wrap(self.Target.GetRawComputedStyle());",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"PseudoElement.rawComputedStyle\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"PseudoElement.rawComputedStyle\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "StyleUtilityExtensions.GetRawComputedStyle"

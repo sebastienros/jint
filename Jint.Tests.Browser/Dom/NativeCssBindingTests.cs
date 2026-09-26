@@ -6,6 +6,20 @@ namespace Jint.Tests.Browser.Dom;
 public sealed class NativeCssBindingTests
 {
     [Test]
+    public void ProducerlessPseudoElementKeepsItsParentAndRejectsBorrowedGetters()
+    {
+        using var dom = Create("a { color:red }");
+        var realm = DomRealm.Of(dom.Engine);
+        dom.Engine.SetValue("pseudoPrototype", realm.PrototypeOf(DomInterfaces.PseudoElement));
+        dom.Bool("Object.getPrototypeOf(pseudoPrototype)===Element.prototype && typeof PseudoElement==='undefined'").Should().BeTrue();
+        foreach (var member in new[] { "cascadedStyle", "defaultStyle", "rawComputedStyle" })
+        {
+            dom.Engine.SetValue("member", member);
+            dom.Bool("[document.documentElement,sheet.cssRules[0],{}].every(r=>{try{Object.getOwnPropertyDescriptor(pseudoPrototype,member).get.call(r);return false}catch(e){return e instanceof TypeError && /Illegal invocation/.test(e.message)}})").Should().BeTrue();
+        }
+    }
+
+    [Test]
     public void StylesheetDisabledIsTheActualNativeFlag()
     {
         using var dom = Create("a { color:red }");

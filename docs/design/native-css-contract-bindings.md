@@ -13,6 +13,8 @@ abstract Browser-only marker with a private constructor and no instances or
 subclasses. Their own members check that receiver before the defensive named
 unsupported refusal. Borrowing such a member onto a real style or media rule is
 therefore an illegal invocation, rather than a fabricated semantic answer.
+The producerless `PseudoElement` interface follows the same rule for its own style
+getters while retaining its Element prototype parent and lack of an interface object.
 
 The validated producer also rejects nested rule grammar before publishing a style
 rule. The legacy `CSSStyleRule.cssRules` and `rules` aliases expose a stable empty
