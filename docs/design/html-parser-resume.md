@@ -32,10 +32,15 @@ count-preserving corruption probes, and 256 cold/first/warm control reads
 
 Build contention prompted temporary serialization: implementation and source reviews continue, while
 the coordinator grants one Release net10 build/test slot at a time. Final cross-framework validation
-remains required. Native Browser still does not compile: isolated runtime `4313ab7a4` reports
-259 errors and zero warnings (`/private/tmp/native-browser-coherent-net10-build.log`). Most await the
-coherent generated binding, CSS and Events/DevTools packets. Runtime script scheduling, FACE lifecycle,
-and scoped media/canvas/dialog behavior are source-reviewed; compilation and runtime acceptance remain.
+remains required. Native Browser still does not compile: isolated runtime
+`823cccc445f74f1ff3406dfb31dff9d79e45f6b6` reports 29 errors and zero warnings
+(`/private/tmp/native-browser-markers-token-members-net10-build.log`). Eleven await the token-list
+producer; the other eighteen are generated DOM/HTML/SVG bindings. Earlier inventories reported 259,
+131, and 80 errors. Source-reviewed runtime, metadata, events, extraction, and finite media bindings
+are integrated in that isolated checkout; Browser runtime acceptance remains unrun. The native CSS
+demand correction is under review, including deferred-shorthand editing and white-space grammar fixes.
+Remaining legacy receiver types and production AngleSharp references still require removal before
+the replacement can be considered functional.
 
 The shared DOM/PI changes preserve the XML corpus's exact prior failure-name multiset:
 4,022 total, 3,766 passing, 256 known failures, zero skips, both TFMs
