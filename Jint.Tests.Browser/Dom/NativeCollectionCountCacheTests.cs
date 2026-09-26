@@ -94,6 +94,31 @@ public sealed class NativeCollectionCountCacheTests
         source.Counts.Should().Be(1);
     }
 
+    [Test]
+    public void AnUncachedCountChecksTheCurrentTokenAfterTheFinalHostCallback()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var constraint = new Jint.Constraints.CancellationConstraint(default);
+        var checks = new MutationCheck();
+        // Check the cancellation constraint before the callback changes its token. The collection
+        // must then observe the new token itself after GetLength returns from its final host check.
+        using var engine = new Engine(options => options.AddConstraint(constraint).AddConstraint(checks));
+        DomBindings.Install(engine);
+        var root = Document.CreateHtml().CreateElement("div");
+        var source = new ObservedCollection(DomChildHtmlCollection.Of(root), witnessed: false);
+        var wrapper = Wrap(engine, source);
+        checks.Arm(3, () =>
+        {
+            cancellation.Cancel();
+            constraint.Reset(cancellation.Token);
+        });
+        Caught.Exception(() => { _ = wrapper.Length; }).Should().BeOfType<OperationCanceledException>();
+        source.Counts.Should().Be(1);
+        constraint.Reset(default);
+        wrapper.Length.Should().Be(0);
+        source.Counts.Should().Be(2);
+    }
+
     private static DomHtmlCollectionObject<Element> Wrap(Engine engine, ObservedCollection source)
         => (DomHtmlCollectionObject<Element>) DomRealm.Of(engine).WrapCollection<Element>(source);
 

@@ -41,7 +41,11 @@ internal sealed class DomHtmlCollectionObject<T> : DomCollectionBase where T : N
                 DomRealm.Engine.Constraints.Check();
                 DomRealm.CancellationToken.ThrowIfCancellationRequested();
                 if (!_collection.TryGetCountWitness(out var owner, out var stamp))
-                    return (uint) _collection.GetLength(DomRealm);
+                {
+                    var uncached = (uint) _collection.GetLength(DomRealm);
+                    DomRealm.CancellationToken.ThrowIfCancellationRequested();
+                    return uncached;
+                }
 
                 if (_countOwner is not null && _countOwner.TryGetTarget(out var cachedOwner)
                     && ReferenceEquals(owner, cachedOwner) && stamp == _countStamp)
