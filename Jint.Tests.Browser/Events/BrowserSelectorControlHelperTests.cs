@@ -145,6 +145,33 @@ public sealed class BrowserSelectorControlHelperTests
     }
 
     [Test]
+    public void PreparationDrainsChangesEnqueuedAfterAnEmptyActiveDrain()
+    {
+        using var fixture = DomTestFixture.Create("<input id=i type=file>");
+        var input = ContentDom.ElementById(fixture.Document, "i")!;
+        var realm = DomRealm.Of(fixture.Engine);
+        var files = FileTransferRealm.Of(fixture.Engine);
+        var shared = files.NewFileList();
+        shared.Add(new Jint.WebApi.Files.JsFile(fixture.Engine, new byte[] { 1 }, "text/plain", "old.txt", 0));
+        files.SetInputFiles(input, shared);
+        // A real attribute transition that leaves the file type unchanged keeps the state attached.
+        input.SetAttribute("type", "FILE");
+        var checks = 0;
+        BrowserSelectorControlFacts.PrepareControlFactsRead(realm, _ =>
+        {
+            // State/drain, record before/after, then state/empty-drain boundaries.
+            if (++checks == 6)
+            {
+                input.SetAttribute("type", "text");
+                input.SetAttribute("type", "file");
+            }
+        }, default);
+        checks.Should().BeGreaterThan(6);
+        files.InputFiles(input, new DomReadWork(null, default)).Should().BeNull();
+        shared.Length.Should().Be(1);
+    }
+
+    [Test]
     public void ColdPreparationDoesNotCreateFileStateOrInvokeACheckpoint()
     {
         using var fixture = DomTestFixture.Create("<input id=i type=file>");

@@ -302,8 +302,16 @@ internal sealed class FileTransferRealm
                 if (!_queuedChanges.Contains(state)) continue;
                 // No callback separates the destructive drain from durable ownership of its result.
                 var records = state.PendingRecords ??= state.Subscription.TakeRecordsForDelivery();
+                if (records.Count == 0)
+                {
+                    // Release the scheduling identity before a callback can append a fresh batch.
+                    // Otherwise PendingRecord sees this state as queued and cannot enqueue it again.
+                    CompleteActiveState(state);
+                    work?.Check();
+                    continue;
+                }
                 work?.Check();
-                if (!state.Input.TryGetTarget(out var input) || records.Count == 0)
+                if (!state.Input.TryGetTarget(out var input))
                 {
                     CompleteActiveState(state);
                     continue;
