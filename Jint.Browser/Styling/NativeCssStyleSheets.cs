@@ -50,6 +50,7 @@ internal static partial class NativeCssStyleSheets
         {
             // Constant work on the native mutation stack, with no retained records or script callback.
             pending.TakeRecords();
+            resource.Block = null;
             if (resource.Version != ulong.MaxValue) resource.Version++;
         };
         resource.Subscription = subscription;
@@ -61,18 +62,15 @@ internal static partial class NativeCssStyleSheets
     internal static void RetainInline(Element element, string source, CssDeclarationBlock block,
         ulong beforeWrite, CssValueWork work)
     {
-        work.CheckCancellation();
+        // Publication follows this writer's single observed attribute mutation. No callback may
+        // run between the native source commit and retaining its authoritative declaration block.
         var resource = InlineResourceOf(element);
         if (beforeWrite == ulong.MaxValue || resource.Version != beforeWrite + 1)
             throw new InvalidOperationException(NativeCssQuery.Invalidated);
-        var actual = new DomReadWork(work.Charge, work.Token).Attribute(element, "style") ?? "";
-        if (!CssSubstitutionArguments.Equals(source, actual, work))
-            throw new InvalidOperationException(NativeCssQuery.Invalidated);
-        work.CheckCancellation();
-        if (resource.Version != beforeWrite + 1) throw new InvalidOperationException(NativeCssQuery.Invalidated);
         resource.Source = source;
         resource.Block = block;
         resource.PublishedVersion = resource.Version;
+        work.CheckCancellation();
     }
 
     private sealed class InlineResource

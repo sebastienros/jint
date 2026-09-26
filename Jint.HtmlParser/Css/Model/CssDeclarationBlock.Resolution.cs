@@ -298,20 +298,40 @@ internal sealed partial class CssDeclarationBlock
     {
         work = ResolutionWork(work);
         var builder = new StringBuilder();
-        var literalEntries = new List<CssDeclaration>();
+        var literals = new Dictionary<string, CssDeclaration>(new DeclarationNameComparer(work));
+        var pendingValues = new Dictionary<CssPendingShorthand, string>(ReferenceEqualityComparer.Instance);
+        var writtenPending = new HashSet<CssPendingShorthand>(ReferenceEqualityComparer.Instance);
         foreach (var raw in _raw)
-            if (raw.Input.Syntax is null) literalEntries.AddRange(Materialize(raw, work));
-        work.Charge(literalEntries.Count);
-        var literals = literalEntries.ToArray();
-        var pendingValues = new Dictionary<CssPendingShorthand, string>();
-        var writtenPending = new HashSet<CssPendingShorthand>();
-        foreach (var entry in literalEntries)
-            if (entry.PendingShorthand is { } pending && !pendingValues.ContainsKey(pending))
+        {
+            work.Charge(1);
+            if (raw.Input.Syntax is not null) continue;
+            foreach (var entry in Materialize(raw, work))
             {
-                work.Charge(1);
-                pendingValues.Add(pending, ShorthandValue(literals,
-                    CssPropertyRegistry.Completed[pending.Name], work));
+                work.Charge(entry.Name.Length + 1);
+                if (!literals.TryGetValue(entry.Name, out var prior) || !prior.IsImportant || entry.IsImportant)
+                    literals[entry.Name] = entry;
+                if (entry.PendingShorthand is { } pending) pendingValues.TryAdd(pending, "");
             }
+        }
+        foreach (var pending in pendingValues.Keys.ToArray())
+        {
+            work.Charge(1);
+            var longhands = CssPropertyRegistry.Completed[pending.Name].Longhands;
+            bool? important = null;
+            var complete = true;
+            foreach (var name in longhands)
+            {
+                work.Charge(name.Length + 1);
+                if (!literals.TryGetValue(name, out var entry) || !ReferenceEquals(pending, entry.PendingShorthand) ||
+                    important is { } priority && entry.IsImportant != priority)
+                {
+                    complete = false;
+                    break;
+                }
+                important = entry.IsImportant;
+            }
+            if (complete) pendingValues[pending] = CompleteLexicalValue(pending.LexicalSpecifiedText, pending.Termination, work);
+        }
         foreach (var raw in _raw)
         {
             work.Charge(1);

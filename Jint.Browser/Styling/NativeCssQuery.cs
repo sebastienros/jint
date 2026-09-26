@@ -355,7 +355,8 @@ internal sealed partial class NativeCssQuery
                     for (var i = origin; i < excludedOrigins.Length; i++) excludedOrigins[i] = true;
                     continue;
                 case "revert-rule": excludedRules.Add(candidate.Source.Block); continue;
-                case "revert-layer": throw new CssIncompleteGrammarException(name, "C6:revert-layer", default);
+                case "revert-layer":
+                    return (new(CssSubstitutionBinding.Pending(name, "revert-layer"), null, candidate.Declaration.IsImportant), candidate.Source);
             }
             return candidate;
         }

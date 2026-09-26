@@ -107,6 +107,56 @@ public sealed class NativeCssQueryTests
     }
 
     [Test]
+    public void CancellationAfterInlineSourceCommitKeepsTheAuthoritativePendingExpansion()
+    {
+        var document = Document.CreateHtml();
+        var target = document.CreateElement("div");
+        target.SetAttribute("style", "--o:hidden scroll;overflow:var(--o)");
+        var work = new CssValueWork(default);
+        var edited = NativeCssStyleSheets.InlineOf(target, work).Copy(work);
+        edited.SetProperty("overflow-x", "visible", null, null, work);
+        var source = edited.SerializeSource(work);
+        var version = NativeCssStyleSheets.InlineVersion(target);
+        target.SetAttribute("style", source);
+        using var cancellation = new CancellationTokenSource();
+        var postCommit = new CssValueWork(cancellation.Token, cancellation.Cancel);
+        Assert.Throws<OperationCanceledException>(() => NativeCssStyleSheets.RetainInline(target, source, edited, version, postCommit));
+        NativeCssStyleSheets.InlineOf(target, work).Should().BeSameAs(edited);
+        var query = new NativeCssQuery(document, [], [], new CssMediaEnvironment(), new(document, null, null, null),
+            CssEnvironmentSnapshot.Create([], work), work, readInlineAttributes: true);
+        var matching = new SelectorMatchWork(document, default);
+        query.GetProperty(target, "overflow-y", ref matching).Text.Should().Be("scroll");
+    }
+
+    [Test]
+    public void SaturatedInlineMutationCountersStillInvalidateIdenticalSourceWrites()
+    {
+        var document = Document.CreateHtml();
+        var target = document.CreateElement("div");
+        target.SetAttribute("style", "display:block");
+        var work = new CssValueWork(default);
+        var factory = typeof(NativeCssStyleSheets).GetMethod("InlineResourceOf", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+        var resource = factory.Invoke(null, [target])!;
+        resource.GetType().GetField("Version", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.SetValue(resource, ulong.MaxValue);
+        var old = NativeCssStyleSheets.InlineOf(target, work);
+        target.SetAttribute("style", "display:block");
+        NativeCssStyleSheets.InlineOf(target, work).Should().NotBeSameAs(old);
+    }
+
+    [Test]
+    public void UnsupportedCustomRollbackRefusesOnlyWhenThatBindingIsDemanded()
+    {
+        var document = Document.CreateHtml();
+        var target = document.CreateElement("div");
+        var sheet = CssStyleSheet.Parse("div { --good:block; --unused:revert-layer; display:var(--good); visibility:var(--unused,hidden); }");
+        var query = Query(document, [new(sheet, NativeCssOrigin.Author)]);
+        var matching = new SelectorMatchWork(document, default);
+        query.GetProperty(target, "display", ref matching).Text.Should().Be("block");
+        Assert.Throws<CssIncompleteGrammarException>(() => query.GetProperty(target, "--unused", ref matching))!.Message.Should().Contain("revert-layer");
+        Assert.Throws<CssIncompleteGrammarException>(() => query.GetProperty(target, "visibility", ref matching));
+    }
+
+    [Test]
     public void LazyShorthandSubstitutionRetainsIacvtAndCustomCycles()
     {
         var document = Document.CreateHtml();

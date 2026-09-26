@@ -103,6 +103,26 @@ public sealed class CssDeclarationResolutionTests
     }
 
     [Test]
+    public void PendingGroupPublicationWorkGrowsProportionallyWithDuplicateGroupsAndUntouchedSyntax()
+    {
+        var small = Checks(2000);
+        var large = Checks(4000);
+        large.Should().BeLessThan(small * 2.3 + 20);
+
+        static int Checks(int count)
+        {
+            var block = Syntax(string.Concat(Enumerable.Repeat("overflow:var(--o);background:red;", count)));
+            block.SetProperty("overflow-x", "visible");
+            var checks = 0;
+            var work = new CssValueWork(default, () => checks++);
+            var source = block.SerializeSource(work);
+            source.Should().NotContain("overflow-y:");
+            source.Should().Contain("background: red;");
+            return checks;
+        }
+    }
+
+    [Test]
     public void CancellationAndHostMutationCannotPublishAnObsoleteResolutionCache()
     {
         var block = Syntax("display:block;" + string.Join(';', Enumerable.Range(0, 20).Select(i => "--" + new string('x', 2000) + i + ":red")));
