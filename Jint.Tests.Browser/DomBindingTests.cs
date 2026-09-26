@@ -154,13 +154,11 @@ public sealed class DomBindingTests
     {
         using var fixture = DomTestFixture.Create(Page);
 
-        fixture.Text("document.querySelector('#a').style.color").Should().Be("rgba(255, 0, 0, 1)");
+        fixture.Text("document.querySelector('#a').style.color").Should().Be("red");
 
-
-        // AngleSharp.Css serializes every color as rgba(...) where CSSOM specifies rgb(...) when the alpha
-        // is 1; reported upstream. What the binding owns is the round trip, and that holds.
+        // CSS Color 4 §16.2: declared named colors retain their lowercase keywords.
         fixture.Evaluate("document.querySelector('#a').style.color = 'blue'");
-        fixture.Text("document.querySelector('#a').style.color").Should().Be("rgba(0, 0, 255, 1)");
+        fixture.Text("document.querySelector('#a').style.color").Should().Be("blue");
 
         fixture.Evaluate("document.querySelector('#a').style.setProperty('font-weight', 'bold')");
         fixture.Text("document.querySelector('#a').style.getPropertyValue('font-weight')").Should().Be("bold");

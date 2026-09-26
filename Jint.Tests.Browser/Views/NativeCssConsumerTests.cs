@@ -15,6 +15,29 @@ using Browser = global::Jint.Browser.Browser;
 public sealed class NativeCssConsumerTests
 {
     [Test]
+    public async Task DeclaredNamedColorsRetainKeywordsWhileComputedColorsSerializeAsRgb()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<div id='box' style='color:ReD'></div>");
+        // CSS Color 4 §16.2: declared keywords and computed sRGB values serialize differently.
+        (await page.EvaluateAsync<string>("""
+            (() => {
+                const box = document.getElementById('box');
+                return box.style.color + '|' + getComputedStyle(box).color;
+            })()
+            """)).Should().Be("red|rgb(255, 0, 0)");
+        (await page.EvaluateAsync<string>("""
+            (() => {
+                const box = document.getElementById('box');
+                box.style.color = 'blue';
+                return box.style.color + '|' + getComputedStyle(box).color;
+            })()
+            """)).Should().Be("blue|rgb(0, 0, 255)");
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
     public async Task LinkDisabledReflectsItsAttributeWhileStyleDisabledUsesAssociatedMetadata()
     {
         await using var browser = new Browser();
