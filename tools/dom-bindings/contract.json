@@ -8862,8 +8862,8 @@
         {
           "DomName": "autocomplete",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.autocomplete\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Autocomplete);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.autocomplete\");\nself.Target.Autocomplete = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLInputElement.autocomplete\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.autocomplete\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.BrowserAutocomplete.Get(self.Realm, self.Target));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLInputElement.autocomplete\");\nself.Target.SetAttributeNS(null, \"autocomplete\", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLInputElement.autocomplete\")); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "IHtmlInputElement.Autocomplete"
         },
@@ -9686,7 +9686,7 @@
         {
           "DomName": "images",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMapElement.images\");\nreturn self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(self.Target.Images);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLMapElement.images\");\nreturn self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(global::Jint.Browser.Dom.BrowserMapImages.Of(self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHtmlMapElement.Images"

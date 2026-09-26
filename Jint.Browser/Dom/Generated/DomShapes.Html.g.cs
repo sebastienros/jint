@@ -2588,12 +2588,12 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.autocomplete", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.autocomplete");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Autocomplete);
+                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.BrowserAutocomplete.Get(self.Realm, self.Target));
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLInputElement.autocomplete", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLInputElement.autocomplete");
-                    self.Target.Autocomplete = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLInputElement.autocomplete"); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.SetAttributeNS(null, "autocomplete", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLInputElement.autocomplete")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("autofocus",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLInputElement.autofocus", static (thisObj, args) =>
@@ -3477,7 +3477,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMapElement.images", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLMapElement.images");
-                    return self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(self.Target.Images);
+                    return self.Realm.WrapCollection<global::Jint.HtmlParser.Element>(global::Jint.Browser.Dom.BrowserMapImages.Of(self.Target));
                 }))
             .Accessor("name",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLMapElement.name", static (thisObj, args) =>

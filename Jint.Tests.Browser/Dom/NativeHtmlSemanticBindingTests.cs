@@ -3,6 +3,20 @@ namespace Jint.Tests.Browser.Dom;
 public sealed class NativeHtmlSemanticBindingTests
 {
     [Test]
+    public void AutofillGetterAndLiveMapViewUseNativeAlgorithms()
+    {
+        using var dom = DomTestFixture.Create("<input id=i><map id=m name=region></map><img id=a usemap=#region>");
+        dom.Execute("var i=document.getElementById('i'), m=document.getElementById('m'), a=document.getElementById('a'); i.autocomplete='SECTION-test shipping street-address'; var images=m.images;");
+        dom.Text("i.getAttribute('autocomplete')").Should().Be("SECTION-test shipping street-address");
+        dom.Text("i.autocomplete").Should().Be("section-test shipping street-address");
+        dom.Bool("images===m.images && images instanceof HTMLCollection && images.length===1 && images[0]===a").Should().BeTrue();
+        dom.Execute("a.setAttribute('usemap','#other');");
+        dom.Bool("images.length===0 && images.item(0)===null").Should().BeTrue();
+        dom.Execute("m.name='other';");
+        dom.Bool("images.length===1 && images[0]===a").Should().BeTrue();
+    }
+
+    [Test]
     public void EditingAndInheritedAttributesUseActualNativeAncestors()
     {
         using var dom = DomTestFixture.Create("<div id=p contenteditable=plaintext-only translate=no><span id=c></span></div>");
