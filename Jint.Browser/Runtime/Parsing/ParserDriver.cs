@@ -744,6 +744,7 @@ internal sealed partial class ParserDriver : IDisposable
             // each script is bounded and a document is not failed for containing many. See PageBudget.
             using (_runtime.Budget.BeginTurn())
             {
+                using var deferred = _runtime.Engine.Tasks.DeferTaskDrain();
                 _runtime.Engine.Execute(text, source, ParsingFrom(line));
             }
         }
@@ -1132,6 +1133,7 @@ internal sealed partial class ParserDriver : IDisposable
             // which is where a module's evaluation actually happens.
             using (_runtime.Budget.BeginTurn())
             {
+                using var deferred = _runtime.Engine.Tasks.DeferTaskDrain();
                 operation = _runtime.Engine.Modules.StartImport(specifier);
             }
         }
