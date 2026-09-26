@@ -9,16 +9,37 @@ internal sealed class HtmlInput
 {
     internal sealed class CrossingBatch { internal bool Passed; }
 
+    internal sealed class SourceUnit(HtmlSourceKind kind, long id)
+    {
+        private long _offset;
+        private long _line = 1;
+        private long _column;
+        private bool _cr;
+
+        internal HtmlSourceLocation Location => new(kind, id, _offset, _line, _column);
+
+        internal void Consume(char value)
+        {
+            _offset++;
+            if (value == '\r') { _line++; _column = 0; }
+            else if (value == '\n') { if (!_cr) _line++; _column = 0; }
+            else _column++;
+            _cr = value == '\r';
+        }
+    }
+
     internal sealed class Node
     {
-        internal Node(string? source = null, int start = 0, int end = 0)
+        internal Node(string? source = null, int start = 0, int end = 0, SourceUnit? unit = null)
         {
             Source = source;
+            Unit = unit;
             Start = start;
             End = end;
         }
 
         internal readonly string? Source;
+        internal readonly SourceUnit? Unit;
         internal readonly int Start;
         internal readonly int End;
         internal Node Previous = null!;
@@ -47,6 +68,20 @@ internal sealed class HtmlInput
     private Node? _boundary;
     private int _offset;
     private long _appended;
+    private readonly SourceUnit _primary = new(HtmlSourceKind.Primary, 0);
+    private SourceUnit? _lastUnit;
+    private long _nextUnitId;
+
+    internal HtmlSourceLocation SourceLocation => (_lastUnit ?? _primary).Location;
+    internal long SourceChanges { get; private set; }
+
+    private void ConsumeSource(Node node, char value)
+    {
+        var unit = node.Unit!;
+        if (_lastUnit is not null && _lastUnit != unit) SourceChanges++;
+        _lastUnit = unit;
+        unit.Consume(value);
+    }
 
     internal HtmlInput(Func<bool> chargeTraversal)
     {
@@ -74,7 +109,7 @@ internal sealed class HtmlInput
     {
         ArgumentNullException.ThrowIfNull(chunk);
         if (IsClosed) throw new InvalidOperationException("The input is closed.");
-        if (chunk.Length > 0) LinkBefore(_tail, new Node(chunk, 0, chunk.Length));
+        if (chunk.Length > 0) LinkBefore(_tail, new Node(chunk, 0, chunk.Length, _primary));
         Account(chunk.Length);
         if (isFinal) IsClosed = true;
         InvalidateProbes();
@@ -85,7 +120,7 @@ internal sealed class HtmlInput
         if (_offset != 0)
         {
             var current = _head.Next;
-            var suffix = new Node(current.Source, current.Start + _offset, current.End);
+            var suffix = new Node(current.Source, current.Start + _offset, current.End, current.Unit);
             LinkBefore(current, suffix);
             Unlink(current);
             _offset = 0;
@@ -98,7 +133,7 @@ internal sealed class HtmlInput
 
     internal void Insert(Node marker, string text)
     {
-        if (text.Length > 0) LinkBefore(marker, new Node(text, 0, text.Length));
+        if (text.Length > 0) LinkBefore(marker, new Node(text, 0, text.Length, new SourceUnit(HtmlSourceKind.Inserted, ++_nextUnitId)));
         Account(text.Length);
         InvalidateProbes();
     }
@@ -190,6 +225,7 @@ internal sealed class HtmlInput
         _head.Next = node;
         node.Previous = _head;
         _offset = probe.Position - node.Start + 1;
+        ConsumeSource(node, value);
         Offset++;
         if (probe.Position + 1 == node.End)
         {
@@ -205,6 +241,7 @@ internal sealed class HtmlInput
     {
         var node = _head.Next;
         var value = node.Source![node.Start + _offset++];
+        ConsumeSource(node, value);
         Offset++;
         if (node.Start + _offset == node.End)
         {

@@ -31,9 +31,12 @@ internal readonly struct HtmlToken
         IReadOnlyList<HtmlAttribute>? attributes = null, bool selfClosing = false,
         string? publicIdentifier = null, string? systemIdentifier = null,
         bool forceQuirks = false, long offset = 0, bool endTagHadAttributes = false,
-        bool endTagHadSelfClosing = false)
+        bool endTagHadSelfClosing = false, HtmlSourceLocation? scriptSourceLocation = null,
+        long sourceChanges = 0)
     {
         Kind = kind;
+        ScriptSourceLocation = scriptSourceLocation;
+        SourceChanges = sourceChanges;
         Data = data;
         Name = name;
         Attributes = attributes ?? Array.Empty<HtmlAttribute>();
@@ -46,6 +49,8 @@ internal readonly struct HtmlToken
         EndTagHadSelfClosing = endTagHadSelfClosing;
     }
 
+    internal HtmlSourceLocation? ScriptSourceLocation { get; }
+    internal long SourceChanges { get; }
     internal HtmlTokenKind Kind { get; }
     internal string Data { get; }
     internal string? Name { get; }

@@ -54,6 +54,7 @@ internal sealed partial class HtmlTokenizer
     private string? _publicIdentifier;
     private string? _systemIdentifier;
     private long _tokenStart = -1;
+    private long _tokenSourceChanges;
     private long _referenceStart = -1;
     private long _textStart;
     private long _work;
@@ -80,6 +81,7 @@ internal sealed partial class HtmlTokenizer
 
     internal long ConsumedInput => _input.Offset;
     internal long WorkCount => _work;
+    internal long SourceChanges => _input.SourceChanges;
 
     internal void AppendInput(string chunk, bool isFinal = false)
     {
@@ -303,11 +305,20 @@ internal sealed partial class HtmlTokenizer
         if (_endTag && _endTagHadAttributes) Error("end-tag-with-attributes");
         if (_endTag && _endTagHadSelfClosing) Error("end-tag-with-trailing-solidus");
         var attributes = CopyAttributes();
+        var name = Materialize(_tagName);
+        HtmlSourceLocation? source = null;
+        if (!_endTag && name == "script")
+        {
+            source = _input.SourceLocation;
+            if (_tokenSourceChanges != _input.SourceChanges) source = source.Value.AsMixed();
+        }
         var produced = new HtmlToken(_endTag ? HtmlTokenKind.EndTag : HtmlTokenKind.StartTag,
-            name: Materialize(_tagName), attributes: Array.AsReadOnly(attributes),
+            name: name, attributes: Array.AsReadOnly(attributes),
             selfClosing: _selfClosing, offset: _tokenStart,
             endTagHadAttributes: _endTagHadAttributes,
-            endTagHadSelfClosing: _endTagHadSelfClosing);
+            endTagHadSelfClosing: _endTagHadSelfClosing,
+            scriptSourceLocation: source,
+            sourceChanges: _endTag ? _tokenSourceChanges : _input.SourceChanges);
         // Tag name has a separate buffer from the current attribute.
         _tokenStart = -1;
         _state = State.Data;
