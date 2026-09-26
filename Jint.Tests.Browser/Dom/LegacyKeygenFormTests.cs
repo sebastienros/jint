@@ -35,7 +35,10 @@ public sealed class LegacyKeygenFormTests
         form.AppendChild(keygen);
         DomLegacyKeygenForm.Of(keygen, null, default).Should().BeSameAs(form);
         keygen.SetAttribute("form", "f");
-        DomLegacyKeygenForm.Of(keygen, null, default).Should().BeNull();
+        DomLegacyKeygenForm.Of(keygen, null, default).Should().BeSameAs(form);
+        keygen.SetAttribute("form", "");
+        DomLegacyKeygenForm.Of(keygen, null, default).Should().BeSameAs(form);
+        keygen.SetAttribute("form", "f");
         document.AppendChild(form);
         DomLegacyKeygenForm.Of(keygen, null, default).Should().BeSameAs(form);
 

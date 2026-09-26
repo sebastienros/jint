@@ -11,9 +11,9 @@ internal static class DomLegacyKeygenForm
         var work = new DomReadWork(checkpoint, token);
         work.Check();
         var id = work.Attribute(element, "form");
-        if (id is not null)
+        if (id is not null && work.Root(element) is Document document)
         {
-            if (id.Length == 0 || work.Root(element) is not Document document)
+            if (id.Length == 0)
             {
                 work.Check();
                 return null;
