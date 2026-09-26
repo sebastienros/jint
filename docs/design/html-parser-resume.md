@@ -44,6 +44,17 @@ old cascade fixture. Its replacement preserves actual lazy-work measurements thr
 query diagnostics, corrects explicitly reviewed CSS inheritance expectations, and requires native
 nested-rule support. These are separate source packets, not accepted runtime behavior yet.
 
+That compile inventory is now historical: isolated `741bdb127` builds **Jint.Browser and its test
+project with zero warnings/errors** (`/private/tmp/native-browser-root-watch-net10-build.log`).
+The first core runtime gate passes **231/234**, with three failures and no skips
+(`/private/tmp/native-browser-core-net10-test.log`): one reviewed declared-color fixture correction
+and two frame cases exposing automatic timer draining during parser script evaluation. The focused
+Events/extraction/observer gate passes **186/195**, nine failures and no skips
+(`/private/tmp/native-browser-events-extraction-net10-test.log`): eight missing CSS association/query
+paths and one reviewed Unicode-sets pattern fixture correction. These are incomplete runtime gates.
+Dedicated fixes preserve generic Engine task behavior, establish actual document CSS realms, and
+provide the existing native query to engine-free extraction without a fake realm or eager computation.
+
 Native two-phase mutation notifications and frozen attribute values pass **15/15** focused fresh
 Release net10 tests at isolated `39e027033`, zero failures/skips
 (`/private/tmp/native-mutation-order-fixed-net10-test.log`). The reviewed stylesheet producer through
@@ -100,6 +111,8 @@ Current owners:
 | Browser contract/generator/native binding consumers | `01a0dbf5-ad50-79d2-9253-109314f39e60` | `b78d` |
 | Browser Events, Page.Input, accessibility/extraction | `01a0db9d-701a-7752-8791-64eb54dd2d0c` | `68c5` |
 | Browser demand-driven CSS cascade and style consumers | `01a0db8e-10ce-7671-ac02-2e224a13bb8d` | `16aa` |
+| Native CSS nesting and bounded parent-reference evaluation | `01a0dcba-a79a-78c3-bf32-08d08a406acb` | `cc99` |
+| Browser-only task-drain deferral, preserving generic Engine behavior | `01a0dccf-f06a-7fc0-8b93-34b98f3e110e` | `6711` |
 | Native select/option state (complete, chat archived) | `01a0dbbc-812f-77b2-9838-28183e25597d` | `eac8` |
 | Lazy input/value/checkedness producers (complete, chat archived) | `01a0db8d-f2c1-7623-a908-49742dafdd77` | `757c` |
 | Pure numeric/temporal helpers (complete, chat archived) | `01a0dbbc-8989-7002-a280-c16b0dfaf2c8` | `3c0a` |
