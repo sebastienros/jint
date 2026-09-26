@@ -1,4 +1,5 @@
 using Jint.HtmlParser.Css.Syntax;
+using Jint.HtmlParser.Css.Model.Syntax;
 using Jint.HtmlParser.Css.Values;
 
 namespace Jint.HtmlParser.Css.Model;
@@ -23,27 +24,66 @@ internal sealed class CssImportRule : CssRule
     // Never share one fetched sheet between two import occurrences.
     internal void SetStyleSheet(CssStyleSheet? sheet, Uri? sourceUrl, Uri? baseUrl, CssValueWork work)
     {
-        work.CheckCancellation();
-        if (ReferenceEquals(sheet, StyleSheet)) return;
-        // A published child belongs to this historical rule for its lifetime. Browser must
-        // replace the parent generation, never retarget a retained import/media wrapper.
-        if (StyleSheet is not null)
-            throw new InvalidOperationException("A published import child cannot be replaced or cleared.");
-        if (sheet is not null)
+        var importStamp = Stamp;
+        var parent = ParentStyleSheet;
+        var parentStamp = parent?.Stamp;
+        var graph = new List<(CssStyleSheet Sheet, CssMutationStamp Stamp)>();
+        var seen = new HashSet<CssStyleSheet>(ReferenceEqualityComparer.Instance);
+        if (sheet is not null) { graph.Add((sheet, sheet.Stamp)); seen.Add(sheet); }
+
+        void VerifyIdentity()
         {
-            if (sheet.Attachment.OwnerNode is not null || sheet.Attachment.ImportOwner is not null)
-                throw new InvalidOperationException("The imported sheet already has an owner.");
-            foreach (var descendant in sheet.ImportedStyleSheets(work))
+            if (!importStamp.CanReuse || Stamp != importStamp || !ReferenceEquals(parent, ParentStyleSheet) ||
+                parentStamp is { } stamp && (!stamp.CanReuse || parent!.Stamp != stamp))
+                throw new InvalidOperationException("The import changed during child attachment.");
+            if (graph.Count != 0 && (!graph[0].Stamp.CanReuse || graph[0].Sheet.Stamp != graph[0].Stamp))
+                throw new InvalidOperationException("The candidate child changed during attachment.");
+        }
+
+        void VerifyGraph()
+        {
+            VerifyIdentity();
+            for (var i = 0; i < graph.Count; i++)
             {
-                work.Charge(1);
-                if (ReferenceEquals(descendant, ParentStyleSheet))
-                    throw new InvalidOperationException("An import cannot create a sheet cycle.");
+                if ((i & 1023) == 0) work.Token.ThrowIfCancellationRequested();
+                var entry = graph[i];
+                if (!entry.Stamp.CanReuse || entry.Sheet.Stamp != entry.Stamp)
+                    throw new InvalidOperationException("The candidate import graph changed during attachment.");
             }
         }
-        // Stage all potentially cancelling traversal before ownership changes.
-        work.CheckCancellation();
+
+        // Checkpoints can run arbitrary host code. Identity guards run after every callback;
+        // one final charged graph verification detects all descendant edits before publication.
+        // Avoid rescanning a growing graph at every checkpoint (quadratic on deep imports).
+        var guarded = CssValueWork.Guard(work, () => { work.CheckCancellation(); VerifyIdentity(); });
+        guarded.CheckCancellation();
+        if (ReferenceEquals(sheet, StyleSheet)) return;
+        if (StyleSheet is not null)
+            throw new InvalidOperationException("A published import child cannot be replaced or cleared.");
+        if (sheet is null) return;
+        for (var i = 0; i < graph.Count; i++)
+        {
+            guarded.Charge(1);
+            var candidate = graph[i].Sheet;
+            if (ReferenceEquals(candidate, parent))
+                throw new InvalidOperationException("An import cannot create a sheet cycle.");
+            foreach (var rule in candidate.Rules)
+            {
+                guarded.Charge(1);
+                if (rule is CssImportRule { StyleSheet: { } child } && seen.Add(child))
+                    graph.Add((child, child.Stamp));
+            }
+        }
+        var publication = sheet.PrepareImportAttachment(this, Media, sourceUrl, baseUrl);
+        guarded.Charge(graph.Count);
+        guarded.CheckCancellation();
+        // The last callback is followed by revision and ownership validation before either side
+        // becomes visible. Commit performs only assignments and nonthrowing stamp advancement.
+        VerifyGraph();
+        if (StyleSheet is not null || sheet.Attachment.OwnerNode is not null || sheet.Attachment.ImportOwner is not null)
+            throw new InvalidOperationException("The import or candidate child already has an owner.");
         StyleSheet = sheet;
-        sheet?.SetImportAttachment(this, Media, sourceUrl, baseUrl);
+        publication.Commit();
         Changed();
     }
 

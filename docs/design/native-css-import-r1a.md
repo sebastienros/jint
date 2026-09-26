@@ -20,11 +20,22 @@ and [CSSOM CSSImportRule](https://drafts.csswg.org/cssom/#the-cssimportrule-inte
   parent rules only.
 - `SetStyleSheet(child, finalSourceUrl, finalBaseUrl, work)` publishes the real
   child identity once after bounded validation. A published child cannot be
-  replaced or cleared; replace the parent generation instead. Each occurrence needs its own child;
+  replaced or cleared; replace the parent generation instead. Each occurrence
+  needs its own child;
   a previously owned sheet and a cycle are rejected. Browser supplies the final
-  response URL, including redirects. The child attachment has `OwnerNode = null`
+  response URL, including redirects. Import/parent revisions and the candidate
+  graph's captured sheet revisions guard arbitrary work checkpoints. Identity
+  guards run after each callback; a final charged graph scan verifies every
+  descendant revision without another host callback, keeping verification linear.
+  All attachment
+  validation and allocation finish before the first publication; a prepared record
+  commits without callbacks or throwing validation. A callback that attaches the
+  candidate elsewhere, publishes another child, changes scanned graph edges, or
+  replaces the parent invalidates the outer attempt without undoing the callback.
+  The child attachment has `OwnerNode = null`
   and `ImportOwner = actual rule`. A child must still be private when published:
-  its initial empty Media is replaced before any Browser wrapper exposure. The child shares the rule's live `Media`.
+  its initial empty Media is replaced before any Browser wrapper exposure. The
+  child shares the rule's live `Media`.
 - Removing/replacing a parent rule detaches its exposed parent links, retaining
   historical rule-to-child ownership. Retained child rules still name that child.
   Changes through the detached import no longer notify the old root.

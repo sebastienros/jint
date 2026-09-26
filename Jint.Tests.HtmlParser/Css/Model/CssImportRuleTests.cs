@@ -236,6 +236,85 @@ public sealed class CssImportRuleTests
     }
 
     [Test]
+    public void CheckpointCompetingAttachmentCannotPublishAChildWithAnotherOwner()
+    {
+        var outer = Import(CssStyleSheet.Parse("@import 'outer';"));
+        var competitor = Import(CssStyleSheet.Parse("@import 'competitor';"));
+        var candidate = CssStyleSheet.Parse("a {}");
+        var checks = 0;
+        var work = new CssValueWork(default, () =>
+        {
+            if (++checks == 2) competitor.SetStyleSheet(candidate, null, null, Work());
+        });
+        Assert.Throws<InvalidOperationException>(() => outer.SetStyleSheet(candidate, null, null, work));
+        outer.StyleSheet.Should().BeNull();
+        competitor.StyleSheet.Should().BeSameAs(candidate);
+        candidate.Attachment.ImportOwner.Should().BeSameAs(competitor);
+        candidate.Media.Should().BeSameAs(competitor.Media);
+        candidate.Media.Should().NotBeSameAs(outer.Media);
+    }
+
+    [Test]
+    public void CheckpointReentryOnSameImportCannotRetargetItsPublishedChild()
+    {
+        var import = Import(CssStyleSheet.Parse("@import 'outer';"));
+        var candidate = CssStyleSheet.Parse("a {}");
+        var winner = CssStyleSheet.Parse("b {}");
+        var candidateStamp = candidate.Stamp;
+        var checks = 0;
+        var work = new CssValueWork(default, () =>
+        {
+            if (++checks == 2) import.SetStyleSheet(winner, null, null, Work());
+        });
+        Assert.Throws<InvalidOperationException>(() => import.SetStyleSheet(candidate, null, null, work));
+        import.StyleSheet.Should().BeSameAs(winner);
+        winner.Attachment.ImportOwner.Should().BeSameAs(import);
+        winner.Media.Should().BeSameAs(import.Media);
+        candidate.Attachment.ImportOwner.Should().BeNull();
+        candidate.Stamp.Should().Be(candidateStamp);
+    }
+
+    [Test]
+    public void CheckpointCandidateDescendantMutationInvalidatesAttachmentSnapshot()
+    {
+        var import = Import(CssStyleSheet.Parse("@import 'outer';"));
+        var candidate = CssStyleSheet.Parse("@import 'child';");
+        var descendant = CssStyleSheet.Parse("a {}");
+        Import(candidate).SetStyleSheet(descendant, null, null, Work());
+        var candidateStamp = candidate.Stamp;
+        var importStamp = import.Stamp;
+        var checks = 0;
+        var work = new CssValueWork(default, () =>
+        {
+            if (++checks == 2) descendant.InsertRule("b {}", 1);
+        });
+        Assert.Throws<InvalidOperationException>(() => import.SetStyleSheet(candidate, null, null, work));
+        import.StyleSheet.Should().BeNull();
+        import.Stamp.Should().Be(importStamp);
+        candidate.Attachment.ImportOwner.Should().BeNull();
+        candidate.Stamp.Should().Be(candidateStamp);
+        descendant.Rules.Count.Should().Be(2);
+    }
+
+    [Test]
+    public void CheckpointParentReplacementInvalidatesImportBeforePublication()
+    {
+        var parent = CssStyleSheet.Parse("@import 'outer';");
+        var import = Import(parent);
+        var candidate = CssStyleSheet.Parse("a {}");
+        var checks = 0;
+        var work = new CssValueWork(default, () =>
+        {
+            if (++checks == 2) parent.ReplaceText("b {}");
+        });
+        Assert.Throws<InvalidOperationException>(() => import.SetStyleSheet(candidate, null, null, work));
+        import.StyleSheet.Should().BeNull();
+        import.ParentStyleSheet.Should().BeNull();
+        candidate.Attachment.ImportOwner.Should().BeNull();
+        parent.Rules[0].Should().BeOfType<CssStyleRule>();
+    }
+
+    [Test]
     public void CyclesAndSharedChildIdentitiesAreRejectedBeforePublication()
     {
         var root = CssStyleSheet.Parse("@import 'a'; @import 'b';");

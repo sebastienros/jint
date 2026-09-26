@@ -153,8 +153,11 @@ internal sealed class CssStyleSheet
                 if (rule is CssImportRule { StyleSheet: { } child }) pending.Push(child);
             }
         }
+        work.Charge(result.Count);
         work.CheckCancellation();
-        return result.ToArray();
+        var sheets = result.ToArray();
+        work.CheckCancellation();
+        return sheets;
     }
 
     // Imported sheets inherit the root sheet's tree scope, despite having no owner node themselves.
@@ -210,15 +213,25 @@ internal sealed class CssStyleSheet
         return rules;
     }
 
-    internal void SetImportAttachment(CssImportRule owner, CssMediaList media, Uri? sourceUrl, Uri? baseUrl)
+    internal ImportAttachment PrepareImportAttachment(CssImportRule owner, CssMediaList media, Uri? sourceUrl, Uri? baseUrl)
     {
         if (Attachment.ImportOwner is not null || Attachment.OwnerNode is not null ||
-            !ReferenceEquals(owner.StyleSheet, this) || !ReferenceEquals(owner.Media, media))
-            throw new InvalidOperationException("The child must be published by its actual import owner.");
-        Attachment = new CssStyleSheetAttachment { ImportOwner = owner, SourceUrl = sourceUrl, BaseUrl = baseUrl };
-        Media = media;
-        media.AttachTo(this);
-        Changed();
+            owner.StyleSheet is not null || !ReferenceEquals(owner.Media, media))
+            throw new InvalidOperationException("The child must be published by an unassociated import owner.");
+        return new ImportAttachment(this, media,
+            new CssStyleSheetAttachment { ImportOwner = owner, SourceUrl = sourceUrl, BaseUrl = baseUrl });
+    }
+
+    // Prepared ownership record; caller verifies revisions after its last checkpoint.
+    internal sealed class ImportAttachment(CssStyleSheet sheet, CssMediaList media, CssStyleSheetAttachment attachment)
+    {
+        internal void Commit()
+        {
+            sheet.Attachment = attachment;
+            sheet.Media = media;
+            media.AttachTo(sheet);
+            sheet.Changed();
+        }
     }
 
     internal void Changed() => CssMutationStamp.Advance(ref _version);
