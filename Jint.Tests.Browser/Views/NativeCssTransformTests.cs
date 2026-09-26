@@ -1,0 +1,80 @@
+#nullable enable
+
+namespace Jint.Tests.Browser.Views;
+
+using Browser = global::Jint.Browser.Browser;
+
+public sealed class NativeCssTransformTests
+{
+    [TestCase("translate", "0 -50%", "0px -50%")]
+    [TestCase("translate", "-1in 20% 2px", "-96px 20% 2px")]
+    [TestCase("rotate", "45deg 0 2 0", "y 45deg")]
+    [TestCase("rotate", "-.25turn", "-90deg")]
+    [TestCase("scale", "-50% 200% 100%", "-0.5 2")]
+    [TestCase("scale", "calc(-2 * .25)", "-0.5")]
+    public async Task InlineMutationsPriorityRemovalAndDetachedReadsUseCanonicalValues(string name, string declared, string expected)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<style>#box { " + name + ":none !important }</style><div id=box>a</div>");
+        (await page.EvaluateAsync<string>("""
+            (() => {
+                const box = document.getElementById('box');
+                box.style.setProperty('NAME', 'DECLARED');
+                return getComputedStyle(box).getPropertyValue('NAME');
+            })()
+            """.Replace("NAME", name).Replace("DECLARED", declared))).Should().Be("none");
+        (await page.EvaluateAsync<string>("""
+            (() => {
+                const box = document.getElementById('box');
+                box.style.setProperty('NAME', 'DECLARED', 'important');
+                return getComputedStyle(box).getPropertyValue('NAME') + '|' + box.style.getPropertyPriority('NAME');
+            })()
+            """.Replace("NAME", name).Replace("DECLARED", declared))).Should().Be(expected + "|important");
+        (await page.EvaluateAsync<string>("""
+            (() => {
+                const box = document.getElementById('box');
+                box.style.setProperty('NAME', 'bogus');
+                return getComputedStyle(box).getPropertyValue('NAME');
+            })()
+            """.Replace("NAME", name))).Should().Be(expected);
+        (await page.EvaluateAsync<string>("""
+            (() => {
+                const box = document.getElementById('box');
+                box.style.removeProperty('NAME');
+                return getComputedStyle(box).getPropertyValue('NAME');
+            })()
+            """.Replace("NAME", name))).Should().Be("none");
+        // Keep the established resolved-style contract for a detached node.
+        (await page.EvaluateAsync<string>("""
+            (() => {
+                const box = document.createElement('div');
+                box.style.setProperty('NAME', 'DECLARED');
+                return getComputedStyle(box).getPropertyValue('NAME');
+            })()
+            """.Replace("NAME", name).Replace("DECLARED", declared))).Should().Be(expected);
+        page.Errors.Should().BeEmpty();
+    }
+
+    [TestCase("translate", "10px 20%")]
+    [TestCase("rotate", "x 45deg")]
+    [TestCase("scale", "2")]
+    public async Task ExplicitInheritanceAndInvalidVariableWinnersSurviveBrowserReads(string name, string value)
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<style>#parent { " + name + ":" + value + " } #child { " + name + ":inherit }</style>"
+            + "<div id=parent><span id=child>a</span></div>");
+        (await page.EvaluateAsync<string>("getComputedStyle(document.getElementById('child')).getPropertyValue('" + name + "')"))
+            .Should().Be(value);
+        (await page.EvaluateAsync<string>("""
+            (() => {
+                const child = document.getElementById('child');
+                child.style.setProperty('--bad', 'bogus');
+                child.style.setProperty('NAME', 'var(--bad)', 'important');
+                return getComputedStyle(child).getPropertyValue('NAME');
+            })()
+            """.Replace("NAME", name))).Should().Be("none");
+        page.Errors.Should().BeEmpty();
+    }
+}
