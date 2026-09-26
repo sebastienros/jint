@@ -6,9 +6,10 @@ namespace Jint.Native.Intl.Data;
 /// </summary>
 /// <remarks>
 /// <para>
-/// This is what https://tc39.es/ecma402/#sec-hourcyclesoflocale reads, and nothing else does:
-/// <c>Intl.DateTimeFormat</c>'s default hour cycle is still decided by
-/// <c>DateTimeFormatPrototype.GetDefaultHourCycle</c>, which does not consult this table.
+/// Two operations read it, for one locale in the same way: https://tc39.es/ecma402/#sec-hourcyclesoflocale,
+/// which is <c>Intl.Locale.prototype.getHourCycles</c>, and the locale data
+/// https://tc39.es/ecma402/#sec-createdatetimeformat takes an <c>Intl.DateTimeFormat</c>'s hour cycle from
+/// when no option or keyword decides it. So a formatter's default is <c>getHourCycles()[0]</c> of its locale.
 /// </para>
 /// <para>
 /// The data is CLDR 48.2's (see <c>TimeData.Data.cs</c>). Each entry is CLDR's preferred hour format followed
@@ -53,6 +54,66 @@ internal static partial class TimeData
         }
 
         return TryGetHourCycles(language, preference.Region, out hourCycles) ? hourCycles : Fallback;
+    }
+
+    /// <summary>
+    /// The hour cycles in common use for an <c>Intl.DateTimeFormat</c>'s data locale, read as
+    /// <see cref="GetHourCycles(string, in RegionPreference)"/> reads them for an <c>Intl.Locale</c>.
+    /// </summary>
+    /// <remarks>
+    /// A data locale is the matched available locale of https://tc39.es/ecma402/#sec-resolvelocale, which
+    /// carries no Unicode extension a region could come from: <c>-u-rg-</c> and <c>-u-sd-</c> are not among
+    /// the formatter's relevant extension keys, so neither reaches here, and the region is the tag's own or
+    /// its likely one.
+    /// </remarks>
+    internal static string[] GetHourCycles(string dataLocale)
+    {
+        return GetHourCycles(IntlUtilities.GetLanguageSubtag(dataLocale), RegionPreference.Of(dataLocale));
+    }
+
+    /// <summary>
+    /// <c>[[LocaleData]].[[&lt;locale&gt;]].[[hourCycle12]]</c> of
+    /// https://tc39.es/ecma402/#sec-intl.datetimeformat-internal-slots, the cycle <c>hour12: true</c> resolves
+    /// to: the first 12-hour cycle the locale allows, and <c>h12</c> for a locale that allows none.
+    /// </summary>
+    /// <remarks>
+    /// Japan is the one region that allows the 0-11 clock, and it lists it ahead of the 1-12 one, so
+    /// <c>ja</c> — likely <c>ja-JP</c> — is on <c>h11</c>, which is what test262's
+    /// <c>intl402/DateTimeFormat/prototype/resolvedOptions/hourCycle-default.js</c> expects of it.
+    /// </remarks>
+    internal static string GetHourCycle12(string[] hourCycles)
+    {
+        foreach (var hourCycle in hourCycles)
+        {
+            if (hourCycle is "h11" or "h12")
+            {
+                return hourCycle;
+            }
+        }
+
+        return "h12";
+    }
+
+    /// <summary>
+    /// <c>[[LocaleData]].[[&lt;locale&gt;]].[[hourCycle24]]</c> of
+    /// https://tc39.es/ecma402/#sec-intl.datetimeformat-internal-slots, the cycle <c>hour12: false</c> resolves
+    /// to: the first 24-hour cycle the locale allows, and <c>h23</c> for a locale that allows none.
+    /// </summary>
+    /// <remarks>
+    /// No region in CLDR 48.2 allows the 1-24 clock, so this answers <c>h23</c> everywhere today. It reads the
+    /// table rather than returning that constant so that a later release allowing <c>h24</c> is picked up with it.
+    /// </remarks>
+    internal static string GetHourCycle24(string[] hourCycles)
+    {
+        foreach (var hourCycle in hourCycles)
+        {
+            if (hourCycle is "h23" or "h24")
+            {
+                return hourCycle;
+            }
+        }
+
+        return "h23";
     }
 
     private static bool TryGetHourCycles(string language, string region, out string[] hourCycles)

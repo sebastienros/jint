@@ -5734,9 +5734,10 @@ The second amends [4.47](#4-47-intl-datetimeformat-s-calendar-default-comes-from
 **Hosts.** Both lists are read from the data Jint embeds, and `ICldrProvider` has no member for either yet. A
 provider overriding `GetDefaultCalendar` therefore moves `Intl.DateTimeFormat`'s default calendar and not
 `getCalendars()`, and the two can disagree; with `DefaultCldrProvider` they read one table, and the first
-calendar listed is the one the formatter defaults to. `Intl.DateTimeFormat`'s default *hour cycle* is
-unchanged and still does not read `timeData`, so `resolvedOptions().hourCycle` and `getHourCycles()[0]` can
-differ as well — `en-GB` is `h12` and `["h23", "h12"]`.
+calendar listed is the one the formatter defaults to. `Intl.DateTimeFormat`'s default *hour cycle* reads
+`timeData` too, since
+[4.141](#4-141-intl-datetimeformat-defaults-to-the-hour-cycle-cldr-prefers-for-the-locale-s-region-4179), so
+`resolvedOptions().hourCycle` is `getHourCycles()[0]`.
 
 **What could break:** `getHourCycles()` returns more than one cycle for almost every locale, and its first
 element moved where the .NET culture's short time pattern disagreed with CLDR — on the machine this was
@@ -5791,6 +5792,56 @@ engine's thread, knowing that this runs the getter:
 
 ```c#
 var message = exception.Error is ObjectInstance error ? error.Get("message").ToString() : exception.Message;
+```
+
+### 4.141 `Intl.DateTimeFormat` defaults to the hour cycle CLDR prefers for the locale's region ([#4179](https://github.com/sebastienros/jint/issues/4179))
+
+When neither `hourCycle`, `hour12` nor a `-u-hc-` keyword chose one, `Intl.DateTimeFormat` took its hour cycle
+from a hard-coded list of languages: `de`, `fr`, `it`, `es`, `pt`, `nl`, `ru`, `pl`, `sv`, `da`, `nb` and `fi`
+wrote a 24-hour clock, `ja` a 0-11 one, and every other language a 12-hour one. The locale data
+[CreateDateTimeFormat](https://tc39.es/ecma402/#sec-createdatetimeformat) reads is now CLDR 48.2's `timeData`
+for the region [RegionPreference](https://tc39.es/ecma402/#sec-regionpreference) picks, the table
+[4.139](#4-139-intl-locale-s-hour-cycles-and-calendars-read-cldr-48-2-for-the-region-the-specification-picks-4159)
+gave `getHourCycles`. So `resolvedOptions().hourCycle` is `getHourCycles()[0]` of the resolved locale, and
+`format`, `formatToParts` and `timeStyle` write that cycle:
+
+```js
+const date = new Date(Date.UTC(2024, 0, 15, 15, 7));
+const hm = { hour: 'numeric', minute: 'numeric', timeZone: 'UTC' };
+
+// 4.16.x / earlier 5.0
+new Intl.DateTimeFormat('en-GB', hm).format(date);          // "3:07 pm"
+new Intl.DateTimeFormat('ja-JP', hm).format(date);          // "3:07 午後"
+new Intl.DateTimeFormat('es-MX', hm).format(date);          // "15:07"
+date.toLocaleTimeString('en-GB', { timeZone: 'UTC' });      // "3:07:00 pm"
+
+// 5.x
+new Intl.DateTimeFormat('en-GB', hm).format(date);          // "15:07"
+new Intl.DateTimeFormat('ja-JP', hm).format(date);          // "15:07"
+new Intl.DateTimeFormat('es-MX', hm).format(date);          // "3:07 p. m."
+date.toLocaleTimeString('en-GB', { timeZone: 'UTC' });      // "15:07:00"
+```
+
+`hour12: true` resolves to the first 12-hour cycle the region allows and `hour12: false` to the first 24-hour
+one. For every .NET culture that is the answer the list gave: `h11` for `ja-JP`, `h12` elsewhere, and `h23`.
+
+**What could break:** measured over .NET 10's 605 specific cultures, 323 write their times on a different clock,
+and `resolvedOptions()` reports `hourCycle` and `hour12` to match:
+
+| Before | After | Cultures |
+| --- | --- | --- |
+| `h12` | `h23` | 292: `en-GB`, `en-IE`, `en-ZA`, `en-150` and 46 more `en-*`, `cs-CZ`, `tr-TR`, `uk-UA`, `he-IL`, `hu-HU`, `bg-BG`, `ro-RO`, `id-ID`, `vi-VN`, `th-TH`, `zh-Hans-CN`, `ca-*`, `sr-*`, `hr-*`, `bs-*`, `sw-*`, `ff-*`, and others |
+| `h23` | `h12` | 30: `es-419`, `es-MX`, `es-US` and 19 more `es-*` (the rest of Latin America, and `es-PH`), `fr-DJ`, `fr-DZ`, `fr-MR`, `fr-SY`, `fr-TD`, `fr-TN`, `fr-VU`, `pt-MO` |
+| `h11` | `h23` | `ja-JP` |
+
+`Date.prototype.toLocaleString`, `toLocaleTimeString` and Temporal's `toLocaleString` construct an
+`Intl.DateTimeFormat`, so they move with it — also when no locale is passed and `Options.Culture` (or the
+current culture) supplies it. There is no engine-wide switch back; a script that depends on a clock asks for it,
+and that is the one line to add at each call site:
+
+```js
+new Intl.DateTimeFormat('en-GB', { hour: 'numeric', minute: 'numeric', hourCycle: 'h12' }); // or hour12: true
+date.toLocaleTimeString('es-MX', { hour12: false });
 ```
 
 ## 5. New in v5

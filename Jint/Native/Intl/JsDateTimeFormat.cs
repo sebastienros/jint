@@ -100,7 +100,25 @@ internal sealed class JsDateTimeFormat : ObjectInstance
     /// <summary>The numbering system resolved once at construction, digits and all.</summary>
     internal Data.ResolvedNumberingSystem ResolvedNumberingSystem => _numberingSystem;
     internal string? TimeZone { get; }
+
+    /// <summary>
+    /// The hour cycle <c>hour12</c>, the <c>hourCycle</c> option or the <c>-u-hc-</c> keyword decided, or null
+    /// when none of them did. A formatter derived from this one is handed this, not <see cref="ResolvedHourCycle"/>,
+    /// so it reads the locale's default only if it writes an hour.
+    /// </summary>
     internal string? HourCycle { get; }
+
+    /// <summary>The locale's own hour cycle, looked up the first time a null <see cref="HourCycle"/> needs it.</summary>
+    private string? _localeHourCycle;
+
+    /// <summary>
+    /// The hc of https://tc39.es/ecma402/#sec-createdatetimeformat: <see cref="HourCycle"/>, or when that is
+    /// null, <c>resolvedLocaleData.[[hourCycle]]</c> — CLDR's preferred cycle for the locale, which is
+    /// <c>getHourCycles()[0]</c> of the same locale. <c>resolvedOptions()</c> reports it and all three lanes
+    /// that write an hour write with it, so the two cannot disagree.
+    /// </summary>
+    internal string ResolvedHourCycle => HourCycle ?? (_localeHourCycle ??= Data.TimeData.GetHourCycles(Locale)[0]);
+
     internal string? DateStyle { get; }
     internal string? TimeStyle { get; }
     internal string? Weekday { get; }
@@ -1686,37 +1704,10 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         return result;
     }
 
-    private string GetHourFormat()
-    {
-        if (HourCycle != null)
-        {
-            if (string.Equals(HourCycle, "h11", StringComparison.Ordinal) ||
-                string.Equals(HourCycle, "h12", StringComparison.Ordinal))
-            {
-                return "h12";
-            }
-            if (string.Equals(HourCycle, "h23", StringComparison.Ordinal) ||
-                string.Equals(HourCycle, "h24", StringComparison.Ordinal))
-            {
-                return "h24";
-            }
-            return "h12";
-        }
-
-        // Default based on locale's short time pattern
-        // If pattern contains uppercase H, locale uses 24-hour; lowercase h means 12-hour
-        var timePattern = CultureInfo.DateTimeFormat.ShortTimePattern;
-        return timePattern.Contains('H') ? "h24" : "h12";
-    }
-
     /// <summary>
-    /// Computes the formatted hour string based on the hourCycle, hour option, and actual hour value.
-    /// Returns the formatted hour string and whether AM/PM should be shown.
-    /// Per ECMA-402: h11=0-11 (12hr), h12=1-12 (12hr), h23=0-23 (24hr), h24=1-24 (24hr).
-    /// 24-hour formats always pad to 2 digits; 12-hour formats pad only for "2-digit" option.
-    /// </summary>
-    /// <summary>
-    /// Computes the formatted hour value based on HourCycle and locale defaults.
+    /// Computes the formatted hour value based on <see cref="ResolvedHourCycle"/>, the cycle
+    /// <c>resolvedOptions()</c> reports: h11=0-11 (12hr), h12=1-12 (12hr), h23=0-23 (24hr), h24=1-24 (24hr).
+    /// 24-hour formats always pad to 2 digits; 12-hour formats pad only for the "2-digit" option.
     /// </summary>
     /// <param name="hour">The 0-23 hour value</param>
     /// <param name="hourStr">Output: formatted hour string</param>
@@ -1725,53 +1716,27 @@ internal sealed class JsDateTimeFormat : ObjectInstance
     private void ComputeHourValue(int hour, out string hourStr, out bool use12Hour, bool padByDefault = false)
     {
         int hourValue;
+        var hourCycle = ResolvedHourCycle;
 
-        if (string.Equals(HourCycle, "h11", StringComparison.Ordinal))
+        if (string.Equals(hourCycle, "h11", StringComparison.Ordinal))
         {
             hourValue = hour % 12; // 0-11
             use12Hour = true;
         }
-        else if (string.Equals(HourCycle, "h24", StringComparison.Ordinal))
+        else if (string.Equals(hourCycle, "h24", StringComparison.Ordinal))
         {
             hourValue = hour == 0 ? 24 : hour; // 1-24
             use12Hour = false;
         }
-        else if (string.Equals(HourCycle, "h23", StringComparison.Ordinal))
+        else if (string.Equals(hourCycle, "h23", StringComparison.Ordinal))
         {
             hourValue = hour; // 0-23
             use12Hour = false;
         }
-        else if (string.Equals(HourCycle, "h12", StringComparison.Ordinal))
-        {
-            hourValue = hour % 12 == 0 ? 12 : hour % 12; // 1-12
-            use12Hour = true;
-        }
         else
         {
-            // No explicit hourCycle - derive from locale using CLDR defaults
-            // (not from .NET CultureInfo which may reflect system user overrides)
-            var defaultHc = DateTimeFormatPrototype.GetDefaultHourCycle(Locale);
-            if (string.Equals(defaultHc, "h11", StringComparison.Ordinal))
-            {
-                hourValue = hour % 12; // 0-11
-                use12Hour = true;
-            }
-            else if (string.Equals(defaultHc, "h23", StringComparison.Ordinal))
-            {
-                hourValue = hour; // 0-23
-                use12Hour = false;
-            }
-            else if (string.Equals(defaultHc, "h24", StringComparison.Ordinal))
-            {
-                hourValue = hour == 0 ? 24 : hour; // 1-24
-                use12Hour = false;
-            }
-            else
-            {
-                // h12 default
-                hourValue = hour % 12 == 0 ? 12 : hour % 12; // 1-12
-                use12Hour = true;
-            }
+            hourValue = hour % 12 == 0 ? 12 : hour % 12; // h12: 1-12
+            use12Hour = true;
         }
 
         // Per ECMA-402: 24-hour formats (h23, h24) always pad to 2 digits.
