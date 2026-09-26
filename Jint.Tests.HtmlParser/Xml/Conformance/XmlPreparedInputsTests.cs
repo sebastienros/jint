@@ -11,15 +11,16 @@ public class XmlPreparedInputsTests
     {
         XmlCorpus.Lock.PreparedInputsSha256.Should().Be("e464013f47b65c96fe7633c302f81c319449a078df179108ae8329d802dc823a");
         var rows = XmlPreparedInputs.Rows;
-        rows.Keys.Order(StringComparer.Ordinal).Should().BeEquivalentTo(new[]
+        var expectedOutcomes = new Dictionary<string, XmlOutcomeKind>(StringComparer.Ordinal)
         {
-            "xmlconf/japanese/japanese.xml#pr-xml-euc-jp",
-            "xmlconf/japanese/japanese.xml#pr-xml-iso-2022-jp",
-            "xmlconf/japanese/japanese.xml#pr-xml-shift_jis",
-            "xmlconf/japanese/japanese.xml#weekly-euc-jp",
-            "xmlconf/japanese/japanese.xml#weekly-iso-2022-jp",
-            "xmlconf/japanese/japanese.xml#weekly-shift_jis"
-        });
+            ["xmlconf/japanese/japanese.xml#pr-xml-euc-jp"] = XmlOutcomeKind.OptionalObservedUnreviewed,
+            ["xmlconf/japanese/japanese.xml#pr-xml-iso-2022-jp"] = XmlOutcomeKind.OptionalObservedUnreviewed,
+            ["xmlconf/japanese/japanese.xml#pr-xml-shift_jis"] = XmlOutcomeKind.OptionalObservedUnreviewed,
+            ["xmlconf/japanese/japanese.xml#weekly-euc-jp"] = XmlOutcomeKind.OptionalPolicyVerified,
+            ["xmlconf/japanese/japanese.xml#weekly-iso-2022-jp"] = XmlOutcomeKind.OptionalPolicyVerified,
+            ["xmlconf/japanese/japanese.xml#weekly-shift_jis"] = XmlOutcomeKind.OptionalPolicyVerified
+        };
+        rows.Keys.Should().BeEquivalentTo(expectedOutcomes.Keys);
         foreach (var entry in rows.Values)
         {
             var row = XmlCorpus.Case(entry.Key);
@@ -33,7 +34,7 @@ public class XmlPreparedInputsTests
             text.Should().Contain("\r\n");
             decision.Decision.Should().Be(entry.Decision);
             decision.Declared.Should().Be(entry.Declared);
-            XmlConformanceRunner.Run(row).Kind.Should().Be(XmlOutcomeKind.OptionalObservedUnreviewed);
+            XmlConformanceRunner.Run(row).Kind.Should().Be(expectedOutcomes[entry.Key]);
         }
     }
 
