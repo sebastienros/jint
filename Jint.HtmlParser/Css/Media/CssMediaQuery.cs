@@ -14,11 +14,33 @@ internal sealed record CssMediaFeature(string Name, CssMediaComparison Compariso
     {
         if (Keyword is not null)
         {
+            if (Name == "any-pointer")
+            {
+                var capabilities = environment.AnyPointer;
+                if (capabilities != CssPointerCapabilities.None && capabilities != CssPointerCapabilities.Coarse &&
+                    capabilities != CssPointerCapabilities.Fine &&
+                    capabilities != (CssPointerCapabilities.Coarse | CssPointerCapabilities.Fine))
+                    return CssMediaTruth.Unknown;
+                if (Comparison == CssMediaComparison.Boolean) return Truth(capabilities != CssPointerCapabilities.None);
+                var requested = Keyword switch
+                {
+                    "none" => CssPointerCapabilities.None,
+                    "coarse" => CssPointerCapabilities.Coarse,
+                    _ => CssPointerCapabilities.Fine
+                };
+                return Truth((capabilities & requested) != 0);
+            }
+            // Invalid or unavailable host input is unknown, never a fabricated none/browser value.
+            if (Name == "any-hover" && environment.AnyHover is not ("none" or "hover") ||
+                Name == "display-mode" && environment.DisplayMode is not ("fullscreen" or "standalone" or "minimal-ui" or "browser" or "picture-in-picture"))
+                return CssMediaTruth.Unknown;
             var actual = Name switch
             {
                 "orientation" => environment.Width > environment.Height ? "landscape" : "portrait",
                 "pointer" => environment.Pointer,
                 "hover" => environment.Hover,
+                "any-hover" => environment.AnyHover,
+                "display-mode" => environment.DisplayMode,
                 "prefers-color-scheme" => environment.ColorScheme,
                 "prefers-reduced-motion" => environment.ReducedMotion,
                 "prefers-reduced-transparency" => environment.ReducedTransparency,
