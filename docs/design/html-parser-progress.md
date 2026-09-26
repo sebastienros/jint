@@ -2,6 +2,22 @@
 
 ## Scope and workflow
 
+**Active continuation after finalization:** the full goal resumed from `3c0f0ee75`. Production
+AngleSharp removal is the next integration objective. Three dedicated GPT-6 Sol High local-worktree
+chats are active; Astra High owns design and review. No PRs.
+
+| Owner | Chat | Checkout / scope |
+| --- | --- | --- |
+| Browser native runtime cutover | `01a0db4d-a396-7e33-a770-ace95e2ad537` | `414c`: Browser, binding contract/emitter and tests; narrow signed native friend grant |
+| H7a foreign-content tree construction | `01a0db4e-2f7a-7e52-bc1f-000fcb158552` | `0c31`: TreeConstruction/session and tests; consumes integrated tokenizer context seam |
+| C6s CSS substitution execution | `01a0db4c-ee87-7523-acc5-04bed9cd6e6e` | `2d15`: reviewed immutable var/env execution and direct component projection |
+
+Browser owns the connected one-native-DOM identity switch, not an XML-to-AngleSharp conversion.
+Temporarily uncompilable worker commits stay isolated; common receives coherent tested checkpoints.
+Native gaps must name an actual caller/regression and go through their owner. Do not overlap parser,
+DOM, CSS or Browser ownership. H7a retains fragment/script and shadow/patch work as separate capabilities;
+C6s does not claim a complete property registry or cascade.
+
 **Latest user-directed finalization (September 25):** the four remaining implementation chats
 have completed their current checkpoints and are archived. All changes passed independent Astra review and are
 integrated in the common worktree through `ed2578918`. Browser still uses AngleSharp; this finite

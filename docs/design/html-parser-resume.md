@@ -1,5 +1,10 @@
 # Jint.HtmlParser resume checkpoint
 
+**Active continuation:** the full goal resumed after the finalized state below. Current implementation
+owners are recorded at the top of [the implementation record](html-parser-progress.md): Browser native
+cutover (`414c`), H7a foreign tree construction (`0c31`) and CSS substitution execution (`2d15`).
+The archived-chat counts below describe the completed checkpoint, not the newly active chats.
+
 **Latest checkpoint:** the user asked to finalize the four remaining chats and integrate their
 changes. Their reviewed implementation is now common through `ed2578918`. This is a functional
 checkpoint for resumption; the full parser/Browser replacement goal remains incomplete. Do not start
