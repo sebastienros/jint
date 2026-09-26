@@ -244,7 +244,7 @@ internal static class EventHandlerContentAttributes
         // A document carries no content attributes, so its handler slot has only the IDL half; the null here
         // removes a handler the markup no longer declares, and for a document there never was one. An
         // element's attribute is read only for a type an element can carry it for.
-        var attribute = element is not null && IsElementHandlerType(type) ? element.GetAttribute("on" + type) : null;
+        var attribute = element is not null && IsElementHandlerType(type) ? element.GetAttributeNS(null, "on" + type) : null;
         var sources = _sources.GetOrCreateValue(target);
         var known = sources.TryGetLast(type, out var last);
 

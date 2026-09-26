@@ -175,7 +175,7 @@ internal static class FormSubmission
     /// </remarks>
     private static bool Validate(DomRealm realm, IHtmlFormElement form, IHtmlElement? submitter)
     {
-        if (form.HasAttribute("novalidate") || submitter?.HasAttribute("formnovalidate") == true)
+        if (form.HasContentAttribute("novalidate") || submitter?.HasContentAttribute("formnovalidate") == true)
         {
             return true;
         }

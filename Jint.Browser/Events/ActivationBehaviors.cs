@@ -138,7 +138,7 @@ internal static class ActivationBehaviors
         {
             case "a":
             case "area":
-                FollowHyperlink(realm, element, Accessibility.ContentDom.Url(element, "href"), element.GetAttribute("target"));
+                FollowHyperlink(realm, element, Accessibility.ContentDom.Url(element, "href"), element.GetAttributeNS(null, "target"));
                 return;
             case "button":
                 RunButton(wrapper, element);
@@ -167,7 +167,7 @@ internal static class ActivationBehaviors
     /// </summary>
     private static void FollowHyperlink(BrowserEventRealm realm, Element source, string? url, string? target)
     {
-        if (!source.HasAttribute("href"))
+        if (!source.HasContentAttribute("href"))
         {
             return;
         }
@@ -307,7 +307,7 @@ internal static class ActivationBehaviors
     /// </remarks>
     private static void RunLabel(DomNodeObject wrapper, Element label, JsEvent ev)
     {
-        if (HtmlLabelAssociation.ControlFor(label) is not { } control)
+        if (HtmlLabelAssociation.ControlFor(label, wrapper.DomRealm.NativeReadCheckpoint, wrapper.DomRealm.CancellationToken) is not { } control)
         {
             return;
         }
@@ -375,7 +375,7 @@ internal static class ActivationBehaviors
             return;
         }
 
-        if (details.HasAttribute("open"))
+        if (details.HasContentAttribute("open"))
         {
             details.RemoveAttribute("open");
         }
@@ -443,10 +443,10 @@ internal static class ActivationBehaviors
     private static bool IsInteractiveContent(Element element) => element.NamespaceUri == Namespaces.Html && element.LocalName switch
     {
         "button" or "details" or "embed" or "iframe" or "label" or "select" or "textarea" => true,
-        "a" => element.HasAttribute("href"),
+        "a" => element.HasContentAttribute("href"),
         "input" => HtmlInputTypes.Get(element) != HtmlInputType.Hidden,
-        "audio" or "video" => element.HasAttribute("controls"),
-        "img" or "object" => element.HasAttribute("usemap"),
+        "audio" or "video" => element.HasContentAttribute("controls"),
+        "img" or "object" => element.HasContentAttribute("usemap"),
         _ => false,
     };
 

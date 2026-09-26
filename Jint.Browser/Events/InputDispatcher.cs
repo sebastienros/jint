@@ -632,7 +632,7 @@ internal static partial class InputDispatcher
             return;
         }
 
-        if (DefaultButton(form) is { } button)
+        if (DefaultButton(dom, form) is { } button)
         {
             if (!EventDom.Disabled(dom, button))
             {
@@ -642,7 +642,7 @@ internal static partial class InputDispatcher
             return;
         }
 
-        if (BlockingFieldCount(form) > 1)
+        if (BlockingFieldCount(dom, form) > 1)
         {
             return;
         }
@@ -654,12 +654,12 @@ internal static partial class InputDispatcher
     /// https://html.spec.whatwg.org/multipage/forms.html#default-button — the first submit button in tree
     /// order among the form's controls.
     /// </summary>
-    private static Element? DefaultButton(Element form)
+    private static Element? DefaultButton(DomRealm dom, Element form)
     {
         // The inventory is the form's owned controls in tree order rather than `form.elements`, which excludes
         // image buttons — so a form whose only submit button is `<input type=image>` had no default button at
         // all, and one whose submit button sits outside it under a `form` attribute now has one.
-        foreach (var element in HtmlFormOwner.ControlsOf(form))
+        foreach (var element in HtmlFormOwner.ControlsOf(form, dom.NativeReadCheckpoint, dom.CancellationToken))
         {
             if (element.NamespaceUri == Namespaces.Html && FormSubmission.IsSubmitButton(element))
             {
@@ -674,11 +674,11 @@ internal static partial class InputDispatcher
     /// https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#field-that-blocks-implicit-submission —
     /// the input types whose presence in more than one makes <kbd>Enter</kbd> do nothing.
     /// </summary>
-    private static int BlockingFieldCount(Element form)
+    private static int BlockingFieldCount(DomRealm dom, Element form)
     {
         var count = 0;
 
-        foreach (var element in HtmlFormOwner.ControlsOf(form))
+        foreach (var element in HtmlFormOwner.ControlsOf(form, dom.NativeReadCheckpoint, dom.CancellationToken))
         {
             if (EventDom.IsHtml(element, "input") && EventDom.InputType(element) is
                 "text" or "search" or "url" or "tel" or "email" or "password"
