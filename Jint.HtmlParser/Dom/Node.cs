@@ -60,6 +60,7 @@ public abstract partial class Node
     // assignment steps without repeating public ancestor validation.
     internal void AppendClonedChild(Node child)
     {
+        using var rangeMutation = new RangeMutationScope(this as Document ?? _ownerDocument!, child.OwnerDocument);
         LiveTraversalTracking.Insert(this, null, 1);
         LinkBefore(child, null);
         SlotAssignment.AfterInsertion(this, child, null);
@@ -71,6 +72,7 @@ public abstract partial class Node
     // document shape and host-inclusive cycle conditions before this O(1) link.
     internal void AppendParsedChild(Node child)
     {
+        using var rangeMutation = new RangeMutationScope(this as Document ?? _ownerDocument!, child?.OwnerDocument);
         ArgumentNullException.ThrowIfNull(child);
         EnsureContainer();
         EnsureFreshParsedChild(child);
@@ -134,6 +136,7 @@ public abstract partial class Node
 
     public Node InsertBefore(Node child, Node? referenceChild)
     {
+        using var rangeMutation = new RangeMutationScope(this as Document ?? _ownerDocument!, child?.OwnerDocument);
         ArgumentNullException.ThrowIfNull(child);
         EnsureContainer();
         if (referenceChild is not null && referenceChild.ParentNode != this)
@@ -189,6 +192,7 @@ public abstract partial class Node
 
     public Node ReplaceChild(Node child, Node oldChild)
     {
+        using var rangeMutation = new RangeMutationScope(this as Document ?? _ownerDocument!, child?.OwnerDocument);
         ArgumentNullException.ThrowIfNull(child);
         ArgumentNullException.ThrowIfNull(oldChild);
         EnsureContainer();
@@ -266,6 +270,7 @@ public abstract partial class Node
 
     public Node RemoveChild(Node child)
     {
+        using var rangeMutation = new RangeMutationScope(this as Document ?? _ownerDocument!, child?.OwnerDocument);
         ArgumentNullException.ThrowIfNull(child);
         if (child.ParentNode != this)
         {
@@ -279,6 +284,7 @@ public abstract partial class Node
     /// <summary>Replaces all children with one node or a fragment's children, or clears them.</summary>
     public void ReplaceChildren(Node? replacement = null)
     {
+        using var rangeMutation = new RangeMutationScope(this as Document ?? _ownerDocument!, replacement?.OwnerDocument);
         EnsureContainer();
         if (replacement is not null)
         {
@@ -353,6 +359,7 @@ public abstract partial class Node
 
     internal void AdoptInto(Document destination)
     {
+        using var rangeMutation = new RangeMutationScope(this as Document ?? _ownerDocument!, destination);
         Detach(this);
         Adopt(this, destination);
     }
@@ -524,7 +531,15 @@ public abstract partial class Node
         }
     }
 
-    internal void RemoveForNormalization(uint index) => Detach(this, knownIndex: index);
+    /// <summary>Removes empty Text nodes and merges adjacent exclusive Text nodes in this ordinary subtree.</summary>
+    /// <remarks>CDATA sections separate merge runs. Live ranges and mutation records follow the DOM normalization steps.</remarks>
+    public void Normalize() => NativeCharacterData.Normalize(this);
+
+    internal void RemoveForNormalization(uint index)
+    {
+        using var rangeMutation = new RangeMutationScope(_ownerDocument!);
+        Detach(this, knownIndex: index);
+    }
 
     private static void Detach(Node node, bool suppressRecord = false, bool suppressSemantic = false, uint? knownIndex = null)
     {
@@ -603,6 +618,7 @@ public abstract partial class Node
     private void InsertValidated(Node node, Node? referenceChild, bool suppressRecord = false,
         bool suppressSemantic = false, bool suppressLiveInsertion = false)
     {
+        using var rangeMutation = new RangeMutationScope(this as Document ?? _ownerDocument!);
         if (!suppressLiveInsertion) LiveTraversalTracking.Insert(this, referenceChild, 1);
         var previousSibling = referenceChild is null ? LastChild : referenceChild.PreviousSibling;
         LinkBefore(node, referenceChild);

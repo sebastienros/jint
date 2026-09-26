@@ -71,7 +71,7 @@ An unterminated script at EOF is not an execution request. Preserve its required
 state and continue EOF processing. Inert templates, fragment modes and no-host entry points retain
 their own script semantics; a scripting grammar flag is not execution permission.
 
-Browser retains currentScript save/restore, metadata, stylesheet readiness, resource scheduling,
+Browser retains currentScript save/restore, executable/result metadata, stylesheet readiness, resource scheduling,
 page generations, close/navigation cancellation and budgets. During synchronous writes it repeats
 cooperative yields without pumping unrelated tasks. Native stacks tolerate permitted host moves
 without reconstructing parser state from current DOM parents. Keep ParserBaton until every one of
@@ -86,3 +86,120 @@ stop at the insertion point or a tree-construction abort. The
 [text insertion mode](https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-incdata)
 defines the checkpoint, nesting, blocker and EOF distinctions above. Recheck the living algorithms
 at implementation review, retaining explicit tests for any deliberate Browser divergence.
+
+## H8 state and ownership clarification
+
+The current `HtmlElementState` has no script state, `NodeCloner` has no script cloning step, and
+`InText` simply pops on EOF/end tags. H8 must supply the following intrinsic state rather than
+reconstructing it from attributes, a Browser wrapper, or current tree ancestry. Add an internal
+`HtmlScriptState` lazily owned by `HtmlElementState` for HTML-namespace `script` elements:
+
+- `Document? ParserDocument`, initially null; derive `ParserInserted` from its non-nullness.
+- `Document? PreparationTimeDocument`, initially null.
+- `bool AlreadyStarted`, initially false, and `bool ForceAsync`, initially true.
+
+These are native identity state, shared by parser and Browser preparation. They contain no engine,
+callback, task, resource handle, or session reference. Browser owns the script kind, prepared source,
+fetch/result, readiness and execution queues; it must not maintain a competing copy of these four
+fields. Preparation may update the native fields while the session is suspended at its request.
+
+HTML parser creation initializes parser-document/force-async **before** inserting the new element.
+The parser document is the session's document, even when the adjusted destination has an inert
+template owner or has been adopted by a host. Preserve destination ownership independently.
+At EOF in HTML script text mode, set already-started before popping; do not emit preparation work.
+
+The [script processing model](https://html.spec.whatwg.org/multipage/scripting.html#script-processing-model)
+requires clone/import to copy already-started only. Add that step in `NodeCloner.CopySingle`, including
+scripts reached through templates and clonable shadows. Do not copy parser/preparation documents,
+pending work, or execution results. Preserve ordinary attribute-copy effects: an `async` attribute on
+the copy clears its initial force-async flag. Adoption retains the original state object and document
+identities; it does not reinitialize or retarget them.
+
+There is one narrow additional `Element` hook: adding a null-namespace `async` attribute to an HTML
+script clears force-async, including an add followed by removal before preparation. Removing it does
+not restore force-async. Cover parser bulk initialization and clone attribute copying without adding
+a scan to unrelated elements. Existing `Attr.Value` changes need no new addition hook. This does not
+authorize changes to the separately owned `Node`, `Document`, or `CharacterNodes` files, or introduce
+native callbacks for dynamic script execution. Browser handles dynamic preparation through its real
+mutation/insertion integration.
+
+### Preparation is not an unconditional already-started assignment
+
+Browser must apply [prepare the script element](https://html.spec.whatwg.org/multipage/scripting.html#prepare-the-script-element)
+at the returned preparation request, reading live attributes and child text then. It first honors
+already-started, saves and clears parser-document, and applies the force-async transition. Empty,
+disconnected, and unsupported-type early returns leave different state from a script that reached
+the commitment steps. Only at those steps does it restore saved parser-document/clear force-async,
+set already-started and capture preparation-time document, before checking document mismatch and
+scripting permission. The native session must not preemptively set already-started on every end tag
+or suppress a request merely because the element moved. This ordering permits a failed preparation
+to become eligible after a later mutation.
+
+The [execution algorithm](https://html.spec.whatwg.org/multipage/scripting.html#execute-the-script-element)
+checks preparation-time document against the current node document. Removing a prepared element
+alone is not an equivalent veto. A pending blocker that is adopted or removed continues to block its
+original parser until that parser's readiness conditions are satisfied; adoption does not silently
+discard the wait. Browser then applies execution's document check. A request therefore retains the
+exact script and parser-document identities, never a lookup by current document or DOM position.
+
+### Session frames, the pending slot, and aborts
+
+Use an explicit continuation/frame stack; do not keep only one outstanding request field. Each frame
+holds its unique identity, phase, script, saved insertion point, active marker, and entry nesting
+level. A returned preparation request remains outstanding while its host executes inline code and
+drives nested writes. Child requests complete before their parent, and each pop/restore happens once.
+Repeated `Drive` while host work is required must not consume input or manufacture another identity.
+
+Keep **one pending parsing-blocking slot for this parser document**, plus a distinct in-flight
+wait/execute continuation. A child preparation can fill the slot while the outer preparation is
+still outstanding; returning `Finished` for the outer request must not clear that child-created slot.
+While a nested blocker pauses parsing, later writes by the outer script may still insert at its
+restored marker, but must not tokenize. After nesting unwinds to zero, take and clear the pending slot
+before returning the wait request. Tokenization stays blocked during this wait even though the slot
+is now empty. An executing blocker may create a new pending blocker; process that slot after execution
+unwinds instead of losing it when completing the previous request.
+
+Expose the current nesting level in the preparation context so Browser can distinguish an inline
+stylesheet blocker at level one from nested inline preparation. Host completion identifies the
+pending script explicitly when needed; a plain boolean must not overwrite a pending script created
+by nested driving. Readiness belongs to Browser, but only a matching completion may advance the
+session from wait to execution. Waiting uses the original parser document's stylesheet state.
+
+Add a terminal abort/invalidation operation usable after `document.open`, cancellation, or document
+replacement. It invalidates every frame/completion identity and releases insertion markers without
+replaying tree operations. A pre-preparation microtask checkpoint can itself invalidate the session:
+check this before popping or preparing. Reject completion after abort, foreign IDs, duplicate or
+out-of-order completion, and entry during an active native `Drive`. No DOM version check should reject
+ordinary permitted host mutation; retain open-element identities and use the existing live adjusted
+insertion-location algorithms on continuation. These transitions are constant-time per frame; any
+bulk abort cleanup must use the existing cooperative work/cancellation policy.
+
+### Scripting modes and SVG are distinct
+
+Current HTML defines [Normal, Disabled, Inert and Fragment scripting modes](https://html.spec.whatwg.org/multipage/parsing.html#parser-scripting-mode).
+The existing `ScriptingEnabled` grammar boolean cannot encode all four. Introduce an internal mode
+at the session/builder seam, keeping public options unchanged. Every mode except Fragment sets
+parser-document; all parser-created HTML scripts start with force-async false; Inert also sets
+already-started at creation. Disabled controls `noscript` grammar. Future fragment callers must select
+their algorithm's mode explicitly. No-host execution permission is separate from that mode, and
+ordinary template descendants must not all be marked already-started merely because they are in a
+template. Standalone operation returns no Browser requests and must document/test its inert execution
+policy without conflating these metadata distinctions. H8 does not implement the unrelated fragment
+entrypoints or a new public scripting option.
+
+`HtmlTreeBuilder.Foreign` currently only pops SVG scripts. The
+[foreign-content script branch](https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inforeign)
+needs a distinct SVG host-processing request, used for both `</script>` and self-closing `<script/>`.
+Pop first, establish the insertion marker/nesting frame, and set parser-pause throughout SVG host
+processing. Writes can insert but cannot reenter tokenization; unwind nesting and restore the saved
+insertion point afterward. Do not run the HTML pre-pop checkpoint/preparation branch for SVG or try
+to obtain its state through HTML-only `GetHtmlState()`. Browser owns SVG's preparation/execution
+integration; native H8 supplies this actual boundary and identity, not a fabricated HTML script.
+
+Additional acceptance: clone/import of started and unstarted scripts (including template/shadow);
+async-add/remove state; EOF already-started; empty/unsupported/disconnected preparation retries;
+mutation at the pre-pop checkpoint; adopt before preparation and while blocked; removal after
+preparation; nested inline write followed by an external blocker and another outer write; a blocker
+that writes another blocker; stale completion after open/abort; and SVG writes that insert without
+tokenizing until processing returns. Exercise quotas 1/3/large and chunk boundaries, and verify host
+requests, marker restoration, and nesting transitions occur exactly once across cooperative yields.

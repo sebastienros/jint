@@ -257,6 +257,7 @@ public sealed class Element : Node
             var copy = NodeCloner.CloneAttribute(attribute, document);
             copy.OwnerElement = this;
             _attributes.Add(copy);
+            ScriptAttributeAdded(copy);
         }
     }
 
@@ -283,6 +284,7 @@ public sealed class Element : Node
         }
 
         var result = new List<Attr>(attributes.Length);
+        var scriptAsyncAdded = false;
         cancellationToken.ThrowIfCancellationRequested();
         for (var i = 0; i < attributes.Length; i++)
         {
@@ -293,6 +295,8 @@ public sealed class Element : Node
             }
 
             var parsed = attributes[i];
+            if (NamespaceUri == Namespaces.Html && LocalName == "script" &&
+                parsed.NamespaceUri is null && parsed.LocalName == "async") scriptAsyncAdded = true;
             var attribute = new Attr(OwnerDocument!, parsed.NamespaceUri, parsed.LocalName, parsed.Prefix,
                 parsed.Value, parsed.IsDtdId)
             {
@@ -303,6 +307,7 @@ public sealed class Element : Node
 
         cancellationToken.ThrowIfCancellationRequested();
         _attributes = result;
+        if (scriptAsyncAdded) GetHtmlState()!.Script!.ForceAsync = false;
     }
 
     // HTML's repeated html/body start tags merge into an already published
@@ -364,12 +369,20 @@ public sealed class Element : Node
         _attributes.Add(attribute);
         attribute.OwnerElement = this;
         attribute.Rehome(OwnerDocument!);
+        ScriptAttributeAdded(attribute);
         OwnerDocument!.MarkMutation();
         HtmlFormAssociation.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
             null, attribute.Value);
         SlotAssignment.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
             null, attribute.Value);
         MutationTracking.QueueAttribute(this, attribute.LocalName, attribute.NamespaceUri, null);
+    }
+
+    private void ScriptAttributeAdded(Attr attribute)
+    {
+        if (NamespaceUri == Namespaces.Html && LocalName == "script" &&
+            attribute.NamespaceUri is null && attribute.LocalName == "async")
+            GetHtmlState()!.Script!.ForceAsync = false;
     }
 
     private string NormalizeAttributeName(string name)

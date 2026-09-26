@@ -2,6 +2,12 @@ namespace Jint.HtmlParser;
 
 // DOM Standard §4.2.2.3–4.2.2.4. The three facts here deliberately differ:
 // manual intent, a slottable's stored assignment, and a fresh lookup.
+internal interface ISlotQueryWork
+{
+    void Step();
+    void Check();
+}
+
 internal static class SlotAssignment
 {
     internal static Element? FindSlot(Node slottable, bool openOnly, CancellationToken cancellationToken)
@@ -16,11 +22,18 @@ internal static class SlotAssignment
         Action<int, SlotQueryPhase> phaseCheckpoint, CancellationToken cancellationToken)
         => FindSlotCore(slottable, openOnly, null, phaseCheckpoint, cancellationToken);
 
+    internal static Element? FindSlot<TWork>(Node slottable, bool openOnly, TWork work)
+        where TWork : class, ISlotQueryWork
+    {
+        ArgumentNullException.ThrowIfNull(work);
+        return FindSlotCore(slottable, openOnly, null, null, default, work);
+    }
+
     private static Element? FindSlotCore(Node slottable, bool openOnly, Action<int>? workCheckpoint,
-        Action<int, SlotQueryPhase>? phaseCheckpoint, CancellationToken cancellationToken)
+        Action<int, SlotQueryPhase>? phaseCheckpoint, CancellationToken cancellationToken, ISlotQueryWork? shared = null)
     {
         ArgumentNullException.ThrowIfNull(slottable);
-        var work = new QueryWork(cancellationToken, workCheckpoint, phaseCheckpoint);
+        var work = new QueryWork(cancellationToken, workCheckpoint, phaseCheckpoint, shared);
         if (!IsSlottable(slottable) || slottable.ParentNode is not Element { AttachedShadowRoot: { } root })
         {
             work.Finish();
@@ -317,9 +330,12 @@ internal static class SlotAssignment
         foreach (var attribute in element.Attributes)
         {
             work.Step(SlotQueryPhase.Attribute);
+            work.Text(attribute.LocalName);
             if (attribute.NamespaceUri is null && attribute.LocalName == localName)
             {
-                return attribute.Value;
+                var value = attribute.Value;
+                work.Text(value);
+                return value;
             }
         }
 
@@ -823,18 +839,32 @@ internal static class SlotAssignment
         private readonly Action<int>? _workCheckpoint;
         private readonly Action<int, SlotQueryPhase>? _phaseCheckpoint;
         private int _steps;
+        private readonly ISlotQueryWork? _shared;
 
         internal QueryWork(CancellationToken cancellationToken, Action<int>? workCheckpoint = null,
-            Action<int, SlotQueryPhase>? phaseCheckpoint = null)
+            Action<int, SlotQueryPhase>? phaseCheckpoint = null, ISlotQueryWork? shared = null)
         {
+            _shared = shared;
+            shared?.Check();
             _cancellationToken = cancellationToken;
             _workCheckpoint = workCheckpoint;
             _phaseCheckpoint = phaseCheckpoint;
             _cancellationToken.ThrowIfCancellationRequested();
         }
 
+        internal void Text(string value)
+        {
+            if (_shared is null) return;
+            foreach (var unused in value) _shared.Step();
+        }
+
         internal void Step(SlotQueryPhase phase = SlotQueryPhase.Other)
         {
+            if (_shared is not null)
+            {
+                _shared.Step();
+                return;
+            }
             if ((++_steps & 255) == 0)
             {
                 _workCheckpoint?.Invoke(_steps);
@@ -845,6 +875,11 @@ internal static class SlotAssignment
 
         internal void Finish()
         {
+            if (_shared is not null)
+            {
+                _shared.Check();
+                return;
+            }
             if ((_steps & 255) != 0)
             {
                 _workCheckpoint?.Invoke(_steps);

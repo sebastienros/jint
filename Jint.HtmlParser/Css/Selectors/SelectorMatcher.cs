@@ -12,76 +12,32 @@ internal static partial class SelectorMatcher
         CancellationToken cancellationToken = default)
         => TryMatch(program, element, out _, scopingRoot, cancellationToken);
 
-    // Per-invocation checkpoint for deterministic cancellation tests; no callback
-    // is retained by the compiled program or used by the production entry points.
     internal static bool Matches(CompiledSelector program, Element element, Node? scopingRoot,
         Action? checkpoint, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(program);
-        ArgumentNullException.ThrowIfNull(element);
-        cancellationToken.ThrowIfCancellationRequested();
-        var work = new Work(cancellationToken, checkpoint);
-        ValidateImplemented(program, ref work, cancellationToken);
-        var matched = TryMatchCore(program, element, ScopeFor(scopingRoot ?? element, ref work), ref work, out _);
-        cancellationToken.ThrowIfCancellationRequested();
-        return matched;
+        var work = new SelectorMatchWork(element, cancellationToken, checkpoint);
+        return Matches(program, element, scopingRoot, default, ref work);
     }
 
     internal static bool TryMatch(CompiledSelector program, Element element, out SelectorSpecificity specificity,
         Node? scopingRoot = null, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(program);
-        ArgumentNullException.ThrowIfNull(element);
-        cancellationToken.ThrowIfCancellationRequested();
-        var work = new Work(cancellationToken);
-        ValidateImplemented(program, ref work, cancellationToken);
-        var scope = ScopeFor(scopingRoot ?? element, ref work);
-        var matched = TryMatchCore(program, element, scope, ref work, out specificity);
-        cancellationToken.ThrowIfCancellationRequested();
-        return matched;
+        var work = new SelectorMatchWork(element, cancellationToken);
+        return TryMatch(program, element, out specificity, scopingRoot, default, ref work);
     }
 
     internal static Element? Closest(CompiledSelector program, Element element,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(program);
-        ArgumentNullException.ThrowIfNull(element);
-        cancellationToken.ThrowIfCancellationRequested();
-        var work = new Work(cancellationToken);
-        ValidateImplemented(program, ref work, cancellationToken);
-        for (Node? current = element; current is not null; current = current.ParentNode)
-        {
-            work.Step();
-            if (current is Element candidate && TryMatchCore(program, candidate, element, ref work, out _))
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                return candidate;
-            }
-        }
-        cancellationToken.ThrowIfCancellationRequested();
-        return null;
+        var work = new SelectorMatchWork(element, cancellationToken);
+        return Closest(program, element, default, ref work);
     }
 
     internal static Element? QuerySelector(CompiledSelector program, Node root,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(program);
-        ArgumentNullException.ThrowIfNull(root);
-        cancellationToken.ThrowIfCancellationRequested();
-        var work = new Work(cancellationToken);
-        ValidateImplemented(program, ref work, cancellationToken);
-        var scope = ScopeFor(root, ref work);
-        foreach (var candidate in NodeTraversal.DescendantElements(root, cancellationToken))
-        {
-            work.Step();
-            if (TryMatchCore(program, candidate, scope, ref work, out _))
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                return candidate;
-            }
-        }
-        cancellationToken.ThrowIfCancellationRequested();
-        return null;
+        var work = new SelectorMatchWork(root, cancellationToken);
+        return QuerySelector(program, root, default, ref work);
     }
 
     internal static IReadOnlyList<Element> QuerySelectorAll(CompiledSelector program, Node root,
@@ -91,28 +47,8 @@ internal static partial class SelectorMatcher
     internal static IReadOnlyList<Element> QuerySelectorAll(CompiledSelector program, Node root,
         Action? checkpoint, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(program);
-        ArgumentNullException.ThrowIfNull(root);
-        cancellationToken.ThrowIfCancellationRequested();
-        var work = new Work(cancellationToken, checkpoint);
-        ValidateImplemented(program, ref work, cancellationToken);
-        var scope = ScopeFor(root, ref work);
-        var results = new List<Element>();
-        foreach (var candidate in NodeTraversal.DescendantElements(root, cancellationToken))
-        {
-            work.Step();
-            if (TryMatchCore(program, candidate, scope, ref work, out _)) results.Add(candidate);
-        }
-        cancellationToken.ThrowIfCancellationRequested();
-        work.Check();
-        var snapshot = new Element[results.Count];
-        for (var index = 0; index < results.Count; index++)
-        {
-            work.Step();
-            snapshot[index] = results[index];
-        }
-        cancellationToken.ThrowIfCancellationRequested();
-        return new ReadOnlyCollection<Element>(snapshot);
+        var work = new SelectorMatchWork(root, cancellationToken, checkpoint);
+        return QuerySelectorAll(program, root, default, ref work);
     }
 
     // Walk every branch before searching. A mixed selector list cannot quietly return
@@ -120,6 +56,21 @@ internal static partial class SelectorMatcher
     private static void ValidateImplemented(CompiledSelector program, ref Work work,
         CancellationToken cancellationToken)
     {
+        // Ordinary standalone compounds need neither VM frames nor validation stacks.
+        if (program.Branches.Count == 1 && program.Branches[0].Compounds.Count == 1 &&
+            program.Branches[0].LeadingCombinator is null)
+        {
+            work.Step(); // validation branch
+            work.Step(); // validation compound
+            var simple = true;
+            foreach (var predicate in program.Branches[0].Compounds[0].Predicates)
+            {
+                work.Step();
+                if (!IsImplemented(predicate)) throw Unsupported(predicate.Kind.ToString());
+                if (predicate.Arguments is not null) simple = false;
+            }
+            if (simple) return;
+        }
         var pending = new Stack<(CompiledSelector Program, bool Relative)>();
         pending.Push((program, false));
         while (pending.Count != 0)
@@ -153,6 +104,8 @@ internal static partial class SelectorMatcher
         PredicateKind.Picker or
         PredicateKind.Scope or PredicateKind.Root or PredicateKind.Empty or
         PredicateKind.Enabled or PredicateKind.Disabled or PredicateKind.Required or PredicateKind.Optional or
+        PredicateKind.Focus or PredicateKind.FocusWithin or PredicateKind.Active or PredicateKind.Target or
+        PredicateKind.Hover or PredicateKind.FocusVisible or PredicateKind.Autofill or
         PredicateKind.FirstChild or PredicateKind.LastChild or PredicateKind.OnlyChild or
         PredicateKind.FirstOfType or PredicateKind.LastOfType or PredicateKind.OnlyOfType or
         PredicateKind.NthOfType or PredicateKind.NthLastOfType => predicate.Arguments is null,
@@ -271,6 +224,16 @@ internal static partial class SelectorMatcher
             case PredicateKind.Required:
             case PredicateKind.Optional:
                 return MatchFormState(predicate.Kind, element, ref work);
+            case PredicateKind.Focus:
+            case PredicateKind.FocusWithin:
+            case PredicateKind.Active:
+            case PredicateKind.Target:
+                return MatchEnvironment(predicate.Kind, element, ref work);
+            // Current headless profile has no hover, focus indicator, or UA autofill store.
+            case PredicateKind.Hover:
+            case PredicateKind.FocusVisible:
+            case PredicateKind.Autofill:
+                return false;
             case PredicateKind.Empty:
                 for (var child = element.FirstChild; child is not null; child = child.NextSibling)
                 {
@@ -553,40 +516,28 @@ internal static partial class SelectorMatcher
     private static char AsciiLower(char character) => character is >= 'A' and <= 'Z'
         ? (char) (character + ('a' - 'A')) : character;
 
-    private struct Work
+    private ref struct Work
     {
-        private HtmlDisabledWork _nativeWork;
-        private readonly CancellationToken _cancellationToken;
-        private readonly Action? _checkpoint;
-        internal Work(CancellationToken cancellationToken, Action? checkpoint = null)
+        internal ref SelectorMatchWork Shared;
+        internal readonly SelectorEnvironment Environment;
+        internal Work(ref SelectorMatchWork shared, in SelectorEnvironment environment)
         {
-            _cancellationToken = cancellationToken;
-            _checkpoint = checkpoint;
-            _nativeWork = new HtmlDisabledWork(cancellationToken,
-                checkpoint is null ? null : new NativeCheckpoint(checkpoint).Invoke);
+            Shared = ref shared;
+            Environment = environment;
         }
-
-        private sealed class NativeCheckpoint(Action checkpoint)
-        {
-            internal void Invoke(int _) => checkpoint();
-        }
-
-        // Shared only by one matching/query call; compiled programs retain no state.
         private Dictionary<CompiledSelector, bool>? _featurelessEligibility;
         private Dictionary<Element, HtmlTableGrid>? _tableGrids;
-        internal CancellationToken Token => _cancellationToken;
-        internal Action? Checkpoint => _checkpoint;
-        internal HtmlDisabledState DisabledState(Element element)
-            => HtmlDisabledness.GetState(element, ref _nativeWork);
-        internal HtmlRequiredState RequiredState(Element element)
-            => HtmlRequiredness.GetState(element, ref _nativeWork);
+        internal CancellationToken Token => Shared.Token;
+        internal Action? Checkpoint => Shared.EnsureCell().TableStep;
+        internal HtmlDisabledState DisabledState(Element element) => Shared.DisabledState(element);
+        internal HtmlRequiredState RequiredState(Element element) => Shared.RequiredState(element);
         internal HtmlTableGrid GridFor(Element table)
         {
             Step();
             _tableGrids ??= new Dictionary<Element, HtmlTableGrid>(ReferenceEqualityComparer.Instance);
             if (!_tableGrids.TryGetValue(table, out var grid))
             {
-                grid = HtmlTableGrid.Build(table, _checkpoint, _cancellationToken);
+                grid = HtmlTableGrid.Build(table, Checkpoint, Token);
                 _tableGrids.Add(table, grid);
             }
             return grid;
@@ -604,14 +555,7 @@ internal static partial class SelectorMatcher
             Step();
             (_featurelessEligibility ??= new Dictionary<CompiledSelector, bool>())[program] = eligible;
         }
-        internal void Check()
-        {
-            _checkpoint?.Invoke();
-            _nativeWork.Check();
-        }
-        internal void Step()
-        {
-            _nativeWork.Step();
-        }
+        internal void Check() => Shared.Check();
+        internal void Step() => Shared.Step();
     }
 }

@@ -32,6 +32,10 @@ public sealed class Document : Node
     internal int RangeSweepCursor;
     internal List<WeakReference<DomNodeIterator>>? IteratorSlots;
     internal int IteratorSweepCursor;
+    internal int RangeOperationDepth;
+    internal HashSet<DomRange>? ChangedRanges;
+    // Trusted scheduling only: no script, endpoint reads or mutation at this sink.
+    internal Action? PendingRangeChanges { get; set; }
     private ulong _mutationStamp;
     private bool _mayHaveMutationRegistrations;
     // Browser installs an agent-level collector. Native mutations notify at the
@@ -266,6 +270,9 @@ public sealed class Document : Node
         var name = QualifiedName.Parse(namespaceUri, qualifiedName, attribute: true);
         return new Attr(this, name.NamespaceUri, name.LocalName, name.Prefix, "");
     }
+
+    /// <summary>Creates a live range with both endpoints at this document's zero boundary.</summary>
+    public DomRange CreateRange() => new(this);
 
     public Text CreateTextNode(string data) => new(this, data);
     public Comment CreateComment(string data) => new(this, data);

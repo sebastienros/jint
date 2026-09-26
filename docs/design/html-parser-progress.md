@@ -2,7 +2,22 @@
 
 ## Scope and workflow
 
-**Latest user-directed wrap-up (September 25):** the five implementation chats reached saved
+**Latest finalization (September 25):** four more reviewed implementation slices are integrated
+through `616bb320b`: public Range/traversal and subscriptions (`b55a70797`, `6e90de6e6`), native HTML
+script handoff (`1001437d9`), initial validated CSS property core (`1763825d7`, `c45bb5671`, `0c05ccd37`),
+and selector interaction state (`616bb320b`). Final common Release parser gate: **4,158/4,158 passed**, zero failures/skips across net8/net10.
+Browser contract/staleness checks: 44/44; unsigned packed consumer: both TFMs pass; inventory: six pass.
+The 256 known XML debt failures are unchanged. No timing or speedup claim.
+
+Sixty-four completed chats are archived; twenty completed clean checkouts await managed archive
+identities. Only the unfinished Browser chat remains open, clean at `763a3ae363` in `414c`; its build
+still has 1,058 errors, so its production changes were not integrated. All implementation turns have
+stopped. No new feature chat or PR was created in this finalization pass. Exact source/common commit
+mapping, logs, cleanup inventory and next work are in [the resume checkpoint](html-parser-resume.md).
+
+### Previous checkpoint history
+
+**Previous user-directed wrap-up (September 25):** the five implementation chats reached saved
 checkpoints. All mergeable changes passed independent Astra High review and common Release validation.
 Common implementation HEAD is `10f8ee2ac`; production Browser still uses AngleSharp. No new feature
 work or PRs were started during this finalization pass. Full replacement/performance acceptance remains.

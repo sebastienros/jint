@@ -1,6 +1,7 @@
 namespace Jint.HtmlParser;
 
-internal delegate ushort TraversalFilter(DomNodeIdentity node);
+/// <summary>Filters one native identity for a single traversal call. Returns 1 (accept), 2 (reject), 3 (skip), or another unsigned short.</summary>
+public delegate ushort TraversalFilter(DomNodeIdentity node);
 
 internal static class NativeFiltering
 {

@@ -16,6 +16,16 @@ internal sealed class CssReferenceInput
     internal CssComponentValueList Components { get; }
     internal int MaxNestingDepth { get; }
 
+    // Consumes C1's priority-stripped immutable components; spans remain in the original source.
+    internal static CssReferenceInput FromComponents(string source, CssComponentValueList components,
+        int maxNestingDepth)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(components);
+        ArgumentOutOfRangeException.ThrowIfNegative(maxNestingDepth);
+        return new CssReferenceInput(source, components, maxNestingDepth);
+    }
+
     internal static CssReferenceInput Parse(string valueText, CssParseOptions? options,
         CancellationToken cancellationToken)
     {

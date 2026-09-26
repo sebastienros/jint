@@ -1748,9 +1748,6 @@
       "category": "test",
       "owner": "B1:binding-emitter",
       "references": [
-        "using AngleSharp.Css.Dom;",
-        "using AngleSharp.Dom;",
-        "\"the checked-in DOM bindings must equal what the emitter produces from the pinned AngleSharp assemblies; run the suite again with JINT_DOM_BINDINGS=update to write the difference back, then read the diff\");",
         "skipped.Should().NotBeEmpty(\"some AngleSharp members cannot cross the boundary, and the report is where they are named\");"
       ]
     },
@@ -1878,6 +1875,16 @@
       ]
     },
     {
+      "path": "tools/dom-bindings/Jint.Browser.BindingGenerator/BindingContract.cs",
+      "category": "generator",
+      "owner": "B1:binding-emitter",
+      "references": [
+        "public string HtmlCollectionOpenType { get; set; } = \"global::AngleSharp.Dom.IHtmlCollection\";",
+        "public string HtmlCollectionDefaultElement { get; set; } = \"global::AngleSharp.Dom.IElement\";"
+      ],
+      "sha256": "8d6ce0b061265e05032db85218b16adfc4618508d76e1b6bfb6d451b87148720"
+    },
+    {
       "path": "tools/dom-bindings/Jint.Browser.BindingGenerator/Conversions.cs",
       "category": "generator",
       "owner": "B1:binding-emitter",
@@ -1890,17 +1897,6 @@
       "sha256": "168d93df0486075a87d2cb5449533ac495bb9744e76771ad5ea36be86c97c4e8"
     },
     {
-      "path": "tools/dom-bindings/Jint.Browser.BindingGenerator/Emitter.cs",
-      "category": "generator",
-      "owner": "B1:binding-emitter",
-      "references": [
-        "const string AnyElement = \"global::AngleSharp.Dom.IElement\";",
-        "builder.Append(\"        global::AngleSharp.Dom.IHtmlCollection<\").Append(element).Append(\"> collection => new global::Jint.Browser.Dom.Collections.DomHtmlCollectionObject<\")",
-        "builder.Append(\"        global::AngleSharp.Dom.IHtmlCollection<global::AngleSharp.Dom.IElement> collection => new global::Jint.Browser.Dom.Collections.DomHtmlCollectionObject<global::AngleSharp.Dom.IElement>(realm, definition, collection),\\n\");"
-      ],
-      "sha256": "9360565bf59d8cb0875729de62b5827547b544a38a76250cb16c91c5c23f7f8a"
-    },
-    {
       "path": "tools/dom-bindings/Jint.Browser.BindingGenerator/Inventory.cs",
       "category": "generator",
       "owner": "B1:binding-emitter",
@@ -1908,6 +1904,16 @@
         "internal const string AttributeNamespace = \"AngleSharp.Attributes\";"
       ],
       "sha256": "a6ba22ce7fb3f7dad21675330b7d1fa802550ff04b1411e121a641c180744d12"
+    },
+    {
+      "path": "tools/dom-bindings/Jint.Browser.BindingGenerator/Model.cs",
+      "category": "generator",
+      "owner": "B1:binding-emitter",
+      "references": [
+        "internal string HtmlCollectionOpenType { get; set; } = \"global::AngleSharp.Dom.IHtmlCollection\";",
+        "internal string HtmlCollectionDefaultElement { get; set; } = \"global::AngleSharp.Dom.IElement\";"
+      ],
+      "sha256": "40fb03e0296daa270614e35023d563ec6efa4de1ddf7153d659da8313c4a9f8a"
     },
     {
       "path": "tools/dom-bindings/Jint.Browser.BindingGenerator/ModelBuilder.cs",
@@ -1929,16 +1935,7 @@
         "_model.Skipped.Add(new SkipRecord(model.DomName, domName, \"is write-only in AngleSharp, which WebIDL has no shape for\"));",
         "&& Closure(indexedGetter.PropertyType).Any(t => t.FullName == \"AngleSharp.Dom.IElement\");"
       ],
-      "sha256": "ab5a34c6a582a395ad7bc728f77af1ebe8b2dfb0f1727798dca22e1a4c9e9a81"
-    },
-    {
-      "path": "tools/dom-bindings/Jint.Browser.BindingGenerator/Program.cs",
-      "category": "generator",
-      "owner": "B1:binding-emitter",
-      "references": [
-        "--core <AngleSharp.dll> --css <AngleSharp.Css.dll> --output <directory> [--overrides <overrides.json>] [--report <file>]"
-      ],
-      "sha256": "fd672306584ac6ae115b7354aa533682813541aa5e7f781e87f8b12a35461a21"
+      "sha256": "510013efc959bb34cd8d0cd07eaa2447e9681835a5b7078f5ee996f76c9b8ef2"
     }
   ],
   "generated": {
@@ -12260,18 +12257,18 @@
       "HTMLCollection"
     ],
     "files": {
-      "DomCollectionAccessors.g.cs": "c9f64438ffba3ed0b96d82749bc6286b9108333ad802b30125f6c2bcb50df562",
-      "DomEnums.g.cs": "51d57f0c44b919c338258e422dc45c94a79d44da513195a6a2b10eed5bf21d2b",
-      "DomInterfaces.g.cs": "b02c61c0a7e1f32229da87c494d978af72e7d2181310c20e2fd35ca62b3cd7f8",
-      "DomReflected.g.cs": "2cdacfdcebfe297d5eb7c875fe908d3c30b0f78b9247ba21da9138081ee16119",
-      "DomShapes.Browser.g.cs": "d8f83d7199283a1113bbbc811dd0d694abd47997f762f93e138289dee1a0131d",
-      "DomShapes.Css.g.cs": "d0d1ab9ef2d0bcb73c04d4e52c5063a2b33cac2a3c20324579fe78431cab1278",
-      "DomShapes.Dom.g.cs": "9435af207868ffba2e75f81d510f9865823eea750c0b700898ba7ef8b32f3850",
-      "DomShapes.Html.g.cs": "d9140417786c7af460a30c5f08d8fa07dec405c963f0d06a9229dd298363094e",
-      "DomShapes.Io.g.cs": "188c5358d6c3a0899eb8c00a350bf55487a2f75210eeffbba4b2d04391c9b528",
-      "DomShapes.Media.g.cs": "59f7f8ea09a26c5a24e54b85e56b944c3c8bd2d957f9320ff878e009f848cd66",
-      "DomShapes.Svg.g.cs": "4ffbd4f80ebbd7c9c43172a3bf962ed5f25a64686612be1b3a0aade6cdd6c3e8",
-      "DomTypeMap.g.cs": "246bbfc4ec97e6dc4239fdd7d9236a492f96dab4e5307f326e63ca4261e5a156"
+      "DomCollectionAccessors.g.cs": "30796f55433a0fb7a3c3cb3396b2303955d8b2221b16804f15fa33b603f137e3",
+      "DomEnums.g.cs": "d671fc4b3f706008a83aef05ac949aabfb5ddc7384080e689993e6a1dd4231e7",
+      "DomInterfaces.g.cs": "a01263fbe07f3325a8f1b02c49ca631fc3b3d1eccfdcacf32caa2fdc0d207741",
+      "DomReflected.g.cs": "7264d335f53cc4c55c849a7973106e92935fec0cac050c445a90db6f1d91c308",
+      "DomShapes.Browser.g.cs": "ee41b9e37bed2b0e400150f1d2c59d87e7b959720fb73ded2aced31063341850",
+      "DomShapes.Css.g.cs": "83d6fb18fc28626595c38bf52d9184865fb80356c85906e214d396790864bd70",
+      "DomShapes.Dom.g.cs": "07002996441004503d67952603212595f031ef5a60ab06be9c238a5580987290",
+      "DomShapes.Html.g.cs": "6caa9c8f3847dc9a1a175b2c558c299893e74d1cc9958d7f79b313a11951cf59",
+      "DomShapes.Io.g.cs": "a21edb76af2b43178657fbd28de34fbcabe14bd8ebb1c1f9df924c97246b3aca",
+      "DomShapes.Media.g.cs": "de4e4e9fe71d1b4348daf16e98734cdfc1c42019ca233402e83bd267b28973f1",
+      "DomShapes.Svg.g.cs": "a31e5d2af559a7ab7f08344fd685ce84ac7b3ac08cfb76a8ddabb83239c94143",
+      "DomTypeMap.g.cs": "803fc4131c33f6c085e544ebfa61fbfdd57a4e19fd17e9067058230a40fca7df"
     },
     "overrideSource": "tools/dom-bindings/overrides.json",
     "overrideSha256": "72406582600d4ca99842df12aa160a03ac0c3db0f434ed0420e754378dbd4dbf",

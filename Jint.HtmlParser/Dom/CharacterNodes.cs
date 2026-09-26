@@ -25,8 +25,23 @@ public sealed class Text : Node
         set => ReplaceDataCore(value, 0, BoundaryOrder.GetLength(new DomNodeIdentity(this)), (uint) (value?.Length ?? 0));
     }
 
+    /// <summary>Gets this node's length in UTF-16 code units without materializing parser text.</summary>
+    public uint Length => NativeCharacterData.GetLength(this);
+    /// <summary>Copies up to count UTF-16 code units beginning at offset.</summary>
+    /// <exception cref="DomException">The offset exceeds the data length (IndexSizeError).</exception>
+    public string SubstringData(uint offset, uint count) => NativeCharacterData.SubstringData(this, offset, count);
+    /// <summary>Replaces up to count UTF-16 code units, repairing live endpoints and queuing mutation records.</summary>
+    /// <exception cref="DomException">The offset exceeds the data length (IndexSizeError).</exception>
+    public void ReplaceData(uint offset, uint count, string data) => NativeCharacterData.ReplaceData(this, offset, count, data);
+
+    /// <summary>Splits this node at a UTF-16 boundary, returning a new Text node containing the suffix.</summary>
+    /// <remarks>When this node has a parent, later range endpoints transfer to the suffix, including in a disconnected tree. Parentless endpoints remain on this node.</remarks>
+    /// <exception cref="DomException">The offset exceeds the data length (IndexSizeError).</exception>
+    public Text SplitText(uint offset) => NativeCharacterData.SplitText(this, offset);
+
     internal void ReplaceDataCore(string value, uint offset, uint count, uint insertedLength)
     {
+        using var rangeMutation = new RangeMutationScope(OwnerDocument!);
         ArgumentNullException.ThrowIfNull(value);
         var matches = MutationTracking.Match(this, MutationRecordKind.CharacterData);
         var oldValue = matches?.NeedsOldValue == true ? Data : null;
@@ -90,15 +105,18 @@ public sealed class Text : Node
         var matches = MutationTracking.Match(this, MutationRecordKind.CharacterData);
         var oldValue = matches?.NeedsOldValue == true ? Data : null;
 
-        LiveTraversalTracking.ReplaceData(this, (uint) oldLength, 0, (uint) data.Length);
-        _parsedStorage = storage;
-        _parsedLength = newLength;
-        _data = string.Empty;
-        _cachedParsedData = null;
-        OwnerDocument!.MarkMutation();
-        if (ParentNode is { } parent) HtmlTextAreaMutations.ChildrenChanged(parent, mayShorten: false);
-        MutationTracking.QueueCharacterData(this, oldValue, matches);
+        {
+            using var rangeMutation = new RangeMutationScope(OwnerDocument!);
+            LiveTraversalTracking.ReplaceData(this, (uint) oldLength, 0, (uint) data.Length);
+            _parsedStorage = storage;
+            _parsedLength = newLength;
+            _data = string.Empty;
+            _cachedParsedData = null;
+            OwnerDocument!.MarkMutation();
+            if (ParentNode is { } parent) HtmlTextAreaMutations.ChildrenChanged(parent, mayShorten: false);
+            MutationTracking.QueueCharacterData(this, oldValue, matches);
 
+        }
         workCheckpoint?.Invoke(TextAppendCheckpoint.AfterCommit);
         cancellationToken.ThrowIfCancellationRequested();
     }
@@ -117,8 +135,18 @@ public sealed class Comment : Node
         set => ReplaceDataCore(value, 0, BoundaryOrder.GetLength(new DomNodeIdentity(this)), (uint) (value?.Length ?? 0));
     }
 
+    /// <summary>Gets this node's length in UTF-16 code units without materializing parser text.</summary>
+    public uint Length => NativeCharacterData.GetLength(this);
+    /// <summary>Copies up to count UTF-16 code units beginning at offset.</summary>
+    /// <exception cref="DomException">The offset exceeds the data length (IndexSizeError).</exception>
+    public string SubstringData(uint offset, uint count) => NativeCharacterData.SubstringData(this, offset, count);
+    /// <summary>Replaces up to count UTF-16 code units, repairing live endpoints and queuing mutation records.</summary>
+    /// <exception cref="DomException">The offset exceeds the data length (IndexSizeError).</exception>
+    public void ReplaceData(uint offset, uint count, string data) => NativeCharacterData.ReplaceData(this, offset, count, data);
+
     internal void ReplaceDataCore(string value, uint offset, uint count, uint insertedLength)
     {
+        using var rangeMutation = new RangeMutationScope(OwnerDocument!);
         ArgumentNullException.ThrowIfNull(value);
         var matches = MutationTracking.Match(this, MutationRecordKind.CharacterData);
         var oldValue = matches?.NeedsOldValue == true ? _data : null;
@@ -148,8 +176,23 @@ public sealed class CDataSection : Node
         set => ReplaceDataCore(value, 0, BoundaryOrder.GetLength(new DomNodeIdentity(this)), (uint) (value?.Length ?? 0));
     }
 
+    /// <summary>Gets this node's length in UTF-16 code units without materializing parser text.</summary>
+    public uint Length => NativeCharacterData.GetLength(this);
+    /// <summary>Copies up to count UTF-16 code units beginning at offset.</summary>
+    /// <exception cref="DomException">The offset exceeds the data length (IndexSizeError).</exception>
+    public string SubstringData(uint offset, uint count) => NativeCharacterData.SubstringData(this, offset, count);
+    /// <summary>Replaces up to count UTF-16 code units, repairing live endpoints and queuing mutation records.</summary>
+    /// <exception cref="DomException">The offset exceeds the data length (IndexSizeError).</exception>
+    public void ReplaceData(uint offset, uint count, string data) => NativeCharacterData.ReplaceData(this, offset, count, data);
+
+    /// <summary>Splits this node at a UTF-16 boundary, returning a new Text node containing the suffix.</summary>
+    /// <remarks>When this node has a parent, later range endpoints transfer to the suffix, including in a disconnected tree. Parentless endpoints remain on this node.</remarks>
+    /// <exception cref="DomException">The offset exceeds the data length (IndexSizeError).</exception>
+    public Text SplitText(uint offset) => NativeCharacterData.SplitText(this, offset);
+
     internal void ReplaceDataCore(string value, uint offset, uint count, uint insertedLength)
     {
+        using var rangeMutation = new RangeMutationScope(OwnerDocument!);
         ArgumentNullException.ThrowIfNull(value);
         var matches = MutationTracking.Match(this, MutationRecordKind.CharacterData);
         var oldValue = matches?.NeedsOldValue == true ? _data : null;
@@ -274,8 +317,18 @@ public sealed class ProcessingInstruction : Node
         set => ReplaceDataCore(value, 0, BoundaryOrder.GetLength(new DomNodeIdentity(this)), (uint) (value?.Length ?? 0));
     }
 
+    /// <summary>Gets this node's length in UTF-16 code units without materializing parser text.</summary>
+    public uint Length => NativeCharacterData.GetLength(this);
+    /// <summary>Copies up to count UTF-16 code units beginning at offset.</summary>
+    /// <exception cref="DomException">The offset exceeds the data length (IndexSizeError).</exception>
+    public string SubstringData(uint offset, uint count) => NativeCharacterData.SubstringData(this, offset, count);
+    /// <summary>Replaces up to count UTF-16 code units, repairing live endpoints and queuing mutation records.</summary>
+    /// <exception cref="DomException">The offset exceeds the data length (IndexSizeError).</exception>
+    public void ReplaceData(uint offset, uint count, string data) => NativeCharacterData.ReplaceData(this, offset, count, data);
+
     internal void ReplaceDataCore(string value, uint offset, uint count, uint insertedLength)
     {
+        using var rangeMutation = new RangeMutationScope(OwnerDocument!);
         ArgumentNullException.ThrowIfNull(value);
         var matches = MutationTracking.Match(this, MutationRecordKind.CharacterData);
         var oldValue = matches?.NeedsOldValue == true ? _data : null;

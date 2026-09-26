@@ -86,6 +86,19 @@ internal static class LiveTraversalTracking
         }
     }
 
+    // Mutation already needs to inspect this entire bucket. Remove dead handles
+    // during that pass so a formerly dense bucket returns to the lazy empty state.
+    private static void PruneDeadEntries(EndpointBucket bucket)
+    {
+        var index = 0;
+        while (index < bucket.Entries.Count)
+        {
+            if (!bucket.Entries[index].Range.TryGetTarget(out _)) RemoveEntry(bucket, index);
+            else index++;
+        }
+        ReleaseEmptyBucket(bucket);
+    }
+
     private static void ReleaseEmptyBucket(EndpointBucket bucket)
     {
         if (bucket.Entries.Count != 0) return;
@@ -169,17 +182,42 @@ internal static class LiveTraversalTracking
 
     internal static void Insert(Node parent, Node? before, uint count)
     {
-        if (parent.RangeEndpoints is not { } bucket || before is null || count == 0) return;
+        if (parent.RangeEndpoints is not { } bucket) return;
+        PruneDeadEntries(bucket);
+        if (bucket.Entries.Count == 0 || before is null || count == 0) return;
         var index = IndexOf(before);
-        Adjust(bucket, point => point.Offset > index ? point with { Offset = point.Offset + count } : point);
+        foreach (var entry in bucket.Entries.ToArray())
+        {
+            if (!entry.Range.TryGetTarget(out var range))
+            {
+                if (entry.Index >= 0) RemoveEntry(bucket, entry.Index);
+                continue;
+            }
+            var point = entry.Start ? range.Start : range.End;
+            if (point.Offset > index) range.Repair(entry.Start, point with { Offset = point.Offset + count });
+        }
+        ReleaseEmptyBucket(bucket);
     }
 
     internal static void ReplaceData(Node node, uint offset, uint count, uint length)
     {
         if (node.RangeEndpoints is not { } bucket) return;
-        Adjust(bucket, point => point.Offset > offset + count
-            ? point with { Offset = point.Offset - count + length }
-            : point.Offset > offset ? point with { Offset = offset } : point);
+        PruneDeadEntries(bucket);
+        if (bucket.Entries.Count == 0) return;
+        foreach (var entry in bucket.Entries.ToArray())
+        {
+            if (!entry.Range.TryGetTarget(out var range))
+            {
+                if (entry.Index >= 0) RemoveEntry(bucket, entry.Index);
+                continue;
+            }
+            var point = entry.Start ? range.Start : range.End;
+            var next = point.Offset > offset + count
+                ? point with { Offset = point.Offset - count + length }
+                : point.Offset > offset ? point with { Offset = offset } : point;
+            range.Repair(entry.Start, next);
+        }
+        ReleaseEmptyBucket(bucket);
     }
 
     internal static void Remove(Node node, Node parent, uint? knownIndex = null)
@@ -213,6 +251,8 @@ internal static class LiveTraversalTracking
 
     internal static void Adjust(EndpointBucket bucket, Func<BoundaryPoint, BoundaryPoint> adjustment)
     {
+        PruneDeadEntries(bucket);
+        if (bucket.Entries.Count == 0) return;
         foreach (var entry in bucket.Entries.ToArray())
         {
             if (entry.Range.TryGetTarget(out var range))
@@ -220,7 +260,9 @@ internal static class LiveTraversalTracking
                 var point = entry.Start ? range.Start : range.End;
                 range.Repair(entry.Start, adjustment(point));
             }
+            else if (entry.Index >= 0) RemoveEntry(bucket, entry.Index);
         }
+        ReleaseEmptyBucket(bucket);
     }
 }
 

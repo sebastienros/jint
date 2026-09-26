@@ -11,15 +11,28 @@
         public string Value { get; set; }
         public Jint.HtmlParser.Attr Clone() { }
     }
+    public readonly struct BoundaryPoint : System.IEquatable<Jint.HtmlParser.BoundaryPoint>
+    {
+        public BoundaryPoint(Jint.HtmlParser.DomNodeIdentity Container, uint Offset) { }
+        public Jint.HtmlParser.DomNodeIdentity Container { get; init; }
+        public uint Offset { get; init; }
+    }
     public sealed class CDataSection : Jint.HtmlParser.Node
     {
         public string Data { get; set; }
+        public uint Length { get; }
         public override Jint.HtmlParser.NodeType NodeType { get; }
+        public void ReplaceData(uint offset, uint count, string data) { }
+        public Jint.HtmlParser.Text SplitText(uint offset) { }
+        public string SubstringData(uint offset, uint count) { }
     }
     public sealed class Comment : Jint.HtmlParser.Node
     {
         public string Data { get; set; }
+        public uint Length { get; }
         public override Jint.HtmlParser.NodeType NodeType { get; }
+        public void ReplaceData(uint offset, uint count, string data) { }
+        public string SubstringData(uint offset, uint count) { }
     }
     public sealed class CssParseException : System.Exception
     {
@@ -53,6 +66,7 @@
         public Jint.HtmlParser.Element CreateElement(string localName) { }
         public Jint.HtmlParser.Element CreateElementNS(string? namespaceUri, string qualifiedName) { }
         public Jint.HtmlParser.ProcessingInstruction CreateProcessingInstruction(string target, string data) { }
+        public Jint.HtmlParser.DomRange CreateRange() { }
         public Jint.HtmlParser.Text CreateTextNode(string data) { }
         public Jint.HtmlParser.Attr ImportAttribute(Jint.HtmlParser.Attr source) { }
         public Jint.HtmlParser.Node ImportNode(Jint.HtmlParser.Node source, bool deep = false) { }
@@ -81,6 +95,80 @@
     {
         public DomException(string name, string message) { }
         public string Name { get; }
+    }
+    public readonly struct DomNodeIdentity : System.IEquatable<Jint.HtmlParser.DomNodeIdentity>
+    {
+        public DomNodeIdentity(Jint.HtmlParser.Attr attribute) { }
+        public DomNodeIdentity(Jint.HtmlParser.Node node) { }
+        public Jint.HtmlParser.Attr? Attribute { get; }
+        public bool IsValid { get; }
+        public Jint.HtmlParser.Node? Node { get; }
+        public bool Equals(Jint.HtmlParser.DomNodeIdentity other) { }
+        public override bool Equals(object? obj) { }
+        public override int GetHashCode() { }
+        public static bool operator !=(Jint.HtmlParser.DomNodeIdentity left, Jint.HtmlParser.DomNodeIdentity right) { }
+        public static bool operator ==(Jint.HtmlParser.DomNodeIdentity left, Jint.HtmlParser.DomNodeIdentity right) { }
+    }
+    public sealed class DomNodeIterator
+    {
+        public DomNodeIterator(Jint.HtmlParser.DomNodeIdentity root, uint whatToShow) { }
+        public bool PointerBeforeReference { get; }
+        public Jint.HtmlParser.DomNodeIdentity Reference { get; }
+        public Jint.HtmlParser.DomNodeIdentity Root { get; }
+        public uint WhatToShow { get; }
+        public void Detach() { }
+        public Jint.HtmlParser.DomNodeIdentity? Next(Jint.HtmlParser.TraversalFilter? filter, System.Threading.CancellationToken cancellationToken = default) { }
+        public Jint.HtmlParser.DomNodeIdentity? Previous(Jint.HtmlParser.TraversalFilter? filter, System.Threading.CancellationToken cancellationToken = default) { }
+    }
+    public sealed class DomRange
+    {
+        public bool Collapsed { get; }
+        public Jint.HtmlParser.BoundaryPoint End { get; }
+        public Jint.HtmlParser.BoundaryPoint Start { get; }
+        public Jint.HtmlParser.DocumentFragment CloneContents() { }
+        public Jint.HtmlParser.DomRange CloneRange() { }
+        public void Collapse(bool toStart = false) { }
+        public int CompareBoundaryPoints(ushort how, Jint.HtmlParser.DomRange source, System.Threading.CancellationToken cancellationToken = default) { }
+        public int ComparePoint(Jint.HtmlParser.DomNodeIdentity node, uint offset, System.Threading.CancellationToken cancellationToken = default) { }
+        public void DeleteContents() { }
+        public void Detach() { }
+        public Jint.HtmlParser.DocumentFragment ExtractContents() { }
+        public Jint.HtmlParser.DomNodeIdentity GetCommonAncestor(System.Threading.CancellationToken cancellationToken = default) { }
+        public string GetText(System.Threading.CancellationToken cancellationToken = default) { }
+        public void InsertNode(Jint.HtmlParser.DomNodeIdentity identity) { }
+        public bool IntersectsNode(Jint.HtmlParser.DomNodeIdentity node, System.Threading.CancellationToken cancellationToken = default) { }
+        public bool IsPointInRange(Jint.HtmlParser.DomNodeIdentity node, uint offset, System.Threading.CancellationToken cancellationToken = default) { }
+        public void SelectNode(Jint.HtmlParser.DomNodeIdentity node) { }
+        public void SelectNodeContents(Jint.HtmlParser.DomNodeIdentity node) { }
+        public void SetEnd(Jint.HtmlParser.DomNodeIdentity node, uint offset) { }
+        public void SetEndAfter(Jint.HtmlParser.DomNodeIdentity node) { }
+        public void SetEndBefore(Jint.HtmlParser.DomNodeIdentity node) { }
+        public void SetStart(Jint.HtmlParser.DomNodeIdentity node, uint offset) { }
+        public void SetStartAfter(Jint.HtmlParser.DomNodeIdentity node) { }
+        public void SetStartBefore(Jint.HtmlParser.DomNodeIdentity node) { }
+        public void SurroundContents(Jint.HtmlParser.DomNodeIdentity identity) { }
+    }
+    public sealed class DomStaticRange
+    {
+        public DomStaticRange(Jint.HtmlParser.BoundaryPoint start, Jint.HtmlParser.BoundaryPoint end) { }
+        public bool Collapsed { get; }
+        public Jint.HtmlParser.BoundaryPoint End { get; }
+        public Jint.HtmlParser.BoundaryPoint Start { get; }
+        public bool IsValid(System.Threading.CancellationToken cancellationToken = default) { }
+    }
+    public sealed class DomTreeWalker
+    {
+        public DomTreeWalker(Jint.HtmlParser.DomNodeIdentity root, uint whatToShow) { }
+        public Jint.HtmlParser.DomNodeIdentity Current { get; set; }
+        public Jint.HtmlParser.DomNodeIdentity Root { get; }
+        public uint WhatToShow { get; }
+        public Jint.HtmlParser.DomNodeIdentity? FirstChild(Jint.HtmlParser.TraversalFilter? filter, System.Threading.CancellationToken cancellationToken = default) { }
+        public Jint.HtmlParser.DomNodeIdentity? LastChild(Jint.HtmlParser.TraversalFilter? filter, System.Threading.CancellationToken cancellationToken = default) { }
+        public Jint.HtmlParser.DomNodeIdentity? Next(Jint.HtmlParser.TraversalFilter? filter, System.Threading.CancellationToken cancellationToken = default) { }
+        public Jint.HtmlParser.DomNodeIdentity? NextSibling(Jint.HtmlParser.TraversalFilter? filter, System.Threading.CancellationToken cancellationToken = default) { }
+        public Jint.HtmlParser.DomNodeIdentity? Parent(Jint.HtmlParser.TraversalFilter? filter, System.Threading.CancellationToken cancellationToken = default) { }
+        public Jint.HtmlParser.DomNodeIdentity? Previous(Jint.HtmlParser.TraversalFilter? filter, System.Threading.CancellationToken cancellationToken = default) { }
+        public Jint.HtmlParser.DomNodeIdentity? PreviousSibling(Jint.HtmlParser.TraversalFilter? filter, System.Threading.CancellationToken cancellationToken = default) { }
     }
     public sealed class Element : Jint.HtmlParser.Node
     {
@@ -177,6 +265,7 @@
         public Jint.HtmlParser.Node AppendChild(Jint.HtmlParser.Node child) { }
         public Jint.HtmlParser.Node CloneNode(bool deep = false) { }
         public Jint.HtmlParser.Node InsertBefore(Jint.HtmlParser.Node child, Jint.HtmlParser.Node? referenceChild) { }
+        public void Normalize() { }
         public Jint.HtmlParser.Node RemoveChild(Jint.HtmlParser.Node child) { }
         public Jint.HtmlParser.Node ReplaceChild(Jint.HtmlParser.Node child, Jint.HtmlParser.Node oldChild) { }
         public void ReplaceChildren(Jint.HtmlParser.Node? replacement = null) { }
@@ -230,14 +319,22 @@
     public sealed class ProcessingInstruction : Jint.HtmlParser.Node
     {
         public string Data { get; set; }
+        public uint Length { get; }
         public override Jint.HtmlParser.NodeType NodeType { get; }
         public string Target { get; }
+        public void ReplaceData(uint offset, uint count, string data) { }
+        public string SubstringData(uint offset, uint count) { }
     }
     public sealed class Text : Jint.HtmlParser.Node
     {
         public string Data { get; set; }
+        public uint Length { get; }
         public override Jint.HtmlParser.NodeType NodeType { get; }
+        public void ReplaceData(uint offset, uint count, string data) { }
+        public Jint.HtmlParser.Text SplitText(uint offset) { }
+        public string SubstringData(uint offset, uint count) { }
     }
+    public delegate ushort TraversalFilter(Jint.HtmlParser.DomNodeIdentity node);
     public readonly struct XmlNotationDeclaration
     {
         public string Name { get; }

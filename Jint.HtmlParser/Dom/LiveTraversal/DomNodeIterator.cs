@@ -2,14 +2,17 @@ namespace Jint.HtmlParser;
 
 // Current DOM §6.1 candidate-reference traversal and pre-removal pointer repair.
 // https://dom.spec.whatwg.org/#interface-nodeiterator
-internal sealed class DomNodeIterator
+/// <summary>Traverses an ordinary tree using a live reference and an independently repaired in-flight candidate.</summary>
+/// <remarks>Filters are invocation-local and synchronous. They may mutate the tree; recursive filtering throws InvalidStateError. Cancellation is polled around callbacks and at most every 256 traversal steps.</remarks>
+public sealed class DomNodeIterator
 {
     private readonly record struct Pointer(DomNodeIdentity Node, bool Before);
     private sealed class Candidate(Pointer pointer) { internal Pointer Pointer = pointer; }
     private Pointer _reference;
     private Candidate? _candidate;
     private bool _active;
-    internal DomNodeIterator(DomNodeIdentity root, uint whatToShow) : this(root, whatToShow, null) { }
+    /// <summary>Creates a traverser rooted at the given native identity.</summary>
+    public DomNodeIterator(DomNodeIdentity root, uint whatToShow) : this(root, whatToShow, null) { }
 
     internal DomNodeIterator(DomNodeIdentity root, uint whatToShow, Action<int>? registrationCheckpoint)
     {
@@ -17,16 +20,25 @@ internal sealed class DomNodeIterator
         Root = root; WhatToShow = whatToShow; _reference = new(root, true);
         IteratorTracking.Register(this, registrationCheckpoint);
     }
-    internal DomNodeIdentity Root { get; }
-    internal uint WhatToShow { get; }
-    internal DomNodeIdentity Reference => _reference.Node;
-    internal bool PointerBeforeReference => _reference.Before;
+    /// <summary>Gets the original traversal root identity, including a valid singleton attribute root.</summary>
+    public DomNodeIdentity Root { get; }
+    /// <summary>Gets the complete unsigned DOM node-type mask; excluded nodes do not invoke the filter.</summary>
+    public uint WhatToShow { get; }
+    /// <summary>Gets the live iterator reference identity.</summary>
+    public DomNodeIdentity Reference => _reference.Node;
+    /// <summary>Gets whether the iterator pointer is before its reference identity.</summary>
+    public bool PointerBeforeReference => _reference.Before;
     internal int TrackingIndex = -1;
     internal Document TrackingDocument = null!;
-    internal DomNodeIdentity? Next(TraversalFilter? filter, CancellationToken cancellationToken) => Traverse(true, filter, cancellationToken);
-    internal DomNodeIdentity? Previous(TraversalFilter? filter, CancellationToken cancellationToken) => Traverse(false, filter, cancellationToken);
+    /// <summary>Moves forward in tree order and returns an accepted identity, or null.</summary>
+    /// <exception cref="OperationCanceledException">The supplied cancellation token is canceled.</exception>
+    public DomNodeIdentity? Next(TraversalFilter? filter, CancellationToken cancellationToken = default) => Traverse(true, filter, cancellationToken);
+    /// <summary>Moves backward in tree order and returns an accepted identity, or null.</summary>
+    /// <exception cref="OperationCanceledException">The supplied cancellation token is canceled.</exception>
+    public DomNodeIdentity? Previous(TraversalFilter? filter, CancellationToken cancellationToken = default) => Traverse(false, filter, cancellationToken);
+    /// <summary>Performs the DOM compatibility no-op; the object remains usable and live.</summary>
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822", Justification = "DOM NodeIterator.detach is an instance no-op.")]
-    internal void Detach() { }
+    public void Detach() { }
     private DomNodeIdentity? Traverse(bool next, TraversalFilter? filter, CancellationToken token)
     {
         var work = new TraversalWork(token);
