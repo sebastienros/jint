@@ -365,7 +365,7 @@ public sealed class ComputedStyleTests
               .inner { width: auto; --extent: 20px }
               #t { width: inherit; text-decoration: inherit; visibility: visible; color: blue }
             </style>
-            <div class="outer"><div class="inner"><span id="t">target</span><span id="direct">direct</span></div></div>
+            <span class="outer"><span class="inner"><span id="t">target</span><span id="direct">direct</span></span></span>
             <span id="root-child" style="text-decoration:inherit">root child</span>
             """);
         await page.EvaluateAsync("document.documentElement.appendChild(document.getElementById('root-child'))");
