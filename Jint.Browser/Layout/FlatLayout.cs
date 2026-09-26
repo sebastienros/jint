@@ -103,6 +103,8 @@ internal sealed class FlatLayout
     /// <param name="viewportHeight">The viewport height, which bounds a hit test.</param>
     /// <param name="scrollY">How far the page is scrolled.</param>
     /// <param name="sizes">Optional measurements from the page's current layout revision.</param>
+    /// <param name="checkpoint">Checks the page's execution constraints during traversal.</param>
+    /// <param name="token">Cancels this layout read.</param>
     internal static FlatLayout Of(
         Document? document,
         ElementVisibility visibility,

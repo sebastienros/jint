@@ -466,7 +466,7 @@ internal sealed partial class ParserDriver : IDisposable
     /// The bytes of one subresource, before anything has been made of them.
     /// </summary>
     /// <remarks>
-    /// <see cref="Fetch"/> wraps them into the response AngleSharp reads; the image lane needs the bytes
+    /// The native resource consumer receives these bytes; the image lane needs the bytes
     /// themselves, because <see cref="Media.ImageHeader"/> is what decides between the completely-available
     /// and the broken state and it has to decide before the element hears anything.
     /// </remarks>
@@ -907,7 +907,7 @@ internal sealed partial class ParserDriver : IDisposable
     /// <para>
     /// AngleSharp fires its own <c>load</c> into its own listener list, which holds nothing a script
     /// registered; <see cref="FireAt"/> is the one a page can hear. A <c>&lt;frame&gt;</c> is not here
-    /// because it never gets a document — see <see cref="IsLegacyFrame"/>.
+    /// because legacy frame documents are unavailable.
     /// </para>
     /// </remarks>
     private void FireFrameLoads(Document document)

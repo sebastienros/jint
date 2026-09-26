@@ -727,7 +727,7 @@ internal class DomHostHooks
     /// <remarks>
     /// <para>
     /// Two of the four positions insert into the element's parent, so that is what is walked when there
-    /// is one; see <see cref="SetInnerHtml"/> for why the walk is here at all.
+    /// is one; see <see cref="SetInnerHtml(DomRealm, Element, string)"/> for why the walk is here at all.
     /// </para>
     /// <para>
     /// Step 2's refusal is made here rather than left to AngleSharp, which is the one place in the pinned
@@ -1285,10 +1285,6 @@ internal class DomHostHooks
 
         // A manufactured document without a browsing context is cookie-averse.
     }
-
-    /// <summary>
-    /// The node document's current base URL, derived without AngleSharp's cached <see cref="INode.BaseUri"/>.
-    /// </summary>
 
     /// <summary>Who performs a dynamic-markup-insertion call, once the document it targets is known.</summary>
     private enum MarkupInsertion

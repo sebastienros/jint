@@ -23,7 +23,7 @@ namespace Jint.Browser.Dom;
 /// </para>
 /// <para>
 /// <b>What is translated, and what is deliberately left alone.</b> An <c>AngleSharp.Dom.DomException</c>
-/// becomes the <c>DOMException</c> its <see cref="DomError"/> names; an <see cref="ArgumentException"/> — a
+/// becomes the <c>DOMException</c> its <c>DomError</c> names; an <see cref="ArgumentException"/> — a
 /// WebIDL conversion the CLR signature refused — becomes a <c>TypeError</c>; a
 /// <see cref="NotSupportedException"/> or <see cref="NotImplementedException"/> becomes
 /// <c>NotSupportedError</c>. <b>Everything else keeps the engine's own interop behaviour</b>, which is a
@@ -203,7 +203,7 @@ internal static class DomFailures
 
     /// <summary>
     /// The <a href="https://webidl.spec.whatwg.org/#idl-DOMException-error-names">error name</a> AngleSharp's
-    /// <see cref="DomError"/> stands for.
+    /// <c>DomError</c> stands for.
     /// </summary>
     /// <remarks>
     /// <para>

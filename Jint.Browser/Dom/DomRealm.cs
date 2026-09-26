@@ -613,7 +613,7 @@ internal sealed class DomRealm
     /// <remarks>
     /// <para>
     /// The snapshot is the binding's own (<see cref="DomStaticNodeList"/>) rather than AngleSharp's, because
-    /// nothing about an <see cref="NodeList"/> says whether it is live and the wrapper keeps one element
+    /// nothing about an <c>NodeList</c> says whether it is live and the wrapper keeps one element
     /// wrapper per index. It is cached like every other wrapper, so <c>Hooks.WrapperCreated</c> fires once
     /// for it; the snapshot is new on every call, which keeps
     /// <c>el.querySelectorAll('x') !== el.querySelectorAll('x')</c> — DOM's answer, and the one the binding
