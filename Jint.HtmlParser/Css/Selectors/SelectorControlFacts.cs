@@ -12,16 +12,17 @@ internal enum SelectorControlFactMask
     Range = 16
 }
 
-// Separate validity/range answers preserve inapplicability instead of taking complements.
+internal enum SelectorControlValidity { NotApplicable, Valid, Invalid }
+internal enum SelectorControlRange { NotApplicable, InRange, OutOfRange }
+
+// Three-state results preserve applicability and cannot represent contradictory predicate answers.
 // DefaultSubmit is only the host-owned submit-button arm of :default.
 internal readonly record struct SelectorControlFacts(
     bool DefaultSubmit = false,
     bool PlaceholderShown = false,
     bool ReadWrite = false,
-    bool Valid = false,
-    bool Invalid = false,
-    bool InRange = false,
-    bool OutOfRange = false);
+    SelectorControlValidity Validity = SelectorControlValidity.NotApplicable,
+    SelectorControlRange Range = SelectorControlRange.NotApplicable);
 
 // Invocation-local host facts. Implementations charge traversal/helper work to the supplied read,
 // observe additional documents before reading them, and never publish work/adapters onto nodes or programs.
