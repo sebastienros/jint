@@ -30,7 +30,7 @@ internal static partial class DomInterfaces
     /// <summary>The <c>AudioTrackList</c> interface, projected from <c>Jint.Browser.Dom.BrowserAudioTrackList</c>.</summary>
     internal static readonly DomInterfaceDefinition AudioTrackList;
 
-    /// <summary>The <c>Blob</c> interface, projected from <c>AngleSharp.Io.Dom.IBlob</c>.</summary>
+    /// <summary>The <c>Blob</c> interface, projected from <c>Jint.WebApi.Files.JsBlob</c>.</summary>
     internal static readonly DomInterfaceDefinition Blob;
 
     /// <summary>The <c>CSSRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssRule</c>.</summary>
@@ -429,7 +429,7 @@ internal static partial class DomInterfaces
     /// <summary>The <c>NamedNodeMap</c> interface, projected from <c>Jint.Browser.Dom.Collections.DomNamedNodeMap</c>.</summary>
     internal static readonly DomInterfaceDefinition NamedNodeMap;
 
-    /// <summary>The <c>Navigator</c> interface, projected from <c>AngleSharp.Browser.Dom.INavigator</c>.</summary>
+    /// <summary>The <c>Navigator</c> interface, projected from <c>Jint.WebApi.Navigator.JsNavigator</c>.</summary>
     internal static readonly DomInterfaceDefinition Navigator;
 
     /// <summary>The <c>NodeIterator</c> interface, projected from <c>AngleSharp.Dom.INodeIterator</c>.</summary>
@@ -589,7 +589,7 @@ internal static partial class DomInterfaces
 
         Blob = Add(new DomInterfaceDefinition(
             "Blob",
-            typeof(global::AngleSharp.Io.Dom.IBlob),
+            typeof(global::Jint.WebApi.Files.JsBlob),
             BuildBlob,
             null,
             rootsAtEventTarget: false,
@@ -1859,7 +1859,7 @@ internal static partial class DomInterfaces
 
         Navigator = Add(new DomInterfaceDefinition(
             "Navigator",
-            typeof(global::AngleSharp.Browser.Dom.INavigator),
+            typeof(global::Jint.WebApi.Navigator.JsNavigator),
             BuildNavigator,
             null,
             rootsAtEventTarget: false,

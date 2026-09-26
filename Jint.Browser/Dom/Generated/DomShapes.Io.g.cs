@@ -19,34 +19,34 @@ internal static partial class DomInterfaces
             .Method("close",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Blob.close", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Io.Dom.IBlob>(thisObj, "Blob.close");
-                    self.Target.Close(); return global::Jint.Native.JsValue.Undefined;
+                    var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindBlob(thisObj, "Blob.close");
+                    return global::Jint.Browser.Dom.DomFailures.Refuse(self.Realm, "Blob.close", "NotSupportedError", "The native Blob byte sequence has no close state.");
                 }),
                 length: 0)
             .Accessor("isClosed",
                 global::Jint.Browser.Dom.DomFailures.Guard("Blob.isClosed", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Io.Dom.IBlob>(thisObj, "Blob.isClosed");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsClosed);
+                    var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindBlob(thisObj, "Blob.isClosed");
+                    return global::Jint.Browser.Dom.DomFailures.Refuse(self.Realm, "Blob.isClosed", "NotSupportedError", "The native Blob byte sequence has no close state.");
                 }))
             .Accessor("size",
                 global::Jint.Browser.Dom.DomFailures.Guard("Blob.size", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Io.Dom.IBlob>(thisObj, "Blob.size");
-                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);
+                    var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindBlob(thisObj, "Blob.size");
+                    return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Data.Length);
                 }))
             .Method("slice",
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("Blob.slice", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Io.Dom.IBlob>(thisObj, "Blob.slice");
-                    return self.Realm.Wrap(self.Target.Slice(global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 0, 0), global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 1, 2147483647), global::Jint.Browser.Dom.DomConvert.NullableText(args, 2)));
+                    var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindBlob(thisObj, "Blob.slice");
+                    return self.Realm.OwningRealm.Intrinsics.Blob.PrototypeObject.Slice(self.Target, global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 0, 0), global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 1, 2147483647), global::Jint.Browser.Dom.DomConvert.NullableText(args, 2));
                 }),
                 length: 0)
             .Accessor("type",
                 global::Jint.Browser.Dom.DomFailures.Guard("Blob.type", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Io.Dom.IBlob>(thisObj, "Blob.type");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Type);
+                    var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindBlob(thisObj, "Blob.type");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.MediaType);
                 }))
             .Build();
 

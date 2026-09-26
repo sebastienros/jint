@@ -600,8 +600,8 @@
     },
     {
       "DomName": "Blob",
-      "ClrTypeName": "AngleSharp.Io.Dom.IBlob",
-      "ReceiverType": "global::AngleSharp.Io.Dom.IBlob",
+      "ClrTypeName": "Jint.WebApi.Files.JsBlob",
+      "ReceiverType": "global::Jint.WebApi.Files.JsBlob",
       "Parent": null,
       "RootsAtEventTarget": false,
       "HasInterfaceObject": true,
@@ -616,7 +616,7 @@
         {
           "DomName": "close",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Io.Dom.IBlob>(thisObj, \"Blob.close\");\nself.Target.Close(); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindBlob(thisObj, \"Blob.close\");\nreturn global::Jint.Browser.Dom.DomFailures.Refuse(self.Realm, \"Blob.close\", \"NotSupportedError\", \"The native Blob byte sequence has no close state.\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IBlob.Close"
@@ -624,7 +624,7 @@
         {
           "DomName": "isClosed",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Io.Dom.IBlob>(thisObj, \"Blob.isClosed\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsClosed);",
+          "Body": "var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindBlob(thisObj, \"Blob.isClosed\");\nreturn global::Jint.Browser.Dom.DomFailures.Refuse(self.Realm, \"Blob.isClosed\", \"NotSupportedError\", \"The native Blob byte sequence has no close state.\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IBlob.IsClosed"
@@ -632,7 +632,7 @@
         {
           "DomName": "size",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Io.Dom.IBlob>(thisObj, \"Blob.size\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);",
+          "Body": "var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindBlob(thisObj, \"Blob.size\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Data.Length);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IBlob.Length"
@@ -640,7 +640,7 @@
         {
           "DomName": "slice",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Io.Dom.IBlob>(thisObj, \"Blob.slice\");\nreturn self.Realm.Wrap(self.Target.Slice(global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 0, 0), global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 1, 2147483647), global::Jint.Browser.Dom.DomConvert.NullableText(args, 2)));",
+          "Body": "var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindBlob(thisObj, \"Blob.slice\");\nreturn self.Realm.OwningRealm.Intrinsics.Blob.PrototypeObject.Slice(self.Target, global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 0, 0), global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 1, 2147483647), global::Jint.Browser.Dom.DomConvert.NullableText(args, 2));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IBlob.Slice"
@@ -648,14 +648,15 @@
         {
           "DomName": "type",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Io.Dom.IBlob>(thisObj, \"Blob.type\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Type);",
+          "Body": "var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindBlob(thisObj, \"Blob.type\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.MediaType);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IBlob.Type"
         }
       ],
       "Constants": [],
-      "Unscopables": []
+      "Unscopables": [],
+      "TypeMapCandidate": false
     },
     {
       "DomName": "CSSRule",
@@ -13248,8 +13249,8 @@
     },
     {
       "DomName": "Navigator",
-      "ClrTypeName": "AngleSharp.Browser.Dom.INavigator",
-      "ReceiverType": "global::AngleSharp.Browser.Dom.INavigator",
+      "ClrTypeName": "Jint.WebApi.Navigator.JsNavigator",
+      "ReceiverType": "global::Jint.WebApi.Navigator.JsNavigator",
       "Parent": null,
       "RootsAtEventTarget": false,
       "HasInterfaceObject": true,
@@ -13264,7 +13265,7 @@
         {
           "DomName": "appName",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.INavigator>(thisObj, \"Navigator.appName\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Name);",
+          "Body": "var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindNavigator(thisObj, \"Navigator.appName\");\nreturn global::Jint.Native.JsString.Create(\"Netscape\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "INavigatorId.Name"
@@ -13272,7 +13273,7 @@
         {
           "DomName": "appVersion",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.INavigator>(thisObj, \"Navigator.appVersion\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Version);",
+          "Body": "var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindNavigator(thisObj, \"Navigator.appVersion\");\nreturn global::Jint.Browser.Dom.DomNativeNavigatorMembers.AppVersion(self.Realm, self.Target);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "INavigatorId.Version"
@@ -13280,7 +13281,7 @@
         {
           "DomName": "isContentHandlerRegistered",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.INavigator>(thisObj, \"Navigator.isContentHandlerRegistered\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsContentHandlerRegistered(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Navigator.isContentHandlerRegistered\"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, \"Navigator.isContentHandlerRegistered\")));",
+          "Body": "var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindNavigator(thisObj, \"Navigator.isContentHandlerRegistered\");\n_ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Navigator.isContentHandlerRegistered\");\n_ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, \"Navigator.isContentHandlerRegistered\");\nreturn global::Jint.Browser.Dom.DomFailures.Refuse(self.Realm, \"Navigator.isContentHandlerRegistered\", \"NotSupportedError\", \"This Navigator member has no native service provider.\");",
           "SetterBody": null,
           "Length": 2,
           "Origin": "INavigatorContentUtilities.IsContentHandlerRegistered"
@@ -13288,7 +13289,7 @@
         {
           "DomName": "isProtocolHandlerRegistered",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.INavigator>(thisObj, \"Navigator.isProtocolHandlerRegistered\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsProtocolHandlerRegistered(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Navigator.isProtocolHandlerRegistered\"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, \"Navigator.isProtocolHandlerRegistered\")));",
+          "Body": "var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindNavigator(thisObj, \"Navigator.isProtocolHandlerRegistered\");\n_ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Navigator.isProtocolHandlerRegistered\");\n_ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, \"Navigator.isProtocolHandlerRegistered\");\nreturn global::Jint.Browser.Dom.DomFailures.Refuse(self.Realm, \"Navigator.isProtocolHandlerRegistered\", \"NotSupportedError\", \"This Navigator member has no native service provider.\");",
           "SetterBody": null,
           "Length": 2,
           "Origin": "INavigatorContentUtilities.IsProtocolHandlerRegistered"
@@ -13296,7 +13297,7 @@
         {
           "DomName": "onLine",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.INavigator>(thisObj, \"Navigator.onLine\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsOnline);",
+          "Body": "var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindNavigator(thisObj, \"Navigator.onLine\");\nvar runtime = global::Jint.Browser.Runtime.NavigatorInstaller.Runtime(thisObj, \"Navigator.onLine\");\nreturn global::Jint.Browser.Runtime.NavigatorInstaller.Online(runtime);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "INavigatorOnline.IsOnline"
@@ -13304,7 +13305,7 @@
         {
           "DomName": "platform",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.INavigator>(thisObj, \"Navigator.platform\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Platform);",
+          "Body": "var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindNavigator(thisObj, \"Navigator.platform\");\nvar runtime = global::Jint.Browser.Runtime.NavigatorInstaller.Runtime(thisObj, \"Navigator.platform\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Runtime.NavigatorInstaller.PlatformOf(runtime));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "INavigatorId.Platform"
@@ -13312,7 +13313,7 @@
         {
           "DomName": "registerContentHandler",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.INavigator>(thisObj, \"Navigator.registerContentHandler\");\nself.Target.RegisterContentHandler(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Navigator.registerContentHandler\"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, \"Navigator.registerContentHandler\"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 2, \"Navigator.registerContentHandler\")); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindNavigator(thisObj, \"Navigator.registerContentHandler\");\n_ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Navigator.registerContentHandler\");\n_ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, \"Navigator.registerContentHandler\");\n_ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 2, \"Navigator.registerContentHandler\");\nreturn global::Jint.Browser.Dom.DomFailures.Refuse(self.Realm, \"Navigator.registerContentHandler\", \"NotSupportedError\", \"This Navigator member has no native service provider.\");",
           "SetterBody": null,
           "Length": 3,
           "Origin": "INavigatorContentUtilities.RegisterContentHandler"
@@ -13320,7 +13321,7 @@
         {
           "DomName": "registerProtocolHandler",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.INavigator>(thisObj, \"Navigator.registerProtocolHandler\");\nself.Target.RegisterProtocolHandler(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Navigator.registerProtocolHandler\"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, \"Navigator.registerProtocolHandler\"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 2, \"Navigator.registerProtocolHandler\")); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindNavigator(thisObj, \"Navigator.registerProtocolHandler\");\n_ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Navigator.registerProtocolHandler\");\n_ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, \"Navigator.registerProtocolHandler\");\n_ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 2, \"Navigator.registerProtocolHandler\");\nreturn global::Jint.Browser.Dom.DomFailures.Refuse(self.Realm, \"Navigator.registerProtocolHandler\", \"NotSupportedError\", \"This Navigator member has no native service provider.\");",
           "SetterBody": null,
           "Length": 3,
           "Origin": "INavigatorContentUtilities.RegisterProtocolHandler"
@@ -13328,7 +13329,7 @@
         {
           "DomName": "unregisterContentHandler",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.INavigator>(thisObj, \"Navigator.unregisterContentHandler\");\nself.Target.UnregisterContentHandler(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Navigator.unregisterContentHandler\"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, \"Navigator.unregisterContentHandler\")); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindNavigator(thisObj, \"Navigator.unregisterContentHandler\");\n_ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Navigator.unregisterContentHandler\");\n_ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, \"Navigator.unregisterContentHandler\");\nreturn global::Jint.Browser.Dom.DomFailures.Refuse(self.Realm, \"Navigator.unregisterContentHandler\", \"NotSupportedError\", \"This Navigator member has no native service provider.\");",
           "SetterBody": null,
           "Length": 2,
           "Origin": "INavigatorContentUtilities.UnregisterContentHandler"
@@ -13336,7 +13337,7 @@
         {
           "DomName": "unregisterProtocolHandler",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.INavigator>(thisObj, \"Navigator.unregisterProtocolHandler\");\nself.Target.UnregisterProtocolHandler(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Navigator.unregisterProtocolHandler\"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, \"Navigator.unregisterProtocolHandler\")); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindNavigator(thisObj, \"Navigator.unregisterProtocolHandler\");\n_ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"Navigator.unregisterProtocolHandler\");\n_ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, \"Navigator.unregisterProtocolHandler\");\nreturn global::Jint.Browser.Dom.DomFailures.Refuse(self.Realm, \"Navigator.unregisterProtocolHandler\", \"NotSupportedError\", \"This Navigator member has no native service provider.\");",
           "SetterBody": null,
           "Length": 2,
           "Origin": "INavigatorContentUtilities.UnregisterProtocolHandler"
@@ -13344,7 +13345,7 @@
         {
           "DomName": "userAgent",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.INavigator>(thisObj, \"Navigator.userAgent\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.UserAgent);",
+          "Body": "var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindNavigator(thisObj, \"Navigator.userAgent\");\nreturn self.Target.Engine.NavigatorUserAgentValue;",
           "SetterBody": null,
           "Length": 0,
           "Origin": "INavigatorId.UserAgent"
@@ -13352,14 +13353,15 @@
         {
           "DomName": "yieldForStorageUpdates",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.INavigator>(thisObj, \"Navigator.yieldForStorageUpdates\");\nself.Target.WaitForStorageUpdates(); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomNativeJsBindings.BindNavigator(thisObj, \"Navigator.yieldForStorageUpdates\");\nreturn global::Jint.Browser.Dom.DomFailures.Refuse(self.Realm, \"Navigator.yieldForStorageUpdates\", \"NotSupportedError\", \"This Navigator member has no native service provider.\");",
           "SetterBody": null,
           "Length": 0,
           "Origin": "INavigatorStorageUtilities.WaitForStorageUpdates"
         }
       ],
       "Constants": [],
-      "Unscopables": []
+      "Unscopables": [],
+      "TypeMapCandidate": false
     },
     {
       "DomName": "NodeIterator",
