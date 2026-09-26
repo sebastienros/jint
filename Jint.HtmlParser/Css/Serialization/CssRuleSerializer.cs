@@ -75,7 +75,8 @@ internal static class CssRuleSerializer
             {
                 var condition = conditionRule is CssMediaRule media ? media.Media.Serialize(work) : conditionRule.ConditionText;
                 work.Charge(condition.Length);
-                builder.Append(conditionRule is CssMediaRule ? "@media " : "@supports ").Append(condition).Append(" {");
+                builder.Append(conditionRule switch { CssMediaRule => "@media ", CssContainerRule => "@container ", _ => "@supports " })
+                    .Append(condition).Append(" {");
                 if (conditionRule.Rules.Count != 0) builder.Append('\n');
                 frames.Push(new Frame(conditionRule.Rules, conditionRule, start));
             }

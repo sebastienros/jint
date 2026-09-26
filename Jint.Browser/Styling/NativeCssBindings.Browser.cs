@@ -8,7 +8,7 @@ using Jint.HtmlParser.Css.Values;
 namespace Jint.Browser.Styling;
 
 // CSSOM metadata/operation adapters used by generated bindings. Models remain engine-free.
-internal static class NativeCssBindings
+internal static partial class NativeCssBindings
 {
     internal static CssValueWork Work(DomRealm realm) => new(realm.CancellationToken, realm.Engine.Constraints.Check);
     private static CssValueWork MutationWork(DomRealm realm, Func<CssMutationStamp> read)

@@ -1009,8 +1009,8 @@
     },
     {
       "DomName": "CSSContainerRule",
-      "ClrTypeName": "Jint.Browser.Dom.NativeCssUnavailable",
-      "ReceiverType": "global::Jint.Browser.Dom.NativeCssUnavailable",
+      "ClrTypeName": "Jint.HtmlParser.Css.Model.CssContainerRule",
+      "ReceiverType": "global::Jint.HtmlParser.Css.Model.CssContainerRule",
       "Parent": "CSSConditionRule",
       "RootsAtEventTarget": false,
       "HasInterfaceObject": true,
@@ -1025,7 +1025,7 @@
         {
           "DomName": "containerName",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSContainerRule.containerName\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSContainerRule.containerName\");",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssContainerRule>(thisObj, \"CSSContainerRule.containerName\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Styling.NativeCssBindings.ContainerName(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "ICssContainerRule.ContainerName"
@@ -1033,7 +1033,7 @@
         {
           "DomName": "containerQuery",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSContainerRule.containerQuery\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSContainerRule.containerQuery\");",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssContainerRule>(thisObj, \"CSSContainerRule.containerQuery\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Styling.NativeCssBindings.ContainerQuery(self.Realm, self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "ICssContainerRule.ContainerQuery"

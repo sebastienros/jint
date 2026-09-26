@@ -47,7 +47,7 @@ public sealed class CssSupportsRuleTests
     [TestCase("(color:red) or )")]
     public void InvalidPreludesDropTheirBodiesAndInsertionFailsAtomically(string condition)
     {
-        var source = "@supports " + condition + " { @container unknown {} }";
+        var source = "@supports " + condition + " { @scope unknown {} }";
         var sheet = CssStyleSheet.Parse(source + " a {}");
         sheet.Rules.Count.Should().Be(1);
         var old = sheet.Rules[0];
@@ -63,8 +63,8 @@ public sealed class CssSupportsRuleTests
     public void FalseConditionsDoNotHideKnownUnimplementedChildGrammars()
     {
         var error = Assert.Throws<CssIncompleteRuleGrammarException>(() =>
-            CssStyleSheet.Parse("@supports (border-color:red) { @container unknown {} }"))!;
-        error.Blocker.Should().Be("R2:container");
+            CssStyleSheet.Parse("@supports (border-color:red) { @scope unknown {} }"))!;
+        error.Blocker.Should().Be("R2:scope");
         Assert.Throws<CssIncompleteRuleGrammarException>(() =>
             CssStyleSheet.Parse("a { @supports (color:red) { & {} } }"))!
             .Blocker.Should().Be("C2:nesting-selector-context");
@@ -142,7 +142,7 @@ public sealed class CssSupportsRuleTests
         foreach (var group in sheet.Rules.Cast<CssGroupingRule>())
         {
             var work = new CssValueWork(cancellation.Token);
-            Assert.Throws<DomException>(() => group.InsertRule("@container unknown {}", -1, null, work, cancellation.Token))!
+            Assert.Throws<DomException>(() => group.InsertRule("@scope unknown {}", -1, null, work, cancellation.Token))!
                 .Name.Should().Be("IndexSizeError");
             Assert.Throws<DomException>(() => group.DeleteRule(0, work))!.Name.Should().Be("IndexSizeError");
             group.Stamp.Value.Should().Be(0);
