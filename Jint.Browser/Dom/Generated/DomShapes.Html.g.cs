@@ -2080,7 +2080,11 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLHtmlElement.manifest", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLHtmlElement.manifest");
-                    return global::Jint.Browser.Dom.DomConvert.Text(new global::Jint.Browser.Dom.DomReadWork(self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken).Attribute(self.Target, "manifest"));
+                    var work = new global::Jint.Browser.Dom.DomReadWork(self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken);
+                    work.Check();
+                    var value = work.Attribute(self.Target, "manifest");
+                    work.Check();
+                    return global::Jint.Browser.Dom.DomConvert.Text(value);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLHtmlElement.manifest", static (thisObj, args) =>
                 {

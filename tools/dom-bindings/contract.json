@@ -8426,7 +8426,7 @@
         {
           "DomName": "manifest",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLHtmlElement.manifest\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(new global::Jint.Browser.Dom.DomReadWork(self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken).Attribute(self.Target, \"manifest\"));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLHtmlElement.manifest\");\nvar work = new global::Jint.Browser.Dom.DomReadWork(self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken);\nwork.Check();\nvar value = work.Attribute(self.Target, \"manifest\");\nwork.Check();\nreturn global::Jint.Browser.Dom.DomConvert.Text(value);",
           "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLHtmlElement.manifest\");\nself.Target.SetAttributeNS(null, \"manifest\", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"HTMLHtmlElement.manifest\")); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "IHtmlHtmlElement.Manifest"
