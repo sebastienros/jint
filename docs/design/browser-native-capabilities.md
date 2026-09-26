@@ -19,6 +19,13 @@ rendering. The native cutover makes the boundary explicit:
   sets the mute state. Volume/rate changes queue real Jint events. Reverse playback is unsupported.
   `canPlayType` returns the empty string and `play()` returns a promise rejected with `NotSupportedError`.
   No request is made by those queries, setters, context operations or playback refusal.
+  An explicit `load()` selects the current null-namespace `src`, or the first source child, and calls
+  the existing document resource owner. The selected URL is captured once on the page loop. A lazy
+  source observer cancels the operation on source/subtree changes; repeated loads cancel the previous
+  operation. Completion returns to the loop and checks operation identity, owner document, source and
+  base URL before publishing a media error. Receiving bytes still yields `MEDIA_ERR_SRC_NOT_SUPPORTED`
+  because no decoder exists; a failed request yields `MEDIA_ERR_NETWORK`. Disposal cancels transport and
+  releases the observer. A document with no resource owner explicitly refuses a non-empty request.
 * Track lists are stable empty objects; there is no decoder output or invented text track. `addTextTrack`,
   the nonstandard controller and start-date capabilities explicitly refuse. Empty immutable range objects
   are reused within each realm, which differs from HTML's fresh range snapshots but cannot expose stale data.

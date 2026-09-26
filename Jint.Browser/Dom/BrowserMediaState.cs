@@ -9,7 +9,7 @@ namespace Jint.Browser.Dom;
 
 /// <summary>Script-written media state, independent of a decoder and of any engine.</summary>
 /// <remarks>https://html.spec.whatwg.org/multipage/media.html#media-elements</remarks>
-internal sealed class BrowserMediaState
+internal sealed partial class BrowserMediaState
 {
     private static readonly ConditionalWeakTable<Element, BrowserMediaState> States = new();
     private readonly Element _element;
@@ -42,10 +42,10 @@ internal sealed class BrowserMediaState
     internal bool Ended => false;
     internal bool Seeking => false;
     internal int ReadyState => 0;
-    internal int NetworkState => 0;
-    internal string CurrentSrc => "";
+    internal int NetworkState => _loadOperation?.IsCanceled == true ? 0 : _networkState;
+    internal string CurrentSrc => _loadOperation?.IsCanceled == true ? "" : _currentSrc;
     internal string PlaybackState => "waiting";
-    internal object? Error => null;
+    internal BrowserMediaError? Error => _loadOperation?.IsCanceled == true ? null : _error;
     internal int VideoWidth => 0;
     internal int VideoHeight => 0;
     internal BrowserAudioTrackList AudioTracks => _audioTracks ??= new BrowserAudioTrackList();
@@ -112,7 +112,42 @@ internal sealed class BrowserMediaState
     }
 
     internal JsValue AddTextTrack(DomRealm realm, string kind, string label, string language)
-        => DomFailures.Refuse(realm, "HTMLMediaElement.addTextTrack", "NotSupportedError", "Text track creation is not available.");
+    {
+        if (kind is not ("subtitles" or "captions" or "descriptions" or "chapters" or "metadata"))
+        {
+            Throw.TypeError(realm.OwningRealm, "The text track kind is not a valid TextTrackKind.");
+        }
+        return DomFailures.Refuse(realm, "HTMLMediaElement.addTextTrack", "NotSupportedError", "Text track creation is not available.");
+    }
+
+    internal static int GetVideoWidth(DomRealm realm, Element element)
+    {
+        RequireElement(realm, element, "video", "HTMLVideoElement.videoWidth");
+        return 0;
+    }
+
+    internal static int GetVideoHeight(DomRealm realm, Element element)
+    {
+        RequireElement(realm, element, "video", "HTMLVideoElement.videoHeight");
+        return 0;
+    }
+
+    internal static int TrackReadyState(DomRealm realm, Element element)
+    {
+        RequireElement(realm, element, "track", "HTMLTrackElement.readyState");
+        return 0;
+    }
+
+    internal static JsValue Track(DomRealm realm, Element element)
+    {
+        RequireElement(realm, element, "track", "HTMLTrackElement.track");
+        return DomFailures.Refuse(realm, "HTMLTrackElement.track", "NotSupportedError", "Text track creation is not available.");
+    }
+
+    private static void RequireElement(DomRealm realm, Element element, string localName, string member)
+    {
+        if (!EventDom.IsHtml(element, localName)) Throw.TypeError(realm.OwningRealm, "Illegal invocation of " + member);
+    }
 
     internal JsValue Controller(DomRealm realm)
         => DomFailures.Refuse(realm, "HTMLMediaElement.controller", "NotSupportedError", "Media controllers are not available.");

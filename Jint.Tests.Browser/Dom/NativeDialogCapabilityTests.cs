@@ -77,6 +77,7 @@ public sealed class NativeDialogCapabilityTests
         await using var browser = new global::Jint.Browser.Browser();
         var page = await browser.NewPageAsync();
         await page.SetContentAsync("<input id=outside><dialog id=dialog><input id=first><input id=preferred autofocus></dialog><input id=other>");
+        await page.EvaluateAsync("var outside=document.getElementById('outside'), dialog=document.getElementById('dialog'), other=document.getElementById('other');");
         (await page.EvaluateAsync<string>("outside.focus(); dialog.show(); document.activeElement.id"))
             .Should().Be("preferred");
         (await page.EvaluateAsync<string>("dialog.close(); document.activeElement.id"))
