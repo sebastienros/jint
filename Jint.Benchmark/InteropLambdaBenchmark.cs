@@ -74,7 +74,7 @@ public class InteropLambdaBenchmark
     private Function _forLoopEngineInvokeFunction;
 
     [Params(TestDataType.ClrObject, TestDataType.Dictionary, TestDataType.JsonNode, TestDataType.JsValue)]
-    public TestDataType Type { get; set; }
+    public TestDataType DataType { get; set; }
 
     [GlobalSetup]
     public void GlobalSetup()
@@ -82,19 +82,19 @@ public class InteropLambdaBenchmark
         _testArray = [new TestData("SomeKind00000"), new TestData("SomeKind1111"), new TestData(FindValue)];
         _root = new TestDataRoot(_testArray);
 
-        if (Type == TestDataType.ClrObject)
+        if (DataType == TestDataType.ClrObject)
         {
             _data = _root;
         }
-        else if (Type == TestDataType.JsonNode)
+        else if (DataType == TestDataType.JsonNode)
         {
             _data = JsonSerializer.SerializeToNode(_root, JsonDefaults.JsonSerializerOptions);
         }
-        else if (Type == TestDataType.Dictionary)
+        else if (DataType == TestDataType.Dictionary)
         {
             _data = JsonSerializer.Deserialize<Dictionary<string, object>>(JsonSerializer.Serialize(_root, JsonDefaults.JsonSerializerOptions), JsonDefaults.JsonSerializerOptions);
         }
-        else if (Type == TestDataType.JsValue)
+        else if (DataType == TestDataType.JsValue)
         {
             _data = JsonSerializer.Deserialize<JsObject>(JsonSerializer.Serialize(_root, JsonDefaults.JsonSerializerOptions), JsonDefaults.JsonSerializerOptions);
         }
