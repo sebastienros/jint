@@ -89,6 +89,7 @@ internal static partial class NativeCssStyleSheets
     {
         work.CheckCancellation();
         if (!Documents.TryGetValue(document, out var resources) || !resources.Owners.TryGetValue(owner, out var resource)) return;
+        var sourceGeneration = new object();
         if (resource.Sheet is { } sheet) sheet.SetAttachment(resource.Attachment with { OwnerNode = null });
         resource.Sheet = null;
         resource.Associated = false;
@@ -97,7 +98,7 @@ internal static partial class NativeCssStyleSheets
         resource.Disabled = false;
         resource.Loaded = false;
         resource.Replaced = false;
-        Jint.HtmlParser.Css.Model.Syntax.CssMutationStamp.Advance(ref resource.SourceGeneration);
+        resource.SourceGeneration = sourceGeneration;
         Jint.HtmlParser.Css.Model.Syntax.CssMutationStamp.Advance(ref resources.Version);
     }
 
