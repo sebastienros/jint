@@ -2,10 +2,39 @@
 
 ## Scope and workflow
 
-**Paused again at the user's request on 2026-09-25.** The [current resume checkpoint](html-parser-resume.md)
-preserves verified common state, retained WIP commits and unfinished reviews, including the newly
-found template ownership defect and XPath cancellation blocker. The goal remains incomplete.
-Historical integration evidence continues below; no performance claim is implied.
+**Resumed after the September 25 checkpoint.** The [pause record](html-parser-resume.md)
+retains the stopped state and recovery details; the newer integration evidence below supersedes its
+HEADs and pending-review status. The full goal remains incomplete; Browser still uses AngleSharp.
+
+### Latest resumed integrations
+
+- Numeric policy: source `d1cfff5b9` + `24321b557` integrated as `9eeecd86e` + `5b6253947`;
+  approval/evidence clarification `51c6c3120`. Astra review clear. Root independently retrieved the
+  pinned `input-valueasnumber.html` and confirmed the documented huge-local empty-result assertion.
+  The native/spec discrepancy stays explicit. Calendar's 1024-bit bound never caps decimal remainder
+  arithmetic. No numeric runtime implementation or performance result is claimed.
+- Exact-six Japanese prepared-input adapter: source `185837889` integrated as `2a41e82a4` after
+  independent Astra review and 24 extra negative source probes. Common Python checks 3/3 and fresh
+  Release selected tests 60/60 pass across net8/net10. Log `/private/tmp/jint-prepared-inputs-integrated.log`.
+  Full common corpus: 4,010 total, 3,742 passed, 268 failed, zero skips. Per TFM: 1,820 required passes,
+  127 pending, six optional observed, zero adapter debt, 21 optional verified, zero harness failures
+  or mismatches, OUTPUT 344 compared/42 pending. Log `/private/tmp/jint-prepared-corpus-integrated.log`.
+  Additional passing tests verify the harness; no required corpus result was reclassified.
+- XPath full chain `3e00d8717`, `2c61763d8`, `f795d1350`, `50bfc1350` integrated through `c131b6a9f`.
+  Full semantic review and separate final cancellation re-review clear. Lookahead now polls within
+  long legal whitespace; regression proves cancellation at the first 256-unit checkpoint.
+  Common fresh Release non-corpus suite: **2,856/2,856**, net8/net10 combined, zero failures/skips.
+  Log `/private/tmp/jint-xpath-integrated.log`. Worker/common XPath trees are identical; task archived. Worktree removal is pending because
+  neither task exposes an attached worktree identity through `list_artifacts`; retain the clean checkout
+  until managed cleanup can address it, rather than deleting it outside the archive tool.
+- H6e remains in `ad95`, recovering WIP `150faca00`; isolated template adoption ownership fix and
+  separate stale-test repair are in progress. The common defect recorded in the pause note is not yet fixed.
+- Native/XML IsValue prerequisite dispatched to Sol High task `01a0dafe-8d1a-73b3-bc05-8fab6d2fdd92`,
+  local worktree `a768`, from `2a41e82a4`. Only the first half of the reviewed contract is assigned.
+  H6e exclusively owns later HTML capture; X3c remains gated on both halves.
+- CSS trig final `3f7a25b58` is in independent Astra review. V0c1 resumed final verification from
+  `fdf2acd46`. Both remain unmerged/retained. No timings or PRs.
+
 
 The requested package replaces AngleSharp in Jint.Browser with a new API for HTML,
 SVG, XML, CSS, DOM mutation tracking, and browser integration. Performance must be
@@ -21,7 +50,8 @@ the earlier repository direction to retain AngleSharp.
 - User cleanup rule: archive tasks and remove their worktrees after review, integration and
   successful common-worktree checks. Retain interrupted/failed tasks until unfinished work is
   recovered. Keep task history and Git branches; use managed archive cleanup and verify removal.
-  Forty-three completed tasks have now been archived; their worktrees are gone.
+  Forty-four completed tasks have now been archived; forty-three worktrees are gone.
+  The latest XPath checkout remains pending managed cleanup as described above.
   Patch equivalence, clean local state and stopped-task status were checked before removal.
   Earlier worktrees already removed by Codex remain represented by their integrated commits.
 
@@ -74,11 +104,12 @@ the earlier repository direction to retain AngleSharp.
 | H6c select parsing | `01a0d000-0601-7721-8396-d767beaf6e04` | Reviewed scope correction integrated and tested; archived, worktree removed |
 | V0b2 stepped CSS math | `01a0d000-f77f-7c41-b474-a8e407aa41fe` | Reviewed, integrated and tested; archived, worktree removed |
 | D7b1b pure text algorithms | `01a0d00a-ab70-7510-9978-13e50051aa2e` | Reviewed, integrated and tested; archived, worktree removed |
-| X4b3 XPath completion | `01a0d011-17de-7c01-92b6-cbb7cfcba6ed` | Dedicated Sol implementation in ff28 |
+| X4b3 XPath completion | `01a0d011-17de-7c01-92b6-cbb7cfcba6ed` | Reviewed, integrated and common tests pass; task archived, worktree cleanup pending attachment identity |
 | C3a1 form-state selectors | `01a0d016-7f69-7670-b118-27244e5dcfad` | Reviewed, integrated and tested; archived, worktree removed |
 | V0b3a CSS abs/sign | `01a0d017-ef27-7d61-84a3-6a628ce82374` | Reviewed, integrated and tested; archived, worktree removed |
 | H6d ordinary templates | `01a0d01a-09e1-7312-b099-2afb6efc86b7` | Integrated and tested; archived; follow-up adoption ownership defect recorded in resume checkpoint |
-| H6e framesets | `01a0dab4-0ad4-7720-ada6-80c245e9c7ff` | Paused WIP `150faca00` in ad95; also owns separate template defect follow-up |
+| H6e framesets | `01a0dab4-0ad4-7720-ada6-80c245e9c7ff` | Resumed from WIP `150faca00` in ad95; isolated template ownership fix first |
+| Native/XML creation-time IsValue | `01a0dafe-8d1a-73b3-bc05-8fab6d2fdd92` | Sol implementation in a768; separate later HTML capture required |
 | V0b3b CSS trigonometry | `01a0d029-93fb-7352-bf0c-ff2c92aec72d` | Dedicated Sol implementation in ba36 |
 | V0c1 CSS substitution analysis | `01a0d029-9c47-7600-8b5b-e10aeb7b3b9e` | Dedicated Sol implementation in 4983 |
 
