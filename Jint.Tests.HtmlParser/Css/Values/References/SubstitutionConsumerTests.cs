@@ -47,16 +47,23 @@ public sealed class SubstitutionConsumerTests
         var parsed = CssMathParser.ParseMath(result.Value.Components[0],
             new CssMathContext(CssMathProduction.Length, CssMathPercentageMode.Forbidden), new CssValueWork(default));
         parsed.Status.Should().Be(CssMathParseStatus.NoMatch);
-        var range = result.Value.OriginsFor(result.Value.Components[0].Span);
+        result = SubstitutionFixture.Resolve("calc(var(--length) + var(--time))",
+            SubstitutionFixture.Specified("--length", "12px"), SubstitutionFixture.Specified("--time", "3px"));
+        parsed = CssMathParser.ParseMath(result.Value.Components[0],
+            new CssMathContext(CssMathProduction.Number, CssMathPercentageMode.Forbidden), new CssValueWork(default));
+        parsed.Status.Should().Be(CssMathParseStatus.NoMatch);
+        parsed.Span.Start.Should().Be(result.Value.Components[0].Span.Start);
+        parsed.Span.Length.Should().Be(result.Value.Components[0].Span.Length);
+        var range = result.Value.OriginsFor(parsed.Span);
         range.Count.Should().Be(7);
         range[0].Source.Source.Should().Be("calc(var(--length) + var(--time))");
         range[1].Source.Source.Should().Be("12px");
-        range[5].Source.Source.Should().Be("3s");
-        var introduced = SubstitutionFixture.Resolve("var(--bad)", SubstitutionFixture.Specified("--bad", "foo(1)"));
+        range[5].Source.Source.Should().Be("3px");
+        var introduced = SubstitutionFixture.Resolve("var(--bad)", SubstitutionFixture.Specified("--bad", "red"));
         var atom = CssPrimitiveParser.ParseNumericAtom(introduced.Value.Components, new CssValueWork(default));
         atom.IsMatch.Should().BeFalse();
         var origin = introduced.Value.OriginsFor(atom.Span);
-        origin.Count.Should().Be(3);
-        origin[0].Source.Source.Should().Be("foo(1)");
+        origin.Count.Should().Be(1);
+        origin[0].Source.Source.Should().Be("red");
     }
 }

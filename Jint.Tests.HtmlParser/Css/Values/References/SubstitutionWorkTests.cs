@@ -92,6 +92,19 @@ public sealed class SubstitutionWorkTests
     }
 
     [Test]
+    public void OversizeSharedDynamicHeaderChoosesFallbackBeforeFlattening()
+    {
+        var header = string.Concat(Enumerable.Repeat("var(--16)", 32));
+        var checkpoints = 0;
+        var result = SubstitutionFixture.ResolveWith("var(" + header + ",red)", FanOut(16), true,
+            work: new CssValueWork(default, () => checkpoints++));
+        SubstitutionFixture.Identifier(result).Should().Be("red");
+        checkpoints.Should().BeLessThan(2_000);
+        SubstitutionFixture.Resolve("var(" + header + ")", FanOut(16)).Kind
+            .Should().Be(CssSubstitutionResultKind.GuaranteedInvalid);
+    }
+
+    [Test]
     public void EnvironmentFactoryWorkIsLinearForOneNameAndManyDistinctIndices()
     {
         static int Count(int count)

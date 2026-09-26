@@ -194,6 +194,13 @@ internal static class CssSubstitutionExecutor
                 StartFallback(frame, frames, ref last, work);
                 return;
             }
+            if (last.Segment!.IsOversize)
+            {
+                // Normal header substitution follows argument division. Its failure can select
+                // fallback, unlike an early spread failure. Never flatten an oversized shared header.
+                StartFallback(frame, frames, ref last, work);
+                return;
+            }
             var header = CssSubstitutionArguments.Flatten(last.Segment!, work);
             if (!CssSubstitutionArguments.TryHeader(header, frame.ReferenceKind, work,
                     out var name, out var indices))
