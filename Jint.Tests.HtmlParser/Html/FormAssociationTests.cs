@@ -6,6 +6,45 @@ namespace Jint.Tests.HtmlParser.Html;
 public class FormAssociationTests
 {
     [Test]
+    public void CustomCategoryUsesExistingOwnershipAndPrebuiltReferenceIndex()
+    {
+        var document = Document.CreateHtml();
+        var root = document.CreateElement("main");
+        document.AppendChild(root);
+        var form = document.CreateElement("form");
+        form.SetAttribute("id", "target");
+        root.AppendChild(form);
+        var custom = document.CreateElement("x-field");
+        custom.SetAttribute("id", "unique");
+        custom.SetAttribute("form", "target");
+        root.AppendChild(custom);
+        var index = HtmlFormIndex.GetOrCreate(document);
+        HtmlFormState.SetFormAssociatedCustomElement(custom, true);
+        HtmlFormState.IsListed(custom).Should().BeTrue();
+        HtmlFormState.GetOwner(custom).Should().BeNull();
+        index.FirstWithId("unique").Should().BeSameAs(custom);
+        index.Referencing("target").Should().ContainSingle().Which.Should().BeSameAs(custom);
+        HtmlFormState.ResetOwner(custom);
+        HtmlFormState.GetOwner(custom).Should().BeSameAs(form);
+        var revision = custom.FormAssociationState!.OwnerRevision;
+        HtmlFormState.SetFormAssociatedCustomElement(custom, true);
+        custom.FormAssociationState.OwnerRevision.Should().Be(revision);
+        form.SetAttribute("id", "renamed");
+        HtmlFormState.GetOwner(custom).Should().BeNull();
+        form.SetAttribute("id", "target");
+        HtmlFormState.GetOwner(custom).Should().BeSameAs(form);
+        custom.SetAttribute("form", "missing");
+        HtmlFormState.GetOwner(custom).Should().BeNull();
+        custom.SetAttribute("form", "target");
+        HtmlFormState.SetFormAssociatedCustomElement(custom, false);
+        HtmlFormState.IsFormAssociated(custom).Should().BeFalse();
+        HtmlFormState.GetOwner(custom).Should().BeNull();
+        index.Referencing("target").Should().BeEmpty();
+        index.FirstWithId("unique").Should().BeSameAs(custom);
+        index.ResetCandidates().Should().NotContain(custom);
+    }
+
+    [Test]
     public void OwnerRevisionRetainsAwayAndBackHistoryAndSaturates()
     {
         var document = Document.CreateHtml();
