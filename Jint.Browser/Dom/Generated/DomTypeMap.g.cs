@@ -102,18 +102,7 @@ internal static partial class DomTypeMap
     /// </summary>
     internal static global::Jint.Native.Object.ObjectInstance? WrapHtmlCollection(DomRealm realm, DomInterfaceDefinition definition, object value) => value switch
     {
-        global::AngleSharp.Dom.IHtmlCollection<global::AngleSharp.Html.Dom.IHtmlAnchorElement> collection => new global::Jint.Browser.Dom.Collections.DomHtmlCollectionObject<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(realm, definition, collection),
-        global::AngleSharp.Dom.IHtmlCollection<global::AngleSharp.Html.Dom.IHtmlAreaElement> collection => new global::Jint.Browser.Dom.Collections.DomHtmlCollectionObject<global::AngleSharp.Html.Dom.IHtmlAreaElement>(realm, definition, collection),
-        global::AngleSharp.Dom.IHtmlCollection<global::AngleSharp.Html.Dom.IHtmlElement> collection => new global::Jint.Browser.Dom.Collections.DomHtmlCollectionObject<global::AngleSharp.Html.Dom.IHtmlElement>(realm, definition, collection),
-        global::AngleSharp.Dom.IHtmlCollection<global::AngleSharp.Html.Dom.IHtmlEmbedElement> collection => new global::Jint.Browser.Dom.Collections.DomHtmlCollectionObject<global::AngleSharp.Html.Dom.IHtmlEmbedElement>(realm, definition, collection),
-        global::AngleSharp.Dom.IHtmlCollection<global::AngleSharp.Html.Dom.IHtmlFormElement> collection => new global::Jint.Browser.Dom.Collections.DomHtmlCollectionObject<global::AngleSharp.Html.Dom.IHtmlFormElement>(realm, definition, collection),
-        global::AngleSharp.Dom.IHtmlCollection<global::AngleSharp.Html.Dom.IHtmlImageElement> collection => new global::Jint.Browser.Dom.Collections.DomHtmlCollectionObject<global::AngleSharp.Html.Dom.IHtmlImageElement>(realm, definition, collection),
-        global::AngleSharp.Dom.IHtmlCollection<global::AngleSharp.Html.Dom.IHtmlOptionElement> collection => new global::Jint.Browser.Dom.Collections.DomHtmlCollectionObject<global::AngleSharp.Html.Dom.IHtmlOptionElement>(realm, definition, collection),
-        global::AngleSharp.Dom.IHtmlCollection<global::AngleSharp.Html.Dom.IHtmlScriptElement> collection => new global::Jint.Browser.Dom.Collections.DomHtmlCollectionObject<global::AngleSharp.Html.Dom.IHtmlScriptElement>(realm, definition, collection),
-        global::AngleSharp.Dom.IHtmlCollection<global::AngleSharp.Html.Dom.IHtmlTableCellElement> collection => new global::Jint.Browser.Dom.Collections.DomHtmlCollectionObject<global::AngleSharp.Html.Dom.IHtmlTableCellElement>(realm, definition, collection),
-        global::AngleSharp.Dom.IHtmlCollection<global::AngleSharp.Html.Dom.IHtmlTableRowElement> collection => new global::Jint.Browser.Dom.Collections.DomHtmlCollectionObject<global::AngleSharp.Html.Dom.IHtmlTableRowElement>(realm, definition, collection),
-        global::AngleSharp.Dom.IHtmlCollection<global::AngleSharp.Html.Dom.IHtmlTableSectionElement> collection => new global::Jint.Browser.Dom.Collections.DomHtmlCollectionObject<global::AngleSharp.Html.Dom.IHtmlTableSectionElement>(realm, definition, collection),
-        global::AngleSharp.Dom.IHtmlCollection<global::AngleSharp.Dom.IElement> collection => new global::Jint.Browser.Dom.Collections.DomHtmlCollectionObject<global::AngleSharp.Dom.IElement>(realm, definition, collection),
+        global::Jint.Browser.Dom.Collections.DomHtmlCollection<global::Jint.HtmlParser.Element> collection => new global::Jint.Browser.Dom.Collections.DomHtmlCollectionObject<global::Jint.HtmlParser.Element>(realm, definition, collection),
         _ => null,
     };
 }

@@ -1,5 +1,5 @@
 using System.Runtime.CompilerServices;
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Dom;
 using Jint.Native;
 using Jint.Native.Object;
@@ -29,7 +29,7 @@ internal sealed class PageRuntime
     private static readonly ConditionalWeakTable<Engine, PageRuntime> _runtimes = new();
 
     private readonly long _started;
-    private IDocument? _document;
+    private Document? _document;
     private Observers.ObserverRealm? _observers;
     private Observers.ResizeObserverLane? _resizeObservers;
     private CustomElements.CustomElementRegistry? _customElements;
@@ -232,7 +232,7 @@ internal sealed class PageRuntime
     /// It is published by the parse driver as soon as AngleSharp has created the document, which is
     /// <em>before</em> the parse finishes — an inline script runs during the parse and has to see it.
     /// </remarks>
-    internal IDocument? Document
+    internal Document? Document
     {
         get => _document;
         set
@@ -246,6 +246,10 @@ internal sealed class PageRuntime
                 return;
             }
 
+            var metadata = DomDocumentState.Of(value);
+            metadata.Url = DocumentUrl;
+            metadata.Referrer = Referrer;
+            Dom.AssociateDocument(value, associatedGlobal: true);
             var wrapper = Dom.WrapNode(value);
             DocumentWrapper = wrapper;
             WindowInstaller.AttachDocumentMembers(this, wrapper);
@@ -256,7 +260,7 @@ internal sealed class PageRuntime
     internal DomNodeObject? DocumentWrapper { get; private set; }
 
     /// <summary>The <c>&lt;script&gt;</c> whose text is running, for <c>document.currentScript</c>.</summary>
-    internal INode? CurrentScript { get; set; }
+    internal Node? CurrentScript { get; set; }
 
     /// <summary><c>Window.prototype</c>, which is the global object's <c>[[Prototype]]</c>.</summary>
     internal ObjectInstance? WindowPrototype { get; set; }
@@ -278,10 +282,28 @@ internal sealed class PageRuntime
     /// AngleSharp's document address stays at whatever the parse was given, which is what the parse resolved
     /// against and is right for that.
     /// </remarks>
-    internal string DocumentUrl { get; set; }
+    private string _documentUrl = "about:blank";
+    internal string DocumentUrl
+    {
+        get => _documentUrl;
+        set
+        {
+            _documentUrl = value;
+            if (_document is { } document) DomDocumentState.Of(document).Url = value;
+        }
+    }
 
     /// <summary>What <c>document.referrer</c> answers: the document this one was reached from.</summary>
-    internal string Referrer { get; set; }
+    private string _referrer = "";
+    internal string Referrer
+    {
+        get => _referrer;
+        set
+        {
+            _referrer = value;
+            if (_document is { } document) DomDocumentState.Of(document).Referrer = value;
+        }
+    }
 
     /// <summary>
     /// https://dom.spec.whatwg.org/#concept-document-base-url — the document's base URL, which
@@ -292,19 +314,7 @@ internal sealed class PageRuntime
     /// one that does not parse is ignored. AngleSharp computes the same thing from the same element; it is
     /// recomputed here because the URL it resolves against has to be the page's.
     /// </remarks>
-    internal string BaseUri
-    {
-        get
-        {
-            var href = Document?.QuerySelector("base[href]")?.GetAttribute("href");
-            if (string.IsNullOrEmpty(href))
-            {
-                return DocumentUrl;
-            }
-
-            return PageUrl.Resolve(href!, DocumentUrl) ?? DocumentUrl;
-        }
-    }
+    internal string BaseUri => Document is { } document ? DomDocumentState.BaseUri(document) : DocumentUrl;
 
     /// <summary><c>history.scrollRestoration</c>, which nothing scrolls and nothing restores.</summary>
     /// <remarks>
@@ -445,7 +455,7 @@ internal sealed class PageRuntime
     /// selecting it for any other wrapped document leaks the page's URL, readiness and storage into a
     /// document with no browsing context.
     /// </remarks>
-    internal static PageRuntime? Find(Engine engine, IDocument? document)
+    internal static PageRuntime? Find(Engine engine, Document? document)
     {
         var runtime = Find(engine);
         return document is not null && ReferenceEquals(runtime?.Document, document) ? runtime : null;
@@ -455,16 +465,16 @@ internal sealed class PageRuntime
     /// The runtime attached to <paramref name="engine"/> when <paramref name="document"/> belongs to the
     /// displayed document's browsing-context tree, or <see langword="null"/> for a detached context.
     /// </summary>
-    internal static PageRuntime? FindBrowsingContext(Engine engine, IDocument? document)
+    internal static PageRuntime? FindBrowsingContext(Engine engine, Document? document)
     {
         var runtime = Find(engine);
-        var displayedContext = runtime?.Document?.Context;
+        var displayedContext = DomBrowsingContext.Of(runtime?.Document);
         if (displayedContext is null || document is null)
         {
             return null;
         }
 
-        for (AngleSharp.IBrowsingContext? context = document.Context; context is not null; context = context.Parent)
+        for (DomBrowsingContext? context = DomBrowsingContext.Of(document); context is not null; context = context.Parent)
         {
             if (ReferenceEquals(context, displayedContext))
             {
@@ -476,6 +486,6 @@ internal sealed class PageRuntime
     }
 
     /// <summary>The page runtime of <paramref name="node"/>'s node document, when it is the displayed one.</summary>
-    internal static PageRuntime? Find(Engine engine, INode node)
-        => Find(engine, node as IDocument ?? node.Owner);
+    internal static PageRuntime? Find(Engine engine, Node node)
+        => Find(engine, node as Document ?? node.OwnerDocument);
 }

@@ -216,19 +216,19 @@ internal class DomHostHooks
     }
 
     /// <summary>https://dom.spec.whatwg.org/#dom-range-comparepoint</summary>
-    internal virtual JsValue ComparePoint(DomRealm realm, IRange range, JsValue[] arguments)
+    internal virtual JsValue ComparePoint(DomRealm realm, Jint.HtmlParser.DomRange range, JsValue[] arguments)
         => DomRangeMembers.ComparePoint(realm, range, arguments);
 
     /// <summary>https://dom.spec.whatwg.org/#dom-range-ispointinrange</summary>
-    internal virtual JsValue IsPointInRange(DomRealm realm, IRange range, JsValue[] arguments)
+    internal virtual JsValue IsPointInRange(DomRealm realm, Jint.HtmlParser.DomRange range, JsValue[] arguments)
         => DomRangeMembers.IsPointInRange(realm, range, arguments);
 
     /// <summary>https://dom.spec.whatwg.org/#dom-range-clonecontents</summary>
-    internal virtual JsValue CloneContents(DomRealm realm, IRange range, JsValue[] arguments)
+    internal virtual JsValue CloneContents(DomRealm realm, Jint.HtmlParser.DomRange range, JsValue[] arguments)
         => DomRangeMembers.CloneContents(realm, range);
 
     /// <summary>https://dom.spec.whatwg.org/#dom-range-extractcontents</summary>
-    internal virtual JsValue ExtractContents(DomRealm realm, IRange range, JsValue[] arguments)
+    internal virtual JsValue ExtractContents(DomRealm realm, Jint.HtmlParser.DomRange range, JsValue[] arguments)
         => DomRangeMembers.ExtractContents(realm, range);
 
     /// <summary>
@@ -285,41 +285,41 @@ internal class DomHostHooks
     /// the whole of Unicode's simple case mapping and would make <c>class="ı"</c> match <c>"I"</c>.
     /// </para>
     /// </remarks>
-    internal virtual JsValue GetElementsByClassName(DomRealm realm, INode root, JsValue[] arguments)
+    internal virtual JsValue GetElementsByClassName(DomRealm realm, Jint.HtmlParser.Node root, JsValue[] arguments)
     {
-        var classes = AsciiWhitespaceSplit(DomConvert.RequiredText(arguments, 0, Member(root, "getElementsByClassName")));
+        var classes = AsciiWhitespaceSplit(DomConvert.RequiredText(arguments, 0, NativeMember(root, "getElementsByClassName")));
 
         if (classes.Length == 0)
         {
             // "If classes is the empty set, return an empty HTMLCollection" - and an empty one that is still
             // a collection, because a page holds it and reads its length.
-            return realm.WrapCollection<IElement>(new DomLiveHtmlCollection(root, DomElementFilter.None));
+            return realm.WrapCollection<Jint.HtmlParser.Element>(new DomLiveHtmlCollection(root, DomElementFilter.None));
         }
 
-        return realm.WrapCollection<IElement>(new DomLiveHtmlCollection(root, new ClassNameFilter(root, classes)));
+        return realm.WrapCollection<Jint.HtmlParser.Element>(new DomLiveHtmlCollection(root, new ClassNameFilter(root, classes)));
     }
 
     /// <summary>
     /// The filter of https://dom.spec.whatwg.org/#concept-getelementsbyclassname. A <see cref="DomElementFilter"/>
     /// rather than a lambda so that a read allocates neither a closure nor an iterator; see that type.
     /// </summary>
-    private sealed class ClassNameFilter(INode root, string[] classes) : DomElementFilter
+    private sealed class ClassNameFilter(Jint.HtmlParser.Node root, string[] classes) : DomElementFilter
     {
         private bool _quirks;
 
         internal override void BeginRead()
-            => _quirks = string.Equals((root as IDocument ?? root.Owner)?.CompatMode, "BackCompat", StringComparison.Ordinal);
+            => _quirks = string.Equals((root as Jint.HtmlParser.Document ?? root.OwnerDocument)?.Mode.ToString(), "Quirks", StringComparison.Ordinal);
 
-        internal override bool Matches(IElement element) => HasEveryClass(element, classes, _quirks);
+        internal override bool Matches(Jint.HtmlParser.Element element) => HasEveryClass(element, classes, _quirks);
     }
 
     /// <summary>https://dom.spec.whatwg.org/#concept-getelementsbytagname</summary>
-    internal virtual JsValue GetElementsByTagName(DomRealm realm, INode root, JsValue[] arguments)
+    internal virtual JsValue GetElementsByTagName(DomRealm realm, Jint.HtmlParser.Node root, JsValue[] arguments)
     {
-        var qualifiedName = DomConvert.RequiredText(arguments, 0, Member(root, "getElementsByTagName"));
-        var htmlDocument = (root as IDocument ?? root.Owner) is IHtmlDocument;
+        var qualifiedName = DomConvert.RequiredText(arguments, 0, NativeMember(root, "getElementsByTagName"));
+        var htmlDocument = (root as Jint.HtmlParser.Document ?? root.OwnerDocument)?.Kind == Jint.HtmlParser.DocumentKind.Html;
 
-        return realm.WrapCollection<IElement>(
+        return realm.WrapCollection<Jint.HtmlParser.Element>(
             new DomLiveHtmlCollection(root, new TagNameFilter(qualifiedName, AsciiLowercase(qualifiedName), htmlDocument)));
     }
 
@@ -331,24 +331,24 @@ internal class DomHostHooks
     /// </remarks>
     private sealed class TagNameFilter(string qualifiedName, string htmlName, bool htmlDocument) : DomElementFilter
     {
-        internal override bool Matches(IElement element)
+        internal override bool Matches(Jint.HtmlParser.Element element)
         {
             if (qualifiedName == "*")
             {
                 return true;
             }
 
-            var candidate = QualifiedName(element);
-            return htmlDocument && string.Equals(DomNamespaces.Of(element), NamespaceNames.HtmlUri, StringComparison.Ordinal)
+            var candidate = element.TagName;
+            return htmlDocument && string.Equals(element.NamespaceUri, NamespaceNames.HtmlUri, StringComparison.Ordinal)
                 ? string.Equals(candidate, htmlName, StringComparison.Ordinal)
                 : string.Equals(candidate, qualifiedName, StringComparison.Ordinal);
         }
     }
 
     /// <summary>https://dom.spec.whatwg.org/#concept-getelementsbynamespacename</summary>
-    internal virtual JsValue GetElementsByTagNameNS(DomRealm realm, INode root, JsValue[] arguments)
+    internal virtual JsValue GetElementsByTagNameNS(DomRealm realm, Jint.HtmlParser.Node root, JsValue[] arguments)
     {
-        var member = Member(root, "getElementsByTagNameNS");
+        var member = NativeMember(root, "getElementsByTagNameNS");
         var namespaceUri = DomConvert.NullableText(arguments, 0);
         if (namespaceUri is { Length: 0 })
         {
@@ -357,7 +357,7 @@ internal class DomHostHooks
 
         var localName = DomConvert.RequiredText(arguments, 1, member);
 
-        return realm.WrapCollection<IElement>(new DomLiveHtmlCollection(root, new TagNameNSFilter(namespaceUri, localName)));
+        return realm.WrapCollection<Jint.HtmlParser.Element>(new DomLiveHtmlCollection(root, new TagNameNSFilter(namespaceUri, localName)));
     }
 
     /// <summary>The filter of https://dom.spec.whatwg.org/#concept-getelementsbynamespacename.</summary>
@@ -369,8 +369,8 @@ internal class DomHostHooks
     /// </remarks>
     private sealed class TagNameNSFilter(string? namespaceUri, string localName) : DomElementFilter
     {
-        internal override bool Matches(IElement element)
-            => (namespaceUri == "*" || string.Equals(DomNamespaces.Of(element), namespaceUri, StringComparison.Ordinal))
+        internal override bool Matches(Jint.HtmlParser.Element element)
+            => (namespaceUri == "*" || string.Equals(element.NamespaceUri, namespaceUri, StringComparison.Ordinal))
                && (localName == "*" || string.Equals(element.LocalName, localName, StringComparison.Ordinal));
     }
 
@@ -400,6 +400,9 @@ internal class DomHostHooks
 
     internal virtual JsValue Closest(DomRealm realm, IElement element, JsValue[] arguments)
         => realm.WrapNodeValue(DomSelectors.Closest(element, DomSelectorText.Required(arguments, "Element.closest")));
+
+    private static string NativeMember(Jint.HtmlParser.Node root, string operation)
+        => (root is Jint.HtmlParser.Document ? "Document." : root is Jint.HtmlParser.DocumentFragment ? "DocumentFragment." : "Element.") + operation;
 
     private static string Member(INode root, string operation)
         => root switch
@@ -444,9 +447,9 @@ internal class DomHostHooks
     /// every call for an element in the HTML namespace.
     /// </para>
     /// </remarks>
-    private static bool HasEveryClass(IElement element, string[] classes, bool quirks)
+    private static bool HasEveryClass(Jint.HtmlParser.Element element, string[] classes, bool quirks)
     {
-        var declared = element.GetAttribute(null, AttributeNames.Class);
+        var declared = element.GetAttributeNS(null, AttributeNames.Class);
 
         if (string.IsNullOrEmpty(declared))
         {
@@ -866,7 +869,7 @@ internal class DomHostHooks
     }
 
     /// <summary>https://dom.spec.whatwg.org/#dom-domimplementation-createdocumenttype.</summary>
-    internal virtual JsValue CreateDocumentType(DomRealm realm, IImplementation implementation, JsValue[] arguments)
+    internal virtual JsValue CreateDocumentType(DomRealm realm, DomImplementation implementation, JsValue[] arguments)
         => DomDocumentTypeFactory.Create(realm, implementation, arguments);
 
     /// <summary>

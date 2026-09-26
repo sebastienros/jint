@@ -154,7 +154,7 @@ internal sealed class DomAccessorDOMStringMap : DomCollectionAccessor
 
     internal override bool TryGetNamed(DomRealm realm, object target, string name, out global::Jint.Native.JsValue value)
     {
-        var item = ((global::AngleSharp.Dom.IStringMap) target)[name];
+        var item = ((global::Jint.Browser.Dom.Collections.DomStringMapAdapter) target)[name];
         if (item is null)
         {
             value = global::Jint.Native.JsValue.Undefined;
@@ -169,13 +169,13 @@ internal sealed class DomAccessorDOMStringMap : DomCollectionAccessor
 
     internal override bool TrySetNamed(DomRealm realm, object target, string name, global::Jint.Native.JsValue value)
     {
-        ((global::AngleSharp.Dom.IStringMap) target)[name] = global::Jint.Runtime.TypeConverter.ToString(value);
+        ((global::Jint.Browser.Dom.Collections.DomStringMapAdapter) target)[name] = global::Jint.Runtime.TypeConverter.ToString(value);
         return true;
     }
 
     internal override bool TryDeleteNamed(object target, string name)
     {
-        ((global::AngleSharp.Dom.IStringMap) target).Remove(name);
+        ((global::Jint.Browser.Dom.Collections.DomStringMapAdapter) target).Remove(name);
         return true;
     }
 }
@@ -185,11 +185,11 @@ internal sealed class DomAccessorDOMTokenList : DomCollectionAccessor
 {
     internal static readonly DomAccessorDOMTokenList Instance = new();
 
-    internal override uint Length(object target) => (uint) ((global::AngleSharp.Dom.ITokenList) target).Length;
+    internal override uint Length(object target) => (uint) ((global::Jint.Browser.Dom.Collections.DomAttributeTokenList) target).Length;
 
     internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
     {
-        var collection = (global::AngleSharp.Dom.ITokenList) target;
+        var collection = (global::Jint.Browser.Dom.Collections.DomAttributeTokenList) target;
         if (index >= (uint) collection.Length)
         {
             value = global::Jint.Native.JsValue.Undefined;

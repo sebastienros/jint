@@ -67,7 +67,15 @@ internal class DomNodeObject : JsEventTarget, IDomWrapper
 
         if (DomTarget is ShadowRoot shadow)
         {
-            return ev.Composed ? DomRealm.WrapNode(shadow.Host) : null;
+            // DOM's shadow-root parent algorithm stops a non-composed event only
+            // at the root of its original invocation target. A slotted light-tree
+            // target therefore crosses this root even when the event is not composed.
+            if (!ev.Composed && ev.Path is { Count: > 0 } path &&
+                ReferenceEquals(path[0].InvocationTarget.GetRoot(), this))
+            {
+                return null;
+            }
+            return DomRealm.WrapNode(shadow.Host);
         }
 
         if (DomTarget is Document)
@@ -77,7 +85,7 @@ internal class DomNodeObject : JsEventTarget, IDomWrapper
                 : DomRealm.WindowTarget;
         }
 
-        return TreeParent;
+        return AssignedSlot ?? TreeParent;
     }
 
     internal override JsEventTarget? TreeParent => DomTarget is Node { ParentNode: { } parent }
@@ -99,6 +107,12 @@ internal class DomNodeObject : JsEventTarget, IDomWrapper
 
         return ReferenceEquals(root, node) ? this : DomRealm.WrapNode(root);
     }
+
+    internal override bool IsSlot => DomTarget is Element { NamespaceUri: Namespaces.Html, LocalName: "slot" };
+
+    internal override JsEventTarget? AssignedSlot => Node is { } node && SlotAssignment.GetAssignedSlot(node) is { } slot
+        ? DomRealm.WrapNode(slot)
+        : null;
 
     internal override bool IsShadowRoot => DomTarget is ShadowRoot;
 

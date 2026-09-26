@@ -1,6 +1,6 @@
 using System.Collections;
 using System.Runtime.CompilerServices;
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 
 namespace Jint.Browser.Dom.Collections;
 
@@ -30,7 +30,7 @@ namespace Jint.Browser.Dom.Collections;
 /// what §7.1 requires of one.
 /// </para>
 /// </remarks>
-internal sealed class DomAttributeTokenList : ITokenList
+internal sealed class DomAttributeTokenList : IEnumerable<string>
 {
     /// <summary>https://infra.spec.whatwg.org/#ascii-whitespace: TAB, LF, FF, CR and SPACE, and nothing else.</summary>
     private static readonly char[] _asciiWhitespace = ['\t', '\n', '\f', '\r', ' '];
@@ -43,20 +43,30 @@ internal sealed class DomAttributeTokenList : ITokenList
     /// field for the reason every other table over an AngleSharp object here has one: this assembly cannot
     /// add a field to <c>SvgElement</c>.
     /// </summary>
-    private static readonly ConditionalWeakTable<IElement, DomAttributeTokenList> _relLists = new();
+    private static readonly ConditionalWeakTable<Element, Dictionary<string, DomAttributeTokenList>> _lists = new();
 
-    private readonly IElement _element;
+    private readonly Element _element;
     private readonly string _attribute;
 
-    private DomAttributeTokenList(IElement element, string attribute)
+    private DomAttributeTokenList(Element element, string attribute)
     {
         _element = element;
         _attribute = attribute;
     }
 
     /// <summary>The <c>rel</c> token set of <paramref name="element"/>, the same instance on every read.</summary>
-    internal static ITokenList Rel(IElement element)
-        => _relLists.GetValue(element, static owner => new DomAttributeTokenList(owner, "rel"));
+    internal static DomAttributeTokenList Rel(Element element) => Of(element, "rel");
+
+    internal static DomAttributeTokenList Of(Element element, string attribute)
+    {
+        var lists = _lists.GetValue(element, static _ => new(StringComparer.Ordinal));
+        if (!lists.TryGetValue(attribute, out var list))
+        {
+            list = new DomAttributeTokenList(element, attribute);
+            lists.Add(attribute, list);
+        }
+        return list;
+    }
 
     public int Length => Tokens().Count;
 

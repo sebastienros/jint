@@ -163,8 +163,18 @@ internal static class DomBindings
         {
             return node;
         }
-        IllegalInvocation(value, member);
+        ArgumentFailure(value, index, member);
         return null!;
+    }
+
+    private static void ArgumentFailure(JsValue value, int index, string member)
+    {
+        var message = "Failed to execute '" + member + "': parameter " + (index + 1) + " is not of the expected type.";
+        if (value is ObjectInstance instance)
+        {
+            Throw.TypeError(instance.Engine.Realm, message);
+        }
+        Throw.TypeErrorNoEngine(message);
     }
 
     /// <summary>
@@ -213,6 +223,12 @@ internal static class DomBindings
     {
         var value = index < arguments.Length ? arguments[index] : JsValue.Undefined;
         return value.IsNullOrUndefined() ? null : Argument<T>(arguments, index, member, requiredInterface);
+    }
+
+    internal static HtmlParser.DomNodeIdentity IdentityArgument(JsValue[] arguments, int index, string member)
+    {
+        var wrapper = NodeArgument(arguments, index, member);
+        return wrapper.Attribute is { } attribute ? new(attribute) : new(wrapper.Node!);
     }
 
     private static void IllegalInvocation(JsValue thisObject, string member)

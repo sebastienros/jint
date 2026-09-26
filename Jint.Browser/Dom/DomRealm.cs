@@ -496,8 +496,8 @@ internal sealed class DomRealm
 
         if (value is Attr attribute)
         {
-            var realm = CreationRealmOf(attribute);
-            return Cache(attribute, new DomNodeObject(realm, DomInterfaces.Attr, attribute));
+            var attributeRealm = CreationRealmOf(attribute);
+            return Cache(attribute, new DomNodeObject(attributeRealm, DomInterfaces.Attr, attribute));
         }
 
         definition ??= value is Node node
@@ -516,6 +516,13 @@ internal sealed class DomRealm
 
     /// <summary>Projects a node, which is what most generated members return.</summary>
     internal JsValue WrapNodeValue(Node? node) => node is null ? JsValue.Null : WrapNode(node);
+
+    internal CancellationToken CancellationToken
+        => Engine.Constraints.Find<Jint.Constraints.CancellationConstraint>()?.Token ?? default;
+
+    internal JsValue WrapIdentity(DomNodeIdentity? identity)
+        => identity is not { } value ? JsValue.Null
+            : value.Attribute is { } attribute ? Wrap(attribute) : WrapNodeValue(value.Node);
 
     /// <summary>Projects a node, giving back the one wrapper it has for the life of this engine.</summary>
     internal DomNodeObject WrapNode(Node node)
@@ -542,7 +549,7 @@ internal sealed class DomRealm
     /// <summary>
     /// Projects an <c>IHtmlCollection&lt;T&gt;</c>, whose element type the calling generated member knows.
     /// </summary>
-    internal JsValue WrapCollection<T>(IHtmlCollection<T>? collection) where T : class, Element
+    internal JsValue WrapCollection<T>(DomHtmlCollection<T>? collection) where T : Node
     {
         if (collection is null)
         {
@@ -559,7 +566,7 @@ internal sealed class DomRealm
         // document.all is the one collection whose own interface decides the wrapper: HTML gives it a named
         // lookup, an item(), a legacy caller and an internal slot no HTMLCollection has, and it arrives here
         // because the generated Document.all getter's declared return type is IHtmlCollection<Element>.
-        if (definition?.WrapperKind == DomWrapperKind.HtmlAllCollection && collection is IHtmlAllCollection all)
+        if (definition?.WrapperKind == DomWrapperKind.HtmlAllCollection && collection is DomHtmlCollection<Element> all)
         {
             return Cache(collection, new DomHtmlAllCollectionObject(this, definition, all));
         }
@@ -610,15 +617,16 @@ internal sealed class DomRealm
     }
 
     /// <summary>Projects an element's <c>dataset</c> through HTML's name conversion algorithms.</summary>
-    internal JsValue WrapStringMap(Element element, IStringMap map)
+    private readonly ConditionalWeakTable<Element, DomStringMapAdapter> _datasets = new();
+
+    internal JsValue WrapStringMap(Element element)
     {
+        var map = _datasets.GetValue(element, owner => new DomStringMapAdapter(this, owner));
         if (_wrappers.TryGetValue(map, out var cached))
         {
             return cached;
         }
-
-        var target = new DomStringMapAdapter(this, element);
-        return Cache(map, new DomNamedMapObject(this, DomInterfaces.DOMStringMap, target, DomAccessorDOMStringMap.Instance));
+        return Cache(map, new DomNamedMapObject(this, DomInterfaces.DOMStringMap, map, DomAccessorDOMStringMap.Instance));
     }
 
     private ObjectInstance Create(DomInterfaceDefinition definition, object value)
@@ -630,7 +638,7 @@ internal sealed class DomRealm
 
         if (definition.WrapperKind == DomWrapperKind.HtmlAllCollection)
         {
-            return value is IHtmlAllCollection all
+            return value is DomHtmlCollection<Element> all
                 ? new DomHtmlAllCollectionObject(this, definition, all)
                 : Unsupported(value, "is projected as HTMLAllCollection but is not an IHtmlAllCollection");
         }

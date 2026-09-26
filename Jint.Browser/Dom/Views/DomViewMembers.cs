@@ -40,35 +40,35 @@ internal static class DomViewMembers
     /// </remarks>
     private static readonly ConditionalWeakTable<object, JsValue> _filters = new();
 
-    /// <summary>https://dom.spec.whatwg.org/#dom-document-createtreewalker.</summary>
-    internal static JsValue CreateTreeWalker(DomRealm realm, IDocument document, JsValue[] arguments)
-    {
-        var root = DomBindings.Argument<INode>(arguments, 0, "Document.createTreeWalker");
-        var settings = WhatToShow(arguments);
-        var filter = arguments.At(2);
+    private sealed record TraversalCallback(HtmlParser.TraversalFilter? Filter);
+    private static readonly ConditionalWeakTable<object, TraversalCallback> _callbacks = new();
 
-        // DomTreeWalker rather than document.CreateTreeWalker: AngleSharp's walker does not terminate, and
-        // its own file says which loop and why this package owns the algorithm. It implements ITreeWalker,
-        // so DomTypeMap gives it the generated TreeWalker shape like any other walker. The `root` argument
-        // is not validated beyond being a node, which is DOM's own rule — createTreeWalker takes any node.
-        var walker = new DomTreeWalker(root, settings, NodeFilters.From(realm, filter, "createTreeWalker"));
-        _filters.AddOrUpdate(walker, filter.IsNullOrUndefined() ? JsValue.Null : filter);
+    internal static JsValue CreateTreeWalker(DomRealm realm, HtmlParser.Document document, JsValue[] arguments)
+    {
+        var root = DomBindings.IdentityArgument(arguments, 0, "Document.createTreeWalker");
+        var settings = DomConvert.OptionalUInt32(arguments, 1, uint.MaxValue);
+        var filter = arguments.At(2);
+        var callback = NodeFilters.From(realm, filter, "createTreeWalker");
+        var walker = new HtmlParser.DomTreeWalker(root, settings);
+        _filters.Add(walker, filter.IsNullOrUndefined() ? JsValue.Null : filter);
+        _callbacks.Add(walker, new(callback));
         return realm.Wrap(walker);
     }
 
-    /// <summary>https://dom.spec.whatwg.org/#dom-document-createnodeiterator.</summary>
-    internal static JsValue CreateNodeIterator(DomRealm realm, IDocument document, JsValue[] arguments)
+    internal static JsValue CreateNodeIterator(DomRealm realm, HtmlParser.Document document, JsValue[] arguments)
     {
-        var root = DomBindings.Argument<INode>(arguments, 0, "Document.createNodeIterator");
-        var settings = WhatToShow(arguments);
+        var root = DomBindings.IdentityArgument(arguments, 0, "Document.createNodeIterator");
+        var settings = DomConvert.OptionalUInt32(arguments, 1, uint.MaxValue);
         var filter = arguments.At(2);
-
-        // DOM §6.1's own iterator rather than AngleSharp's: the standard's traversal turns on a second
-        // position that AngleSharp's has no field for. See DomNodeIterator.
-        var iterator = new DomNodeIterator(document, root, settings, NodeFilters.From(realm, filter, "createNodeIterator"));
-        _filters.AddOrUpdate(iterator, filter.IsNullOrUndefined() ? JsValue.Null : filter);
+        var callback = NodeFilters.From(realm, filter, "createNodeIterator");
+        var iterator = new HtmlParser.DomNodeIterator(root, settings);
+        _filters.Add(iterator, filter.IsNullOrUndefined() ? JsValue.Null : filter);
+        _callbacks.Add(iterator, new(callback));
         return realm.Wrap(iterator);
     }
+
+    internal static HtmlParser.TraversalFilter? Callback(object traversal)
+        => _callbacks.TryGetValue(traversal, out var callback) ? callback.Filter : null;
 
     /// <summary>
     /// https://dom.spec.whatwg.org/#dom-treewalker-filter and its <c>NodeIterator</c> twin: the value the page
@@ -84,34 +84,7 @@ internal static class DomViewMembers
     /// AngleSharp implements it as <c>Range.ToString()</c> and puts no <c>[DomName]</c> on it, so nothing in
     /// the metadata says it is the interface's stringifier.
     /// </remarks>
-    internal static JsValue RangeToString(IRange range) => JsString.Create(range.ToString() ?? "");
-
-    /// <summary>
-    /// https://dom.spec.whatwg.org/#dom-node-isconnected — whether the node's shadow-including root is a
-    /// document.
-    /// </summary>
-    /// <remarks>
-    /// <b>AngleSharp's <c>INode</c> has no member for it at all</b>, so there is nothing to project and the
-    /// walk is here. It is not a curiosity: every client library asks a node it holds whether it is still in
-    /// the document before it clicks it — PuppeteerSharp's own message for a falsy answer is "Node is
-    /// detached from document" — so an absent member makes every element handle look detached.
-    /// </remarks>
-    internal static JsValue IsConnected(INode node)
-    {
-        for (INode? current = node; current is not null;)
-        {
-            if (current is IDocument)
-            {
-                return JsBoolean.True;
-            }
-
-            // The shadow-including part: a node inside a shadow tree is connected when its host is, which is
-            // what makes a component's own markup reachable to a client driving the page.
-            current = current is IShadowRoot shadow ? shadow.Host : current.Parent;
-        }
-
-        return JsBoolean.False;
-    }
+    internal static JsValue RangeToString(HtmlParser.DomRange range) => JsString.Create(range.GetText(default));
 
     /// <summary>
     /// https://drafts.csswg.org/cssom-view/#dom-range-getboundingclientrect, at the only size a range can be
@@ -140,14 +113,28 @@ internal static class DomViewMembers
     /// one. Both are present: the generated one because it is what the metadata says, this one because it is
     /// what a page calls.
     /// </remarks>
-    internal static JsValue AssignedNodes(DomRealm realm, IHtmlSlotElement slot)
-        => DomConvert.NodeSequence(realm, slot.GetDistributedNodes());
+    internal static JsValue AssignedNodes(DomRealm realm, HtmlParser.Element slot, JsValue[] arguments)
+        => DomConvert.NodeSequence(realm, HtmlParser.SlotAssignment.AssignedNodes(slot,
+            Flatten(realm, arguments, "HTMLSlotElement.assignedNodes"), realm.CancellationToken));
 
     /// <summary>
     /// https://dom.spec.whatwg.org/#dom-slot-assignedelements — the assigned nodes that are elements.
     /// </summary>
-    internal static JsValue AssignedElements(DomRealm realm, IHtmlSlotElement slot)
-        => DomConvert.NodeSequence(realm, slot.GetDistributedNodes().OfType<IElement>());
+    internal static JsValue AssignedElements(DomRealm realm, HtmlParser.Element slot, JsValue[] arguments)
+        => DomConvert.NodeSequence(realm, HtmlParser.SlotAssignment.AssignedElements(slot,
+            Flatten(realm, arguments, "HTMLSlotElement.assignedElements"), realm.CancellationToken));
+
+    private static bool Flatten(DomRealm realm, JsValue[] arguments, string member)
+    {
+        var options = arguments.At(0);
+        if (options.IsNullOrUndefined()) return false;
+        if (options is not Jint.Native.Object.ObjectInstance dictionary)
+        {
+            Throw.TypeError(realm.OwningRealm, "Failed to execute '" + member + "': parameter 1 is not a dictionary.");
+            return false;
+        }
+        return TypeConverter.ToBoolean(dictionary.Get("flatten"));
+    }
 
     /// <summary>https://w3c.github.io/selection-api/#dom-document-getselection.</summary>
     /// <remarks>
@@ -155,7 +142,7 @@ internal static class DomViewMembers
     /// <c>new Document()</c> or <c>DOMImplementation</c> has none, so its answer is <c>null</c> rather than
     /// the selection of the displayed document that happens to share its engine.
     /// </remarks>
-    internal static JsValue GetSelection(DomRealm realm, IDocument document)
+    internal static JsValue GetSelection(DomRealm realm, HtmlParser.Document document)
     {
         var runtime = PageRuntime.Find(realm.Engine, document);
         return runtime is null ? JsValue.Null : runtime.Views.Selection;
@@ -178,42 +165,10 @@ internal static class DomViewMembers
     /// last refusal is for a document shape that does not exist yet rather than one a page can reach.
     /// </para>
     /// </remarks>
-    internal static JsValue CreateCDataSection(DomRealm realm, IDocument document, JsValue[] arguments)
+    internal static JsValue CreateCDataSection(DomRealm realm, HtmlParser.Document document, JsValue[] arguments)
     {
-        // WebIDL converts the argument before any of the method's own steps, so a missing one is a TypeError
-        // even on an HTML document.
         var data = DomConvert.RequiredText(arguments, 0, Member.CreateCDataSection);
-
-        if (document is IHtmlDocument)
-        {
-            return DomFailures.Refuse(
-                realm,
-                Member.CreateCDataSection,
-                DomExceptionNames.NotSupported,
-                "This node is an HTML document, and an HTML document has no CDATA sections.");
-        }
-
-        if (data.Contains("]]>", StringComparison.Ordinal))
-        {
-            // AngleSharp's own Data setter raises this too, but only after the node exists; refusing here is
-            // what makes the order the standard's.
-            return DomFailures.Refuse(
-                realm,
-                Member.CreateCDataSection,
-                DomExceptionNames.InvalidCharacter,
-                "The data provided ('" + data + "') contains ']]>'.");
-        }
-
-        if (document is IXmlDocument xml)
-        {
-            return realm.WrapNode(xml.CreateCDataSection(data));
-        }
-
-        return DomFailures.Refuse(
-            realm,
-            Member.CreateCDataSection,
-            DomExceptionNames.NotSupported,
-            "This document is neither an HTML document nor an XML one, so it can hold no CDATA section.");
+        return realm.WrapNode(document.CreateCDataSection(data));
     }
 
     /// <summary>https://dom.spec.whatwg.org/#dom-domimplementation-createhtmldocument.</summary>
@@ -234,19 +189,23 @@ internal static class DomViewMembers
     /// records that.
     /// </para>
     /// </remarks>
-    internal static JsValue CreateHtmlDocument(DomRealm realm, IImplementation implementation, JsValue[] arguments)
+    internal static JsValue CreateHtmlDocument(DomRealm realm, DomImplementation implementation, JsValue[] arguments)
     {
         var given = arguments.Length > 0 && !arguments[0].IsUndefined();
         var title = DomConvert.OptionalText(arguments, 0, "")!;
-        var document = implementation.CreateHtmlDocument(title);
-
-        if (given && document.Head is { } head && head.QuerySelector("title") is null)
+        var document = HtmlParser.Document.CreateHtml();
+        document.AppendChild(document.CreateDocumentType("html"));
+        var html = document.CreateElement("html");
+        document.AppendChild(html);
+        var head = document.CreateElement("head");
+        html.AppendChild(head);
+        if (given)
         {
             var element = document.CreateElement("title");
             element.AppendChild(document.CreateTextNode(title));
             head.AppendChild(element);
         }
-
+        html.AppendChild(document.CreateElement("body"));
         return realm.WrapNode(document);
     }
 
@@ -284,7 +243,7 @@ internal static class DomViewMembers
         var qualifiedNameValue = DomConvert.At(arguments, 1);
         var qualifiedName = qualifiedNameValue.IsNull() ? "" : TypeConverter.ToString(qualifiedNameValue);
 
-        var doctype = DomBindings.NullableArgument<IDocumentType>(arguments, 2, Member.CreateDocument);
+        var doctype = DomBindings.NullableArgument<HtmlParser.DocumentType>(arguments, 2, Member.CreateDocument);
 
         // Step 7, taken first because the content type is what the document is parsed as rather than
         // something set on it afterwards.
@@ -295,13 +254,14 @@ internal static class DomViewMembers
         // check to make them, because that check refuses names the standard allows.
         var element = qualifiedName.Length == 0
             ? null
-            : DomElementFactory.CreateNamespaced(document, namespaceUri, qualifiedName);
+            : document.CreateElementNS(namespaceUri, qualifiedName);
 
         // Steps 4 and 5, in the standard's order: the doctype first, so a document built with both has them
         // the way a parse would. Appending adopts, which is what lets a doctype made by the page's own
         // implementation become this document's child.
         if (doctype is not null)
         {
+            realm.RecordSubtree(doctype);
             document.AppendChild(doctype);
         }
 
@@ -331,14 +291,6 @@ internal static class DomViewMembers
 
         return DomContentType.Xml;
     }
-
-    /// <summary>
-    /// <c>whatToShow</c>, an <c>unsigned long</c> whose default is <c>0xFFFFFFFF</c>. It is read as a
-    /// <see cref="uint"/> and widened, because <c>FilterSettings</c> is a 64-bit enum and a signed read of
-    /// <c>SHOW_ALL</c> would be <c>-1</c>.
-    /// </summary>
-    private static FilterSettings WhatToShow(JsValue[] arguments)
-        => (FilterSettings) DomConvert.OptionalUInt32(arguments, 1, uint.MaxValue);
 
     /// <summary>The qualified member names the refusals above wear, spelled once.</summary>
     private static class Member

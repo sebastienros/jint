@@ -980,7 +980,7 @@ internal static partial class DomInterfaces
 
         DOMImplementation = Add(new DomInterfaceDefinition(
             "DOMImplementation",
-            typeof(global::AngleSharp.Dom.IImplementation),
+            typeof(global::Jint.Browser.Dom.DomImplementation),
             BuildDOMImplementation,
             null,
             rootsAtEventTarget: false,
@@ -999,7 +999,7 @@ internal static partial class DomInterfaces
 
         DOMStringMap = Add(new DomInterfaceDefinition(
             "DOMStringMap",
-            typeof(global::AngleSharp.Dom.IStringMap),
+            typeof(global::Jint.Browser.Dom.Collections.DomStringMapAdapter),
             BuildDOMStringMap,
             null,
             rootsAtEventTarget: false,
@@ -1009,7 +1009,7 @@ internal static partial class DomInterfaces
 
         DOMTokenList = Add(new DomInterfaceDefinition(
             "DOMTokenList",
-            typeof(global::AngleSharp.Dom.ITokenList),
+            typeof(global::Jint.Browser.Dom.Collections.DomAttributeTokenList),
             BuildDOMTokenList,
             null,
             rootsAtEventTarget: false,
@@ -1185,7 +1185,7 @@ internal static partial class DomInterfaces
 
         HTMLCollection = Add(new DomInterfaceDefinition(
             "HTMLCollection",
-            typeof(global::AngleSharp.Dom.IHtmlCollection<>),
+            typeof(global::Jint.Browser.Dom.Collections.DomHtmlCollection<>),
             DomManualShapes.HtmlCollection,
             null,
             rootsAtEventTarget: false,
@@ -1868,7 +1868,7 @@ internal static partial class DomInterfaces
 
         NodeIterator = Add(new DomInterfaceDefinition(
             "NodeIterator",
-            typeof(global::AngleSharp.Dom.INodeIterator),
+            typeof(global::Jint.HtmlParser.DomNodeIterator),
             BuildNodeIterator,
             null,
             rootsAtEventTarget: false,
@@ -1921,7 +1921,7 @@ internal static partial class DomInterfaces
 
         Range = Add(new DomInterfaceDefinition(
             "Range",
-            typeof(global::AngleSharp.Dom.IRange),
+            typeof(global::Jint.HtmlParser.DomRange),
             BuildRange,
             null,
             rootsAtEventTarget: false,
@@ -2075,7 +2075,7 @@ internal static partial class DomInterfaces
 
         TreeWalker = Add(new DomInterfaceDefinition(
             "TreeWalker",
-            typeof(global::AngleSharp.Dom.ITreeWalker),
+            typeof(global::Jint.HtmlParser.DomTreeWalker),
             BuildTreeWalker,
             null,
             rootsAtEventTarget: false,

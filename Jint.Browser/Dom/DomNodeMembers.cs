@@ -170,6 +170,7 @@ internal static class DomNodeMembers
         var reference = append || arguments.Length < 2 || arguments[1].IsNullOrUndefined()
             ? null : DomBindings.NodeArgument(arguments, 1, member);
         if (self.Node is null || child.Node is null || reference is { Node: null }) throw DomException.Hierarchy();
+        CaptureBeforeAdoption(self, child.Node);
         self.Node.InsertBefore(child.Node, reference?.Node);
         return child;
     }
@@ -188,8 +189,18 @@ internal static class DomNodeMembers
         var old = DomBindings.NodeArgument(arguments, 1, "Node.replaceChild");
         if (self.Node is null || child.Node is null) throw DomException.Hierarchy();
         if (old.Node is null) throw DomException.NotFound();
+        CaptureBeforeAdoption(self, child.Node);
         self.Node.ReplaceChild(child.Node, old.Node);
         return old;
+    }
+
+    private static void CaptureBeforeAdoption(DomNodeObject destination, Node source)
+    {
+        var document = destination.Node as Document ?? destination.Node!.OwnerDocument;
+        if (!ReferenceEquals(source.OwnerDocument, document))
+        {
+            destination.DomRealm.RecordSubtree(source);
+        }
     }
 
     internal static JsValue BaseUri(DomNodeObject self)

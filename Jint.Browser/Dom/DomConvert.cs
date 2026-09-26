@@ -99,7 +99,7 @@ internal static class DomConvert
     /// <c>NodeList</c> (<c>HTMLSlotElement.assignedNodes</c>). WebIDL's <c>sequence&lt;Node&gt;</c> is a
     /// snapshot by definition, so a plain array is the right shape and there is nothing live to keep.
     /// </summary>
-    internal static JsValue NodeSequence(DomRealm realm, System.Collections.Generic.IEnumerable<AngleSharp.Dom.INode>? nodes)
+    internal static JsValue NodeSequence(DomRealm realm, System.Collections.Generic.IEnumerable<Jint.HtmlParser.Node>? nodes)
     {
         if (nodes is null)
         {

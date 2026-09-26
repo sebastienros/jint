@@ -101,8 +101,7 @@ internal static class DomFailures
         // DOM pre-insert/adopt can move descendants before they have wrappers. Select this
         // boundary once while building the shape; ordinary reads pay no traversal or name test.
         var operation = member[(member.LastIndexOf('.') + 1)..];
-        if (operation is "appendChild" or "insertBefore" or "replaceChild"
-            or "adoptNode" or "insertAdjacentElement" or "insertNode" or "surroundContents")
+        if (operation is "adoptNode" or "insertAdjacentElement" or "insertNode" or "surroundContents")
         {
             var body = implementation;
             implementation = (receiver, args) =>

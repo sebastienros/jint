@@ -83,7 +83,7 @@ internal static partial class DomTypeMap
             "iframe" => DomInterfaces.HTMLIFrameElement,
             "img" => DomInterfaces.HTMLImageElement,
             "input" => DomInterfaces.HTMLInputElement,
-            "keygen" => DomInterfaces.HTMLKeygenElement,
+            "keygen" => DomInterfaces.HTMLUnknownElement,
             "label" => DomInterfaces.HTMLLabelElement,
             "legend" => DomInterfaces.HTMLLegendElement,
             "li" => DomInterfaces.HTMLLIElement,
@@ -102,7 +102,7 @@ internal static partial class DomTypeMap
             "p" => DomInterfaces.HTMLParagraphElement,
             "param" => DomInterfaces.HTMLParamElement,
             "picture" => DomInterfaces.HTMLPictureElement,
-            "pre" => DomInterfaces.HTMLPreElement,
+            "pre" or "listing" or "xmp" => DomInterfaces.HTMLPreElement,
             "progress" => DomInterfaces.HTMLProgressElement,
             "q" or "blockquote" => DomInterfaces.HTMLQuoteElement,
             "script" => DomInterfaces.HTMLScriptElement,
@@ -128,7 +128,7 @@ internal static partial class DomTypeMap
             "rp" or "rt" or "ruby" or "s" or "samp" or "search" or "section" or "small" or
             "strong" or "sub" or "summary" or "sup" or "u" or "var" or "wbr" or "acronym" or
             "big" or "center" or "nobr" or "noembed" or "noframes" or "plaintext" or "strike" or
-            "tt" or "xmp" => DomInterfaces.HTMLElement,
+            "tt" or "basefont" or "rb" or "rtc" => DomInterfaces.HTMLElement,
             _ when CustomElements.CustomElementNames.IsValid(element.LocalName) => DomInterfaces.HTMLElement,
             _ => DomInterfaces.HTMLUnknownElement,
         };

@@ -1,5 +1,4 @@
-using AngleSharp.Dom;
-using AngleSharp.Html.Dom;
+using Jint.HtmlParser;
 using Jint.Native;
 using Jint.Native.Array;
 
@@ -13,7 +12,7 @@ namespace Jint.Browser.Dom.Collections;
 /// <remarks>
 /// <para>
 /// It is not a refinement of <see cref="DomHtmlCollectionObject{T}"/> even though AngleSharp models
-/// <c>IHtmlAllCollection</c> as an <c>IHtmlCollection&lt;IElement&gt;</c>, because four things about this one
+/// <c>DomHtmlCollection&lt;Element&gt;</c> as an <c>IHtmlCollection&lt;Element&gt;</c>, because four things about this one
 /// interface are its own and none of them is expressible as an <c>HTMLCollection</c>: its named lookup answers
 /// an <em>element or a collection</em> rather than an element, its <c>item</c> takes a name <em>or</em> an
 /// index, it has a legacy caller — <c>document.all('x')</c> — and it carries ECMAScript
@@ -42,7 +41,7 @@ internal sealed class DomHtmlAllCollectionObject : DomCollectionBase, ICallable
         "object", "select", "textarea",
     };
 
-    private readonly IHtmlAllCollection _collection;
+    private readonly DomHtmlCollection<Element> _collection;
     private List<string> _names = [];
 
     // The one name the *property* lane has built a sub-collection for, and that collection. See
@@ -52,7 +51,7 @@ internal sealed class DomHtmlAllCollectionObject : DomCollectionBase, ICallable
     private string? _memoizedName;
     private JsValue? _memoizedCollection;
 
-    internal DomHtmlAllCollectionObject(DomRealm realm, DomInterfaceDefinition definition, IHtmlAllCollection collection)
+    internal DomHtmlAllCollectionObject(DomRealm realm, DomInterfaceDefinition definition, DomHtmlCollection<Element> collection)
         : base(realm, definition, collection)
     {
         _collection = collection;
@@ -97,7 +96,7 @@ internal sealed class DomHtmlAllCollectionObject : DomCollectionBase, ICallable
     protected override bool HasIndex(uint index) => ElementAt(index) is not null;
 
     /// <summary>The <paramref name="index"/>th element of the collection, in one pass, or <see langword="null"/>.</summary>
-    private IElement? ElementAt(uint index)
+    private Element? ElementAt(uint index)
     {
         var remaining = index;
 
@@ -224,7 +223,7 @@ internal sealed class DomHtmlAllCollectionObject : DomCollectionBase, ICallable
             return JsValue.Null;
         }
 
-        IElement? first = null;
+        Element? first = null;
         var count = 0;
         foreach (var element in _collection)
         {
@@ -273,20 +272,20 @@ internal sealed class DomHtmlAllCollectionObject : DomCollectionBase, ICallable
     /// already the filter's domain, and the wrapper has no reference to the document to root a walk at.
     /// </remarks>
     private JsValue NewSubCollection(string name)
-        => DomRealm.WrapCollection<IElement>(new DomLiveHtmlCollection(_collection, new AllNamedFilter(name)));
+        => DomRealm.WrapCollection<Element>(new DomLiveHtmlCollection(_collection, new AllNamedFilter(name)));
 
     /// <summary>The filter of the sub-collection above: an id always, a <c>name</c> only on an "all"-named element.</summary>
     private sealed class AllNamedFilter(string name) : DomElementFilter
     {
-        internal override bool Matches(IElement element) => DomHtmlAllCollectionObject.Matches(element, name);
+        internal override bool Matches(Element element) => DomHtmlAllCollectionObject.Matches(element, name);
     }
 
-    private static bool Matches(IElement element, string name)
-        => string.Equals(element.Id, name, StringComparison.Ordinal)
+    private static bool Matches(Element element, string name)
+        => string.Equals(element.GetAttribute("id"), name, StringComparison.Ordinal)
            || (IsAllNamed(element) && string.Equals(element.GetAttribute("name"), name, StringComparison.Ordinal));
 
-    private static bool IsAllNamed(IElement element)
-        => element is IHtmlElement && _allNamed.Contains(element.LocalName);
+    private static bool IsAllNamed(Element element)
+        => element.NamespaceUri == Namespaces.Html && _allNamed.Contains(element.LocalName);
 
     /// <remarks>
     /// The duplicate check is a set for the reason <c>DomHtmlCollectionObject.VisibleNames</c> gives: the
@@ -300,7 +299,7 @@ internal sealed class DomHtmlAllCollectionObject : DomCollectionBase, ICallable
 
         foreach (var element in _collection)
         {
-            Add(names, element.Id);
+            Add(names, element.GetAttribute("id"));
 
             if (IsAllNamed(element))
             {

@@ -4295,7 +4295,7 @@
         {
           "DomName": "appendData",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Node>(thisObj, \"CharacterData.appendData\");\nself.Target.Append(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"CharacterData.appendData\")); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Node>(thisObj, \"CharacterData.appendData\");\nreturn global::Jint.Browser.Dom.DomCharacterDataMembers.AppendData(self.Target, args);",
           "SetterBody": null,
           "Length": 1,
           "Origin": "ICharacterData.Append"
@@ -4311,8 +4311,8 @@
         {
           "DomName": "data",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Node>(thisObj, \"CharacterData.data\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Data);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Node>(thisObj, \"CharacterData.data\");\nself.Target.Data = global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CharacterData.data\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Node>(thisObj, \"CharacterData.data\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomCharacterDataMembers.Data(self.Target));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Node>(thisObj, \"CharacterData.data\");\nglobal::Jint.Browser.Dom.DomCharacterDataMembers.SetData(self.Target, global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CharacterData.data\")); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "ICharacterData.Data"
         },
@@ -4335,7 +4335,7 @@
         {
           "DomName": "length",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Node>(thisObj, \"CharacterData.length\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Node>(thisObj, \"CharacterData.length\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(global::Jint.HtmlParser.NativeCharacterData.GetLength(self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "ICharacterData.Length"
@@ -4447,7 +4447,7 @@
     {
       "DomName": "DOMImplementation",
       "ClrTypeName": "AngleSharp.Dom.IImplementation",
-      "ReceiverType": "global::AngleSharp.Dom.IImplementation",
+      "ReceiverType": "global::Jint.Browser.Dom.DomImplementation",
       "Parent": null,
       "RootsAtEventTarget": false,
       "HasInterfaceObject": true,
@@ -4462,7 +4462,7 @@
         {
           "DomName": "createDocument",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IImplementation>(thisObj, \"DOMImplementation.createDocument\");\nreturn global::Jint.Browser.Dom.Views.DomViewMembers.CreateDocument(self.Realm, args);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomImplementation>(thisObj, \"DOMImplementation.createDocument\");\nreturn global::Jint.Browser.Dom.Views.DomViewMembers.CreateDocument(self.Realm, args);",
           "SetterBody": null,
           "Length": 2,
           "Origin": "overrides.json"
@@ -4470,7 +4470,7 @@
         {
           "DomName": "createDocumentType",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IImplementation>(thisObj, \"DOMImplementation.createDocumentType\");\nreturn self.Realm.Hooks.CreateDocumentType(self.Realm, self.Target, args);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomImplementation>(thisObj, \"DOMImplementation.createDocumentType\");\nreturn self.Realm.Hooks.CreateDocumentType(self.Realm, self.Target, args);",
           "SetterBody": null,
           "Length": 3,
           "Origin": "IImplementation.CreateDocumentType (hook)"
@@ -4478,7 +4478,7 @@
         {
           "DomName": "createHTMLDocument",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IImplementation>(thisObj, \"DOMImplementation.createHTMLDocument\");\nreturn global::Jint.Browser.Dom.Views.DomViewMembers.CreateHtmlDocument(self.Realm, self.Target, args);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomImplementation>(thisObj, \"DOMImplementation.createHTMLDocument\");\nreturn global::Jint.Browser.Dom.Views.DomViewMembers.CreateHtmlDocument(self.Realm, self.Target, args);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "overrides.json"
@@ -4486,14 +4486,15 @@
         {
           "DomName": "hasFeature",
           "Kind": 0,
-          "Body": "global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IImplementation>(thisObj, \"DOMImplementation.hasFeature\");\n// https://dom.spec.whatwg.org/#dom-domimplementation-hasfeature is one step: \"return true\".\nreturn global::Jint.Native.JsBoolean.True;",
+          "Body": "global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.DomImplementation>(thisObj, \"DOMImplementation.hasFeature\");\n// https://dom.spec.whatwg.org/#dom-domimplementation-hasfeature is one step: \"return true\".\nreturn global::Jint.Native.JsBoolean.True;",
           "SetterBody": null,
           "Length": 0,
           "Origin": "overrides.json"
         }
       ],
       "Constants": [],
-      "Unscopables": []
+      "Unscopables": [],
+      "TypeMapCandidate": true
     },
     {
       "DomName": "DOMStringList",
@@ -4541,7 +4542,7 @@
     {
       "DomName": "DOMStringMap",
       "ClrTypeName": "AngleSharp.Dom.IStringMap",
-      "ReceiverType": "global::AngleSharp.Dom.IStringMap",
+      "ReceiverType": "global::Jint.Browser.Dom.Collections.DomStringMapAdapter",
       "Parent": null,
       "RootsAtEventTarget": false,
       "HasInterfaceObject": true,
@@ -4550,7 +4551,7 @@
       "Group": "Dom",
       "ManualShape": null,
       "ShapeAdditions": null,
-      "AccessorClass": "/// <summary>How <c>DOMStringMap</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorDOMStringMap : DomCollectionAccessor\n{\n    internal static readonly DomAccessorDOMStringMap Instance = new();\n\n\n    internal override bool HasNamedGetter => true;\n\n    internal override global::System.Collections.Generic.IReadOnlyList<string> SupportedNames(object target)\n    {\n        var names = new global::System.Collections.Generic.List<string>();\n        foreach (var entry in (global::System.Collections.Generic.IEnumerable<global::System.Collections.Generic.KeyValuePair<global::System.String, global::System.String>>) target)\n        {\n            // A null value is filtered out because the projection's three hooks have to agree at the\n            // same instant, and TryGetNamed reads null as an authoritative miss. Otherwise a key could\n            // enumerate while reading as undefined — the exact incoherence host verification catches.\n            if (entry.Value is not null)\n            {\n                names.Add(entry.Key);\n            }\n        }\n\n        return names;\n    }\n\n    internal override bool HasSupportedName(object target, string name)\n    {\n        foreach (var entry in (global::System.Collections.Generic.IEnumerable<global::System.Collections.Generic.KeyValuePair<global::System.String, global::System.String>>) target)\n        {\n            if (entry.Value is not null && string.Equals(entry.Key, name, global::System.StringComparison.Ordinal))\n            {\n                return true;\n            }\n        }\n\n        return false;\n    }\n\n    internal override bool TryGetNamed(DomRealm realm, object target, string name, out global::Jint.Native.JsValue value)\n    {\n        var item = ((global::AngleSharp.Dom.IStringMap) target)[name];\n        if (item is null)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = global::Jint.Browser.Dom.DomConvert.Text(item);\n        return true;\n    }\n\n    internal override bool IsNameWritable => true;\n\n    internal override bool TrySetNamed(DomRealm realm, object target, string name, global::Jint.Native.JsValue value)\n    {\n        ((global::AngleSharp.Dom.IStringMap) target)[name] = global::Jint.Runtime.TypeConverter.ToString(value);\n        return true;\n    }\n\n    internal override bool TryDeleteNamed(object target, string name)\n    {\n        ((global::AngleSharp.Dom.IStringMap) target).Remove(name);\n        return true;\n    }\n}\n",
+      "AccessorClass": "/// <summary>How <c>DOMStringMap</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorDOMStringMap : DomCollectionAccessor\n{\n    internal static readonly DomAccessorDOMStringMap Instance = new();\n\n\n    internal override bool HasNamedGetter => true;\n\n    internal override global::System.Collections.Generic.IReadOnlyList<string> SupportedNames(object target)\n    {\n        var names = new global::System.Collections.Generic.List<string>();\n        foreach (var entry in (global::System.Collections.Generic.IEnumerable<global::System.Collections.Generic.KeyValuePair<global::System.String, global::System.String>>) target)\n        {\n            // A null value is filtered out because the projection's three hooks have to agree at the\n            // same instant, and TryGetNamed reads null as an authoritative miss. Otherwise a key could\n            // enumerate while reading as undefined \u2014 the exact incoherence host verification catches.\n            if (entry.Value is not null)\n            {\n                names.Add(entry.Key);\n            }\n        }\n\n        return names;\n    }\n\n    internal override bool HasSupportedName(object target, string name)\n    {\n        foreach (var entry in (global::System.Collections.Generic.IEnumerable<global::System.Collections.Generic.KeyValuePair<global::System.String, global::System.String>>) target)\n        {\n            if (entry.Value is not null && string.Equals(entry.Key, name, global::System.StringComparison.Ordinal))\n            {\n                return true;\n            }\n        }\n\n        return false;\n    }\n\n    internal override bool TryGetNamed(DomRealm realm, object target, string name, out global::Jint.Native.JsValue value)\n    {\n        var item = ((global::Jint.Browser.Dom.Collections.DomStringMapAdapter) target)[name];\n        if (item is null)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = global::Jint.Browser.Dom.DomConvert.Text(item);\n        return true;\n    }\n\n    internal override bool IsNameWritable => true;\n\n    internal override bool TrySetNamed(DomRealm realm, object target, string name, global::Jint.Native.JsValue value)\n    {\n        ((global::Jint.Browser.Dom.Collections.DomStringMapAdapter) target)[name] = global::Jint.Runtime.TypeConverter.ToString(value);\n        return true;\n    }\n\n    internal override bool TryDeleteNamed(object target, string name)\n    {\n        ((global::Jint.Browser.Dom.Collections.DomStringMapAdapter) target).Remove(name);\n        return true;\n    }\n}\n",
       "AccessorReference": "DomAccessorDOMStringMap.Instance",
       "Members": [],
       "Constants": [],
@@ -4559,7 +4560,7 @@
     {
       "DomName": "DOMTokenList",
       "ClrTypeName": "AngleSharp.Dom.ITokenList",
-      "ReceiverType": "global::AngleSharp.Dom.ITokenList",
+      "ReceiverType": "global::Jint.Browser.Dom.Collections.DomAttributeTokenList",
       "Parent": null,
       "RootsAtEventTarget": false,
       "HasInterfaceObject": true,
@@ -4568,13 +4569,13 @@
       "Group": "Dom",
       "ManualShape": null,
       "ShapeAdditions": "Jint.Browser.Dom.Collections.DomIterableMembers.ValueIterator",
-      "AccessorClass": "/// <summary>How <c>DOMTokenList</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorDOMTokenList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorDOMTokenList Instance = new();\n\n    internal override uint Length(object target) => (uint) ((global::AngleSharp.Dom.ITokenList) target).Length;\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::AngleSharp.Dom.ITokenList) target;\n        if (index >= (uint) collection.Length)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = global::Jint.Browser.Dom.DomConvert.Text(((global::System.Collections.Generic.IReadOnlyList<global::System.String>) collection)[(int) index]);\n        return true;\n    }\n}\n",
+      "AccessorClass": "/// <summary>How <c>DOMTokenList</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorDOMTokenList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorDOMTokenList Instance = new();\n\n    internal override uint Length(object target) => (uint) ((global::Jint.Browser.Dom.Collections.DomAttributeTokenList) target).Length;\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::Jint.Browser.Dom.Collections.DomAttributeTokenList) target;\n        if (index >= (uint) collection.Length)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = global::Jint.Browser.Dom.DomConvert.Text(((global::System.Collections.Generic.IReadOnlyList<global::System.String>) collection)[(int) index]);\n        return true;\n    }\n}\n",
       "AccessorReference": "DomAccessorDOMTokenList.Instance",
       "Members": [
         {
           "DomName": "add",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITokenList>(thisObj, \"DOMTokenList.add\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Add(self.Realm, self.Target, args);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.Collections.DomAttributeTokenList>(thisObj, \"DOMTokenList.add\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Add(self.Realm, self.Target, args);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "overrides.json"
@@ -4582,7 +4583,7 @@
         {
           "DomName": "contains",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITokenList>(thisObj, \"DOMTokenList.contains\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Contains(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"DOMTokenList.contains\")));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.Collections.DomAttributeTokenList>(thisObj, \"DOMTokenList.contains\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Contains(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"DOMTokenList.contains\")));",
           "SetterBody": null,
           "Length": 1,
           "Origin": "ITokenList.Contains"
@@ -4590,7 +4591,7 @@
         {
           "DomName": "item",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITokenList>(thisObj, \"DOMTokenList.item\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Item(self.Target, args);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.Collections.DomAttributeTokenList>(thisObj, \"DOMTokenList.item\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Item(self.Target, args);",
           "SetterBody": null,
           "Length": 1,
           "Origin": "overrides.json"
@@ -4598,7 +4599,7 @@
         {
           "DomName": "length",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITokenList>(thisObj, \"DOMTokenList.length\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.Collections.DomAttributeTokenList>(thisObj, \"DOMTokenList.length\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "ITokenList.Length"
@@ -4606,7 +4607,7 @@
         {
           "DomName": "remove",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITokenList>(thisObj, \"DOMTokenList.remove\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Remove(self.Realm, self.Target, args);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.Collections.DomAttributeTokenList>(thisObj, \"DOMTokenList.remove\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Remove(self.Realm, self.Target, args);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "overrides.json"
@@ -4614,7 +4615,7 @@
         {
           "DomName": "replace",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITokenList>(thisObj, \"DOMTokenList.replace\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Replace(self.Realm, self.Target, args);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.Collections.DomAttributeTokenList>(thisObj, \"DOMTokenList.replace\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Replace(self.Realm, self.Target, args);",
           "SetterBody": null,
           "Length": 2,
           "Origin": "overrides.json"
@@ -4622,7 +4623,7 @@
         {
           "DomName": "supports",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITokenList>(thisObj, \"DOMTokenList.supports\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Supports(self.Realm, args);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.Collections.DomAttributeTokenList>(thisObj, \"DOMTokenList.supports\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Supports(self.Realm, args);",
           "SetterBody": null,
           "Length": 1,
           "Origin": "overrides.json"
@@ -4630,7 +4631,7 @@
         {
           "DomName": "toString",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITokenList>(thisObj, \"DOMTokenList.toString\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Value(self.Target);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.Collections.DomAttributeTokenList>(thisObj, \"DOMTokenList.toString\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Value(self.Target);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "overrides.json"
@@ -4638,7 +4639,7 @@
         {
           "DomName": "toggle",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITokenList>(thisObj, \"DOMTokenList.toggle\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Toggle(self.Realm, self.Target, args);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.Collections.DomAttributeTokenList>(thisObj, \"DOMTokenList.toggle\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Toggle(self.Realm, self.Target, args);",
           "SetterBody": null,
           "Length": 1,
           "Origin": "overrides.json"
@@ -4646,8 +4647,8 @@
         {
           "DomName": "value",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITokenList>(thisObj, \"DOMTokenList.value\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Value(self.Target);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITokenList>(thisObj, \"DOMTokenList.value\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.SetValue(self.Realm, self.Target, args);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.Collections.DomAttributeTokenList>(thisObj, \"DOMTokenList.value\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Value(self.Target);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.Collections.DomAttributeTokenList>(thisObj, \"DOMTokenList.value\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.SetValue(self.Realm, self.Target, args);",
           "Length": 0,
           "Origin": "overrides.json"
         }
@@ -5161,7 +5162,7 @@
         {
           "DomName": "implementation",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.implementation\");\nreturn self.Realm.Wrap(self.Target.Implementation);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Document>(thisObj, \"Document.implementation\");\nreturn self.Realm.Wrap(global::Jint.Browser.Dom.DomImplementation.Of(self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IDocument.Implementation"
@@ -5706,7 +5707,7 @@
         {
           "DomName": "classList",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"Element.classList\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, \"class\", self.Target.ClassList);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"Element.classList\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, \"class\");",
           "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"Element.classList\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, \"class\", args);",
           "Length": 0,
           "Origin": "overrides.json"
@@ -5778,7 +5779,7 @@
         {
           "DomName": "getAttributeNS",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"Element.getAttributeNS\");\nreturn global::Jint.Browser.Dom.DomConvert.NullableText(self.Target.GetAttribute(global::Jint.Browser.Dom.DomConvert.NullableText(args, 0), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, \"Element.getAttributeNS\")));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"Element.getAttributeNS\");\nreturn global::Jint.Browser.Dom.DomConvert.NullableText(self.Target.GetAttributeNS(global::Jint.Browser.Dom.DomConvert.NullableText(args, 0), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, \"Element.getAttributeNS\")));",
           "SetterBody": null,
           "Length": 2,
           "Origin": "IElement.GetAttribute"
@@ -6666,7 +6667,7 @@
         {
           "DomName": "relList",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.relList\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, \"rel\", self.Target.RelationList);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.relList\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, \"rel\");",
           "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAnchorElement.relList\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, \"rel\", args);",
           "Length": 0,
           "Origin": "overrides.json"
@@ -6886,7 +6887,7 @@
         {
           "DomName": "relList",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.relList\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, \"rel\", self.Target.RelationList);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.relList\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, \"rel\");",
           "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLAreaElement.relList\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, \"rel\", args);",
           "Length": 0,
           "Origin": "overrides.json"
@@ -7676,7 +7677,7 @@
     {
       "DomName": "HTMLCollection",
       "ClrTypeName": "AngleSharp.Dom.IHtmlCollection`1",
-      "ReceiverType": "global::AngleSharp.Dom.IHtmlCollection<>",
+      "ReceiverType": "global::Jint.Browser.Dom.Collections.DomHtmlCollection<>",
       "Parent": null,
       "RootsAtEventTarget": false,
       "HasInterfaceObject": true,
@@ -8557,7 +8558,7 @@
         {
           "DomName": "sandbox",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLIFrameElement.sandbox\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, \"sandbox\", self.Target.Sandbox);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLIFrameElement.sandbox\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, \"sandbox\");",
           "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLIFrameElement.sandbox\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, \"sandbox\", args);",
           "Length": 0,
           "Origin": "overrides.json"
@@ -9609,7 +9610,7 @@
         {
           "DomName": "relList",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLLinkElement.relList\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, \"rel\", self.Target.RelationList);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLLinkElement.relList\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, \"rel\");",
           "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLLinkElement.relList\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, \"rel\", args);",
           "Length": 0,
           "Origin": "overrides.json"
@@ -9633,7 +9634,7 @@
         {
           "DomName": "sizes",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLLinkElement.sizes\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, \"sizes\", self.Target.Sizes);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLLinkElement.sizes\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, \"sizes\");",
           "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLLinkElement.sizes\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, \"sizes\", args);",
           "Length": 0,
           "Origin": "overrides.json"
@@ -10580,7 +10581,7 @@
         {
           "DomName": "htmlFor",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOutputElement.htmlFor\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, \"for\", self.Target.HtmlFor);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOutputElement.htmlFor\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, \"for\");",
           "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLOutputElement.htmlFor\");\nreturn global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, \"for\", args);",
           "Length": 0,
           "Origin": "overrides.json"
@@ -11183,7 +11184,7 @@
         {
           "DomName": "assignedElements",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSlotElement.assignedElements\");\nreturn global::Jint.Browser.Dom.Views.DomViewMembers.AssignedElements(self.Realm, self.Target);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSlotElement.assignedElements\");\nreturn global::Jint.Browser.Dom.Views.DomViewMembers.AssignedElements(self.Realm, self.Target, args);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "overrides.json"
@@ -11191,7 +11192,7 @@
         {
           "DomName": "assignedNodes",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSlotElement.assignedNodes\");\nreturn global::Jint.Browser.Dom.Views.DomViewMembers.AssignedNodes(self.Realm, self.Target);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, \"HTMLSlotElement.assignedNodes\");\nreturn global::Jint.Browser.Dom.Views.DomViewMembers.AssignedNodes(self.Realm, self.Target, args);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "overrides.json"
@@ -13352,7 +13353,7 @@
     {
       "DomName": "NodeIterator",
       "ClrTypeName": "AngleSharp.Dom.INodeIterator",
-      "ReceiverType": "global::AngleSharp.Dom.INodeIterator",
+      "ReceiverType": "global::Jint.HtmlParser.DomNodeIterator",
       "Parent": null,
       "RootsAtEventTarget": false,
       "HasInterfaceObject": true,
@@ -13375,7 +13376,7 @@
         {
           "DomName": "nextNode",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.NodeIterator>(thisObj, \"NodeIterator.nextNode\");\nreturn self.Realm.WrapNodeValue(self.Target.Next());",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomNodeIterator>(thisObj, \"NodeIterator.nextNode\");\nreturn self.Realm.WrapIdentity(self.Target.Next(global::Jint.Browser.Dom.Views.DomViewMembers.Callback(self.Target), self.Realm.CancellationToken));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "INodeIterator.Next"
@@ -13383,7 +13384,7 @@
         {
           "DomName": "pointerBeforeReferenceNode",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.NodeIterator>(thisObj, \"NodeIterator.pointerBeforeReferenceNode\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsBeforeReference);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomNodeIterator>(thisObj, \"NodeIterator.pointerBeforeReferenceNode\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.PointerBeforeReference);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "INodeIterator.IsBeforeReference"
@@ -13391,7 +13392,7 @@
         {
           "DomName": "previousNode",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.NodeIterator>(thisObj, \"NodeIterator.previousNode\");\nreturn self.Realm.WrapNodeValue(self.Target.Previous());",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomNodeIterator>(thisObj, \"NodeIterator.previousNode\");\nreturn self.Realm.WrapIdentity(self.Target.Previous(global::Jint.Browser.Dom.Views.DomViewMembers.Callback(self.Target), self.Realm.CancellationToken));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "INodeIterator.Previous"
@@ -13399,7 +13400,7 @@
         {
           "DomName": "referenceNode",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.NodeIterator>(thisObj, \"NodeIterator.referenceNode\");\nreturn self.Realm.WrapNodeValue(self.Target.Reference);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomNodeIterator>(thisObj, \"NodeIterator.referenceNode\");\nreturn self.Realm.WrapIdentity(self.Target.Reference);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "INodeIterator.Reference"
@@ -13407,7 +13408,7 @@
         {
           "DomName": "root",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.NodeIterator>(thisObj, \"NodeIterator.root\");\nreturn self.Realm.WrapNodeValue(self.Target.Root);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomNodeIterator>(thisObj, \"NodeIterator.root\");\nreturn self.Realm.WrapIdentity(self.Target.Root);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "INodeIterator.Root"
@@ -13415,7 +13416,7 @@
         {
           "DomName": "whatToShow",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.NodeIterator>(thisObj, \"NodeIterator.whatToShow\");\nreturn global::Jint.Browser.Dom.DomConvert.Number((long) (self.Target.Settings));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomNodeIterator>(thisObj, \"NodeIterator.whatToShow\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.WhatToShow);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "INodeIterator.Settings"
@@ -13488,7 +13489,8 @@
           "Origin": "FilterSettings.Text"
         }
       ],
-      "Unscopables": []
+      "Unscopables": [],
+      "TypeMapCandidate": true
     },
     {
       "DomName": "NodeList",
@@ -13656,7 +13658,7 @@
     {
       "DomName": "Range",
       "ClrTypeName": "AngleSharp.Dom.IRange",
-      "ReceiverType": "global::AngleSharp.Dom.IRange",
+      "ReceiverType": "global::Jint.HtmlParser.DomRange",
       "Parent": null,
       "RootsAtEventTarget": false,
       "HasInterfaceObject": true,
@@ -13671,7 +13673,7 @@
         {
           "DomName": "cloneContents",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, \"Range.cloneContents\");\nreturn self.Realm.Hooks.CloneContents(self.Realm, self.Target, args);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomRange>(thisObj, \"Range.cloneContents\");\nreturn self.Realm.Hooks.CloneContents(self.Realm, self.Target, args);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IRange.CopyContent (hook)"
@@ -13679,7 +13681,7 @@
         {
           "DomName": "cloneRange",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, \"Range.cloneRange\");\nreturn self.Realm.Wrap(self.Target.Clone());",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomRange>(thisObj, \"Range.cloneRange\");\nreturn self.Realm.Wrap(self.Target.CloneRange());",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IRange.Clone"
@@ -13687,7 +13689,7 @@
         {
           "DomName": "collapse",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, \"Range.collapse\");\nself.Target.Collapse(global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false)); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomRange>(thisObj, \"Range.collapse\");\nself.Target.Collapse(global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false)); return global::Jint.Native.JsValue.Undefined;",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IRange.Collapse"
@@ -13695,7 +13697,7 @@
         {
           "DomName": "collapsed",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, \"Range.collapsed\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsCollapsed);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomRange>(thisObj, \"Range.collapsed\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Collapsed);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IRange.IsCollapsed"
@@ -13703,7 +13705,7 @@
         {
           "DomName": "commonAncestorContainer",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, \"Range.commonAncestorContainer\");\nreturn self.Realm.WrapNodeValue(self.Target.CommonAncestor);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomRange>(thisObj, \"Range.commonAncestorContainer\");\nreturn self.Realm.WrapIdentity(self.Target.GetCommonAncestor(self.Realm.CancellationToken));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IRange.CommonAncestor"
@@ -13711,7 +13713,7 @@
         {
           "DomName": "compareBoundaryPoints",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, \"Range.compareBoundaryPoints\");\nreturn global::Jint.Browser.Dom.DomConvert.Number((int) (self.Target.CompareBoundaryTo((global::AngleSharp.Dom.RangeType) global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"Range.compareBoundaryPoints\"), global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Dom.IRange>(args, 1, \"Range.compareBoundaryPoints\"))));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomRange>(thisObj, \"Range.compareBoundaryPoints\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.CompareBoundaryPoints((ushort) global::Jint.Browser.Dom.DomConvert.RequiredUInt32(args, 0, \"Range.compareBoundaryPoints\"), global::Jint.Browser.Dom.DomBindings.Argument<global::Jint.HtmlParser.DomRange>(args, 1, \"Range.compareBoundaryPoints\"), self.Realm.CancellationToken));",
           "SetterBody": null,
           "Length": 2,
           "Origin": "IRange.CompareBoundaryTo"
@@ -13719,7 +13721,7 @@
         {
           "DomName": "comparePoint",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, \"Range.comparePoint\");\nreturn self.Realm.Hooks.ComparePoint(self.Realm, self.Target, args);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomRange>(thisObj, \"Range.comparePoint\");\nreturn self.Realm.Hooks.ComparePoint(self.Realm, self.Target, args);",
           "SetterBody": null,
           "Length": 2,
           "Origin": "IRange.CompareTo (hook)"
@@ -13727,7 +13729,7 @@
         {
           "DomName": "deleteContents",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, \"Range.deleteContents\");\nself.Target.ClearContent(); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomRange>(thisObj, \"Range.deleteContents\");\nself.Target.DeleteContents(); return global::Jint.Native.JsValue.Undefined;",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IRange.ClearContent"
@@ -13735,7 +13737,7 @@
         {
           "DomName": "detach",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, \"Range.detach\");\nself.Target.Detach(); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomRange>(thisObj, \"Range.detach\");\nself.Target.Detach(); return global::Jint.Native.JsValue.Undefined;",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IRange.Detach"
@@ -13743,7 +13745,7 @@
         {
           "DomName": "endContainer",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, \"Range.endContainer\");\nreturn self.Realm.WrapNodeValue(self.Target.Tail);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomRange>(thisObj, \"Range.endContainer\");\nreturn self.Realm.WrapIdentity(self.Target.End.Container);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IRange.Tail"
@@ -13751,7 +13753,7 @@
         {
           "DomName": "endOffset",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, \"Range.endOffset\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.End);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomRange>(thisObj, \"Range.endOffset\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.End.Offset);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IRange.End"
@@ -13759,7 +13761,7 @@
         {
           "DomName": "extractContents",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, \"Range.extractContents\");\nreturn self.Realm.Hooks.ExtractContents(self.Realm, self.Target, args);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomRange>(thisObj, \"Range.extractContents\");\nreturn self.Realm.Hooks.ExtractContents(self.Realm, self.Target, args);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IRange.ExtractContent (hook)"
@@ -13767,7 +13769,7 @@
         {
           "DomName": "getBoundingClientRect",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, \"Range.getBoundingClientRect\");\nreturn global::Jint.Browser.Dom.Views.DomViewMembers.RangeRect(self.Realm);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomRange>(thisObj, \"Range.getBoundingClientRect\");\nreturn global::Jint.Browser.Dom.Views.DomViewMembers.RangeRect(self.Realm);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "overrides.json"
@@ -13775,7 +13777,7 @@
         {
           "DomName": "getClientRects",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, \"Range.getClientRects\");\nreturn global::Jint.Browser.Dom.Views.DomViewMembers.RangeRects(self.Realm);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomRange>(thisObj, \"Range.getClientRects\");\nreturn global::Jint.Browser.Dom.Views.DomViewMembers.RangeRects(self.Realm);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "overrides.json"
@@ -13783,7 +13785,7 @@
         {
           "DomName": "insertNode",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, \"Range.insertNode\");\nself.Target.Insert(global::Jint.Browser.Dom.DomBindings.Argument<global::Jint.HtmlParser.Node>(args, 0, \"Range.insertNode\")); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomRange>(thisObj, \"Range.insertNode\");\nself.Target.InsertNode(global::Jint.Browser.Dom.DomBindings.IdentityArgument(args, 0, \"Range.insertNode\")); return global::Jint.Native.JsValue.Undefined;",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IRange.Insert"
@@ -13791,7 +13793,7 @@
         {
           "DomName": "intersectsNode",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, \"Range.intersectsNode\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Intersects(global::Jint.Browser.Dom.DomBindings.Argument<global::Jint.HtmlParser.Node>(args, 0, \"Range.intersectsNode\")));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomRange>(thisObj, \"Range.intersectsNode\");\nreturn global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IntersectsNode(global::Jint.Browser.Dom.DomBindings.IdentityArgument(args, 0, \"Range.intersectsNode\"), self.Realm.CancellationToken));",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IRange.Intersects"
@@ -13799,7 +13801,7 @@
         {
           "DomName": "isPointInRange",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, \"Range.isPointInRange\");\nreturn self.Realm.Hooks.IsPointInRange(self.Realm, self.Target, args);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomRange>(thisObj, \"Range.isPointInRange\");\nreturn self.Realm.Hooks.IsPointInRange(self.Realm, self.Target, args);",
           "SetterBody": null,
           "Length": 2,
           "Origin": "IRange.Contains (hook)"
@@ -13807,7 +13809,7 @@
         {
           "DomName": "selectNode",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, \"Range.selectNode\");\nself.Target.Select(global::Jint.Browser.Dom.DomBindings.Argument<global::Jint.HtmlParser.Node>(args, 0, \"Range.selectNode\")); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomRange>(thisObj, \"Range.selectNode\");\nself.Target.SelectNode(global::Jint.Browser.Dom.DomBindings.IdentityArgument(args, 0, \"Range.selectNode\")); return global::Jint.Native.JsValue.Undefined;",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IRange.Select"
@@ -13815,7 +13817,7 @@
         {
           "DomName": "selectNodeContents",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, \"Range.selectNodeContents\");\nself.Target.SelectContent(global::Jint.Browser.Dom.DomBindings.Argument<global::Jint.HtmlParser.Node>(args, 0, \"Range.selectNodeContents\")); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomRange>(thisObj, \"Range.selectNodeContents\");\nself.Target.SelectNodeContents(global::Jint.Browser.Dom.DomBindings.IdentityArgument(args, 0, \"Range.selectNodeContents\")); return global::Jint.Native.JsValue.Undefined;",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IRange.SelectContent"
@@ -13823,7 +13825,7 @@
         {
           "DomName": "setEnd",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, \"Range.setEnd\");\nself.Target.EndWith(global::Jint.Browser.Dom.DomBindings.Argument<global::Jint.HtmlParser.Node>(args, 0, \"Range.setEnd\"), global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 1, \"Range.setEnd\")); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomRange>(thisObj, \"Range.setEnd\");\nself.Target.SetEnd(global::Jint.Browser.Dom.DomBindings.IdentityArgument(args, 0, \"Range.setEnd\"), global::Jint.Browser.Dom.DomConvert.RequiredUInt32(args, 1, \"Range.setEnd\")); return global::Jint.Native.JsValue.Undefined;",
           "SetterBody": null,
           "Length": 2,
           "Origin": "IRange.EndWith"
@@ -13831,7 +13833,7 @@
         {
           "DomName": "setEndAfter",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, \"Range.setEndAfter\");\nself.Target.EndAfter(global::Jint.Browser.Dom.DomBindings.Argument<global::Jint.HtmlParser.Node>(args, 0, \"Range.setEndAfter\")); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomRange>(thisObj, \"Range.setEndAfter\");\nself.Target.SetEndAfter(global::Jint.Browser.Dom.DomBindings.IdentityArgument(args, 0, \"Range.setEndAfter\")); return global::Jint.Native.JsValue.Undefined;",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IRange.EndAfter"
@@ -13839,7 +13841,7 @@
         {
           "DomName": "setEndBefore",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, \"Range.setEndBefore\");\nself.Target.EndBefore(global::Jint.Browser.Dom.DomBindings.Argument<global::Jint.HtmlParser.Node>(args, 0, \"Range.setEndBefore\")); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomRange>(thisObj, \"Range.setEndBefore\");\nself.Target.SetEndBefore(global::Jint.Browser.Dom.DomBindings.IdentityArgument(args, 0, \"Range.setEndBefore\")); return global::Jint.Native.JsValue.Undefined;",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IRange.EndBefore"
@@ -13847,7 +13849,7 @@
         {
           "DomName": "setStart",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, \"Range.setStart\");\nself.Target.StartWith(global::Jint.Browser.Dom.DomBindings.Argument<global::Jint.HtmlParser.Node>(args, 0, \"Range.setStart\"), global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 1, \"Range.setStart\")); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomRange>(thisObj, \"Range.setStart\");\nself.Target.SetStart(global::Jint.Browser.Dom.DomBindings.IdentityArgument(args, 0, \"Range.setStart\"), global::Jint.Browser.Dom.DomConvert.RequiredUInt32(args, 1, \"Range.setStart\")); return global::Jint.Native.JsValue.Undefined;",
           "SetterBody": null,
           "Length": 2,
           "Origin": "IRange.StartWith"
@@ -13855,7 +13857,7 @@
         {
           "DomName": "setStartAfter",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, \"Range.setStartAfter\");\nself.Target.StartAfter(global::Jint.Browser.Dom.DomBindings.Argument<global::Jint.HtmlParser.Node>(args, 0, \"Range.setStartAfter\")); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomRange>(thisObj, \"Range.setStartAfter\");\nself.Target.SetStartAfter(global::Jint.Browser.Dom.DomBindings.IdentityArgument(args, 0, \"Range.setStartAfter\")); return global::Jint.Native.JsValue.Undefined;",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IRange.StartAfter"
@@ -13863,7 +13865,7 @@
         {
           "DomName": "setStartBefore",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, \"Range.setStartBefore\");\nself.Target.StartBefore(global::Jint.Browser.Dom.DomBindings.Argument<global::Jint.HtmlParser.Node>(args, 0, \"Range.setStartBefore\")); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomRange>(thisObj, \"Range.setStartBefore\");\nself.Target.SetStartBefore(global::Jint.Browser.Dom.DomBindings.IdentityArgument(args, 0, \"Range.setStartBefore\")); return global::Jint.Native.JsValue.Undefined;",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IRange.StartBefore"
@@ -13871,7 +13873,7 @@
         {
           "DomName": "startContainer",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, \"Range.startContainer\");\nreturn self.Realm.WrapNodeValue(self.Target.Head);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomRange>(thisObj, \"Range.startContainer\");\nreturn self.Realm.WrapIdentity(self.Target.Start.Container);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IRange.Head"
@@ -13879,7 +13881,7 @@
         {
           "DomName": "startOffset",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, \"Range.startOffset\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Start);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomRange>(thisObj, \"Range.startOffset\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Start.Offset);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IRange.Start"
@@ -13887,7 +13889,7 @@
         {
           "DomName": "surroundContents",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, \"Range.surroundContents\");\nself.Target.Surround(global::Jint.Browser.Dom.DomBindings.Argument<global::Jint.HtmlParser.Node>(args, 0, \"Range.surroundContents\")); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomRange>(thisObj, \"Range.surroundContents\");\nself.Target.SurroundContents(global::Jint.Browser.Dom.DomBindings.IdentityArgument(args, 0, \"Range.surroundContents\")); return global::Jint.Native.JsValue.Undefined;",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IRange.Surround"
@@ -13895,7 +13897,7 @@
         {
           "DomName": "toString",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, \"Range.toString\");\nreturn global::Jint.Browser.Dom.Views.DomViewMembers.RangeToString(self.Target);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomRange>(thisObj, \"Range.toString\");\nreturn global::Jint.Browser.Dom.Views.DomViewMembers.RangeToString(self.Target);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "overrides.json"
@@ -13923,7 +13925,8 @@
           "Origin": "RangeType.StartToStart"
         }
       ],
-      "Unscopables": []
+      "Unscopables": [],
+      "TypeMapCandidate": true
     },
     {
       "DomName": "SVGElement",
@@ -14204,7 +14207,7 @@
         {
           "DomName": "assignedSlot",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Node>(thisObj, \"Text.assignedSlot\");\nreturn self.Realm.WrapNodeValue(self.Target.AssignedSlot);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Node>(thisObj, \"Text.assignedSlot\");\nreturn self.Realm.WrapNodeValue(global::Jint.HtmlParser.SlotAssignment.FindSlot(self.Target, true, default));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IText.AssignedSlot"
@@ -14212,7 +14215,7 @@
         {
           "DomName": "splitText",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Node>(thisObj, \"Text.splitText\");\nreturn self.Realm.WrapNodeValue(self.Target.Split(global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"Text.splitText\")));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Node>(thisObj, \"Text.splitText\");\nreturn global::Jint.Browser.Dom.DomCharacterDataMembers.SplitText(self.Realm, self.Target, args);",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IText.Split"
@@ -14220,7 +14223,7 @@
         {
           "DomName": "wholeText",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Node>(thisObj, \"Text.wholeText\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Text);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Node>(thisObj, \"Text.wholeText\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomCharacterDataMembers.WholeText(self.Target));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IText.Text"
@@ -14544,7 +14547,7 @@
     {
       "DomName": "TreeWalker",
       "ClrTypeName": "AngleSharp.Dom.ITreeWalker",
-      "ReceiverType": "global::AngleSharp.Dom.ITreeWalker",
+      "ReceiverType": "global::Jint.HtmlParser.DomTreeWalker",
       "Parent": null,
       "RootsAtEventTarget": false,
       "HasInterfaceObject": true,
@@ -14559,15 +14562,15 @@
         {
           "DomName": "currentNode",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITreeWalker>(thisObj, \"TreeWalker.currentNode\");\nreturn self.Realm.WrapNodeValue(self.Target.Current);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITreeWalker>(thisObj, \"TreeWalker.currentNode\");\nself.Target.Current = global::Jint.Browser.Dom.DomBindings.Argument<global::Jint.HtmlParser.Node>(args, 0, \"TreeWalker.currentNode\"); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomTreeWalker>(thisObj, \"TreeWalker.currentNode\");\nreturn self.Realm.WrapIdentity(self.Target.Current);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomTreeWalker>(thisObj, \"TreeWalker.currentNode\");\nself.Target.Current = global::Jint.Browser.Dom.DomBindings.IdentityArgument(args, 0, \"TreeWalker.currentNode\"); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "ITreeWalker.Current"
         },
         {
           "DomName": "filter",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITreeWalker>(thisObj, \"TreeWalker.filter\");\nreturn global::Jint.Browser.Dom.Views.DomViewMembers.Filter(self.Target);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomTreeWalker>(thisObj, \"TreeWalker.filter\");\nreturn global::Jint.Browser.Dom.Views.DomViewMembers.Filter(self.Target);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "overrides.json"
@@ -14575,7 +14578,7 @@
         {
           "DomName": "firstChild",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITreeWalker>(thisObj, \"TreeWalker.firstChild\");\nreturn self.Realm.WrapNodeValue(self.Target.ToFirst());",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomTreeWalker>(thisObj, \"TreeWalker.firstChild\");\nreturn self.Realm.WrapIdentity(self.Target.FirstChild(global::Jint.Browser.Dom.Views.DomViewMembers.Callback(self.Target), self.Realm.CancellationToken));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "ITreeWalker.ToFirst"
@@ -14583,7 +14586,7 @@
         {
           "DomName": "lastChild",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITreeWalker>(thisObj, \"TreeWalker.lastChild\");\nreturn self.Realm.WrapNodeValue(self.Target.ToLast());",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomTreeWalker>(thisObj, \"TreeWalker.lastChild\");\nreturn self.Realm.WrapIdentity(self.Target.LastChild(global::Jint.Browser.Dom.Views.DomViewMembers.Callback(self.Target), self.Realm.CancellationToken));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "ITreeWalker.ToLast"
@@ -14591,7 +14594,7 @@
         {
           "DomName": "nextNode",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITreeWalker>(thisObj, \"TreeWalker.nextNode\");\nreturn self.Realm.WrapNodeValue(self.Target.ToNext());",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomTreeWalker>(thisObj, \"TreeWalker.nextNode\");\nreturn self.Realm.WrapIdentity(self.Target.Next(global::Jint.Browser.Dom.Views.DomViewMembers.Callback(self.Target), self.Realm.CancellationToken));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "ITreeWalker.ToNext"
@@ -14599,7 +14602,7 @@
         {
           "DomName": "nextSibling",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITreeWalker>(thisObj, \"TreeWalker.nextSibling\");\nreturn self.Realm.WrapNodeValue(self.Target.ToNextSibling());",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomTreeWalker>(thisObj, \"TreeWalker.nextSibling\");\nreturn self.Realm.WrapIdentity(self.Target.NextSibling(global::Jint.Browser.Dom.Views.DomViewMembers.Callback(self.Target), self.Realm.CancellationToken));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "ITreeWalker.ToNextSibling"
@@ -14607,7 +14610,7 @@
         {
           "DomName": "parentNode",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITreeWalker>(thisObj, \"TreeWalker.parentNode\");\nreturn self.Realm.WrapNodeValue(self.Target.ToParent());",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomTreeWalker>(thisObj, \"TreeWalker.parentNode\");\nreturn self.Realm.WrapIdentity(self.Target.Parent(global::Jint.Browser.Dom.Views.DomViewMembers.Callback(self.Target), self.Realm.CancellationToken));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "ITreeWalker.ToParent"
@@ -14615,7 +14618,7 @@
         {
           "DomName": "previousNode",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITreeWalker>(thisObj, \"TreeWalker.previousNode\");\nreturn self.Realm.WrapNodeValue(self.Target.ToPrevious());",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomTreeWalker>(thisObj, \"TreeWalker.previousNode\");\nreturn self.Realm.WrapIdentity(self.Target.Previous(global::Jint.Browser.Dom.Views.DomViewMembers.Callback(self.Target), self.Realm.CancellationToken));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "ITreeWalker.ToPrevious"
@@ -14623,7 +14626,7 @@
         {
           "DomName": "previousSibling",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITreeWalker>(thisObj, \"TreeWalker.previousSibling\");\nreturn self.Realm.WrapNodeValue(self.Target.ToPreviousSibling());",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomTreeWalker>(thisObj, \"TreeWalker.previousSibling\");\nreturn self.Realm.WrapIdentity(self.Target.PreviousSibling(global::Jint.Browser.Dom.Views.DomViewMembers.Callback(self.Target), self.Realm.CancellationToken));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "ITreeWalker.ToPreviousSibling"
@@ -14631,7 +14634,7 @@
         {
           "DomName": "root",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITreeWalker>(thisObj, \"TreeWalker.root\");\nreturn self.Realm.WrapNodeValue(self.Target.Root);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomTreeWalker>(thisObj, \"TreeWalker.root\");\nreturn self.Realm.WrapIdentity(self.Target.Root);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "ITreeWalker.Root"
@@ -14639,7 +14642,7 @@
         {
           "DomName": "whatToShow",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITreeWalker>(thisObj, \"TreeWalker.whatToShow\");\nreturn global::Jint.Browser.Dom.DomConvert.Number((long) (self.Target.Settings));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.DomTreeWalker>(thisObj, \"TreeWalker.whatToShow\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.WhatToShow);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "ITreeWalker.Settings"
@@ -14712,7 +14715,8 @@
           "Origin": "FilterSettings.Text"
         }
       ],
-      "Unscopables": []
+      "Unscopables": [],
+      "TypeMapCandidate": true
     },
     {
       "DomName": "ValidityState",
@@ -15049,21 +15053,10 @@
     }
   ],
   "HtmlCollectionElements": [
-    "global::AngleSharp.Dom.IElement",
-    "global::AngleSharp.Html.Dom.IHtmlAnchorElement",
-    "global::AngleSharp.Html.Dom.IHtmlAreaElement",
-    "global::AngleSharp.Html.Dom.IHtmlElement",
-    "global::AngleSharp.Html.Dom.IHtmlEmbedElement",
-    "global::AngleSharp.Html.Dom.IHtmlFormElement",
-    "global::AngleSharp.Html.Dom.IHtmlImageElement",
-    "global::AngleSharp.Html.Dom.IHtmlOptionElement",
-    "global::AngleSharp.Html.Dom.IHtmlScriptElement",
-    "global::AngleSharp.Html.Dom.IHtmlTableCellElement",
-    "global::AngleSharp.Html.Dom.IHtmlTableRowElement",
-    "global::AngleSharp.Html.Dom.IHtmlTableSectionElement"
+    "global::Jint.HtmlParser.Element"
   ],
-  "HtmlCollectionOpenType": "global::AngleSharp.Dom.IHtmlCollection",
-  "HtmlCollectionDefaultElement": "global::AngleSharp.Dom.IElement",
+  "HtmlCollectionOpenType": "global::Jint.Browser.Dom.Collections.DomHtmlCollection",
+  "HtmlCollectionDefaultElement": "global::Jint.HtmlParser.Element",
   "ExtensionNamespaces": [
     "AngleSharp.Css.Dom",
     "AngleSharp.Dom"
@@ -15072,7 +15065,7 @@
     {
       "Interface": "CharacterData",
       "Member": "replace",
-      "Reason": "DOM §4.2.8 names it `replaceWith` and AngleSharp's IChildNode carries [DomName(\"replace\")], so the mixin projected a member the standard does not have under a name it does not use -- which is why this is an addition and not a hook. The body is the standard's algorithm rather than IChildNode.Replace: the viable next sibling is chosen before the arguments are converted, and the last step asks whether the receiver is still a child of the parent at all. See Dom/DomChildNodeMembers; the divergence is in Dom/divergences.md."
+      "Reason": "DOM \u00a74.2.8 names it `replaceWith` and AngleSharp's IChildNode carries [DomName(\"replace\")], so the mixin projected a member the standard does not have under a name it does not use -- which is why this is an addition and not a hook. The body is the standard's algorithm rather than IChildNode.Replace: the viable next sibling is chosen before the arguments are converted, and the last step asks whether the receiver is still a child of the parent at all. See Dom/DomChildNodeMembers; the divergence is in Dom/divergences.md."
     },
     {
       "Interface": "Document",
@@ -15082,12 +15075,12 @@
     {
       "Interface": "DocumentType",
       "Member": "replace",
-      "Reason": "DOM §4.2.8 names it `replaceWith` and AngleSharp's IChildNode carries [DomName(\"replace\")], so the mixin projected a member the standard does not have under a name it does not use -- which is why this is an addition and not a hook. The body is the standard's algorithm rather than IChildNode.Replace: the viable next sibling is chosen before the arguments are converted, and the last step asks whether the receiver is still a child of the parent at all. See Dom/DomChildNodeMembers; the divergence is in Dom/divergences.md."
+      "Reason": "DOM \u00a74.2.8 names it `replaceWith` and AngleSharp's IChildNode carries [DomName(\"replace\")], so the mixin projected a member the standard does not have under a name it does not use -- which is why this is an addition and not a hook. The body is the standard's algorithm rather than IChildNode.Replace: the viable next sibling is chosen before the arguments are converted, and the last step asks whether the receiver is still a child of the parent at all. See Dom/DomChildNodeMembers; the divergence is in Dom/divergences.md."
     },
     {
       "Interface": "Element",
       "Member": "replace",
-      "Reason": "DOM §4.2.8 names it `replaceWith` and AngleSharp's IChildNode carries [DomName(\"replace\")], so the mixin projected a member the standard does not have under a name it does not use -- which is why this is an addition and not a hook. The body is the standard's algorithm rather than IChildNode.Replace: the viable next sibling is chosen before the arguments are converted, and the last step asks whether the receiver is still a child of the parent at all. See Dom/DomChildNodeMembers; the divergence is in Dom/divergences.md."
+      "Reason": "DOM \u00a74.2.8 names it `replaceWith` and AngleSharp's IChildNode carries [DomName(\"replace\")], so the mixin projected a member the standard does not have under a name it does not use -- which is why this is an addition and not a hook. The body is the standard's algorithm rather than IChildNode.Replace: the viable next sibling is chosen before the arguments are converted, and the last step asks whether the receiver is still a child of the parent at all. See Dom/DomChildNodeMembers; the divergence is in Dom/divergences.md."
     },
     {
       "Interface": "HTMLAnchorElement",
@@ -15112,7 +15105,7 @@
     {
       "Interface": "HTMLLinkElement",
       "Member": "nonce",
-      "Reason": "HTML §2.5.3 gives every element including HTMLOrSVGElement a nonce whose setter writes the [[CryptographicNonce]] slot and NOT the content attribute, which is what keeps a header-delivered policy's nonce out of a CSS selector. AngleSharp declares one attribute-backed property, on this interface alone, whose setter writes the attribute; skipped so the reflected HTMLElement.nonce row is what every element answers with."
+      "Reason": "HTML \u00a72.5.3 gives every element including HTMLOrSVGElement a nonce whose setter writes the [[CryptographicNonce]] slot and NOT the content attribute, which is what keeps a header-delivered policy's nonce out of a CSS selector. AngleSharp declares one attribute-backed property, on this interface alone, whose setter writes the attribute; skipped so the reflected HTMLElement.nonce row is what every element answers with."
     },
     {
       "Interface": "HTMLMarqueeElement",

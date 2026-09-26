@@ -1,5 +1,5 @@
 using System.Runtime.CompilerServices;
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Native;
 using Jint.Runtime;
 using Jint.WebApi.DomException;
@@ -8,23 +8,23 @@ namespace Jint.Browser.Dom.Collections;
 
 /// <summary>
 /// <a href="https://dom.spec.whatwg.org/#interface-domtokenlist">DOM §7.1</a>'s <c>DOMTokenList</c>, over the
-/// token set AngleSharp's <c>ITokenList</c> keeps.
+/// token set AngleSharp's <c>DomAttributeTokenList</c> keeps.
 /// </summary>
 /// <remarks>
 /// <para>
 /// <b>What AngleSharp owns is still the token set and the attribute it reflects</b> — the list is live, it is
 /// bound to the element's attribute in both directions, and nothing here parses or stores markup. What is
 /// here is the half of §7.1 the interface has no room for: the <i>validation steps</i>, which
-/// <c>ITokenList</c> runs for none of its members; <c>toggle</c>'s distinction between a <c>force</c> that
+/// <c>DomAttributeTokenList</c> runs for none of its members; <c>toggle</c>'s distinction between a <c>force</c> that
 /// was given as <see langword="false"/> and one that was not given at all, which a CLR
 /// <c>bool force = false</c> parameter cannot express; <c>replace</c> and <c>supports</c>, which
-/// <c>ITokenList</c> does not have; <c>item</c>, which WebIDL's indexed getter answers <c>null</c> for rather
+/// <c>DomAttributeTokenList</c> does not have; <c>item</c>, which WebIDL's indexed getter answers <c>null</c> for rather
 /// than throwing; and the <i>update steps</i>, which rewrite the attribute in serialized form even when the
 /// token set did not change.
 /// </para>
 /// <para>
 /// <b>The associated element is recorded on the way through the accessor that projects the list</b>, because
-/// <c>ITokenList</c> names neither the element nor the attribute it reflects and §7.1's <c>value</c>,
+/// <c>DomAttributeTokenList</c> names neither the element nor the attribute it reflects and §7.1's <c>value</c>,
 /// stringifier and update steps are all defined in terms of both. Seven accessors project one — <c>classList</c>,
 /// the three <c>relList</c>s, <c>sandbox</c>, <c>sizes</c> and <c>htmlFor</c> — and each is a <c>skip</c> plus an
 /// <c>additions</c> entry that calls <see cref="Project"/>. A list reached any other way keeps every member
@@ -32,7 +32,7 @@ namespace Jint.Browser.Dom.Collections;
 /// attribute has repeated tokens or irregular whitespace.
 /// </para>
 /// <para>
-/// The attribute is written with <c>IElement.SetAttribute</c> rather than through
+/// The attribute is written with <c>Element.SetAttribute</c> rather than through
 /// <see cref="DomHostHooks"/>'s: that hook exists to reconcile a <em>handler content attribute</em> with the
 /// element's listener list, and no attribute a <c>DOMTokenList</c> reflects begins with <c>on</c>.
 /// </para>
@@ -48,11 +48,12 @@ internal static class DomTokenListMembers
     /// add a field to it. The value holds the element, so the entry lives exactly as long as the list does
     /// and the element it names cannot outlive its own tree.
     /// </remarks>
-    private static readonly ConditionalWeakTable<ITokenList, Owner> _owners = new();
+    private static readonly ConditionalWeakTable<DomAttributeTokenList, Owner> _owners = new();
 
     /// <summary>Projects <paramref name="list"/>, recording the attribute of <paramref name="element"/> it reflects.</summary>
-    internal static JsValue Project(DomRealm realm, IElement element, string attribute, ITokenList list)
+    internal static JsValue Project(DomRealm realm, Element element, string attribute)
     {
+        var list = DomAttributeTokenList.Of(element, attribute);
         _owners.AddOrUpdate(list, new Owner(element, attribute));
         return realm.Wrap(list);
     }
@@ -66,14 +67,14 @@ internal static class DomTokenListMembers
     /// Without it the member is a read-only accessor and the assignment is a <c>TypeError</c> in strict
     /// mode, which is what <c>dom/nodes/Element-classlist.html</c>'s "Assigning to classList" rows say.
     /// </remarks>
-    internal static JsValue PutForwards(IElement element, string attribute, JsValue[] arguments)
+    internal static JsValue PutForwards(Element element, string attribute, JsValue[] arguments)
     {
         element.SetAttribute(attribute, DomConvert.RequiredText(arguments, 0, Member.Value));
         return JsValue.Undefined;
     }
 
     /// <summary>https://dom.spec.whatwg.org/#dom-domtokenlist-item — <c>null</c> out of range, never a throw.</summary>
-    internal static JsValue Item(ITokenList list, JsValue[] arguments)
+    internal static JsValue Item(DomAttributeTokenList list, JsValue[] arguments)
     {
         // WebIDL's unsigned long: -1 is 4294967295, which is out of range rather than an error, and that is
         // the whole of what an indexed getter promises.
@@ -82,7 +83,7 @@ internal static class DomTokenListMembers
     }
 
     /// <summary>https://dom.spec.whatwg.org/#dom-domtokenlist-add.</summary>
-    internal static JsValue Add(DomRealm realm, ITokenList list, JsValue[] arguments)
+    internal static JsValue Add(DomRealm realm, DomAttributeTokenList list, JsValue[] arguments)
     {
         var tokens = DomConvert.TextRest(arguments, 0);
         Validate(realm, tokens, Member.Add);
@@ -102,7 +103,7 @@ internal static class DomTokenListMembers
     }
 
     /// <summary>https://dom.spec.whatwg.org/#dom-domtokenlist-remove.</summary>
-    internal static JsValue Remove(DomRealm realm, ITokenList list, JsValue[] arguments)
+    internal static JsValue Remove(DomRealm realm, DomAttributeTokenList list, JsValue[] arguments)
     {
         var tokens = DomConvert.TextRest(arguments, 0);
         Validate(realm, tokens, Member.Remove);
@@ -114,7 +115,7 @@ internal static class DomTokenListMembers
     }
 
     /// <summary>https://dom.spec.whatwg.org/#dom-domtokenlist-toggle.</summary>
-    internal static JsValue Toggle(DomRealm realm, ITokenList list, JsValue[] arguments)
+    internal static JsValue Toggle(DomRealm realm, DomAttributeTokenList list, JsValue[] arguments)
     {
         var token = DomConvert.RequiredText(arguments, 0, Member.Toggle);
         Validate(realm, token, Member.Toggle);
@@ -150,7 +151,7 @@ internal static class DomTokenListMembers
     }
 
     /// <summary>https://dom.spec.whatwg.org/#dom-domtokenlist-replace.</summary>
-    internal static JsValue Replace(DomRealm realm, ITokenList list, JsValue[] arguments)
+    internal static JsValue Replace(DomRealm realm, DomAttributeTokenList list, JsValue[] arguments)
     {
         var token = DomConvert.RequiredText(arguments, 0, Member.Replace);
         var newToken = DomConvert.RequiredText(arguments, 1, Member.Replace);
@@ -209,13 +210,13 @@ internal static class DomTokenListMembers
     /// https://dom.spec.whatwg.org/#dom-domtokenlist-value, and the interface's stringifier, which DOM
     /// defines as the same steps.
     /// </summary>
-    internal static JsValue Value(ITokenList list)
+    internal static JsValue Value(DomAttributeTokenList list)
         => JsString.Create(_owners.TryGetValue(list, out var owner)
             ? owner.Element.GetAttribute(owner.Attribute) ?? ""
             : string.Join(" ", list));
 
     /// <summary>The <c>value</c> setter: set an attribute value, verbatim.</summary>
-    internal static JsValue SetValue(DomRealm realm, ITokenList list, JsValue[] arguments)
+    internal static JsValue SetValue(DomRealm realm, DomAttributeTokenList list, JsValue[] arguments)
     {
         Write(realm, list, DomConvert.RequiredText(arguments, 0, Member.Value));
         return JsValue.Undefined;
@@ -226,7 +227,7 @@ internal static class DomTokenListMembers
     /// It is the step that makes <c>classList.add("a")</c> on <c>class="a a"</c> leave <c>class="a"</c>
     /// behind: the token set is unchanged, and the attribute is still rewritten in serialized form.
     /// </remarks>
-    private static void Update(DomRealm realm, ITokenList list, List<string> tokens)
+    private static void Update(DomRealm realm, DomAttributeTokenList list, List<string> tokens)
     {
         if (!_owners.TryGetValue(list, out var owner))
         {
@@ -262,7 +263,7 @@ internal static class DomTokenListMembers
     /// reflection of the attribute.
     /// </para>
     /// </remarks>
-    private static List<string> Snapshot(ITokenList list)
+    private static List<string> Snapshot(DomAttributeTokenList list)
     {
         var tokens = new List<string>(list.Length);
 
@@ -277,7 +278,7 @@ internal static class DomTokenListMembers
         return tokens;
     }
 
-    private static void Write(DomRealm realm, ITokenList list, string value)
+    private static void Write(DomRealm realm, DomAttributeTokenList list, string value)
     {
         _ = realm;
 
@@ -336,7 +337,7 @@ internal static class DomTokenListMembers
     }
 
     /// <summary>The element and attribute a projected token list reflects.</summary>
-    private sealed record class Owner(IElement Element, string Attribute);
+    private sealed record class Owner(Element Element, string Attribute);
 
     /// <summary>The qualified member names the refusals wear, spelled once.</summary>
     private static class Member
