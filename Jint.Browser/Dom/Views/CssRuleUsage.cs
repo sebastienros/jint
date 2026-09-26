@@ -69,7 +69,11 @@ internal sealed class CssRuleUsageTracker
         while (pending.TryPop(out var node))
         {
             work.Charge(1);
-            if (node is Element element) Observe(element, traversal.Of(element).MatchedRules());
+            if (node is Element element)
+            {
+                Observe(element, traversal.Of(element).MatchedRules());
+                if (element.AttachedShadowRoot is { } shadow) pending.Push(shadow);
+            }
             for (var child = node.LastChild; child is not null; child = child.PreviousSibling)
             {
                 work.Charge(1);

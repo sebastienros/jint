@@ -1,6 +1,7 @@
 #nullable enable
 using Jint.Browser.Dom.Views;
 using Jint.Browser.Runtime;
+using Jint.HtmlParser;
 
 namespace Jint.Tests.Browser.Views;
 
@@ -9,6 +10,31 @@ using Browser = global::Jint.Browser.Browser;
 [NonParallelizable]
 public sealed class NativeCssConsumerTests
 {
+    [Test]
+    public async Task CoverageSweepIncludesRulesMatchedInsideShadowTrees()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<div id='host'></div>");
+        await page.RunOnLoopAsync(engine =>
+        {
+            var document = PageRuntime.Find(engine)!.Document!;
+            var host = document.GetElementById("host")!;
+            var shadow = ShadowTree.Attach(host, new ShadowRootInit(ShadowRootMode.Open), default);
+            var style = document.CreateElement("style");
+            style.AppendChild(document.CreateTextNode("span { opacity:.5; }"));
+            shadow.AppendChild(style);
+            shadow.AppendChild(document.CreateElement("span"));
+            var tracker = new CssRuleUsageTracker();
+            tracker.Rebind(document);
+            tracker.Sweep();
+            tracker.TakeDelta().Select(rule => rule.SelectorText).Should().Equal("span");
+            tracker.Sweep();
+            tracker.TakeDelta().Should().BeEmpty();
+            return true;
+        });
+    }
+
     [Test]
     public async Task RetainedComputedDeclarationReadsFeedNewRulesIntoCoverageDeltas()
     {
