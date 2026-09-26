@@ -1,12 +1,13 @@
 using System.Collections;
 using Jint.HtmlParser.Css.Serialization;
 using Jint.HtmlParser.Css.Syntax;
+using Jint.HtmlParser.Css.Values;
 using Jint.HtmlParser.Css.Model.Syntax;
 using Jint.HtmlParser.Css.Selectors;
 
 namespace Jint.HtmlParser.Css.Model;
 
-internal enum CssRuleType { Style }
+internal enum CssRuleType { Style, Media }
 
 // CSSOM §6.4: exposed parent links and attachment ownership are deliberately separate.
 internal abstract class CssRule
@@ -24,12 +25,22 @@ internal abstract class CssRule
     internal CssMutationStamp Stamp => new(_version);
     internal string CssText => CssRuleSerializer.Serialize(this);
 
-    internal void Attach(CssStyleSheet sheet, CssRule? parent)
+    internal void Attach(CssStyleSheet? sheet, CssRule? parent, CssValueWork work)
     {
-        ParentStyleSheet = sheet;
-        ParentRule = parent;
-        _attachmentSheet = parent is null ? sheet : null;
-        _attachmentParent = parent;
+        var pending = new Stack<(CssRule Rule, CssRule? Parent)>();
+        pending.Push((this, parent));
+        while (pending.TryPop(out var item))
+        {
+            work.Charge(1);
+            var rule = item.Rule;
+            rule.ParentStyleSheet = sheet;
+            rule.ParentRule = item.Parent;
+            rule._attachmentSheet = item.Parent is null ? sheet : null;
+            rule._attachmentParent = item.Parent;
+            if (rule is CssMediaRule media)
+                foreach (var child in media.Rules) { work.Charge(1); pending.Push((child, rule)); }
+        }
+        work.CheckCancellation();
     }
 
     internal void Detach()
@@ -76,6 +87,10 @@ internal sealed class CssStyleRule : CssRule
         CancellationToken cancellationToken = default) =>
         SelectorMatcher.TryMatch(_selector, element, out specificity, scopingRoot, cancellationToken);
 
+    internal bool TryMatch(Element element, out SelectorSpecificity specificity, Node? scopingRoot,
+        in SelectorEnvironment environment, ref SelectorMatchWork work) =>
+        SelectorMatcher.TryMatch(_selector, element, out specificity, scopingRoot, environment, ref work);
+
     internal void SetSelectorText(string source, CssParseOptions? options = null,
         CancellationToken cancellationToken = default)
     {
@@ -85,7 +100,7 @@ internal sealed class CssStyleRule : CssRule
             var values = parser.ParseComponentValues();
             var selector = new SelectorCompiler.Worker(source,
                 new SelectorParseContext(limits: options?.Limits), cancellationToken).Compile(values);
-            var text = CssStyleSheet.SelectorText(source, values, new Values.CssValueWork(cancellationToken));
+            var text = CssStyleSheet.SelectorText(source, values, parser, new Values.CssValueWork(cancellationToken));
             cancellationToken.ThrowIfCancellationRequested();
             _selector = selector;
             _selectorText = text;
