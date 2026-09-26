@@ -19,6 +19,18 @@ internal static class CssSyntaxSerializer
         return result;
     }
 
+    internal static string SerializeComponents(CssComponentValueList values, CssValueWork work)
+    {
+        work.CheckCancellation();
+        var builder = new StringBuilder();
+        AppendValues(builder, values, work);
+        work.CheckCancellation();
+        var result = builder.ToString();
+        work.Charge(result.Length);
+        work.CheckCancellation();
+        return result;
+    }
+
     internal static string SerializeStyleSheet(IReadOnlyList<CssSyntaxRule> rules)
     {
         var builder = new StringBuilder();
@@ -71,11 +83,12 @@ internal static class CssSyntaxSerializer
         }
     }
 
-    private static void AppendValues(StringBuilder builder, CssComponentValueList values)
+    private static void AppendValues(StringBuilder builder, CssComponentValueList values, CssValueWork? work = null)
     {
         var stack = new List<ValueFrame> { new(values, '\0') };
         while (stack.Count != 0)
         {
+            work?.Charge(1);
             var top = stack[^1];
             if (top.Index == top.Values.Count)
             {
@@ -91,11 +104,11 @@ internal static class CssSyntaxSerializer
             var value = top.Values[top.Index++];
             if (value.Kind == CssComponentKind.Token)
             {
-                AppendToken(builder, value.Token);
+                AppendToken(builder, value.Token, work);
                 continue;
             }
 
-            var closing = AppendContainerOpening(builder, value);
+            var closing = AppendContainerOpening(builder, value, work);
             stack.Add(new ValueFrame(value.Values, closing));
         }
     }
@@ -110,11 +123,11 @@ internal static class CssSyntaxSerializer
     private static bool IsWhitespace(CssComponentValue value) =>
         value.Kind == CssComponentKind.Token && value.Token.Kind == CssTokenKind.Whitespace;
 
-    private static char AppendContainerOpening(StringBuilder builder, CssComponentValue value)
+    private static char AppendContainerOpening(StringBuilder builder, CssComponentValue value, CssValueWork? work = null)
     {
         if (value.Kind == CssComponentKind.Function)
         {
-            AppendIdentifier(builder, value.FunctionName);
+            AppendIdentifier(builder, value.FunctionName, work: work);
             builder.Append('(');
             return ')';
         }
@@ -130,30 +143,31 @@ internal static class CssSyntaxSerializer
         };
     }
 
-    private static void AppendToken(StringBuilder builder, CssToken token)
+    private static void AppendToken(StringBuilder builder, CssToken token, CssValueWork? work = null)
     {
+        work?.Charge(token.NumberText.Length);
         switch (token.Kind)
         {
             case CssTokenKind.Ident:
-                AppendIdentifier(builder, token.Text);
+                AppendIdentifier(builder, token.Text, work: work);
                 break;
             case CssTokenKind.AtKeyword:
                 builder.Append('@');
-                AppendIdentifier(builder, token.Text);
+                AppendIdentifier(builder, token.Text, work: work);
                 break;
             case CssTokenKind.Hash:
                 builder.Append('#');
-                AppendIdentifier(builder, token.Text, allowLeadingDigit: !token.IsIdHash);
+                AppendIdentifier(builder, token.Text, allowLeadingDigit: !token.IsIdHash, work: work);
                 break;
             case CssTokenKind.String:
-                AppendString(builder, token.Text);
+                AppendString(builder, token.Text, work);
                 break;
             case CssTokenKind.BadString:
                 builder.Append('"').Append('\n');
                 break;
             case CssTokenKind.Url:
                 builder.Append("url(");
-                AppendUrl(builder, token.Text);
+                AppendUrl(builder, token.Text, work);
                 builder.Append(')');
                 break;
             case CssTokenKind.BadUrl:
@@ -167,9 +181,10 @@ internal static class CssSyntaxSerializer
                 break;
             case CssTokenKind.Dimension:
                 builder.Append(token.NumberText);
-                AppendIdentifier(builder, token.Unit, escapeFirst: true);
+                AppendIdentifier(builder, token.Unit, escapeFirst: true, work: work);
                 break;
             case CssTokenKind.UnicodeRange:
+                work?.Charge(token.Text.Length);
                 builder.Append(token.Text);
                 break;
             case CssTokenKind.Whitespace:
@@ -249,11 +264,12 @@ internal static class CssSyntaxSerializer
         }
     }
 
-    private static void AppendString(StringBuilder builder, string value)
+    private static void AppendString(StringBuilder builder, string value, CssValueWork? work = null)
     {
         builder.Append('"');
         foreach (var character in value)
         {
+            work?.Charge(1);
             if (character is '\0' or '\n' or '\r' or '\f' or >= '\u0001' and <= '\u001f' or '\u007f')
                 AppendHexEscape(builder, character);
             else if (character is '"' or '\\') builder.Append('\\').Append(character);
@@ -262,10 +278,11 @@ internal static class CssSyntaxSerializer
         builder.Append('"');
     }
 
-    private static void AppendUrl(StringBuilder builder, string value)
+    private static void AppendUrl(StringBuilder builder, string value, CssValueWork? work = null)
     {
         foreach (var character in value)
         {
+            work?.Charge(1);
             if (character is '\0' or ' ' or '\t' or '\n' or '\r' or '\f' or >= '\u0001' and <= '\u001f' or '\u007f')
                 AppendHexEscape(builder, character);
             else if (character is '"' or '\'' or '(' or ')' or '\\') builder.Append('\\').Append(character);

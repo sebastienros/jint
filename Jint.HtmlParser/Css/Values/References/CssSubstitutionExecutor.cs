@@ -23,7 +23,7 @@ internal static class CssSubstitutionExecutor
         var root = source.Segment!;
         var rootFrame = Frame.Node(root, Mode.Full, context);
         if (context.Use == CssReferenceUse.CustomPropertyValue)
-            operation.PushActive(context.PropertyName, rootFrame);
+            operation.PushActive(customProperties, context.PropertyName, rootFrame);
         var frames = new List<Frame> { rootFrame };
         var last = default(Eval);
         while (frames.Count != 0)
@@ -136,7 +136,7 @@ internal static class CssSubstitutionExecutor
         if (context.Use == CssReferenceUse.CustomPropertyValue)
         {
             if (rootFrame.Cycle) last = Eval.Invalid();
-            operation.PopActive(context.PropertyName);
+            operation.PopActive(customProperties, context.PropertyName);
         }
         work.CheckCancellation();
         if (last.Kind == EvalKind.Pending) return CssSubstitutionResult.Pending(last.Feature!);
@@ -288,18 +288,21 @@ internal static class CssSubstitutionExecutor
         var binding = frame.BindingValue;
         if (frame.Phase == 0)
         {
-            if (operation.TryActive(binding.Name, out var activeIndex))
+            var scope = binding.Scope ?? operation.Custom;
+            if (operation.TryActive(scope, binding.Name, out var activeIndex))
             {
                 operation.MarkCycle(activeIndex);
                 Complete(frames, ref last, Eval.Invalid());
                 return;
             }
-            if (operation.TryMemo(binding.Name, out var memo))
+            if (operation.TryMemo(scope, binding.Name, out var memo))
             {
                 Complete(frames, ref last, memo);
                 return;
             }
-            operation.PushActive(binding.Name, frame);
+            operation.PushActive(scope, binding.Name, frame);
+            frame.PreviousScope = operation.Custom;
+            operation.Custom = scope;
             if (binding.Kind == CssSubstitutionBindingKind.Computed)
             {
                 last = Eval.Tokens(binding.Value.Root);
@@ -328,8 +331,9 @@ internal static class CssSubstitutionExecutor
     {
         if (frame.Cycle) last = Eval.Invalid();
         if (last.Kind == EvalKind.Tokens && last.Segment!.IsOversize) last = Eval.Invalid();
-        operation.PopActive(frame.BindingValue.Name);
-        operation.AddMemo(frame.BindingValue.Name, last);
+        operation.PopActive(operation.Custom, frame.BindingValue.Name);
+        operation.AddMemo(operation.Custom, frame.BindingValue.Name, last);
+        operation.Custom = frame.PreviousScope!;
         operation.Work.CheckCancellation();
         frames.RemoveAt(frames.Count - 1);
     }
@@ -404,6 +408,7 @@ internal static class CssSubstitutionExecutor
         internal CssSegment[]? Fallback;
         internal CssReferenceKind ReferenceKind;
         internal CssSubstitutionBinding BindingValue;
+        internal CssSubstitutionSnapshot? PreviousScope;
         internal int Phase;
         internal int Index;
         internal bool Cycle;
@@ -433,9 +438,9 @@ internal static class CssSubstitutionExecutor
     private sealed class Operation
     {
         private readonly Dictionary<(CssReferenceInput, CssReferenceUse), Eval> _sources = new();
-        private readonly Dictionary<uint, List<(string Name, Eval Result)>> _memo = new();
-        private readonly Dictionary<uint, List<int>> _activeBuckets = new();
-        private readonly List<(string Name, Frame Frame)> _active = new();
+        private readonly Dictionary<(CssSubstitutionSnapshot Scope, uint Hash), List<(string Name, Eval Result)>> _memo = new();
+        private readonly Dictionary<(CssSubstitutionSnapshot Scope, uint Hash), List<int>> _activeBuckets = new();
+        private readonly List<(CssSubstitutionSnapshot Scope, string Name, Frame Frame)> _active = new();
 
         internal Operation(CssSubstitutionSnapshot custom, CssEnvironmentSnapshot environment,
             CssValueWork work)
@@ -445,7 +450,7 @@ internal static class CssSubstitutionExecutor
             Work = work;
         }
 
-        internal CssSubstitutionSnapshot Custom { get; }
+        internal CssSubstitutionSnapshot Custom { get; set; }
         internal CssEnvironmentSnapshot Environment { get; }
         internal CssValueWork Work { get; }
 
@@ -468,10 +473,10 @@ internal static class CssSubstitutionExecutor
             return result;
         }
 
-        internal bool TryMemo(string name, out Eval result)
+        internal bool TryMemo(CssSubstitutionSnapshot scope, string name, out Eval result)
         {
             var hash = CssSubstitutionArguments.Hash(name, Work);
-            if (_memo.TryGetValue(hash, out var bucket))
+            if (_memo.TryGetValue((scope, hash), out var bucket))
             {
                 foreach (var item in bucket)
                 {
@@ -485,23 +490,23 @@ internal static class CssSubstitutionExecutor
             return false;
         }
 
-        internal void AddMemo(string name, Eval result)
+        internal void AddMemo(CssSubstitutionSnapshot scope, string name, Eval result)
         {
             var hash = CssSubstitutionArguments.Hash(name, Work);
-            if (!_memo.TryGetValue(hash, out var bucket))
+            if (!_memo.TryGetValue((scope, hash), out var bucket))
             {
                 Work.CheckCancellation();
                 bucket = new List<(string, Eval)>();
-                _memo.Add(hash, bucket);
+                _memo.Add((scope, hash), bucket);
             }
             bucket.Add((name, result));
             Work.CheckCancellation();
         }
 
-        internal bool TryActive(string name, out int index)
+        internal bool TryActive(CssSubstitutionSnapshot scope, string name, out int index)
         {
             var hash = CssSubstitutionArguments.Hash(name, Work);
-            if (_activeBuckets.TryGetValue(hash, out var bucket))
+            if (_activeBuckets.TryGetValue((scope, hash), out var bucket))
             {
                 foreach (var candidate in bucket)
                 {
@@ -515,17 +520,17 @@ internal static class CssSubstitutionExecutor
             return false;
         }
 
-        internal void PushActive(string name, Frame frame)
+        internal void PushActive(CssSubstitutionSnapshot scope, string name, Frame frame)
         {
             var hash = CssSubstitutionArguments.Hash(name, Work);
-            if (!_activeBuckets.TryGetValue(hash, out var bucket))
+            if (!_activeBuckets.TryGetValue((scope, hash), out var bucket))
             {
                 Work.CheckCancellation();
                 bucket = new List<int>();
-                _activeBuckets.Add(hash, bucket);
+                _activeBuckets.Add((scope, hash), bucket);
             }
             bucket.Add(_active.Count);
-            _active.Add((name, frame));
+            _active.Add((scope, name, frame));
             Work.CheckCancellation();
         }
 
@@ -538,15 +543,15 @@ internal static class CssSubstitutionExecutor
             }
         }
 
-        internal void PopActive(string name)
+        internal void PopActive(CssSubstitutionSnapshot scope, string name)
         {
             var last = _active.Count - 1;
-            if (last < 0 || !CssSubstitutionArguments.Equals(name, _active[last].Name, Work))
+            if (last < 0 || !ReferenceEquals(scope, _active[last].Scope) || !CssSubstitutionArguments.Equals(name, _active[last].Name, Work))
                 throw new InvalidOperationException("The active substitution stack is inconsistent.");
             var hash = CssSubstitutionArguments.Hash(name, Work);
-            var bucket = _activeBuckets[hash];
+            var bucket = _activeBuckets[(scope, hash)];
             bucket.RemoveAt(bucket.Count - 1);
-            if (bucket.Count == 0) _activeBuckets.Remove(hash);
+            if (bucket.Count == 0) _activeBuckets.Remove((scope, hash));
             _active.RemoveAt(last);
             Work.CheckCancellation();
         }

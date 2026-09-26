@@ -5,6 +5,7 @@ internal sealed class CssValueWork
     private readonly CancellationToken _cancellationToken;
     private readonly Action? _checkpoint;
     private int _sinceCheck;
+    internal CancellationToken Token => _cancellationToken;
 
     internal CssValueWork(CancellationToken cancellationToken, Action? checkpoint = null)
     {

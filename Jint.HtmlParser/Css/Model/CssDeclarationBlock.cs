@@ -26,11 +26,15 @@ internal sealed class CssDeclarationBlock
     }
 
     internal static CssDeclarationBlock Parse(string source, CssDeclarationContext context = CssDeclarationContext.Style,
-        CssParseOptions? options = null, CancellationToken cancellationToken = default)
+        CssParseOptions? options = null, CancellationToken cancellationToken = default) =>
+        Parse(source, context, options, new CssValueWork(cancellationToken), cancellationToken);
+
+    internal static CssDeclarationBlock Parse(string source, CssDeclarationContext context,
+        CssParseOptions? options, CssValueWork work, CancellationToken cancellationToken)
     {
-        var syntax = new CssSyntaxParser(source, options, cancellationToken).ParseDeclarationList();
+        var syntax = new CssSyntaxParser(source, options, cancellationToken, work.CheckCancellation).ParseDeclarationList();
         return FromDeclarations(source, syntax, context, options?.Limits.MaxNestingDepth ?? 0,
-            new CssValueWork(cancellationToken));
+            work);
     }
 
     // A sheet/rule builder shares its C1 parse and work state. No syntax editor or sheet is retained.
@@ -108,7 +112,7 @@ internal sealed class CssDeclarationBlock
         // CSSOM precedence: reject priority before parsing a nonempty value (including pending grammars).
         if (!string.IsNullOrEmpty(priority) && !CssAscii.EqualsIgnoreCase(priority, "important")) return;
         if (_context == CssDeclarationContext.Keyframe && !string.IsNullOrEmpty(priority)) return;
-        var parser = new CssSyntaxParser(value, options, cancellationToken);
+        var parser = new CssSyntaxParser(value, options, cancellationToken, work.CheckCancellation);
         var components = parser.ParseComponentValues();
         var input = CssReferenceInput.FromComponents(value, components, options?.Limits.MaxNestingDepth ?? 0,
             new CssSourceSpan(0, value.Length), work);
@@ -149,9 +153,13 @@ internal sealed class CssDeclarationBlock
 
     internal void ReplaceText(string source, CssParseOptions? options = null,
         CancellationToken cancellationToken = default)
+        => ReplaceText(source, options, new CssValueWork(cancellationToken), cancellationToken);
+
+    internal void ReplaceText(string source, CssParseOptions? options, CssValueWork work,
+        CancellationToken cancellationToken)
     {
-        var syntax = new CssSyntaxParser(source, options, cancellationToken).ParseDeclarationList();
-        ReplaceDeclarations(source, syntax, options?.Limits.MaxNestingDepth ?? 0, new CssValueWork(cancellationToken));
+        var syntax = new CssSyntaxParser(source, options, cancellationToken, work.CheckCancellation).ParseDeclarationList();
+        ReplaceDeclarations(source, syntax, options?.Limits.MaxNestingDepth ?? 0, work);
     }
 
     internal void ReplaceDeclarations(string source, IReadOnlyList<CssDeclarationSyntax> declarations,
@@ -287,7 +295,16 @@ internal sealed class CssDeclarationBlock
     private static CssPropertyMetadata? Shorthand(string name) =>
         CssPropertyRegistry.Find(name, CssDeclarationContext.Style) is { Longhands.Count: > 0 } entry ? entry : null;
 
-    private static string ShorthandValue(CssDeclaration[] entries, CssPropertyMetadata shorthand, CssValueWork work)
+    internal static CssDeclaration[] ExpandValue(string name, CssPropertyValue value, CssValueWork work)
+    {
+        work.CheckCancellation();
+        var entries = new List<CssDeclaration>();
+        Install(entries, name, value, false, value.Span, work, value.Text, "");
+        work.CheckCancellation();
+        return entries.ToArray();
+    }
+
+    internal static string ShorthandValue(CssDeclaration[] entries, CssPropertyMetadata shorthand, CssValueWork work)
     {
         var first = Find(entries, shorthand.Longhands[0], work);
         if (first is null) return "";

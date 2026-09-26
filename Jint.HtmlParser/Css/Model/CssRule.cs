@@ -7,7 +7,7 @@ using Jint.HtmlParser.Css.Selectors;
 
 namespace Jint.HtmlParser.Css.Model;
 
-internal enum CssRuleType { Style, Media }
+internal enum CssRuleType { Style = 1, Media = 4 }
 
 // CSSOM §6.4: exposed parent links and attachment ownership are deliberately separate.
 internal abstract class CssRule

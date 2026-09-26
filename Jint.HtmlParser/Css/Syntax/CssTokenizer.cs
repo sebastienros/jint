@@ -7,6 +7,7 @@ internal sealed class CssTokenizer
 {
     private readonly string _source;
     private readonly CancellationToken _cancellationToken;
+    private readonly Action? _checkpoint;
     private readonly int _maxTokenCharacters;
     private readonly ParseDiagnosticCollector? _diagnostics;
     private readonly bool _allowUnicodeRanges;
@@ -21,15 +22,17 @@ internal sealed class CssTokenizer
 
     internal CssTokenizer(string source, int maxTokenCharacters,
         ParseDiagnosticCollector? diagnostics, CancellationToken cancellationToken,
-        bool allowUnicodeRanges = false, int baseOffset = 0)
+        bool allowUnicodeRanges = false, int baseOffset = 0, Action? checkpoint = null)
     {
         _source = source;
+        _checkpoint = checkpoint;
         _maxTokenCharacters = maxTokenCharacters;
         _diagnostics = diagnostics;
         _allowUnicodeRanges = allowUnicodeRanges;
         _baseOffset = baseOffset;
         _cancellationToken = cancellationToken;
         _cancellationToken.ThrowIfCancellationRequested();
+        _checkpoint?.Invoke();
     }
 
     internal CssToken Next()
@@ -433,7 +436,12 @@ internal sealed class CssTokenizer
                 throw new ParseLimitException(ParseLimitKind.TokenCharacters,
                     _maxTokenCharacters, _position - _scanStart);
             }
-            if ((++_work & 1023) == 0) _cancellationToken.ThrowIfCancellationRequested();
+            if ((++_work & 1023) == 0)
+            {
+                _cancellationToken.ThrowIfCancellationRequested();
+                _checkpoint?.Invoke();
+                _cancellationToken.ThrowIfCancellationRequested();
+            }
         }
         return c;
     }
