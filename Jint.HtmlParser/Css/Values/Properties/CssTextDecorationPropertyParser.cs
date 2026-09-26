@@ -87,8 +87,14 @@ internal static class CssTextDecorationPropertyParser
             work.Charge(1);
             var bit = CssPropertyParser.Keyword(parts[index], Lines, work) switch
             {
-                "underline" => 1, "overline" => 2, "line-through" => 4, "blink" => 8,
-                "none" => 16, "spelling-error" => 32, "grammar-error" => 64, _ => 0
+                "underline" => 1,
+                "overline" => 2,
+                "line-through" => 4,
+                "blink" => 8,
+                "none" => 16,
+                "spelling-error" => 32,
+                "grammar-error" => 64,
+                _ => 0
             };
             if (bit == 0) break;
             if ((flags & bit) != 0 || flags != 0 && (flags > 15 || bit > 15)) return Invalid();
@@ -97,7 +103,11 @@ internal static class CssTextDecorationPropertyParser
         }
         var text = flags switch
         {
-            0 => null, 16 => "none", 32 => "spelling-error", 64 => "grammar-error", _ => LineText(flags)
+            0 => null,
+            16 => "none",
+            32 => "spelling-error",
+            64 => "grammar-error",
+            _ => LineText(flags)
         };
         return text is null ? Invalid() : CssPropertyResult.Accepted(CssPropertyValue.Keyword(text, span));
     }
