@@ -13,23 +13,34 @@ internal sealed partial class CssSegment
 
     private static CssSegment SourceTrivia(CssReferenceInput input, CssSourceSpan span) =>
         new(CssSegmentKind.Trivia, input, default, default, CssSegmentList.Empty, 0, 0, 0,
-            lexicalSpan: span, lexicalLength: System.Math.Min(span.Length, CssSubstitutedValue.MaxSpelling + 1), lexicalPieces: 1);
+            lexicalSpan: span, lexicalLength: System.Math.Min(span.Length, CssSubstitutedValue.MaxSpelling + 1));
 
     private static CssSegment Recovery(string text) =>
         new(CssSegmentKind.Trivia, null, default, default, CssSegmentList.Empty, 0, 0, 0,
-            syntheticLexical: text, lexicalLength: System.Math.Min(text.Length, CssSubstitutedValue.MaxSpelling + 1), lexicalPieces: 1);
+            syntheticLexical: text, lexicalLength: System.Math.Min(text.Length, CssSubstitutedValue.MaxSpelling + 1));
 
-    // Boundaries add no authored spelling. At most one four-character separator is emitted for each
-    // counted boundary, so MaxLexicalPieces also bounds output added by serialization joins.
+    // Administrative markers emit no spelling and are not lexical occurrences. Serialization adds
+    // at most one four-character join separator per projected token/opener/closer, already bounded
+    // by MaxTokens, plus one space for a successful empty value.
     private static readonly CssSegment Boundary = new(CssSegmentKind.Trivia, null, default, default,
-        CssSegmentList.Empty, 0, 0, 0, substitutionBoundary: true, lexicalPieces: 1);
+        CssSegmentList.Empty, 0, 0, 0, substitutionBoundary: true);
 
-    internal static CssSegment Substitution(CssSegment replacement, CssValueWork work) =>
-        Concat([Boundary, replacement, Boundary], work);
+    internal static CssSegment Substitution(CssSegment replacement, CssValueWork work)
+    {
+        work.Charge(1);
+        work.CheckCancellation();
+        if (replacement.IsEmpty || replacement.BoundaryOnly) return Boundary;
+        if (replacement.StartsBoundary && replacement.EndsBoundary) return replacement;
+        if (replacement.StartsBoundary) return Concat([replacement, Boundary], work);
+        if (replacement.EndsBoundary) return Concat([Boundary, replacement], work);
+        return Concat([Boundary, replacement, Boundary], work);
+    }
 
     private static CssSegment[] CaptureGaps(CssReferenceInput input, CssComponentValueList originals,
         CssSegment[] values, CssSourceSpan envelope, CssValueWork work)
     {
+        if (values.Length != originals.Count)
+            throw new InvalidOperationException("Source-aligned CSS children must match their C1 value count.");
         envelope = Intersect(envelope, input.SerializationSpan);
         var result = new List<CssSegment>();
         var position = envelope.Start;

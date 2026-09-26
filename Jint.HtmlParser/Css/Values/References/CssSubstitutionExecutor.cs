@@ -49,13 +49,10 @@ internal static class CssSubstitutionExecutor
                             frame.ExpandedTokens = Saturate(frame.ExpandedTokens, tokens, CssSubstitutedValue.MaxTokens);
                             frame.ExpandedSpelling = Saturate(frame.ExpandedSpelling, spelling, CssSubstitutedValue.MaxSpelling);
                             var lexicalLength = frame.SpreadChild ? last.Segment!.LexicalLength : last.ExpandedLexicalLength;
-                            var lexicalPieces = frame.SpreadChild ? last.Segment!.LexicalPieces : last.ExpandedLexicalPieces;
                             frame.ExpandedLexicalLength = Saturate(frame.ExpandedLexicalLength, lexicalLength, CssSubstitutedValue.MaxSpelling);
-                            frame.ExpandedLexicalPieces = Saturate(frame.ExpandedLexicalPieces, lexicalPieces, CssSubstitutedValue.MaxLexicalPieces);
                             if (frame.ExpandedTokens > CssSubstitutedValue.MaxTokens ||
                                 frame.ExpandedSpelling > CssSubstitutedValue.MaxSpelling ||
-                                frame.ExpandedLexicalLength > CssSubstitutedValue.MaxSpelling ||
-                                frame.ExpandedLexicalPieces > CssSubstitutedValue.MaxLexicalPieces)
+                                frame.ExpandedLexicalLength > CssSubstitutedValue.MaxSpelling)
                             {
                                 Complete(frames, ref last, Eval.Invalid());
                                 continue;
@@ -67,9 +64,10 @@ internal static class CssSubstitutionExecutor
                     }
                     if (frame.Index == frame.Children!.Length)
                     {
+                        work.Charge(frame.Output!.Count);
                         work.CheckCancellation();
                         last = Eval.Tokens(CssSegment.Concat(frame.Output!.ToArray(), work),
-                            frame.ExpandedTokens, frame.ExpandedSpelling, frame.ExpandedLexicalLength, frame.ExpandedLexicalPieces);
+                            frame.ExpandedTokens, frame.ExpandedSpelling, frame.ExpandedLexicalLength);
                         frames.RemoveAt(frames.Count - 1);
                         continue;
                     }
@@ -106,7 +104,7 @@ internal static class CssSubstitutionExecutor
                             continue;
                         }
                         var wrapped = CssSegment.Rebuild(segment, [last.Segment!], work);
-                        Complete(frames, ref last, Eval.Tokens(wrapped, last.ExpandedTokens, last.ExpandedSpelling, last.ExpandedLexicalLength, last.ExpandedLexicalPieces));
+                        Complete(frames, ref last, Eval.Tokens(wrapped, last.ExpandedTokens, last.ExpandedSpelling, last.ExpandedLexicalLength));
                         continue;
                     }
                     if (segment.Kind is CssSegmentKind.Token or CssSegmentKind.Trivia ||
@@ -368,7 +366,7 @@ internal static class CssSubstitutionExecutor
     {
         if (frames[^1].Kind == FrameKind.Invocation && result.Kind == EvalKind.Tokens)
             result = Eval.Tokens(CssSegment.Substitution(result.Segment!, frames[^1].Work!),
-                result.ExpandedTokens, result.ExpandedSpelling, result.ExpandedLexicalLength, result.ExpandedLexicalPieces);
+                result.ExpandedTokens, result.ExpandedSpelling, result.ExpandedLexicalLength);
         last = result;
         frames.RemoveAt(frames.Count - 1);
     }
@@ -383,7 +381,7 @@ internal static class CssSubstitutionExecutor
     private readonly struct Eval
     {
         private Eval(EvalKind kind, CssSegment? segment, string? feature,
-            int expandedTokens = 0, int expandedSpelling = 0, int expandedLexicalLength = 0, int expandedLexicalPieces = 0)
+            int expandedTokens = 0, int expandedSpelling = 0, int expandedLexicalLength = 0)
         {
             Kind = kind;
             Segment = segment;
@@ -391,7 +389,6 @@ internal static class CssSubstitutionExecutor
             ExpandedTokens = expandedTokens;
             ExpandedSpelling = expandedSpelling;
             ExpandedLexicalLength = expandedLexicalLength;
-            ExpandedLexicalPieces = expandedLexicalPieces;
         }
 
         internal EvalKind Kind { get; }
@@ -400,10 +397,9 @@ internal static class CssSubstitutionExecutor
         internal int ExpandedTokens { get; }
         internal int ExpandedSpelling { get; }
         internal int ExpandedLexicalLength { get; }
-        internal int ExpandedLexicalPieces { get; }
         internal static Eval Tokens(CssSegment segment, int expandedTokens = 0, int expandedSpelling = 0,
-            int expandedLexicalLength = 0, int expandedLexicalPieces = 0) =>
-            new(EvalKind.Tokens, segment, null, expandedTokens, expandedSpelling, expandedLexicalLength, expandedLexicalPieces);
+            int expandedLexicalLength = 0) =>
+            new(EvalKind.Tokens, segment, null, expandedTokens, expandedSpelling, expandedLexicalLength);
         internal static Eval Invalid() => new(EvalKind.Invalid, null, null);
         internal static Eval Pending(string feature) => new(EvalKind.Pending, null, feature);
     }
@@ -428,7 +424,6 @@ internal static class CssSubstitutionExecutor
         internal int ExpandedTokens;
         internal int ExpandedSpelling;
         internal int ExpandedLexicalLength;
-        internal int ExpandedLexicalPieces;
 
         internal static Frame Node(CssSegment segment, Mode mode, CssSubstitutionContext context) =>
             new() { Kind = FrameKind.Node, Segment = segment, Mode = mode, Context = context };
