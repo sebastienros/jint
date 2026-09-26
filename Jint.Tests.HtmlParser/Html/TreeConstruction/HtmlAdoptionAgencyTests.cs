@@ -94,6 +94,55 @@ public partial class HtmlTreeConstructionTests
         }
     }
 
+    [TestCase("<b id=outer><p>x", false)]
+    [TestCase("<b id=outer><i data-inner=kept><p>x", true)]
+    public void TemplateAdoptionRetainsInertOwnershipAtEveryYield(string prefix, bool hasInner)
+    {
+        var document = Document.CreateHtml();
+        var session = new HtmlParserSession(document);
+        session.AppendInput("<template>" + prefix);
+        DrainToNeedInput(session, 1);
+        var template = (Element) document.DocumentElement!.FirstChild!.FirstChild!;
+        var inertOwner = document.GetTemplateContentsOwnerDocument();
+        var original = (Element) template.TemplateContent!.FirstChild!;
+        var oldInner = hasInner ? (Element) original.FirstChild! : null;
+        var paragraph = (Element) (oldInner ?? original).FirstChild!;
+        var text = (Text) paragraph.FirstChild!;
+        session.AppendInput("</b>", isFinal: true);
+
+        HtmlParseStep step;
+        var turns = 0;
+        do
+        {
+            step = session.Drive(1, CancellationToken.None);
+            original.OwnerDocument.Should().BeSameAs(inertOwner);
+            original.GetAttributeNode("id")!.OwnerDocument.Should().BeSameAs(inertOwner);
+            paragraph.OwnerDocument.Should().BeSameAs(inertOwner);
+            text.OwnerDocument.Should().BeSameAs(inertOwner);
+            if (oldInner is not null)
+            {
+                oldInner.OwnerDocument.Should().BeSameAs(inertOwner);
+                oldInner.GetAttributeNode("data-inner")!.OwnerDocument.Should().BeSameAs(inertOwner);
+            }
+            for (var child = paragraph.FirstChild; child is not null; child = child.NextSibling)
+            {
+                child.OwnerDocument.Should().BeSameAs(inertOwner);
+                if (child is Element element)
+                    element.GetAttributeNode("id")?.OwnerDocument.Should().BeSameAs(inertOwner);
+            }
+            if (++turns > 100_000) throw new InvalidOperationException("Template adoption did not finish.");
+        } while (step.Kind == HtmlParseStepKind.Yielded);
+        step.Kind.Should().Be(HtmlParseStepKind.Complete);
+        paragraph.FirstChild.Should().BeOfType<Element>().Which.GetAttribute("id").Should().Be("outer");
+        ((Element) paragraph.FirstChild!).FirstChild.Should().BeSameAs(text);
+        if (hasInner)
+        {
+            var recreated = (Element) paragraph.ParentNode!;
+            recreated.GetAttribute("data-inner").Should().Be("kept");
+            recreated.GetAttributeNode("data-inner")!.OwnerDocument.Should().BeSameAs(inertOwner);
+        }
+    }
+
     [Test]
     public void MoreThanThreeInnerNodesStillReachTheFormattingElement()
     {

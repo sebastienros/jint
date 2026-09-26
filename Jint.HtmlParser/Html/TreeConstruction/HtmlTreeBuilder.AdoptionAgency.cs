@@ -313,7 +313,7 @@ internal sealed partial class HtmlTreeBuilder
                 case AdoptionStage.RecreateInner:
                     var old = _open[_adoptionNodeIndex];
                     var entry = _formattingByElement[old];
-                    var recreated = CreateFromFormattingEntry(entry);
+                    var recreated = CreateFromFormattingEntry(entry, old.ParentNode ?? old);
                     ReplaceAdoptionOpen(_adoptionNodeIndex, recreated);
                     _formattingByElement.Remove(old);
                     entry.Element = recreated;
@@ -389,7 +389,7 @@ internal sealed partial class HtmlTreeBuilder
                     advanced = true;
                     break;
                 case AdoptionStage.CreateReplacement:
-                    _adoptionReplacement = CreateFromFormattingEntry(_adoptionFormatting!);
+                    _adoptionReplacement = CreateFromFormattingEntry(_adoptionFormatting!, _adoptionFurthestBlock!);
                     _adoptionTransferCursor = _adoptionFurthestBlock!.FirstChild;
                     _adoptionStage = AdoptionStage.TransferChildren;
                     advanced = true;
@@ -487,9 +487,12 @@ internal sealed partial class HtmlTreeBuilder
     private static bool IsSpecialElement(Element element) => element.NamespaceUri == Namespaces.Html &&
         IsSpecial(element.LocalName);
 
-    private Element CreateFromFormattingEntry(FormattingElementEntry entry)
+    private Element CreateFromFormattingEntry(FormattingElementEntry entry, Node destination)
     {
-        var element = _document.CreateParsedElement(Namespaces.Html, entry.Name, null);
+        // The recreated element is about to receive existing descendants. Its
+        // owner must already match the destination before those native moves.
+        var owner = destination as Document ?? destination.OwnerDocument!;
+        var element = owner.CreateParsedElement(Namespaces.Html, entry.Name, null);
         if (entry.Attributes.Length != 0)
         {
             element.InitializeParsedAttributes(entry.Attributes, _cancellationToken);
