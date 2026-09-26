@@ -26,7 +26,7 @@ internal static class CssPropertyParser
     {
         if (!Enum.IsDefined(context)) throw new ArgumentOutOfRangeException(nameof(context));
         work.Charge(name.Length);
-        name = CssPropertyRegistry.NormalizeName(name);
+        name = CssPropertyRegistry.NormalizeName(name, work);
         var ordinary = context is CssDeclarationContext.Style or CssDeclarationContext.Keyframe;
         if (name.Length > 2 && name.StartsWith("--", StringComparison.Ordinal))
         {
