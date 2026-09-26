@@ -189,7 +189,7 @@ internal static class FormSubmitter
             // image inputs and decides ownership by AngleSharp's rule rather than the standard's. The walk is
             // over the form's whole tree in tree order, so a control outside the form that the `form`
             // attribute associated with it contributes, and one inside it that points elsewhere does not.
-            foreach (var element in HtmlFormOwner.ControlsOf(form, runtime.Dom.NativeReadCheckpoint, runtime.Dom.CancellationToken))
+            foreach (var element in HtmlFormOwner.ControlsOf(form, runtime.Dom.NativeReadCheckpoint, runtime.CustomElementsIfCreated, runtime.Dom.CancellationToken))
             {
                 Append(runtime, entries, element, submitter);
             }

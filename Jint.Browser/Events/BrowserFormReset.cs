@@ -10,7 +10,8 @@ internal static class BrowserFormReset
 {
     internal static void Reset(DomRealm realm, Element form)
     {
-        var controls = HtmlFormOwner.ControlsOf(form, realm.NativeReadCheckpoint, realm.CancellationToken).ToArray();
+        var controls = HtmlFormOwner.ControlsOf(form, realm.NativeReadCheckpoint, token: realm.CancellationToken,
+            customElements: CustomElementRegistry.Of(realm.Engine)).ToArray();
         // Refuse unavailable components before changing the supported controls in this inventory.
         foreach (var control in controls)
         {

@@ -46,43 +46,26 @@ internal static class DomFailures
         Func<JsValue, JsValue[], JsValue> implementation)
     {
         var guarded = Guard(member, implementation);
-        if (member is "CharacterData.data" or "Node.nodeValue" or "Node.textContent"
-            or "CharacterData.appendData" or "CharacterData.insertData" or "CharacterData.deleteData" or "CharacterData.replaceData")
-        {
-            return (receiver, arguments) =>
-            {
-                using var mutation = (receiver as IDomWrapper)?.DomRealm.MutateLayout() ?? default;
-                JsValue result;
-                try { result = guarded(receiver, arguments); }
-                finally { DrainCustomElements(receiver); }
-                if (receiver is IDomWrapper { DomTarget: ProcessingInstruction instruction })
-                {
-                    DomProcessingInstructionAttributes.DataChanged(instruction);
-                }
-                return result;
-            };
-        }
-
-        if (member is "Range.deleteContents")
-        {
-            return (receiver, arguments) =>
-            {
-                using var mutation = (receiver as IDomWrapper)?.DomRealm.MutateLayout() ?? default;
-                var replacement = new DomProcessingInstructionAttributes.RangeDataReplacement((receiver as IDomWrapper)?.DomTarget as DomRange);
-                JsValue result;
-                try { result = guarded(receiver, arguments); }
-                finally { DrainCustomElements(receiver); }
-                replacement.Complete();
-                return result;
-            };
-        }
 
         return (receiver, arguments) =>
         {
+            PrepareCustomElements(receiver);
             using var mutation = (receiver as IDomWrapper)?.DomRealm.MutateLayout() ?? default;
             try { return guarded(receiver, arguments); }
             finally { DrainCustomElements(receiver); }
         };
+    }
+
+    private static void PrepareCustomElements(JsValue receiver)
+    {
+        if (receiver is not IDomWrapper wrapper) return;
+        var node = wrapper.DomTarget switch
+        {
+            Node target => target,
+            DomRange range => range.Start.Container.Node,
+            _ => null,
+        };
+        if (node is not null) CustomElements.CustomElementRegistry.Of(wrapper.DomRealm.Engine)?.EnsureWatchingNode(node);
     }
 
     private static void DrainCustomElements(JsValue receiver)

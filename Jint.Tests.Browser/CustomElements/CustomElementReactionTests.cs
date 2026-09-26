@@ -57,6 +57,52 @@ public sealed class CustomElementReactionTests
     }
 
     [Test]
+    public async Task DetachedShadowMutationsDoNotReportConnectionAndMovingARecordedElementKeepsObservation()
+    {
+        await using var browser = new Browser();
+        var page = await PageWith(browser, "<script>" + Definition + """
+          const host = document.createElement('div');
+          const shadow = host.attachShadow({mode: 'open'});
+          const child = document.createElement('x-thing');
+          child.id = 'child';
+          shadow.appendChild(child);
+          child.remove();
+          shadow.appendChild(child);
+          window.log.push('detached');
+          document.body.appendChild(host);
+          child.remove();
+          shadow.appendChild(child);
+        </script>
+        """);
+
+        (await page.EvaluateAsync<string>("window.log.join('|')"))
+            .Should().Be("detached|connected:child|disconnected:child|connected:child");
+        page.Errors.Should().BeEmpty();
+    }
+
+    [TestCase(false, "")]
+    [TestCase(true, "connected:child|disconnected:child")]
+    public async Task RangeMutationObservesARecordedElementEnteringANewShadowRoot(bool connected, string expected)
+    {
+        await using var browser = new Browser();
+        var page = await PageWith(browser, "<script>" + Definition + $$"""
+          const child = document.createElement('x-thing');
+          child.id = 'child';
+          const host = document.createElement('div');
+          const shadow = host.attachShadow({mode: 'open'});
+          if ({{(connected ? "true" : "false")}}) document.body.appendChild(host);
+          const range = document.createRange();
+          range.selectNodeContents(shadow);
+          range.insertNode(child);
+          range.selectNode(child);
+          range.deleteContents();
+        </script>
+        """);
+        (await page.EvaluateAsync<string>("window.log.join('|')")).Should().Be(expected);
+        page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
     public async Task ConnectedFiresOnInsertionAndDisconnectedOnRemovalBeforeTheOperationReturns()
     {
         await using var browser = new Browser();

@@ -59,7 +59,7 @@ internal sealed class DomCollectionObject : DomCollectionBase, INamedPropertySup
     /// <inheritdoc />
     public override uint Length => _nodes is not null ? (uint) _nodes.Length
         : DomTarget is DomNodeList list ? (uint) list.ReadLength(DomRealm.NativeReadCheckpoint, DomRealm.CancellationToken)
-        : _accessor.Length(DomTarget);
+        : _accessor.Length(DomRealm, DomTarget);
 
     /// <inheritdoc />
     public override bool TryGetIndex(uint index, out JsValue value)

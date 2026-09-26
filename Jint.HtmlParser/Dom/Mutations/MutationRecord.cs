@@ -15,7 +15,8 @@ public sealed class MutationRecord
 
     internal MutationRecord(MutationRecordKind kind, Node target, IReadOnlyList<Node>? addedNodes = null,
         IReadOnlyList<Node>? removedNodes = null, Node? previousSibling = null, Node? nextSibling = null,
-        string? attributeName = null, string? attributeNamespace = null, string? oldValue = null)
+        string? attributeName = null, string? attributeNamespace = null, string? oldValue = null,
+        bool targetWasConnected = false)
     {
         Kind = kind;
         Target = target;
@@ -26,6 +27,7 @@ public sealed class MutationRecord
         AttributeName = attributeName;
         AttributeNamespace = attributeNamespace;
         OldValue = oldValue;
+        TargetWasConnected = targetWasConnected;
     }
 
     public MutationRecordKind Kind { get; }
@@ -37,4 +39,8 @@ public sealed class MutationRecord
     public string? AttributeName { get; }
     public string? AttributeNamespace { get; }
     public string? OldValue { get; }
+
+    // Trusted host lifecycle signal at the mutation's original match point.
+    // It is not a public MutationObserver field and never reads today's tree.
+    internal bool TargetWasConnected { get; }
 }

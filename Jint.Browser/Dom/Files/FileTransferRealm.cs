@@ -141,19 +141,23 @@ internal sealed class FileTransferRealm
 
     private readonly Queue<InputFileState> _pendingChanges = new();
     private readonly HashSet<InputFileState> _queuedChanges = new();
-    private readonly List<WeakReference<MutationSubscription>> _subscriptions = [];
+    private readonly List<WeakReference<InputFileState>> _fileStates = [];
+    private int _attachmentsUntilSweep = 64;
 
     internal JsFileList? InputFiles(Element input, bool create)
     {
         FlushChanges();
         if (!IsFileInput(input)) return null;
         if (_inputFiles.TryGetValue(input, out var state)) return state.Files;
-        return create ? Attach(input, NewFileList()) : null;
+        if (!create) return null;
+        PruneFileStates();
+        return Attach(input, NewFileList());
     }
 
     internal void SetInputFiles(Element input, JsFileList files)
     {
         FlushChanges();
+        PruneFileStates();
         if (!IsFileInput(input)) return;
         Detach(input);
         _ = Attach(input, files, external: true);
@@ -195,7 +199,7 @@ internal sealed class FileTransferRealm
 
     internal JsValue SetInputType(Element input, string type)
     {
-        input.SetAttribute("type", type);
+        input.SetAttributeNS(null, "type", type);
         FlushChanges();
         return JsValue.Undefined;
     }
@@ -203,7 +207,7 @@ internal sealed class FileTransferRealm
     internal void ResetForm(Element form)
     {
         var realm = DomRealm.Of(_engine);
-        foreach (var element in HtmlFormOwner.ControlsOf(form, realm.NativeReadCheckpoint, realm.CancellationToken))
+        foreach (var element in HtmlFormOwner.ControlsOf(form, realm.NativeReadCheckpoint, CustomElements.CustomElementRegistry.Of(_engine), realm.CancellationToken))
         {
             if (IsFileInput(element)) ClearInput(element, preserveList: true);
         }
@@ -213,13 +217,17 @@ internal sealed class FileTransferRealm
     {
         var subscription = input.OwnerDocument!.ObserveMutations(input,
             new MutationObserverOptions { Attributes = true, AttributeOldValue = true, AttributeFilter = ["type"] });
-        var state = new InputFileState(new WeakReference<Element>(input), files, subscription, external);
+        var weakInput = new WeakReference<Element>(input);
+        var invalidation = new SelectedFileInvalidation(weakInput, files, subscription);
+        Action changed = invalidation.Changed;
+        var state = new InputFileState(weakInput, files, subscription, external, changed);
+        files.Changed += changed;
+        _fileStates.Add(new WeakReference<InputFileState>(state));
         subscription.PendingRecord = _ =>
         {
             // Trusted scheduling: no script runs inside native attribute mutation.
             if (_queuedChanges.Add(state)) _pendingChanges.Enqueue(state);
         };
-        _subscriptions.Add(new WeakReference<MutationSubscription>(subscription));
         _inputFiles.Add(input, state);
         return files;
     }
@@ -234,7 +242,7 @@ internal sealed class FileTransferRealm
             for (var i = 0; i < records.Count; i++)
             {
                 _engine.Constraints.Check();
-                var nextType = i + 1 < records.Count ? records[i + 1].OldValue : input.GetAttribute("type");
+                var nextType = i + 1 < records.Count ? records[i + 1].OldValue : ReadInputType(input);
                 if ((HtmlInputTypes.Parse(records[i].OldValue) == HtmlInputType.File)
                     != (HtmlInputTypes.Parse(nextType) == HtmlInputType.File))
                 {
@@ -250,7 +258,9 @@ internal sealed class FileTransferRealm
         if (_inputFiles.TryGetValue(input, out var current))
         {
             _queuedChanges.Remove(current);
+            current.Detached = true;
             current.Subscription.Dispose();
+            current.Files.Changed -= current.Changed;
             _inputFiles.Remove(input);
         }
     }
@@ -269,30 +279,85 @@ internal sealed class FileTransferRealm
             state.Files.Clear();
             if (!preserveList) Detach(input);
         }
-        if (hadFiles) input.OwnerDocument!.MarkMutation();
+        if (hadFiles && state.External) input.OwnerDocument!.MarkMutation();
     }
 
     private bool IsFileInput(Element input)
+        => input is { NamespaceUri: Namespaces.Html, LocalName: "input" } && HtmlInputTypes.Parse(ReadInputType(input)) == HtmlInputType.File;
+
+    private string? ReadInputType(Element input)
     {
-        if (input is not { NamespaceUri: Namespaces.Html, LocalName: "input" }) return false;
         var realm = DomRealm.Of(_engine);
         var work = new DomReadWork(realm.NativeReadCheckpoint, realm.CancellationToken);
         work.Check();
-        return HtmlInputTypes.Parse(work.Attribute(input, "type")) == HtmlInputType.File;
+        return work.Attribute(input, "type");
     }
 
     private void Release()
     {
-        foreach (var weak in _subscriptions)
+        foreach (var weak in _fileStates)
         {
-            if (weak.TryGetTarget(out var subscription)) subscription.Dispose();
+            if (weak.TryGetTarget(out var state))
+            {
+                state.Files.Changed -= state.Changed;
+                state.Subscription.Dispose();
+            }
         }
-        _subscriptions.Clear();
+        _fileStates.Clear();
         _pendingChanges.Clear();
         _queuedChanges.Clear();
         _inputFiles.Clear();
     }
 
+    private void PruneFileStates()
+    {
+        if (--_attachmentsUntilSweep > 0) return;
+        CompactFileStates(_engine.Constraints.Check);
+    }
+
+    internal void CompactFileStates(Action checkpoint)
+    {
+        var survivors = 0;
+        var consumed = 0;
+        try
+        {
+            for (; consumed < _fileStates.Count; consumed++)
+            {
+                if ((consumed & 255) == 0) checkpoint();
+                var weak = _fileStates[consumed];
+                if (!weak.TryGetTarget(out var state) || state.Detached) continue;
+                if (state.Input.TryGetTarget(out _)) { _fileStates[survivors++] = weak; continue; }
+                state.Files.Changed -= state.Changed;
+                state.Subscription.Dispose();
+                _queuedChanges.Remove(state);
+            }
+        }
+        finally
+        {
+            // Keep the compacted prefix and every unvisited entry if a budget check
+            // interrupts the sweep. Discard only the gap already processed.
+            _fileStates.RemoveRange(survivors, consumed - survivors);
+            _attachmentsUntilSweep = Math.Max(64, _fileStates.Count);
+        }
+    }
+
+    private sealed class SelectedFileInvalidation(WeakReference<Element> input, JsFileList files, MutationSubscription subscription)
+    {
+        internal void Changed()
+        {
+            if (input.TryGetTarget(out var selectedInput)) selectedInput.OwnerDocument!.MarkMutation();
+            else
+            {
+                // A shared DataTransfer list can outlive every input it was assigned to.
+                files.Changed -= Changed;
+                subscription.Dispose();
+            }
+        }
+    }
+
     private sealed record InputFileState(WeakReference<Element> Input, JsFileList Files,
-        MutationSubscription Subscription, bool External);
+        MutationSubscription Subscription, bool External, Action Changed)
+    {
+        internal bool Detached { get; set; }
+    }
 }

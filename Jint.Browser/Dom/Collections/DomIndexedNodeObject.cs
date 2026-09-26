@@ -80,14 +80,15 @@ internal sealed class DomIndexedNodeObject : DomNodeObject
 
         // https://tc39.es/ecma262/#sec-ordinaryownpropertykeys - the integer-index keys come first and in
         // ascending order, so they are inserted ahead of everything the base listed rather than appended.
-        var length = _accessor.Length(Node);
+        var length = _accessor.Length(DomRealm, DomTarget);
         var indices = new List<JsValue>((int) System.Math.Min(length, int.MaxValue));
         for (var i = 0u; i < length; i++)
         {
+            if ((i & 255) == 0) DomRealm.Engine.Constraints.Check();
             indices.Add(JsString.Create(i));
         }
 
-        foreach (var name in _accessor.SupportedNames(Node))
+        foreach (var name in _accessor.SupportedNames(DomTarget))
         {
             // A name the object already carries - an expando, or an inherited member shadowed by one - is the
             // base list's, and listing it twice would make Object.getOwnPropertyNames report a duplicate.
@@ -126,7 +127,7 @@ internal sealed class DomIndexedNodeObject : DomNodeObject
 
         if (IsArrayIndex(key, out var index))
         {
-            return _accessor.TryGetIndex(DomRealm, Node, index, out value);
+            return _accessor.TryGetIndex(DomRealm, DomTarget, index, out value);
         }
 
         if (!_accessor.HasNamedGetter)
@@ -135,7 +136,7 @@ internal sealed class DomIndexedNodeObject : DomNodeObject
         }
 
         enumerable = _accessor.AreNamesEnumerable;
-        return _accessor.TryGetNamed(DomRealm, Node, key, out value);
+        return _accessor.TryGetNamed(DomRealm, DomTarget, key, out value);
     }
 
     /// <summary>

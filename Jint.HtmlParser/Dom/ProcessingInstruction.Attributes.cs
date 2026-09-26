@@ -168,6 +168,7 @@ public sealed partial class ProcessingInstruction
             if (ReferenceEquals(_data, oldData)) { _attributeMap = oldMap; _attributeNames = oldNames; }
             throw;
         }
+        work.Charge(0);
     }
 
     private void InvalidateAttributes()

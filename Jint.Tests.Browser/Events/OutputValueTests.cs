@@ -65,6 +65,31 @@ public sealed class OutputValueTests
     }
 
     [Test]
+    public void CachedDefaultReadObservesCancellationRequestedByItsCheckpoint()
+    {
+        var document = ContentDom.Parse("<output id=o>initial</output>");
+        var output = ContentDom.ElementById(document, "o")!;
+        BrowserOutputValue.SetValue(output, "current", null, default);
+        using var cancellation = new CancellationTokenSource();
+        Action read = () => BrowserOutputValue.GetDefaultValue(output, _ => cancellation.Cancel(), cancellation.Token);
+        read.Should().Throw<OperationCanceledException>();
+    }
+
+    [Test]
+    public void DescendantTextReadObservesCancellationAtTheFinalMaterializationCheckpoint()
+    {
+        var document = ContentDom.Parse("<output id=o></output>");
+        var output = ContentDom.ElementById(document, "o")!;
+        using var cancellation = new CancellationTokenSource();
+        var checkpoints = 0;
+        Action read = () => BrowserOutputValue.GetValue(output, _ =>
+        {
+            if (++checkpoints == 3) cancellation.Cancel();
+        }, cancellation.Token);
+        read.Should().Throw<OperationCanceledException>();
+    }
+
+    [Test]
     public void CancellationAtThePostCommitCheckpointPreservesTheCoherentMutation()
     {
         var document = ContentDom.Parse("<output id=o>initial</output>");

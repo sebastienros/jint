@@ -283,8 +283,9 @@ required at their integration gate. A parser flag cannot substitute for native s
 
 H6d implements ordinary template start/end handling, InTemplate, and the stack of template insertion
 modes. Each template entry adds the actual formatting marker and template mode, updates frameset state,
-and routes insertions to the existing native `TemplateContent`. End/EOF cleanup uses thorough implied
-end tags, stack/list cleanup and reset-insertion-mode in a resumable loop. Nested EOF cannot be limited
+and routes insertions to the existing native `TemplateContent`. Explicit end tags generate thorough implied
+end tags; end/EOF recovery perform their specified stack/list cleanup and reset-insertion-mode in a
+resumable loop. Patch marker removal belongs to explicit closure, not EOF recovery. Nested EOF cannot be limited
 to H4's old small dispatch-pass guard.
 
 Template content is a separate fragment with its native inert owner and host association; it is not
