@@ -6,14 +6,8 @@ namespace Jint.Browser.BindingGenerator;
 /// <summary>What the generator needs to run.</summary>
 public sealed class BindingGeneratorOptions
 {
-    /// <summary>Path to the pinned <c>AngleSharp.dll</c>.</summary>
-    public required string CoreAssembly { get; init; }
-
-    /// <summary>Path to the pinned <c>AngleSharp.Css.dll</c>.</summary>
-    public required string CssAssembly { get; init; }
-
-    /// <summary>Path to <c>overrides.json</c>.</summary>
-    public required string OverridesPath { get; init; }
+    /// <summary>Path to the checked-in, explicit DOM interface and member contract.</summary>
+    public required string ContractPath { get; init; }
 }
 
 /// <summary>What one run of the generator produced.</summary>
@@ -44,24 +38,30 @@ public static class BindingGenerator
     /// <summary>Generates every file, plus the report, the diagnostics and the skip list.</summary>
     public static BindingGeneratorResult Run(BindingGeneratorOptions options)
     {
-        var references = new List<string> { options.CoreAssembly, options.CssAssembly };
+        var model = BindingContract.Load(options.ContractPath).ToModel();
+        var files = new Emitter(model).Emit();
+        return new BindingGeneratorResult(
+            files,
+            Report(model),
+            [.. model.Diagnostics.Order(StringComparer.Ordinal)],
+            [.. model.Skipped.Select(s => s.Interface + "." + s.Member + " — " + s.Reason).Order(StringComparer.Ordinal)]);
+    }
+
+    /// <summary>One-time migration tool: captures the formerly reflected metadata as a reviewable contract.</summary>
+    public static void ExtractContract(string coreAssembly, string cssAssembly, string overridesPath, string contractPath)
+    {
+        var references = new List<string> { coreAssembly, cssAssembly };
         references.AddRange(RuntimeAssemblies());
 
         var resolver = new PathAssemblyResolver(references.Distinct(StringComparer.OrdinalIgnoreCase));
         using var context = new MetadataLoadContext(resolver, "System.Private.CoreLib");
 
-        var core = context.LoadFromAssemblyPath(options.CoreAssembly);
-        var css = context.LoadFromAssemblyPath(options.CssAssembly);
+        var core = context.LoadFromAssemblyPath(coreAssembly);
+        var css = context.LoadFromAssemblyPath(cssAssembly);
 
-        var overrides = Overrides.Load(options.OverridesPath);
+        var overrides = Overrides.Load(overridesPath);
         var model = new ModelBuilder([core, css], overrides).Build();
-        var files = new Emitter(model).Emit();
-
-        return new BindingGeneratorResult(
-            files,
-            Report(model, core, css),
-            [.. model.Diagnostics.Order(StringComparer.Ordinal)],
-            [.. model.Skipped.Select(s => s.Interface + "." + s.Member + " — " + s.Reason).Order(StringComparer.Ordinal)]);
+        BindingContract.FromModel(model).Save(contractPath);
     }
 
     private static IEnumerable<string> RuntimeAssemblies()
@@ -76,25 +76,11 @@ public static class BindingGenerator
         }
     }
 
-    private static string Report(BindingModel model, Assembly core, Assembly css)
+    private static string Report(BindingModel model)
     {
         var builder = new StringBuilder();
 
-        builder.Append("Assemblies\n");
-        foreach (var assembly in new[] { core, css })
-        {
-            builder.Append("  ").Append(assembly.GetName().Name).Append(' ').Append(assembly.GetName().Version).Append('\n');
-        }
-
-        builder.Append("\nAttribute inventory\n");
-        foreach (var (assembly, counts) in model.AttributeCounts.OrderBy(p => p.Key, StringComparer.Ordinal))
-        {
-            builder.Append("  ").Append(assembly).Append('\n');
-            foreach (var (attribute, count) in counts.OrderByDescending(p => p.Value).ThenBy(p => p.Key, StringComparer.Ordinal))
-            {
-                builder.Append("    ").Append(attribute.PadRight(32)).Append(count).Append('\n');
-            }
-        }
+        builder.Append("Checked-in DOM interface and member contract\n");
 
         builder.Append("\nGenerated\n");
         builder.Append("  interfaces         ").Append(model.Interfaces.Count).Append('\n');

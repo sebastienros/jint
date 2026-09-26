@@ -63,7 +63,13 @@ internal sealed class InterfaceModel
 {
     internal required string DomName { get; init; }
 
-    internal required Type ClrType { get; init; }
+    internal Type ClrType { get; init; } = null!;
+
+    /// <summary>The contract's source type name, retained for review and generated documentation.</summary>
+    internal required string ClrTypeName { get; init; }
+
+    /// <summary>The C# receiver type written to the generated registry.</summary>
+    internal required string ReceiverType { get; init; }
 
     internal InterfaceModel? Parent { get; set; }
 

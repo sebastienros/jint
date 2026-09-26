@@ -25,6 +25,9 @@ internal static class RepositoryPaths
     /// <summary>The curated half of the binding.</summary>
     internal static string OverridesPath => Path.Combine(GeneratorDirectory, "overrides.json");
 
+    /// <summary>The explicit interface and member contract consumed by the emitter.</summary>
+    internal static string ContractPath => Path.Combine(GeneratorDirectory, "contract.json");
+
     /// <summary>The checked-in generated code.</summary>
     internal static string GeneratedDirectory => Path.Combine(Root, "Jint.Browser", "Dom", "Generated");
 

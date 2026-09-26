@@ -1,12 +1,10 @@
 using System.Text;
-using AngleSharp.Css.Dom;
-using AngleSharp.Dom;
 using Jint.Browser.BindingGenerator;
 
 namespace Jint.Tests.Browser;
 
 /// <summary>
-/// The checked-in bindings are a picture of the pinned AngleSharp assemblies' <c>[DomName]</c> surface. This
+/// The checked-in bindings are a picture of the explicit DOM interface and member contract. This
 /// runs the same emitter in memory and fails on any difference, which is what makes them a picture rather
 /// than a memory.
 /// </summary>
@@ -63,7 +61,7 @@ public sealed class DomBindingsStalenessTests
         }
 
         differences.Should().BeEmpty(
-            "the checked-in DOM bindings must equal what the emitter produces from the pinned AngleSharp assemblies; run the suite again with JINT_DOM_BINDINGS=update to write the difference back, then read the diff");
+            "the checked-in DOM bindings must equal what the emitter produces from contract.json; run the suite again with JINT_DOM_BINDINGS=update to write the difference back, then read the diff");
     }
 
     [Test]
@@ -91,12 +89,7 @@ public sealed class DomBindingsStalenessTests
 
     internal static BindingGeneratorResult Generate() => BindingGenerator.Run(new BindingGeneratorOptions
     {
-        // The assemblies this test process resolved, which are the ones Directory.Packages.props pinned:
-        // asking the loaded types where they came from is what keeps the emitter and the runtime looking at
-        // one version, without this suite having to know anything about the NuGet cache layout.
-        CoreAssembly = typeof(IElement).Assembly.Location,
-        CssAssembly = typeof(ICssStyleDeclaration).Assembly.Location,
-        OverridesPath = RepositoryPaths.OverridesPath,
+        ContractPath = RepositoryPaths.ContractPath,
     });
 
     private static bool IsUpdating()

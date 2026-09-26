@@ -65,6 +65,8 @@ internal sealed class ModelBuilder
             {
                 DomName = domName,
                 ClrType = type,
+                ClrTypeName = type.FullName!,
+                ReceiverType = CSharpNames.Render(type),
                 FieldName = CSharpNames.Identifier(domName),
                 Group = GroupOf(type),
                 HasInterfaceObject = !Has(type, DomNoInterfaceObject),
