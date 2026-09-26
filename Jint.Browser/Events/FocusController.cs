@@ -451,12 +451,12 @@ internal static class FocusController
 
     private static bool IsInherentlyFocusable(Element element, DomReadWork? work = null)
     {
-        // HTML §6.8.1: the document element is an editing host when its HTML document has designMode on.
+        // HTML §6.8.1: an HTML element directly under a document is an editing host with designMode on.
         // A document has at most one element child, so this parent link identifies it without a root scan.
         work?.Step();
-        if (element.ParentNode is Document { Kind: DocumentKind.Html } document
+        if (element.NamespaceUri == Namespaces.Html && element.ParentNode is Document document
             && DomDocumentState.IsDesignModeEnabled(document)) return true;
-        if (element.NamespaceUri != Namespaces.Html) return false;
+        if (element.NamespaceUri != Namespaces.Html) return ReferenceEquals(ContentEditing.HostOf(element, work), element);
         return element.LocalName switch
         {
             "a" or "area" => Attribute(element, "href", work) is not null,

@@ -65,4 +65,50 @@ public sealed class ContentEditingHostTests
         child.RemoveAttribute("contenteditable");
         ContentEditing.HostOf(child).Should().BeNull();
     }
+
+    [TestCase(Namespaces.Svg, "svg", true)]
+    [TestCase(Namespaces.MathMl, "math", true)]
+    [TestCase(Namespaces.Svg, "g", false)]
+    [TestCase("urn:other", "svg", false)]
+    [TestCase("urn:other", "math", false)]
+    public void ForeignEditingHostsRequireTheExactEligibleNamespaceAndName(string ns, string name, bool eligible)
+    {
+        var document = Document.CreateHtml();
+        var parent = document.CreateElement("div");
+        parent.SetAttribute("contenteditable", "true");
+        var candidate = document.CreateElementNS(ns, name);
+        candidate.SetAttribute("contenteditable", "true");
+        parent.AppendChild(candidate);
+        if (eligible) ContentEditing.HostOf(candidate).Should().BeSameAs(candidate);
+        else ContentEditing.HostOf(candidate).Should().BeNull();
+    }
+
+    [Test]
+    public void AnIneligibleForeignAncestorBlocksEditorRoutingToAnHtmlHost()
+    {
+        var document = Document.CreateHtml();
+        var host = document.CreateElement("div");
+        host.SetAttribute("contenteditable", "true");
+        var barrier = document.CreateElementNS(Namespaces.Svg, "g");
+        var child = document.CreateElement("span");
+        host.AppendChild(barrier);
+        barrier.AppendChild(child);
+        ContentEditing.HostOf(child).Should().BeNull();
+    }
+
+    [Test]
+    public void DesignModeHostQualificationUsesTheRootNamespaceRatherThanDocumentKind()
+    {
+        var xml = Document.CreateXml();
+        var html = xml.CreateElementNS(Namespaces.Html, "html");
+        xml.AppendChild(html);
+        global::Jint.Browser.Dom.DomDocumentState.Of(xml).DesignModeEnabled = true;
+        ContentEditing.HostOf(html).Should().BeSameAs(html);
+
+        var htmlDocument = Document.CreateHtml();
+        var svg = htmlDocument.CreateElementNS(Namespaces.Svg, "svg");
+        htmlDocument.AppendChild(svg);
+        global::Jint.Browser.Dom.DomDocumentState.Of(htmlDocument).DesignModeEnabled = true;
+        ContentEditing.HostOf(svg).Should().BeNull();
+    }
 }

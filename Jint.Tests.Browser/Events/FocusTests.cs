@@ -13,7 +13,7 @@ using Browser = global::Jint.Browser.Browser;
 public sealed class FocusTests
 {
     [Test]
-    public void DesignModeMakesOnlyTheHtmlDocumentElementAnEditingHostForFocus()
+    public void DesignModeMakesOnlyAnHtmlNamespaceDocumentElementAnEditingHostForFocus()
     {
         var realm = DomRealm.Of(new Engine());
         var document = Document.CreateHtml();
@@ -34,7 +34,13 @@ public sealed class FocusTests
         var xmlRoot = xml.CreateElementNS(Namespaces.Html, "html");
         xml.AppendChild(xmlRoot);
         DomDocumentState.Of(xml).DesignModeEnabled = true;
-        FocusController.IsFocusable(realm, xmlRoot).Should().BeFalse();
+        FocusController.IsFocusable(realm, xmlRoot).Should().BeTrue();
+
+        var svgDocument = Document.CreateHtml();
+        var svgRoot = svgDocument.CreateElementNS(Namespaces.Svg, "svg");
+        svgDocument.AppendChild(svgRoot);
+        DomDocumentState.Of(svgDocument).DesignModeEnabled = true;
+        FocusController.IsFocusable(realm, svgRoot).Should().BeFalse();
     }
 
     [TestCase("+00020")]

@@ -70,10 +70,10 @@ internal static class ContentEditing
         for (var candidate = element; candidate is not null; candidate = (candidate.ParentNode as Element))
         {
             work?.Step();
-            if (candidate.ParentNode is Document { Kind: DocumentKind.Html } document
+            if (!BrowserHtmlSemantics.IsEditableEligible(candidate)) return null;
+            if (candidate.NamespaceUri == Namespaces.Html && candidate.ParentNode is Document document
                 && DomDocumentState.IsDesignModeEnabled(document)) return candidate;
-            if (candidate.NamespaceUri != Namespaces.Html
-                || (work is null ? candidate.GetAttributeNS(null, "contenteditable") : work.Attribute(candidate, "contenteditable")) is not { } raw)
+            if ((work is null ? candidate.GetAttributeNS(null, "contenteditable") : work.Attribute(candidate, "contenteditable")) is not { } raw)
             {
                 continue;
             }
