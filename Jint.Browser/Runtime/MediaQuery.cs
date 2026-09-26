@@ -8,12 +8,8 @@ namespace Jint.Browser.Runtime;
 /// </summary>
 /// <remarks>
 /// <para>
-/// AngleSharp.Css 1.1.0 evaluates its own <c>matchMedia</c>, but cannot replace this evaluator yet:
-/// malformed queries throw, negated conjunctions do not negate the whole query, boolean dimension and
-/// colour features disagree, and ordered <c>color-gamut</c> and <c>dynamic-range</c> preferences are absent.
-/// Its native list also subscribes to the window's resize event rather than this page's media-change lane.
-/// <see cref="PageRenderDevice"/> shares the page's preference values with the cascade without handing
-/// event scheduling to a second event bus.
+/// The page owns media-query evaluation and preference-change notification. The native CSS cascade
+/// reads the same immutable <see cref="PageMediaEnvironment"/> for viewport, media type and preferences.
 /// </para>
 /// <para>
 /// The grammar handled is a comma-separated list of queries, each an optional <c>not</c> or <c>only</c>, an
