@@ -64,7 +64,7 @@ internal static class DomDocumentElements
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/dom.html#the-body-element — the first <c>body</c> or
-    /// <c>frameset</c> child of <see cref="Html"/>, and <see langword="null"/> when there is no html element.
+    /// <c>frameset</c> child of <see cref="Html(Document)"/>, and <see langword="null"/> when there is no html element.
     /// </summary>
     /// <remarks>
     /// Past the gate the search is AngleSharp's, because that half already matches the standard: it takes the
