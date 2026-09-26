@@ -43,8 +43,8 @@ internal readonly struct RangeMutationScope : IDisposable
         var first = Finish(_first);
         var second = _second is null ? null : Finish(_second);
         HashSet<Document>? signals = null;
-        if (first is not null) foreach (var range in first) range.CollectChanges(ref signals, defer);
-        if (second is not null) foreach (var range in second) range.CollectChanges(ref signals, defer);
+        if (first is not null) foreach (var range in first) range.CollectChanges(ref signals, defer ? _first : null);
+        if (second is not null) foreach (var range in second) range.CollectChanges(ref signals, defer ? _first : null);
         if (!defer) DomRange.ScheduleChanges(signals);
     }
     private static HashSet<DomRange>? Finish(Document document)
@@ -107,7 +107,7 @@ public sealed partial class DomRange
         CollectChanges(ref signals);
         ScheduleChanges(signals);
     }
-    internal void CollectChanges(ref HashSet<Document>? signals, bool deferScheduling = false)
+    internal void CollectChanges(ref HashSet<Document>? signals, Document? deferredCarrier = null)
     {
         if (!_changed || _changeDepth != 0) return;
         var document = LiveTraversalTracking.DocumentOf(Start.Container);
@@ -125,7 +125,7 @@ public sealed partial class DomRange
             subscription.MarkPending();
             if (subscription.Document.PendingRangeChanges is not null)
             {
-                if (deferScheduling) subscription.Document.MarkDeferredRangeSignal();
+                if (deferredCarrier is not null) subscription.Document.MarkDeferredRangeSignal(deferredCarrier);
                 else (signals ??= []).Add(subscription.Document);
             }
         }
@@ -137,7 +137,7 @@ public sealed partial class DomRange
         System.Runtime.ExceptionServices.ExceptionDispatchInfo? failure = null;
         foreach (var target in signals)
         {
-            try { target.PendingRangeChanges?.Invoke(); }
+            try { target.ScheduleRangeChanges(); }
             catch (Exception exception) { failure ??= System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(exception); }
         }
         failure?.Throw();
