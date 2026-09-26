@@ -511,7 +511,7 @@ internal sealed class FlatLayout
                 if (FlexRow.IsHorizontal(parent, cascade))
                 {
                     var children = Children(parent).Where(HasBox).ToArray();
-                    var widths = FlexRow.Widths(children, width, cascade);
+                    var widths = FlexRow.Widths(children, width, cascade, Step, token);
                     for (var i = 0; i < children.Length; i++)
                     {
                         Step();

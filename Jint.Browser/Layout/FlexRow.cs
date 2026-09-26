@@ -45,8 +45,9 @@ internal static class FlexRow
         return alignment is null or "" or "normal" ? "stretch" : alignment;
     }
 
-    internal static double[] Widths(IReadOnlyList<Element> children, double available, CssCascade.Traversal? cascade)
+    internal static double[] Widths(IReadOnlyList<Element> children, double available, CssCascade.Traversal? cascade, Action? step = null, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var widths = new double[children.Count];
         var growth = new double[children.Count];
         var shrinkage = new double[children.Count];
@@ -56,6 +57,8 @@ internal static class FlexRow
         var shrinkageTotal = 0d;
         for (var i = 0; i < children.Count; i++)
         {
+            step?.Invoke();
+            if ((i & 255) == 0) cancellationToken.ThrowIfCancellationRequested();
             var style = cascade?.LayoutOf(children[i]);
             var basis = style is null ? null : CssCascade.ValueOf(style, "flex-basis");
             var width = style is null ? null : CssCascade.ValueOf(style, "width");
@@ -72,6 +75,8 @@ internal static class FlexRow
         var free = available - basisTotal;
         for (var i = 0; i < widths.Length; i++)
         {
+            step?.Invoke();
+            if ((i & 255) == 0) cancellationToken.ThrowIfCancellationRequested();
             if (free > 0 && growthTotal > 0)
             {
                 widths[i] += free * growth[i] / Math.Max(1, growthTotal);

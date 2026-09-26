@@ -1,5 +1,4 @@
-using AngleSharp.Dom;
-using AngleSharp.Html.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Events;
 using Jint.Browser.Runtime;
 using Jint.WebApi.Files;
@@ -52,8 +51,8 @@ internal static class FileSelection
     internal const string DefaultType = "application/octet-stream";
 
     /// <summary>Whether <paramref name="node"/> is an <c>input</c> element in the File Upload state.</summary>
-    internal static bool IsFileInput(INode? node)
-        => node is IHtmlInputElement input && ActivationBehaviors.IsType(input, "file");
+    internal static bool IsFileInput(Node? node)
+        => node is Element { NamespaceUri: Namespaces.Html, LocalName: "input" } input && HtmlInputTypes.Parse(input.GetAttribute("type")) == HtmlInputType.File;
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/input.html#update-the-file-selection — replace the element's
@@ -77,13 +76,14 @@ internal static class FileSelection
     /// Puppeteer's <c>uploadFile</c> works around by not sending the command at all for an empty list.
     /// </para>
     /// </remarks>
-    internal static void Update(PageRuntime runtime, IHtmlInputElement input, IReadOnlyList<SelectedFile> files)
+    internal static void Update(PageRuntime runtime, Element input, IReadOnlyList<SelectedFile> files)
     {
         var realm = FileTransferRealm.Of(runtime.Engine);
         var list = realm.NewFileList();
 
         foreach (var file in Allowed(input, files))
         {
+            runtime.Engine.Constraints.Check();
             list.Add(ToFile(runtime.Engine, file));
         }
 
@@ -106,8 +106,8 @@ internal static class FileSelection
     /// rather than the call refused: Blink's <c>FileInputType::SetFilesFromPaths</c> keeps the first path
     /// the same way, and Playwright refuses the call in its own client before one is ever sent.
     /// </remarks>
-    internal static IReadOnlyList<T> Allowed<T>(IHtmlInputElement input, IReadOnlyList<T> files)
-        => input.IsMultiple || files.Count <= 1 ? files : [files[0]];
+    internal static IReadOnlyList<T> Allowed<T>(Element input, IReadOnlyList<T> files)
+        => input.HasAttribute("multiple") || files.Count <= 1 ? files : [files[0]];
 
     /// <summary>Reads one host file into a selection, in the shape the File API gives it.</summary>
     /// <param name="path">A path on the machine the browser is running on.</param>
@@ -118,7 +118,7 @@ internal static class FileSelection
     /// over memory the engine owns — there is no lazily opened host handle behind it, and there must not be
     /// one, because the page may read it long after the file has changed or gone. The type comes from the
     /// extension, which is the only source a headless browser has; the timestamp is the file system's,
-    /// clamped at the epoch the way <see cref="AngleSharpFileAdapter"/> clamps the other end.
+    /// clamped at the epoch the way the File API clamps the other end.
     /// </remarks>
     internal static SelectedFile Read(string path)
     {
