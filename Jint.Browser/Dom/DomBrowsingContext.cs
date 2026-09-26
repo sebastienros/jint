@@ -54,6 +54,7 @@ internal sealed class DomBrowsingContext : IDisposable
 
     public void Dispose()
     {
+        if (Active is { } document) document.PendingRangeChanges = null;
         Active = null;
         if (FrameElement is not null)
         {

@@ -4603,23 +4603,25 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLScriptElement.async", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLScriptElement.async");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsAsync);
+                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.GetHtmlState()!.Script!.ForceAsync || self.Target.GetAttributeNode("async") is not null);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLScriptElement.async", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLScriptElement.async");
-                    self.Target.IsAsync = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    self.Target.GetHtmlState()!.Script!.ForceAsync = false;
+                    if (global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false)) self.Target.SetAttribute("async", ""); else self.Target.RemoveAttribute("async");
+                    return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("charset",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLScriptElement.charset", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLScriptElement.charset");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.CharacterSet);
+                    return global::Jint.Browser.Dom.DomReflected.HTMLScriptElementCharset.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLScriptElement.charset", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLScriptElement.charset");
-                    self.Target.CharacterSet = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLScriptElement.charset"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomReflected.HTMLScriptElementCharset.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("crossOrigin",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLScriptElement.crossOrigin", static (thisObj, args) =>
@@ -4636,12 +4638,12 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLScriptElement.defer", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLScriptElement.defer");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsDeferred);
+                    return global::Jint.Browser.Dom.DomReflected.HTMLScriptElementDefer.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLScriptElement.defer", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLScriptElement.defer");
-                    self.Target.IsDeferred = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomReflected.HTMLScriptElementDefer.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("event",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLScriptElement.event", static (thisObj, args) =>
@@ -4669,12 +4671,12 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLScriptElement.integrity", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLScriptElement.integrity");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Integrity);
+                    return global::Jint.Browser.Dom.DomReflected.HTMLScriptElementIntegrity.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLScriptElement.integrity", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLScriptElement.integrity");
-                    self.Target.Integrity = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLScriptElement.integrity"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomReflected.HTMLScriptElementIntegrity.Set(self.Realm, self.Target, args);
                 }))
             .Accessor("noModule",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLScriptElement.noModule", static (thisObj, args) =>
@@ -4702,23 +4704,23 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLScriptElement.text", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLScriptElement.text");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Text);
+                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Dom.DomNodeMembers.TextContent((global::Jint.Browser.Dom.DomNodeObject) thisObj) ?? "");
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLScriptElement.text", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLScriptElement.text");
-                    self.Target.Text = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLScriptElement.text"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomNodeMembers.SetTextContent((global::Jint.Browser.Dom.DomNodeObject) thisObj, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLScriptElement.text"));
                 }))
             .Accessor("type",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLScriptElement.type", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLScriptElement.type");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Type);
+                    return global::Jint.Browser.Dom.DomReflected.HTMLScriptElementType.Get(self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("HTMLScriptElement.type", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Element>(thisObj, "HTMLScriptElement.type");
-                    self.Target.Type = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLScriptElement.type"); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomReflected.HTMLScriptElementType.Set(self.Realm, self.Target, args);
                 }))
             .Build();
 

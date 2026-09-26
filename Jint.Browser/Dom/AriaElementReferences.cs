@@ -1,5 +1,5 @@
 using System.Runtime.CompilerServices;
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 
 namespace Jint.Browser.Dom;
 
@@ -23,7 +23,7 @@ namespace Jint.Browser.Dom;
 /// </para>
 /// <para>
 /// <b>What lives here is exactly what is engine-free</b>: the explicitly set references, which are
-/// <see cref="WeakReference{T}"/>s to AngleSharp elements and nothing else. The frozen array a getter last
+/// <see cref="WeakReference{T}"/>s to native elements and nothing else. The frozen array a getter last
 /// answered stays on <see cref="DomRealm"/>, because an object belongs to the engine that made it.
 /// </para>
 /// <para>
@@ -35,7 +35,7 @@ namespace Jint.Browser.Dom;
 /// still see <c>x</c>. So the door every consumer comes through is <c>Explicit</c>, never the field.
 /// </para>
 /// <para>
-/// The table is keyed on the AngleSharp element because this assembly cannot add a field to one — the
+/// The table is keyed on the native element because this assembly cannot add a field to one — the
 /// rationale <c>Collections/DomTokenListMembers</c> states, and the arrangement six other places in this
 /// package use, twice inside <c>Accessibility/</c> itself.
 /// </para>
@@ -59,7 +59,7 @@ internal static class AriaElementReferences
         ("ariaOwnsElements", "aria-owns", false),
     ];
 
-    private static readonly ConditionalWeakTable<IElement, Slots> _slots = new();
+    private static readonly ConditionalWeakTable<Element, Slots> _slots = new();
 
     /// <summary>The index of <paramref name="attribute"/> in <see cref="Reflected"/>, or -1.</summary>
     /// <remarks>
@@ -89,7 +89,7 @@ internal static class AriaElementReferences
     /// This is the accessibility tree's whole door onto element reflection. It never allocates for an element
     /// that has no ARIA relationship, and it takes no engine, no realm and no document.
     /// </remarks>
-    internal static IElement[]? Explicit(IElement element, string attribute)
+    internal static Element[]? Explicit(Element element, string attribute)
     {
         var index = IndexOf(attribute);
         if (index < 0 || !_slots.TryGetValue(element, out var slots))
@@ -101,7 +101,7 @@ internal static class AriaElementReferences
     }
 
     /// <summary>The same, for a caller that already holds the element's slots and the member's index.</summary>
-    internal static IElement[]? Explicit(IElement element, Slots slots, int index, string attribute)
+    internal static Element[]? Explicit(Element element, Slots slots, int index, string attribute)
     {
         var references = Reconcile(element, slots, index, attribute);
         if (references is null)
@@ -109,7 +109,7 @@ internal static class AriaElementReferences
             return null;
         }
 
-        var visible = new List<IElement>(references.Length);
+        var visible = new List<Element>(references.Length);
 
         foreach (var reference in references)
         {
@@ -123,11 +123,11 @@ internal static class AriaElementReferences
     }
 
     /// <summary>Records what an IDL setter was given, or clears the member when it was given null.</summary>
-    internal static void Set(IElement element, int index, WeakReference<IElement>[]? references)
+    internal static void Set(Element element, int index, WeakReference<Element>[]? references)
         => _slots.GetOrCreateValue(element).Explicit[index] = references;
 
     /// <summary>The element's slots, created on first use.</summary>
-    internal static Slots SlotsFor(IElement element) => _slots.GetOrCreateValue(element);
+    internal static Slots SlotsFor(Element element) => _slots.GetOrCreateValue(element);
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/common-dom-interfaces.html#reflecting-content-attributes-in-idl-attributes
@@ -143,7 +143,7 @@ internal static class AriaElementReferences
     /// reference where a browser drops it; both answer no elements from the ids, and <c>Dom/AGENTS.md</c>
     /// records it.
     /// </remarks>
-    private static WeakReference<IElement>[]? Reconcile(IElement element, Slots slots, int index, string attribute)
+    private static WeakReference<Element>[]? Reconcile(Element element, Slots slots, int index, string attribute)
     {
         var value = element.GetAttribute(attribute);
 
@@ -170,7 +170,7 @@ internal static class AriaElementReferences
     /// subtrees are two roots and so cannot see each other, and one detached subtree is a root of its own, so
     /// a relationship inside it keeps working while it is out of the document.
     /// </remarks>
-    private static bool IsVisibleFrom(IElement element, IElement candidate)
+    private static bool IsVisibleFrom(Element element, Element candidate)
     {
         var target = DomNodeMembers.Root(candidate);
         var root = DomNodeMembers.Root(element);
@@ -182,7 +182,7 @@ internal static class AriaElementReferences
                 return true;
             }
 
-            if (root is IShadowRoot { Host: { } host })
+            if (root is ShadowRoot { Host: { } host })
             {
                 root = DomNodeMembers.Root(host);
                 continue;
@@ -200,6 +200,6 @@ internal static class AriaElementReferences
         /// or when the attribute change steps have dropped it — which is not the same as an empty array,
         /// because an empty array is a relationship to nothing and null means the content attribute decides.
         /// </summary>
-        internal readonly WeakReference<IElement>[]?[] Explicit = new WeakReference<IElement>[]?[Reflected.Length];
+        internal readonly WeakReference<Element>[]?[] Explicit = new WeakReference<Element>[]?[Reflected.Length];
     }
 }

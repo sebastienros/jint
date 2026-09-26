@@ -551,9 +551,17 @@ internal static class DomReflected
     internal static readonly ReflectedAttribute HTMLQuoteElementCite =
         ReflectedAttribute.Url("HTMLQuoteElement.cite", "cite");
 
+    /// <summary><c>HTMLScriptElement.charset</c> reflects <c>charset</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLScriptElementCharset =
+        ReflectedAttribute.Text("HTMLScriptElement.charset", "charset");
+
     /// <summary><c>HTMLScriptElement.crossOrigin</c> reflects <c>crossorigin</c> as an enum.</summary>
     internal static readonly ReflectedAttribute HTMLScriptElementCrossOrigin =
         ReflectedAttribute.Enumerated("HTMLScriptElement.crossOrigin", "crossorigin", ["anonymous", "use-credentials"], missing: null, invalid: "anonymous");
+
+    /// <summary><c>HTMLScriptElement.defer</c> reflects <c>defer</c> as a boolean.</summary>
+    internal static readonly ReflectedAttribute HTMLScriptElementDefer =
+        ReflectedAttribute.Boolean("HTMLScriptElement.defer", "defer");
 
     /// <summary><c>HTMLScriptElement.event</c> reflects <c>event</c> as a string.</summary>
     internal static readonly ReflectedAttribute HTMLScriptElementEvent =
@@ -563,6 +571,10 @@ internal static class DomReflected
     internal static readonly ReflectedAttribute HTMLScriptElementHtmlFor =
         ReflectedAttribute.Text("HTMLScriptElement.htmlFor", "for");
 
+    /// <summary><c>HTMLScriptElement.integrity</c> reflects <c>integrity</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLScriptElementIntegrity =
+        ReflectedAttribute.Text("HTMLScriptElement.integrity", "integrity");
+
     /// <summary><c>HTMLScriptElement.noModule</c> reflects <c>nomodule</c> as a boolean.</summary>
     internal static readonly ReflectedAttribute HTMLScriptElementNoModule =
         ReflectedAttribute.Boolean("HTMLScriptElement.noModule", "nomodule");
@@ -570,6 +582,10 @@ internal static class DomReflected
     /// <summary><c>HTMLScriptElement.src</c> reflects <c>src</c> as an url.</summary>
     internal static readonly ReflectedAttribute HTMLScriptElementSrc =
         ReflectedAttribute.Url("HTMLScriptElement.src", "src");
+
+    /// <summary><c>HTMLScriptElement.type</c> reflects <c>type</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLScriptElementType =
+        ReflectedAttribute.Text("HTMLScriptElement.type", "type");
 
     /// <summary><c>HTMLSelectElement.autocomplete</c> reflects <c>autocomplete</c> as a string.</summary>
     internal static readonly ReflectedAttribute HTMLSelectElementAutocomplete =

@@ -1,5 +1,6 @@
 using Jint.HtmlParser;
 using Jint.HtmlParser.Html;
+using Jint.HtmlParser.Serialization;
 using Jint.Browser.Runtime;
 using Jint.Native;
 using Jint.Native.Object;
@@ -88,6 +89,7 @@ internal sealed class JsDomParser : ObjectInstance
         var cancellationToken = _runtime.Cancellation?.Token ?? CancellationToken.None;
         while (true)
         {
+            _runtime.Engine.Constraints.Check();
             var step = session.Drive(4096, cancellationToken);
             if (step.Kind == HtmlParseStepKind.Complete)
             {
@@ -181,7 +183,7 @@ internal sealed class JsXmlSerializer : ObjectInstance
     {
         var node = DomBindings.NodeArgument(arguments, 0, "XMLSerializer.serializeToString");
         return JsString.Create(node.Attribute is { } attribute
-            ? XmlMarkupSerializer.Serialize(attribute)
-            : XmlMarkupSerializer.Serialize(node.Node!));
+            ? XmlMarkupSerializer.Serialize(attribute, checkpoint: _ => node.DomRealm.Engine.Constraints.Check(), cancellationToken: node.DomRealm.CancellationToken)
+            : XmlMarkupSerializer.Serialize(node.Node!, checkpoint: _ => node.DomRealm.Engine.Constraints.Check(), cancellationToken: node.DomRealm.CancellationToken));
     }
 }

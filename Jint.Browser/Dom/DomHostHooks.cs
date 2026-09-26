@@ -76,11 +76,11 @@ internal class DomHostHooks
         }
     }
 
-    internal virtual JsValue GetInnerHtml(DomRealm realm, INode node)
-        => JsString.Create(DomHtmlMarkupFormatter.InnerHtml(node));
+    internal virtual JsValue GetInnerHtml(DomRealm realm, Jint.HtmlParser.Node node)
+        => JsString.Create(DomHtmlMarkupFormatter.InnerHtml(realm, node));
 
-    internal virtual JsValue GetOuterHtml(DomRealm realm, IElement element)
-        => JsString.Create(element.ToHtml(DomHtmlMarkupFormatter.BrowserInstance));
+    internal virtual JsValue GetOuterHtml(DomRealm realm, Jint.HtmlParser.Element element)
+        => JsString.Create(DomHtmlMarkupFormatter.OuterHtml(realm, element));
 
     /// <summary>https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-innerhtml</summary>
     /// <remarks>

@@ -1,5 +1,5 @@
 using System.Runtime.CompilerServices;
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Dom;
 
 namespace Jint.Browser.Events;
@@ -27,22 +27,14 @@ namespace Jint.Browser.Events;
 /// <c>document.addEventListener("selectionchange", …)</c> — the way every editor library writes it, React's
 /// <c>onSelect</c> included — hear a caret moving inside an <c>&lt;input&gt;</c>.
 /// </para>
-/// <para>
-/// <b>What is deliberately not covered.</b> A script that takes the range out of <c>getSelection()</c> and
-/// mutates <i>that</i> object moves the selection's boundary points without going through any member of
-/// <c>Selection</c>, and the specification says a change made that way schedules the event too; there is no
-/// hook on AngleSharp's <c>IRange</c> to make it do so, and putting one there would be re-implementing a
-/// DOM this package does not own. Every path a page normally takes — the <c>Selection</c> members, the
-/// editor's own caret moves, and <c>contenteditable</c> — goes through this file.
-/// </para>
 /// </remarks>
 internal static class SelectionChange
 {
     /// <summary>
     /// https://w3c.github.io/selection-api/#has-scheduled-selectionchange-event — one flag per document and
-    /// per text control, keyed on the AngleSharp node exactly as the wrapper cache is.
+    /// per text control, keyed on the native node exactly as the wrapper cache is.
     /// </summary>
-    private static readonly ConditionalWeakTable<INode, Pending> _pending = new();
+    private static readonly ConditionalWeakTable<Node, Pending> _pending = new();
 
     /// <summary>
     /// https://w3c.github.io/selection-api/#scheduling-a-selectionchange-event, for a target whose selection
@@ -50,7 +42,7 @@ internal static class SelectionChange
     /// </summary>
     /// <param name="dom">The realm the event is created in.</param>
     /// <param name="target">The document, or the text control whose own selection moved.</param>
-    internal static void Schedule(DomRealm dom, INode target)
+    internal static void Schedule(DomRealm dom, Node target)
     {
         var pending = _pending.GetOrCreateValue(target);
 
@@ -64,7 +56,7 @@ internal static class SelectionChange
         // Wrapped now rather than in the task, so the event is fired at the wrapper a page has already added
         // its listener to and not at a second one minted after the fact.
         var wrapper = dom.WrapNode(target);
-        var bubbles = target is IElement;
+        var bubbles = target is Element;
 
         dom.Engine.Tasks.Post(() =>
         {

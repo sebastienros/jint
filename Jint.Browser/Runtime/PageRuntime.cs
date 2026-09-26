@@ -238,6 +238,7 @@ internal sealed class PageRuntime
         set
         {
             Layout.Invalidate();
+            if (!ReferenceEquals(_document, value)) _views?.DisconnectSelection();
             _document = value;
 
             if (value is null)
