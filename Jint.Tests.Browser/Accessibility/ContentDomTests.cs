@@ -41,6 +41,20 @@ public sealed class ContentDomTests
         ContentDom.TextContent(ContentDom.ElementById(document, "t")!).Should().Be("parsed");
     }
 
+    [TestCase("")]
+    [TestCase("urn:foreign")]
+    public void ForeignInputsDoNotUseHtmlLabelOrFocusRules(string namespaceUri)
+    {
+        var document = MarkupParser.ParseXml($"<root xmlns='{namespaceUri}'><input id='t' type='submit' value='Wrong label' /></root>");
+        var input = ContentDom.ElementById(document, "t")!;
+        ContentDom.HtmlName(input).Should().BeNull();
+
+        var names = new AccessibleName(new ElementVisibility(useComputedStyle: false));
+        names.Compute(input, "button").Should().BeEmpty();
+        var node = AccessibilityTree.Build(input, AccessibilityOptions.Full with { UseComputedStyle = false })!;
+        node.Properties.Should().NotContain(property => property.Name == AxPropertyName.Focusable);
+    }
+
     [TestCase("<progress id=t value=12 max=10>", 0, 10, "10")]
     [TestCase("<progress id=t value=-1 max=0>", 0, 1, "0")]
     [TestCase("<meter id=t min=2 max=1 value=0>", 2, 2, "2")]

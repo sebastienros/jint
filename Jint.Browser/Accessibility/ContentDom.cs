@@ -46,6 +46,24 @@ internal static partial class ContentDom
     internal static Element? First(Node root, string localName)
         => Descendants(root).FirstOrDefault(element => element.LocalName == localName);
 
+    // HTML §3.1.7: an embedded SVG title is not the HTML document's title.
+    // https://html.spec.whatwg.org/multipage/dom.html#document.title
+    internal static string DocumentTitle(Document document)
+    {
+        var title = document.DocumentElement is { NamespaceUri: Namespaces.Svg, LocalName: "svg" } svg
+            ? Children(svg).FirstOrDefault(element => element is { NamespaceUri: Namespaces.Svg, LocalName: "title" })
+            : Descendants(document).FirstOrDefault(element => HtmlName(element) == "title");
+        if (title is null) return string.Empty;
+
+        var text = new StringBuilder();
+        foreach (var child in title.ChildNodes)
+        {
+            if (child is Text data) text.Append(data.Data);
+            else if (child is CDataSection cdata) text.Append(cdata.Data);
+        }
+        return text.ToString();
+    }
+
     // DOM §4.4: descendant Text data, including CDATASection, in tree order.
     internal static string TextContent(Node root)
     {
@@ -69,6 +87,8 @@ internal static partial class ContentDom
 
     internal static IEnumerable<string> ClassNames(Element element)
         => (element.GetAttribute("class") ?? string.Empty).Split([' ', '\t', '\n', '\r', '\f'], StringSplitOptions.RemoveEmptyEntries);
+
+    internal static string? HtmlName(Element element) => element.NamespaceUri == Namespaces.Html ? element.LocalName : null;
 
     internal static string InputType(Element element) => HtmlInputTypes.Info(HtmlInputTypes.Get(element)).Keyword;
 }

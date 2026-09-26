@@ -19,6 +19,15 @@ public sealed class AccessibilityTreeTests
     }
 
     [Test]
+    public void AnEmbeddedSvgTitleDoesNotNameTheWebArea()
+    {
+        var document = PageFixture.Parse("<svg><title>Icon</title></svg>");
+        var root = AccessibilityTree.Build(document, AccessibilityOptions.Default with { UseComputedStyle = false });
+
+        root.Name.Should().BeNull();
+    }
+
+    [Test]
     public void GenericWrappersArePrunedAndReplacedByTheirChildren()
     {
         var document = PageFixture.Parse("<div><div><span><button>Save</button></span></div></div>");
