@@ -13,6 +13,7 @@ public sealed class Element : Node
     private HtmlElementState? _htmlState;
     internal HtmlFormAssociationState? FormAssociationState;
     internal SlotElementState? SlotState;
+    internal HtmlTemplatePatchState? TemplatePatchState;
     internal bool WasInserted { get; set; }
 
     internal HtmlElementState? GetHtmlState()
@@ -20,6 +21,7 @@ public sealed class Element : Node
     internal HtmlInputCheckedState? ExistingCheckedState => _htmlState?.ExistingCheckedState;
     internal bool HasHtmlState => _htmlState is not null;
     internal HtmlTextAreaState? ExistingTextAreaState => _htmlState?.ExistingTextArea;
+    internal HtmlInputValueState? ExistingInputValueState => _htmlState?.ExistingInputValue;
     internal ShadowRoot? AttachedShadowRoot { get; private set; }
     internal ShadowRoot? OpenShadowRoot => AttachedShadowRoot is { Mode: ShadowRootMode.Open } root ? root : null;
     internal CustomElementRegistryIdentity? CustomElementRegistry { get; private set; }
@@ -179,7 +181,7 @@ public sealed class Element : Node
         }
         else
         {
-            HtmlInputStateChanges.BeforeAttributeChanged(this, attribute.NamespaceUri, attribute.LocalName);
+            HtmlInputStateChanges.BeforeAttributeChanged(this, attribute.NamespaceUri, attribute.LocalName, attribute.Value);
             var oldValue = previous.Value;
             var matches = MutationTracking.Match(this, MutationRecordKind.Attributes,
                 attribute.LocalName, attribute.NamespaceUri);
@@ -229,7 +231,7 @@ public sealed class Element : Node
             throw DomException.NotFound();
         }
 
-        HtmlInputStateChanges.BeforeAttributeChanged(this, attribute.NamespaceUri, attribute.LocalName);
+        HtmlInputStateChanges.BeforeAttributeChanged(this, attribute.NamespaceUri, attribute.LocalName, null);
         _attributes!.Remove(attribute);
         attribute.OwnerElement = null;
         OwnerDocument!.MarkMutation();
@@ -390,7 +392,7 @@ public sealed class Element : Node
 
     private void AppendNewAttribute(Attr attribute)
     {
-        HtmlInputStateChanges.BeforeAttributeChanged(this, attribute.NamespaceUri, attribute.LocalName);
+        HtmlInputStateChanges.BeforeAttributeChanged(this, attribute.NamespaceUri, attribute.LocalName, attribute.Value);
         _attributes ??= [];
         _attributes.Add(attribute);
         attribute.OwnerElement = this;

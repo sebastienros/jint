@@ -8,6 +8,25 @@ state, input numeric algorithms, CSS layout properties, and contextual HTML frag
 from 932 to 718; this is progress, not a passing build. Exact chat ownership and completion gates are
 in [the resume checkpoint](html-parser-resume.md). No new performance claim or PR.
 
+The user's demand-driven architecture direction is recorded in
+[the parsing/behavior boundary](html-parser-demand-boundary.md). Raw HTML parsing retains strings;
+input value sidecars and derived select models are becoming lazy. Numeric helpers are demand-only,
+and cascade/computed-style work belongs in Browser. Required historical state is preserved.
+
+The reviewed lazy input correction is integrated as `825eba36e` (source `9cfad83d8`): no value
+sidecar or sanitizer during fresh parsing/cold cloning, raw access remains cold, and semantic access
+initializes once without losing type/email mutation history. Fresh common Release gate:
+**6,060/6,060**, zero failures/skips, net8/net10;
+`/private/tmp/jint-resumed-lazy-input-common.log`. Select derived-view laziness remains in progress.
+
+Native CSS sheets/media (`c20dc11d3`, `8ab1b981a`, `1093d953a`), layout property grammars
+(`e86f1cb09`, `ef7a323a1`), input value state (`2482f0fa2`) and numeric/temporal helpers (`d196ec650`)
+pass **5,898/5,898** combined fresh Release non-corpus cases, net8/net10;
+`/private/tmp/jint-resumed-temporal-common.log`. Shared atomic edit accounting `ccdc517e2` and combined
+select/input clone hooks `7d5acec6a` then pass **6,026/6,026**, zero failures/skips across both TFMs
+(`/private/tmp/jint-resumed-select-common.log`). These are
+internal building blocks; production Browser cutover and paired benchmarks remain incomplete.
+
 Common `6e3273234` integrates reviewed number parsing/shortest formatting (`c9885646d`) and contextual
 HTML fragments with bounded form-pointer ownership (`df35c6263`, `6e3273234`). Fresh Release tests:
 **5,224/5,224** non-corpus cases across net8/net10, zero failures/skips;

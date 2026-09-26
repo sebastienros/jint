@@ -159,18 +159,20 @@ public class SelectWorkTests
     }
 
     [Test]
-    public void CombinedClonePassesCancellationIntoColdInputValueConstruction()
+    public void CombinedClonePassesCancellationIntoColdTargetForMaterializedInputSource()
     {
         var document = Document.CreateHtml(); var attributes = document.CreateElement("div");
         attributes.InitializeParsedAttributes(Enumerable.Range(0, 1024).Select(i => new ParserAttribute(null, "data-" + i, null, "x")).ToArray(), default);
         var input = document.CreateElement("input");
-        input.CopyAttributesFrom(attributes, document); // A trusted cold source, no value-state read yet.
-        input.GetHtmlState()!.ExistingInputValue.Should().BeNull();
+        input.CopyAttributesFrom(attributes, document);
+        var source = input.GetHtmlState()!.GetInputValueState(default)!;
+        source.SetValue("stored", default);
         using var cts = new CancellationTokenSource();
         var probe = new HtmlSelectWorkProbe { Checkpoint = units => { if (units == 1025) cts.Cancel(); } }; document.SelectWorkProbe = probe;
         var stamp = document.MutationStamp;
         Assert.Throws<OperationCanceledException>(() => NodeCloner.Clone(input, document, true, cancellationToken: cts.Token));
-        input.GetHtmlState()!.ExistingInputValue.Should().BeNull();
+        input.GetHtmlState()!.ExistingInputValue.Should().BeSameAs(source);
+        source.GetValue(default).Should().Be("stored");
         probe.Units.Should().Be(1025); document.MutationStamp.Should().Be(stamp);
     }
 
