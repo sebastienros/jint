@@ -100,7 +100,7 @@ internal static class NodeCloner
                 var element = new Element(document, original.NamespaceUri, original.LocalName, original.Prefix,
                     original.IsValue);
                 element.CopyAttributesFrom(original, document, cancellationToken);
-                HtmlCheckednessAlgorithms.CopyCheckedness(original, element);
+                HtmlCheckednessAlgorithms.CopyCheckedness(original, element, cancellationToken);
                 if (original is { NamespaceUri: Namespaces.Html, LocalName: "option" })
                     element.GetHtmlState()!.GetOptionState(cancellationToken)!.CopyFrom(original.GetHtmlState()!.GetOptionState(cancellationToken)!);
                 if (original is { NamespaceUri: Namespaces.Html, LocalName: "select" })
@@ -116,7 +116,7 @@ internal static class NodeCloner
                 }
                 if (original is { NamespaceUri: Namespaces.Html, LocalName: "textarea" })
                 {
-                    element.GetHtmlState()!.TextArea!.CopyFrom(original.GetHtmlState()!.TextArea!);
+                    element.GetHtmlState()!.TextArea!.CopyFrom(original.GetHtmlState()!.TextArea!, cancellationToken);
                 }
                 if (original is { NamespaceUri: Namespaces.Html, LocalName: "script" })
                 {

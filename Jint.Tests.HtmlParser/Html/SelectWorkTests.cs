@@ -174,4 +174,37 @@ public class SelectWorkTests
         probe.Units.Should().Be(1025); document.MutationStamp.Should().Be(stamp);
     }
 
+    [Test]
+    public void ClonePollsCancellationDuringColdSourceCheckednessMetadataScan()
+    {
+        var document = Document.CreateHtml(); var attributes = document.CreateElement("div");
+        attributes.InitializeParsedAttributes(Enumerable.Range(0, 1024).Select(i => new ParserAttribute(null, "data-" + i, null, "x")).ToArray(), default);
+        var input = document.CreateElement("input"); input.CopyAttributesFrom(attributes, document);
+        input.ExistingCheckedState.Should().BeNull();
+        using var cts = new CancellationTokenSource();
+        var probe = new HtmlCheckedWorkProbe { Checkpoint = units => { if (units == 256) cts.Cancel(); } }; document.CheckedWorkProbe = probe;
+        var stamp = document.MutationStamp;
+        Assert.Throws<OperationCanceledException>(() => NodeCloner.Clone(input, document, true, cancellationToken: cts.Token));
+        input.ExistingCheckedState.Should().BeNull(); input.GetHtmlState()!.ExistingInputValue.Should().BeNull();
+        probe.Units.Should().Be(256); document.MutationStamp.Should().Be(stamp);
+    }
+    [Test]
+    public void RawTextareaCloneCopyCancelsColdChildScanBeforeAllocationOrFlagPublication()
+    {
+        var document = Document.CreateHtml(); var source = document.CreateElement("textarea");
+        source.AppendParsedChild(document.CreateTextNode(new string('x', 1000000)));
+        var destination = document.CreateElement("textarea");
+        var sourceState = source.GetHtmlState()!.TextArea!; var target = destination.GetHtmlState()!.TextArea!;
+        target.SetValue("prior", default); target.SetSelectionRange(1, 2, "forward", default); target.SetUserValidity(true);
+        var stamp = document.MutationStamp;
+        using var cts = new CancellationTokenSource();
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        Assert.Throws<OperationCanceledException>(() => target.CopyFrom(sourceState, _ => cts.Cancel(), cts.Token));
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        allocated.Should().BeLessThan(65536); // Cancellation during the count pass precedes the large copy allocation.
+        target.GetValue(default).Should().Be("prior"); target.DirtyValue.Should().BeTrue(); target.UserValidity.Should().BeTrue();
+        target.Selection.Should().Be(new HtmlTextSelection(1, 2, HtmlSelectionDirection.Forward));
+        sourceState.DirtyValue.Should().BeFalse(); document.MutationStamp.Should().Be(stamp);
+    }
+
 }
