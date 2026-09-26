@@ -87,6 +87,43 @@ internal sealed class DomLiveHtmlCollection : DomHtmlCollection<Element>
     internal override Element? GetItem(uint index)
         => TryGetElementAt(index, out var element) ? element : null;
 
+    internal override int GetLength(DomRealm realm)
+    {
+        var count = 0;
+        foreach (var unused in Read(realm)) count++;
+        realm.Engine.Constraints.Check();
+        return count;
+    }
+
+    internal override Element? GetItem(DomRealm realm, uint index)
+    {
+        Element? result = null;
+        foreach (var element in Read(realm))
+        {
+            if (index-- != 0) continue;
+            result = element;
+            break;
+        }
+        realm.Engine.Constraints.Check();
+        return result;
+    }
+
+    internal override IEnumerable<Element> Read(DomRealm realm)
+    {
+        var work = new DomReadWork(realm.NativeReadCheckpoint, realm.CancellationToken);
+        work.Check();
+        if (_filter.MatchesNothing) yield break;
+        _filter.BeginRead();
+        var source = _root is { } root ? NodeTraversal.DescendantElements(root, work.Check, work.Token)
+            : _source is DomHtmlCollection<Element> collection ? collection.Read(realm) : _source!;
+        foreach (var element in source)
+        {
+            work.Step();
+            if (_filter.Matches(element, work)) yield return element;
+        }
+        work.Check();
+    }
+
     public int Count => Length;
 
     /// <summary>

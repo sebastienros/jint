@@ -317,6 +317,38 @@ internal class DomHostHooks
             => _quirks = string.Equals((root as Jint.HtmlParser.Document ?? root.OwnerDocument)?.Mode.ToString(), "Quirks", StringComparison.Ordinal);
 
         internal override bool Matches(Jint.HtmlParser.Element element) => HasEveryClass(element, classes, _quirks);
+
+        internal override bool Matches(Element element, DomReadWork work)
+        {
+            var declared = work.Attribute(element, "class");
+            if (string.IsNullOrEmpty(declared)) return false;
+            foreach (var expected in classes)
+            {
+                var matched = false;
+                var offset = 0;
+                while (offset < declared.Length)
+                {
+                    while (offset < declared.Length && IsAsciiWhitespace(declared[offset])) { work.Step(); offset++; }
+                    var start = offset;
+                    while (offset < declared.Length && !IsAsciiWhitespace(declared[offset])) { work.Step(); offset++; }
+                    if (offset - start != expected.Length) continue;
+                    matched = true;
+                    for (var i = 0; i < expected.Length; i++)
+                    {
+                        work.Step();
+                        var left = declared[start + i];
+                        var right = expected[i];
+                        if (_quirks) { left = AsciiLowercase(left); right = AsciiLowercase(right); }
+                        if (left == right) continue;
+                        matched = false;
+                        break;
+                    }
+                    if (matched) break;
+                }
+                if (!matched) return false;
+            }
+            return true;
+        }
     }
 
     /// <summary>https://dom.spec.whatwg.org/#concept-getelementsbytagname</summary>
@@ -349,6 +381,9 @@ internal class DomHostHooks
                 ? string.Equals(candidate, htmlName, StringComparison.Ordinal)
                 : string.Equals(candidate, qualifiedName, StringComparison.Ordinal);
         }
+        internal override bool Matches(Element element, DomReadWork work)
+            => qualifiedName == "*" || work.Equal(element.TagName,
+                htmlDocument && element.NamespaceUri == Namespaces.Html ? htmlName : qualifiedName);
     }
 
     /// <summary>https://dom.spec.whatwg.org/#concept-getelementsbynamespacename</summary>
@@ -378,6 +413,10 @@ internal class DomHostHooks
         internal override bool Matches(Jint.HtmlParser.Element element)
             => (namespaceUri == "*" || string.Equals(element.NamespaceUri, namespaceUri, StringComparison.Ordinal))
                && (localName == "*" || string.Equals(element.LocalName, localName, StringComparison.Ordinal));
+
+        internal override bool Matches(Element element, DomReadWork work)
+            => (namespaceUri == "*" || (namespaceUri is null ? element.NamespaceUri is null : work.Equal(element.NamespaceUri, namespaceUri)))
+                && (localName == "*" || work.Equal(element.LocalName, localName));
     }
 
     /// <summary>
