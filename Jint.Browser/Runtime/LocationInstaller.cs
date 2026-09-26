@@ -130,7 +130,7 @@ internal static class LocationInstaller
     /// exception and has <see cref="WriteHash"/> to itself; every other setter comes through here, and the
     /// navigator is what recognizes a fragment-only change and keeps the document.
     /// </remarks>
-    private static void Write(PageRuntime runtime, string value, Action<UrlRecord, string> setter)
+    internal static void Write(PageRuntime runtime, string value, Action<UrlRecord, string> setter)
     {
         var url = UrlParser.Parse(runtime.DocumentUrl);
         if (url is null)
@@ -169,7 +169,7 @@ internal static class LocationInstaller
     /// read as a reload: the document, its engine and everything a script had put on them went away.
     /// </para>
     /// </remarks>
-    private static void WriteHash(PageRuntime runtime, string value)
+    internal static void WriteHash(PageRuntime runtime, string value)
     {
         // Step 3: a copy of the URL, which parsing the page's own gives us for free.
         var url = UrlParser.Parse(runtime.DocumentUrl);

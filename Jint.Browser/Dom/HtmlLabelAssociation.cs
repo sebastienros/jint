@@ -8,17 +8,28 @@ internal static class HtmlLabelAssociation
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/forms.html#labeled-control — the control a label labels.
     /// </summary>
-    internal static Element? ControlFor(Element label)
+    internal static Element? ControlFor(Element label, Action<int>? checkpoint = null, CancellationToken token = default)
     {
-        if (label.GetAttributeNode("for") is not null)
+        var work = new DomReadWork(checkpoint, token);
+        work.Check();
+        if (work.Attribute(label, "for") is { } id)
         {
-            var id = label.GetAttribute("for") ?? string.Empty;
-            return id.Length > 0 && FirstElementWithId(RootOf(label), id) is Element html && IsLabelable(html)
-                ? html
-                : null;
+            if (id.Length == 0) return null;
+            var root = work.Root(label);
+            if (root is Element candidate && work.Equal(work.Attribute(candidate, "id"), id))
+                return IsLabelable(candidate) ? candidate : null;
+            foreach (var element in NodeTraversal.DescendantElements(root, work.Check, token))
+            {
+                if (work.Equal(work.Attribute(element, "id"), id))
+                    return IsLabelable(element) ? element : null;
+            }
+            return null;
         }
-
-        return FirstLabelableDescendant(label);
+        foreach (var element in NodeTraversal.DescendantElements(label, work.Check, token))
+        {
+            if (IsLabelable(element)) return element;
+        }
+        return null;
     }
 
     /// <summary>

@@ -3,6 +3,7 @@ using Jint.HtmlParser;
 using Jint.Browser.Runtime;
 using Jint.Native;
 using Jint.Runtime;
+using Jint.WebApi.Url;
 using Jint.WebApi.DomException;
 
 namespace Jint.Browser.Dom;
@@ -249,7 +250,9 @@ internal sealed class ReflectedAttribute
     internal JsValue Get(Element element)
     {
         var owner = element.OwnerDocument;
-        return Get(element, CurrentBaseUri(owner), owner is null ? null : DomDocumentState.Of(owner).Url);
+        return _kind == ReflectedKind.Url
+            ? Get(element, CurrentBaseUri(owner), owner is null ? null : DomDocumentState.Of(owner).Url)
+            : Get(element, null, null);
     }
 
     /// <summary>The IDL attribute's value inside a page runtime, resolved against its current document base.</summary>
@@ -264,9 +267,11 @@ internal sealed class ReflectedAttribute
     /// </remarks>
     internal JsValue Get(DomRealm realm, Element element)
     {
+        if (_kind != ReflectedKind.Url) return Get(element, null, null);
         var owner = element.OwnerDocument;
         var runtime = PageRuntime.Find(realm.Engine, owner);
-        return Get(element, runtime?.BaseUri ?? CurrentBaseUri(owner), runtime?.DocumentUrl ?? (owner is null ? null : DomDocumentState.Of(owner).Url));
+        var baseUri = owner is null ? null : DomDocumentState.BaseUri(owner, realm.Engine.Constraints.Check, realm.CancellationToken);
+        return Get(element, baseUri, runtime?.DocumentUrl ?? (owner is null ? null : DomDocumentState.Of(owner).Url));
     }
 
     /// <summary>
@@ -279,7 +284,9 @@ internal sealed class ReflectedAttribute
     /// content attribute, which is what passing no element to the shared getter says.
     /// </remarks>
     internal JsValue Get(Document document)
-        => Get(ElementIn(document), CurrentBaseUri(document), DomDocumentState.Of(document).Url);
+        => _kind == ReflectedKind.Url
+            ? Get(ElementIn(document), CurrentBaseUri(document), DomDocumentState.Of(document).Url)
+            : Get(ElementIn(document), null, null);
 
     /// <summary>The same member's setter, which does nothing when the target element is absent.</summary>
     internal JsValue Set(DomRealm realm, Document document, JsValue[] arguments)
@@ -364,6 +371,7 @@ internal sealed class ReflectedAttribute
                 return JsValue.Undefined;
 
             case ReflectedKind.Boolean:
+                var wasOpen = DomHostHooks.DetailsOpen(element);
                 // "The content attribute must be removed if the IDL attribute is set to false, and must be
                 // set to the empty string if the IDL attribute is set to true."
                 if (TypeConverter.ToBoolean(value))
@@ -375,6 +383,7 @@ internal sealed class ReflectedAttribute
                     element.RemoveAttribute(_attribute);
                 }
 
+                DomHostHooks.NotifyDetailsOpenChanged(realm, element, wasOpen);
                 return JsValue.Undefined;
 
             // A `DOMString?` setter — a nullable string, and a nullable enumeration, which is the same
@@ -393,8 +402,11 @@ internal sealed class ReflectedAttribute
             // On setting, a URL attribute takes the value as given; resolution is the getter's business.
             case ReflectedKind.Text:
             case ReflectedKind.Enumerated:
-            case ReflectedKind.Url:
                 element.SetAttribute(_attribute, TypeConverter.ToString(value));
+                return JsValue.Undefined;
+
+            case ReflectedKind.Url:
+                element.SetAttribute(_attribute, UrlValues.ToUsvString(value));
                 return JsValue.Undefined;
 
             case ReflectedKind.Double:

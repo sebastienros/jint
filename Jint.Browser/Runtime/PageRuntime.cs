@@ -257,6 +257,20 @@ internal sealed class PageRuntime
         }
     }
 
+    private ObjectInstance? _location;
+    internal ObjectInstance Location
+    {
+        get
+        {
+            if (_location is null)
+            {
+                _location = (ObjectInstance) Dom.Wrap(new DomLocation(this), DomInterfaces.Location);
+                LocationInstaller.Attach(this, _location);
+            }
+            return _location;
+        }
+    }
+
     /// <summary>The wrapper for <see cref="Document"/>, which is what <c>document</c> answers.</summary>
     internal DomNodeObject? DocumentWrapper { get; private set; }
 

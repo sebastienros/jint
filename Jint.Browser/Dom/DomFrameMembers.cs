@@ -1,5 +1,4 @@
-using AngleSharp.Dom;
-using AngleSharp.Html.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Runtime;
 using Jint.Native;
 
@@ -49,27 +48,27 @@ internal static class DomFrameMembers
     /// question here.
     /// </para>
     /// </remarks>
-    internal static JsValue ContentDocument(DomRealm realm, IHtmlInlineFrameElement frame)
+    internal static JsValue ContentDocument(DomRealm realm, Element frame)
     {
-        if (frame.ContentDocument is not { } nested)
+        if (DomBrowsingContext.OfFrame(frame)?.Active is not { } nested)
         {
             return JsValue.Null;
         }
 
-        var here = PageUrl.OriginOf(frame.Owner?.Url);
+        var here = PageUrl.OriginOf(frame.OwnerDocument is { } owner ? DomDocumentState.Of(owner).Url : null);
 
         if (string.Equals(here, PageUrl.OpaqueOrigin, StringComparison.Ordinal))
         {
             return JsValue.Null;
         }
 
-        if (string.Equals(nested.Url, "about:blank", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(DomDocumentState.Of(nested).Url, "about:blank", StringComparison.OrdinalIgnoreCase))
         {
             Attach(realm, frame, nested);
             return realm.WrapNodeValue(nested);
         }
 
-        if (!string.Equals(here, PageUrl.OriginOf(nested.Url), StringComparison.Ordinal))
+        if (!string.Equals(here, PageUrl.OriginOf(DomDocumentState.Of(nested).Url), StringComparison.Ordinal))
         {
             return JsValue.Null;
         }
@@ -95,7 +94,7 @@ internal static class DomFrameMembers
     /// </para>
     /// </remarks>
     /// <summary>Gives the frame's document its <c>defaultView</c>, whichever member reached it first.</summary>
-    private static void Attach(DomRealm realm, IHtmlInlineFrameElement frame, IDocument document)
+    private static void Attach(DomRealm realm, Element frame, Document document)
     {
         if (PageRuntime.Find(realm.Engine) is { } runtime)
         {
@@ -103,7 +102,7 @@ internal static class DomFrameMembers
         }
     }
 
-    internal static JsValue ContentWindow(DomRealm realm, IHtmlInlineFrameElement frame)
+    internal static JsValue ContentWindow(DomRealm realm, Element frame)
     {
         if (ContentDocument(realm, frame).IsNull() || PageRuntime.Find(realm.Engine) is not { } runtime)
         {

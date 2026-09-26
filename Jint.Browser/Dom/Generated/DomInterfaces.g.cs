@@ -405,7 +405,7 @@ internal static partial class DomInterfaces
     /// <summary>The <c>History</c> interface, projected from <c>AngleSharp.Browser.Dom.IHistory</c>.</summary>
     internal static readonly DomInterfaceDefinition History;
 
-    /// <summary>The <c>Location</c> interface, projected from <c>AngleSharp.Dom.ILocation</c>.</summary>
+    /// <summary>The <c>Location</c> interface, projected from <c>Jint.Browser.Dom.DomLocation</c>.</summary>
     internal static readonly DomInterfaceDefinition Location;
 
     /// <summary>The <c>MediaController</c> interface, projected from <c>AngleSharp.Media.Dom.IMediaController</c>.</summary>
@@ -1770,7 +1770,7 @@ internal static partial class DomInterfaces
 
         Location = Add(new DomInterfaceDefinition(
             "Location",
-            typeof(global::AngleSharp.Dom.ILocation),
+            typeof(global::Jint.Browser.Dom.DomLocation),
             BuildLocation,
             null,
             rootsAtEventTarget: false,

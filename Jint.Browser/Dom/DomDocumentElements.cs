@@ -40,6 +40,17 @@ internal static class DomDocumentElements
             : null;
     }
 
+    /// <summary>HTML §3.1: the first HTML head child of the html element.</summary>
+    internal static Element? Head(Document document)
+    {
+        if (Html(document) is not { } html) return null;
+        for (var child = html.FirstChild; child is not null; child = child.NextSibling)
+        {
+            if (child is Element { NamespaceUri: Namespaces.Html, LocalName: "head" } head) return head;
+        }
+        return null;
+    }
+
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/dom.html#the-body-element — the first <c>body</c> or
     /// <c>frameset</c> child of <see cref="Html"/>, and <see langword="null"/> when there is no html element.
