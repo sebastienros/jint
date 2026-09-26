@@ -59,4 +59,8 @@ internal readonly struct CssReferenceOccurrence
 
     internal CssReferenceOccurrence WithDynamicHeader() => new(Kind, Span, ParentIndex,
         Header, HasFallback, Fallback, StaticName, true, _earlySubstitutions, HasNestedFallback);
+
+    internal CssReferenceOccurrence WithEarlySubstitutions(CssSourceSpan[]? spans, bool inHeader) =>
+        new(Kind, Span, ParentIndex, Header, HasFallback, Fallback, StaticName,
+            HasDynamicHeader || inHeader, spans, HasNestedFallback);
 }

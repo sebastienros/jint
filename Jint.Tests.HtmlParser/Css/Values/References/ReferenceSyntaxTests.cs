@@ -25,6 +25,23 @@ public sealed class ReferenceSyntaxTests
     [TestCase("var(   ,red)", (int) CssReferenceAnalysisKind.InvalidSyntax)]
     [TestCase("var(,...var(--args))", (int) CssReferenceAnalysisKind.InvalidSyntax)]
     [TestCase("var(--x) !important", (int) CssReferenceAnalysisKind.InvalidSyntax)]
+    [TestCase("var(--x;red)", (int) CssReferenceAnalysisKind.InvalidSyntax)]
+    [TestCase("var(--x, !important)", (int) CssReferenceAnalysisKind.InvalidSyntax)]
+    [TestCase("env(foo, red;blue)", (int) CssReferenceAnalysisKind.InvalidSyntax)]
+    [TestCase("var(--x,{red} blue)", (int) CssReferenceAnalysisKind.InvalidSyntax)]
+    [TestCase("var({--x} blue,red)", (int) CssReferenceAnalysisKind.InvalidSyntax)]
+    [TestCase("var({},red)", (int) CssReferenceAnalysisKind.InvalidSyntax)]
+    [TestCase("var({/**/},red)", (int) CssReferenceAnalysisKind.InvalidSyntax)]
+    [TestCase("var({--x},red)", (int) CssReferenceAnalysisKind.Deferred)]
+    [TestCase("var({--x} blue foo(...var(--args)),red)", (int) CssReferenceAnalysisKind.InvalidSyntax)]
+    [TestCase("var(--x,{red} blue foo(...env(foo)))", (int) CssReferenceAnalysisKind.InvalidSyntax)]
+    [TestCase("env(foo,{red} blue)", (int) CssReferenceAnalysisKind.InvalidSyntax)]
+    [TestCase("var(--x,{red;blue})", (int) CssReferenceAnalysisKind.InvalidSyntax)]
+    [TestCase("var(--x,foo(!important))", (int) CssReferenceAnalysisKind.Deferred)]
+    [TestCase("var(--x,[red;blue])", (int) CssReferenceAnalysisKind.Deferred)]
+    [TestCase("var(--x,red {blue})", (int) CssReferenceAnalysisKind.Deferred)]
+    [TestCase("var(--x,{red})", (int) CssReferenceAnalysisKind.Deferred)]
+    [TestCase("var(--x,{foo(!important)})", (int) CssReferenceAnalysisKind.Deferred)]
     [TestCase("red; blue", (int) CssReferenceAnalysisKind.InvalidSyntax)]
     [TestCase("red)", (int) CssReferenceAnalysisKind.InvalidSyntax)]
     [TestCase("'bad\nx", (int) CssReferenceAnalysisKind.InvalidSyntax)]
@@ -128,6 +145,28 @@ public sealed class ReferenceSyntaxTests
             occurrence.EarlySubstitutionSpan(1).Length).Should().Be("...env(foo)");
     }
 
+    [TestCase("var(foo(...var(--args)),red)", "...var(--args)")]
+    [TestCase("var([./**/../**/var(--args)],red)", "./**/../**/var(--args)")]
+    [TestCase("var(--x,foo(...env(foo)))", "...env(foo)")]
+    public void SpreadInsideOrdinaryContainersBelongsToNearestArbitraryFunction(string source, string expected)
+    {
+        var program = Analyze(source).Program;
+        program[0].EarlySubstitutionCount.Should().Be(1);
+        var span = program[0].EarlySubstitutionSpan(0);
+        source.Substring(span.Start, span.Length).Should().Be(expected);
+        program[1].EarlySubstitutionCount.Should().Be(0);
+    }
+
+    [Test]
+    public void EarlyTraversalStopsAtAnotherArbitraryFunction()
+    {
+        var program = Analyze("var(foo(var(...env(name))),red)").Program;
+        program.Count.Should().Be(3);
+        program[0].EarlySubstitutionCount.Should().Be(0);
+        program[1].EarlySubstitutionCount.Should().Be(1);
+        program[2].EarlySubstitutionCount.Should().Be(0);
+    }
+
     [Test]
     public void ReferenceInsideSimpleBlockMakesHeaderDynamic()
     {
@@ -177,5 +216,15 @@ public sealed class ReferenceSyntaxTests
         Analyze("VaR(--AbC)").Program[0].StaticName.Should().Be("--AbC");
         Analyze("var(--\\41 bc)").Program[0].StaticName.Should().Be("--Abc");
         Analyze("var(--)").Program[0].StaticName.Should().BeNull();
+    }
+
+    [TestCase("env(initial)")]
+    [TestCase("env(INHERIT)")]
+    [TestCase("env(default)")]
+    public void ReservedEnvNamesRemainDeferredWithoutAStaticName(string source)
+    {
+        var result = Analyze(source);
+        result.Kind.Should().Be(CssReferenceAnalysisKind.Deferred);
+        result.Program[0].StaticName.Should().BeNull();
     }
 }

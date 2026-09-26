@@ -14,7 +14,10 @@ internal static class CssReferenceParser
         work.CheckCancellation();
 
         var occurrences = new List<CssReferenceOccurrence>();
-        var stack = new List<Frame> { new(input.Components, -1, 0, false, -1) };
+        var earlyLocations = new List<List<CssSourceSpan>?>();
+        var earlyHeaders = new List<bool>();
+        var earlyFallbacks = new List<bool>();
+        var stack = new List<Frame> { new(input.Components, -1, -1, 0, false, -1, true, false, -1, -1) };
         work.CheckCancellation();
         CssSourceSpan? invalid = null;
         CssSourceSpan? pending = null;
@@ -35,13 +38,39 @@ internal static class CssReferenceParser
             stack[last] = frame;
             work.Charge(1);
 
+            if (frame.EarlyOwnerIndex >= 0 && componentIndex + 3 < frame.Components.Count &&
+                IsPeriod(value) && IsPeriod(frame.Components[componentIndex + 1]) &&
+                IsPeriod(frame.Components[componentIndex + 2]) &&
+                frame.Components[componentIndex + 3].Kind == CssComponentKind.Function &&
+                IsArbitrary(frame.Components[componentIndex + 3].FunctionName))
+            {
+                var nestedSpan = frame.Components[componentIndex + 3].Span;
+                var span = new CssSourceSpan(value.Span.Start,
+                    nestedSpan.Start + nestedSpan.Length - value.Span.Start);
+                work.CheckCancellation();
+                var locations = earlyLocations[frame.EarlyOwnerIndex];
+                if (locations is null)
+                {
+                    locations = new List<CssSourceSpan>();
+                    earlyLocations[frame.EarlyOwnerIndex] = locations;
+                }
+                locations.Add(span);
+                if (frame.ReferenceArguments)
+                {
+                    if (frame.FallbackStart >= 0 && componentIndex > frame.FallbackStart)
+                        earlyFallbacks[frame.EarlyOwnerIndex] = true;
+                    else earlyHeaders[frame.EarlyOwnerIndex] = true;
+                }
+                work.CheckCancellation();
+            }
+
             if (value.Kind == CssComponentKind.Token)
             {
                 var kind = value.Token.Kind;
                 if (kind is CssTokenKind.BadString or CssTokenKind.BadUrl or
                     CssTokenKind.CloseParenthesis or CssTokenKind.CloseSquareBracket or
                     CssTokenKind.CloseCurlyBracket ||
-                    frame.Depth == 0 && (kind == CssTokenKind.Semicolon ||
+                    frame.DeclarationRoot && (kind == CssTokenKind.Semicolon ||
                     kind == CssTokenKind.Delim && value.Token.Delimiter == '!'))
                     invalid ??= value.Span;
                 continue;
@@ -55,6 +84,10 @@ internal static class CssReferenceParser
             var owner = frame.ParentIndex;
             var inFallback = frame.InFallback || frame.FallbackStart >= 0 &&
                 componentIndex > frame.FallbackStart;
+            var earlyOwner = frame.EarlyOwnerIndex;
+            var declarationRoot = false;
+            var headerWrapperIndex = -1;
+            var fallbackWrapperIndex = -1;
             if (value.Kind == CssComponentKind.Function)
             {
                 var name = value.FunctionName;
@@ -67,34 +100,14 @@ internal static class CssReferenceParser
 
                     var children = value.Values;
                     var comma = -1;
-                    List<CssSourceSpan>? spreadLocations = null;
-                    var headerHasSpread = false;
-                    var headerDynamic = false;
                     for (var i = 0; i < children.Count; i++)
                     {
                         work.Charge(1);
                         var child = children[i];
                         if (comma < 0 && child.Kind == CssComponentKind.Token &&
                             child.Token.Kind == CssTokenKind.Comma) comma = i;
-                        if (i + 3 < children.Count && IsPeriod(child) && IsPeriod(children[i + 1]) &&
-                            IsPeriod(children[i + 2]) && children[i + 3].Kind == CssComponentKind.Function &&
-                            IsArbitrary(children[i + 3].FunctionName))
-                        {
-                            work.CheckCancellation();
-                            spreadLocations ??= new List<CssSourceSpan>();
-                            var nestedSpan = children[i + 3].Span;
-                            spreadLocations.Add(new CssSourceSpan(child.Span.Start,
-                                nestedSpan.Start + nestedSpan.Length - child.Span.Start));
-                            work.CheckCancellation();
-                            if (comma < 0 || i < comma)
-                            {
-                                headerHasSpread = true;
-                                headerDynamic = true;
-                            }
-                        }
                     }
                     var headerCount = comma < 0 ? children.Count : comma;
-                    if (!headerHasSpread && !HasSignificant(children, 0, headerCount, work)) invalid ??= value.Span;
                     var contentStart = OpeningParenthesisEnd(input.Source, value.Span, work);
                     var contentEnd = value.Span.Start + value.Span.Length - (value.IsClosed ? 1 : 0);
                     var headerEnd = comma < 0 ? contentEnd : children[comma].Span.Start;
@@ -102,19 +115,18 @@ internal static class CssReferenceParser
                     var fallback = comma < 0 ? default : Range(children, comma + 1,
                         children.Count - comma - 1,
                         children[comma].Span.Start + children[comma].Span.Length, contentEnd, work);
-                    var staticName = headerDynamic ? null : StaticName(referenceKind, children, headerCount, work);
-                    CssSourceSpan[]? spreads = null;
-                    if (spreadLocations is not null)
-                    {
-                        work.CheckCancellation();
-                        spreads = spreadLocations.ToArray();
-                        work.Charge(spreads.Length);
-                        work.CheckCancellation();
-                    }
+                    var staticName = StaticName(referenceKind, children, headerCount, work);
+                    headerWrapperIndex = WrapperIndex(header, work);
+                    fallbackWrapperIndex = comma < 0 ? -1 : WrapperIndex(fallback, work);
                     owner = occurrences.Count;
+                    earlyOwner = owner;
+                    declarationRoot = true;
                     work.CheckCancellation();
                     occurrences.Add(new CssReferenceOccurrence(referenceKind, value.Span, frame.ParentIndex,
-                        header, comma >= 0, fallback, staticName, headerDynamic, spreads, false));
+                        header, comma >= 0, fallback, staticName, false, null, false));
+                    earlyLocations.Add(null);
+                    earlyHeaders.Add(false);
+                    earlyFallbacks.Add(false);
                     work.CheckCancellation();
                     if (frame.ParentIndex >= 0)
                         occurrences[frame.ParentIndex] = inFallback
@@ -123,6 +135,7 @@ internal static class CssReferenceParser
                 }
                 else if (IsPendingFamily(name))
                 {
+                    earlyOwner = -1;
                     if (pending is null)
                     {
                         pending = value.Span;
@@ -130,15 +143,31 @@ internal static class CssReferenceParser
                     }
                 }
             }
+            else if (value.Kind == CssComponentKind.SimpleBlock && value.OpeningDelimiter == '{' &&
+                (componentIndex == frame.HeaderWrapperIndex || componentIndex == frame.FallbackWrapperIndex))
+                declarationRoot = true;
 
             work.CheckCancellation();
             var fallbackStart = owner != frame.ParentIndex && occurrences[owner].HasFallback
                 ? occurrences[owner].Header.Count : -1;
-            stack.Add(new Frame(value.Values, owner, nextDepth,
-                owner != frame.ParentIndex ? false : inFallback, fallbackStart));
+            stack.Add(new Frame(value.Values, owner, earlyOwner, nextDepth,
+                owner != frame.ParentIndex ? false : inFallback, fallbackStart,
+                declarationRoot, owner != frame.ParentIndex,
+                headerWrapperIndex, fallbackWrapperIndex));
             work.CheckCancellation();
         }
 
+        work.CheckCancellation();
+        for (var i = 0; i < occurrences.Count; i++)
+        {
+            work.Charge(1);
+            var occurrence = occurrences[i];
+            if (!earlyHeaders[i] && !ValidHeader(occurrence.Header, work))
+                invalid ??= occurrence.Span;
+            if (occurrence.HasFallback && !earlyFallbacks[i] && !earlyHeaders[i] &&
+                !ValidFallback(occurrence.Fallback, occurrence.Kind, work))
+                invalid ??= occurrence.Span;
+        }
         work.CheckCancellation();
         if (invalid is { } invalidSpan) return CssReferenceAnalysis.Invalid(invalidSpan);
         if (pending is { } pendingSpan) return CssReferenceAnalysis.Pending(pendingSpan, pendingName!);
@@ -148,7 +177,15 @@ internal static class CssReferenceParser
         for (var i = 0; i < copy.Length; i++)
         {
             work.Charge(1);
-            copy[i] = occurrences[i];
+            CssSourceSpan[]? spans = null;
+            if (earlyLocations[i] is { } locations)
+            {
+                work.CheckCancellation();
+                spans = locations.ToArray();
+                work.Charge(spans.Length);
+                work.CheckCancellation();
+            }
+            copy[i] = occurrences[i].WithEarlySubstitutions(spans, earlyHeaders[i]);
         }
         work.CheckCancellation();
         var result = CssReferenceAnalysis.Success(new CssReferenceProgram(input, copy), copy.Length != 0);
@@ -194,15 +231,74 @@ internal static class CssReferenceParser
         return result;
     }
 
-    private static bool HasSignificant(CssComponentValueList values, int start, int count, CssValueWork work)
+    private static int FirstSignificantIndex(CssReferenceRange range, CssValueWork work)
     {
-        for (var i = start; i < start + count; i++)
+        for (var i = range.Start; i < range.Start + range.Count; i++)
         {
             work.Charge(1);
-            if (values[i].Kind != CssComponentKind.Token || values[i].Token.Kind != CssTokenKind.Whitespace)
+            var value = range.Components[i];
+            if (value.Kind != CssComponentKind.Token || value.Token.Kind != CssTokenKind.Whitespace)
+                return i;
+        }
+        return -1;
+    }
+
+    private static int WrapperIndex(CssReferenceRange range, CssValueWork work)
+    {
+        var first = FirstSignificantIndex(range, work);
+        if (first < 0) return -1;
+        var value = range.Components[first];
+        return value.Kind == CssComponentKind.SimpleBlock && value.OpeningDelimiter == '{' ? first : -1;
+    }
+
+    private static bool ValidHeader(CssReferenceRange range, CssValueWork work)
+    {
+        var first = FirstSignificantIndex(range, work);
+        if (first < 0) return false;
+        var wrapper = WrapperIndex(range, work);
+        if (wrapper >= 0 && !HasSignificantComponents(range.Components[wrapper].Values, work)) return false;
+        for (var i = first + 1; i < range.Start + range.Count; i++)
+        {
+            work.Charge(1);
+            var value = range.Components[i];
+            if (value.Kind == CssComponentKind.Token && value.Token.Kind == CssTokenKind.Whitespace)
+                continue;
+            if (wrapper >= 0 || value.Kind == CssComponentKind.SimpleBlock && value.OpeningDelimiter == '{')
+                return false;
+        }
+        return true;
+    }
+
+    private static bool HasSignificantComponents(CssComponentValueList components, CssValueWork work)
+    {
+        for (var i = 0; i < components.Count; i++)
+        {
+            work.Charge(1);
+            var value = components[i];
+            if (value.Kind != CssComponentKind.Token || value.Token.Kind != CssTokenKind.Whitespace)
                 return true;
         }
         return false;
+    }
+
+    private static bool ValidFallback(CssReferenceRange range, CssReferenceKind kind, CssValueWork work)
+    {
+        var wrapper = WrapperIndex(range, work);
+        if (wrapper < 0 && kind == CssReferenceKind.Var) return true;
+        for (var i = range.Start; i < range.Start + range.Count; i++)
+        {
+            work.Charge(1);
+            var value = range.Components[i];
+            if (value.Kind == CssComponentKind.Token && value.Token.Kind == CssTokenKind.Whitespace)
+                continue;
+            if (wrapper >= 0)
+            {
+                if (i != wrapper) return false;
+            }
+            else if (value.Kind == CssComponentKind.SimpleBlock && value.OpeningDelimiter == '{')
+                return false;
+        }
+        return true;
     }
 
     private static CssReferenceRange Range(CssComponentValueList values, int start, int count,
@@ -253,6 +349,9 @@ internal static class CssReferenceParser
             else if (kind != CssReferenceKind.Env || token.Kind != CssTokenKind.Number ||
                 !token.IsInteger || token.NumberText.Length > 0 && token.NumberText[0] == '-') return null;
         }
+        if (kind == CssReferenceKind.Env && name is not null &&
+            (CssWideKeywords.Recognize(name) != CssWideKeyword.None ||
+            name.Equals("default", StringComparison.OrdinalIgnoreCase))) return null;
         return name;
     }
 
@@ -272,22 +371,33 @@ internal static class CssReferenceParser
 
     private struct Frame
     {
-        internal Frame(CssComponentValueList components, int parentIndex, int depth,
-            bool inFallback, int fallbackStart)
+        internal Frame(CssComponentValueList components, int parentIndex, int earlyOwnerIndex,
+            int depth, bool inFallback, int fallbackStart, bool declarationRoot,
+            bool referenceArguments, int headerWrapperIndex, int fallbackWrapperIndex)
         {
             Components = components;
             ParentIndex = parentIndex;
+            EarlyOwnerIndex = earlyOwnerIndex;
             Depth = depth;
             InFallback = inFallback;
             FallbackStart = fallbackStart;
+            DeclarationRoot = declarationRoot;
+            ReferenceArguments = referenceArguments;
+            HeaderWrapperIndex = headerWrapperIndex;
+            FallbackWrapperIndex = fallbackWrapperIndex;
             Index = 0;
         }
 
         internal CssComponentValueList Components;
         internal int ParentIndex;
+        internal int EarlyOwnerIndex;
         internal int Depth;
         internal bool InFallback;
         internal int FallbackStart;
+        internal bool DeclarationRoot;
+        internal bool ReferenceArguments;
+        internal int HeaderWrapperIndex;
+        internal int FallbackWrapperIndex;
         internal int Index;
     }
 }
