@@ -92,25 +92,36 @@ internal class DomHostHooks
     /// parsed before AngleSharp's own call returned. A detached one produces no record, and HTML
     /// upgrades there too. See <c>CustomElements/CustomElementRegistry.Tree.cs</c>.
     /// </remarks>
-    internal virtual void SetInnerHtml(DomRealm realm, IElement element, string markup)
+    internal virtual void SetInnerHtml(DomRealm realm, Element element, string markup)
     {
-        element.InnerHtml = markup;
-        CustomElements.CustomElementRegistry.SubtreeCreated(realm, element);
+        Jint.HtmlParser.Node target = element.TemplateContent ?? (Jint.HtmlParser.Node) element;
+        SetInnerHtml(realm, element, target, markup);
     }
 
-    /// <summary>https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-outerhtml</summary>
-    /// <remarks>
-    /// The markup replaces the element, so what is walked afterwards is the parent it was in — the
-    /// element itself is no longer in the tree the new content went into.
-    /// </remarks>
-    internal virtual void SetOuterHtml(DomRealm realm, IElement element, string markup)
+    internal virtual void SetInnerHtml(DomRealm realm, Jint.HtmlParser.ShadowRoot shadow, string markup)
+        => SetInnerHtml(realm, shadow.Host, shadow, markup);
+
+    private static void SetInnerHtml(DomRealm realm, Element context, Jint.HtmlParser.Node target, string markup)
     {
-        var parent = element.Parent;
-        var previous = element.PreviousSibling;
-        var next = element.NextSibling;
-        element.OuterHtml = markup;
-        RecordInsertedNodes(realm, parent, previous, next);
-        CustomElements.CustomElementRegistry.SubtreeCreated(realm, parent ?? element);
+        var fragment = DomFragmentParser.Parse(realm, markup, context, target);
+        realm.RecordSubtree(fragment);
+        target.ReplaceChildren(fragment);
+        CustomElements.CustomElementRegistry.SubtreeCreated(realm, target);
+    }
+
+    /// <summary>https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-outerhtml.</summary>
+    internal virtual void SetOuterHtml(DomRealm realm, Element element, string markup)
+    {
+        if (element.ParentNode is not { } parent) return;
+        if (parent is Document)
+        {
+            DomFailures.Refuse(realm, "Element.outerHTML", DomExceptionNames.NoModificationAllowed,
+                "the element's parent is a Document.");
+        }
+        var fragment = DomFragmentParser.Parse(realm, markup, DomFragmentParser.ContextFor(parent), parent);
+        realm.RecordSubtree(fragment);
+        parent.ReplaceChild(fragment, element);
+        CustomElements.CustomElementRegistry.SubtreeCreated(realm, parent);
     }
 
     /// <summary>
@@ -180,7 +191,7 @@ internal class DomHostHooks
 
     /// <summary>https://html.spec.whatwg.org/multipage/forms.html#dom-lfe-labels</summary>
     internal virtual JsValue Labels(DomRealm realm, Element element)
-        => HtmlLabelAssociation.IsLabelable(element) ? realm.WrapLabels(element) : JsValue.Null;
+        => HtmlLabelAssociation.IsLabelable(element, realm.NativeReadCheckpoint, realm.CancellationToken) ? realm.WrapLabels(element) : JsValue.Null;
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#dom-fae-form — the
@@ -700,31 +711,20 @@ internal class DomHostHooks
     /// standard's is <c>NoModificationAllowedError</c>. Recorded in <c>AGENTS.md</c>'s divergence table.
     /// </para>
     /// </remarks>
-    internal virtual void InsertAdjacentHtml(DomRealm realm, IElement element, JsValue[] arguments)
+    internal virtual void InsertAdjacentHtml(DomRealm realm, Element element, JsValue[] arguments)
     {
         var position = DomEnums.ToAdjacentPosition(DomConvert.At(arguments, 0), "Element.insertAdjacentHTML");
-
-        // "If position is 'beforebegin' or 'afterend' … If context is null or a Document, throw a
-        // NoModificationAllowedError DOMException." A parent that is the document is not an IElement, so the
-        // one test covers both halves — and it is the very test AngleSharp's own `Parent as Element` makes.
-        if (position is AdjacentPosition.BeforeBegin or AdjacentPosition.AfterEnd && element.Parent is not IElement)
-        {
-            DomFailures.Refuse(
-                realm,
-                "Element.insertAdjacentHTML",
-                DomExceptionNames.NoModificationAllowed,
-                "the element has no parent element to insert " + (position == AdjacentPosition.BeforeBegin ? "before" : "after") + ".");
-        }
-
         var markup = DomConvert.RequiredText(arguments, 1, "Element.insertAdjacentHTML");
-        var parent = position is AdjacentPosition.BeforeBegin or AdjacentPosition.AfterEnd ? element.Parent : element;
-        var previous = position switch
+        var outside = position is AdjacentPosition.BeforeBegin or AdjacentPosition.AfterEnd;
+        var parent = outside ? element.ParentNode : element;
+        if (parent is null or Document)
         {
-            AdjacentPosition.BeforeBegin => element.PreviousSibling,
-            AdjacentPosition.AfterEnd => element,
-            AdjacentPosition.BeforeEnd => element.LastChild,
-            _ => null,
-        };
+            DomFailures.Refuse(realm, "Element.insertAdjacentHTML", DomExceptionNames.NoModificationAllowed,
+                "the element has no insertion parent, or its parent is a Document.");
+        }
+        var context = DomFragmentParser.ContextFor(parent!);
+        var fragment = DomFragmentParser.Parse(realm, markup, context, parent!);
+        realm.RecordSubtree(fragment);
         var next = position switch
         {
             AdjacentPosition.BeforeBegin => element,
@@ -732,19 +732,8 @@ internal class DomHostHooks
             AdjacentPosition.AfterBegin => element.FirstChild,
             _ => null,
         };
-        element.Insert(position, markup);
-        RecordInsertedNodes(realm, parent, previous, next);
-        CustomElements.CustomElementRegistry.SubtreeCreated(realm, element.Parent ?? element);
-    }
-
-    private static void RecordInsertedNodes(DomRealm realm, INode? parent, INode? previous, INode? next)
-    {
-        for (var node = previous is null ? parent?.FirstChild : previous.NextSibling;
-             node is not null && !ReferenceEquals(node, next);
-             node = node.NextSibling)
-        {
-            realm.RecordSubtree(node);
-        }
+        parent!.InsertBefore(fragment, next);
+        CustomElements.CustomElementRegistry.SubtreeCreated(realm, parent);
     }
 
     /// <summary>
@@ -759,12 +748,18 @@ internal class DomHostHooks
     /// read before the call. What that leaves — the adoption DOM's pre-insert performs on the way into a
     /// parent in another document — is argued in <c>CustomElements/CustomElementRegistry.Tree.cs</c>.
     /// </remarks>
-    internal virtual JsValue AdoptNode(DomRealm realm, IDocument document, JsValue[] arguments)
-        => realm.WrapNodeValue(
-            CustomElements.CustomElementRegistry.Adopt(
-                realm,
-                document,
-                DomBindings.Argument<INode>(arguments, 0, "Document.adoptNode")));
+    internal virtual JsValue AdoptNode(DomRealm realm, Document document, JsValue[] arguments)
+    {
+        var source = DomBindings.NodeArgument(arguments, 0, "Document.adoptNode");
+        if (source.Node is { } nativeSource) realm.RecordSubtree(nativeSource);
+        if (source.Attribute is { } attribute)
+        {
+            attribute.OwnerElement?.RemoveAttributeNode(attribute);
+            attribute.Rehome(document);
+            return realm.WrapNodeValue(attribute);
+        }
+        return realm.WrapNodeValue(CustomElements.CustomElementRegistry.Adopt(realm, document, source.Node!));
+    }
 
     /// <summary>https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-document-write</summary>
     internal virtual void Write(DomRealm realm, IDocument document, JsValue[] arguments)
@@ -874,11 +869,11 @@ internal class DomHostHooks
     /// there was a registry, which is what keeps the binding usable on its own.
     /// </para>
     /// </remarks>
-    internal virtual JsValue CreateElement(DomRealm realm, IDocument document, JsValue[] arguments)
+    internal virtual JsValue CreateElement(DomRealm realm, Document document, JsValue[] arguments)
         => CustomElements.CustomElementCreation.CreateElement(realm, document, arguments);
 
     /// <summary>https://dom.spec.whatwg.org/#dom-document-createprocessinginstruction.</summary>
-    internal virtual JsValue CreateProcessingInstruction(DomRealm realm, IDocument document, JsValue[] arguments)
+    internal virtual JsValue CreateProcessingInstruction(DomRealm realm, Document document, JsValue[] arguments)
     {
         var target = DomConvert.RequiredText(arguments, 0, "Document.createProcessingInstruction");
         var data = DomConvert.RequiredText(arguments, 1, "Document.createProcessingInstruction");
@@ -886,34 +881,23 @@ internal class DomHostHooks
     }
 
     /// <inheritdoc cref="CreateElement" />
-    internal virtual JsValue CreateElementNS(DomRealm realm, IDocument document, JsValue[] arguments)
+    internal virtual JsValue CreateElementNS(DomRealm realm, Document document, JsValue[] arguments)
         => CustomElements.CustomElementCreation.CreateElementNS(realm, document, arguments);
 
     /// <summary>https://dom.spec.whatwg.org/#dom-document-createattribute</summary>
-    internal virtual JsValue CreateAttribute(DomRealm realm, IDocument document, JsValue[] arguments)
-    {
-        // DomNames has already checked the modern attribute-local-name predicate. The native document
-        // factory instead applies XML's older Name production; Attr itself has no such restriction.
-        var name = DomConvert.RequiredText(arguments, 0, "Document.createAttribute");
-        return realm.WrapNodeValue(new Attr(document is IHtmlDocument ? AsciiLowercase(name) : name));
-    }
+    internal virtual JsValue CreateAttribute(DomRealm realm, Document document, JsValue[] arguments)
+        => realm.WrapNodeValue(document.CreateAttribute(DomConvert.RequiredText(arguments, 0, "Document.createAttribute")));
 
-    /// <summary>https://dom.spec.whatwg.org/#dom-document-createattributens</summary>
-    internal virtual JsValue CreateAttributeNS(DomRealm realm, IDocument document, JsValue[] arguments)
+    /// <summary>https://dom.spec.whatwg.org/#dom-document-createattributens.</summary>
+    internal virtual JsValue CreateAttributeNS(DomRealm realm, Document document, JsValue[] arguments)
     {
-        // The generated guard performs validate-and-extract's validation before this construction.
         var namespaceUri = DomConvert.NullableText(arguments, 0);
         var name = DomConvert.RequiredText(arguments, 1, "Document.createAttributeNS");
-        var colon = name.IndexOf(':', StringComparison.Ordinal);
-        return realm.WrapNodeValue(new Attr(
-            colon < 0 ? null : name[..colon],
-            colon < 0 ? name : name[(colon + 1)..],
-            "",
-            string.IsNullOrEmpty(namespaceUri) ? null : namespaceUri));
+        return realm.WrapNodeValue(document.CreateAttributeNS(namespaceUri, name));
     }
 
     /// <inheritdoc cref="CreateElement" />
-    internal virtual JsValue CloneNode(DomRealm realm, INode node, JsValue[] arguments)
+    internal virtual JsValue CloneNode(DomRealm realm, Jint.HtmlParser.Node node, JsValue[] arguments)
         => CustomElements.CustomElementCreation.CloneNode(realm, node, arguments);
 
     /// <summary>
@@ -955,25 +939,17 @@ internal class DomHostHooks
     /// DOM gives for a member that clones rather than moves.
     /// </para>
     /// </remarks>
-    internal virtual JsValue ImportNode(DomRealm realm, IDocument document, JsValue[] arguments)
+    internal virtual JsValue ImportNode(DomRealm realm, Document document, JsValue[] arguments)
     {
-        var source = DomBindings.Argument<INode>(arguments, 0, "Document.importNode");
+        var source = DomBindings.NodeArgument(arguments, 0, "Document.importNode");
         var deep = DomConvert.OptionalBool(arguments, 1, false);
-        var imported = document.Import(source, deep);
-        if (!deep)
+        if (source.Attribute is { } attribute)
         {
-            DomTemplateCloning.ClearShallowContent(imported);
+            return realm.WrapNodeValue(document.ImportAttribute(attribute));
         }
-        if (imported is not IAttr && !ReferenceEquals(imported.Owner, document))
-        {
-            document.Adopt(imported);
-        }
-
-        // The source metadata remains available after adopting the detached copy. Repair native PI
-        // data on its destination owner, before file-state reset and custom-element reactions.
-        DomCloneSteps.Copy(source, imported);
-        Files.FileTransferRealm.ResetCopiedInputs(imported);
-        CustomElements.CustomElementRegistry.Cloned(realm, source, imported);
+        var imported = document.ImportNode(source.Node!, deep);
+        realm.RecordSubtree(imported);
+        CustomElements.CustomElementRegistry.Cloned(realm, source.Node!, imported);
         return realm.WrapNodeValue(imported);
     }
 

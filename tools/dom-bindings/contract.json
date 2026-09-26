@@ -13506,7 +13506,7 @@
       "Group": "Dom",
       "ManualShape": null,
       "ShapeAdditions": "Jint.Browser.Dom.Collections.DomIterableMembers.ValueIterator",
-      "AccessorClass": "/// <summary>How <c>NodeList</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorNodeList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorNodeList Instance = new();\n\n    internal override uint Length(object target) => (uint) ((global::Jint.Browser.Dom.Collections.DomNodeList) target).Length;\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::Jint.Browser.Dom.Collections.DomNodeList) target;\n        if (index >= (uint) collection.Length)\n        {\n            value = global::Jint.Native.JsValue.Undefined;\n            return false;\n        }\n\n        value = realm.WrapNodeValue(collection[(int) index]);\n        return true;\n    }\n}\n",
+      "AccessorClass": "/// <summary>How <c>NodeList</c> answers indexed and named property lookups.</summary>\ninternal sealed class DomAccessorNodeList : DomCollectionAccessor\n{\n    internal static readonly DomAccessorNodeList Instance = new();\n\n    internal override uint Length(object target) => (uint) ((global::Jint.Browser.Dom.Collections.DomNodeList) target).Length;\n\n    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)\n    {\n        var collection = (global::Jint.Browser.Dom.Collections.DomNodeList) target;\n        var item = collection.ReadItem(index, realm.NativeReadCheckpoint, realm.CancellationToken);\n        value = item is null ? global::Jint.Native.JsValue.Undefined : realm.WrapNodeValue(item);\n        return item is not null;\n    }\n}\n",
       "AccessorReference": "DomAccessorNodeList.Instance",
       "Members": [
         {
@@ -13520,7 +13520,7 @@
         {
           "DomName": "length",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.Collections.DomNodeList>(thisObj, \"NodeList.length\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.Collections.DomNodeList>(thisObj, \"NodeList.length\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.ReadLength(self.Realm.NativeReadCheckpoint, self.Realm.CancellationToken));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "INodeList.Length"
@@ -14131,7 +14131,7 @@
           "DomName": "innerHTML",
           "Kind": 1,
           "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.ShadowRoot>(thisObj, \"ShadowRoot.innerHTML\");\nreturn self.Realm.Hooks.GetInnerHtml(self.Realm, self.Target);",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.ShadowRoot>(thisObj, \"ShadowRoot.innerHTML\");\nself.Target.InnerHtml = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"ShadowRoot.innerHTML\"); return global::Jint.Native.JsValue.Undefined;",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.ShadowRoot>(thisObj, \"ShadowRoot.innerHTML\");\nself.Realm.Hooks.SetInnerHtml(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"ShadowRoot.innerHTML\")); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "IShadowRoot.InnerHtml (hook)"
         },

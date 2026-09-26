@@ -28,6 +28,19 @@ internal sealed class DomReadWork(Action<int>? checkpoint, CancellationToken tok
         }
         return true;
     }
+    internal bool EqualAsciiIgnoreCase(string? value, string expected)
+    {
+        Step();
+        if (value is null || value.Length != expected.Length) return false;
+        for (var i = 0; i < value.Length; i++)
+        {
+            Step();
+            var c = value[i];
+            if (c is >= 'A' and <= 'Z') c = (char) (c + ('a' - 'A'));
+            if (c != expected[i]) return false;
+        }
+        return true;
+    }
     internal string? Attribute(Element element, string name)
     {
         for (uint i = 0; i < (uint) element.AttributeCount; i++)

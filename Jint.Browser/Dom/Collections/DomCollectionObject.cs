@@ -57,7 +57,9 @@ internal sealed class DomCollectionObject : DomCollectionBase, INamedPropertySup
     }
 
     /// <inheritdoc />
-    public override uint Length => _nodes is not null ? (uint) _nodes.Length : _accessor.Length(DomTarget);
+    public override uint Length => _nodes is not null ? (uint) _nodes.Length
+        : DomTarget is DomNodeList list ? (uint) list.ReadLength(DomRealm.NativeReadCheckpoint, DomRealm.CancellationToken)
+        : _accessor.Length(DomTarget);
 
     /// <inheritdoc />
     public override bool TryGetIndex(uint index, out JsValue value)

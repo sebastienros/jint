@@ -114,11 +114,9 @@ internal static class DomNodeMembers
 
     internal static JsValue CloneNode(DomNodeObject self, JsValue[] arguments)
     {
-        var deep = arguments.Length != 0 && TypeConverter.ToBoolean(arguments[0]);
-        object clone = self.Attribute is { } attribute
-            ? attribute.OwnerDocument.ImportAttribute(attribute)
-            : self.Node!.CloneNode(deep);
-        return self.DomRealm.Wrap(clone, self.Definition);
+        return self.Attribute is { } attribute
+            ? self.DomRealm.WrapNodeValue(attribute.Clone())
+            : CustomElements.CustomElementCreation.CloneNode(self.DomRealm, self.Node!, arguments);
     }
 
     internal static JsValue Contains(DomNodeObject self, JsValue[] arguments)

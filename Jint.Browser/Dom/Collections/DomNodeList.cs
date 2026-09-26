@@ -8,6 +8,9 @@ internal abstract class DomNodeList
 {
     internal abstract int Length { get; }
     internal abstract Node this[int index] { get; }
+    internal virtual int ReadLength(Action<int>? checkpoint, CancellationToken token) => Length;
+    internal virtual Node? ReadItem(uint index, Action<int>? checkpoint, CancellationToken token)
+        => index >= (uint) ReadLength(checkpoint, token) ? null : this[(int) index];
 }
 
 /// <summary>DOM §4.2.10's live child-node collection, associated with its actual node identity.</summary>
