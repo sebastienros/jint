@@ -11,8 +11,12 @@ internal static class CssSizingPropertyParser
     {
         if (parts.Count != 1) return Invalid();
         var part = parts[0];
-        var keywords = grammar == CssPropertyGrammar.FlexBasis
-            ? "auto content min-content max-content fit-content stretch" : "auto min-content max-content fit-content stretch";
+        var keywords = grammar switch
+        {
+            CssPropertyGrammar.FlexBasis => "auto content min-content max-content fit-content stretch",
+            CssPropertyGrammar.MaxSizing => "none min-content max-content fit-content stretch",
+            _ => "auto min-content max-content fit-content stretch"
+        };
         if (CssPropertyParser.Keyword(part, keywords, work) is { } keyword)
             return CssPropertyResult.Accepted(CssPropertyValue.Keyword(keyword, part.Span));
         // Sizing 4 §3.2 extends <box-size>; implementation remains a named obligation.
@@ -38,7 +42,7 @@ internal static class CssSizingPropertyParser
     }
 
     internal static CssPropertyResult Numeric(CssComponentValue part, bool numberOnly,
-        int maximumDepth, CssValueWork work, int ancestorDepth = 0)
+        int maximumDepth, CssValueWork work, int ancestorDepth = 0, bool nonnegative = true)
     {
         work.CheckCancellation();
         if (part.Kind == CssComponentKind.Token &&
@@ -48,7 +52,7 @@ internal static class CssSizingPropertyParser
             var unit = token.Kind == CssTokenKind.Dimension ? CssUnits.Recognize(token.Unit, work) : CssUnit.None;
             var number = CssNumber.FromValidatedToken(token.NumberText, work);
             // Validate exact lexical sign before finite conversion (including tiny negatives).
-            if (number.Sign < 0) return Invalid();
+            if (nonnegative && number.Sign < 0) return Invalid();
             if (numberOnly ? token.Kind != CssTokenKind.Number :
                 token.Kind == CssTokenKind.Number ? number.Sign != 0 :
                 token.Kind == CssTokenKind.Dimension && unit.Category() != CssUnitCategory.Length) return Invalid();
@@ -58,6 +62,13 @@ internal static class CssSizingPropertyParser
                 CssTokenKind.Percentage => CssNumericKind.Percentage,
                 _ => CssNumericKind.Dimension
             };
+            // Values 4 §6.1: unitless zero in a length production is a length, also in the typed
+            // atom consumed by computation. Its canonical specified spelling is already 0px.
+            if (!numberOnly && kind == CssNumericKind.Number)
+            {
+                kind = CssNumericKind.Dimension;
+                unit = CssUnit.Px;
+            }
             var atom = new CssNumericAtom(kind, number, unit, token.IsInteger, part.Span);
             var finite = CssMathNumbers.ParseFinite(number, unit, work);
             var text = SerializeNumber(finite, work);
@@ -70,7 +81,7 @@ internal static class CssSizingPropertyParser
         }
         var context = new CssMathContext(numberOnly ? CssMathProduction.Number : CssMathProduction.LengthPercentage,
             numberOnly ? CssMathPercentageMode.Forbidden : CssMathPercentageMode.Length,
-            new CssMathRange(lower: 0), maximumDepth, ancestorDepth);
+            nonnegative ? new CssMathRange(lower: 0) : default, maximumDepth, ancestorDepth);
         var math = CssMathParser.ParseMath(part, context, work);
         return math.Status switch
         {

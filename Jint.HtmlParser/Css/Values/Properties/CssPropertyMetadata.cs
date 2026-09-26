@@ -9,7 +9,8 @@ internal enum CssDeclarationContext
 internal enum CssPropertyGrammar
 {
     Display, Visibility, Opacity, Position, PointerEvents, BoxSizing, ZIndex, OverflowAxis, Overflow,
-    Sizing, FlexBasis, FlexFactor, FlexDirection, FlexWrap, Direction, Flex, FlexFlow,
+    Sizing, MinSizing, MaxSizing, Margin, MarginSide, Padding, PaddingSide,
+    FlexBasis, FlexFactor, FlexDirection, FlexWrap, Direction, Flex, FlexFlow,
     AlignItems, AlignSelf, JustifyItems, JustifySelf, PlaceItems, PlaceSelf, Color,
     WhiteSpace, WhiteSpaceCollapse, TextWrapMode, WhiteSpaceTrim, FontWeight, FontSize,
     TextAlign, TextAlignAll, TextAlignLast
@@ -73,6 +74,18 @@ internal static class CssPropertyRegistry
         // Sizing 3 §3.1, Flexbox 1 §§5/7, Alignment 3 §§6/7, Writing Modes 3 §2.1.
         Add("width", CssPropertyGrammar.Sizing, "auto");
         Add("height", CssPropertyGrammar.Sizing, "auto");
+        // Box 4 §§3/4; Sizing 3 §§3.1.2/3.1.3. Physical properties only.
+        Add("min-width", CssPropertyGrammar.MinSizing, "auto");
+        Add("min-height", CssPropertyGrammar.MinSizing, "auto");
+        Add("max-width", CssPropertyGrammar.MaxSizing, "none");
+        Add("max-height", CssPropertyGrammar.MaxSizing, "none");
+        foreach (var side in new[] { "top", "right", "bottom", "left" })
+        {
+            Add("margin-" + side, CssPropertyGrammar.MarginSide, "0px");
+            Add("padding-" + side, CssPropertyGrammar.PaddingSide, "0px");
+        }
+        Shorthand("margin", CssPropertyGrammar.Margin, "0px", ["margin-top", "margin-right", "margin-bottom", "margin-left"]);
+        Shorthand("padding", CssPropertyGrammar.Padding, "0px", ["padding-top", "padding-right", "padding-bottom", "padding-left"]);
         Add("flex-basis", CssPropertyGrammar.FlexBasis, "auto");
         Add("flex-grow", CssPropertyGrammar.FlexFactor, "0");
         Add("flex-shrink", CssPropertyGrammar.FlexFactor, "1");

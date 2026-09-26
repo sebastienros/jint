@@ -324,6 +324,8 @@ internal sealed partial class CssDeclarationBlock
             return CssWhiteSpacePropertyParser.Serialize(values[0], values[1], values[2], work);
         if (shorthand.Grammar == CssPropertyGrammar.TextAlign)
             return CssTextAlignPropertyParser.Serialize(values[0], values[1], work);
+        if (shorthand.Grammar is CssPropertyGrammar.Margin or CssPropertyGrammar.Padding)
+            return CssBoxPropertyParser.Serialize(values[0], values[1], values[2], values[3], work);
         work.CheckCancellation();
         // Pair shorthands copy their first value when omitted. Flex-flow and flex do not.
         var text = allEqual && shorthand.Grammar is CssPropertyGrammar.Overflow or CssPropertyGrammar.PlaceItems or CssPropertyGrammar.PlaceSelf

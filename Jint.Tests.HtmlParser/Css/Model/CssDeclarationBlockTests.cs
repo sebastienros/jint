@@ -30,22 +30,22 @@ public sealed class CssDeclarationBlockTests
         var text = block.CssText;
         var stamp = block.Stamp;
         var entry = block.GetDeclaration(0);
-        const string replacement = "display:block;min-width:1px;opacity:1";
+        const string replacement = "display:block;min-inline-size:1px;opacity:1";
         var exception = Assert.Throws<CssIncompleteGrammarException>(() => block.ReplaceText(replacement))!;
-        exception.PropertyName.Should().Be("min-width");
-        exception.Blocker.Should().Be("V2:min-width");
-        exception.Span.Start.Should().Be(replacement.IndexOf("min-width", StringComparison.Ordinal));
+        exception.PropertyName.Should().Be("min-inline-size");
+        exception.Blocker.Should().Be("V2:min-inline-size");
+        exception.Span.Start.Should().Be(replacement.IndexOf("min-inline-size", StringComparison.Ordinal));
         block.CssText.Should().Be(text);
         block.Stamp.Should().Be(stamp);
         block.GetDeclaration(0).Should().BeSameAs(entry);
         Assert.Throws<CssIncompleteGrammarException>(() => CssDeclarationBlock.Parse(replacement));
-        Assert.Throws<CssIncompleteGrammarException>(() => block.SetProperty("min-width", "1px"));
+        Assert.Throws<CssIncompleteGrammarException>(() => block.SetProperty("min-inline-size", "1px"));
         block.Stamp.Should().Be(stamp);
     }
 
     [TestCase("all", "V0:all-reset")]
-    [TestCase("margin", "V2:margin")]
-    [TestCase("min-width", "V2:min-width")]
+    [TestCase("margin-block", "V2:margin-block")]
+    [TestCase("min-inline-size", "V2:min-inline-size")]
     public void PendingRemovalMetadataAbortsBeforeMutationAndBeforeInvalidPriority(string name, string blocker)
     {
         var block = CssDeclarationBlock.Parse("opacity:.5;overflow:hidden");
@@ -69,7 +69,7 @@ public sealed class CssDeclarationBlockTests
     {
         var block = CssDeclarationBlock.Parse("opacity:.5!important; overflow:hidden");
         var stamp = block.Stamp;
-        block.SetProperty("min-width", "1px", "bad"); // rejected before the pending min-width grammar
+        block.SetProperty("min-inline-size", "1px", "bad"); // rejected before the pending logical sizing grammar
         block.SetProperty("opacity", "1", " important");
         block.SetProperty("opacity", "1!important");
         block.SetProperty("--x", "red !important");

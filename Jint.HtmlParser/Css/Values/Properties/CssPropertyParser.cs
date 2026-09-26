@@ -77,7 +77,10 @@ internal static class CssPropertyParser
         if (entry.Grammar is CssPropertyGrammar.WhiteSpace or CssPropertyGrammar.WhiteSpaceCollapse or
             CssPropertyGrammar.TextWrapMode or CssPropertyGrammar.WhiteSpaceTrim)
             return CssWhiteSpacePropertyParser.Parse(entry.Grammar, parts, work);
-        if (entry.Grammar is CssPropertyGrammar.Sizing or CssPropertyGrammar.FlexBasis)
+        if (entry.Grammar is CssPropertyGrammar.Margin or CssPropertyGrammar.MarginSide or
+            CssPropertyGrammar.Padding or CssPropertyGrammar.PaddingSide)
+            return CssBoxPropertyParser.Parse(entry.Grammar, parts, input.MaxNestingDepth, work);
+        if (entry.Grammar is CssPropertyGrammar.Sizing or CssPropertyGrammar.MinSizing or CssPropertyGrammar.MaxSizing or CssPropertyGrammar.FlexBasis)
             return CssSizingPropertyParser.Parse(entry.Grammar, parts, input.MaxNestingDepth, work);
         if (entry.Grammar is CssPropertyGrammar.FlexFactor or CssPropertyGrammar.FlexDirection or
             CssPropertyGrammar.FlexWrap or CssPropertyGrammar.Direction or CssPropertyGrammar.Flex or CssPropertyGrammar.FlexFlow)
