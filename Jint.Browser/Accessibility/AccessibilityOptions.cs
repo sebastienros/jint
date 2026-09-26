@@ -1,7 +1,7 @@
 namespace Jint.Browser.Accessibility;
 
 /// <summary>
-/// What a call to <see cref="AccessibilityTree.Build(Jint.HtmlParser.Document, AccessibilityOptions?)"/>
+/// What a call to <see cref="AccessibilityTree.Build(Jint.HtmlParser.Document, AccessibilityOptions?, Jint.Browser.Styling.NativeCssQueryDiagnostics?)"/>
 /// keeps and what it prunes.
 /// </summary>
 /// <remarks>
