@@ -203,3 +203,21 @@ preparation; nested inline write followed by an external blocker and another out
 that writes another blocker; stale completion after open/abort; and SVG writes that insert without
 tokenizing until processing returns. Exercise quotas 1/3/large and chunk boundaries, and verify host
 requests, marker restoration, and nesting transitions occur exactly once across cooperative yields.
+
+## Script source-coordinate integration
+
+Browser compilation needs the one-based line immediately after the accepted script start tag, not
+its opening line or the tokenizer's current expanded offset. Add internal source kind/unit identity,
+original UTF-16 offset, line and column; preserve existing expanded offsets independently. Primary
+AppendInput chunks share one cursor; each inserted unit has its own cursor, shared by split input
+nodes. Track CR/LF/CRLF across chunk boundaries. Capture the post-tag anchor through pending-token
+and quota suspension, and classify source-unit crossings in both the start tag and script content.
+Store nullable metadata on HtmlScriptState before insertion; existing clone behavior leaves it unset,
+while adoption preserves identity and metadata. No Engine or source-string ownership belongs there.
+Browser keeps columns script-relative and uses document-relative lines only for primary-origin code;
+generated/mixed code uses explicit script-relative reporting. HTML error-location extraction is
+implementation-defined: https://html.spec.whatwg.org/multipage/webappapis.html#extract-error-information .
+SVG source metadata remains explicitly unavailable in this finite seam; do not invent HTML positions.
+Tests cover multiline tags, all newline chunk splits, quotas, nested inserted input and resumed primary
+input, mixed tags/content, pending tokens, clone and adoption. Browser error-line tests remain an
+integration gate. Implementation owns HTML input/tokenizer/tree construction and HtmlScriptState only.

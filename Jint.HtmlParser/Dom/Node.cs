@@ -19,6 +19,7 @@ public abstract partial class Node
 {
     private Document? _ownerDocument;
     internal HtmlFormIndex? FormIndex;
+    internal HtmlRadioGroupIndex? RadioIndex;
     internal HtmlFormWorkProbe? FormWorkProbe;
     // Stored distribution and manual intent are separate DOM concepts. A manual
     // link is weak so a detached slottable does not retain an otherwise dead slot.

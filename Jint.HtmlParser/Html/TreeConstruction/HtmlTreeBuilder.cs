@@ -312,6 +312,8 @@ internal sealed partial class HtmlTreeBuilder
             var state = element.GetHtmlState()!.Script!;
             if (_scriptingMode != HtmlParserScriptingMode.Fragment) state.ParserDocument = _document;
             state.ForceAsync = false;
+            state.ParserSourceLocation = _token.ScriptSourceLocation;
+            state.ParserSourceChanges = _token.SourceChanges;
             if (_scriptingMode == HtmlParserScriptingMode.Inert) state.AlreadyStarted = true;
         }
         if (attributes is { Length: > 0 })

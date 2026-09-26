@@ -55,20 +55,20 @@ internal static class HtmlFormAssociation
             return;
         }
 
-        state.Owner = null;
+        StoreOwner(element, state, null);
         if (hasExplicitForm && ShadowTree.IsConnected(element, default))
         {
             var id = formAttribute!.Value;
             if (id.Length != 0 && HtmlFormIndex.GetOrCreate(OrdinaryRoot(element)).FirstWithId(id) is
                 { NamespaceUri: Namespaces.Html, LocalName: "form" } form)
             {
-                state.Owner = form;
+                StoreOwner(element, state, form);
             }
 
             return;
         }
 
-        state.Owner = nearest;
+        StoreOwner(element, state, nearest);
     }
 
     internal static void AssociateFromParser(Element element, Element form)
@@ -88,14 +88,14 @@ internal static class HtmlFormAssociation
         }
 
         var state = element.FormAssociationState ??= new HtmlFormAssociationState();
-        state.Owner = form;
+        StoreOwner(element, state, form);
         state.ParserInserted = true;
     }
 
     internal static void AttributeChanged(Element element, string? namespaceUri, string localName,
         string? oldValue, string? newValue)
     {
-        if (namespaceUri is not null || oldValue == newValue)
+        if (namespaceUri is not null)
         {
             return;
         }
@@ -105,7 +105,7 @@ internal static class HtmlFormAssociation
             OrdinaryRoot(element).FormIndex?.ChangeReference(element, oldValue, newValue);
             ResetOwner(element);
         }
-        else if (localName == "id")
+        else if (localName == "id" && oldValue != newValue)
         {
             if (element.OwnerDocument?.HasFormIndex != true)
             {
@@ -119,41 +119,43 @@ internal static class HtmlFormAssociation
             }
 
             index.ChangeId(element, oldValue, newValue);
-            ResetReferences(index, oldValue);
-            if (newValue != oldValue)
-            {
-                ResetReferences(index, newValue);
-            }
+            ResetReferences(index);
         }
     }
 
     internal static FormRemoval BeforeRemoval(Node node, Node parent)
     {
         HtmlDisabledness.DirectChildChanged(node, parent);
+        if (MayContainAssociated(node))
+        {
+            var removalRoot = OrdinaryRoot(node);
+            foreach (var element in ShadowIncludingAssociated(node, null))
+                HtmlInputStateChanges.BeforeRemoval(element, removalRoot);
+        }
         if (!MayAffectForms(node) || node.OwnerDocument?.HasFormIndex != true)
         {
-            return new FormRemoval(null, null, node.OwnerDocument?.FormWorkProbe);
+            return new FormRemoval(null, false, node.OwnerDocument?.FormWorkProbe);
         }
 
         var root = OrdinaryRoot(parent);
         var index = root.FormIndex;
         if (index is null)
         {
-            return new FormRemoval(null, null, root.FormWorkProbe);
+            return new FormRemoval(null, false, root.FormWorkProbe);
         }
 
-        List<string>? ids = null;
+        var hasIds = false;
         foreach (var element in OrdinaryElements(node, root.FormWorkProbe))
         {
-            if (element.GetAttributeNodeNS(null, "id")?.Value is { Length: > 0 } id)
+            if (element.GetAttributeNodeNS(null, "id") is not null)
             {
-                (ids ??= []).Add(id);
+                hasIds = true;
             }
 
             index.Remove(element);
         }
 
-        return new FormRemoval(index, ids, root.FormWorkProbe);
+        return new FormRemoval(index, hasIds, root.FormWorkProbe);
     }
 
     internal static void Removed(Node node, FormRemoval removal)
@@ -172,12 +174,9 @@ internal static class HtmlFormAssociation
             }
         }
 
-        if (removal.Index is { } index && removal.Ids is { } ids)
+        if (removal.Index is { } index && removal.HasIds)
         {
-            foreach (var id in ids)
-            {
-                ResetReferences(index, id);
-            }
+            ResetReferences(index);
         }
     }
 
@@ -197,18 +196,19 @@ internal static class HtmlFormAssociation
             // An index once owned by a detached root cannot become an index of
             // its new parent's tree. No process-wide root table retains it.
             node.FormIndex = null;
+            node.RadioIndex?.Retire();
         }
 
         var index = root.FormIndex;
-        List<string>? ids = null;
+        var hasIds = false;
         if (index is not null)
         {
             foreach (var element in OrdinaryElements(node, root.FormWorkProbe))
             {
                 index.Add(element);
-                if (element.GetAttributeNodeNS(null, "id")?.Value is { Length: > 0 } id)
+                if (element.GetAttributeNodeNS(null, "id") is not null)
                 {
-                    (ids ??= []).Add(id);
+                    hasIds = true;
                 }
             }
         }
@@ -222,15 +222,13 @@ internal static class HtmlFormAssociation
                 {
                     ResetOwner(element);
                 }
+                HtmlInputStateChanges.Inserted(element);
             }
         }
 
-        if (index is not null && ids is not null)
+        if (index is not null && hasIds)
         {
-            foreach (var id in ids)
-            {
-                ResetReferences(index, id);
-            }
+            ResetReferences(index);
         }
     }
 
@@ -255,15 +253,20 @@ internal static class HtmlFormAssociation
         => MayContainAssociated(node) || node is Element element &&
             element.GetAttributeNodeNS(null, "id") is not null;
 
-    private static void ResetReferences(HtmlFormIndex index, string? id)
+    private static void StoreOwner(Element element, HtmlFormAssociationState state, Element? owner)
     {
-        if (string.IsNullOrEmpty(id))
-        {
-            return;
-        }
+        if (ReferenceEquals(state.Owner, owner)) return;
+        var oldOwner = state.Owner;
+        state.Owner = owner;
+        element.OwnerDocument?.CheckedWorkProbe?.OwnerStore?.Invoke(element, oldOwner, owner);
+        HtmlInputStateChanges.OwnerChanged(element);
+    }
 
-        foreach (var control in index.Referencing(id))
+    private static void ResetReferences(HtmlFormIndex index)
+    {
+        foreach (var control in index.ResetCandidates())
         {
+            index.Probe?.ResetCandidate();
             ResetOwner(control);
         }
     }
@@ -296,20 +299,16 @@ internal static class HtmlFormAssociation
                 {
                     yield return element;
                 }
-
-                if (element.AttachedShadowRoot is { } shadow)
-                {
-                    pending.Push(shadow);
-                }
             }
 
             for (var child = current.LastChild; child is not null; child = child.PreviousSibling)
             {
                 pending.Push(child);
             }
+            if (current is Element { AttachedShadowRoot: { } shadow }) pending.Push(shadow);
         }
     }
 }
 
-internal readonly record struct FormRemoval(HtmlFormIndex? Index, List<string>? Ids,
+internal readonly record struct FormRemoval(HtmlFormIndex? Index, bool HasIds,
     HtmlFormWorkProbe? Probe);

@@ -7,6 +7,20 @@ internal sealed class HtmlElementState
 
     internal Element Element { get; }
     internal Element? FormOwner => HtmlFormState.GetOwner(Element);
+    private HtmlInputCheckedState? _checkedState;
+    internal HtmlInputCheckedState? CheckedState
+    {
+        get
+        {
+            var work = new HtmlCheckedWork(Element.OwnerDocument?.CheckedWorkProbe, default);
+            return GetCheckedState(ref work);
+        }
+    }
+    internal HtmlInputCheckedState? GetCheckedState(ref HtmlCheckedWork work)
+        => Element is { NamespaceUri: Namespaces.Html, LocalName: "input" }
+            ? _checkedState ??= new HtmlInputCheckedState(Element, ref work) : null;
+    internal HtmlInputCheckedState? ExistingCheckedState => _checkedState;
+
     private HtmlTextAreaState? _textArea;
     internal HtmlTextAreaState? TextArea => Element is { NamespaceUri: Namespaces.Html, LocalName: "textarea" }
         ? _textArea ??= new HtmlTextAreaState(Element) : null;
