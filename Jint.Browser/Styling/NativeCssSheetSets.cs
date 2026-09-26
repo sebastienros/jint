@@ -59,31 +59,30 @@ internal static partial class NativeCssStyleSheets
         if (owner.NamespaceUri != Namespaces.Html && owner.NamespaceUri != Namespaces.Svg ||
             owner.LocalName != "style" && !(owner.LocalName == "link" && owner.NamespaceUri == Namespaces.Html)) return null;
         var resources = Documents.GetValue(document, static _ => new Resources());
-        if (resources.Owners.TryGetValue(owner, out var known)) return known;
+        if (resources.Owners.TryGetValue(owner, out var known))
+        {
+            ObserveDisabled(owner);
+            return known;
+        }
         var stamp = document.MutationStamp;
         var disabled = owner.LocalName == "link" && new DomReadWork(work.Charge, work.Token).Attribute(owner, "disabled") is not null;
         work.CheckCancellation();
         if (!ReferenceEquals(owner.OwnerDocument, document) || stamp != document.MutationStamp)
             throw new InvalidOperationException(NativeCssQuery.Invalidated);
         var resource = new Resource("", new() { OwnerNode = owner })
-        { Loaded = owner.LocalName != "link", Disabled = disabled, DisabledSource = owner.LocalName == "link" ? disabled : null };
-        ObserveDisabled(owner, resource);
+        { Loaded = owner.LocalName != "link", Disabled = disabled };
+        ObserveDisabled(owner);
         resources.Owners.Add(owner, resource);
         return resource;
     }
 
-    // The Browser mutation hook passes the new null-namespace value at the actual transition.
-    // This neither parses nor fetches and preserves later CSSOM writes against earlier attribute writes.
-    internal static void OwnerAttributeChanged(Document document, Element owner, string? namespaceUri,
-        string name, string? value)
+    // Element-owned subscription authority, independent of document observers and lazy CSS queries.
+    private static void ApplyDisabledTransition(Element owner, string? value)
     {
-        if (namespaceUri is not null || name != "disabled" || owner.NamespaceUri != Namespaces.Html || owner.LocalName != "link") return;
         if (value is null) LinkHistories.GetValue(owner, static _ => new()).ExplicitlyEnabled = true;
-        if (!Documents.TryGetValue(document, out var resources) || !resources.Owners.TryGetValue(owner, out var resource)) return;
-        if (resource.Associated) SetDisabled(resource, value is not null);
-        resource.DisabledSource = value is not null;
-        resource.DisabledObservedStamp = document.MutationStamp;
-        resource.DisabledDirty = false;
+        if (owner.OwnerDocument is not { } document || !Documents.TryGetValue(document, out var resources) ||
+            !resources.Owners.TryGetValue(owner, out var resource)) return;
+        SetDisabled(resource, value is not null);
     }
 
     internal static void DisassociateOwner(Document document, Element owner, CssValueWork work)
@@ -96,7 +95,6 @@ internal static partial class NativeCssStyleSheets
         resources.Sets?.Removed(owner);
         resource.NativeStamp = null;
         resource.MediaSource = null;
-        resource.DisabledObservedStamp = null;
         resource.Disabled = false;
         resource.Loaded = owner.LocalName != "link";
         resource.Replaced = false;
@@ -142,18 +140,6 @@ internal static partial class NativeCssStyleSheets
         if (resource.Sheet is { } sheet) sheet.Disabled = disabled;
         else resource.Disabled = disabled;
     }
-
-    internal static void RefreshDisabled(Element owner, Resource resource, DomReadWork reads)
-    {
-        if (owner.NamespaceUri != Namespaces.Html || owner.LocalName != "link") return;
-        var disabled = reads.Attribute(owner, "disabled") is not null;
-        if (resource.DisabledDirty || resource.DisabledSource != disabled)
-        {
-            SetDisabled(resource, disabled);
-            resource.DisabledSource = disabled;
-            resource.DisabledDirty = false;
-        }
-    }
 }
 
 // CSSOM 2013 §6.2.3: history, current DOM ordering, and the actual resource disabled authority.
@@ -194,7 +180,6 @@ internal sealed class NativeCssSheetSets(Document document)
         _resources.Remove(owner);
         _resources.Add(owner, resource);
         resource.Associated = true;
-        resource.DisabledSource = owner.LocalName == "link" ? disabledSource : null;
         NativeCssStyleSheets.SetDisabled(resource, incomingDisabled);
         _preferred = preferred;
         _revision = new();
@@ -324,7 +309,6 @@ internal sealed class NativeCssSheetSets(Document document)
             { work.Charge(1); pending.Push(child); }
             if (node is not Element owner || !_resources.TryGetValue(owner, out var resource) || !resource.Associated ||
                 !NativeCssStyleSheets.EligibleOwner(owner, reads, work)) continue;
-            NativeCssStyleSheets.RefreshDisabled(owner, resource, reads);
             result.Add(new(reads.Attribute(owner, "title") ?? "", resource, NativeCssStyleSheets.DisabledOf(resource), resource.Sheet?.Stamp));
         }
         return result;

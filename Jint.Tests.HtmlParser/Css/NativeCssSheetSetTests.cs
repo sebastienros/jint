@@ -205,15 +205,45 @@ public sealed class NativeCssSheetSetTests
         NativeCssStyleSheets.Install(document, link, "", "", "", work);
         var sheet = NativeCssStyleSheets.Get(document, work).Single().Sheet;
         link.SetAttribute("disabled", "");
-        NativeCssStyleSheets.OwnerAttributeChanged(document, link, null, "disabled", "");
         sheet.Disabled.Should().BeTrue();
         sheet.Disabled = false;
         NativeCssStyleSheets.Get(document, work).Single().Sheet.Disabled.Should().BeFalse();
         link.RemoveAttribute("disabled");
-        NativeCssStyleSheets.OwnerAttributeChanged(document, link, null, "disabled", null);
         sheet.Disabled.Should().BeFalse();
         sheet.Disabled = true;
         NativeCssStyleSheets.Get(document, work).Single().Sheet.Disabled.Should().BeTrue();
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void ReentrantDisabledTransitionsPreserveRemovalHistoryInEitherRegistrationOrder(bool cssFirst)
+    {
+        var document = Document.CreateHtml();
+        var link = document.CreateElement("link");
+        link.SetAttribute("rel", "stylesheet");
+        document.AppendChild(link);
+        var work = new CssValueWork(default);
+        if (cssFirst) NativeCssStyleSheets.PrepareOwner(document, link, work);
+        using var earlier = new MutationSubscription();
+        earlier.Observe(link, new MutationObserverOptions { Attributes = true, AttributeFilter = ["disabled"] });
+        var reentered = false;
+        earlier.PendingRecord = pending =>
+        {
+            pending.TakeRecords();
+            if (reentered) return;
+            reentered = true;
+            link.RemoveAttribute("disabled");
+            link.SetAttribute("disabled", "");
+        };
+        var resource = NativeCssStyleSheets.PrepareOwner(document, link, work)!;
+        NativeCssStyleSheets.Install(document, link, "", "", "", work);
+        var sheet = NativeCssStyleSheets.Get(document, work).Single().Sheet;
+        link.SetAttribute("disabled", "");
+        sheet.Disabled.Should().BeTrue();
+        resource.ExplicitlyEnabled.Should().BeTrue();
+        // A later CSSOM assignment stays authoritative; no query replays the attribute.
+        sheet.Disabled = false;
+        NativeCssStyleSheets.Get(document, work).Single().Sheet.Disabled.Should().BeFalse();
     }
 
     [Test]
@@ -225,9 +255,7 @@ public sealed class NativeCssSheetSetTests
         var work = new CssValueWork(default);
         NativeCssStyleSheets.AssociateOwner(document, link, work);
         link.SetAttribute("disabled", "");
-        NativeCssStyleSheets.OwnerAttributeChanged(document, link, null, "disabled", "");
         link.RemoveAttribute("disabled");
-        NativeCssStyleSheets.OwnerAttributeChanged(document, link, null, "disabled", null);
         link.SetAttribute("rel", "alternate stylesheet");
         link.SetAttribute("title", "alternate");
         var sets = NativeCssStyleSheets.SetsOf(document);
@@ -289,9 +317,7 @@ public sealed class NativeCssSheetSetTests
         var work = new CssValueWork(default);
         NativeCssStyleSheets.PrepareOwner(original, link, work);
         link.SetAttribute("disabled", "");
-        NativeCssStyleSheets.OwnerAttributeChanged(original, link, null, "disabled", "");
         link.RemoveAttribute("disabled");
-        NativeCssStyleSheets.OwnerAttributeChanged(original, link, null, "disabled", null);
         NativeCssStyleSheets.DisassociateOwner(original, link, work);
         destination.AdoptNode(link);
         destinationRoot.AppendChild(link);

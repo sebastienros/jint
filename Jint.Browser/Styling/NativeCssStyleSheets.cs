@@ -228,18 +228,6 @@ internal static partial class NativeCssStyleSheets
                         Verify();
                         resource.MediaSource = media;
                     }
-                    if (element.NamespaceUri == Namespaces.Html && element.LocalName == "link")
-                    {
-                        var disabled = ownerWork.Attribute(element, "disabled") is not null;
-                        if (resource.DisabledDirty || resource.DisabledSource != disabled)
-                        {
-                            Verify();
-                            resource.Sheet.Disabled = disabled;
-                            resource.DisabledSource = disabled;
-                            resource.DisabledDirty = false;
-                        }
-                    }
-                    ObserveDisabled(element, resource);
                     result.Add(new(resource.Sheet, NativeCssOrigin.Author));
                 }
             }
@@ -248,17 +236,24 @@ internal static partial class NativeCssStyleSheets
         return result.AsReadOnly();
     }
 
-    private static void ObserveDisabled(Element owner, Resource resource)
+    private static void ObserveDisabled(Element owner)
     {
-        if (owner.LocalName != "link" || owner.NamespaceUri != Namespaces.Html || resource.DisabledSubscription is not null) return;
+        if (owner.LocalName != "link" || owner.NamespaceUri != Namespaces.Html) return;
+        var history = LinkHistories.GetValue(owner, static _ => new());
+        if (history.Subscription is not null) return;
         var subscription = new MutationSubscription();
         subscription.Observe(owner, new MutationObserverOptions { Attributes = true, AttributeFilter = ["disabled"] });
         subscription.PendingRecord = pending =>
         {
-            pending.TakeRecords();
-            if (resource.DisabledObservedStamp != owner.OwnerDocument?.MutationStamp) resource.DisabledDirty = true;
+            // Native mutation matching enqueues every subscription before notifying any of them.
+            // Drain every frozen transition: a removal remains history even if a later add wins.
+            foreach (var record in pending.TakeRecords())
+            {
+                if (record.AttributeNamespace is null && record.AttributeName == "disabled")
+                    ApplyDisabledTransition(owner, record.AttributeNewValue);
+            }
         };
-        resource.DisabledSubscription = subscription;
+        history.Subscription = subscription;
     }
 
     private static string ReadText(Element owner, CssValueWork work) =>
@@ -300,6 +295,7 @@ internal static partial class NativeCssStyleSheets
     private sealed class LinkHistory
     {
         internal bool ExplicitlyEnabled;
+        internal MutationSubscription? Subscription;
     }
     internal sealed class Resource(string source, CssStyleSheetAttachment attachment)
     {
@@ -309,15 +305,11 @@ internal static partial class NativeCssStyleSheets
         internal bool Replaced;
         internal ulong? NativeStamp;
         internal string? MediaSource;
-        internal bool? DisabledSource;
-        internal bool DisabledDirty;
-        internal ulong? DisabledObservedStamp;
         internal bool Disabled;
         internal bool Associated;
         internal bool Loaded = true;
         private readonly LinkHistory? _history = attachment.OwnerNode is Element { NamespaceUri: Namespaces.Html, LocalName: "link" } owner
             ? LinkHistories.GetValue(owner, static _ => new()) : null;
         internal bool ExplicitlyEnabled => _history?.ExplicitlyEnabled ?? false;
-        internal MutationSubscription? DisabledSubscription;
     }
 }
