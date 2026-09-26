@@ -1,15 +1,15 @@
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
-using AngleSharp.Dom;
-using AngleSharp.Html.Dom;
+using Jint.HtmlParser;
 
+using Jint.Browser.Dom;
 using Jint.Browser.Dom.Views;
 
 namespace Jint.Browser.Accessibility;
 
 /// <summary>
-/// Computes an accessibility tree over an AngleSharp document, with no layout and no script engine.
+/// Computes an accessibility tree over a native document, with no layout and no script engine.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -25,7 +25,7 @@ namespace Jint.Browser.Accessibility;
 /// </remarks>
 internal static class AccessibilityTree
 {
-    private static readonly ConditionalWeakTable<IDocument, NodeIdentifiers> s_identifiers = new();
+    private static readonly ConditionalWeakTable<Document, NodeIdentifiers> s_identifiers = new();
 
     private static readonly AxProtocolJsonContext s_indented = new(new JsonSerializerOptions(JsonSerializerDefaults.General)
     {
@@ -35,7 +35,7 @@ internal static class AccessibilityTree
     });
 
     /// <summary>Builds the accessibility tree of <paramref name="document"/>.</summary>
-    internal static AxNode Build(IDocument document, AccessibilityOptions? options = null)
+    internal static AxNode Build(Document document, AccessibilityOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(document);
 
@@ -56,15 +56,15 @@ internal static class AccessibilityTree
             new(AxPropertyName.Focusable, AxValue.Boolean(true)),
         };
 
-        if (!string.IsNullOrEmpty(document.Url))
+        if (!string.IsNullOrEmpty(DomDocumentState.Of(document).Url))
         {
-            properties.Add(new AxProperty(AxPropertyName.Url, AxValue.String(document.Url)));
+            properties.Add(new AxProperty(AxPropertyName.Url, AxValue.String(DomDocumentState.Of(document).Url)));
         }
 
         var root = new AxNode(IdOf(document, document), AriaRoles.RootWebArea)
         {
             Node = document,
-            Name = NullIfEmpty(AccessibleName.Flatten(document.Title ?? string.Empty)),
+            Name = NullIfEmpty(AccessibleName.Flatten(ContentDom.First(document, "title") is { } title ? ContentDom.TextContent(title) : string.Empty)),
             Properties = properties,
             Children = children,
         };
@@ -82,12 +82,12 @@ internal static class AccessibilityTree
     /// <c>&lt;div&gt;</c> with nothing on it — yields its first surviving descendant rather than nothing,
     /// so a caller always gets the subtree it asked about.
     /// </remarks>
-    internal static AxNode? Build(IElement element, AccessibilityOptions? options = null)
+    internal static AxNode? Build(Element element, AccessibilityOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(element);
 
         options ??= AccessibilityOptions.Default;
-        var document = element.Owner ?? throw new ArgumentException("The element does not belong to a document.", nameof(element));
+        var document = element.OwnerDocument ?? throw new ArgumentException("The element does not belong to a document.", nameof(element));
         var builder = new Builder(document, options);
 
         var nodes = new List<AxNode>();
@@ -145,7 +145,7 @@ internal static class AccessibilityTree
         JsonSerializer.Serialize(Flatten(root), indented ? s_indented.IReadOnlyListAxProtocolNode : AxProtocolJsonContext.Default.IReadOnlyListAxProtocolNode);
 
     /// <summary>The identifier this document gave the node, assigning one when it has none yet.</summary>
-    internal static int IdOf(IDocument document, INode node) => s_identifiers.GetValue(document, static _ => new NodeIdentifiers()).For(node);
+    internal static int IdOf(Document document, Node node) => s_identifiers.GetValue(document, static _ => new NodeIdentifiers()).For(node);
 
     /// <summary>The element this document already gave <paramref name="id"/> to, or <see langword="null"/>.</summary>
     /// <remarks>
@@ -160,7 +160,7 @@ internal static class AccessibilityTree
     /// of the document, which a click can afford and a render loop could not.
     /// </para>
     /// </remarks>
-    internal static IElement? ElementFor(IDocument document, int id)
+    internal static Element? ElementFor(Document document, int id)
         => s_identifiers.TryGetValue(document, out var identifiers) ? identifiers.Find(document, id) : null;
 
     private static string Identifier(int id) => id.ToString(CultureInfo.InvariantCulture);
@@ -200,9 +200,9 @@ internal static class AccessibilityTree
         _ => "string",
     };
 
-    private static AxIgnoredReason InheritedReasonFor(IElement element, Builder builder)
+    private static AxIgnoredReason InheritedReasonFor(Element element, Builder builder)
     {
-        for (var ancestor = element.ParentElement; ancestor is not null; ancestor = ancestor.ParentElement)
+        for (var ancestor = (element.ParentNode as Element); ancestor is not null; ancestor = (ancestor.ParentNode as Element))
         {
             var reason = builder.ReasonFor(ancestor);
             if (reason != AxIgnoredReason.None)
@@ -214,7 +214,7 @@ internal static class AccessibilityTree
         return AxIgnoredReason.None;
     }
 
-    private static AxNode Wrap(IDocument document, IElement element, List<AxNode> nodes)
+    private static AxNode Wrap(Document document, Element element, List<AxNode> nodes)
     {
         // The element's own node was pruned but several of its descendants survived, so they need a holder.
         // It takes the element's identifier rather than a fresh one: it stands for that element.
@@ -239,12 +239,12 @@ internal static class AccessibilityTree
 
     private sealed class Builder
     {
-        private readonly IDocument _document;
+        private readonly Document _document;
         private readonly AccessibilityOptions _options;
         private readonly AccessibleName _names;
         private readonly CssCascade.Traversal? _cascade;
 
-        internal Builder(IDocument document, AccessibilityOptions options)
+        internal Builder(Document document, AccessibilityOptions options)
         {
             _document = document;
             _options = options;
@@ -255,17 +255,21 @@ internal static class AccessibilityTree
 
         internal ElementVisibility Visibility { get; }
 
-        internal AxIgnoredReason ReasonFor(IElement element) => Visibility.ReasonFor(element, _cascade);
+        internal AxIgnoredReason ReasonFor(Element element) => Visibility.ReasonFor(element, _cascade);
 
-        internal void Visit(INode node, AxIgnoredReason inherited, List<AxNode> output, bool suppressText)
+        internal void Visit(Node node, AxIgnoredReason inherited, List<AxNode> output, bool suppressText)
         {
             switch (node)
             {
-                case IText text:
-                    VisitText(text, inherited, output, suppressText);
+                case Text text:
+                    VisitText(text, text.Data, inherited, output, suppressText);
                     return;
 
-                case IElement element:
+                case CDataSection cdata:
+                    VisitText(cdata, cdata.Data, inherited, output, suppressText);
+                    return;
+
+                case Element element:
                     VisitElement(element, inherited, output, suppressText);
                     return;
 
@@ -274,14 +278,14 @@ internal static class AccessibilityTree
             }
         }
 
-        private void VisitText(IText text, AxIgnoredReason inherited, List<AxNode> output, bool suppressText)
+        private void VisitText(Node text, string data, AxIgnoredReason inherited, List<AxNode> output, bool suppressText)
         {
             if (!_options.IncludeText || (suppressText && !_options.IncludeIgnored))
             {
                 return;
             }
 
-            var content = AccessibleName.Flatten(text.Data);
+            var content = AccessibleName.Flatten(data);
             var reason = inherited != AxIgnoredReason.None ? inherited
                 : content.Length == 0 ? AxIgnoredReason.EmptyText
                 : AxIgnoredReason.None;
@@ -300,7 +304,7 @@ internal static class AccessibilityTree
             });
         }
 
-        private void VisitElement(IElement element, AxIgnoredReason inherited, List<AxNode> output, bool suppressText)
+        private void VisitElement(Element element, AxIgnoredReason inherited, List<AxNode> output, bool suppressText)
         {
             if (ImplicitRole.IsMetadataContent(element))
             {
@@ -417,7 +421,7 @@ internal static class AccessibilityTree
             return Inherit(inherited);
         }
 
-        private List<AxProperty> BuildProperties(IElement element, string role, AxIgnoredReason reason, bool disabled, bool focusable)
+        private List<AxProperty> BuildProperties(Element element, string role, AxIgnoredReason reason, bool disabled, bool focusable)
         {
             var properties = new List<AxProperty>();
 
@@ -525,7 +529,7 @@ internal static class AccessibilityTree
             }
         }
 
-        private static string? CheckedState(IElement element, string role)
+        private static string? CheckedState(Element element, string role)
         {
             if (role is not ("checkbox" or "radio" or "switch" or "menuitemcheckbox" or "menuitemradio"))
             {
@@ -546,7 +550,7 @@ internal static class AccessibilityTree
             return null;
         }
 
-        private static bool? ExpandedState(IElement element)
+        private static bool? ExpandedState(Element element)
         {
             var aria = element.GetAttribute("aria-expanded");
             if (!string.IsNullOrWhiteSpace(aria))
@@ -554,21 +558,21 @@ internal static class AccessibilityTree
                 return Flag(aria);
             }
 
-            if (element is IHtmlDetailsElement details)
+            if (element is { NamespaceUri: Namespaces.Html, LocalName: "details" })
             {
-                return details.IsOpen;
+                return element.HasAttribute("open");
             }
 
             if (string.Equals(element.LocalName, "summary", StringComparison.Ordinal)
-                && element.ParentElement is IHtmlDetailsElement parent)
+                && element.ParentNode is Element { NamespaceUri: Namespaces.Html, LocalName: "details" } parent)
             {
-                return parent.IsOpen;
+                return parent.HasAttribute("open");
             }
 
             return null;
         }
 
-        private static bool? SelectedState(IElement element, string role)
+        private static bool? SelectedState(Element element, string role)
         {
             var aria = element.GetAttribute("aria-selected");
             if (!string.IsNullOrWhiteSpace(aria))
@@ -584,39 +588,25 @@ internal static class AccessibilityTree
             return null;
         }
 
-        private static bool IsDisabled(IElement element)
+        private static bool IsDisabled(Element element)
         {
             if (string.Equals(element.GetAttribute("aria-disabled"), "true", StringComparison.OrdinalIgnoreCase))
             {
                 return true;
             }
 
-            if (element.HasAttribute("disabled"))
-            {
-                return true;
-            }
-
-            // A disabled fieldset disables its descendants, except those inside its first legend.
-            for (var ancestor = element.ParentElement; ancestor is not null; ancestor = ancestor.ParentElement)
-            {
-                if (ancestor is IHtmlFieldSetElement { IsDisabled: true })
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            return HtmlDisabledness.GetState(element, CancellationToken.None) == HtmlDisabledState.Disabled;
         }
 
-        private static bool IsRequired(IElement element) =>
+        private static bool IsRequired(Element element) =>
             string.Equals(element.GetAttribute("aria-required"), "true", StringComparison.OrdinalIgnoreCase)
             || element.HasAttribute("required");
 
-        private static bool IsReadOnly(IElement element) =>
+        private static bool IsReadOnly(Element element) =>
             string.Equals(element.GetAttribute("aria-readonly"), "true", StringComparison.OrdinalIgnoreCase)
             || element.HasAttribute("readonly");
 
-        private static bool IsFocusable(IElement element, bool disabled)
+        private static bool IsFocusable(Element element, bool disabled)
         {
             if (disabled)
             {
@@ -642,18 +632,18 @@ internal static class AccessibilityTree
                 case "embed":
                     return true;
                 case "input":
-                    return !string.Equals((element as IHtmlInputElement)?.Type, "hidden", StringComparison.OrdinalIgnoreCase);
+                    return !string.Equals(ContentDom.InputType(element), "hidden", StringComparison.OrdinalIgnoreCase);
                 case "summary":
-                    return string.Equals(element.ParentElement?.LocalName, "details", StringComparison.Ordinal);
+                    return string.Equals((element.ParentNode as Element)?.LocalName, "details", StringComparison.Ordinal);
                 case "audio":
                 case "video":
                     return element.HasAttribute("controls");
                 default:
-                    return element is IHtmlElement { IsContentEditable: true };
+                    return Events.ContentEditing.HostOf(element) is not null;
             }
         }
 
-        private static int? Level(IElement element, string role)
+        private static int? Level(Element element, string role)
         {
             var aria = element.GetAttribute("aria-level");
             if (int.TryParse(aria, NumberStyles.Integer, CultureInfo.InvariantCulture, out var level))
@@ -678,7 +668,7 @@ internal static class AccessibilityTree
             };
         }
 
-        private static bool IsMultiline(IElement element, string role)
+        private static bool IsMultiline(Element element, string role)
         {
             if (Flag(element.GetAttribute("aria-multiline")) is { } aria)
             {
@@ -688,17 +678,17 @@ internal static class AccessibilityTree
             return role is "textbox" && string.Equals(element.LocalName, "textarea", StringComparison.Ordinal);
         }
 
-        private static bool IsMultiselectable(IElement element, string role)
+        private static bool IsMultiselectable(Element element, string role)
         {
             if (Flag(element.GetAttribute("aria-multiselectable")) is { } aria)
             {
                 return aria;
             }
 
-            return role is "listbox" && element is IHtmlSelectElement { IsMultiple: true };
+            return role is "listbox" && element is { NamespaceUri: Namespaces.Html, LocalName: "select" } && element.HasAttribute("multiple");
         }
 
-        private static string? Invalid(IElement element)
+        private static string? Invalid(Element element)
         {
             var aria = element.GetAttribute("aria-invalid");
             if (string.IsNullOrWhiteSpace(aria))
@@ -709,7 +699,7 @@ internal static class AccessibilityTree
             return string.Equals(aria, "false", StringComparison.OrdinalIgnoreCase) ? null : aria.ToLowerInvariant();
         }
 
-        private static string? Autocomplete(IElement element, string role)
+        private static string? Autocomplete(Element element, string role)
         {
             var aria = element.GetAttribute("aria-autocomplete");
             if (!string.IsNullOrWhiteSpace(aria))
@@ -720,7 +710,7 @@ internal static class AccessibilityTree
             return role is "combobox" && element.HasAttribute("list") ? "list" : null;
         }
 
-        private static string? Live(IElement element, string role)
+        private static string? Live(Element element, string role)
         {
             var aria = element.GetAttribute("aria-live");
             if (!string.IsNullOrWhiteSpace(aria))
@@ -736,11 +726,10 @@ internal static class AccessibilityTree
             };
         }
 
-        private static string? Url(IElement element) => element switch
+        private static string? Url(Element element) => element.LocalName switch
         {
-            IHtmlAnchorElement anchor when anchor.HasAttribute("href") => anchor.Href,
-            IHtmlAreaElement area when area.HasAttribute("href") => area.Href,
-            IHtmlImageElement image when image.HasAttribute("src") => image.Source,
+            "a" or "area" => ContentDom.Url(element, "href"),
+            "img" => ContentDom.Url(element, "src"),
             _ => null,
         };
 
@@ -749,9 +738,9 @@ internal static class AccessibilityTree
         /// state the same string twice.
         /// </summary>
         /// <remarks>These are exactly HTML-AAM's native-label sources that take their value from content.</remarks>
-        private static bool NamesAnAncestor(IElement element)
+        private static bool NamesAnAncestor(Element element)
         {
-            var parent = element.ParentElement;
+            var parent = (element.ParentNode as Element);
             if (parent is null)
             {
                 return false;
@@ -767,19 +756,12 @@ internal static class AccessibilityTree
             };
         }
 
-        private static bool LabelsAControl(IElement label)
+        private static bool LabelsAControl(Element label)
         {
-            // A `for` that names nothing labels nothing, so its text is ordinary page text and stays.
-            var target = label.GetAttribute("for");
-            if (!string.IsNullOrEmpty(target))
-            {
-                return label.Owner?.GetElementById(target) is not null;
-            }
-
-            return label.QuerySelector("input, select, textarea, button, meter, output, progress") is not null;
+            return HtmlLabelAssociation.ControlFor(label) is not null;
         }
 
-        private static bool IsEmptyAlt(IElement element) =>
+        private static bool IsEmptyAlt(Element element) =>
             string.Equals(element.LocalName, "img", StringComparison.Ordinal)
             && element.HasAttribute("alt")
             && element.GetAttribute("alt")!.Length == 0;
@@ -795,15 +777,15 @@ internal static class AccessibilityTree
 
     private sealed class NodeIdentifiers
     {
-        private readonly ConditionalWeakTable<INode, Box> _ids = new();
+        private readonly ConditionalWeakTable<Node, Box> _ids = new();
         private int _next;
 
-        internal int For(INode node) => _ids.GetValue(node, _ => new Box(Interlocked.Increment(ref _next))).Value;
+        internal int For(Node node) => _ids.GetValue(node, _ => new Box(Interlocked.Increment(ref _next))).Value;
 
         /// <summary>The element carrying <paramref name="id"/>, without assigning one to anything.</summary>
-        internal IElement? Find(IDocument document, int id)
+        internal Element? Find(Document document, int id)
         {
-            foreach (var element in document.Descendants<IElement>())
+            foreach (var element in ContentDom.Descendants(document))
             {
                 if (_ids.TryGetValue(element, out var box) && box.Value == id)
                 {

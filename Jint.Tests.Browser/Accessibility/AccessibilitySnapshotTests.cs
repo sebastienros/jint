@@ -17,7 +17,7 @@ public sealed class AccessibilitySnapshotTests
     [TestCase("todomvc")]
     public void RendersThePage(string page)
     {
-        using var document = PageFixture.Parse(GoldenFiles.Page(page), "https://jint.test/" + page + ".html");
+        var document = PageFixture.Parse(GoldenFiles.Page(page), "https://jint.test/" + page + ".html");
         var snapshot = AccessibilitySnapshot.Render(AccessibilityTree.Build(document, AccessibilityOptions.Snapshot));
 
         GoldenFiles.Approve(page + ".snapshot.txt", snapshot);
@@ -26,7 +26,7 @@ public sealed class AccessibilitySnapshotTests
     [Test]
     public void RendersARoleANameAndTheAttributesThatChangeWhatACallerWouldDo()
     {
-        using var document = PageFixture.Parse("<h2>Title</h2><input type=checkbox checked disabled aria-label=Agree>");
+        var document = PageFixture.Parse("<h2>Title</h2><input type=checkbox checked disabled aria-label=Agree>");
 
         var expected =
             """
@@ -41,7 +41,7 @@ public sealed class AccessibilitySnapshotTests
     [Test]
     public void OmitsAPropertyWhoseValueIsFalse()
     {
-        using var document = PageFixture.Parse("<input type=checkbox aria-label=Agree>");
+        var document = PageFixture.Parse("<input type=checkbox aria-label=Agree>");
 
         AccessibilitySnapshot.Render(AccessibilityTree.Build(document))
             .Should().Contain("- checkbox \"Agree\"")
@@ -51,7 +51,7 @@ public sealed class AccessibilitySnapshotTests
     [Test]
     public void RendersAWidgetsValueAfterTheColonWhenItHasNoChildren()
     {
-        using var document = PageFixture.Parse("<label for=t>Name</label><input id=t value=Ada>");
+        var document = PageFixture.Parse("<label for=t>Name</label><input id=t value=Ada>");
 
         AccessibilitySnapshot.Render(AccessibilityTree.Build(document)).Should().Contain("- textbox \"Name\": Ada");
     }
@@ -59,7 +59,7 @@ public sealed class AccessibilitySnapshotTests
     [Test]
     public void ANodeWhoseWholeContentIsOneRunOfTextSaysItOnItsOwnLine()
     {
-        using var document = PageFixture.Parse("<p>Hello there</p>");
+        var document = PageFixture.Parse("<p>Hello there</p>");
         var tree = AccessibilityTree.Build(document, AccessibilityOptions.Snapshot);
 
         AccessibilitySnapshot.Render(tree).Should().Contain("- paragraph: Hello there").And.NotContain("- text:");
@@ -68,7 +68,7 @@ public sealed class AccessibilitySnapshotTests
     [Test]
     public void TextBetweenNodesIsItsOwnLine()
     {
-        using var document = PageFixture.Parse("<p>before <a href='/x'>a link</a> after</p>");
+        var document = PageFixture.Parse("<p>before <a href='/x'>a link</a> after</p>");
         var tree = AccessibilityTree.Build(document, AccessibilityOptions.Snapshot);
 
         AccessibilitySnapshot.Render(tree).Should().Contain("- text: before").And.Contain("- text: after");
@@ -77,7 +77,7 @@ public sealed class AccessibilitySnapshotTests
     [Test]
     public void TextThatIsAlreadyANodesNameIsNotStatedTwice()
     {
-        using var document = PageFixture.Parse(
+        var document = PageFixture.Parse(
             "<button>Save</button><label for=t>Name</label><input id=t><figure><figcaption>Cap</figcaption></figure>");
         var tree = AccessibilityTree.Build(document, AccessibilityOptions.Snapshot);
         var snapshot = AccessibilitySnapshot.Render(tree);
@@ -90,7 +90,7 @@ public sealed class AccessibilitySnapshotTests
     [Test]
     public void EscapesAQuoteInsideAName()
     {
-        using var document = PageFixture.Parse("<button aria-label='Say &quot;hello&quot;'>x</button>");
+        var document = PageFixture.Parse("<button aria-label='Say &quot;hello&quot;'>x</button>");
 
         AccessibilitySnapshot.Render(AccessibilityTree.Build(document)).Should().Contain("- button \"Say \\\"hello\\\"\"");
     }
@@ -98,7 +98,7 @@ public sealed class AccessibilitySnapshotTests
     [Test]
     public void TheSnapshotIsSmallerThanTheProtocolJson()
     {
-        using var document = PageFixture.Parse(GoldenFiles.Page("todomvc"));
+        var document = PageFixture.Parse(GoldenFiles.Page("todomvc"));
         var tree = AccessibilityTree.Build(document, AccessibilityOptions.Snapshot);
 
         var snapshot = AccessibilitySnapshot.Render(tree);

@@ -1,4 +1,4 @@
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 
 namespace Jint.Browser.Accessibility;
 
@@ -61,10 +61,10 @@ internal sealed class AxNode
     internal string Role { get; }
 
     /// <summary>The element this node was computed from, or <see langword="null"/> for a text node.</summary>
-    internal IElement? Element { get; init; }
+    internal Element? Element { get; init; }
 
     /// <summary>The DOM node this node was computed from.</summary>
-    internal INode? Node { get; init; }
+    internal Node? Node { get; init; }
 
     /// <summary>The accessible name, or <see langword="null"/> when the computation produced nothing.</summary>
     internal string? Name { get; init; }

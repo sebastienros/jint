@@ -1,4 +1,4 @@
-using AngleSharp.Dom;
+using Jint.HtmlParser;
 using Jint.Browser.Accessibility;
 
 namespace Jint.Tests.Browser.Accessibility;
@@ -82,14 +82,14 @@ public sealed class AccessibleNameTests
     [TestCaseSource(nameof(Names))]
     public void ComputesTheNameAccnameSpecifies(string html, string expected)
     {
-        using var document = PageFixture.Parse(html);
+        var document = PageFixture.Parse(html);
         Name(document, "t").Should().Be(expected);
     }
 
     [Test]
     public void AnAriaLabelledByCycleTerminates()
     {
-        using var document = PageFixture.Parse("<div id=t role=button aria-labelledby=b>A</div><div id=b role=button aria-labelledby=t>B</div>");
+        var document = PageFixture.Parse("<div id=t role=button aria-labelledby=b>A</div><div id=b role=button aria-labelledby=t>B</div>");
 
         // The visited guard stops the recursion; what matters is that it answers at all.
         Name(document, "t").Should().Be("B");
@@ -100,7 +100,7 @@ public sealed class AccessibleNameTests
     {
         // The control being named is on the visited set before its label is walked, so the label's content
         // contributes and the control's value does not.
-        using var document = PageFixture.Parse("<label>Name <input id=t value=Bob></label>");
+        var document = PageFixture.Parse("<label>Name <input id=t value=Bob></label>");
 
         Name(document, "t").Should().Be("Name");
     }
@@ -108,7 +108,7 @@ public sealed class AccessibleNameTests
     [Test]
     public void NameFromContentReachesANestedControlsValue()
     {
-        using var document = PageFixture.Parse("<div id=t role=button>Total <input value='42' readonly></div>");
+        var document = PageFixture.Parse("<div id=t role=button>Total <input value='42' readonly></div>");
 
         Name(document, "t").Should().Be("Total 42");
     }
@@ -116,7 +116,7 @@ public sealed class AccessibleNameTests
     [Test]
     public void ADescriptionComesFromDescribedByThenTitleThenPlaceholder()
     {
-        using var document = PageFixture.Parse(
+        var document = PageFixture.Parse(
             "<span id=d>The long help text</span>" +
             "<input id=a aria-label=A aria-describedby=d title=T placeholder=P>" +
             "<input id=b aria-label=B title=T placeholder=P>" +
@@ -140,21 +140,21 @@ public sealed class AccessibleNameTests
         AccessibleName.Flatten("").Should().BeEmpty();
     }
 
-    private static string Name(IDocument document, string id)
+    private static string Name(Document document, string id)
     {
-        var element = document.GetElementById(id)!;
+        var element = ContentDom.ElementById(document, id)!;
         return Computation(document).Compute(element, AccessibleName.ResolveRole(element));
     }
 
-    private static string Description(IDocument document, string id)
+    private static string Description(Document document, string id)
     {
-        var element = document.GetElementById(id)!;
+        var element = ContentDom.ElementById(document, id)!;
         var computation = Computation(document);
         var name = computation.Compute(element, AccessibleName.ResolveRole(element));
         return computation.ComputeDescription(element, name);
     }
 
-    private static AccessibleName Computation(IDocument document)
+    private static AccessibleName Computation(Document document)
     {
         _ = document;
         return new AccessibleName(new ElementVisibility(useComputedStyle: true));
