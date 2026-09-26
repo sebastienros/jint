@@ -35,7 +35,7 @@ public sealed class NativeCssConsumerTests
             NativeCssBindings.StyleDisabled(runtime.Dom, style).Should().BeFalse();
             var container = DomDocumentReads.ById(runtime.Dom, document, "container")!;
             container.AppendChild(style);
-            NativeCssStyleSheets.AssociateOwner(runtime.Dom, style);
+            NativeCssStyleSheets.Install(runtime.Dom, style, "", "");
             NativeCssBindings.SetStyleDisabled(runtime.Dom, style, true);
             NativeCssBindings.StyleDisabled(runtime.Dom, style).Should().BeTrue();
             style.GetAttribute("disabled").Should().BeNull();
