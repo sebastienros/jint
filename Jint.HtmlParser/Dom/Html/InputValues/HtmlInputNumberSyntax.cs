@@ -25,6 +25,11 @@ internal static class HtmlInputNumberSyntax
         Action<long>? checkpoint = null, CancellationToken cancellationToken = default)
     {
         var work = new HtmlInputValueWork(checkpoint, cancellationToken);
+        return TryGetNumber(source, strict, out value, ref work);
+    }
+    internal static HtmlInputNumericParseResult TryGetNumber(ReadOnlySpan<char> source, bool strict, out double value,
+        ref HtmlInputValueWork work)
+    {
         work.Check();
         var start = 0;
         if (!strict)

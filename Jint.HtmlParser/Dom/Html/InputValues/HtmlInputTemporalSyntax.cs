@@ -172,15 +172,25 @@ internal static class HtmlInputTemporalSyntax
 
     internal static HtmlInputNumericParseResult TryGetNumber(HtmlInputType type, string source, out double value,
         CancellationToken cancellationToken = default)
+        => TryGetNumber(type, source, out value, null, cancellationToken);
+    internal static HtmlInputNumericParseResult TryGetNumber(HtmlInputType type, string source, out double value,
+        Action<long>? checkpoint, CancellationToken cancellationToken)
     {
+        var work = new HtmlInputValueWork(checkpoint, cancellationToken);
+        return TryGetNumber(type, source, out value, ref work);
+    }
+    internal static HtmlInputNumericParseResult TryGetNumber(HtmlInputType type, string source, out double value,
+        ref HtmlInputValueWork work)
+    {
+        var cancellationToken = work.Token;
         ArgumentNullException.ThrowIfNull(source);
         value = double.NaN;
         if (!IsTemporal(type)) return HtmlInputNumericParseResult.Inapplicable;
-        if (!TryParseMicrosyntax(type, source, out var parsed, cancellationToken: cancellationToken))
+        if (!ParseCore(type, source, strict: false, out var parsed, ref work))
             return HtmlInputNumericParseResult.SyntaxError;
         if (type == HtmlInputType.Time)
         {
-            GetTimeCoordinate(parsed, cancellationToken).TryPublish(out value);
+            GetTimeCoordinate(parsed, ref work).TryPublish(out value);
             cancellationToken.ThrowIfCancellationRequested();
             return HtmlInputNumericParseResult.Success;
         }
@@ -205,7 +215,7 @@ internal static class HtmlInputTemporalSyntax
             coordinate = HtmlInputDecimal.FromInteger(integer);
         }
         if (type == HtmlInputType.DateTimeLocal)
-            coordinate = coordinate.Add(GetTimeCoordinate(parsed, cancellationToken));
+            coordinate = coordinate.Add(GetTimeCoordinate(parsed, ref work));
         cancellationToken.ThrowIfCancellationRequested();
         if (!coordinate.TryPublish(out value)) return HtmlInputNumericParseResult.NonFinite;
         cancellationToken.ThrowIfCancellationRequested();
@@ -230,9 +240,14 @@ internal static class HtmlInputTemporalSyntax
         catch (OverflowException) { coordinate = 0; return false; }
     }
 
-    private static HtmlInputDecimal GetTimeCoordinate(in HtmlInputTemporalValue parsed, CancellationToken cancellationToken)
+    private static HtmlInputDecimal GetTimeCoordinate(in HtmlInputTemporalValue parsed, CancellationToken cancellationToken,
+        Action<long>? checkpoint = null)
     {
-        var work = new HtmlInputValueWork(null, cancellationToken);
+        var work = new HtmlInputValueWork(checkpoint, cancellationToken);
+        return GetTimeCoordinate(parsed, ref work);
+    }
+    private static HtmlInputDecimal GetTimeCoordinate(in HtmlInputTemporalValue parsed, ref HtmlInputValueWork work)
+    {
         work.Check();
         var start = parsed.YearLength == 0 ? 0 : parsed.YearLength + 7;
         var time = parsed.Source.AsSpan(start);

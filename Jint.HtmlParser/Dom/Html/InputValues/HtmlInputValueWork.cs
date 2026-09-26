@@ -4,6 +4,7 @@ namespace Jint.HtmlParser;
 internal struct HtmlInputValueWork(Action<long>? checkpoint, CancellationToken token)
 {
     private long _units;
+    internal CancellationToken Token => token;
 
     internal void Step()
     {
