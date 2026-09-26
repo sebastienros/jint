@@ -402,7 +402,7 @@ internal static partial class DomInterfaces
     /// <summary>The <c>HTMLVideoElement</c> interface, projected from <c>Jint.HtmlParser.Element</c>.</summary>
     internal static readonly DomInterfaceDefinition HTMLVideoElement;
 
-    /// <summary>The <c>History</c> interface, projected from <c>AngleSharp.Browser.Dom.IHistory</c>.</summary>
+    /// <summary>The <c>History</c> interface, projected from <c>Jint.Native.Object.ObjectInstance</c>.</summary>
     internal static readonly DomInterfaceDefinition History;
 
     /// <summary>The <c>Location</c> interface, projected from <c>Jint.Browser.Dom.DomLocation</c>.</summary>
@@ -1761,7 +1761,7 @@ internal static partial class DomInterfaces
 
         History = Add(new DomInterfaceDefinition(
             "History",
-            typeof(global::AngleSharp.Browser.Dom.IHistory),
+            typeof(global::Jint.Native.Object.ObjectInstance),
             BuildHistory,
             null,
             rootsAtEventTarget: false,

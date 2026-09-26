@@ -12545,8 +12545,8 @@
     },
     {
       "DomName": "History",
-      "ClrTypeName": "AngleSharp.Browser.Dom.IHistory",
-      "ReceiverType": "global::AngleSharp.Browser.Dom.IHistory",
+      "ClrTypeName": "Jint.Native.Object.ObjectInstance",
+      "ReceiverType": "global::Jint.Native.Object.ObjectInstance",
       "Parent": null,
       "RootsAtEventTarget": false,
       "HasInterfaceObject": true,
@@ -12561,7 +12561,7 @@
         {
           "DomName": "back",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.IHistory>(thisObj, \"History.back\");\nself.Target.Back(); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var runtime = global::Jint.Browser.Runtime.HistoryInstaller.Brand(thisObj, \"History.back\");\nreturn global::Jint.Browser.Runtime.HistoryInstaller.Traverse(runtime, -1);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHistory.Back"
@@ -12569,7 +12569,7 @@
         {
           "DomName": "forward",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.IHistory>(thisObj, \"History.forward\");\nself.Target.Forward(); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var runtime = global::Jint.Browser.Runtime.HistoryInstaller.Brand(thisObj, \"History.forward\");\nreturn global::Jint.Browser.Runtime.HistoryInstaller.Traverse(runtime, 1);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHistory.Forward"
@@ -12577,7 +12577,7 @@
         {
           "DomName": "go",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.IHistory>(thisObj, \"History.go\");\nself.Target.Go(global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 0, 0)); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var runtime = global::Jint.Browser.Runtime.HistoryInstaller.Brand(thisObj, \"History.go\");\nreturn global::Jint.Browser.Runtime.HistoryInstaller.Traverse(runtime, global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 0, 0));",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHistory.Go"
@@ -12585,7 +12585,7 @@
         {
           "DomName": "length",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.IHistory>(thisObj, \"History.length\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);",
+          "Body": "var runtime = global::Jint.Browser.Runtime.HistoryInstaller.Brand(thisObj, \"History.length\");\nreturn global::Jint.Browser.Dom.DomConvert.Number(runtime.Page.History.Length);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHistory.Length"
@@ -12593,7 +12593,7 @@
         {
           "DomName": "pushState",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.IHistory>(thisObj, \"History.pushState\");\nself.Target.PushState(global::Jint.Browser.Dom.DomConvert.At(args, 0), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, \"History.pushState\"), global::Jint.Browser.Dom.DomConvert.NullableText(args, 2)); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var runtime = global::Jint.Browser.Runtime.HistoryInstaller.Brand(thisObj, \"History.pushState\");\nvar state = global::Jint.Browser.Dom.DomConvert.At(args, 0);\n_ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, \"History.pushState\");\nvar url = global::Jint.Browser.Dom.DomConvert.NullableText(args, 2);\nreturn global::Jint.Browser.Runtime.HistoryInstaller.Update(runtime, [state, global::Jint.Native.JsValue.Undefined, global::Jint.Browser.Dom.DomConvert.Text(url)], replace: false);",
           "SetterBody": null,
           "Length": 2,
           "Origin": "IHistory.PushState"
@@ -12601,7 +12601,7 @@
         {
           "DomName": "replaceState",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.IHistory>(thisObj, \"History.replaceState\");\nself.Target.ReplaceState(global::Jint.Browser.Dom.DomConvert.At(args, 0), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, \"History.replaceState\"), global::Jint.Browser.Dom.DomConvert.NullableText(args, 2)); return global::Jint.Native.JsValue.Undefined;",
+          "Body": "var runtime = global::Jint.Browser.Runtime.HistoryInstaller.Brand(thisObj, \"History.replaceState\");\nvar state = global::Jint.Browser.Dom.DomConvert.At(args, 0);\n_ = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, \"History.replaceState\");\nvar url = global::Jint.Browser.Dom.DomConvert.NullableText(args, 2);\nreturn global::Jint.Browser.Runtime.HistoryInstaller.Update(runtime, [state, global::Jint.Native.JsValue.Undefined, global::Jint.Browser.Dom.DomConvert.Text(url)], replace: true);",
           "SetterBody": null,
           "Length": 2,
           "Origin": "IHistory.ReplaceState"
@@ -12609,14 +12609,15 @@
         {
           "DomName": "state",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.IHistory>(thisObj, \"History.state\");\nreturn global::Jint.Browser.Dom.DomConvert.Any(self.Realm, self.Target.State);",
+          "Body": "var runtime = global::Jint.Browser.Runtime.HistoryInstaller.Brand(thisObj, \"History.state\");\nreturn global::Jint.Browser.Runtime.HistoryInstaller.State(runtime);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "IHistory.State"
         }
       ],
       "Constants": [],
-      "Unscopables": []
+      "Unscopables": [],
+      "TypeMapCandidate": false
     },
     {
       "DomName": "Location",
