@@ -61,6 +61,7 @@ internal sealed partial class HtmlTreeBuilder
     private bool _inputTypeFound;
     private bool _inputTypeHidden;
     private ParserAttribute[]? _preparedAttributes;
+    private string? _preparedIsValue;
     private int _preparedAttributeIndex;
     private long _preparedAttributeWork;
     private long _work;
@@ -92,6 +93,7 @@ internal sealed partial class HtmlTreeBuilder
         _inputTypeFound = false;
         _inputTypeHidden = false;
         _preparedAttributes = null;
+        _preparedIsValue = null;
         _preparedAttributeIndex = 0;
         _preparedAttributeWork = 0;
         _templateHasFor = false;
@@ -261,12 +263,12 @@ internal sealed partial class HtmlTreeBuilder
     private Node CurrentParent => _open.Count == 0 ? _document : Current;
 
     private Element InsertElement(string name, ParserAttribute[]? attributes = null, Node? parentOverride = null,
-        long attributeWork = 0)
+        long attributeWork = 0, string? isValue = null)
     {
         CheckDepth();
         var location = FindAdjustedInsertionLocation(parentOverride ?? _headInsertionOverride);
         var owner = location.Parent as Document ?? location.Parent.OwnerDocument!;
-        var element = owner.CreateParsedElement(Namespaces.Html, name, null);
+        var element = owner.CreateParsedElement(Namespaces.Html, name, null, isValue);
         if (attributes is { Length: > 0 })
         {
             element.InitializeParsedAttributes(attributes, _cancellationToken);
@@ -278,7 +280,7 @@ internal sealed partial class HtmlTreeBuilder
     }
 
     private Element InsertTokenElement(Node? parentOverride = null) =>
-        InsertElement(_token.Name!, _preparedAttributes, parentOverride, _preparedAttributeWork);
+        InsertElement(_token.Name!, _preparedAttributes, parentOverride, _preparedAttributeWork, _preparedIsValue);
 
     private bool PrepareTokenAttributes()
     {
@@ -288,6 +290,7 @@ internal sealed partial class HtmlTreeBuilder
         {
             var item = attributes[_preparedAttributeIndex];
             _preparedAttributes[_preparedAttributeIndex++] = new ParserAttribute(null, item.Name, null, item.Value);
+            if (item.Name == "is") _preparedIsValue = item.Value;
             if (_token.Name == "template")
             {
                 if (item.Name == "for") _templateHasFor = true;

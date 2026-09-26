@@ -238,7 +238,8 @@ internal sealed partial class HtmlTreeBuilder
             var entry = (FormattingElementEntry) node.Value;
             // Check before creating or linking anything: depth failures must
             // leave this entry and the tree at their previous identities.
-            var recreated = InsertElement(entry.Name, entry.Attributes, attributeWork: entry.AttributeWork);
+            var recreated = InsertElement(entry.Name, entry.Attributes, attributeWork: entry.AttributeWork,
+                isValue: entry.Element.IsValue);
             _formattingByElement.Remove(entry.Element);
             entry.Element = recreated;
             _formattingByElement.Add(recreated, entry);

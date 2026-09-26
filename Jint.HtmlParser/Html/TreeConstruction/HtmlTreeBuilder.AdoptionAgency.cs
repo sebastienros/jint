@@ -492,7 +492,7 @@ internal sealed partial class HtmlTreeBuilder
         // The recreated element is about to receive existing descendants. Its
         // owner must already match the destination before those native moves.
         var owner = destination as Document ?? destination.OwnerDocument!;
-        var element = owner.CreateParsedElement(Namespaces.Html, entry.Name, null);
+        var element = owner.CreateParsedElement(Namespaces.Html, entry.Name, null, entry.Element.IsValue);
         if (entry.Attributes.Length != 0)
         {
             element.InitializeParsedAttributes(entry.Attributes, _cancellationToken);
