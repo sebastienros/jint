@@ -4,7 +4,15 @@ using System.Threading;
 
 namespace Jint.HtmlParser.Html;
 
-internal readonly record struct HtmlDocumentContext(bool IsSrcdoc = false, bool CannotChangeMode = false);
+// Browser supplies already cached, engine-free facts. This lookup must not run
+// JavaScript, invoke custom callbacks, or materialize DOM behavior.
+internal interface IHtmlShadowHostContextProvider
+{
+    ShadowAttachmentContext GetShadowAttachmentContext(Element host);
+}
+
+internal readonly record struct HtmlDocumentContext(bool IsSrcdoc = false, bool CannotChangeMode = false,
+    bool AllowDeclarativeShadowRoots = false, IHtmlShadowHostContextProvider? ShadowHostContextProvider = null);
 
 internal enum HtmlParseStepKind { NeedInput, Yielded, Complete, MissingFeature, HostRequest, InsertionBoundary, PendingBlocker, ParserPaused }
 internal enum HtmlParserScriptingMode { Normal, Disabled, Inert, Fragment }
@@ -261,8 +269,7 @@ internal sealed partial class HtmlParserSession
             }
             return new HtmlParseStep(HtmlParseStepKind.Yielded);
         }
-        catch (OperationCanceledException) { Invalidate(); throw; }
-        catch (ParseLimitException) { Invalidate(); throw; }
+        catch { Invalidate(); throw; }
         finally { _builder.EndDriveRootTracking(); Exit(); }
     }
 

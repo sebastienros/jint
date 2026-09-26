@@ -206,23 +206,11 @@ public partial class HtmlTreeConstructionTests
     }
 
     [Test]
-    public void BufferedTextFlushesBeforeDependentTemplateStop()
+    public void BufferedTextFlushesBeforeTemplatePatchFallback()
     {
         var parsed = Parse("<table>A<template for=target>", 1);
-        parsed.Step.Kind.Should().Be(HtmlParseStepKind.MissingFeature);
-        parsed.Step.MissingFeature.Should().Be(HtmlMissingFeature.Templates);
-        parsed.Step.Offset.Should().Be(8);
-        Serialize(parsed.Document).Should().Be("<html><head></head><body>A<table></table></body></html>");
-    }
-
-    [TestCase("<table><template for=target>", "Templates")]
-    public void FosterDelegationPreservesOtherFamilyStops(string source, string family)
-    {
-        var parsed = Parse(source, 1);
-        parsed.Step.Kind.Should().Be(HtmlParseStepKind.MissingFeature);
-        parsed.Step.MissingFeature.Should().Be(Enum.Parse<HtmlMissingFeature>(family));
-        parsed.Step.Offset.Should().Be(7);
-        Serialize(parsed.Document).Should().Be("<html><head></head><body><table></table></body></html>");
+        parsed.Step.Kind.Should().Be(HtmlParseStepKind.Complete);
+        Serialize(parsed.Document).Should().Be("<html><head></head><body>A<table><template></template></table></body></html>");
     }
 
     [Test]
