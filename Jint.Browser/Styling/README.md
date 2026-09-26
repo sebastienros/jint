@@ -31,7 +31,10 @@ selection, inheritance/defaulting, origin/rule rollback, deferred values, media 
 source identity and invalidation have actual-source tests in `Jint.Tests.HtmlParser`.
 Typed numeric computation converts absolute/viewport/font-metric lengths and simplifies the
 shared math graph on demand. Unresolved percentage bases stay typed percentages/calculations;
-font metrics must be supplied explicitly. Color dependencies are still being integrated. Layer
-rollback is explicitly pending. Browser call sites have not switched to this producer yet;
-the source harness is not evidence that `getComputedStyle`, layout or protocol coverage
-already use it. Used geometry belongs to Browser layout, not CSS syntax or validators.
+font metrics must be supplied explicitly. CurrentColor follows the inherited color dependency, and named colors compute to absolute
+coordinates. System colors require an explicit immutable host palette; the Browser handoff
+does not yet supply one. Layer rollback remains explicitly pending. Cascade, read-only
+declaration and CSS protocol consumers now target this producer, but generated bindings
+and the native node tracker are still integration dependencies. The source harness proves
+the query and returned coverage text/ranges; it does not prove script-facing computed style,
+layout or protocol-client behavior until the full Browser build and tests pass. Used geometry belongs to Browser layout, not CSS syntax or validators.
