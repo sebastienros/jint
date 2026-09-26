@@ -361,12 +361,14 @@ public sealed class ComputedStyleTests
         await page.SetContentAsync("""
             <style>
               :root { --extent: 10px; text-decoration: underline solid red }
-              .outer { width: var(--extent) }
-              .inner { --extent: 20px }
+              .outer { width: 10px }
+              .inner { width: auto; --extent: 20px }
               #t { width: inherit; text-decoration: inherit; visibility: visible; color: blue }
             </style>
-            <div class="outer"><div class="inner"><span id="t">target</span></div></div>
+            <div class="outer"><div class="inner"><span id="t">target</span><span id="direct">direct</span></div></div>
+            <span id="root-child" style="text-decoration:inherit">root child</span>
             """);
+        await page.EvaluateAsync("document.documentElement.appendChild(document.getElementById('root-child'))");
 
         (await page.EvaluateAsync<string>(
             """
@@ -380,7 +382,18 @@ public sealed class ComputedStyleTests
                 style.color === color
               ].join('|');
             })()
-            """)).Should().Be("visible|20px|underline|true|true|true|true");
+            """)).Should().Be("visible|auto|none|false|true|false|true");
+        (await page.EvaluateAsync<string>("getComputedStyle(document.querySelector('.outer')).width")).Should().Be("10px");
+        (await page.EvaluateAsync<string>("getComputedStyle(document.querySelector('.inner')).width")).Should().Be("auto");
+        (await page.EvaluateAsync<string>("getComputedStyle(document.getElementById('t')).cssText")).Should().BeEmpty();
+        (await page.EvaluateAsync<string>("getComputedStyle(document.getElementById('root-child')).textDecorationLine"))
+            .Should().Be("underline");
+        (await page.EvaluateAsync<string>("getComputedStyle(document.getElementById('root-child')).textDecorationColor"))
+            .Should().Be("rgb(255, 0, 0)");
+        await page.EvaluateAsync("document.getElementById('direct').style.width = 'var(--extent)'");
+        (await page.EvaluateAsync<string>("getComputedStyle(document.getElementById('direct')).width")).Should().Be("20px");
+        await page.EvaluateAsync("document.querySelector('.inner').style.setProperty('--extent', '30px')");
+        (await page.EvaluateAsync<string>("getComputedStyle(document.getElementById('direct')).width")).Should().Be("30px");
         page.Errors.Should().BeEmpty();
     }
 

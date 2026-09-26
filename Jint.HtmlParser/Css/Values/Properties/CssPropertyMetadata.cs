@@ -13,7 +13,8 @@ internal enum CssPropertyGrammar
     FlexBasis, FlexFactor, FlexDirection, FlexWrap, Direction, Flex, FlexFlow,
     AlignItems, AlignSelf, JustifyItems, JustifySelf, PlaceItems, PlaceSelf, Color,
     WhiteSpace, WhiteSpaceCollapse, TextWrapMode, WhiteSpaceTrim, FontWeight, FontSize,
-    TextAlign, TextAlignAll, TextAlignLast, Translate, Rotate, Scale, TransformList, TransformBox
+    TextAlign, TextAlignAll, TextAlignLast, Translate, Rotate, Scale, TransformList, TransformBox,
+    TextDecoration, TextDecorationLine, TextDecorationStyle, TextDecorationThickness
 }
 
 // Only completed entries have initial/inheritance metadata. Pending catalog rows never invent defaults.
@@ -100,6 +101,13 @@ internal static class CssPropertyRegistry
         Add("text-align-all", CssPropertyGrammar.TextAlignAll, "start", true);
         Add("text-align-last", CssPropertyGrammar.TextAlignLast, "auto", true);
         Shorthand("text-align", CssPropertyGrammar.TextAlign, "start", ["text-align-all", "text-align-last"]);
+        // Text Decoration 4 §§2.1–2.6. Decoration propagation is independent of inheritance.
+        Add("text-decoration-line", CssPropertyGrammar.TextDecorationLine, "none");
+        Add("text-decoration-thickness", CssPropertyGrammar.TextDecorationThickness, "auto");
+        Add("text-decoration-style", CssPropertyGrammar.TextDecorationStyle, "solid");
+        Add("text-decoration-color", CssPropertyGrammar.Color, "currentcolor");
+        Shorthand("text-decoration", CssPropertyGrammar.TextDecoration, "none auto solid currentcolor",
+            ["text-decoration-line", "text-decoration-thickness", "text-decoration-style", "text-decoration-color"]);
         // CSS Transforms 2 §5 and §12; Transforms 1 §6.
         Add("translate", CssPropertyGrammar.Translate, "none");
         Add("rotate", CssPropertyGrammar.Rotate, "none");

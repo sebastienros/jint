@@ -108,7 +108,13 @@ internal sealed partial class NativeCssQuery
             {
                 _work.Charge(1);
                 var property = GetProperty(element, metadata.Longhands[i], ref matching);
-                entries[i] = new(property.Name, property.Value!, false, default, null);
+                var value = property.Value!;
+                // Color 4 resolved values: this shorthand exposes the element's actual color,
+                // while its longhand keeps currentColor for explicit inheritance into another element.
+                if (name == "text-decoration" && property.Name == "text-decoration-color" &&
+                    value.Color.Kind == CssColorKind.CurrentColor)
+                    value = GetProperty(element, "color", ref matching).Value!;
+                entries[i] = new(property.Name, value, false, default, null);
             }
             var text = CssDeclarationBlock.ShorthandValue(entries, metadata, _work);
             Verify();

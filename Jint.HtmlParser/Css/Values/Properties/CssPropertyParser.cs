@@ -71,6 +71,9 @@ internal static class CssPropertyParser
         var parts = Significant(input.Components, work);
         if (entry.Grammar == CssPropertyGrammar.TransformList)
             return CssTransformListParser.Parse(parts, input.MaxNestingDepth, work);
+        if (entry.Grammar is CssPropertyGrammar.TextDecoration or CssPropertyGrammar.TextDecorationLine or
+            CssPropertyGrammar.TextDecorationStyle or CssPropertyGrammar.TextDecorationThickness)
+            return CssTextDecorationPropertyParser.Parse(entry.Grammar, parts, input.MaxNestingDepth, work);
         if (entry.Grammar is CssPropertyGrammar.Translate or CssPropertyGrammar.Rotate or CssPropertyGrammar.Scale)
             return CssTransformParser.Parse(entry.Grammar, parts, input.MaxNestingDepth, work);
         if (entry.Grammar == CssPropertyGrammar.FontWeight)
