@@ -109,6 +109,19 @@ internal sealed class DomFormControlsCollection(DomRealm realm, Element form) : 
         work.Check();
         PrunePast(work);
         var names = new List<string>();
+        var seen = new HashSet<string>(new BoundedNames(work));
+        Dictionary<Element, List<PastName>>? pastByElement = null;
+        if (_pastNames is not null)
+        {
+            pastByElement = new();
+            foreach (var entry in _pastNames)
+            {
+                work.Step();
+                if (!pastByElement.TryGetValue(entry.Element, out var entries))
+                    pastByElement.Add(entry.Element, entries = []);
+                entries.Add(entry);
+            }
+        }
         var root = work.Root(form);
         if (root is Element element) AddElement(element);
         foreach (var candidate in NodeTraversal.DescendantElements(root, work.Check, work.Token)) AddElement(candidate);
@@ -127,22 +140,17 @@ internal sealed class DomFormControlsCollection(DomRealm realm, Element form) : 
                 Add(work.Attribute(candidate, "id"));
                 Add(work.Attribute(candidate, "name"));
             }
-            if (_pastNames is null) return;
-            foreach (var entry in _pastNames)
+            if (pastByElement is null || !pastByElement.TryGetValue(candidate, out var past)) return;
+            foreach (var entry in past)
             {
                 work.Step();
-                if (ReferenceEquals(entry.Element, candidate)) Add(entry.Name);
+                Add(entry.Name);
             }
         }
         void Add(string? name)
         {
             if (string.IsNullOrEmpty(name)) return;
-            foreach (var existing in names)
-            {
-                work.Step();
-                if (work.Equal(existing, name)) return;
-            }
-            names.Add(name);
+            if (seen.Add(name)) names.Add(name);
         }
     }
 
@@ -150,8 +158,22 @@ internal sealed class DomFormControlsCollection(DomRealm realm, Element form) : 
     {
         if (name.Length == 0) return false;
         var work = new DomReadWork(caller.NativeReadCheckpoint, caller.CancellationToken);
-        foreach (var supported in FormNames(caller))
-            if (work.Equal(supported, name)) { work.Check(); return true; }
+        work.Check();
+        PrunePast(work);
+        // A visibility probe neither realizes every name nor adds a past-name entry.
+        for (var imagePass = 0; imagePass < 2; imagePass++)
+        {
+            using var matches = Matching(name, images: imagePass == 1, work).GetEnumerator();
+            if (matches.MoveNext()) { work.Check(); return true; }
+        }
+        if (_pastNames is not null)
+        {
+            foreach (var entry in _pastNames)
+            {
+                work.Step();
+                if (work.Equal(entry.Name, name)) { work.Check(); return true; }
+            }
+        }
         work.Check();
         return false;
     }
@@ -159,15 +181,47 @@ internal sealed class DomFormControlsCollection(DomRealm realm, Element form) : 
     private void PrunePast(DomReadWork work)
     {
         if (_pastNames is null) return;
-        for (var index = _pastNames.Count - 1; index >= 0; index--)
+        List<PastName>? retained = null;
+        for (var index = 0; index < _pastNames.Count; index++)
         {
             work.Step();
             var entry = _pastNames[index];
             var state = entry.Element.FormAssociationState;
-            if (state is null || state.OwnerRevision == ulong.MaxValue || state.OwnerRevision != entry.Revision
-                || !ReferenceEquals(state.Owner, form)) _pastNames.RemoveAt(index);
+            var valid = state is not null && state.OwnerRevision != ulong.MaxValue
+                && state.OwnerRevision == entry.Revision && ReferenceEquals(state.Owner, form);
+            if (valid)
+            {
+                retained?.Add(entry);
+            }
+            else if (retained is null)
+            {
+                retained = new();
+                for (var prefix = 0; prefix < index; prefix++)
+                {
+                    work.Step();
+                    retained.Add(_pastNames[prefix]);
+                }
+            }
         }
         work.Check();
+        // A canceled scan cannot publish a partially compacted map.
+        if (retained is not null) _pastNames = retained;
+    }
+
+    private sealed class BoundedNames(DomReadWork work) : IEqualityComparer<string>
+    {
+        public bool Equals(string? left, string? right)
+            => ReferenceEquals(left, right) || right is not null && work.Equal(left, right);
+        public int GetHashCode(string value)
+        {
+            var hash = new HashCode();
+            foreach (var character in value)
+            {
+                work.Step();
+                hash.Add(character);
+            }
+            return hash.ToHashCode();
+        }
     }
 
     private void Remember(string name, Element element, DomReadWork work)
