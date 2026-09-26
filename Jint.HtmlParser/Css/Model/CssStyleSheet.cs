@@ -304,6 +304,8 @@ internal sealed class CssStyleSheet
                 var animationName = CssKeyframeParser.Name(syntax.Prelude, work);
                 return animationName is null ? null : new CssKeyframesRule(animationName, syntax.Span);
             }
+            if (name == "container")
+                return syntax.Block is null ? null : CssContainerParser.Parse(syntax.Prelude, syntax.Span, work);
             if (name == "supports")
             {
                 if (syntax.Block is null || !CssSupports.TryParseCondition(source, syntax.Prelude, options, work, out var matches))
@@ -314,7 +316,7 @@ internal sealed class CssStyleSheet
             var group = name switch
             {
                 "namespace" => "R1",
-                "container" or "scope" or "starting-style" or "layer" => "R2",
+                "scope" or "starting-style" or "layer" => "R2",
                 "font-face" or "font-feature-values" or "font-palette-values" => "R4",
                 "page" or "counter-style" => "R5",
                 "property" or "view-transition" or "position-try" or "color-profile" => "R6",

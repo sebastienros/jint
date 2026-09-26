@@ -96,6 +96,9 @@ internal static class CssPropertyParser
         if (entry.Grammar is CssPropertyGrammar.AlignItems or CssPropertyGrammar.AlignSelf or
             CssPropertyGrammar.JustifyItems or CssPropertyGrammar.JustifySelf or CssPropertyGrammar.PlaceItems or CssPropertyGrammar.PlaceSelf)
             return CssAlignmentPropertyParser.Parse(entry.Grammar, parts, work);
+        if (entry.Grammar is CssPropertyGrammar.ContainerName or CssPropertyGrammar.ContainerType or
+            CssPropertyGrammar.Container or CssPropertyGrammar.WritingMode)
+            return CssContainerPropertyParser.Parse(entry.Grammar, parts, work);
         if (entry.Grammar == CssPropertyGrammar.Display) return Display(parts);
         if (entry.Grammar is CssPropertyGrammar.Opacity or CssPropertyGrammar.ZIndex)
             return Numeric(entry.Grammar, input, parts, work);

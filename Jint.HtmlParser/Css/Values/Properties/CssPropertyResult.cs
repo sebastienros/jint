@@ -6,11 +6,12 @@ using Jint.HtmlParser.Css.Values.Transforms;
 namespace Jint.HtmlParser.Css.Values.Properties;
 
 internal enum CssPropertyStatus { Uninitialized, Valid, Deferred, Invalid, UnsupportedProperty, UnimplementedGrammar }
-internal enum CssPropertyValueKind { Keyword, Numeric, Math, OverflowPair, Shorthand, FitContent, Deferred, Custom, Color, Transform, TransformList }
+internal enum CssPropertyValueKind { Keyword, Numeric, Math, OverflowPair, Shorthand, FitContent, Deferred, Custom, Color, Transform, TransformList, IdentifierList }
 
 internal sealed class CssPropertyValue
 {
     private readonly CssColorValue? _color;
+    private readonly IReadOnlyList<string>? _identifiers;
     private readonly CssTransformValue? _transform;
     private readonly CssTransformList? _transformList;
     private readonly CssNumericAtom _numeric;
@@ -20,12 +21,16 @@ internal sealed class CssPropertyValue
     private CssPropertyValue(CssPropertyValueKind kind, string text, CssSourceSpan span,
         CssNumericAtom numeric = default, CssMathValue? math = null, CssReferenceProgram? references = null,
         CssColorValue? color = null, string? second = null, IReadOnlyList<CssPropertyValue>? components = null,
-        CssTransformValue? transform = null, CssTransformList? transformList = null)
+        CssTransformValue? transform = null, CssTransformList? transformList = null, IReadOnlyList<string>? identifiers = null)
     {
         Kind = kind; Text = text; Span = span; _numeric = numeric; _math = math;
         _color = color; _references = references; SecondKeyword = second; _components = components;
-        _transform = transform; _transformList = transformList;
+        _transform = transform; _transformList = transformList; _identifiers = identifiers;
     }
+    internal IReadOnlyList<string> Identifiers => Kind == CssPropertyValueKind.IdentifierList
+        ? _identifiers! : throw new InvalidOperationException();
+    internal static CssPropertyValue IdentifierList(string text, CssSourceSpan span, string[] identifiers) =>
+        new(CssPropertyValueKind.IdentifierList, text, span, identifiers: Array.AsReadOnly(identifiers));
     internal CssPropertyValueKind Kind { get; }
     internal string Text { get; }
     internal CssSourceSpan Span { get; }

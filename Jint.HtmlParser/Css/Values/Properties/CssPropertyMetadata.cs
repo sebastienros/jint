@@ -14,7 +14,8 @@ internal enum CssPropertyGrammar
     AlignItems, AlignSelf, JustifyItems, JustifySelf, PlaceItems, PlaceSelf, Color,
     WhiteSpace, WhiteSpaceCollapse, TextWrapMode, WhiteSpaceTrim, FontWeight, FontSize,
     TextAlign, TextAlignAll, TextAlignLast, Translate, Rotate, Scale, TransformList, TransformBox,
-    TextDecoration, TextDecorationLine, TextDecorationStyle, TextDecorationThickness
+    TextDecoration, TextDecorationLine, TextDecorationStyle, TextDecorationThickness,
+    ContainerName, ContainerType, Container, WritingMode
 }
 
 // Only completed entries have initial/inheritance metadata. Pending catalog rows never invent defaults.
@@ -93,6 +94,11 @@ internal static class CssPropertyRegistry
         Add("flex-direction", CssPropertyGrammar.FlexDirection, "row");
         Add("flex-wrap", CssPropertyGrammar.FlexWrap, "nowrap");
         Add("direction", CssPropertyGrammar.Direction, "ltr", true);
+        // Conditional 5 §§5.1–5.3; Writing Modes 4 §3.
+        Add("writing-mode", CssPropertyGrammar.WritingMode, "horizontal-tb", true);
+        Add("container-name", CssPropertyGrammar.ContainerName, "none");
+        Add("container-type", CssPropertyGrammar.ContainerType, "normal");
+        Shorthand("container", CssPropertyGrammar.Container, "none", ["container-name", "container-type"]);
         // CSS Fonts 4 §2.2. Descriptors remain a separate context obligation.
         Add("font-weight", CssPropertyGrammar.FontWeight, "normal", true);
         // CSS Fonts 4 §2.5; the host initial font size supplies medium at computation.

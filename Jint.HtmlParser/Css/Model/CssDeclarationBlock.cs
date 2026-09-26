@@ -330,6 +330,8 @@ internal sealed partial class CssDeclarationBlock
             anyWide |= IsWide(values[i]);
         }
         if (anyWide) return allEqual ? values[0] : "";
+        if (shorthand.Grammar == CssPropertyGrammar.Container)
+            return values[1] == "normal" ? values[0] : values[0] + " / " + values[1];
         if (shorthand.Grammar == CssPropertyGrammar.WhiteSpace)
             return CssWhiteSpacePropertyParser.Serialize(values[0], values[1], values[2], work);
         if (shorthand.Grammar == CssPropertyGrammar.TextAlign)
