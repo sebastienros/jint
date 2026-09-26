@@ -566,7 +566,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("DOMStringList.item", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssStyleSetList>(thisObj, "DOMStringList.item");
-                    return global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Styling.NativeCssBindings.Item(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "DOMStringList.item")));
+                    return global::Jint.Browser.Dom.DomConvert.NullableText(global::Jint.Browser.Styling.NativeCssBindings.Item(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "DOMStringList.item")));
                 }),
                 length: 1)
             .Accessor("length",

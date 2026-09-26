@@ -105,6 +105,17 @@ internal sealed partial class ParserDriver
 
     private void CaptureResourceRecord(ResourceWatch watch, MutationRecord record)
     {
+        // HTML's stylesheet request is superseded by a later trigger, even when deferred
+        // delivery observes the same URL again. Retire its identity at immutable record arrival;
+        // a fetching drain must not publish the old response while the replacement waits in FIFO.
+        // https://html.spec.whatwg.org/multipage/links.html#link-type-stylesheet
+        if (record.Kind == MutationRecordKind.Attributes && record.AttributeNamespace is null &&
+            record.AttributeName is "href" or "rel" or "type" &&
+            record.Target is Element { NamespaceUri: Namespaces.Html, LocalName: "link" } link &&
+            _resourceSources.TryGetValue(link, out var source) &&
+            ReferenceEquals(source.StyleRequestDocument, watch.Document) &&
+            ReferenceEquals(source.StyleRequestRoot, watch.Root))
+            InvalidateStyleRequest(source);
         // Freeze delegation on arrival: a later mutator can install an image watch before
         // delivery, but that new subscription did not observe this earlier document record.
         var delegated = watch.Root is not Element && record.Kind == MutationRecordKind.Attributes &&

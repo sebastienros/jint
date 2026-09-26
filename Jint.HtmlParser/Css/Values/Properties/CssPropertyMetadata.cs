@@ -14,7 +14,7 @@ internal enum CssPropertyGrammar
     AlignItems, AlignSelf, JustifyItems, JustifySelf, PlaceItems, PlaceSelf, Color,
     WhiteSpace, WhiteSpaceCollapse, TextWrapMode, WhiteSpaceTrim, FontWeight, FontSize,
     TextAlign, TextAlignAll, TextAlignLast, Translate, Rotate, Scale, TransformList, TransformBox,
-    TextDecoration, TextDecorationLine, TextDecorationStyle, TextDecorationThickness
+    TextDecoration, TextDecorationLine, TextDecorationStyle, TextDecorationThickness, BackgroundClip, Cursor
 }
 
 // Only completed entries have initial/inheritance metadata. Pending catalog rows never invent defaults.
@@ -63,9 +63,13 @@ internal static class CssPropertyRegistry
         // CSS Color 4 §3.2; Backgrounds 3 §2.2. No computed-color metadata.
         Add("color", CssPropertyGrammar.Color, "canvastext", true);
         Add("background-color", CssPropertyGrammar.Color, "transparent");
+        // Backgrounds 4 §2.8. Computed layer lists retain their authored count and order.
+        Add("background-clip", CssPropertyGrammar.BackgroundClip, "border-box");
         Add("opacity", CssPropertyGrammar.Opacity, "1");
         Add("position", CssPropertyGrammar.Position, "static");
         Add("pointer-events", CssPropertyGrammar.PointerEvents, "auto", true);
+        // CSS UI 4 §5.1.1. Image cursors retain an explicit pending boundary.
+        Add("cursor", CssPropertyGrammar.Cursor, "auto", true);
         Add("box-sizing", CssPropertyGrammar.BoxSizing, "content-box");
         Add("z-index", CssPropertyGrammar.ZIndex, "auto");
         Add("overflow-x", CssPropertyGrammar.OverflowAxis, "visible");

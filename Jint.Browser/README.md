@@ -1,11 +1,11 @@
 # Jint.Browser
 
 A headless browser in one .NET process, from [Jint](https://github.com/sebastienros/jint) and
-[AngleSharp](https://anglesharp.github.io/). AngleSharp is the HTML parser, the DOM and the CSSOM; Jint runs
-the document's scripts; this package is the binding layer between them and the page runtime on top of it. It
+Jint.HtmlParser. The native parser supplies the document tree and CSS model; Jint runs
+the document's scripts; this package supplies their bindings and the page runtime. It
 navigates, runs a page's scripts against a real DOM, follows its network, keeps its cookies and storage, and
-answers what the page turned out to be. **It renders nothing** — no layout, no pixels, no screenshots — and
-there is no browser binary to download or launch.
+answers what the page turned out to be. Its flat box model supplies geometry; it paints no pixels and
+produces no screenshots. There is no browser binary to download or launch.
 
 ```c#
 await using var browser = new Browser();
@@ -25,8 +25,8 @@ with nothing to install. For the command line, see
 [`Jint.Browser.Mcp`](https://www.nuget.org/packages/Jint.Browser.Mcp) serves the same page over the Model
 Context Protocol.
 
-Requires .NET 8 or later. Not trim- or AOT-compatible in this version, because AngleSharp is not
-trim-annotated.
+Requires .NET 8 or later. The Browser library does not currently declare trimming or NativeAOT
+compatibility. Native publication of the closed browser tool is a separate consumer contract.
 
 What a page can and cannot do, the per-page budgets, `ForUntrustedContent`, and how much of it is measured
 rather than claimed are in

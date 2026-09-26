@@ -63,7 +63,8 @@ public sealed class NativeCssBindingTests
     {
         using var dom = Create("a { color:red }");
         dom.Execute("var before=sheet.cssRules[0];");
-        foreach (var source in new[] { "@import 'other.css';", "@keyframes move { entry 50% { opacity:0 } }", "a { @media screen { color:red } }" })
+        // Ordinary imports have a real native model; R1's named layer prelude remains explicitly unsupported.
+        foreach (var source in new[] { "@import 'other.css' layer(theme);", "@keyframes move { entry 50% { opacity:0 } }", "a { @media screen { color:red } }" })
         {
             dom.Engine.SetValue("source", source);
             dom.Text("(()=>{try{sheet.insertRule(source,0)}catch(e){return e.name}})()").Should().Be("NotSupportedError");

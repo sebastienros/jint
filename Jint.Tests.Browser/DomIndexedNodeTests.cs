@@ -77,7 +77,7 @@ public sealed class DomIndexedNodeTests
 
         // An expando is still an ordinary own property, and it enumerates after the projection.
         fixture.Execute("document.getElementById('f').expando = 1;");
-        fixture.Text("Object.keys(document.getElementById('f')).join(',')").Should().Be("0,1,username,u,password,expando");
+        fixture.Text("Object.keys(document.getElementById('f')).join(',')").Should().Be("0,1,u,username,password,expando");
     }
 
     [Test]

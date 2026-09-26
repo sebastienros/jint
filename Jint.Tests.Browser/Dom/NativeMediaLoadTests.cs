@@ -177,30 +177,22 @@ public sealed class NativeMediaLoadTests
         await using var browser = new global::Jint.Browser.Browser();
         var page = await browser.NewPageAsync();
         await page.SetContentAsync("<audio id=media src='data:audio/mpeg,x'></audio>");
+        var sentinel = new InvalidOperationException("completion budget sentinel");
         await page.RunOnLoopAsync(engine =>
         {
             var realm = DomRealm.Of(engine);
-            var work = new DomReadWork(_ => throw new InvalidOperationException("completion budget sentinel"), default);
-            BrowserMediaState.Of(realm, MediaElement(engine)).Load(realm, work);
+            var state = BrowserMediaState.Of(realm, MediaElement(engine));
+            state.Load(realm, new DomReadWork(_ => throw sentinel, default));
+            engine.Tasks.ProcessTask(); // loadstart
+            Caught.Exception(() => engine.Tasks.ProcessTask()).Should().BeSameAs(sentinel);
+            $"{state.NetworkState}:{state.CurrentSrc}:{state.Error?.Code}".Should().Be("0::");
+            state.Load(realm);
+            engine.Tasks.ProcessTask(); // loadstart
+            engine.Tasks.ProcessTask(); // completed bytes cannot be decoded
+            (state.Error?.Code).Should().Be(4);
             return true;
         });
-        (await page.WaitForIdleAsync(Jint.Tests.TestBudgets.WedgeCeiling)).Should().BeTrue();
-        (await page.RunOnLoopAsync(engine =>
-        {
-            var state = BrowserMediaState.Of(DomRealm.Of(engine), MediaElement(engine));
-            return $"{state.NetworkState}:{state.CurrentSrc}:{state.Error?.Code}";
-        })).Should().Be("0::");
-        page.Errors.Should().ContainSingle();
-        await page.RunOnLoopAsync(engine =>
-        {
-            var realm = DomRealm.Of(engine);
-            BrowserMediaState.Of(realm, MediaElement(engine)).Load(realm);
-            return true;
-        });
-        (await page.WaitForIdleAsync(Jint.Tests.TestBudgets.WedgeCeiling)).Should().BeTrue();
-        (await page.RunOnLoopAsync(engine => BrowserMediaState.Of(DomRealm.Of(engine), MediaElement(engine)).Error?.Code))
-            .Should().Be(4);
-        page.Errors.Should().ContainSingle();
+        page.Errors.Should().BeEmpty();
     }
 
     [Test]

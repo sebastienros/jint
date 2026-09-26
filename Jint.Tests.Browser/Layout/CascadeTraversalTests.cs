@@ -381,16 +381,15 @@ public sealed class CascadeTraversalTests
         CssCascade.Of(leaf)!.GetPropertyValue("width").Should().Be(inheritParentWidth ? "10px" : "auto");
     }
 
-    [TestCase(":root", "font-size", "16px")]
-    [TestCase(":root", "text-align", "inherit")]
-    [TestCase(".outer", "font-size", "2em")]
-    [TestCase(".inner", "font-size", "1.5em")]
-    public void AuthoredTypographyRetainsExplicitPendingGrammar(string selector, string property, string value)
+    [TestCase(":root", "font-size", "16px", "16px")]
+    [TestCase(":root", "text-align", "inherit", "start")]
+    [TestCase(".outer", "font-size", "2em", "32px")]
+    [TestCase(".inner", "font-size", "1.5em", "24px")]
+    public void AuthoredTypographyResolvesAgainstItsComputedParent(string selector, string property, string value, string expected)
     {
         using var fixture = Create("<style>" + selector + " { " + property + ":" + value + " }</style><div class='outer'><div class='inner'></div></div>");
-        var failure = Caught.Exception(() => CssCascade.Traversal.For(fixture.Document)!.Of(Select(fixture.Document, selector).Single()).GetPropertyValue(property));
-        failure.Should().BeOfType<CssIncompleteGrammarException>();
-        ((CssIncompleteGrammarException) failure!).Blocker.Should().Contain("V4");
+        CssCascade.Traversal.For(fixture.Document)!.Of(Select(fixture.Document, selector).Single()).GetPropertyValue(property)
+            .Should().Be(expected);
     }
 
     [TestCase(10)]

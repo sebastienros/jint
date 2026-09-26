@@ -206,7 +206,7 @@ public sealed class SelectorInteractionStateTests
         Match(":active", control, environment).Should().BeFalse();
     }
 
-    [TestCase("#hit, :checked")]
+    [TestCase("#hit, :lang(en)")]
     [TestCase(":is(#hit, :valid)")]
     [TestCase(":not(:lang(en))")]
     [TestCase(":has(:dir(rtl))")]

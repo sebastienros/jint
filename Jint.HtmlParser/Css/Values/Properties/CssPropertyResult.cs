@@ -6,7 +6,7 @@ using Jint.HtmlParser.Css.Values.Transforms;
 namespace Jint.HtmlParser.Css.Values.Properties;
 
 internal enum CssPropertyStatus { Uninitialized, Valid, Deferred, Invalid, UnsupportedProperty, UnimplementedGrammar }
-internal enum CssPropertyValueKind { Keyword, Numeric, Math, OverflowPair, Shorthand, FitContent, Deferred, Custom, Color, Transform, TransformList }
+internal enum CssPropertyValueKind { Keyword, Numeric, Math, OverflowPair, Shorthand, FitContent, Deferred, Custom, Color, Transform, TransformList, KeywordList }
 
 internal sealed class CssPropertyValue
 {
@@ -30,7 +30,7 @@ internal sealed class CssPropertyValue
     internal string Text { get; }
     internal CssSourceSpan Span { get; }
     internal string? SecondKeyword { get; }
-    internal IReadOnlyList<CssPropertyValue> Components => Kind is CssPropertyValueKind.Shorthand or CssPropertyValueKind.FitContent
+    internal IReadOnlyList<CssPropertyValue> Components => Kind is CssPropertyValueKind.Shorthand or CssPropertyValueKind.FitContent or CssPropertyValueKind.KeywordList
         ? _components! : throw new InvalidOperationException();
     internal CssColorValue Color => Kind == CssPropertyValueKind.Color ? _color! : throw new InvalidOperationException();
     internal CssTransformValue Transform => Kind == CssPropertyValueKind.Transform ? _transform! : throw new InvalidOperationException();
@@ -45,6 +45,20 @@ internal sealed class CssPropertyValue
         ? _references! : throw new InvalidOperationException();
     internal static CssPropertyValue ColorValue(CssColorValue color, string text) => new(CssPropertyValueKind.Color, text, color.Span, color: color);
     internal static CssPropertyValue Keyword(string text, CssSourceSpan span) => new(CssPropertyValueKind.Keyword, text, span);
+    internal static CssPropertyValue KeywordList(string text, CssSourceSpan span,
+        IReadOnlyList<CssPropertyValue> values, CssValueWork work)
+    {
+        var owned = new CssPropertyValue[values.Count];
+        for (var i = 0; i < owned.Length; i++)
+        {
+            work.Charge(1);
+            var value = values[i];
+            if (value.Kind != CssPropertyValueKind.Keyword) throw new ArgumentException("Keyword layers are required.", nameof(values));
+            owned[i] = value;
+        }
+        work.CheckCancellation();
+        return new(CssPropertyValueKind.KeywordList, text, span, components: Array.AsReadOnly(owned));
+    }
     internal static CssPropertyValue Number(CssNumericAtom atom, string text) => new(CssPropertyValueKind.Numeric, text, atom.Span, atom);
     internal static CssPropertyValue Calculation(CssMathValue math, string text) => new(CssPropertyValueKind.Math, text, math.Span, math: math);
     internal static CssPropertyValue Pair(string first, string second, CssSourceSpan span) =>

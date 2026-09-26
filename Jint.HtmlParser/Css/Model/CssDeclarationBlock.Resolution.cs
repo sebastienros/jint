@@ -75,6 +75,17 @@ internal sealed partial class CssDeclarationBlock
         return _index = result;
     }
 
+    // A demand-side dependency probe may inspect pending inputs without materializing their grammar.
+    internal bool HasPropertyInput(string name, CssValueWork work)
+    {
+        work = ResolutionWork(work);
+        work.Charge(name.Length);
+        var index = Index(work);
+        var present = index.ContainsKey(name) || CssPropertyEffects.ResetByAll(name) && index.ContainsKey("all");
+        work.CheckCancellation();
+        return present;
+    }
+
     internal IReadOnlyList<string> CustomPropertyNames(CssValueWork work)
     {
         work = ResolutionWork(work);

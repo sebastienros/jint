@@ -124,11 +124,16 @@ control semantics. Form-associated custom elements join these categories through
 state; a hyphenated name or a `form` attribute alone does not make a FACE. D7a makes no FACE-completion
 claim and is not sufficient to publish all C3 predicates or replace Browser wholesale.
 
-This proposal selects a named standards correction for obsolete `keygen`: it has ordinary unknown
-HTML element semantics, not a new native listed/control state. The existing generated HTMLKeygenElement
-surface and the keygen row in FormOwnerTests are explicitly assigned to D7h/B1 compatibility review
-and cutover tests; they must not disappear unnoticed. Accepting this design approves that native
-classification, not an unreviewed removal of a shipped Browser binding. No compatibility flag is added.
+The selected standards correction for obsolete `keygen` ships ordinary unknown HTML element semantics,
+not native listed/control state. The generated HTMLKeygenElement interface and its prototype members
+remain in the binding surface, but parsed keygen nodes are branded HTMLUnknownElement: they expose no
+`form` member and are excluded from both ancestor and explicitly named forms' `elements` collections.
+FormOwnerTests keeps the seven modern listed-element cases and replaces the historical keygen row with
+ObsoleteKeygenKeepsUnknownElementSemantics, including rejection of a borrowed legacy form getter before
+ownership-hook dispatch or traversal. NativeHtmlSemanticBindingTests separately checks the unknown brand
+and legacy type-getter rejection. LegacyKeygenFormTests retains direct helper coverage; that compatibility
+helper does not rebrand nodes or make keygen a modern control. No interface or member is deleted, and no
+compatibility flag is added.
 
 ## 3. Stored ownership and exact mutation behavior
 
@@ -258,7 +263,7 @@ does not authorize deleting other A1 members or accepting false for unfinished p
 | D7e labels and collections | label.control/form/htmlFor, control.labels, legend.form (immediate fieldset parent), option.form (current nearest select), input.list, meter/progress labels/value/ranges/position; form/fieldset elements, form.length/index/named access, RadioNodeList.value, past-names-map invalidation | D4 live views plus B2 WebIDL identity/named properties. Do not confuse borrowed form getters with association or descendant fieldset membership with ownership |
 | D7f validation and form algorithms | Native candidacy/willValidate, custom validity message, all ValidityState flags: valueMissing/typeMismatch/patternMismatch/tooLong/tooShort/rangeUnderflow/rangeOverflow/stepMismatch/badInput/customError/valid; barred rules and aggregate form/fieldset selector validity, range applicability; native reset and successful-control facts, ordered validation candidates | C3 valid/invalid/in-range/out-of-range/required/optional and B2 getters; Browser checkValidity/reportValidity dispatch invalid events, interactive reporting, reset/submit/formdata and entry construction. No eventful CheckValidity call from selectors; built-in messages require a defined native policy, not a permanently empty placeholder |
 | D7g form-associated custom elements | Native resolved form-associated definition bit, owner/disabled changes, ElementInternals form/labels/validity/willValidate/validationMessage, setValidity/setFormValue and form state; upgrade/reassociation and native candidate/entry integration | B3 registry/upgrade and formAssociatedCallback/formDisabledCallback/formResetCallback/formStateRestoreCallback scheduling. No constructor/JsValue in native state; must gate full C3/B2 completion, despite current Browser limitations |
-| D7h compatibility ledger | HTMLKeygenElement and requestAutocomplete are obsolete A1 surface; keygen native classification correction above needs exact before/after Browser tests and manifest/API disposition. Existing duplicate formEncType/formEnctype spellings require explicit alias handling | B1 review owns any exposed-surface change; an absent modern standard is not permission for an untracked deletion or blanket fake implementation |
+| D7h compatibility ledger | HTMLKeygenElement remains in the generated surface, while keygen nodes ship the unknown-element disposition and explicit Browser tests above; direct legacy helper tests remain. requestAutocomplete is obsolete A1 surface with its own review obligation. Existing duplicate formEncType/formEnctype spellings require explicit alias handling | B1 review owns any exposed-surface change; an absent modern standard is not permission for an untracked deletion or blanket fake implementation |
 | D7i editing/link/open/language-direction | contenteditable enumerated/inherited state (including plaintext-only), designMode, editing hosts and native mutability; href-based link applicability, details/dialog open state and details grouping, select/input open applicability; lang/xml:lang precedence/inheritance, dir/ltr/rtl/auto, bdi/control directionality and slot-aware direction algorithms | C3 and B2 shared facts; Browser focus/hover/active/target/visited history, picker visibility, modal/top-layer interaction, and actual editing/events remain environment. Pure selectors still work on no-host trees; no environment adapter for intrinsic language, dirty flags or disabledness |
 
 Required/optional, readonly, placeholder and validity apply by control/type state, not attribute

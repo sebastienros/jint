@@ -1386,8 +1386,8 @@
     },
     {
       "DomName": "CSSImportRule",
-      "ClrTypeName": "Jint.Browser.Dom.NativeCssUnavailable",
-      "ReceiverType": "global::Jint.Browser.Dom.NativeCssUnavailable",
+      "ClrTypeName": "Jint.HtmlParser.Css.Model.CssImportRule",
+      "ReceiverType": "global::Jint.HtmlParser.Css.Model.CssImportRule",
       "Parent": "CSSRule",
       "RootsAtEventTarget": false,
       "HasInterfaceObject": true,
@@ -1402,7 +1402,7 @@
         {
           "DomName": "href",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSImportRule.href\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSImportRule.href\");",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssImportRule>(thisObj, \"CSSImportRule.href\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.Href);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "ICssImportRule.Href"
@@ -1410,15 +1410,15 @@
         {
           "DomName": "media",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSImportRule.media\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSImportRule.media\");",
-          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSImportRule.media\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSImportRule.media\");",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssImportRule>(thisObj, \"CSSImportRule.media\");\nreturn self.Realm.Wrap(self.Target.Media);",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssImportRule>(thisObj, \"CSSImportRule.media\");\nglobal::Jint.Browser.Styling.NativeCssBindings.SetMediaText(self.Realm, self.Target.Media, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, \"CSSImportRule.media\")); return global::Jint.Native.JsValue.Undefined;",
           "Length": 0,
           "Origin": "ICssImportRule.Media"
         },
         {
           "DomName": "styleSheet",
           "Kind": 1,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, \"CSSImportRule.styleSheet\");\nreturn global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, \"CSSImportRule.styleSheet\");",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssImportRule>(thisObj, \"CSSImportRule.styleSheet\");\nreturn self.Realm.Wrap(self.Target.StyleSheet);",
           "SetterBody": null,
           "Length": 0,
           "Origin": "ICssImportRule.Sheet"
@@ -3703,6 +3703,14 @@
           "Origin": "StyleDeclarationExtensions.GetTextDecorationStyle"
         },
         {
+          "DomName": "textDecorationThickness",
+          "Kind": 1,
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.textDecorationThickness\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"text-decoration-thickness\"));",
+          "SetterBody": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.textDecorationThickness\");\nself.Target.SetProperty(\"text-decoration-thickness\", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, \"CSSStyleDeclaration.textDecorationThickness\")); return global::Jint.Native.JsValue.Undefined;",
+          "Length": 0,
+          "Origin": "CSSOM supported CSS property accessor: https://drafts.csswg.org/cssom/#the-cssstyleproperties-interface"
+        },
+        {
           "DomName": "textIndent",
           "Kind": 1,
           "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, \"CSSStyleDeclaration.textIndent\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue(\"text-indent\"));",
@@ -4567,7 +4575,7 @@
         {
           "DomName": "item",
           "Kind": 0,
-          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssStyleSetList>(thisObj, \"DOMStringList.item\");\nreturn global::Jint.Browser.Dom.DomConvert.Text(global::Jint.Browser.Styling.NativeCssBindings.Item(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"DOMStringList.item\")));",
+          "Body": "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssStyleSetList>(thisObj, \"DOMStringList.item\");\nreturn global::Jint.Browser.Dom.DomConvert.NullableText(global::Jint.Browser.Styling.NativeCssBindings.Item(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, \"DOMStringList.item\")));",
           "SetterBody": null,
           "Length": 1,
           "Origin": "IStringList.System.Collections.Generic.IReadOnlyList<System.String>.Item"

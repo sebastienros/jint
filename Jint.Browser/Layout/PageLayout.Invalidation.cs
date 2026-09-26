@@ -22,7 +22,8 @@ internal sealed partial class PageLayout
     private Element? _cachedPress;
     private bool? _supportedStyles;
     private CssMutationStamp _cachedResources;
-    private (CssStyleSheet Sheet, CssMutationStamp Stamp)[] _cachedSheets = [];
+    private CssStyleSheetRevisionSnapshot? _cachedSheetRevisions;
+    private CssValueWork? _cachedSheetWork;
     private bool _reuseDisabled;
     private int _mutationDepth;
 
@@ -62,7 +63,8 @@ internal sealed partial class PageLayout
         _cachedFocus = null;
         _cachedPress = null;
         _supportedStyles = null;
-        _cachedSheets = [];
+        _cachedSheetRevisions = null;
+        _cachedSheetWork = null;
         if (Version == ulong.MaxValue)
         {
             _reuseDisabled = true;
@@ -92,12 +94,15 @@ internal sealed partial class PageLayout
             return false;
         }
 
+        // StylesChanged may invoke a host checkpoint. Read every scalar witness after it returns.
+        var stylesChanged = StylesChanged();
+        _runtime.Dom.CancellationToken.ThrowIfCancellationRequested();
         var events = BrowserEventRealm.Of(_runtime.Engine);
         var document = _runtime.Document;
         var controlRevision = document is null ? 0 : Dom.BrowserSelectorSemanticRevision.Read(document);
         var url = document is null ? null : Dom.DomDocumentState.Of(document).Url;
         if (!ReferenceEquals(_cachedDocument, document) || _cachedNativeStamp != document?.MutationStamp || _cachedMedia != _runtime.Media
-            || document is not null && (!_cachedResources.CanReuse || _cachedResources != NativeCssStyleSheets.Stamp(document)) || StylesChanged()
+            || document is not null && (!_cachedResources.CanReuse || _cachedResources != NativeCssStyleSheets.Stamp(document)) || stylesChanged
             || controlRevision == ulong.MaxValue || _cachedControlRevision != controlRevision
             || _cachedUrl != url || !ReferenceEquals(_cachedFocus, events.FocusedElement)
             || !ReferenceEquals(_cachedPress, events.MousePressTarget))
@@ -120,30 +125,32 @@ internal sealed partial class PageLayout
     private bool SupportsStyles(Document? document)
     {
         if (document is null || NativeCssStyleSheets.RealmOf(document) is not { } realm) return false;
+        var nativeStamp = document.MutationStamp;
+        var resources = NativeCssStyleSheets.Stamp(document);
+        var version = Version;
         var work = new CssValueWork(realm.CancellationToken, realm.Engine.Constraints.Check);
         var sheets = NativeCssStyleSheets.Get(document, work, includeShadow: true);
-        var revisions = new (CssStyleSheet Sheet, CssMutationStamp Stamp)[sheets.Count];
-        for (var i = 0; i < revisions.Length; i++)
+        var roots = new CssStyleSheet[sheets.Count];
+        for (var i = 0; i < roots.Length; i++)
         {
             work.Charge(1);
-            revisions[i] = (sheets[i].Sheet, sheets[i].Sheet.Stamp);
+            roots[i] = sheets[i].Sheet;
         }
-        work.CheckCancellation();
-        _cachedSheets = revisions;
-        _cachedResources = NativeCssStyleSheets.Stamp(document);
+        var revisions = CssStyleSheetRevisionSnapshot.Capture(roots, work);
+        realm.CancellationToken.ThrowIfCancellationRequested();
+        if (version != Version || !ReferenceEquals(_cachedDocument, document) || nativeStamp == ulong.MaxValue ||
+            nativeStamp != document.MutationStamp || !resources.CanReuse || resources != NativeCssStyleSheets.Stamp(document) ||
+            _cachedControlRevision != Dom.BrowserSelectorSemanticRevision.Read(document))
+            throw new InvalidOperationException(NativeCssQuery.Invalidated);
+        _cachedSheetRevisions = revisions;
+        _cachedSheetWork = work;
+        _cachedResources = resources;
         return true;
     }
 
     private bool StylesChanged()
     {
-        foreach (var (sheet, stamp) in _cachedSheets)
-        {
-            _runtime.Engine.Constraints.Check();
-            if (_cachedDocument is { } document && (_cachedNativeStamp != document.MutationStamp ||
-                _cachedResources != NativeCssStyleSheets.Stamp(document))) return true;
-            if (!stamp.CanReuse || sheet.Stamp != stamp) return true;
-        }
-        return false;
+        return _cachedSheetRevisions is { } revisions && !revisions.IsCurrent(_cachedSheetWork!);
     }
 
     internal readonly struct MutationScope(PageLayout layout) : IDisposable

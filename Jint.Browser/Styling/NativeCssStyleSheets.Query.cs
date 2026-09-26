@@ -23,6 +23,7 @@ internal static partial class NativeCssStyleSheets
             diagnostics: diagnostics);
         var matching = new SelectorMatchWork(document, work.Token, selectorCheckpoint ?? work.CheckCancellation);
         work.CheckCancellation();
+        query.Verify();
         return (query, matching);
     }
 }

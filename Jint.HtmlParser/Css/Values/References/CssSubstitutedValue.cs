@@ -4,7 +4,6 @@ internal sealed partial class CssSubstitutedValue
 {
     internal const int MaxTokens = 65_536;
     internal const int MaxSpelling = 1_048_576;
-    internal const int MaxLexicalPieces = MaxTokens * 4;
     private readonly CssProjectedTokenOrigin[] _origins;
 
     private CssSubstitutedValue(CssSegment root, CssComponentValueList components,
@@ -214,7 +213,7 @@ internal sealed partial class CssSegment
     private CssSegment(CssSegmentKind kind, CssReferenceInput? source, CssComponentValue original,
         CssSourceSpan openerSpan, CssSegmentList children, int tokenCount, int spellingLength, int depth,
         CssSourceSpan lexicalSpan = default, string? syntheticLexical = null, bool substitutionBoundary = false,
-        int lexicalLength = 0, int lexicalPieces = 0)
+        int lexicalLength = 0, bool startsBoundary = false, bool endsBoundary = false)
     {
         Kind = kind;
         Source = source;
@@ -228,7 +227,11 @@ internal sealed partial class CssSegment
         SyntheticLexical = syntheticLexical;
         IsSubstitutionBoundary = substitutionBoundary;
         LexicalLength = lexicalLength;
-        LexicalPieces = lexicalPieces;
+        IsEmpty = kind == CssSegmentKind.Concat && children.Length == 0 ||
+            kind == CssSegmentKind.Trivia && !substitutionBoundary && lexicalLength == 0;
+        BoundaryOnly = substitutionBoundary;
+        StartsBoundary = substitutionBoundary || startsBoundary;
+        EndsBoundary = substitutionBoundary || endsBoundary;
     }
 
     internal CssSegmentKind Kind { get; }
@@ -243,17 +246,21 @@ internal sealed partial class CssSegment
     internal string? SyntheticLexical { get; }
     internal bool IsSubstitutionBoundary { get; }
     internal int LexicalLength { get; }
-    internal int LexicalPieces { get; }
+    // Memoized summaries inspect no descendants. Token-bearing empty lexical spans stay nonempty.
+    internal bool IsEmpty { get; }
+    internal bool BoundaryOnly { get; }
+    internal bool StartsBoundary { get; }
+    internal bool EndsBoundary { get; }
     internal bool IsOversize => TokenCount > CssSubstitutedValue.MaxTokens ||
         SpellingLength > CssSubstitutedValue.MaxSpelling ||
-        LexicalLength > CssSubstitutedValue.MaxSpelling || LexicalPieces > CssSubstitutedValue.MaxLexicalPieces;
+        LexicalLength > CssSubstitutedValue.MaxSpelling;
 
     internal static CssSegment Token(CssReferenceInput source, CssComponentValue original)
     {
         var lexicalSpan = Intersect(original.Token.Span, source.SerializationSpan);
         return new(CssSegmentKind.Token, source, original, default, CssSegmentList.Empty, 1,
             System.Math.Min(original.Token.Span.Length, CssSubstitutedValue.MaxSpelling + 1), 0,
-            lexicalSpan: lexicalSpan, lexicalLength: System.Math.Min(lexicalSpan.Length, CssSubstitutedValue.MaxSpelling + 1), lexicalPieces: 1);
+            lexicalSpan: lexicalSpan, lexicalLength: System.Math.Min(lexicalSpan.Length, CssSubstitutedValue.MaxSpelling + 1));
     }
 
     internal static CssSegment Container(CssReferenceInput source, CssComponentValue original,
@@ -263,10 +270,22 @@ internal sealed partial class CssSegment
             ? FunctionOpenerEnd(source, original.Span, work)
             : original.Span.Start + 1;
         var opener = new CssSourceSpan(original.Span.Start, openerEnd - original.Span.Start);
-        var contentEnd = original.Span.Start + original.Span.Length - (original.IsClosed ? 1 : 0);
-        children = CaptureGaps(source, original.Values, children,
-            new CssSourceSpan(openerEnd, contentEnd - openerEnd), work);
         return BuildContainer(source, original, opener, children, work);
+    }
+
+    // Only FromInput has one source-aligned child per original C1 value. A replacement factory
+    // accepts arbitrary child counts and must never zip them against original.Values.
+    private static CssSegment ContainerFromInput(CssReferenceInput source, CssComponentValue original,
+        CssSegment[] children, CssValueWork work)
+    {
+        var openerEnd = original.Kind == CssComponentKind.Function
+            ? FunctionOpenerEnd(source, original.Span, work)
+            : original.Span.Start + 1;
+        var opener = new CssSourceSpan(original.Span.Start, openerEnd - original.Span.Start);
+        var contentEnd = original.Span.Start + original.Span.Length - (original.IsClosed ? 1 : 0);
+        var aligned = CaptureGaps(source, original.Values, children,
+            new CssSourceSpan(openerEnd, contentEnd - openerEnd), work);
+        return BuildContainer(source, original, opener, aligned, work);
     }
 
     internal static CssSegment Rebuild(CssSegment original, CssSegment[] children, CssValueWork work) =>
@@ -279,7 +298,6 @@ internal sealed partial class CssSegment
         var spelling = System.Math.Min(CssSubstitutedValue.MaxSpelling + 1, opener.Length + 1);
         var depth = 1;
         var lexicalLength = spelling;
-        var lexicalPieces = 2;
         foreach (var child in children)
         {
             work.Charge(1);
@@ -287,33 +305,59 @@ internal sealed partial class CssSegment
             spelling = Saturate(spelling, child.SpellingLength, CssSubstitutedValue.MaxSpelling);
             depth = System.Math.Max(depth, child.Depth + 1);
             lexicalLength = Saturate(lexicalLength, child.LexicalLength, CssSubstitutedValue.MaxSpelling);
-            lexicalPieces = Saturate(lexicalPieces, child.LexicalPieces, CssSubstitutedValue.MaxLexicalPieces);
         }
         return new CssSegment(CssSegmentKind.Container, source, original, opener,
             new CssSegmentList(children, work), tokens, spelling, depth,
-            lexicalLength: lexicalLength, lexicalPieces: lexicalPieces);
+            lexicalLength: lexicalLength);
     }
+
+    private static readonly CssSegment Empty = new(CssSegmentKind.Concat, null, default, default,
+        CssSegmentList.Empty, 0, 0, 0);
 
     internal static CssSegment Concat(CssSegment[] children, CssValueWork work)
     {
-        if (children.Length == 1) return children[0];
+        work.CheckCancellation();
+        if (children.Length <= 1)
+        {
+            work.Charge(children.Length);
+            var single = children.Length == 0 || children[0].IsEmpty ? Empty : children[0];
+            work.CheckCancellation();
+            return single;
+        }
+        // Normalize immediate children only. Shared DAGs are never flattened to find an edge marker.
+        var retained = new List<CssSegment>(children.Length);
+        foreach (var child in children)
+        {
+            work.Charge(1);
+            if (child.IsEmpty) continue;
+            if (retained.Count != 0)
+            {
+                var previous = retained[^1];
+                if (child.IsSubstitutionBoundary && previous.EndsBoundary) continue;
+                if (previous.IsSubstitutionBoundary && child.StartsBoundary) retained.RemoveAt(retained.Count - 1);
+            }
+            retained.Add(child);
+        }
+        work.CheckCancellation();
+        if (retained.Count == 0) return Empty;
+        if (retained.Count == 1) return retained[0];
         var tokens = 0;
         var spelling = 0;
         var depth = 0;
         var lexicalLength = 0;
-        var lexicalPieces = 0;
-        foreach (var child in children)
+        foreach (var child in retained)
         {
             work.Charge(1);
             tokens = Saturate(tokens, child.TokenCount, CssSubstitutedValue.MaxTokens);
             spelling = Saturate(spelling, child.SpellingLength, CssSubstitutedValue.MaxSpelling);
             depth = System.Math.Max(depth, child.Depth);
             lexicalLength = Saturate(lexicalLength, child.LexicalLength, CssSubstitutedValue.MaxSpelling);
-            lexicalPieces = Saturate(lexicalPieces, child.LexicalPieces, CssSubstitutedValue.MaxLexicalPieces);
         }
+        // Copy directly into the immutable owner; an intermediate array would only be copied again.
         return new CssSegment(CssSegmentKind.Concat, null, default, default,
-            new CssSegmentList(children, work), tokens, spelling, depth,
-            lexicalLength: lexicalLength, lexicalPieces: lexicalPieces);
+            new CssSegmentList(retained, work), tokens, spelling, depth,
+            lexicalLength: lexicalLength, startsBoundary: retained[0].StartsBoundary,
+            endsBoundary: retained[^1].EndsBoundary);
     }
 
     internal static CssSegment FromInput(CssReferenceInput input, CssValueWork work)
@@ -353,7 +397,7 @@ internal sealed partial class CssSegment
                 work.Charge(1);
                 children[i] = values.Pop();
             }
-            values.Push(Container(input, component, children, work));
+            values.Push(ContainerFromInput(input, component, children, work));
         }
         work.CheckCancellation();
         var rootChildren = new CssSegment[input.Components.Count];
@@ -397,6 +441,17 @@ internal sealed class CssSegmentList
         work.CheckCancellation();
         _values = new CssSegment[values.Length];
         for (var i = 0; i < values.Length; i++)
+        {
+            work.Charge(1);
+            _values[i] = values[i];
+        }
+        work.CheckCancellation();
+    }
+    internal CssSegmentList(List<CssSegment> values, CssValueWork work)
+    {
+        work.CheckCancellation();
+        _values = new CssSegment[values.Count];
+        for (var i = 0; i < values.Count; i++)
         {
             work.Charge(1);
             _values[i] = values[i];
