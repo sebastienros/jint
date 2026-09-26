@@ -152,9 +152,10 @@ public sealed class DomParserTests
 
         await page.SetContentAsync("<div id='d'><br></div>");
 
-        // XML serialization closes every element, so a void element comes out self-closed rather than bare.
+        // Native XML serialization preserves the XHTML namespace and self-closes HTML void elements.
+        // This intentionally corrects the legacy formatter's missing namespace declaration.
         (await page.EvaluateAsync<string>("new XMLSerializer().serializeToString(document.getElementById('d'))"))
-            .Should().Be("<div id=\"d\"><br /></div>");
+            .Should().Be("<div xmlns=\"http://www.w3.org/1999/xhtml\" id=\"d\"><br /></div>");
     }
 
     [Test]
