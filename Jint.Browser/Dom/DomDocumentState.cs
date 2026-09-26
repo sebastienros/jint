@@ -48,6 +48,7 @@ internal sealed class DomDocumentState
             }
         }
         realm.Engine.Constraints.Check();
+        realm.CancellationToken.ThrowIfCancellationRequested();
         state.TargetElement = target;
     }
 
