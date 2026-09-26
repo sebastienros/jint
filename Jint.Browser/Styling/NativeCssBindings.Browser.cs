@@ -26,10 +26,20 @@ internal static class NativeCssBindings
         return sheet;
     }
     internal static CssRuleList Rules(DomRealm realm, CssStyleSheet sheet) => Reconcile(realm, sheet).Rules;
-    internal static bool StyleDisabled(DomRealm realm, Element owner) =>
-        NativeCssStyleSheets.AssociatedOwner(owner, Work(realm)) is { } resource && NativeCssStyleSheets.DisabledOf(resource);
+    internal static bool StyleDisabled(DomRealm realm, Element owner)
+    {
+        if (owner.NamespaceUri == Namespaces.Html && owner.LocalName == "link")
+            return new DomReadWork(Work(realm).Charge, realm.CancellationToken).Attribute(owner, "disabled") is not null;
+        return NativeCssStyleSheets.AssociatedOwner(owner, Work(realm)) is { } resource && NativeCssStyleSheets.DisabledOf(resource);
+    }
     internal static void SetStyleDisabled(DomRealm realm, Element owner, bool disabled)
     {
+        if (owner.NamespaceUri == Namespaces.Html && owner.LocalName == "link")
+        {
+            NativeCssStyleSheets.PrepareOwner(realm, owner);
+            DomLegacyHtmlAttributes.SetFlag(realm, owner, "disabled", disabled);
+            return;
+        }
         if (NativeCssStyleSheets.AssociatedOwner(owner, Work(realm)) is { } resource)
         {
             realm.Engine.Constraints.Check();

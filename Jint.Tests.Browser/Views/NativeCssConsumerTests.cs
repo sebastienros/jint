@@ -15,6 +15,35 @@ using Browser = global::Jint.Browser.Browser;
 public sealed class NativeCssConsumerTests
 {
     [Test]
+    public async Task LinkDisabledReflectsItsAttributeWhileStyleDisabledUsesAssociatedMetadata()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<div id='container'></div>");
+        await page.RunOnLoopAsync(engine =>
+        {
+            var runtime = PageRuntime.Find(engine)!;
+            var document = runtime.Document!;
+            var link = document.CreateElement("link");
+            NativeCssBindings.SetStyleDisabled(runtime.Dom, link, true);
+            link.GetAttribute("disabled").Should().NotBeNull();
+            NativeCssBindings.StyleDisabled(runtime.Dom, link).Should().BeTrue();
+            NativeCssBindings.SetStyleDisabled(runtime.Dom, link, false);
+            link.GetAttribute("disabled").Should().BeNull();
+            var style = document.CreateElement("style");
+            NativeCssBindings.SetStyleDisabled(runtime.Dom, style, true);
+            NativeCssBindings.StyleDisabled(runtime.Dom, style).Should().BeFalse();
+            var container = DomDocumentReads.ById(runtime.Dom, document, "container")!;
+            container.AppendChild(style);
+            NativeCssStyleSheets.AssociateOwner(runtime.Dom, style);
+            NativeCssBindings.SetStyleDisabled(runtime.Dom, style, true);
+            NativeCssBindings.StyleDisabled(runtime.Dom, style).Should().BeTrue();
+            style.GetAttribute("disabled").Should().BeNull();
+            return true;
+        });
+    }
+
+    [Test]
     public async Task SaturatedInlineCssomEditPreservesSourceAndAuthoritativeBlock()
     {
         await using var browser = new Browser();
