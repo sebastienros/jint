@@ -539,25 +539,25 @@ internal static partial class DomInterfaces
             .Accessor("href",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSImportRule.href", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, "CSSImportRule.href");
-                    return global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, "CSSImportRule.href");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssImportRule>(thisObj, "CSSImportRule.href");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Href);
                 }))
             .Accessor("media",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSImportRule.media", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, "CSSImportRule.media");
-                    return global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, "CSSImportRule.media");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssImportRule>(thisObj, "CSSImportRule.media");
+                    return self.Realm.Wrap(self.Target.Media);
                 }),
                 global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSImportRule.media", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, "CSSImportRule.media");
-                    return global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, "CSSImportRule.media");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssImportRule>(thisObj, "CSSImportRule.media");
+                    global::Jint.Browser.Styling.NativeCssBindings.SetMediaText(self.Realm, self.Target.Media, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSImportRule.media")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("styleSheet",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSImportRule.styleSheet", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Dom.NativeCssUnavailable>(thisObj, "CSSImportRule.styleSheet");
-                    return global::Jint.Browser.Dom.DomCssMembers.Unavailable(self.Realm, "CSSImportRule.styleSheet");
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.HtmlParser.Css.Model.CssImportRule>(thisObj, "CSSImportRule.styleSheet");
+                    return self.Realm.Wrap(self.Target.StyleSheet);
                 }))
             .Build();
 
@@ -3255,6 +3255,17 @@ internal static partial class DomInterfaces
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.textDecorationStyle");
                     self.Target.SetProperty("text-decoration-style", global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "CSSStyleDeclaration.textDecorationStyle")); return global::Jint.Native.JsValue.Undefined;
+                }))
+            .Accessor("textDecorationThickness",
+                global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.textDecorationThickness", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.textDecorationThickness");
+                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.GetPropertyValue("text-decoration-thickness"));
+                }),
+                global::Jint.Browser.Dom.DomFailures.GuardMutation("CSSStyleDeclaration.textDecorationThickness", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::Jint.Browser.Styling.NativeCssDeclaration>(thisObj, "CSSStyleDeclaration.textDecorationThickness");
+                    self.Target.SetProperty("text-decoration-thickness", global::Jint.Browser.Dom.DomConvert.NullToEmptyText(args, 0, "CSSStyleDeclaration.textDecorationThickness")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Accessor("textIndent",
                 global::Jint.Browser.Dom.DomFailures.Guard("CSSStyleDeclaration.textIndent", static (thisObj, args) =>

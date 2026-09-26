@@ -66,7 +66,7 @@ internal static partial class DomInterfaces
     /// <summary>The <c>CSSFontPaletteValuesRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSFontPaletteValuesRule;
 
-    /// <summary>The <c>CSSImportRule</c> interface, projected from <c>Jint.Browser.Dom.NativeCssUnavailable</c>.</summary>
+    /// <summary>The <c>CSSImportRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssImportRule</c>.</summary>
     internal static readonly DomInterfaceDefinition CSSImportRule;
 
     /// <summary>The <c>CSSKeyframeRule</c> interface, projected from <c>Jint.HtmlParser.Css.Model.CssKeyframeRule</c>.</summary>
@@ -725,7 +725,7 @@ internal static partial class DomInterfaces
 
         CSSImportRule = Add(new DomInterfaceDefinition(
             "CSSImportRule",
-            typeof(global::Jint.Browser.Dom.NativeCssUnavailable),
+            typeof(global::Jint.HtmlParser.Css.Model.CssImportRule),
             BuildCSSImportRule,
             CSSRule,
             rootsAtEventTarget: false,
