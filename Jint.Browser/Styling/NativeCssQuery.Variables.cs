@@ -1,4 +1,3 @@
-using Jint.HtmlParser.Css.Model;
 using Jint.HtmlParser.Css.Selectors;
 using Jint.HtmlParser.Css.Values;
 using Jint.HtmlParser.Css.Values.References;

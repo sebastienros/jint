@@ -23,6 +23,7 @@ internal static class CssCascade
     {
         private readonly Dictionary<Element, NativeCssComputedStyle> _views = new();
         private SelectorMatchWork _matching = matching;
+        internal NativeCssReadContext? ReadContext { get; private set; }
 
         internal static Traversal? For(Document? document, StyleScope scope = StyleScope.All,
             NativeCssQueryDiagnostics? diagnostics = null, Action? checkpoint = null,
@@ -34,6 +35,7 @@ internal static class CssCascade
             var context = DomBrowsingContext.Of(document);
             var displayedContext = DomBrowsingContext.Of(runtime?.Document);
             var media = runtime?.Media;
+            var layoutRevision = runtime?.Layout.Version;
             var events = runtime is null ? null : BrowserEventRealm.Of(runtime.Engine);
             var focus = events?.FocusedElement;
             var press = events?.MousePressTarget;
@@ -42,24 +44,31 @@ internal static class CssCascade
             var input = NativeCssStyleSheets.RealmOf(document) is { } realm
                 ? NativeCssStyleSheets.CreateQuery(document, realm, diagnostics, checkpoint, cancellationToken)
                 : NativeCssStyleSheets.CreateInertQuery(document, new CssValueWork(cancellationToken, checkpoint), checkpoint, diagnostics);
-            return new(input.Query, input.Matching, runtime is null ? null : () =>
+            Action? readWitness = runtime is null ? null : () =>
             {
                 // Child documents share the principal runtime. The witness is their active
                 // context association, not equality with the principal runtime's document.
                 if (!ReferenceEquals(DomBrowsingContext.Of(document), context) ||
                     !ReferenceEquals(DomBrowsingContext.Of(runtime.Document), displayedContext) ||
-                    !ReferenceEquals(PageRuntime.FindBrowsingContext(runtime.Engine, document), runtime) || runtime.Media != media ||
+                    !ReferenceEquals(PageRuntime.FindBrowsingContext(runtime.Engine, document), runtime) || runtime.Media != media || runtime.Layout.Version != layoutRevision ||
                     !ReferenceEquals(events!.FocusedElement, focus) || !ReferenceEquals(events.MousePressTarget, press) ||
                     DomDocumentState.Of(document).Url != url || !ReferenceEquals(DomDocumentState.Of(document).TargetElement, target))
                     throw new InvalidOperationException(NativeCssQuery.Invalidated);
-            });
+            };
+            if (readWitness is not null) input.Query.AttachReadWitness(readWitness);
+            var traversal = new Traversal(input.Query, input.Matching, readWitness);
+            // Child CSS remains valid, but principal-page geometry cannot supply its dimensions.
+            if (runtime is not null && ReferenceEquals(runtime.Document, document))
+                traversal.ReadContext = new NativeCssReadContext(input.Query, traversal, document,
+                    runtime.Layout.Visibility, media!.Viewport.Width, readWitness!, input.Query.Work.Token);
+            return traversal;
         }
 
         internal NativeCssComputedStyle Of(Element element)
         {
             _matching.VerifyRead();
             if (_views.TryGetValue(element, out var cached)) return cached;
-            var view = new NativeCssComputedStyle(query, element, _matching, witness);
+            var view = new NativeCssComputedStyle(query, element, _matching, witness, ReadContext);
             // Matching is separate from computation; coverage observes real matched rule identities.
             if (CssRuleUsage.IsTracking) CssRuleUsage.Observe(element, view.MatchedRules());
             _views.Add(element, view);

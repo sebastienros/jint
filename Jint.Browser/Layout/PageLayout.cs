@@ -74,7 +74,11 @@ internal sealed partial class PageLayout
     }
 
     private FlatLayout.SizeQuery CreateSizes()
-        => new(_runtime.Document, Visibility, _runtime.Viewport.Width, Visibility.CreateTraversal(_runtime.Document), _runtime.Engine.Constraints.Check, _runtime.Dom.CancellationToken);
+    {
+        var traversal = Visibility.CreateTraversal(_runtime.Document);
+        return traversal?.ReadContext is { } context ? context.MeasureSizes()
+            : new(_runtime.Document, Visibility, _runtime.Viewport.Width, traversal, _runtime.Engine.Constraints.Check, _runtime.Dom.CancellationToken);
+    }
 
     /// <summary>A single rectangle using the same placement and scroll clamp as a complete layout.</summary>
     internal FlatBox? ClientBoxOf(Element element)

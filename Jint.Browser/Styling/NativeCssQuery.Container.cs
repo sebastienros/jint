@@ -18,9 +18,18 @@ internal interface INativeCssContainerMetrics
 internal sealed partial class NativeCssQuery
 {
     private INativeCssContainerMetrics? _containerMetrics;
+    private Action? _readWitness;
+
+    internal void AttachReadWitness(Action witness)
+    {
+        if (_readWitness is not null || _states.Count != 0)
+            throw new InvalidOperationException("The read witness must be attached once before querying styles.");
+        _readWitness = witness;
+        Verify();
+    }
     private readonly Dictionary<(Element Element, CssContainerRule Rule), CssMediaTruth> _containerConditions = new();
     private readonly Dictionary<Element, double> _containerWidths = new();
-    private readonly HashSet<(Element Element, string Kind, object Key)> _activeDependencies = new();
+    private readonly List<(Element Element, string Kind, object Key)> _activeDependencies = new();
     private bool _aborted;
 
     internal void AttachContainerMetrics(INativeCssContainerMetrics metrics)
@@ -35,14 +44,29 @@ internal sealed partial class NativeCssQuery
     {
         if (_activeDependencies.Count >= 64) throw new NativeCssDependencyLimitException();
         var dependency = (element, kind, key);
-        if (!_activeDependencies.Add(dependency))
-            throw new CssIncompleteGrammarException("container", "C6:container-layout-cycle", default);
+        foreach (var active in _activeDependencies)
+        {
+            _work.Charge(1);
+            if (!ReferenceEquals(active.Element, element) || active.Kind != kind) continue;
+            if (ReferenceEquals(active.Key, key) || active.Key is string left && key is string right &&
+                CssSubstitutionArguments.Equals(left, right, _work))
+                throw new CssIncompleteGrammarException("container", "C6:container-layout-cycle", default);
+        }
+        _activeDependencies.Add(dependency);
         return new(this, dependency);
     }
 
     private readonly struct DependencyScope(NativeCssQuery query, (Element Element, string Kind, object Key) dependency) : IDisposable
     {
-        public void Dispose() => query._activeDependencies.Remove(dependency);
+        public void Dispose()
+        {
+            // Removal cannot poll or throw while unwinding an original callback/constraint failure.
+            for (var i = query._activeDependencies.Count - 1; i >= 0; i--)
+                if (ReferenceEquals(query._activeDependencies[i].Element, dependency.Element) &&
+                    ReferenceEquals(query._activeDependencies[i].Key, dependency.Key) &&
+                    query._activeDependencies[i].Kind == dependency.Kind)
+                { query._activeDependencies.RemoveAt(i); break; }
+        }
     }
 
     private void AbortRead()
