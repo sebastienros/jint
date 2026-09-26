@@ -93,7 +93,7 @@ internal sealed class HtmlParserSession
 
                 var scanBefore = _tokenizer.WorkCount;
                 var quota = (int) Math.Min(int.MaxValue, remaining);
-                var status = _tokenizer.Read(quota, cancellationToken, out var token);
+                var status = _tokenizer.Read(quota, _builder.AllowCData, cancellationToken, out var token);
                 remaining -= _tokenizer.WorkCount - scanBefore;
                 switch (status)
                 {

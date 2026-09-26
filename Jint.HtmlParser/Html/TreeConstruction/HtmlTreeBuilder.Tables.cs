@@ -93,7 +93,7 @@ internal sealed partial class HtmlTreeBuilder
         {
             if (!InTableScope("caption")) { Error("unexpected-caption-end-tag"); return false; }
             if (!TryGenerateImpliedEndTags()) return true;
-            if (Current.LocalName != "caption") Error("misnested-caption-end-tag");
+            if (!IsHtmlElement(Current, "caption")) Error("misnested-caption-end-tag");
             var reprocess = _token.Kind != HtmlTokenKind.EndTag || name != "caption";
             SchedulePopTo(Last("caption"), reprocess, Mode.InTable, clearFormatting: true);
             return false;
@@ -228,7 +228,7 @@ internal sealed partial class HtmlTreeBuilder
     private bool CloseCell(string name, bool reprocess)
     {
         if (!TryGenerateImpliedEndTags()) return true;
-        if (Current.LocalName != name) Error("misnested-cell-end-tag");
+        if (!IsHtmlElement(Current, name)) Error("misnested-cell-end-tag");
         SchedulePopTo(Last(name), reprocess, Mode.InRow, clearFormatting: true);
         return false;
     }

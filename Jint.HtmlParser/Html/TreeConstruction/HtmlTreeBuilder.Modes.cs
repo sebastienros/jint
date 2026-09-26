@@ -103,7 +103,7 @@ internal sealed partial class HtmlTreeBuilder
             if (name == "template") return !EndTemplate();
             if (name is not ("body" or "html" or "br")) { Error("unexpected-end-tag"); return false; }
         }
-        if (Current.LocalName != "head")
+        if (!IsHtmlElement(Current, "head"))
             throw new InvalidOperationException("The in-head mode lost its head element.");
         Pop();
         _mode = Mode.AfterHead;
@@ -225,6 +225,21 @@ internal sealed partial class HtmlTreeBuilder
         while (_textIndex < data.Length && _remaining > 0)
         {
             _cancellationToken.ThrowIfCancellationRequested();
+            if (ShouldUseForeignRules(_token))
+            {
+                var foreignCharacter = data[_textIndex++];
+                if (foreignCharacter == '\0')
+                {
+                    Error("unexpected-null-character");
+                    InsertText("\uFFFD".AsSpan());
+                }
+                else
+                {
+                    InsertText(data.AsSpan(_textIndex - 1, 1));
+                    if (!White(foreignCharacter)) _framesetOk = false;
+                }
+                continue;
+            }
             if (_ignoreNextLf)
             {
                 _ignoreNextLf = false;

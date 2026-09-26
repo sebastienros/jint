@@ -40,7 +40,7 @@ internal sealed partial class HtmlTreeBuilder
         if (name == "body")
         {
             Error("unexpected-body-start-tag");
-            if (!IsParsingTemplateContents && _open.Count > 1 && _open[1].LocalName == "body")
+            if (!IsParsingTemplateContents && _open.Count > 1 && IsHtmlElement(_open[1], "body"))
             {
                 _framesetOk = false;
                 MergeAttributes(_open[1]);
@@ -50,7 +50,7 @@ internal sealed partial class HtmlTreeBuilder
         if (name == "frameset")
         {
             Error("unexpected-frameset-start-tag");
-            if (_framesetOk && _open.Count > 1 && _open[1].LocalName == "body")
+            if (_framesetOk && _open.Count > 1 && IsHtmlElement(_open[1], "body"))
             {
                 _framesetReplacementStage = 1;
                 _framesetScanNode = _open[1];
@@ -67,7 +67,7 @@ internal sealed partial class HtmlTreeBuilder
         if (IsHeading(name))
         {
             if (InButtonScope("p")) { CloseP(reprocess: true); return true; }
-            if (IsHeading(Current.LocalName)) { Error("nested-heading"); Pop(); }
+            if (Current.NamespaceUri == Namespaces.Html && IsHeading(Current.LocalName)) { Error("nested-heading"); Pop(); }
             InsertTokenElement();
             return false;
         }
@@ -94,7 +94,7 @@ internal sealed partial class HtmlTreeBuilder
             if (li >= LastLiStop && li >= 0)
             {
                 if (!TryGenerateImpliedEndTags("li")) return true;
-                if (Current.LocalName != "li") Error("misnested-li-start-tag");
+                if (!IsHtmlElement(Current, "li")) Error("misnested-li-start-tag");
                 SchedulePopTo(li, reprocess: true);
                 return true;
             }
@@ -253,13 +253,19 @@ internal sealed partial class HtmlTreeBuilder
             if (InScope("ruby"))
             {
                 if (!TryGenerateImpliedEndTags(name is "rp" or "rt" ? "rtc" : null)) return true;
-                if (name is "rb" or "rtc" ? Current.LocalName != "ruby" : Current.LocalName is not ("ruby" or "rtc"))
+                if (name is "rb" or "rtc" ? !IsHtmlElement(Current, "ruby") : !IsHtmlElement(Current, "ruby") && !IsHtmlElement(Current, "rtc"))
                     Error("misnested-ruby-start-tag");
             }
             InsertTokenElement();
             return false;
         }
-        if (name is "math" or "svg") { Missing(HtmlMissingFeature.ForeignContent); return false; }
+        if (name is "math" or "svg")
+        {
+            if (!TryReconstructFormatting()) return true;
+            if (!TryInsertForeignTokenElement(name == "math" ? Namespaces.MathMl : Namespaces.Svg)) return true;
+            if (_token.SelfClosing) { Pop(); _acknowledgedSelfClosing = true; }
+            return false;
+        }
         if (name is "caption" or "col" or "colgroup" or "frame" or "head" or "tbody" or "td" or "tfoot" or "th" or "thead" or "tr")
         {
             Error("unexpected-start-tag"); return false;
@@ -289,7 +295,7 @@ internal sealed partial class HtmlTreeBuilder
         {
             if (!InScope(name)) { Error("unexpected-end-tag"); return false; }
             if (!TryGenerateImpliedEndTags()) return true;
-            if (Current.LocalName != name) Error("misnested-end-tag");
+            if (!IsHtmlElement(Current, name)) Error("misnested-end-tag");
             SchedulePopTo(Last(name), reprocess: false);
             return false;
         }
@@ -321,7 +327,7 @@ internal sealed partial class HtmlTreeBuilder
         {
             if (!InListItemScope("li")) { Error("unexpected-li-end-tag"); return false; }
             if (!TryGenerateImpliedEndTags("li")) return true;
-            if (Current.LocalName != "li") Error("misnested-li-end-tag");
+            if (!IsHtmlElement(Current, "li")) Error("misnested-li-end-tag");
             SchedulePopTo(Last("li"), reprocess: false);
             return false;
         }
@@ -329,7 +335,7 @@ internal sealed partial class HtmlTreeBuilder
         {
             if (!InScope(name)) { Error("unexpected-end-tag"); return false; }
             if (!TryGenerateImpliedEndTags(name)) return true;
-            if (Current.LocalName != name) Error("misnested-end-tag");
+            if (!IsHtmlElement(Current, name)) Error("misnested-end-tag");
             SchedulePopTo(Last(name), reprocess: false);
             return false;
         }
@@ -339,7 +345,7 @@ internal sealed partial class HtmlTreeBuilder
             for (var i = 1; i <= 6; i++) index = Math.Max(index, Last("h" + i));
             if (index < 0 || index < LastScopeStop) { Error("unexpected-heading-end-tag"); return false; }
             if (!TryGenerateImpliedEndTags()) return true;
-            if (Current.LocalName != name) Error("misnested-heading-end-tag");
+            if (!IsHtmlElement(Current, name)) Error("misnested-heading-end-tag");
             SchedulePopTo(index, reprocess: false);
             return false;
         }
@@ -351,7 +357,7 @@ internal sealed partial class HtmlTreeBuilder
         {
             if (!InScope(name)) { Error("unexpected-end-tag"); return false; }
             if (!TryGenerateImpliedEndTags()) return true;
-            if (Current.LocalName != name) Error("misnested-end-tag");
+            if (!IsHtmlElement(Current, name)) Error("misnested-end-tag");
             SchedulePopTo(Last(name), reprocess: false, clearFormatting: true);
             return false;
         }
@@ -369,7 +375,7 @@ internal sealed partial class HtmlTreeBuilder
             return false;
         }
         if (!TryGenerateImpliedEndTags(name)) return true;
-        if (Current.LocalName != name) Error("misnested-end-tag");
+        if (!IsHtmlElement(Current, name)) Error("misnested-end-tag");
         SchedulePopTo(target, reprocess: false);
         return false;
     }
@@ -383,7 +389,7 @@ internal sealed partial class HtmlTreeBuilder
         }
         var removed = _open[index];
         _openIdentity.Remove(removed);
-        if (!AllowedOpenAtEof(removed.LocalName)) _unexpectedOpenCount--;
+        if (!AllowedOpenAtEof(removed)) _unexpectedOpenCount--;
         RemoveIndexes(removed, index);
         Charge(1);
         _pendingShiftIndex = index;

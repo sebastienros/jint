@@ -216,7 +216,6 @@ public partial class HtmlTreeConstructionTests
     }
 
     [TestCase("<table><template for=target>", "Templates")]
-    [TestCase("<table><svg>", "ForeignContent")]
     public void FosterDelegationPreservesOtherFamilyStops(string source, string family)
     {
         var parsed = Parse(source, 1);

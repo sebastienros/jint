@@ -53,7 +53,6 @@ public partial class HtmlTreeConstructionTests
     }
 
     [TestCase("<template for=target>", "Templates", "<html><head></head></html>")]
-    [TestCase("<svg>", "ForeignContent", "<html><head></head><body></body></html>")]
     public void UnsupportedBranchStopsBeforeItsMutation(string source, string family, string priorTree)
     {
         var parsed = Parse(source);
