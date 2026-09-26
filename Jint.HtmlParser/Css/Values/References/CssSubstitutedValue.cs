@@ -210,7 +210,7 @@ internal sealed class CssSegment
         CssSegment[] children, CssValueWork work)
     {
         var openerEnd = original.Kind == CssComponentKind.Function
-            ? FunctionOpenerEnd(source.Source, original.Span, work)
+            ? FunctionOpenerEnd(source, original.Span, work)
             : original.Span.Start + 1;
         var opener = new CssSourceSpan(original.Span.Start, openerEnd - original.Span.Start);
         return BuildContainer(source, original, opener, children, work);
@@ -304,17 +304,17 @@ internal sealed class CssSegment
         return Concat(rootChildren, work);
     }
 
-    private static int FunctionOpenerEnd(string source, CssSourceSpan span, CssValueWork work)
+    private static int FunctionOpenerEnd(CssReferenceInput input, CssSourceSpan span, CssValueWork work)
     {
-        var end = span.Start + span.Length;
-        for (var i = span.Start; i < end; i++)
+        var source = input.SourceSlice(span);
+        for (var i = 0; i < source.Length; i++)
         {
             work.Charge(1);
             if (source[i] == '\\')
             {
-                if (i + 1 < end) { i++; work.Charge(1); }
+                if (i + 1 < source.Length) { i++; work.Charge(1); }
             }
-            else if (source[i] == '(') return i + 1;
+            else if (source[i] == '(') return span.Start + i + 1;
         }
         throw new InvalidOperationException("A C1 function has no opening parenthesis.");
     }
