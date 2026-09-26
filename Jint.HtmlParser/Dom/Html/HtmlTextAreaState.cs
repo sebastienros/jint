@@ -6,6 +6,7 @@ internal sealed class HtmlTextAreaState
     private readonly Element _element;
     private string _rawValue = string.Empty;
     private bool _rawFromChildren = true;
+    private bool _rawAlignedWithChildren = true;
     private long _rawRevision;
     private long _apiRevision = -1;
     private string? _apiValue;
@@ -84,6 +85,7 @@ internal sealed class HtmlTextAreaState
         var normalized = HtmlTextSanitizer.NormalizeTextAreaValue(raw, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         SetRawValue(raw, normalized);
+        _rawAlignedWithChildren = true;
         SetDirty(false);
         SetOrigin(HtmlValueChangeOrigin.NonUser);
         SetUserValidity(false);
@@ -93,7 +95,9 @@ internal sealed class HtmlTextAreaState
     internal void ChildrenChanged(bool mayShorten, bool markDocument)
     {
         if (DirtyValue) return;
+        mayShorten |= !_rawAlignedWithChildren;
         _rawFromChildren = true;
+        _rawAlignedWithChildren = true;
         _rawRevision++;
         _apiValue = null;
         if (markDocument) MarkStateChange();
@@ -109,6 +113,7 @@ internal sealed class HtmlTextAreaState
     {
         _rawValue = source.GetRawValue(CancellationToken.None);
         _rawFromChildren = false;
+        _rawAlignedWithChildren = false;
         DirtyValue = source.DirtyValue;
         LastValueChangeOrigin = HtmlValueChangeOrigin.NonUser;
         _rawRevision++;
@@ -163,6 +168,11 @@ internal sealed class HtmlTextAreaState
         cancellationToken.ThrowIfCancellationRequested();
         if (start > end)
         {
+            // Dirtiness freezes the current raw value even when it was still a
+            // lazy projection of children. A later child mutation changes only
+            // defaultValue after this algorithm step.
+            GetRawValue(cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
             SetDirty(true);
             throw new DomException("IndexSizeError", "The start offset exceeds the end offset.");
         }
@@ -267,6 +277,7 @@ internal sealed class HtmlTextAreaState
         var changed = !_rawFromChildren && !string.Equals(_rawValue, raw, StringComparison.Ordinal);
         _rawValue = raw;
         _rawFromChildren = false;
+        _rawAlignedWithChildren = false;
         _rawRevision++;
         _apiValue = normalized;
         _apiRevision = _rawRevision;

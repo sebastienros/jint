@@ -131,6 +131,21 @@ public class TextAreaStateTests
     }
 
     [Test]
+    public void CleanShallowCloneClampsWhenFirstAppendReplacesCopiedRawValue()
+    {
+        var (document, element, state) = Create();
+        element.AppendChild(document.CreateTextNode("abcdef"));
+        var shallow = (Element) element.CloneNode();
+        var cloned = shallow.GetHtmlState()!.TextArea!;
+        cloned.GetValue(default).Should().Be("abcdef");
+        cloned.SetSelectionRange(4, 5, "backward", default);
+
+        shallow.AppendChild(document.CreateComment("ignored"));
+        cloned.GetValue(default).Should().BeEmpty();
+        cloned.Selection.Should().Be(new HtmlTextSelection(0, 0, HtmlSelectionDirection.Backward));
+    }
+
+    [Test]
     public void ImportDoesNotInvalidateDestinationAndAdoptionKeepsStateIdentity()
     {
         var (source, element, state) = Create();
@@ -254,6 +269,20 @@ public class TextAreaStateTests
             HtmlRangeTextMode.Select, canceled.Token));
         state.GetValue(default).Should().Be("default");
         state.Selection.Should().Be(new HtmlTextSelection(2, 3, HtmlSelectionDirection.Forward));
+    }
+
+    [Test]
+    public void InvalidRangeFreezesUnreadCleanRawValueBeforeDirtiness()
+    {
+        var (document, element, state) = Create();
+        var child = document.CreateTextNode("before");
+        element.AppendChild(child);
+        Assert.That(Assert.Throws<DomException>(() => state.SetRangeText("", 2, 1,
+            HtmlRangeTextMode.Preserve, default))!.Name, Is.EqualTo("IndexSizeError"));
+        state.DirtyValue.Should().BeTrue();
+        child.Data = "after";
+        state.GetDefaultValue(default).Should().Be("after");
+        state.GetValue(default).Should().Be("before");
     }
 
     [Test]
