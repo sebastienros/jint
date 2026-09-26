@@ -8,6 +8,9 @@ public sealed partial class Document
     private MutationNotificationTicket? _pendingMutationHead;
     private MutationNotificationTicket? _pendingMutationTail;
     private bool _flushingMutationNotifications;
+    internal bool DeferRangeScheduling { get; set; }
+    private bool _pendingDeferredRangeSignal;
+    internal void MarkDeferredRangeSignal() => _pendingDeferredRangeSignal = true;
 
     internal void PublishMutationNotifications(MutationNotificationTicket ticket)
     {
@@ -22,8 +25,16 @@ public sealed partial class Document
         _flushingMutationNotifications = true;
         try
         {
-            while (_pendingMutationHead is { } ticket)
+            while (true)
             {
+                // Mutation pending signals precede range scheduling, as on a successful Node entry.
+                if (_pendingMutationHead is not { } ticket)
+                {
+                    if (!_pendingDeferredRangeSignal) break;
+                    _pendingDeferredRangeSignal = false;
+                    PendingRangeChanges?.Invoke();
+                    continue;
+                }
                 if (ticket.TryTakeNext(out var subscription))
                 {
                     subscription!.NotifyIfPending();
@@ -41,6 +52,7 @@ public sealed partial class Document
     {
         _pendingMutationHead = null;
         _pendingMutationTail = null;
+        _pendingDeferredRangeSignal = false;
     }
 }
 

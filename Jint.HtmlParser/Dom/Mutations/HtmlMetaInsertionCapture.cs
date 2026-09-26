@@ -8,52 +8,128 @@ internal readonly record struct HtmlMetaInsertion(Document Document, string Cont
 // only committed links and their captured facts enter the published views.
 internal sealed class HtmlMetaInsertionCapture
 {
-    private readonly Document _document;
+    private Document _document;
+    private readonly Node _target;
+    private readonly Node _firstIncoming;
+    private readonly List<Node>? _removed;
     private readonly MutationMatches _matches;
     private readonly MutationNotificationTicket _ticket;
     private readonly List<Node> _added;
-    private readonly PreparedFacts _facts = new();
-    private readonly MutationRecord[] _reserved;
+    private readonly PreparedFacts _facts;
+    private readonly MutationRecordQueueReservation[] _reserved;
+    private List<(Action<int>? Checkpoint, CancellationToken Token)>? _initialBudgets;
+    private int _initialUnits;
     private int _committedFacts;
     private bool _published;
     internal IReadOnlyList<HtmlMetaInsertion> Facts => _facts;
 
-    private HtmlMetaInsertionCapture(Node target, MutationMatches matches, int capacity,
-        IReadOnlyList<Node>? removed, Node? previous, Node? next)
+    private HtmlMetaInsertionCapture(Node target, Node firstIncoming, MutationMatches matches, int capacity,
+        int removedCapacity, Node? previous, Node? next,
+        List<(Action<int>? Checkpoint, CancellationToken Token)> budgets, ref TraversalWork work)
     {
+        _initialBudgets = budgets;
+        work.Check();
+        _facts = new PreparedFacts();
+        work.Check();
         _document = target as Document ?? target.OwnerDocument!;
+        _target = target;
+        _firstIncoming = firstIncoming;
         _matches = matches;
         _ticket = new MutationNotificationTicket(matches);
+        work.Check();
         _added = new List<Node>(capacity);
+        work.Check();
         var added = _added.AsReadOnly();
-        _reserved = new MutationRecord[matches.Entries.Count];
+        work.Check();
+        IReadOnlyList<Node> removed = MutationRecord.EmptyNodes;
+        if (removedCapacity > 0)
+        {
+            _removed = new List<Node>(removedCapacity);
+            work.Check();
+            removed = _removed.AsReadOnly();
+            work.Check();
+        }
+        _reserved = new MutationRecordQueueReservation[matches.Entries.Count];
+        work.Check();
         for (var i = 0; i < _reserved.Length; i++)
         {
             var entry = matches.Entries[i];
-            _reserved[i] = new MutationRecord(MutationRecordKind.ChildList, target, added, removed,
+            work.Step(); work.Check();
+            var record = new MutationRecord(MutationRecordKind.ChildList, target, added, removed,
                 previous, next, targetWasConnected: matches.TargetWasConnected,
                 htmlMetaInsertions: entry.CaptureHtmlMetaInsertions ? Facts : null);
+            work.Check();
+            _reserved[i] = entry.Subscription.ReserveRecord(record);
+            work.Check();
         }
+        _initialUnits = work.Count;
     }
 
-    internal static HtmlMetaInsertionCapture? Reserve(Node target, MutationMatches? matches, int capacity,
-        IReadOnlyList<Node>? removed = null, Node? previous = null, Node? next = null)
-        => capacity > 0 && matches is { CaptureHtmlMetaInsertions: true, TargetWasConnected: true }
-            ? new HtmlMetaInsertionCapture(target, matches, capacity, removed, previous, next) : null;
+    internal static HtmlMetaInsertionCapture? Reserve(Node target, Node firstIncoming, MutationMatches? matches,
+        int capacity, IReadOnlyList<Node>? removed = null, Node? previous = null, Node? next = null)
+    {
+        if (capacity == 0 || matches is not { CaptureHtmlMetaInsertions: true, TargetWasConnected: true }) return null;
+        var budgets = CreateBudgets(target, firstIncoming, matches, out var work);
+        work.Check();
+        var capture = new HtmlMetaInsertionCapture(target, firstIncoming, matches, capacity, removed?.Count ?? 0, previous, next, budgets, ref work);
+        work.Check();
+        capture._initialUnits = work.Count;
+        return capture;
+    }
 
-    internal static HtmlMetaInsertionCapture? ReserveWithRemovedNode(Node target, MutationMatches? matches,
-        int capacity, Node? removed, Node? previous, Node? next)
-        => capacity > 0 && matches is { CaptureHtmlMetaInsertions: true, TargetWasConnected: true }
-            ? new HtmlMetaInsertionCapture(target, matches, capacity,
-                removed is null ? null : Array.AsReadOnly(new[] { removed }), previous, next) : null;
+    internal static HtmlMetaInsertionCapture? ReserveWithRemovedNode(Node target, Node firstIncoming,
+        MutationMatches? matches, int capacity, Node? removed, Node? previous, Node? next)
+    {
+        if (capacity == 0 || matches is not { CaptureHtmlMetaInsertions: true, TargetWasConnected: true }) return null;
+        var budgets = CreateBudgets(target, firstIncoming, matches, out var work);
+        work.Check();
+        var capture = new HtmlMetaInsertionCapture(target, firstIncoming, matches, capacity,
+            removed is null ? 0 : 1, previous, next, budgets, ref work);
+        work.Check();
+        capture._initialUnits = work.Count;
+        return capture;
+    }
 
     internal void Prepare(Node destination, Node incoming)
     {
-        CaptureConnectedMetaInsertions(destination, incoming, _matches, _facts);
+        var budgets = _initialBudgets;
+        var initialUnits = _initialUnits;
+        _initialBudgets = null;
+        _initialUnits = 0;
+        if (budgets is null)
+        {
+            budgets = CreateBudgets(destination, incoming, _matches, out var work);
+            initialUnits = work.Count;
+        }
+        CaptureConnectedMetaInsertions(destination, incoming, budgets, initialUnits, _facts);
+    }
+
+    internal void PrepareRemoval()
+    {
+        if (_removed is null || _initialBudgets is null) return;
+        var work = CreateWork(_target, _firstIncoming, _initialBudgets, _initialUnits);
+        work.Step();
+        if (_removed.Count == _removed.Capacity)
+        {
+            work.Check();
+            _removed.EnsureCapacity(_removed.Count + 1);
+            work.Check();
+        }
+        work.Check();
+        _initialUnits = work.Count;
+    }
+
+    internal void CommittedRemoval(Node node)
+    {
+        if (_removed is null) return;
+        if (_added.Count == 0 && _removed.Count == 0) _document = _target as Document ?? _target.OwnerDocument!;
+        _removed.Add(node);
     }
 
     internal void Committed(Node node)
     {
+        if (_added.Count == 0 && (_removed is null || _removed.Count == 0))
+            _document = _target as Document ?? _target.OwnerDocument!;
         _added.Add(node); // Capacity was reserved before any destination link.
         _committedFacts = _facts.Count;
     }
@@ -69,19 +145,47 @@ internal sealed class HtmlMetaInsertionCapture
         if (_published) return;
         _published = true;
         _facts.Freeze(_committedFacts);
-        if (_added.Count == 0 && _reserved[0].RemovedNodes.Count == 0) return;
-        for (var i = 0; i < _reserved.Length; i++) _matches.Entries[i].Subscription.Enqueue(_reserved[i]);
+        if (_added.Count == 0 && _reserved[0].Record.Record!.RemovedNodes.Count == 0) return;
+        for (var i = 0; i < _reserved.Length; i++) _matches.Entries[i].Subscription.EnqueueReserved(_reserved[i]);
         // Allocation-free publication. Notifications run only at a later healthy boundary.
         _document.PublishMutationNotifications(_ticket);
     }
 
-    private static void CaptureConnectedMetaInsertions(Node destination, Node incoming,
-        MutationMatches matches, PreparedFacts destinationFacts)
+    private static List<(Action<int>? Checkpoint, CancellationToken Token)> CreateBudgets(Node destination,
+        Node incoming, MutationMatches matches, out TraversalWork work)
     {
-        var budgets = new List<(Action<int>? Checkpoint, CancellationToken Token)>();
-        foreach (var entry in matches.Entries)
-            if (entry.CaptureHtmlMetaInsertions && entry.Subscription.CreateCaptureWork is { } create)
+        var seedIndex = -1;
+        (Action<int>? Checkpoint, CancellationToken Token) seed = default;
+        for (var i = 0; i < matches.Entries.Count; i++)
+        {
+            var entry = matches.Entries[i];
+            if (!entry.CaptureHtmlMetaInsertions || entry.Subscription.CreateCaptureWork is not { } create) continue;
+            seedIndex = i; seed = create(); break;
+        }
+        var allocationWork = new TraversalWork(new(destination), new(incoming), seed.Checkpoint, seed.Token);
+        allocationWork.Check();
+        var budgets = new List<(Action<int>? Checkpoint, CancellationToken Token)>(matches.Entries.Count);
+        allocationWork.Check();
+        for (var i = 0; i < matches.Entries.Count; i++)
+        {
+            allocationWork.Step();
+            var entry = matches.Entries[i];
+            if (!entry.CaptureHtmlMetaInsertions) continue;
+            if (i == seedIndex) budgets.Add(seed);
+            else if (entry.Subscription.CreateCaptureWork is { } create)
+            {
+                allocationWork.Check();
                 budgets.Add(create());
+                allocationWork.Check();
+            }
+        }
+        work = CreateWork(destination, incoming, budgets, allocationWork.Count);
+        return budgets;
+    }
+
+    private static TraversalWork CreateWork(Node destination, Node incoming,
+        List<(Action<int>? Checkpoint, CancellationToken Token)> budgets, int initialUnits)
+    {
         void Check(int units)
         {
             foreach (var budget in budgets)
@@ -91,7 +195,13 @@ internal sealed class HtmlMetaInsertionCapture
                 budget.Token.ThrowIfCancellationRequested();
             }
         }
-        var work = new TraversalWork(new(destination), new(incoming), Check, default);
+        return new TraversalWork(new(destination), new(incoming), Check, default, initialUnits);
+    }
+
+    private static void CaptureConnectedMetaInsertions(Node destination, Node incoming,
+        List<(Action<int>? Checkpoint, CancellationToken Token)> budgets, int initialUnits, PreparedFacts destinationFacts)
+    {
+        var work = CreateWork(destination, incoming, budgets, initialUnits);
         Node root = destination;
         while (true)
         {

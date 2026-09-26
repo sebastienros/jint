@@ -8,6 +8,9 @@ public sealed class MutationSubscription : IDisposable
     private readonly List<MutationRegistration> _registrations = [];
     private List<WeakReference<Node>>? _transientNodes;
     private List<MutationRecord>? _records;
+    private MutationQueueSegment? _reservedHead;
+    private MutationQueueSegment? _reservedTail;
+    private long _reservedCount;
     private bool _disposed;
 
     internal MutationSubscription() { }
@@ -79,6 +82,8 @@ public sealed class MutationSubscription : IDisposable
         _registrations.Clear();
         RemoveTransients(null);
         _records = null;
+        _reservedHead = _reservedTail = null;
+        _reservedCount = 0;
     }
 
     public void Dispose()
@@ -98,17 +103,57 @@ public sealed class MutationSubscription : IDisposable
 
     internal void Enqueue(MutationRecord record) => (_records ??= []).Add(record);
 
+    internal MutationRecordQueueReservation ReserveRecord(MutationRecord record)
+        => new(new MutationQueueSegment(), new MutationQueueSegment { Record = record });
+
+    internal void EnqueueReserved(MutationRecordQueueReservation reservation)
+    {
+        if (_records is { Count: > 0 } records)
+        {
+            reservation.Prefix.Records = records;
+            AppendReserved(reservation.Prefix);
+            _reservedCount += records.Count;
+        }
+        _records = null;
+        AppendReserved(reservation.Record);
+        _reservedCount++;
+    }
+
+    private void AppendReserved(MutationQueueSegment segment)
+    {
+        if (_reservedTail is null) _reservedHead = segment;
+        else _reservedTail.Next = segment;
+        _reservedTail = segment;
+    }
+
     internal void NotifyIfPending()
     {
         // An earlier subscription may have drained or disconnected this one, including
         // during a nested mutation. Do not send a stale trailing pending signal.
-        if (_records is { Count: > 0 }) PendingRecord?.Invoke(this);
+        if (_reservedHead is not null || _records is { Count: > 0 }) PendingRecord?.Invoke(this);
     }
 
     private ReadOnlyCollection<MutationRecord> Drain()
     {
         var records = _records;
         _records = null;
+        if (_reservedHead is { } head)
+        {
+            var result = new List<MutationRecord>(checked((int) (_reservedCount + (records?.Count ?? 0))));
+            _reservedHead = _reservedTail = null;
+            _reservedCount = 0;
+            MutationQueueSegment? segment = head;
+            while (segment is not null)
+            {
+                if (segment.Records is { } prefix) result.AddRange(prefix);
+                if (segment.Record is { } record) result.Add(record);
+                var next = segment.Next;
+                segment.Next = null; segment.Records = null; segment.Record = null;
+                segment = next;
+            }
+            if (records is not null) result.AddRange(records);
+            return Array.AsReadOnly(result.ToArray());
+        }
         return records is null || records.Count == 0
             ? Array.AsReadOnly(Array.Empty<MutationRecord>())
             : Array.AsReadOnly(records.ToArray());
@@ -154,3 +199,13 @@ internal sealed class MutationRegistration(MutationSubscription subscription, No
     internal WeakReference<Node> Target { get; } = new(target);
     internal NormalizedMutationOptions Options { get; set; } = options;
 }
+
+// Reserved only by the capture lane, before a link. Ordinary observer queues keep their list lane.
+internal sealed class MutationQueueSegment
+{
+    internal List<MutationRecord>? Records;
+    internal MutationRecord? Record;
+    internal MutationQueueSegment? Next;
+}
+
+internal readonly record struct MutationRecordQueueReservation(MutationQueueSegment Prefix, MutationQueueSegment Record);

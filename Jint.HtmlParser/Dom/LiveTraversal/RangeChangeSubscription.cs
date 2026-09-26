@@ -31,19 +31,26 @@ internal readonly struct RangeMutationScope : IDisposable
         first.RangeOperationDepth++;
         if (_second is not null) _second.RangeOperationDepth++;
     }
+    internal void DeferNotifications()
+    {
+        _first.DeferRangeScheduling = true;
+        if (_second is not null) _second.DeferRangeScheduling = true;
+    }
     public void Dispose()
     {
+        var defer = _first.DeferRangeScheduling || _second?.DeferRangeScheduling == true;
         // Close both ownership scopes before any scheduling sink can fail.
         var first = Finish(_first);
         var second = _second is null ? null : Finish(_second);
         HashSet<Document>? signals = null;
-        if (first is not null) foreach (var range in first) range.CollectChanges(ref signals);
-        if (second is not null) foreach (var range in second) range.CollectChanges(ref signals);
-        DomRange.ScheduleChanges(signals);
+        if (first is not null) foreach (var range in first) range.CollectChanges(ref signals, defer);
+        if (second is not null) foreach (var range in second) range.CollectChanges(ref signals, defer);
+        if (!defer) DomRange.ScheduleChanges(signals);
     }
     private static HashSet<DomRange>? Finish(Document document)
     {
         if (--document.RangeOperationDepth != 0) return null;
+        document.DeferRangeScheduling = false;
         var changed = document.ChangedRanges;
         document.ChangedRanges = null;
         return changed;
@@ -100,7 +107,7 @@ public sealed partial class DomRange
         CollectChanges(ref signals);
         ScheduleChanges(signals);
     }
-    internal void CollectChanges(ref HashSet<Document>? signals)
+    internal void CollectChanges(ref HashSet<Document>? signals, bool deferScheduling = false)
     {
         if (!_changed || _changeDepth != 0) return;
         var document = LiveTraversalTracking.DocumentOf(Start.Container);
@@ -116,7 +123,11 @@ public sealed partial class DomRange
         {
             if (!slot.TryGetTarget(out var subscription)) continue;
             subscription.MarkPending();
-            if (subscription.Document.PendingRangeChanges is not null) (signals ??= []).Add(subscription.Document);
+            if (subscription.Document.PendingRangeChanges is not null)
+            {
+                if (deferScheduling) subscription.Document.MarkDeferredRangeSignal();
+                else (signals ??= []).Add(subscription.Document);
+            }
         }
         if (subscriptions.Count == 0) _subscriptions = null;
     }
