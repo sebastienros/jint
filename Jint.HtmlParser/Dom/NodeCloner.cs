@@ -5,17 +5,18 @@ internal static class NodeCloner
 {
     // DOM Standard §4.4: a clonable shadow tree is copied even when light-tree
     // subtree is false. Frames keep deep chains off the CLR call stack.
-    internal static Node Clone(Node source, Document document, bool deep,
-        CustomElementRegistryIdentity? fallbackRegistry = null, CancellationToken cancellationToken = default)
+    internal static Node Clone(Node source, Document document, bool deep, CustomElementRegistryIdentity? fallbackRegistry = null, CancellationToken cancellationToken = default)
+        => CloneWithWork(source, document, deep, fallbackRegistry, (HtmlSelectWorkContext?) null, cancellationToken);
+    internal static Node CloneWithWork(Node source, Document document, bool deep, CustomElementRegistryIdentity? fallbackRegistry, HtmlSelectWorkContext? context, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var selectWork = new HtmlSelectWork(document.SelectWorkProbe, cancellationToken);
+        var selectWork = new HtmlSelectWork(document.SelectWorkProbe, context, cancellationToken);
         if (source is ShadowRoot)
         {
             throw DomException.NotSupported();
         }
 
-        var root = CopySingle(source, document, fallbackRegistry, cancellationToken);
+        var root = CopySingleWithWork(source, document, fallbackRegistry, context, cancellationToken);
         var pending = new Stack<Frame>();
         pending.Push(new Frame(source, root, deep, fallbackRegistry));
         while (pending.TryPop(out var frame))
@@ -26,8 +27,8 @@ internal static class NodeCloner
                 frame.NextChild = child.NextSibling;
                 pending.Push(frame);
                 var owner = frame.Copy as Document ?? frame.Copy.OwnerDocument!;
-                var copy = CopySingle(child, owner, frame.FallbackRegistry, cancellationToken);
-                frame.Copy.AppendClonedChild(copy, cancellationToken);
+                var copy = CopySingleWithWork(child, owner, frame.FallbackRegistry, context, cancellationToken);
+                frame.Copy.AppendClonedChild(copy, context, cancellationToken);
                 pending.Push(new Frame(child, copy, true, frame.FallbackRegistry));
                 continue;
             }
@@ -78,8 +79,7 @@ internal static class NodeCloner
     internal static Attr CloneAttribute(Attr source, Document document)
         => new(document, source.NamespaceUri, source.LocalName, source.Prefix, source.Value, source.IsDtdId);
 
-    private static Node CopySingle(Node source, Document document,
-        CustomElementRegistryIdentity? fallbackRegistry, CancellationToken cancellationToken)
+    private static Node CopySingleWithWork(Node source, Document document, CustomElementRegistryIdentity? fallbackRegistry, HtmlSelectWorkContext? context, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         switch (source)
@@ -99,22 +99,23 @@ internal static class NodeCloner
             case Element original:
                 var element = new Element(document, original.NamespaceUri, original.LocalName, original.Prefix,
                     original.IsValue);
-                element.CopyAttributesFrom(original, document, cancellationToken);
+                element.CopyAttributesFromWithWork(original, document, context, cancellationToken);
                 HtmlCheckednessAlgorithms.CopyCheckedness(original, element, cancellationToken);
                 if (original is { NamespaceUri: Namespaces.Html, LocalName: "option" })
-                    element.GetOptionCore(cancellationToken).CopyFrom(original.GetOptionCore(cancellationToken));
+                    element.GetOptionCoreWithWork(context, cancellationToken).CopyFrom(original.GetOptionCoreWithWork(context, cancellationToken));
                 if (original.ExistingInputValueState is { } inputValue)
                 {
                     // Charge the cold state boundary independently of the preceding
                     // attribute copy; its metadata and sanitizer poll this same token.
-                    var stateWork = new HtmlSelectWork(document.SelectWorkProbe, cancellationToken);
+                    var stateWork = new HtmlSelectWork(document.SelectWorkProbe, context, cancellationToken);
                     stateWork.Step();
-                    element.GetHtmlState()!.GetInputValueState(cancellationToken)!
+                    element.GetHtmlState()!.GetInputValueState(context?.CreateCheckpointAdapter(), cancellationToken)!
                         .CopyFrom(inputValue);
                 }
                 if (original is { NamespaceUri: Namespaces.Html, LocalName: "textarea" })
                 {
-                    element.GetHtmlState()!.TextArea!.CopyFrom(original.GetHtmlState()!.TextArea!, cancellationToken);
+                    element.GetHtmlState()!.TextArea!.CopyFrom(original.GetHtmlState()!.TextArea!,
+                        context?.CreateCheckpointAdapter(), cancellationToken);
                 }
                 if (original is { NamespaceUri: Namespaces.Html, LocalName: "script" })
                 {

@@ -37,6 +37,23 @@ internal static class HtmlDisabledness
         return disabled;
     }
 
+    internal static bool IsOptionDisabledWithWork(Element option, HtmlSelectWorkContext? context, CancellationToken token)
+    {
+        var work = new HtmlDisabledWork(token, selectContext: context);
+        work.Check();
+        var result = IsOptionDisabled(option, ref work);
+        work.Check();
+        return result;
+    }
+    internal static HtmlDisabledState GetStateWithWork(Element element, HtmlSelectWorkContext? context, CancellationToken token)
+    {
+        var work = new HtmlDisabledWork(token, selectContext: context);
+        work.Check();
+        var result = GetState(element, ref work);
+        work.Check();
+        return result;
+    }
+
     // Called at both native child-list boundaries, before form-only early returns.
     internal static void DirectChildChanged(Node child, Node? parent)
     {

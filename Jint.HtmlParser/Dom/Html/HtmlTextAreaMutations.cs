@@ -63,7 +63,6 @@ internal static class HtmlTextAreaMutations
             work.Step();
             var count = ChildLength(child);
             length = checked(length + count);
-            for (var i = 0; i < count; i++) work.Step();
         }
 
         work.Check();

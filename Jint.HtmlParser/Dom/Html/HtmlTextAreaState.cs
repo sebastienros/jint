@@ -27,29 +27,46 @@ internal sealed class HtmlTextAreaState
     }
 
     internal string GetDefaultValue(CancellationToken cancellationToken)
-        => HtmlTextAreaMutations.CollectChildText(_element, cancellationToken);
+        => GetDefaultValue(null, cancellationToken);
+    internal string GetDefaultValue(Action<int>? checkpoint, CancellationToken cancellationToken)
+    {
+        var work = new HtmlTextWork(cancellationToken, checkpoint);
+        work.Check(); work.Step();
+        var result = HtmlTextAreaMutations.CollectChildText(_element, ref work);
+        work.Finish(); return result;
+    }
 
     internal string GetValue(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (_apiRevision == _rawRevision && _apiValue is { } cached) return cached;
-        var raw = GetRawValue(cancellationToken);
-        var api = HtmlTextSanitizer.NormalizeTextAreaValue(raw, cancellationToken);
-        cancellationToken.ThrowIfCancellationRequested();
-        _apiValue = api;
-        _apiRevision = _rawRevision;
-        return api;
+        return GetValue(null, cancellationToken);
+    }
+    internal string GetValue(Action<int>? checkpoint, CancellationToken cancellationToken)
+    {
+        var work = new HtmlTextWork(cancellationToken, checkpoint);
+        var prepared = PrepareValue(ref work);
+        work.Finish();
+        PublishValue(prepared);
+        return prepared.Api;
     }
 
     internal uint GetTextLength(CancellationToken cancellationToken)
         => (uint) GetValue(cancellationToken).Length;
+    internal uint GetTextLength(Action<int>? checkpoint, CancellationToken cancellationToken)
+        => (uint) GetValue(checkpoint, cancellationToken).Length;
 
     internal string GetSubmissionValue(CancellationToken cancellationToken)
+        => GetSubmissionValue(null, cancellationToken);
+    internal string GetSubmissionValue(Action<int>? checkpoint, CancellationToken cancellationToken)
     {
-        var value = GetValue(cancellationToken);
-        var wrap = HtmlTextControlAttributes.GetEffectiveTextAreaWrap(_element, cancellationToken);
-        var columns = HtmlTextControlAttributes.GetEffectiveTextAreaColumns(_element, cancellationToken);
-        return HtmlTextSanitizer.GetTextAreaSubmissionValue(value, wrap, columns, cancellationToken);
+        var work = new HtmlTextWork(cancellationToken, checkpoint);
+        var prepared = PrepareValue(ref work);
+        var wrap = HtmlTextControlAttributes.GetEffectiveTextAreaWrap(_element, ref work);
+        var columns = HtmlTextControlAttributes.GetEffectiveTextAreaColumns(_element, ref work);
+        var result = HtmlTextSanitizer.GetTextAreaSubmissionValue(prepared.Api, wrap, columns, ref work);
+        work.Finish(); PublishValue(prepared);
+        return result;
     }
 
     internal void SetValue(string value, CancellationToken cancellationToken)
@@ -58,16 +75,19 @@ internal sealed class HtmlTextAreaState
     internal void SetValue(string value, Action<int>? checkpoint, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(value);
-        var normalized = HtmlTextSanitizer.NormalizeTextAreaValue(value, checkpoint, cancellationToken);
-        var previous = GetValue(cancellationToken);
-        cancellationToken.ThrowIfCancellationRequested();
-        SetRawValue(value, normalized);
+        var work = new HtmlTextWork(cancellationToken, checkpoint);
+        var normalized = HtmlTextSanitizer.NormalizeTextAreaValue(value, ref work);
+        var previous = PrepareValue(ref work);
+        var changed = !work.StringEquals(previous.Api, normalized);
+        var rawChanged = !work.StringEquals(previous.Raw, value);
+        work.Finish();
+        SetRawValue(value, normalized, rawChanged);
         SetDirty(true);
         SetOrigin(HtmlValueChangeOrigin.NonUser);
-        if (!string.Equals(previous, normalized, StringComparison.Ordinal))
+        if (changed)
         {
             ClampSelection((uint) normalized.Length);
-            SetSelectionRange((uint) normalized.Length, (uint) normalized.Length, null, CancellationToken.None);
+            SetSelection(new HtmlTextSelection((uint) normalized.Length, (uint) normalized.Length, HtmlSelectionDirection.None));
         }
     }
 
@@ -81,11 +101,15 @@ internal sealed class HtmlTextAreaState
     }
 
     internal void Reset(CancellationToken cancellationToken)
+        => Reset(null, cancellationToken);
+    internal void Reset(Action<int>? checkpoint, CancellationToken cancellationToken)
     {
-        var raw = GetDefaultValue(cancellationToken);
-        var normalized = HtmlTextSanitizer.NormalizeTextAreaValue(raw, cancellationToken);
-        cancellationToken.ThrowIfCancellationRequested();
-        SetRawValue(raw, normalized);
+        var work = new HtmlTextWork(cancellationToken, checkpoint);
+        var raw = HtmlTextAreaMutations.CollectChildText(_element, ref work);
+        var normalized = HtmlTextSanitizer.NormalizeTextAreaValue(raw, ref work);
+        var rawChanged = !_rawFromChildren && !work.StringEquals(_rawValue, raw);
+        work.Finish();
+        SetRawValue(raw, normalized, rawChanged);
         _rawAlignedWithChildren = true;
         SetDirty(false);
         SetOrigin(HtmlValueChangeOrigin.NonUser);
@@ -118,8 +142,10 @@ internal sealed class HtmlTextAreaState
     internal void CopyFrom(HtmlTextAreaState source, Action<int>? checkpoint, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(source);
-        var raw = source.GetRawValue(checkpoint, cancellationToken);
-        cancellationToken.ThrowIfCancellationRequested();
+        var work = new HtmlTextWork(cancellationToken, checkpoint);
+        work.Check(); work.Step();
+        var raw = source._rawFromChildren ? HtmlTextAreaMutations.CollectChildText(source._element, ref work) : source._rawValue;
+        work.Finish();
         _rawValue = raw;
         _rawFromChildren = false;
         _rawAlignedWithChildren = false;
@@ -135,67 +161,99 @@ internal sealed class HtmlTextAreaState
         cancellationToken.ThrowIfCancellationRequested();
         return _selection;
     }
+    internal HtmlTextSelection GetSelection(Action<int>? checkpoint, CancellationToken cancellationToken)
+    {
+        var work = new HtmlTextWork(cancellationToken, checkpoint);
+        work.Check(); work.Step(); work.Finish(); return _selection;
+    }
 
     internal void SetSelectionStart(uint value, CancellationToken cancellationToken)
+        => SetSelectionStart(value, null, cancellationToken);
+    internal void SetSelectionStart(uint value, Action<int>? checkpoint, CancellationToken cancellationToken)
     {
+        var work = new HtmlTextWork(cancellationToken, checkpoint);
+        var prepared = PrepareValue(ref work);
         var end = _selection.End;
-        var start = Clamp(value, GetTextLength(cancellationToken));
-        SetSelectionRange(start, Math.Max(start, end), DirectionString(_selection.Direction), cancellationToken);
+        var start = Clamp(value, (uint) prepared.Api.Length);
+        var next = NormalizeSelection(new(start, Math.Max(start, end), _selection.Direction), (uint) prepared.Api.Length);
+        work.Step(); work.Finish(); PublishValue(prepared); SetSelection(next);
     }
 
     internal void SetSelectionEnd(uint value, CancellationToken cancellationToken)
+        => SetSelectionEnd(value, null, cancellationToken);
+    internal void SetSelectionEnd(uint value, Action<int>? checkpoint, CancellationToken cancellationToken)
     {
-        var end = Clamp(value, GetTextLength(cancellationToken));
-        SetSelectionRange(Math.Min(_selection.Start, end), end, DirectionString(_selection.Direction), cancellationToken);
+        var work = new HtmlTextWork(cancellationToken, checkpoint);
+        var prepared = PrepareValue(ref work);
+        var end = Clamp(value, (uint) prepared.Api.Length);
+        var next = new HtmlTextSelection(Math.Min(_selection.Start, end), end, _selection.Direction);
+        work.Step(); work.Finish(); PublishValue(prepared); SetSelection(next);
     }
 
     internal void SetSelectionDirection(string? direction, CancellationToken cancellationToken)
         => SetSelectionRange(_selection.Start, _selection.End, direction, cancellationToken);
+    internal void SetSelectionDirection(string? direction, Action<int>? checkpoint, CancellationToken cancellationToken)
+        => SetSelectionRange(_selection.Start, _selection.End, direction, checkpoint, cancellationToken);
 
     internal void SetSelectionRange(uint start, uint end, string? direction, CancellationToken cancellationToken)
+        => SetSelectionRange(start, end, direction, null, cancellationToken);
+    internal void SetSelectionRange(uint start, uint end, string? direction, Action<int>? checkpoint, CancellationToken cancellationToken)
     {
-        var length = GetTextLength(cancellationToken);
+        var work = new HtmlTextWork(cancellationToken, checkpoint);
+        var prepared = PrepareValue(ref work);
+        var length = (uint) prepared.Api.Length;
         var selectedEnd = Clamp(end, length);
         var selectedStart = Clamp(start, length);
         if (selectedEnd <= selectedStart) selectedStart = selectedEnd;
         var next = new HtmlTextSelection(selectedStart, selectedEnd, ParseDirection(direction));
-        cancellationToken.ThrowIfCancellationRequested();
+        work.Step(); work.Finish(); PublishValue(prepared);
         SetSelection(next);
     }
 
     internal void Select(CancellationToken cancellationToken)
-        => SetSelectionRange(0, GetTextLength(cancellationToken), null, cancellationToken);
+        => Select(null, cancellationToken);
+    internal void Select(Action<int>? checkpoint, CancellationToken cancellationToken)
+        => SetSelectionRange(0, uint.MaxValue, null, checkpoint, cancellationToken);
 
     internal void SetRangeText(string replacement, CancellationToken cancellationToken)
         => SetRangeText(replacement, _selection.Start, _selection.End, HtmlRangeTextMode.Preserve, cancellationToken);
+    internal void SetRangeText(string replacement, Action<int>? checkpoint, CancellationToken cancellationToken)
+        => SetRangeText(replacement, _selection.Start, _selection.End, HtmlRangeTextMode.Preserve, checkpoint, cancellationToken);
 
     internal void SetRangeText(string replacement, uint start, uint end, HtmlRangeTextMode mode,
         CancellationToken cancellationToken)
+        => SetRangeText(replacement, start, end, mode, null, cancellationToken);
+    internal void SetRangeText(string replacement, uint start, uint end, HtmlRangeTextMode mode,
+        Action<int>? checkpoint, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(replacement);
         if (!Enum.IsDefined(mode)) throw new ArgumentOutOfRangeException(nameof(mode));
-        cancellationToken.ThrowIfCancellationRequested();
+        var work = new HtmlTextWork(cancellationToken, checkpoint);
+        work.Check(); work.Step();
         if (start > end)
         {
             // Dirtiness freezes the current raw value even when it was still a
             // lazy projection of children. A later child mutation changes only
             // defaultValue after this algorithm step.
-            GetRawValue(cancellationToken);
-            cancellationToken.ThrowIfCancellationRequested();
+            var frozen = _rawFromChildren ? HtmlTextAreaMutations.CollectChildText(_element, ref work) : _rawValue;
+            work.Finish();
+            _rawValue = frozen; _rawFromChildren = false;
             SetDirty(true);
             throw new DomException("IndexSizeError", "The start offset exceeds the end offset.");
         }
 
-        var oldValue = GetValue(cancellationToken);
+        var oldPrepared = PrepareValue(ref work);
+        var oldValue = oldPrepared.Api;
         var oldSelection = _selection;
         start = Clamp(start, (uint) oldValue.Length);
         end = Clamp(end, (uint) oldValue.Length);
         var newLength = checked((long) oldValue.Length - (end - start) + replacement.Length);
+        var initialSteps = work.Steps;
         cancellationToken.ThrowIfCancellationRequested();
         var prepared = string.Create(checked((int) newLength),
-            (oldValue, replacement, start, end, cancellationToken), static (span, state) =>
+            (oldValue, replacement, start, end, cancellationToken, checkpoint, initialSteps), static (span, state) =>
         {
-            var work = new HtmlTextWork(state.cancellationToken);
+            var work = new HtmlTextWork(state.cancellationToken, state.checkpoint, state.initialSteps);
             var destination = 0;
             for (var i = 0; i < state.start; i++)
             {
@@ -214,7 +272,9 @@ internal sealed class HtmlTextAreaState
             }
             work.Check();
         });
-        var normalized = HtmlTextSanitizer.NormalizeTextAreaValue(prepared, cancellationToken);
+        work.ContinueFrom(unchecked(initialSteps + (int) newLength));
+        var normalized = HtmlTextSanitizer.NormalizeTextAreaValue(prepared, ref work);
+        var rawChanged = !work.StringEquals(oldPrepared.Raw, prepared);
         var insertedEnd = checked((long) start + replacement.Length);
         var delta = checked((long) replacement.Length - (end - start));
         var next = mode switch
@@ -228,8 +288,8 @@ internal sealed class HtmlTextAreaState
                 HtmlSelectionDirection.None),
             _ => throw new ArgumentOutOfRangeException(nameof(mode))
         };
-        cancellationToken.ThrowIfCancellationRequested();
-        SetRawValue(prepared, normalized);
+        work.Step(); work.Finish();
+        SetRawValue(prepared, normalized, rawChanged);
         SetDirty(true);
         SetOrigin(HtmlValueChangeOrigin.NonUser);
         ClampSelection((uint) normalized.Length);
@@ -238,11 +298,17 @@ internal sealed class HtmlTextAreaState
 
     internal HtmlTextSelection GetEditingSelection(CancellationToken cancellationToken)
         => GetSelection(cancellationToken);
+    internal HtmlTextSelection GetEditingSelection(Action<int>? checkpoint, CancellationToken cancellationToken)
+        => GetSelection(checkpoint, cancellationToken);
 
     internal bool SetEditingSelection(uint start, uint end, string? direction, CancellationToken cancellationToken)
     {
         SetSelectionRange(start, end, direction, cancellationToken);
         return true;
+    }
+    internal bool SetEditingSelection(uint start, uint end, string? direction, Action<int>? checkpoint, CancellationToken cancellationToken)
+    {
+        SetSelectionRange(start, end, direction, checkpoint, cancellationToken); return true;
     }
 
     internal bool ApplyUserValue(string value, HtmlTextSelection selection, CancellationToken cancellationToken)
@@ -282,22 +348,21 @@ internal sealed class HtmlTextAreaState
         return true;
     }
 
-    private string GetRawValue(CancellationToken cancellationToken)
-        => GetRawValue(null, cancellationToken);
-
-    private string GetRawValue(Action<int>? checkpoint, CancellationToken cancellationToken)
+    private readonly record struct ValuePreparation(string Raw, string Api, bool NeedsCache);
+    private ValuePreparation PrepareValue(ref HtmlTextWork work)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (!_rawFromChildren) return _rawValue;
-        var value = HtmlTextAreaMutations.CollectChildText(_element, checkpoint, cancellationToken);
-        cancellationToken.ThrowIfCancellationRequested();
-        _rawValue = value;
-        _rawFromChildren = false;
-        return value;
+        work.Check(); work.Step();
+        if (_apiRevision == _rawRevision && _apiValue is { } cached) return new(_rawValue, cached, false);
+        var raw = _rawFromChildren ? HtmlTextAreaMutations.CollectChildText(_element, ref work) : _rawValue;
+        var api = HtmlTextSanitizer.NormalizeTextAreaValue(raw, ref work);
+        work.Check(); return new(raw, api, true);
     }
-
-    private void SetRawValue(string raw, string normalized)
-        => SetRawValue(raw, normalized, !_rawFromChildren && !string.Equals(_rawValue, raw, StringComparison.Ordinal));
+    private void PublishValue(ValuePreparation prepared)
+    {
+        if (!prepared.NeedsCache) return;
+        _rawValue = prepared.Raw; _rawFromChildren = false;
+        _apiValue = prepared.Api; _apiRevision = _rawRevision;
+    }
 
     private void SetRawValue(string raw, string normalized, bool changed)
     {
@@ -354,7 +419,7 @@ internal sealed class HtmlTextAreaState
     private bool IsReadOnly(ref HtmlTextWork work)
     {
         work.Check();
-        foreach (var attribute in _element.Attributes)
+        for (uint i = 0; _element.GetAttributeAt(i) is { } attribute; i++)
         {
             work.Step();
             if (attribute.NamespaceUri is null && attribute.LocalName == "readonly")
@@ -372,12 +437,6 @@ internal sealed class HtmlTextAreaState
         "forward" => HtmlSelectionDirection.Forward,
         "backward" => HtmlSelectionDirection.Backward,
         _ => HtmlSelectionDirection.None
-    };
-    private static string? DirectionString(HtmlSelectionDirection direction) => direction switch
-    {
-        HtmlSelectionDirection.Forward => "forward",
-        HtmlSelectionDirection.Backward => "backward",
-        _ => null
     };
     private void MarkStateChange() => _element.OwnerDocument!.MarkMutation();
 }

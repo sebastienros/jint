@@ -21,11 +21,23 @@ public sealed class Element : Node
     private HtmlOptionCore? _optionCore;
     private HtmlSelectCore? _selectCore;
     internal HtmlOptionCore GetOptionCore(CancellationToken token = default)
-        => _optionCore ??= new HtmlOptionCore(this, token);
+        => GetOptionCoreWithWork((HtmlSelectWorkContext?) null, token);
+    internal HtmlOptionCore GetOptionCoreWithWork(HtmlSelectWorkContext? context, CancellationToken token = default)
+    {
+        var result = _optionCore ??= new HtmlOptionCore(this, context, token);
+        HtmlSelectWork.Check(context, token);
+        return result;
+    }
     internal HtmlOptionCore InitializeOptionCore(bool selected)
         => _optionCore ??= new HtmlOptionCore(this, selected);
     internal HtmlSelectCore GetSelectCore(CancellationToken token = default)
-        => _selectCore ??= new HtmlSelectCore(this, token);
+        => GetSelectCoreWithWork((HtmlSelectWorkContext?) null, token);
+    internal HtmlSelectCore GetSelectCoreWithWork(HtmlSelectWorkContext? context, CancellationToken token = default)
+    {
+        var result = _selectCore ??= new HtmlSelectCore(this, context, token);
+        HtmlSelectWork.Check(context, token);
+        return result;
+    }
     internal HtmlOptionCore? ExistingOptionCore => _optionCore;
     internal HtmlSelectCore? ExistingSelectCore => _selectCore;
     internal HtmlOptionState? ExistingOptionState => _htmlState?.ExistingOption;
@@ -139,6 +151,27 @@ public sealed class Element : Node
         return null;
     }
 
+    // Select/option callers have already normalized the native HTML attribute name.
+    internal void SetSelectAttribute(string name, string? value, HtmlSelectWorkContext? context, CancellationToken token)
+    {
+        var work = new HtmlSelectWork(OwnerDocument?.SelectWorkProbe, context, token);
+        work.Check();
+        Attr? existing = null;
+        foreach (var attribute in Attributes)
+        {
+            work.Step();
+            if (attribute.NamespaceUri is null && attribute.LocalName == name) { existing = attribute; break; }
+        }
+        work.Check();
+        if (value is null)
+        {
+            if (existing is not null) RemoveAttributeNode(existing, context);
+        }
+        else if (existing is not null) existing.SetValue(value, context);
+        else AppendNewAttribute(new Attr(OwnerDocument!, null, name, null, value), context);
+        HtmlSelectWork.Check(context, token);
+    }
+
     public void SetAttribute(string name, string value)
     {
         ArgumentNullException.ThrowIfNull(name);
@@ -235,7 +268,8 @@ public sealed class Element : Node
         }
     }
 
-    public Attr RemoveAttributeNode(Attr attribute)
+    public Attr RemoveAttributeNode(Attr attribute) => RemoveAttributeNode(attribute, null);
+    internal Attr RemoveAttributeNode(Attr attribute, HtmlSelectWorkContext? context)
     {
         ArgumentNullException.ThrowIfNull(attribute);
         if (!ReferenceEquals(attribute.OwnerElement, this))
@@ -253,7 +287,7 @@ public sealed class Element : Node
         HtmlInputStateChanges.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
             attribute.Value, null);
         HtmlSelectMutations.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
-            attribute.Value, null);
+            attribute.Value, null, context);
         SlotAssignment.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
             attribute.Value, null);
         return attribute;
@@ -273,13 +307,15 @@ public sealed class Element : Node
     }
 
     internal void CopyAttributesFrom(Element source, Document document, CancellationToken cancellationToken = default)
+        => CopyAttributesFromWithWork(source, document, (HtmlSelectWorkContext?) null, cancellationToken);
+    internal void CopyAttributesFromWithWork(Element source, Document document, HtmlSelectWorkContext? context, CancellationToken cancellationToken = default)
     {
         if (source._attributes is null)
         {
             return;
         }
 
-        var work = new HtmlSelectWork(document.SelectWorkProbe, cancellationToken);
+        var work = new HtmlSelectWork(document.SelectWorkProbe, context, cancellationToken);
         work.Check();
         _attributes = new List<Attr>(source._attributes.Count);
         foreach (var attribute in source._attributes)
@@ -402,7 +438,7 @@ public sealed class Element : Node
         cancellationToken.ThrowIfCancellationRequested();
     }
 
-    private void AppendNewAttribute(Attr attribute)
+    private void AppendNewAttribute(Attr attribute, HtmlSelectWorkContext? context = null)
     {
         HtmlInputStateChanges.BeforeAttributeChanged(this, attribute.NamespaceUri, attribute.LocalName, attribute.Value);
         _attributes ??= [];
@@ -417,7 +453,7 @@ public sealed class Element : Node
         HtmlInputStateChanges.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
             null, attribute.Value);
         HtmlSelectMutations.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
-            null, attribute.Value);
+            null, attribute.Value, context);
         SlotAssignment.AttributeChanged(this, attribute.NamespaceUri, attribute.LocalName,
             null, attribute.Value);
     }

@@ -32,46 +32,53 @@ internal static class HtmlSelectMutations
         }
         if (initialization.Select is { } select) element.ExistingSelectCore!.ApplyMetadata(select);
     }
-    internal static void AttributeChanged(Element element, string? ns, string name, string? oldValue, string? newValue)
+    internal static void AttributeChanged(Element element, string? ns, string name, string? oldValue, string? newValue, HtmlSelectWorkContext? context = null)
     {
         if (ns is not null || element.NamespaceUri != Namespaces.Html) return;
         if (element.LocalName == "option" && name is "selected" or "value" or "label" or "id" or "name")
         {
             element.ExistingOptionState?.AttributeChanged(name, newValue);
             if (name != "selected") return;
+            if (context?.AttributeSelection is { } prepared && ReferenceEquals(prepared.Option.Element, element))
+            {
+                prepared.Apply();
+                return;
+            }
             var state = element.InitializeOptionCore(oldValue is not null);
             if ((oldValue is null) == (newValue is null) || state.DirtySelectedness) return;
-            var select = state.CachedNearestSelect?.GetSelectCore();
-            select?.PrepareTransition(default);
+            var select = state.CachedNearestSelect?.GetSelectCoreWithWork(context, context?.Token ?? default);
+            select?.PrepareTransitionWithWork(true, context, context?.Token ?? default);
             state.Write(newValue is not null, false);
             if (state.Selected) select?.ExcludePeers(state);
-            select?.SetSelectedness(default);
+            select?.SetSelectednessWithWork(true, context, context?.Token ?? default);
         }
         else if (name == "disabled" && element.LocalName is "option" or "optgroup")
             HtmlSelectAncestry.GetNearestSelect(element, default)?.ExistingSelectCore?.InvalidateFallback();
         else if (element.LocalName == "select" && name is "multiple" or "size")
         {
-            var state = element.GetSelectCore();
-            state.AttributeChanged(name, newValue);
-            state.SetSelectedness(default);
+            var state = element.GetSelectCoreWithWork(context, context?.Token ?? default);
+            state.AttributeChanged(name, newValue, context);
+            state.SetSelectednessWithWork(true, context, context?.Token ?? default);
         }
     }
     internal static void Inserted(Node node, bool markDocument = true, CancellationToken cancellationToken = default)
+        => InsertedWithWork(node, markDocument, (HtmlSelectWorkContext?) null, cancellationToken);
+    internal static void InsertedWithWork(Node node, bool markDocument, HtmlSelectWorkContext? context, CancellationToken cancellationToken = default)
     {
-        UpdateNearest(node, true, markDocument, cancellationToken);
-        if (markDocument) HtmlSelectedContent.TreeChanged(node, null, true);
+        UpdateNearestWithWork(node, true, markDocument, context, cancellationToken);
+        if (markDocument) HtmlSelectedContent.TreeChanged(node, null, true, context);
     }
-    internal static void Removed(Node node, Node oldParent)
+    internal static void Removed(Node node, Node oldParent, HtmlSelectWorkContext? context = null)
     {
-        UpdateNearest(node, false, true, default);
-        HtmlSelectedContent.TreeChanged(node, oldParent, false);
+        UpdateNearestWithWork(node, false, true, context, context?.Token ?? default);
+        HtmlSelectedContent.TreeChanged(node, oldParent, false, context);
     }
-    private static void UpdateNearest(Node root, bool insertion, bool markDocument, CancellationToken token)
+    private static void UpdateNearestWithWork(Node root, bool insertion, bool markDocument, HtmlSelectWorkContext? context, CancellationToken token)
     {
         if (root.FirstChild is null &&
             root is not Element { NamespaceUri: Namespaces.Html, LocalName: "option" } &&
             root is not Element { AttachedShadowRoot: not null }) return;
-        var work = new HtmlSelectWork(root.OwnerDocument?.SelectWorkProbe, token);
+        var work = new HtmlSelectWork(root.OwnerDocument?.SelectWorkProbe, context, token);
         var entrants = new List<(HtmlOptionCore State, bool Selected, Element? Old, Element? Next)>();
         var affected = new HashSet<HtmlSelectCore>();
         var pending = new Stack<(Node Node, HtmlSelectAncestry.Context Context)>();
@@ -80,21 +87,21 @@ internal static class HtmlSelectMutations
         {
             work.Step();
             var node = frame.Node;
-            var context = frame.Context;
-            if (!ReferenceEquals(node, root) && node.NextSibling is { } sibling) pending.Push((sibling, context));
+            var ancestry = frame.Context;
+            if (!ReferenceEquals(node, root) && node.NextSibling is { } sibling) pending.Push((sibling, ancestry));
             if (node is Element { NamespaceUri: Namespaces.Html, LocalName: "option" } element)
             {
-                var state = element.GetOptionCore(token);
+                var state = element.GetOptionCoreWithWork(context, token);
                 var old = state.CachedNearestSelect;
-                var next = context.Select;
+                var next = ancestry.Select;
                 if (!ReferenceEquals(old, next))
                 {
                     entrants.Add((state, state.Selected, old, next));
-                    if (old is not null) affected.Add(old.GetSelectCore(token));
-                    if (next is not null) affected.Add(next.GetSelectCore(token));
+                    if (old is not null) affected.Add(old.GetSelectCoreWithWork(context, token));
+                    if (next is not null) affected.Add(next.GetSelectCoreWithWork(context, token));
                 }
             }
-            if (node.FirstChild is { } child) pending.Push((child, context.ForChildren(node)));
+            if (node.FirstChild is { } child) pending.Push((child, ancestry.ForChildren(node)));
             if (node is Element { AttachedShadowRoot: { } shadow }) pending.Push((shadow, default));
         }
         // Publish ancestry before preparing native transitions or updating existing caches.
@@ -120,8 +127,8 @@ internal static class HtmlSelectMutations
                 }
             }
             else view?.InvalidateMembership();
-            select.MembershipChanged(insertion, append, entrant, token);
-            select.PrepareTransition(token, markDocument);
+            select.MembershipChangedWithWork(insertion, append, entrant, context, token);
+            select.PrepareTransitionWithWork(markDocument, context, token);
         }
         foreach (var entry in entrants)
         {
@@ -130,10 +137,10 @@ internal static class HtmlSelectMutations
             // WPT inserted-or-removed: replay actual selectedness for each entrant,
             // never reconstruct it from selected attributes (which dirtiness froze).
             if (insertion && entry.Selected) option.Write(true, option.DirtySelectedness, markDocument);
-            var nextState = entry.Next?.GetSelectCore(token);
+            var nextState = entry.Next?.GetSelectCoreWithWork(context, token);
             if (insertion && option.Selected) nextState?.ExcludePeers(option, markDocument);
-            entry.Old?.GetSelectCore(token).SetSelectedness(token, markDocument);
-            nextState?.SetSelectedness(token, markDocument);
+            entry.Old?.GetSelectCoreWithWork(context, token).SetSelectednessWithWork(markDocument, context, token);
+            nextState?.SetSelectednessWithWork(markDocument, context, token);
         }
     }
 

@@ -140,12 +140,18 @@ internal static class HtmlTextSanitizer
     internal static string GetTextAreaSubmissionValue(string apiValue, HtmlTextAreaWrapMode wrapMode,
         long columns, CancellationToken cancellationToken)
     {
+        var work = new HtmlTextWork(cancellationToken);
+        return GetTextAreaSubmissionValue(apiValue, wrapMode, columns, ref work);
+    }
+    internal static string GetTextAreaSubmissionValue(string apiValue, HtmlTextAreaWrapMode wrapMode,
+        long columns, ref HtmlTextWork work)
+    {
         ArgumentNullException.ThrowIfNull(apiValue);
-        cancellationToken.ThrowIfCancellationRequested();
+        work.Check();
         return wrapMode switch
         {
             HtmlTextAreaWrapMode.Soft => apiValue,
-            HtmlTextAreaWrapMode.Hard => WrapTextAreaForSubmission(apiValue, columns, cancellationToken),
+            HtmlTextAreaWrapMode.Hard => WrapTextAreaForSubmission(apiValue, columns, ref work),
             _ => throw new ArgumentOutOfRangeException(nameof(wrapMode))
         };
     }
@@ -157,10 +163,16 @@ internal static class HtmlTextSanitizer
     internal static string WrapTextAreaForSubmission(string apiValue, long columns,
         Action<int>? checkpoint, CancellationToken cancellationToken)
     {
+        var work = new HtmlTextWork(cancellationToken, checkpoint);
+        var result = WrapTextAreaForSubmission(apiValue, columns, ref work);
+        work.Finish();
+        return result;
+    }
+    internal static string WrapTextAreaForSubmission(string apiValue, long columns, ref HtmlTextWork work)
+    {
         ArgumentNullException.ThrowIfNull(apiValue);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(columns);
 
-        var work = new HtmlTextWork(cancellationToken, checkpoint);
         work.Check();
         var breaks = CountWrapBreaks(apiValue, columns, ref work);
         if (breaks == 0)

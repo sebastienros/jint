@@ -43,24 +43,25 @@ public sealed class Attr
     public string Value
     {
         get => _value;
-        set
+        set => SetValue(value, null);
+    }
+    internal void SetValue(string value, HtmlSelectWorkContext? context)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        var owner = OwnerElement;
+        if (owner is not null) HtmlInputStateChanges.BeforeAttributeChanged(owner, NamespaceUri, LocalName, value);
+        var oldValue = _value;
+        var matches = owner is null ? null : MutationTracking.Match(owner, MutationRecordKind.Attributes,
+            LocalName, NamespaceUri);
+        _value = value;
+        OwnerDocument.MarkMutation();
+        if (owner is not null)
         {
-            ArgumentNullException.ThrowIfNull(value);
-            var owner = OwnerElement;
-            if (owner is not null) HtmlInputStateChanges.BeforeAttributeChanged(owner, NamespaceUri, LocalName, value);
-            var oldValue = _value;
-            var matches = owner is null ? null : MutationTracking.Match(owner, MutationRecordKind.Attributes,
-                LocalName, NamespaceUri);
-            _value = value;
-            OwnerDocument.MarkMutation();
-            if (owner is not null)
-            {
-                HtmlFormAssociation.AttributeChanged(owner, NamespaceUri, LocalName, oldValue, value);
-                MutationTracking.QueueAttribute(owner, this, oldValue, matches);
-                HtmlInputStateChanges.AttributeChanged(owner, NamespaceUri, LocalName, oldValue, value);
-                HtmlSelectMutations.AttributeChanged(owner, NamespaceUri, LocalName, oldValue, value);
-                SlotAssignment.AttributeChanged(owner, NamespaceUri, LocalName, oldValue, value);
-            }
+            HtmlFormAssociation.AttributeChanged(owner, NamespaceUri, LocalName, oldValue, value);
+            MutationTracking.QueueAttribute(owner, this, oldValue, matches);
+            HtmlInputStateChanges.AttributeChanged(owner, NamespaceUri, LocalName, oldValue, value);
+            HtmlSelectMutations.AttributeChanged(owner, NamespaceUri, LocalName, oldValue, value, context);
+            SlotAssignment.AttributeChanged(owner, NamespaceUri, LocalName, oldValue, value);
         }
     }
 
