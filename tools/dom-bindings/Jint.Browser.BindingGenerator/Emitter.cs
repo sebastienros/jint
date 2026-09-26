@@ -156,9 +156,9 @@ internal sealed class Emitter
     {
         var builder = new StringBuilder(Header);
 
-        // AngleSharp and AngleSharp.Css both declare an AngleSharp.Dom.ElementExtensions, so a member that
-        // AngleSharp spells as an extension method is called in extension form and the namespace comes in
-        // here — naming either class by its full name is CS0433 whichever one is meant.
+        // Imports belong to the member bodies in the explicit contract. Native bodies use qualified
+        // helpers and need no legacy extension namespaces. The optional metadata extractor still records
+        // extension imports to disambiguate the pinned assemblies' identically named extension classes.
         foreach (var extensionNamespace in _model.ExtensionNamespaces)
         {
             builder.Append("using ").Append(extensionNamespace).Append(";\n");

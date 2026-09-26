@@ -9,9 +9,6 @@
 
 namespace Jint.Browser.Dom;
 
-using AngleSharp.Css.Dom;
-using AngleSharp.Dom;
-
 internal static partial class DomInterfaces
 {
     /// <summary>The <c>[Unscopable]</c> members of <c>CharacterData</c>.</summary>

@@ -15059,10 +15059,7 @@
   ],
   "HtmlCollectionOpenType": "global::Jint.Browser.Dom.Collections.DomHtmlCollection",
   "HtmlCollectionDefaultElement": "global::Jint.HtmlParser.Element",
-  "ExtensionNamespaces": [
-    "AngleSharp.Css.Dom",
-    "AngleSharp.Dom"
-  ],
+  "ExtensionNamespaces": [],
   "Skipped": [
     {
       "Interface": "CharacterData",

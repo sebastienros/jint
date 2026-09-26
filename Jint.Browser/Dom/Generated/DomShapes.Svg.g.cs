@@ -9,9 +9,6 @@
 
 namespace Jint.Browser.Dom;
 
-using AngleSharp.Css.Dom;
-using AngleSharp.Dom;
-
 internal static partial class DomInterfaces
 {
     /// <summary>The members of <c>SVGElement</c>.</summary>
