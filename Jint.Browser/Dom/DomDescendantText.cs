@@ -7,12 +7,12 @@ namespace Jint.Browser.Dom;
 internal static class DomDescendantText
 {
     internal static string Read(Node root, Action<int>? checkpoint, CancellationToken cancellationToken)
-        => ReadCore(root, checkpoint, cancellationToken, descendants: true);
+        => ReadCore(root, checkpoint, descendants: true, cancellationToken);
 
     internal static string ReadChildren(Node root, Action<int>? checkpoint, CancellationToken cancellationToken)
-        => ReadCore(root, checkpoint, cancellationToken, descendants: false);
+        => ReadCore(root, checkpoint, descendants: false, cancellationToken);
 
-    private static string ReadCore(Node root, Action<int>? checkpoint, CancellationToken cancellationToken, bool descendants)
+    private static string ReadCore(Node root, Action<int>? checkpoint, bool descendants, CancellationToken cancellationToken)
     {
         var work = new DomReadWork(checkpoint, cancellationToken);
         work.Check();
