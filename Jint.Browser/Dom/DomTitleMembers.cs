@@ -28,8 +28,8 @@ internal static class DomTitleMembers
         {
             Element? parent = svg ? root : null;
             if (!svg && root.LocalName == "html")
-                foreach (var child in DomTableMembers.Children(root, work))
-                    if (DomTableMembers.Is(child, "head")) { parent = child; break; }
+                foreach (var child in Children(root, work))
+                    if (child is { NamespaceUri: Namespaces.Html, LocalName: "head" }) { parent = child; break; }
             work.Check();
             if (parent is null) return JsValue.Undefined;
             title = document.CreateElementNS(svg ? Namespaces.Svg : Namespaces.Html, "title");
@@ -58,16 +58,26 @@ internal static class DomTitleMembers
         work.Check();
         if (document.DocumentElement is Element { NamespaceUri: Namespaces.Svg, LocalName: "svg" } svg)
         {
-            foreach (var child in DomTableMembers.Children(svg, work))
+            foreach (var child in Children(svg, work))
                 if (child is { NamespaceUri: Namespaces.Svg, LocalName: "title" }) { work.Check(); return child; }
         }
         else
         {
             foreach (var element in NodeTraversal.DescendantElements(document, work.Check, work.Token))
-                if (DomTableMembers.Is(element, "title")) { work.Check(); return element; }
+                if (element is { NamespaceUri: Namespaces.Html, LocalName: "title" }) { work.Check(); return element; }
         }
         work.Check();
         return null;
+    }
+
+    private static IEnumerable<Element> Children(Node parent, DomReadWork work)
+    {
+        for (var child = parent.FirstChild; child is not null; child = child.NextSibling)
+        {
+            work.Step();
+            if (child is Element element) yield return element;
+        }
+        work.Check();
     }
 
     private static string ChildText(Element title, DomReadWork work, bool collapse)
