@@ -10,6 +10,9 @@ internal struct SelectorMatchWork
     private HtmlDisabledWork _native;
     private Cell? _cell;
     private bool _active;
+    private bool _controlSeedBound;
+    private SelectorEnvironment _controlSeed;
+    private ulong _controlDocumentStamp;
     internal const string Invalidated = "The native selector view was invalidated by mutation.";
     internal const string AlreadyActive = "The native selector invocation is already active.";
 
@@ -39,7 +42,43 @@ internal struct SelectorMatchWork
         if (!ReferenceEquals(_root as Document ?? _root.OwnerDocument, _document) ||
             _document is not null && (_stamp == ulong.MaxValue || _document.MutationStamp != _stamp))
             throw new InvalidOperationException(Invalidated);
-        _cell?.Verify();
+        if (_cell is { } cell) cell.Verify();
+        else if (_controlSeedBound) VerifyControlSeed(_controlSeed, _controlDocumentStamp);
+    }
+    private static void VerifyControlSeed(in SelectorEnvironment seed, ulong documentStamp)
+    {
+        if (seed.ControlFactsFactory is not { } factory) return;
+        var document = seed.Document!;
+        var revision = factory.ReadRevision(seed.ControlFactsContext!, document);
+        if (seed.ControlFactsRevision == ulong.MaxValue || revision != seed.ControlFactsRevision ||
+            documentStamp == ulong.MaxValue || document.MutationStamp != documentStamp)
+            throw new InvalidOperationException(Invalidated);
+    }
+    private void BindControlSeed(in SelectorEnvironment environment)
+    {
+        if (_controlSeedBound)
+        {
+            if (!ReferenceEquals(environment.Document, _controlSeed.Document) ||
+                !ReferenceEquals(environment.ControlFactsFactory, _controlSeed.ControlFactsFactory) ||
+                !ReferenceEquals(environment.ControlFactsContext, _controlSeed.ControlFactsContext) ||
+                environment.ControlFactsRevision != _controlSeed.ControlFactsRevision)
+                throw new InvalidOperationException(Invalidated);
+            Verify();
+            return;
+        }
+        if (environment.ControlFactsFactory is null)
+        {
+            if (environment.ControlFactsContext is not null || environment.ControlFactsRevision != 0)
+                throw new ArgumentException("Control-facts context/revision require a factory.");
+        }
+        else if (environment.Document is null || environment.ControlFactsContext is null)
+            throw new ArgumentException("Control-facts seeds require a document and owning context.");
+        var stamp = environment.Document?.MutationStamp ?? 0;
+        VerifyControlSeed(environment, stamp);
+        _cell?.BindControlSeed(environment, stamp);
+        _controlSeed = environment;
+        _controlDocumentStamp = stamp;
+        _controlSeedBound = true;
     }
     internal void Step()
     {
@@ -69,6 +108,7 @@ internal struct SelectorMatchWork
                  environment.PointerPressTarget is { } press && press.OwnerDocument != environment.Document ||
                  environment.TargetElement is { } target && target.OwnerDocument != environment.Document)
             throw new ArgumentException("Environment seeds must belong to its document.");
+        BindControlSeed(environment);
         Observe(node);
         if (scope is not null) Observe(scope);
         _active = true;
@@ -94,6 +134,7 @@ internal struct SelectorMatchWork
         {
             _cell = new Cell(_root!, _document, _stamp, null, _token) { Native = _native, Active = _active };
             _native = default;
+            if (_controlSeedBound) _cell.BindControlSeed(_controlSeed, _controlDocumentStamp);
         }
         return _cell;
     }
@@ -106,6 +147,15 @@ internal struct SelectorMatchWork
     {
         if (_cell is { } cell) return HtmlRequiredness.GetState(element, ref cell.Native);
         return HtmlRequiredness.GetState(element, ref _native);
+    }
+
+    internal SelectorControlFacts ReadControlFacts(Element element, SelectorControlFactMask requested)
+    {
+        Verify();
+        if (_controlSeed.ControlFactsFactory is null)
+            throw new InvalidOperationException("Selector control state requires host control facts.");
+        Observe(element);
+        return EnsureCell().ReadControlFacts(element, requested, ref this);
     }
 
     // Begin once per fresh helper invocation/context, not once per element's multi-helper read.
@@ -149,6 +199,65 @@ internal struct SelectorMatchWork
         private readonly CancellationToken _token;
         private readonly Action? _checkpoint;
         private List<(Node Node, Document? Document, ulong Stamp)>? _observations;
+        private SelectorEnvironment _controlSeed;
+        private bool _controlSeedBound;
+        private ulong _controlDocumentStamp;
+        private ISelectorControlFacts? _controlFacts;
+        private Dictionary<Element, (SelectorControlFactMask Mask, SelectorControlFacts Facts)>? _controlCache;
+        internal void BindControlSeed(in SelectorEnvironment seed, ulong documentStamp)
+        {
+            // Copies of work already sharing this cell cannot replace its captured seed.
+            Verify();
+            if (_controlSeedBound)
+            {
+                if (!ReferenceEquals(seed.Document, _controlSeed.Document) ||
+                    !ReferenceEquals(seed.ControlFactsFactory, _controlSeed.ControlFactsFactory) ||
+                    !ReferenceEquals(seed.ControlFactsContext, _controlSeed.ControlFactsContext) ||
+                    seed.ControlFactsRevision != _controlSeed.ControlFactsRevision)
+                    throw new InvalidOperationException(Invalidated);
+                return;
+            }
+            VerifyControlSeed(seed, documentStamp);
+            _controlSeed = seed;
+            _controlDocumentStamp = documentStamp;
+            _controlSeedBound = true;
+        }
+        internal SelectorControlFacts ReadControlFacts(Element element, SelectorControlFactMask requested,
+            ref SelectorMatchWork work)
+        {
+            Verify();
+            const SelectorControlFactMask all = SelectorControlFactMask.DefaultSubmit | SelectorControlFactMask.PlaceholderShown |
+                SelectorControlFactMask.ReadWrite | SelectorControlFactMask.Validity | SelectorControlFactMask.Range;
+            if ((requested & ~all) != 0) throw new ArgumentOutOfRangeException(nameof(requested));
+            Step();
+            var cached = default((SelectorControlFactMask Mask, SelectorControlFacts Facts));
+            _controlCache?.TryGetValue(element, out cached);
+            var missing = requested & ~cached.Mask;
+            if (missing == 0) { Verify(); return cached.Facts; }
+            if (_controlFacts is null)
+            {
+                var source = _controlSeed.ControlFactsFactory!.Create(_controlSeed.ControlFactsContext!,
+                    _controlSeed.Document!, _controlSeed.ControlFactsRevision);
+                Verify();
+                _controlFacts = source ?? throw new InvalidOperationException("The control-facts factory returned no source.");
+            }
+            var fresh = _controlFacts.Read(element, missing, ref work);
+            Verify();
+            if ((uint) fresh.Validity > (uint) SelectorControlValidity.Invalid ||
+                (uint) fresh.Range > (uint) SelectorControlRange.OutOfRange)
+                throw new InvalidOperationException("The control-facts source returned an invalid applicability state.");
+            var facts = new SelectorControlFacts(
+                (missing & SelectorControlFactMask.DefaultSubmit) != 0 ? fresh.DefaultSubmit : cached.Facts.DefaultSubmit,
+                (missing & SelectorControlFactMask.PlaceholderShown) != 0 ? fresh.PlaceholderShown : cached.Facts.PlaceholderShown,
+                (missing & SelectorControlFactMask.ReadWrite) != 0 ? fresh.ReadWrite : cached.Facts.ReadWrite,
+                (missing & SelectorControlFactMask.Validity) != 0 ? fresh.Validity : cached.Facts.Validity,
+                (missing & SelectorControlFactMask.Range) != 0 ? fresh.Range : cached.Facts.Range);
+            _controlCache ??= new(ReferenceEqualityComparer.Instance);
+            _controlCache[element] = (cached.Mask | requested, facts);
+            Verify();
+            return facts;
+        }
+
         internal HashSet<Element>? Focus;
         internal HashSet<Element>? FocusWithin;
         internal HashSet<Element>? ActiveElements;
@@ -197,6 +306,7 @@ internal struct SelectorMatchWork
             if (!ReferenceEquals(_root as Document ?? _root.OwnerDocument, _document) ||
                 _document is not null && (_stamp == ulong.MaxValue || _document.MutationStamp != _stamp))
                 throw new InvalidOperationException(Invalidated);
+            VerifyControlSeed(_controlSeed, _controlDocumentStamp);
             if (_observations is null) return;
             foreach (var (node, document, stamp) in _observations)
                 if (!ReferenceEquals(node as Document ?? node.OwnerDocument, document) ||
@@ -214,6 +324,8 @@ internal struct SelectorMatchWork
         }
         public void Check()
         {
+            // Guard each actual callback, including cadence callbacks inside ProducerPoll.
+            // Guarding only the whole producer delta would allow a second stale callback.
             Verify();
             if (_checkpoint is null) return;
             if (InCheckpoint) throw new InvalidOperationException(AlreadyActive);

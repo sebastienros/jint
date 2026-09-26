@@ -66,7 +66,7 @@ internal static partial class SelectorMatcher
             foreach (var predicate in program.Branches[0].Compounds[0].Predicates)
             {
                 work.Step();
-                if (!IsImplemented(predicate)) throw Unsupported(predicate.Kind.ToString());
+                if (!IsImplemented(predicate, work.Environment.ControlFactsFactory is not null)) throw Unsupported(predicate.Kind.ToString());
                 if (predicate.Arguments is not null) simple = false;
             }
             if (simple) return;
@@ -90,7 +90,7 @@ internal static partial class SelectorMatcher
                     foreach (var predicate in compound.Predicates)
                     {
                         work.Step();
-                        if (!IsImplemented(predicate)) throw Unsupported(predicate.Kind.ToString());
+                        if (!IsImplemented(predicate, work.Environment.ControlFactsFactory is not null)) throw Unsupported(predicate.Kind.ToString());
                         if (predicate.Arguments is not null)
                             pending.Push((predicate.Arguments, predicate.Kind == PredicateKind.Has));
                     }
@@ -101,7 +101,7 @@ internal static partial class SelectorMatcher
     }
 
     // CSS Conditional 4 §2.1: inspect capabilities without manufacturing a DOM node.
-    internal static bool Supports(CompiledSelector program, Values.CssValueWork work)
+    internal static bool Supports(CompiledSelector program, Values.CssValueWork work, bool hasControlFacts = false)
     {
         work.CheckCancellation();
         var supported = program.Branches.Count == 1;
@@ -122,7 +122,7 @@ internal static partial class SelectorMatcher
                     foreach (var predicate in compound.Predicates)
                     {
                         work.Charge(1);
-                        supported &= IsImplemented(predicate) && predicate.Kind != PredicateKind.WebkitUnknownPseudoElement;
+                        supported &= IsImplemented(predicate, hasControlFacts) && predicate.Kind != PredicateKind.WebkitUnknownPseudoElement;
                         if (predicate.Arguments is not null) pending.Push(predicate.Arguments);
                     }
                 }
@@ -132,7 +132,7 @@ internal static partial class SelectorMatcher
         return supported;
     }
 
-    private static bool IsImplemented(Predicate predicate) => predicate.Kind switch
+    private static bool IsImplemented(Predicate predicate, bool hasControlFacts = false) => predicate.Kind switch
     {
         PredicateKind.Id or PredicateKind.Class or PredicateKind.Attribute or
         PredicateKind.PseudoElement or PredicateKind.WebkitUnknownPseudoElement or
@@ -150,6 +150,9 @@ internal static partial class SelectorMatcher
         PredicateKind.NthCol or PredicateKind.NthLastCol => predicate.Arguments is null,
         PredicateKind.Is or PredicateKind.Where or PredicateKind.Not or PredicateKind.Has =>
             predicate.Arguments is not null,
+        PredicateKind.Default or PredicateKind.PlaceholderShown or PredicateKind.ReadOnly or PredicateKind.ReadWrite or
+        PredicateKind.Valid or PredicateKind.Invalid or PredicateKind.InRange or PredicateKind.OutOfRange =>
+            hasControlFacts && predicate.Arguments is null,
         PredicateKind.Slotted => true,
         _ => false
     };
@@ -256,6 +259,15 @@ internal static partial class SelectorMatcher
                 return ReferenceEquals(element, scope);
             case PredicateKind.Root:
                 return element.ParentNode is Document;
+            case PredicateKind.Default:
+            case PredicateKind.PlaceholderShown:
+            case PredicateKind.ReadOnly:
+            case PredicateKind.ReadWrite:
+            case PredicateKind.Valid:
+            case PredicateKind.Invalid:
+            case PredicateKind.InRange:
+            case PredicateKind.OutOfRange:
+                return MatchControlState(predicate.Kind, element, ref work);
             case PredicateKind.Checked:
             case PredicateKind.Indeterminate:
                 return MatchFormState(predicate.Kind, element, ref work);
