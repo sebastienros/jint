@@ -188,8 +188,10 @@ internal static class SubresourceFetch
             }
 
             // CSSOM's preferred stylesheet set is response metadata, carried without engine or DOM state.
+            // Each header sets the preference in order. On a fresh document the last value wins,
+            // including an empty value; a comma inside the name is not a list separator.
             var defaultStyle = response.Headers.TryGetValues("Default-Style", out var styles)
-                ? styles.FirstOrDefault() : null;
+                ? styles.LastOrDefault() : null;
             return new FetchedSubresource(bytes, ContentTypeOf(response), final, exchange.Url.Fragment, status,
                 response.Content.Headers.LastModified, defaultStyle);
         }

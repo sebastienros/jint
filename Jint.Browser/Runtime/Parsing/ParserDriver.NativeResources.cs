@@ -237,6 +237,7 @@ internal sealed partial class ParserDriver
         string markup;
         string contentType;
         DateTimeOffset? lastModified = null;
+        string? defaultStyle = null;
         if (srcdoc is not null || DomDocumentOrigin.MatchesAboutBlank(url))
         {
             markup = srcdoc ?? "";
@@ -247,6 +248,7 @@ internal sealed partial class ParserDriver
             if (FetchBytes(url, frame, "frame document", PageRequestKind.Frame,
                     mayPump: !_runtime.Engine.IsEvaluationInProgress) is not { } body) return;
             lastModified = body.LastModified;
+            defaultStyle = body.DefaultStyle;
             (markup, contentType) = DocumentFetch.Decode(body.Bytes, body.ContentType, body.Url);
             url = body.Url;
         }
@@ -254,6 +256,7 @@ internal sealed partial class ParserDriver
             contentType, new CustomElementRegistryIdentity(isScoped: false));
         DomDocumentMetadata.Initialize(document, sandboxedOrigin ? DomDocumentOrigin.Opaque()
             : DomDocumentOrigin.InheritsCreator(url) ? creatorOrigin : DomDocumentOrigin.FromUrl(url), lastModified);
+        ApplyDefaultStyle(document, defaultStyle);
         var metadata = DomDocumentState.Of(document);
         metadata.Url = url;
         metadata.Referrer = creatorUrl;

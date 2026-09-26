@@ -826,6 +826,9 @@ public sealed partial class Page
         // engine that document belonged to has already been replaced, so nothing can reach it; and a parse
         // that throws leaves a page with no document rather than one describing a document that is gone.
         var previous = _load;
+        // Header order matters. This preference belongs only to the response's new document.
+        var defaultStyle = response?.Headers.LastOrDefault(header =>
+            string.Equals(header.Name, "default-style", StringComparison.OrdinalIgnoreCase)).Value;
         var creationOrigin = Dom.DomDocumentOrigin.InheritsCreator(url)
             ? creator?.Origin ?? Dom.DomDocumentOrigin.Opaque() : Dom.DomDocumentOrigin.FromUrl(url);
         _load = null;
@@ -863,7 +866,7 @@ public sealed partial class Page
             {
                 Reached(runtime, phase, loaderId);
                 onPhase?.Invoke(phase);
-            }, Dom.DomDocumentMetadata.ParseLastModified(response?.Header("last-modified")));
+            }, Dom.DomDocumentMetadata.ParseLastModified(response?.Header("last-modified")), defaultStyle);
 
             _load = load;
             _mainFrame = Frame.Build(this, runtime, load.Document, url);
